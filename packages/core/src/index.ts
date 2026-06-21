@@ -1,0 +1,62 @@
+import { config, ensureDirs } from "./config.js";
+import { closeDb, openDb } from "./db/connection.js";
+import { registerShutdownHandler } from "./lifecycle.js";
+import { logger } from "./logger.js";
+import { initEmbedder } from "./memory/embedder.js";
+import { indexer } from "./memory/indexer.js";
+import { initSearchStore } from "./memory/search-store.js";
+import { ensureVaultDirs, scanVault } from "./memory/vault.js";
+import { startVaultWatcher, stopVaultWatcher } from "./memory/watcher.js";
+import { runManager } from "./orchestrator/run-manager.js";
+import { buildServer } from "./api/server.js";
+import { extraToolRegistrars } from "./mcp/http-mcp.js";
+import { registerTaskboardTools } from "./taskboard/agent-tools.js";
+import { startScheduler, stopScheduler } from "./scheduler/service.js";
+import { killAllSessions } from "./terminal/manager.js";
+
+async function main(): Promise<void> {
+  logger.info({ dataDir: config.dataDir, vault: config.vaultPath }, "sparstrow core starting");
+  ensureDirs();
+  openDb();
+  ensureVaultDirs();
+  initSearchStore();
+
+  const scan = scanVault();
+  logger.info(scan, "vault scanned");
+
+  runManager.sweepOrphans();
+  extraToolRegistrars.push(registerTaskboardTools);
+
+  const app = await buildServer();
+  await app.listen({ port: config.port, host: config.host });
+  logger.info({ url: `http://${config.host}:${config.port}` }, "sparstrow core ready");
+  startScheduler();
+
+  // Warm the embedder and (re)index in the background; FTS works immediately.
+  void initEmbedder().then(() => {
+    const queued = indexer.indexPending(scan.dirtyNoteIds);
+    if (queued > 0) logger.info({ queued }, "indexing memory notes");
+  });
+  startVaultWatcher();
+
+  const shutdown = async (signal: string) => {
+    logger.info({ signal }, "shutting down");
+    try {
+      stopScheduler();
+      killAllSessions();
+      await stopVaultWatcher();
+      await app.close();
+    } finally {
+      closeDb();
+      process.exit(0);
+    }
+  };
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  registerShutdownHandler(shutdown);
+}
+
+main().catch((err) => {
+  logger.fatal({ err }, "core failed to start");
+  process.exit(1);
+});

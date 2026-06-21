@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.turbo/
+data/
+*.log
+.env
+.env.*
+*.tsbuildinfo
+release/
+coverage/
+
+# local tooling (not project code)
+.claude/
+.gstack/
