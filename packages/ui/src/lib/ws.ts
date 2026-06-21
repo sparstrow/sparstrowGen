@@ -51,7 +51,9 @@ class WsHub {
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     let socket: WebSocket;
     try {
-      socket = new WebSocket(`${protocol}://${window.location.host}/ws`);
+      const t = (window as unknown as { __SPARSTROW_TOKEN__?: string }).__SPARSTROW_TOKEN__;
+      const q = typeof t === "string" && t ? `?token=${encodeURIComponent(t)}` : "";
+      socket = new WebSocket(`${protocol}://${window.location.host}/ws${q}`);
     } catch {
       this.scheduleReconnect();
       return;
