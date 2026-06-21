@@ -149,9 +149,21 @@ export class RunManager {
       return;
     }
     const agent = agentRow as unknown as Agent;
-    const projectSlug = row.projectId
-      ? (db.select().from(projects).where(eq(projects.id, row.projectId)).get()?.slug ?? null)
-      : null;
+    let projectSlug: string | null = null;
+    let projectRootDir: string | undefined;
+    if (row.projectId) {
+      const project = db.select().from(projects).where(eq(projects.id, row.projectId)).get();
+      projectSlug = project?.slug ?? null;
+      const root = project?.rootDir ?? null;
+      if (root) {
+        if (!fs.existsSync(root)) {
+          this.failRun(row.id, `project root dir does not exist: ${root}`);
+          this.busyAgents.delete(row.agentId);
+          return;
+        }
+        projectRootDir = root;
+      }
+    }
     const provider = getProvider(agent.provider);
 
     const memoryBlock = await buildMemoryBlock(agent, projectSlug, row.prompt);
@@ -166,6 +178,7 @@ export class RunManager {
     const spec = provider.buildHeadlessSpawn(agent, finalPrompt, {
       runId: row.id,
       tempDir,
+      rootDir: projectRootDir,
       sessionId: row.sessionId ?? crypto.randomUUID(),
       extraEnv: {
         SPARSTROW_RUN_ID: row.id,

@@ -22,6 +22,8 @@ export interface HeadlessSpawnOptions {
   tempDir: string;
   /** Session id we assign so the run can be resumed later. */
   sessionId: string;
+  /** Project root to run in (the run's project rootDir), when set and it exists. */
+  rootDir?: string;
   /** Resume an earlier provider session instead of starting fresh. */
   resumeSessionId?: string;
   extraEnv?: Record<string, string>;
