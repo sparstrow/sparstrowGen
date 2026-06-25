@@ -1,0 +1,30 @@
+name: CI
+
+# Factory CI: type-check the whole monorepo on every PR to main and on main itself.
+# Tests/build are intentionally not wired yet — the repo has no test suite (a known
+# gap). Add `pnpm test` here once tests exist, and `pnpm build` for a bundling gate.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref (saves minutes on rapid agent pushes).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # reads packageManager (pnpm@11.6.0) from package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
