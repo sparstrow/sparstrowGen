@@ -35,6 +35,10 @@ export interface AppConfig {
   modelCacheDir: string;
   /** Per-install secret required on /api + /ws (closes the no-auth RCE). */
   apiToken: string;
+  /** Git author/committer email for agent commits; the per-agent NAME is
+   *  derived at spawn so commits are attributable to a specific agent.
+   *  Override with SPARSTROW_AGENT_EMAIL. */
+  agentEmail: string;
 }
 
 /**
@@ -81,6 +85,7 @@ function resolveConfig(): AppConfig {
       path.join(repoRoot, "packages", "memory-cli", "dist", "index.cjs"),
     modelCacheDir: path.join(dataDir, "models"),
     apiToken: loadOrCreateToken(dataDir),
+    agentEmail: process.env.SPARSTROW_AGENT_EMAIL ?? "agent@sparstrow.com",
   };
 }
 

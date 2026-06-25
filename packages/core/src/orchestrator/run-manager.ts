@@ -183,6 +183,14 @@ export class RunManager {
       extraEnv: {
         SPARSTROW_RUN_ID: row.id,
         SPARSTROW_API: `http://${config.host}:${config.port}`,
+        // Per-agent git identity: one shared email links every agent to the
+        // single agent GitHub account; the NAME carries which agent, so commits
+        // are attributable (git log --author "<name>") and guardrails can key
+        // off it. Set on the spawn env so it holds in any repo the agent touches.
+        GIT_AUTHOR_NAME: `Sparstrow Agent · ${agent.name} (${agent.id})`,
+        GIT_AUTHOR_EMAIL: config.agentEmail,
+        GIT_COMMITTER_NAME: `Sparstrow Agent · ${agent.name} (${agent.id})`,
+        GIT_COMMITTER_EMAIL: config.agentEmail,
       },
     });
 
