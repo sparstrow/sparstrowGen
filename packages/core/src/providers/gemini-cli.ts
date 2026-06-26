@@ -48,7 +48,7 @@ export class GeminiCliProvider implements ModelProvider {
     return {
       command: config.geminiPath,
       args,
-      cwd: agent.cwd ?? opts.tempDir,
+      cwd: opts.rootDir ?? agent.cwd ?? opts.tempDir,
       env: {
         SPARSTROW_RUN_ID: opts.runId,
         SPARSTROW_API: `http://${config.host}:${config.port}`,

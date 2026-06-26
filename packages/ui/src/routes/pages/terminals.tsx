@@ -157,8 +157,10 @@ function XtermView({ session }: { session: TerminalSession }) {
     fit.fit();
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const t = (window as unknown as { __SPARSTROW_TOKEN__?: string }).__SPARSTROW_TOKEN__;
+    const q = typeof t === "string" && t ? `?token=${encodeURIComponent(t)}` : "";
     const ws = new WebSocket(
-      `${protocol}://${window.location.host}${TERMINAL_WS_PATH}/${session.id}`,
+      `${protocol}://${window.location.host}${TERMINAL_WS_PATH}/${session.id}${q}`,
     );
 
     ws.onopen = () => {

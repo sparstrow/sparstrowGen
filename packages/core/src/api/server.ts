@@ -6,7 +6,7 @@ import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import { ZodError } from "zod";
 import { API_BASE } from "@sparstrow/shared";
-import { repoRoot } from "../config.js";
+import { config, repoRoot } from "../config.js";
 import { logger } from "../logger.js";
 import { HttpError } from "../orchestrator/run-manager.js";
 import { agentGatewayRoutes } from "./routes/agent-gateway.js";
@@ -22,6 +22,7 @@ import { taskRoutes } from "./routes/tasks.js";
 import { wsRoutes } from "../ws/handler.js";
 import { mcpRoutes } from "../mcp/http-mcp.js";
 import { terminalRoutes, terminalWsRoutes } from "./routes/terminal.js";
+import { requireAuth } from "./auth.js";
 
 export async function buildServer() {
   const app = Fastify({
@@ -29,7 +30,10 @@ export async function buildServer() {
     disableRequestLogging: true,
   });
 
-  await app.register(cors, { origin: true });
+  // The UI is same-origin in prod and vite-proxied in dev, so it never makes a
+  // cross-origin call. Disabling CORS kills the cross-origin drive-by that could
+  // reach the (formerly) no-auth API and spawn host processes.
+  await app.register(cors, { origin: false });
   await app.register(websocket);
 
   // Tolerate empty JSON bodies and body-less POSTs (rescan/reindex/cancel…).
@@ -60,14 +64,16 @@ export async function buildServer() {
     return reply.code(500).send({ error: "internal server error" });
   });
 
+  // Human/UI surface: every route here can create agents, runs, and terminals
+  // that spawn host processes, so it all requires the per-install token.
   await app.register(
     async (api) => {
+      api.addHook("onRequest", requireAuth);
       await api.register(systemRoutes);
       await api.register(agentRoutes);
       await api.register(projectRoutes);
       await api.register(runRoutes);
       await api.register(memoryRoutes);
-      await api.register(agentGatewayRoutes);
       await api.register(taskRoutes);
       await api.register(messageRoutes);
       await api.register(pipelineRoutes);
@@ -77,15 +83,38 @@ export async function buildServer() {
     { prefix: API_BASE },
   );
 
-  await app.register(wsRoutes);
-  await app.register(terminalWsRoutes);
+  // Agent callback gateway: authenticated per-run by the x-sparstrow-run header
+  // inside its handlers, so it stays outside the bearer-token scope.
+  await app.register(async (api) => api.register(agentGatewayRoutes), { prefix: API_BASE });
+
+  // WebSockets take the token via ?token= (browser, prod) or Authorization
+  // (vite dev proxy). The event stream and the terminal pty both require it.
+  await app.register(async (scope) => {
+    scope.addHook("onRequest", requireAuth);
+    await scope.register(wsRoutes);
+    await scope.register(terminalWsRoutes);
+  });
+
   await app.register(mcpRoutes);
 
   // Serve the built UI when present (desktop/prod; dev uses the vite server).
   const uiDist =
     process.env.SPARSTROW_UI_DIST ?? path.join(repoRoot, "packages", "ui", "dist");
-  if (fs.existsSync(path.join(uiDist, "index.html"))) {
-    await app.register(fastifyStatic, { root: uiDist, wildcard: false });
+  const indexPath = path.join(uiDist, "index.html");
+  if (fs.existsSync(indexPath)) {
+    // Inject the per-install token so the same-origin UI can authenticate.
+    // Same-origin policy keeps any cross-origin page from reading it.
+    const injectedIndex = fs
+      .readFileSync(indexPath, "utf8")
+      .replace(
+        "</head>",
+        `<script>window.__SPARSTROW_TOKEN__=${JSON.stringify(config.apiToken)};</script></head>`,
+      );
+    const sendIndex = (reply: import("fastify").FastifyReply) =>
+      reply.type("text/html").send(injectedIndex);
+
+    await app.register(fastifyStatic, { root: uiDist, wildcard: false, index: false });
+    app.get("/", (_request, reply) => sendIndex(reply));
     // SPA fallback: any unknown GET that isn't an API/WS/MCP path gets index.html.
     app.setNotFoundHandler((request, reply) => {
       const url = request.raw.url ?? "/";
@@ -95,7 +124,7 @@ export async function buildServer() {
         !url.startsWith("/ws") &&
         !url.startsWith("/mcp")
       ) {
-        return reply.sendFile("index.html");
+        return sendIndex(reply);
       }
       return reply.code(404).send({ error: "not found" });
     });

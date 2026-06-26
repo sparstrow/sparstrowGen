@@ -70,7 +70,7 @@ export class ClaudeCodeProvider implements ModelProvider {
     return {
       command: config.claudePath,
       args,
-      cwd: agent.cwd ?? opts.tempDir,
+      cwd: opts.rootDir ?? agent.cwd ?? opts.tempDir,
       env: { ...opts.extraEnv },
       stdinData: prompt,
     };

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import crypto from "node:crypto";
 import { DEFAULT_PORT, DEFAULT_VAULT_PATH } from "@sparstrow/shared";
 
 function findRepoRoot(start: string): string {
@@ -32,6 +33,35 @@ export interface AppConfig {
   /** Bundled CLI for agents without MCP support (gemini). */
   memoryCliPath: string;
   modelCacheDir: string;
+  /** Per-install secret required on /api + /ws (closes the no-auth RCE). */
+  apiToken: string;
+  /** Git author/committer email for agent commits; the per-agent NAME is
+   *  derived at spawn so commits are attributable to a specific agent.
+   *  Override with SPARSTROW_AGENT_EMAIL. */
+  agentEmail: string;
+}
+
+/**
+ * Per-install API token. Created once under the data dir with exclusive-create
+ * (`wx`) so the core and the vite dev proxy never race to write different
+ * tokens. Override with SPARSTROW_TOKEN. The auth hook validates it; the server
+ * injects it into the served UI; the vite dev proxy reads the same file.
+ */
+function loadOrCreateToken(dataDir: string): string {
+  const envToken = process.env.SPARSTROW_TOKEN;
+  if (envToken && envToken.length >= 16) return envToken;
+  const tokenPath = path.join(dataDir, ".api-token");
+  fs.mkdirSync(dataDir, { recursive: true });
+  try {
+    const fd = fs.openSync(tokenPath, "wx", 0o600);
+    const token = crypto.randomBytes(32).toString("hex");
+    fs.writeSync(fd, token);
+    fs.closeSync(fd);
+    return token;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+    return fs.readFileSync(tokenPath, "utf8").trim();
+  }
 }
 
 function resolveConfig(): AppConfig {
@@ -54,6 +84,8 @@ function resolveConfig(): AppConfig {
       process.env.SPARSTROW_MEMORY_CLI ??
       path.join(repoRoot, "packages", "memory-cli", "dist", "index.cjs"),
     modelCacheDir: path.join(dataDir, "models"),
+    apiToken: loadOrCreateToken(dataDir),
+    agentEmail: process.env.SPARSTROW_AGENT_EMAIL ?? "agent@sparstrow.com",
   };
 }
 

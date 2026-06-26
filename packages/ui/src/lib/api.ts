@@ -17,10 +17,22 @@ export interface ApiInit {
  * Thin JSON fetch wrapper for the Sparstrowgen REST API.
  * Uses relative URLs so the vite dev proxy (and same-origin prod) both work.
  */
+/** Prod: the server injects the token into the page. Dev: the vite proxy adds it. */
+function authHeaders(): Record<string, string> {
+  const token = (window as unknown as { __SPARSTROW_TOKEN__?: string }).__SPARSTROW_TOKEN__;
+  return typeof token === "string" && token.length > 0
+    ? { Authorization: `Bearer ${token}` }
+    : {};
+}
+
 export async function api<T>(path: string, init?: ApiInit): Promise<T> {
   const res = await fetch(`/api/v1${path}`, {
     method: init?.method ?? "GET",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...authHeaders(),
+    },
     body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
   });
 
