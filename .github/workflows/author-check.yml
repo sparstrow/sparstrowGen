@@ -1,0 +1,35 @@
+name: Author check
+
+# Hard guardrail for the agent factory: every commit in a PR to main must have
+# its git AUTHOR email under @sparstrow.com (the per-agent identity Sparstrowgen
+# injects). We check the git author (%ae) of the PR's OWN commits only:
+#  - %ae is the author, not co-author trailers (a Co-authored-by line is fine).
+#  - the range base..head excludes history already grandfathered into main.
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  author-check:
+    name: author-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify PR commit authors are @sparstrow.com
+        run: |
+          set -euo pipefail
+          base='${{ github.event.pull_request.base.sha }}'
+          head='${{ github.event.pull_request.head.sha }}'
+          echo "Checking authors of $base..$head"
+          bad=$(git log --no-merges --format='%ae' "$base..$head" | grep -viE '@sparstrow\.com$' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::PR has commits not authored by an @sparstrow.com address:"
+            git log --no-merges --format='  %h  %an <%ae>' "$base..$head" | grep -viE '@sparstrow\.com>$'
+            echo "Fix: commit with the agent identity (Sparstrowgen injects it) or any @sparstrow.com email."
+            exit 1
+          fi
+          echo "All PR commit authors are @sparstrow.com:"
+          git log --no-merges --format='  ok  %h  %ae' "$base..$head"
