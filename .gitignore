@@ -12,3 +12,11 @@ coverage/
 # local tooling (not project code)
 .claude/
 .gstack/
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
+
+# Claude Design exports: keep export.html + SPEC.md, ignore regenerable decode output
+.design-src/**/decoded/
