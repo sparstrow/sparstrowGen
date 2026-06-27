@@ -30,6 +30,21 @@ Schedule, Tasks, Run detail) — those are OUT of scope.
 3. **Build order:** F1–F3 first; Teams (F4/F5) deferred to pass 2.
 4. **"Run team":** deferred with Teams (pass 2).
 
+### Office-hours feature lock (2026-06-27)
+5. **SKILL.md body source = `systemPrompt`.** Collapse the design's separate `systemPrompt` +
+   `skill` fields. The generated SKILL.md is: frontmatter (name/role/model/tools, from the
+   structured fields) + `systemPrompt` rendered as the markdown body. No separate stored body
+   field; `systemPrompt` is the one prose field an agent carries.
+6. **Edit surface = the SkillViewer.** Editing an existing agent happens inline in the SkillViewer
+   panel (Overview fields → Save → regenerate SKILL.md). `AgentFormDialog` is kept **only** for the
+   F2 "Manually create" path. Move edit out of the dialog.
+7. **Agent Creator is confirmed in scope** (founder: agent creation is frequent + the raw form is
+   painful) and **keeps the FIND intent** (locate existing agents by capability) — useful as the
+   agent count approaches the 30-agent target.
+8. **Agents page stays a config registry.** No per-agent live status / run state on this page;
+   the operational "what's my workforce doing now" view belongs to Dashboard/Runs (a later pass).
+   Keeps this build's data needs to plain CRUD + the draft endpoint.
+
 ---
 
 ## Feature list (the CONFIRM checklist)
