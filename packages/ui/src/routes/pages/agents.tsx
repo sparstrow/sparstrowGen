@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useNavigate } from "@tanstack/react-router";
 import type { Agent } from "@sparstrow/shared";
-import { FlaskConical, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { Copy, Eye, FlaskConical, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,7 +29,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AgentFormDialog } from "@/components/agent-form";
+import {
+  AgentFormDialog,
+  agentToForm,
+  formToPayload,
+  type AgentFormValues,
+} from "@/components/agent-form";
+import { AgentCreator } from "@/components/agent-creator";
+import { NewAgentButton } from "@/components/new-agent-button";
+import { SkillViewer } from "@/components/skill-viewer";
 import {
   useAgents,
   useCreateAgent,
@@ -47,27 +55,43 @@ export function AgentsPage() {
   const deleteAgent = useDeleteAgent();
   const testSpawn = useTestSpawnAgent();
 
-  const [formOpen, setFormOpen] = React.useState(false);
-  const [editing, setEditing] = React.useState<Agent | null>(null);
+  // Manual create dialog (F2 "Manually create" / Agent Creator handoff).
+  const [manualOpen, setManualOpen] = React.useState(false);
+  const [manualSeed, setManualSeed] = React.useState<AgentFormValues | null>(null);
+  // Agent Creator (F3).
+  const [creatorOpen, setCreatorOpen] = React.useState(false);
+  // SkillViewer (F1).
+  const [viewer, setViewer] = React.useState<{ agent: Agent; edit: boolean } | null>(null);
   const [deleting, setDeleting] = React.useState<Agent | null>(null);
 
-  const openCreate = () => {
-    setEditing(null);
+  const openManual = () => {
+    setManualSeed(null);
     createAgent.reset();
-    updateAgent.reset();
-    setFormOpen(true);
+    setManualOpen(true);
   };
-  const openEdit = (agent: Agent) => {
-    setEditing(agent);
+  const openCreator = () => {
     createAgent.reset();
+    setCreatorOpen(true);
+  };
+  const openViewer = (agent: Agent, edit = false) => {
     updateAgent.reset();
-    setFormOpen(true);
+    setViewer({ agent, edit });
   };
 
-  const mutationError =
-    (createAgent.error ?? updateAgent.error) != null
-      ? ((createAgent.error ?? updateAgent.error) as Error).message
-      : null;
+  const duplicate = (agent: Agent) => {
+    const values = agentToForm(agent);
+    values.name = `${agent.name} copy`;
+    createAgent.mutate(formToPayload(values));
+  };
+
+  // Keep the open SkillViewer pointed at fresh data after a save.
+  const viewerAgent = viewer
+    ? ((agents.data ?? []).find((a) => a.id === viewer.agent.id) ?? viewer.agent)
+    : null;
+
+  const manualError =
+    createAgent.error != null ? (createAgent.error as Error).message : null;
+  const saveError = updateAgent.error != null ? (updateAgent.error as Error).message : null;
 
   return (
     <div className="space-y-4">
@@ -75,9 +99,7 @@ export function AgentsPage() {
         <p className="text-sm text-muted-foreground">
           Agents wrap a CLI model with a role, access rules, and memory scopes.
         </p>
-        <Button onClick={openCreate}>
-          <Plus className="size-4" /> New agent
-        </Button>
+        <NewAgentButton onManual={openManual} onCreator={openCreator} />
       </div>
 
       {agents.isLoading ? (
@@ -91,9 +113,9 @@ export function AgentsPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Create your first agent to start running tasks with Claude Code.
           </p>
-          <Button className="mt-4" onClick={openCreate}>
-            <Plus className="size-4" /> New agent
-          </Button>
+          <div className="mt-4 flex justify-center">
+            <NewAgentButton onManual={openManual} onCreator={openCreator} />
+          </div>
         </div>
       ) : (
         <div className="rounded-xl border">
@@ -113,7 +135,14 @@ export function AgentsPage() {
             <TableBody>
               {(agents.data ?? []).map((agent) => (
                 <TableRow key={agent.id}>
-                  <TableCell className="font-medium">{agent.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <button
+                      className="rounded text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => openViewer(agent)}
+                    >
+                      {agent.name}
+                    </button>
+                  </TableCell>
                   <TableCell className="max-w-48 truncate text-muted-foreground">
                     {agent.role || "—"}
                   </TableCell>
@@ -143,8 +172,14 @@ export function AgentsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => openEdit(agent)}>
+                        <DropdownMenuItem onSelect={() => openViewer(agent)}>
+                          <Eye /> View agent
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => openViewer(agent, true)}>
                           <Pencil /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => duplicate(agent)}>
+                          <Copy /> Duplicate
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onSelect={() =>
@@ -176,22 +211,49 @@ export function AgentsPage() {
         </div>
       )}
 
-      <AgentFormDialog
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        initial={editing}
-        pending={createAgent.isPending || updateAgent.isPending}
-        error={mutationError}
-        onSubmit={(payload) => {
-          if (editing) {
-            updateAgent.mutate(
-              { id: editing.id, data: payload },
-              { onSuccess: () => setFormOpen(false) },
-            );
-          } else {
-            createAgent.mutate(payload, { onSuccess: () => setFormOpen(false) });
-          }
+      <SkillViewer
+        agent={viewerAgent}
+        open={viewer != null}
+        startInEdit={viewer?.edit ?? false}
+        onOpenChange={(open) => !open && setViewer(null)}
+        saving={updateAgent.isPending}
+        saveError={saveError}
+        onSave={(payload) =>
+          viewer &&
+          updateAgent.mutate({ id: viewer.agent.id, data: payload })
+        }
+      />
+
+      <AgentCreator
+        open={creatorOpen}
+        onOpenChange={setCreatorOpen}
+        agents={agents.data ?? []}
+        creating={createAgent.isPending}
+        createError={manualError}
+        onCreate={(payload) =>
+          createAgent.mutate(payload, { onSuccess: () => setCreatorOpen(false) })
+        }
+        onSwitchToManual={(seed) => {
+          setCreatorOpen(false);
+          createAgent.reset();
+          setManualSeed(seed);
+          setManualOpen(true);
         }}
+        onOpenAgent={(agent) => {
+          setCreatorOpen(false);
+          openViewer(agent);
+        }}
+      />
+
+      <AgentFormDialog
+        open={manualOpen}
+        onOpenChange={setManualOpen}
+        seed={manualSeed}
+        pending={createAgent.isPending}
+        error={manualError}
+        onSubmit={(payload) =>
+          createAgent.mutate(payload, { onSuccess: () => setManualOpen(false) })
+        }
       />
 
       <Dialog open={deleting != null} onOpenChange={(open) => !open && setDeleting(null)}>
@@ -199,7 +261,8 @@ export function AgentsPage() {
           <DialogHeader>
             <DialogTitle>Delete {deleting?.name}?</DialogTitle>
             <DialogDescription>
-              The agent definition is removed. Its memory notes in the vault are kept.
+              The agent definition and its generated SKILL.md are removed. Its memory notes in the
+              vault are kept.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

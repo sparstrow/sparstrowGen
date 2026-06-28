@@ -9,6 +9,8 @@ import type {
   Agent,
   AgentCreate,
   AgentUpdate,
+  DraftRequest,
+  DraftTurn,
   CronJob,
   CronJobCreate,
   CronJobUpdate,
@@ -97,6 +99,13 @@ export function useDeleteAgent(): UseMutationResult<void, ApiError, string> {
       void queryClient.invalidateQueries({ queryKey: ["agents"] });
       void queryClient.invalidateQueries({ queryKey: ["agent", id] });
     },
+  });
+}
+
+/** POST /agents/draft -> one Agent Creator turn (validated, clamped). */
+export function useDraftAgent(): UseMutationResult<DraftTurn, ApiError, DraftRequest> {
+  return useMutation({
+    mutationFn: (body: DraftRequest) => api<DraftTurn>("/agents/draft", { method: "POST", body }),
   });
 }
 

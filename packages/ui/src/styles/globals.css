@@ -96,3 +96,45 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 }
+
+/* Motion for the F1 SkillViewer slide-over, the Agent Creator overlay, and the
+   Creator "thinking" dots. Plain CSS keyframes (no framer-motion). */
+@keyframes spg-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes spg-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes spg-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.spg-sheet[data-state="open"] {
+  animation: spg-slide-in-right 0.2s cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+
+.spg-overlay[data-state="open"] {
+  animation: spg-fade-in 0.15s ease-out;
+}
+
+.spg-dot {
+  animation: spg-pulse 1s ease-in-out infinite;
+}

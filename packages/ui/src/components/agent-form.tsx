@@ -51,6 +51,8 @@ export interface AgentFormValues {
   enabled: boolean;
 }
 
+export type SetField = <K extends keyof AgentFormValues>(key: K, value: AgentFormValues[K]) => void;
+
 export function agentToForm(agent: Agent | null): AgentFormValues {
   return {
     name: agent?.name ?? "",
@@ -97,6 +99,19 @@ export function formToPayload(values: AgentFormValues): AgentCreate {
     extraArgs: [],
     enabled: values.enabled,
   };
+}
+
+/** A partial agent draft (from the Agent Creator) mapped onto form values, so
+ *  the same editable fields render an AI-built draft. */
+export function draftToForm(draft: Partial<Agent>): AgentFormValues {
+  return agentToForm({
+    ...(draft as Agent),
+    name: draft.name ?? "",
+    role: draft.role ?? "",
+    systemPrompt: draft.systemPrompt ?? "",
+    provider: draft.provider ?? "claude-code",
+    model: draft.model ?? "sonnet",
+  } as Agent);
 }
 
 function ScopeEditor({
@@ -163,230 +178,239 @@ function ScopeEditor({
   );
 }
 
+/**
+ * The full agent editing surface — the SINGLE source of these inputs. Rendered
+ * by the manual-create dialog, the SkillViewer inline edit, and the Agent
+ * Creator draft pane, so the three never drift on field names or validation.
+ */
+export function AgentFields({ values, set }: { values: AgentFormValues; set: SetField }) {
+  const models = KNOWN_MODELS[values.provider] ?? [];
+  return (
+    <div className="space-y-5">
+      <section className="space-y-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Identity
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Name</Label>
+            <Input
+              value={values.name}
+              onChange={(e) => set("name", e.target.value)}
+              placeholder="Researcher"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Role</Label>
+            <Input
+              value={values.role}
+              onChange={(e) => set("role", e.target.value)}
+              placeholder="market research assistant"
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label>System prompt</Label>
+          <Textarea
+            rows={5}
+            value={values.systemPrompt}
+            onChange={(e) => set("systemPrompt", e.target.value)}
+            placeholder="Standing instructions appended to every run…"
+          />
+        </div>
+      </section>
+
+      <Separator />
+
+      <section className="space-y-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Model
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Provider</Label>
+            <Select value={values.provider} onValueChange={(v) => set("provider", v as ProviderId)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="claude-code">Claude Code (CLI)</SelectItem>
+                <SelectItem value="gemini-cli" disabled>
+                  Gemini CLI (phase 3)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Model</Label>
+            <Select value={values.model} onValueChange={(v) => set("model", v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {models.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </section>
+
+      <Separator />
+
+      <section className="space-y-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Execution &amp; access
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Working directory</Label>
+            <Input
+              value={values.cwd}
+              onChange={(e) => set("cwd", e.target.value)}
+              placeholder="(scratch dir per run)"
+              className="font-mono text-xs"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Max turns</Label>
+            <Input
+              type="number"
+              min={1}
+              value={values.maxTurns}
+              onChange={(e) => set("maxTurns", e.target.value)}
+              placeholder="unlimited"
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Additional directories (one per line)</Label>
+          <Textarea
+            rows={2}
+            value={values.addDirs}
+            onChange={(e) => set("addDirs", e.target.value)}
+            placeholder={"C:\\Projects\\my-app"}
+            className="font-mono text-xs"
+          />
+          <p className="text-xs text-muted-foreground">The memory vault is always accessible.</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Permission mode</Label>
+          <Select
+            value={values.permissionMode}
+            onValueChange={(v) => set("permissionMode", v as PermissionMode)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PERMISSION_MODES.map((m) => (
+                <SelectItem key={m.value} value={m.value}>
+                  {m.value} — {m.hint}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Allowed tools</Label>
+            <Input
+              value={values.allowedTools}
+              onChange={(e) => set("allowedTools", e.target.value)}
+              placeholder="Read, Edit, Bash(git *)"
+              className="font-mono text-xs"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Disallowed tools</Label>
+            <Input
+              value={values.disallowedTools}
+              onChange={(e) => set("disallowedTools", e.target.value)}
+              placeholder="WebSearch"
+              className="font-mono text-xs"
+            />
+          </div>
+        </div>
+      </section>
+
+      <Separator />
+
+      <section className="space-y-4">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Memory scopes
+        </h3>
+        <ScopeEditor
+          label="Read scopes"
+          hint="Which memory is searched and injected into this agent's runs."
+          scopes={values.memoryReadScopes}
+          onChange={(s) => set("memoryReadScopes", s)}
+        />
+        <ScopeEditor
+          label="Write scopes"
+          hint="Where this agent may save new memory notes."
+          scopes={values.memoryWriteScopes}
+          onChange={(s) => set("memoryWriteScopes", s)}
+        />
+      </section>
+
+      <Separator />
+
+      <div className="flex items-center justify-between">
+        <div>
+          <Label>Enabled</Label>
+          <p className="text-xs text-muted-foreground">Disabled agents cannot be run.</p>
+        </div>
+        <Switch checked={values.enabled} onCheckedChange={(v) => set("enabled", v)} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Manual create dialog (F2 "Manually create" path) — CREATE ONLY. Editing an
+ * existing agent now happens inline in the SkillViewer (locked decision 6).
+ * `seed` prefills the fields for the Agent Creator's "switch to manual, keep
+ * draft" handoff; it is never an edit of a persisted agent.
+ */
 export function AgentFormDialog({
   open,
   onOpenChange,
-  initial,
+  seed,
   onSubmit,
   pending,
   error,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initial: Agent | null;
+  seed?: AgentFormValues | null;
   onSubmit: (payload: AgentCreate) => void;
   pending: boolean;
   error: string | null;
 }) {
-  const [values, setValues] = React.useState<AgentFormValues>(() => agentToForm(initial));
+  const [values, setValues] = React.useState<AgentFormValues>(() => seed ?? agentToForm(null));
   React.useEffect(() => {
-    if (open) setValues(agentToForm(initial));
-  }, [open, initial]);
+    if (open) setValues(seed ?? agentToForm(null));
+  }, [open, seed]);
 
-  const set = <K extends keyof AgentFormValues>(key: K, value: AgentFormValues[K]) =>
-    setValues((v) => ({ ...v, [key]: value }));
-
-  const models = KNOWN_MODELS[values.provider] ?? [];
+  const set: SetField = (key, value) => setValues((v) => ({ ...v, [key]: value }));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{initial ? `Edit ${initial.name}` : "New agent"}</DialogTitle>
+          <DialogTitle>New agent</DialogTitle>
           <DialogDescription>
             Configure how this agent spawns its CLI model, what it may touch, and which memory it
             can read and write.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5">
-          <section className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Identity
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Name</Label>
-                <Input
-                  value={values.name}
-                  onChange={(e) => set("name", e.target.value)}
-                  placeholder="Researcher"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Role</Label>
-                <Input
-                  value={values.role}
-                  onChange={(e) => set("role", e.target.value)}
-                  placeholder="market research assistant"
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>System prompt</Label>
-              <Textarea
-                rows={5}
-                value={values.systemPrompt}
-                onChange={(e) => set("systemPrompt", e.target.value)}
-                placeholder="Standing instructions appended to every run…"
-              />
-            </div>
-          </section>
-
-          <Separator />
-
-          <section className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Model
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Provider</Label>
-                <Select
-                  value={values.provider}
-                  onValueChange={(v) => set("provider", v as ProviderId)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="claude-code">Claude Code (CLI)</SelectItem>
-                    <SelectItem value="gemini-cli" disabled>
-                      Gemini CLI (phase 3)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Model</Label>
-                <Select value={values.model} onValueChange={(v) => set("model", v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {models.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </section>
-
-          <Separator />
-
-          <section className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Execution &amp; access
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Working directory</Label>
-                <Input
-                  value={values.cwd}
-                  onChange={(e) => set("cwd", e.target.value)}
-                  placeholder="(scratch dir per run)"
-                  className="font-mono text-xs"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Max turns</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={values.maxTurns}
-                  onChange={(e) => set("maxTurns", e.target.value)}
-                  placeholder="unlimited"
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Additional directories (one per line)</Label>
-              <Textarea
-                rows={2}
-                value={values.addDirs}
-                onChange={(e) => set("addDirs", e.target.value)}
-                placeholder={"C:\\Projects\\my-app"}
-                className="font-mono text-xs"
-              />
-              <p className="text-xs text-muted-foreground">
-                The memory vault is always accessible.
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Permission mode</Label>
-              <Select
-                value={values.permissionMode}
-                onValueChange={(v) => set("permissionMode", v as PermissionMode)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PERMISSION_MODES.map((m) => (
-                    <SelectItem key={m.value} value={m.value}>
-                      {m.value} — {m.hint}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Allowed tools</Label>
-                <Input
-                  value={values.allowedTools}
-                  onChange={(e) => set("allowedTools", e.target.value)}
-                  placeholder="Read, Edit, Bash(git *)"
-                  className="font-mono text-xs"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Disallowed tools</Label>
-                <Input
-                  value={values.disallowedTools}
-                  onChange={(e) => set("disallowedTools", e.target.value)}
-                  placeholder="WebSearch"
-                  className="font-mono text-xs"
-                />
-              </div>
-            </div>
-          </section>
-
-          <Separator />
-
-          <section className="space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Memory scopes
-            </h3>
-            <ScopeEditor
-              label="Read scopes"
-              hint="Which memory is searched and injected into this agent's runs."
-              scopes={values.memoryReadScopes}
-              onChange={(s) => set("memoryReadScopes", s)}
-            />
-            <ScopeEditor
-              label="Write scopes"
-              hint="Where this agent may save new memory notes."
-              scopes={values.memoryWriteScopes}
-              onChange={(s) => set("memoryWriteScopes", s)}
-            />
-          </section>
-
-          <Separator />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Enabled</Label>
-              <p className="text-xs text-muted-foreground">Disabled agents cannot be run.</p>
-            </div>
-            <Switch checked={values.enabled} onCheckedChange={(v) => set("enabled", v)} />
-          </div>
-
-          {error && <p className="text-sm text-destructive">{error}</p>}
-        </div>
+        <AgentFields values={values} set={set} />
+        {error && <p className="text-sm text-destructive">{error}</p>}
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -396,7 +420,7 @@ export function AgentFormDialog({
             onClick={() => onSubmit(formToPayload(values))}
             disabled={pending || !values.name.trim() || !values.model.trim()}
           >
-            {pending ? "Saving…" : initial ? "Save changes" : "Create agent"}
+            {pending ? "Saving…" : "Create agent"}
           </Button>
         </DialogFooter>
       </DialogContent>
