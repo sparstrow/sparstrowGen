@@ -25,6 +25,8 @@ export interface AppConfig {
   dbPath: string;
   tmpDir: string;
   logDir: string;
+  /** Where generated per-agent SKILL.md projections are written on disk. */
+  agentsDir: string;
   vaultPath: string;
   claudePath: string;
   geminiPath: string;
@@ -74,6 +76,7 @@ function resolveConfig(): AppConfig {
     dbPath: path.join(dataDir, "sparstrow.db"),
     tmpDir: path.join(dataDir, "tmp"),
     logDir: path.join(dataDir, "logs"),
+    agentsDir: path.join(dataDir, "agents"),
     vaultPath,
     claudePath: process.env.SPARSTROW_CLAUDE_PATH ?? "claude",
     geminiPath: process.env.SPARSTROW_GEMINI_PATH ?? "gemini",

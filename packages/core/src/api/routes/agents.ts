@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import {
   agentCreateSchema,
   agentUpdateSchema,
+  draftRequestSchema,
   slugify,
   type Agent,
 } from "@sparstrow/shared";
@@ -11,6 +12,8 @@ import { getDb } from "../../db/connection.js";
 import { agents } from "../../db/schema.js";
 import { HttpError, runManager } from "../../orchestrator/run-manager.js";
 import { getProvider } from "../../providers/index.js";
+import { runAgentDraftTurn } from "../../agents/draft-service.js";
+import { removeAgentSkillDir, writeAgentSkillMd } from "../../agents/skill-writer.js";
 
 const nowIso = () => new Date().toISOString();
 
@@ -21,6 +24,17 @@ function rowToAgent(row: typeof agents.$inferSelect): Agent {
 export async function agentRoutes(app: FastifyInstance): Promise<void> {
   app.get("/agents", async () => {
     return getDb().select().from(agents).orderBy(agents.name).all().map(rowToAgent);
+  });
+
+  /**
+   * Agent Creator turn (F3). Runs the Creator interview against Claude via the
+   * one-shot transport and returns a validated, permission-clamped draft.
+   * Inherits the /api bearer auth. Registered before `/agents/:id` paths — it
+   * is a distinct POST route, so there is no collision with `POST /agents`.
+   */
+  app.post("/agents/draft", async (request) => {
+    const body = draftRequestSchema.parse(request.body);
+    return runAgentDraftTurn(body);
   });
 
   app.post("/agents", async (request, reply) => {
@@ -35,8 +49,10 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       .insert(agents)
       .values({ ...body, id, slug, createdAt: ts, updatedAt: ts })
       .run();
+    const created = rowToAgent(getDb().select().from(agents).where(eq(agents.id, id)).get()!);
+    writeAgentSkillMd(created); // best-effort projection to disk; never fatal
     reply.code(201);
-    return rowToAgent(getDb().select().from(agents).where(eq(agents.id, id)).get()!);
+    return created;
   });
 
   app.get("/agents/:id", async (request) => {
@@ -57,7 +73,9 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       .set({ ...body, updatedAt: nowIso() })
       .where(eq(agents.id, id))
       .run();
-    return rowToAgent(db.select().from(agents).where(eq(agents.id, id)).get()!);
+    const updated = rowToAgent(db.select().from(agents).where(eq(agents.id, id)).get()!);
+    writeAgentSkillMd(updated); // regenerate the on-disk projection
+    return updated;
   });
 
   app.delete("/agents/:id", async (request, reply) => {
@@ -65,6 +83,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     const existing = getDb().select().from(agents).where(eq(agents.id, id)).get();
     if (!existing) throw new HttpError(404, `agent not found: ${id}`);
     getDb().delete(agents).where(eq(agents.id, id)).run();
+    removeAgentSkillDir(id); // clean up the generated SKILL.md dir (no orphans)
     reply.code(204);
   });
 
