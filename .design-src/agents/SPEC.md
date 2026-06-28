@@ -164,3 +164,156 @@ Schedule, Tasks, Run detail) — those are OUT of scope.
 
 All CONFIRM-gate decisions are resolved (see Scope → Locked decisions). SPEC is approved and
 ready for `/autoplan` on Pass 1 (F1–F3).
+
+---
+<!-- AUTONOMOUS DECISION LOG -->
+# /autoplan Review (2026-06-27, Pass 1 F1–F3)
+
+Reviewed by CEO/Design/Eng/DX phases. Dual-voice = **Claude subagents only** —
+`codex` CLI not installed (`[codex-unavailable]` all phases). 4 independent
+subagents reviewed the SPEC fresh; findings folded in below.
+
+**Premise gate (human):** 4 premises accepted; the 5th — "agent creation is frequent
++ painful ⇒ F3 AI builder" — was a User Challenge. **Resolved by founder:
+deterministic-first, AI as enhancement** (Option C). Pass 1 keeps F3, but the working
+default is form-prefill + Duplicate-agent + client-side FIND; the AI interview layers
+on top as an *announced* enhancement (fallback is the visible floor, never silent).
+
+## Decision Audit Trail
+| # | Phase | Decision | Class | Principle | Rationale |
+|---|-------|----------|-------|-----------|-----------|
+| 1 | CEO | Accept registry/SKILL.md-projection/Pass-1 premises | Mechanical | P6 | Reviewers confirm correct; schema already matches |
+| 2 | CEO | F3 scope = deterministic-first (Option C) | **User Challenge** | — | Founder chose at premise gate |
+| 3 | CEO | Add "Duplicate agent" action to Pass 1 | Auto | P2/P3 | In blast radius, ~0 backend, biggest creation-pain relief at 30-agent scale |
+| 4 | CEO | FIND = client-side filter, not LLM endpoint | Auto | P3/P4 | List is already client-side; LLM round-trip is waste |
+| 5 | Eng | Single shared `renderSkillMd()` in @sparstrow/shared | Auto | P4/P5 | UI preview + server write must be byte-identical; one source |
+| 6 | Eng | Extract one shared agent-fieldset (create+edit+draft) | Auto | P4 | Kills create/edit drift across 3 surfaces |
+| 7 | Eng | /draft validates draft vs schema + clamps permissions | Auto | P1 | Trust boundary; no `bypassPermissions` from a draft |
+| 8 | Eng | /draft transport = **reuse RunManager** (`createRunAndAwait` helper) | Taste → **RESOLVED** | P5 | Founder chose at final gate: stay in-architecture, no new SDK/auth/billing dep |
+| 9 | Eng | SKILL.md = **on-demand for UI + best-effort disk write** (config `agentsDir`, DELETE cleanup) | Taste → **RESOLVED** | P5 | Founder chose at final gate: keep on-disk artifact for future consumers, fix ~/path + orphan + write-fails-create bugs |
+| 10 | DX | Fallback must be announced, not silent | Auto | P1 | Silent regex-substitute-for-AI is a correctness trap |
+
+**Final gate: APPROVED 2026-06-27.** Both taste decisions resolved (recommended options). Plan locked for Pass 1.
+
+## Dual-voice consensus (CEO)
+| Dimension | Claude | Codex | Consensus |
+|---|---|---|---|
+| Premises valid? | Mostly (F3 contested) | N/A | Resolved at gate |
+| Right problem? | Config polish defers higher-value run-observability | N/A | flagged |
+| Scope calibrated? | F3 over-weighted; Duplicate cheaper | N/A | → Option C |
+| Alternatives explored? | "Duplicate agent" dismissed-by-omission | N/A | added |
+| 6-mo trajectory? | AI prompt drifts from zod schema | N/A | mitigate via schema-derived contract |
+
+## Dual-voice consensus (Eng)
+| Dimension | Claude | Codex | Consensus |
+|---|---|---|---|
+| Architecture sound? | /draft has NO sync Claude path (CLI-only, streamed) | N/A | **CRITICAL — must spec transport** |
+| Test coverage? | Zero test infra exists | N/A | wire vitest (T0) |
+| Performance? | CLI cold-start per turn = seconds; 15-min slot, cap=4 | N/A | short-timeout await helper |
+| Security? | free-text→LLM→agent config = priv-esc via permissionMode/tools | N/A | **CRITICAL — validate+clamp** |
+| Error paths? | bus.subscribe leak on disconnect; fs-write-after-DB-commit | N/A | unsub on timeout; best-effort write |
+
+## Dual-voice consensus (Design)
+| Dimension | Claude | Codex | Consensus |
+|---|---|---|---|
+| Hierarchy | SkillViewer leads with dense form not identity | N/A | add identity header |
+| Missing states | AC AI fail/slow/invalid-JSON/partial unspecified | N/A | **CRITICAL — spec all** |
+| Journey | 3 surfaces author same agent → drift | N/A | shared fieldset |
+| A11y | no focus trap/restore for custom slide-over+modal | N/A | build on dialog primitive |
+
+## Dual-voice consensus (DX)
+| Dimension | Claude | Codex | Consensus |
+|---|---|---|---|
+| Time-to-agent | manual form already ~2 actions; Creator slower for trivial | N/A | Creator's value = decision-support, not speed |
+| Schema drift | mod-05.js emits `workingDir/readScopes/skill/codex` | N/A | **CRITICAL — don't port module; build SPEC decisions** |
+| Errors | silent AI→fallback; dev never learns /draft is down | N/A | announce + distinguish offline vs error |
+| Escape hatches | draft pane read-only; no fast lane for expert | N/A | editable draft / "switch to manual, keep draft" |
+
+## Cross-phase themes (flagged independently in ≥2 phases — high confidence)
+1. **One shared `renderSkillMd` + one shared agent-fieldset** — CEO, Design, Eng, DX. Single highest-leverage structural fix; retires create/edit drift, the rename burden, and SKILL.md preview/write divergence.
+2. **/draft transport + trust boundary** — CEO, Eng, Design, DX. No sync Claude path; free-text→agent-config is priv-esc. Both must be resolved before build.
+3. **SPEC-vs-design-module drift** — DX (critical), Eng. The decoded `mod-05.js` still carries pre-lock schema/providers/silent-fallback. **Build the SPEC's locked decisions, not the module.**
+
+## NOT in scope (deferred, with rationale)
+- F4 Teams, F5 nav, "Run team" — Pass 2 (explicit in SPEC).
+- Live workforce / per-row run status on Agents page — Dashboard/Runs, later pass (locked decision 8).
+- Run-observability surfaced in SkillViewer (CEO suggestion to show last-run status/cost) — deferred; noted as higher-value future work.
+- Direct Anthropic SDK transport — rejected default in favor of RunManager reuse (revisit only if founder picks it at final gate).
+- Paste-back editing of SKILL.md — intentionally unsupported (DB is source of truth); mitigate with clear "Generated — edit in Overview" label + fully-portable copy.
+
+## What already exists (leverage map — verified against code)
+| Sub-problem | Existing code | Gap |
+|---|---|---|
+| Agent fields (renames, enum) | `packages/shared/src/schemas/agent.ts` | none — `cwd`/`memoryRead/WriteScopes` present, enum already `claude-code`+`gemini-cli`, no `skill` col |
+| CRUD + test-spawn | `packages/core/src/api/routes/agents.ts` | add DELETE file-cleanup; add /draft route |
+| Form + ScopeEditor + formToPayload | `packages/ui/src/components/agent-form.tsx` | extract shared fieldset |
+| Table page | `packages/ui/src/routes/pages/agents.tsx` | name→button, ⋯ View, NewAgentButton, Duplicate |
+| Auth (bearer on /api, token injected to UI) | `api/auth.ts`, `api/server.ts` | none — /draft inherits requireAuth |
+| Streamed Claude run + event bus + await pattern | `orchestrator/run-manager.ts`, `pipeline-executor.ts` | add `createRunAndAwait(opts,{timeoutMs})` w/ unsub-on-timeout |
+| Design primitives (≈1:1) | `components/ui/*` | only new *composites* (SkillViewer, NewAgentButton, AgentCreator) |
+| SKILL.md generator | — | **NEW** pure `renderSkillMd()` in shared |
+
+## Architecture (Pass 1 backend delta)
+```
+UI                          core (Fastify :48750, bearer-auth /api)
+─────────────────────       ────────────────────────────────────────
+SkillViewer  ─┐
+AgentCreator ─┼─ renderSkillMd() ◀── packages/shared (SHARED pure fn) ──▶ (optional) fs write
+NewAgentBtn  ─┘     │                                                      agentsDir/<id>/SKILL.md
+                    │                                                      (best-effort, config path)
+POST /api/v1/agents/draft
+   │  validate body → build system prompt from providerIdSchema+KNOWN_MODELS
+   │  createRunAndAwait(creatorAgent, prompt, {resume sessionId, timeout 90s})
+   │       └─▶ RunManager ─▶ claude -p stream-json ─▶ bus 'run.completed'
+   │  parse resultText → draftTurnSchema.safeParse → CLAMP permissions
+   ▼  → {reply, intent, draft(real field names), readyToCreate, matches, followups, sessionId}
+POST /api/v1/agents  (existing) ◀── create reuses agentCreateSchema
+```
+
+## Failure Modes Registry (critical gaps flagged ⚠)
+| Mode | Handling required |
+|---|---|
+| ⚠ /draft model emits unsafe draft (bypassPermissions, Bash(*)) | server clamps; human-only escalation |
+| ⚠ AI silently falls back to regex | announce mode; distinguish offline vs endpoint-down |
+| ⚠ schema drift (design field names ported) | one canonical mapping; safeParse before "ready" |
+| Model returns non-JSON | strip fences, brace-extract, safeParse, repair turn |
+| bus subscriber leak on client disconnect | unsub on timeout/abort |
+| DB committed, fs write fails | best-effort write, logged, regenerable (DB is truth) |
+| Mid-edit close in SkillViewer | dirty-state discard guard |
+| Focus lost behind custom overlay | trap + restore (reuse dialog primitive) |
+
+## Error & Rescue Registry (user-facing)
+| Error | Message + rescue |
+|---|---|
+| Draft service unreachable | "AI builder unavailable — using basic mode. [Retry]" + form-prefill still works |
+| Draft turn failed | inline bubble "I didn't catch that — try rephrasing", prior draft kept |
+| Create failed after interview | inline error, draft + transcript preserved, "Create anyway"/"Switch to manual (keep draft)" |
+| SKILL.md generate failed | tab shows "Couldn't generate SKILL.md [Retry]"; Overview still renders from row |
+| Save failed (inline edit) | reuse dialog's destructive-text error region; stay in edit mode |
+
+## Implementation Tasks (aggregated across phases)
+> No per-phase `tasks-*.jsonl` were emitted (review ran inline, not via sub-skills);
+> list hand-authored from findings under Decision C.
+
+**P1 — critical / foundational**
+- [ ] **T0 — wire vitest** across workspace (no test infra exists today).
+- [ ] **P1.1 `renderSkillMd(agent)`** pure fn in `packages/shared/src/skill-md.ts` + barrel. Pin frontmatter (name/role/model, `tools`←allowedTools, include disallowedTools for portability), body = full `systemPrompt`. Snapshot + injection tests.
+- [ ] **P1.2 Shared agent-fieldset** — extract `ScopeEditor`, provider/model select, permission select, CSV parsing, `agentToForm`/`formToPayload` from `agent-form.tsx` into `agent-fields.tsx`; consume in AgentFormDialog (create), SkillViewer Overview (edit), AgentCreator draft pane.
+- [ ] **P1.3 /draft trust boundary** — server-side `agentCreateSchema.safeParse` the model draft; clamp `permissionMode` (no bypassPermissions) + reject wildcard tools; render `reply` as plain text. `packages/core/src/api/routes/agents.ts`.
+- [ ] **P1.4 Kill design-name drift** — /draft system prompt generated from `providerIdSchema`+`KNOWN_MODELS` (no `codex`/`gpt-5-codex`); one canonical design→schema field map; reject `skill`/`workingDir`/`readScopes` shapes.
+
+**P2 — high**
+- [ ] **P2.1 Duplicate-agent** action (NewAgentButton row + table ⋯) — copy row, regen slug/id. Cheapest creation-pain win.
+- [ ] **P2.2 Deterministic-first AgentCreator** (Decision C) — form-prefill + client-side FIND filter as working default; AI interview as announced enhancement; labeled fallback.
+- [ ] **P2.3 SkillViewer states** — SKILL.md loading skeleton, save pending/error/success, dirty discard-guard, focus trap+restore. Build on existing dialog/overlay primitive.
+- [ ] **P2.4 AgentCreator AI states** — per-turn error+retry, JSON-parse-fail keeps draft, real "Create anyway" gate (name+model+provider), preserve draft+transcript on create fail, editable draft pane / "switch to manual keep draft".
+- [ ] **P2.5 Transport** (taste-gated, see final gate) — `runManager.createRunAndAwait(opts,{timeoutMs})` w/ unsub-on-timeout/disconnect, bypass memory injection, dedicated creator agent, `--resume` sessionId.
+
+**P3 — medium**
+- [ ] **P3.1 File lifecycle** (taste-gated) — config `agentsDir` (no `~`), best-effort write, DELETE cleanup.
+- [ ] **P3.2 Tokens/motion** — keep app neutral tokens (design `#D97757`/accent palette is reference, not contract); add only accent tokens actually used in Pass-1 surfaces; add `spg-pulse` + slide-over keyframes to `globals.css`.
+- [ ] **P3.3 Layout/a11y polish** — per-column scroll, modal min-viewport/shrink, FIND no-match→BUILD bridge, Shift+Enter, chips as buttons, Copy aria-live, read-only contrast ≥4.5:1.
+- [ ] **P3.4 SKILL.md `<40 lines`** = Creator-prompt guidance only; generator never truncates.
+
+<!-- /autoplan review end -->
+
