@@ -110,15 +110,21 @@ function isReady(draft: AgentDraft): boolean {
   return Boolean(draft.name && draft.model && draft.provider);
 }
 
-function guessName(text: string): string | undefined {
-  const words = text
-    .replace(/[^a-zA-Z0-9 ]/g, " ")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 4);
-  if (words.length === 0) return undefined;
-  const name = words.map((w) => w[0]!.toUpperCase() + w.slice(1)).join(" ").slice(0, 60);
-  return name.length > 0 ? name : undefined;
+/**
+ * Extract an agent name from a user message ONLY when they explicitly name it
+ * ("name it spec-writer", "call it X", a quoted/backticked token). Returns
+ * undefined for freeform descriptions — the fallback should never invent a name
+ * out of a sentence (that produced "Name It Spec Writer" from "Name it
+ * spec-writer"). The token's original case/hyphenation is preserved.
+ */
+export function guessName(text: string): string | undefined {
+  const explicit = text.match(
+    /\b(?:names?|call(?:ed)?)\s+(?:it|this|the agent|the)?\s*["'`]?([A-Za-z][\w-]{1,59})/i,
+  );
+  if (explicit?.[1]) return explicit[1];
+  const quoted = text.match(/["'`]([A-Za-z][\w-]{1,59})["'`]/);
+  if (quoted?.[1]) return quoted[1];
+  return undefined;
 }
 
 /** Announced deterministic turn: used when the AI is unavailable or returns
@@ -176,34 +182,12 @@ export function extractJson(text: string): Record<string, unknown> | null {
   }
 }
 
-/**
- * Run one Agent Creator turn. Calls Claude via the one-shot transport, extracts
- * + validates strict JSON, clamps the draft to the trust boundary, and falls
- * back to an announced deterministic turn on any failure. FIND-by-capability is
- * handled client-side (the agents list is already loaded), so `matches` stays
- * empty here.
- */
-export async function runAgentDraftTurn(req: DraftRequest): Promise<DraftTurn> {
-  let result;
-  try {
-    result = await completeOnce(creatorAgent(), buildPrompt(req), { timeoutMs: 90_000 });
-  } catch (err) {
-    logger.warn({ err }, "agent draft turn failed; using deterministic fallback");
-    return deterministicTurn(req);
-  }
-
-  if (result.isError || !result.text) {
-    logger.info({ err: result.errorMessage }, "agent draft: AI unavailable; deterministic fallback");
-    return deterministicTurn(req);
-  }
-
-  const json = extractJson(result.text);
+/** Turn one model reply into a validated DraftTurn, or null if it didn't yield
+ *  usable JSON. */
+function parseTurn(text: string, req: DraftRequest): DraftTurn | null {
+  const json = extractJson(text);
   const parsed = json ? modelTurnSchema.safeParse(json) : null;
-  if (!parsed || !parsed.success) {
-    logger.info("agent draft: model returned unparseable JSON; deterministic fallback");
-    return deterministicTurn(req);
-  }
-
+  if (!parsed || !parsed.success) return null;
   const draft = clampDraft({ ...(req.draft ?? {}), ...(parsed.data.draft ?? {}) });
   return {
     reply: parsed.data.reply || "Got it.",
@@ -215,4 +199,45 @@ export async function runAgentDraftTurn(req: DraftRequest): Promise<DraftTurn> {
     sessionId: null,
     source: "ai",
   };
+}
+
+async function aiAttempt(
+  prompt: string,
+  req: DraftRequest,
+): Promise<{ turn: DraftTurn | null; transportFailed: boolean }> {
+  let result;
+  try {
+    result = await completeOnce(creatorAgent(), prompt, { timeoutMs: 90_000 });
+  } catch (err) {
+    logger.warn({ err }, "agent draft turn threw");
+    return { turn: null, transportFailed: true };
+  }
+  if (result.isError || !result.text) {
+    logger.info({ err: result.errorMessage }, "agent draft: AI unavailable");
+    return { turn: null, transportFailed: true };
+  }
+  return { turn: parseTurn(result.text, req), transportFailed: false };
+}
+
+/**
+ * Run one Agent Creator turn. Calls Claude via the one-shot transport, extracts
+ * + validates strict JSON, clamps the draft to the trust boundary. A single
+ * JSON slip triggers one strict "repair" retry before giving up (a transport
+ * failure skips the retry — it won't help and just doubles the wait). On real
+ * failure it returns an announced deterministic turn. FIND-by-capability is
+ * handled client-side, so `matches` stays empty here.
+ */
+export async function runAgentDraftTurn(req: DraftRequest): Promise<DraftTurn> {
+  const prompt = buildPrompt(req);
+  const first = await aiAttempt(prompt, req);
+  if (first.turn) return first.turn;
+
+  if (!first.transportFailed) {
+    const repairPrompt = `${prompt}\n\nIMPORTANT: Respond with ONLY the JSON object — no prose, no markdown code fences.`;
+    const second = await aiAttempt(repairPrompt, req);
+    if (second.turn) return second.turn;
+    logger.info("agent draft: model JSON unparseable after repair retry; deterministic fallback");
+  }
+
+  return deterministicTurn(req);
 }
