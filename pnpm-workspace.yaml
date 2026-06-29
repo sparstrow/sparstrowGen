@@ -1,6 +1,11 @@
 packages:
   - packages/*
 
+# Security: force patched versions of transitive deps flagged by `pnpm audit`.
+# js-yaml <4.1.2 (via gray-matter) has a quadratic-complexity merge-key DoS.
+overrides:
+  js-yaml@<4.1.2: ">=4.1.2"
+
 allowBuilds:
   better-sqlite3: true
   esbuild: true

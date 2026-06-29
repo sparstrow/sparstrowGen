@@ -1,0 +1,194 @@
+{
+  "version": "2.0.0",
+  "date": "2026-06-28T06:05:15Z",
+  "mode": "daily",
+  "scope": "full",
+  "diff_mode": false,
+  "phases_run": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+  "notes": "Single-user local-first Electron agent harness (pnpm+turbo monorepo). The headline CRITICAL from the 2026-06-13 audit (unauthenticated loopback API + reflective CORS + no WS origin check = drive-by RCE) is RESOLVED and verified: per-install bearer token enforced on /api+/ws via requireAuth, CORS origin:false, timing-safe token compare, 127.0.0.1 bind. This run's findings are all supply-chain (deps aged into CVEs) plus one CI hardening item. The two persistent app-layer MEDIUMs (gemini cmd.exe args, vault RAG injection) are now gated behind the bearer token, dropping below the daily 8/10 gate; carried as known items.",
+  "attack_surface": {
+    "code": {
+      "public_endpoints": 2,
+      "authenticated": 67,
+      "admin": 0,
+      "api": 69,
+      "uploads": 0,
+      "integrations": 2,
+      "background_jobs": 3,
+      "websockets": 2
+    },
+    "infrastructure": {
+      "ci_workflows": 2,
+      "webhook_receivers": 0,
+      "container_configs": 0,
+      "iac_configs": 0,
+      "deploy_targets": 1,
+      "secret_management": "per-install token file (data/.api-token, 0600) + inherited process env (claude/gemini CLI logins)"
+    }
+  },
+  "findings": [
+    {
+      "id": 1,
+      "severity": "HIGH",
+      "confidence": 9,
+      "status": "VERIFIED",
+      "phase": 3,
+      "phase_name": "Dependency Supply Chain",
+      "category": "OWASP A06 Vulnerable Components",
+      "fingerprint": "dep-drizzle-orm-sqli-identifiers",
+      "title": "drizzle-orm 0.44.7 has SQL injection via improperly escaped SQL identifiers (GHSA, fixed in 0.45.2)",
+      "file": "packages/core/package.json",
+      "line": 0,
+      "description": "Direct dependency drizzle-orm is pinned ^0.44.2 (0.44.7 installed), below the 0.45.2 fix for a SQL-injection advisory affecting improperly escaped SQL identifiers. drizzle is the ORM for all DB access in core (db/*, memory/*, taskboard/*).",
+      "exploit_scenario": "The CVE triggers when user-controlled values are used as SQL IDENTIFIERS (table/column names), not as bound values. Code review found no path where untrusted input reaches an identifier position — all identifiers are static schema references and all values go through parameterized bindings (eq(), prepare(?)). So the in-app exploit path is not demonstrated; the risk is future code adding a dynamic-identifier query on the vulnerable version.",
+      "impact": "Latent SQL injection if any query ever interpolates user input as an identifier. Currently not reachable in-app, but the dependency is vulnerable.",
+      "recommendation": "Bump drizzle-orm to >=0.45.2 (pnpm update drizzle-orm). One-line, low-risk patch within the 0.x line.",
+      "playbook": "N/A.",
+      "verification": "VERIFIED dep version via pnpm audit --prod (0.44.7 installed); in-app reachability UNVERIFIED — grep shows only static identifiers."
+    },
+    {
+      "id": 2,
+      "severity": "HIGH",
+      "confidence": 9,
+      "status": "VERIFIED",
+      "phase": 3,
+      "phase_name": "Dependency Supply Chain",
+      "category": "OWASP A06 Vulnerable Components",
+      "fingerprint": "dep-tar-path-traversal-fastembed",
+      "title": "tar 6.2.1 (transitive via fastembed) has multiple hardlink/symlink path-traversal CVEs (fixed in 7.5.x)",
+      "file": "pnpm-lock.yaml",
+      "line": 0,
+      "description": "fastembed depends on tar 6.2.1, which is below every patched version in 6 high + 1 moderate advisories (arbitrary file create/overwrite and read via hardlink/symlink path traversal during extraction). fastembed uses tar to extract the ONNX embedding model tarball it downloads on first run.",
+      "exploit_scenario": "1) fastembed downloads the embedding model archive and extracts it with tar. 2) If the model source is MITM'd or the upstream host serves a malicious tarball containing hardlink/symlink entries with traversal linkpaths, tar 6.2.1 writes/overwrites files outside the model cache dir. 3) On Windows this can land arbitrary files (e.g., into a startup or config path) under the user account.",
+      "impact": "Arbitrary file write/read outside config.modelCacheDir during model download, gated on a malicious/MITM'd model source. Bounded by HTTPS to the model host.",
+      "recommendation": "Update fastembed to a release that depends on tar >=7.5.11, or add a pnpm override pinning tar to a patched version (pnpm.overrides: { tar: '>=7.5.11' }) and verify fastembed still extracts correctly. Confirm model downloads are HTTPS with integrity checking.",
+      "playbook": "N/A.",
+      "verification": "VERIFIED dep version (tar@6.2.1 in pnpm-lock via fastembed); extraction path exercised at runtime on model download (UNVERIFIED whether a malicious tarball is reachable — depends on model host integrity)."
+    },
+    {
+      "id": 3,
+      "severity": "MEDIUM",
+      "confidence": 8,
+      "status": "VERIFIED",
+      "phase": 3,
+      "phase_name": "Dependency Supply Chain",
+      "category": "OWASP A06 Vulnerable Components",
+      "fingerprint": "dep-fastify-static-traversal",
+      "title": "@fastify/static 8.3.0 has path traversal in directory listing + route-guard bypass via encoded path separators (fixed in 9.1.1)",
+      "file": "packages/core/src/api/server.ts",
+      "line": 116,
+      "description": "@fastify/static 8.3.0 is in the vulnerable range (>=8.0.0 <=9.1.0) for two moderate advisories. It serves the built UI at root uiDist (server.ts:116) and is registered at top-level app scope, OUTSIDE the requireAuth hook, so static GETs are unauthenticated. Directory listing is not enabled (index:false, wildcard:false), which neutralizes the listing-traversal advisory, but the encoded-path-separator route-guard bypass could still allow crafted GETs to reach files outside the intended UI guard.",
+      "exploit_scenario": "An attacker who can issue GETs to the loopback (a local process, or — for non-credentialed reads — a same-origin context) sends a path with percent-encoded separators that the route guard fails to normalize, escaping the uiDist root or bypassing the intended path guard to read files the static handler should not serve.",
+      "impact": "Potential read of files outside the UI dist root via encoded path separators. Lower severity: bind is 127.0.0.1, cross-origin reads are blocked by CORS origin:false, and the served root is a build artifact dir.",
+      "recommendation": "Update @fastify/static to >=9.1.1 (8 -> 9 major bump; check the static API changelog). Alternatively keep the UI-serving registration tightly scoped and ensure no sensitive files live under or adjacent to uiDist.",
+      "playbook": "N/A.",
+      "verification": "VERIFIED dep version (@fastify/static@8.3.0); static registered outside auth scope at server.ts:116-130; directory listing disabled (index:false)."
+    },
+    {
+      "id": 4,
+      "severity": "MEDIUM",
+      "confidence": 8,
+      "status": "VERIFIED",
+      "phase": 4,
+      "phase_name": "CI/CD Pipeline Security",
+      "category": "Software & Data Integrity (CI/CD)",
+      "fingerprint": "ci-pnpm-action-setup-unpinned",
+      "title": "Third-party GitHub Action pnpm/action-setup pinned to mutable major tag @v4, not a commit SHA",
+      "file": ".github/workflows/ci.yml",
+      "line": 24,
+      "description": "ci.yml uses pnpm/action-setup@v4, a third-party action on a mutable tag. If the tag is repointed (account compromise or tag move) to malicious code, it runs in CI. First-party actions/checkout@v4 and actions/setup-node@v4 are also tag-pinned (lower risk per first-party policy). Both workflows trigger on pull_request (not pull_request_target), use no secrets, and the author-check SHA interpolation is safe (SHAs cannot carry shell metacharacters) — so blast radius is limited to the build environment and the default GITHUB_TOKEN.",
+      "exploit_scenario": "Attacker compromises the pnpm/action-setup repo or moves the v4 tag to a malicious commit. On the next CI run, the action executes in the runner with the workflow's GITHUB_TOKEN, able to read repo contents and (on push to main) write with default permissions.",
+      "impact": "Supply-chain compromise of the CI build. Limited: no deploy step, no custom secrets, read-mostly token on PRs.",
+      "recommendation": "Pin third-party actions to a full commit SHA (uses: pnpm/action-setup@<sha> # v4). Optionally pin actions/* to SHA too, and add an explicit minimal `permissions:` block (e.g. contents: read) to each workflow.",
+      "playbook": "N/A.",
+      "verification": "VERIFIED by reading .github/workflows/ci.yml:24; trigger is pull_request only; no secrets referenced."
+    }
+  ],
+  "known_persistent_below_gate": [
+    {
+      "fingerprint": "gemini-cmdexe-arg-injection",
+      "severity": "MEDIUM",
+      "confidence": 6,
+      "title": "Gemini spawn via cmd.exe /d /s /c with agent-controlled args (Windows metacharacter injection)",
+      "file": "packages/core/src/providers/gemini-cli.ts:58",
+      "status": "PERSISTENT",
+      "note": "Still present (viaCmdShell:true; run-manager.ts:198-199 and one-shot.ts:62-63 assemble ['/d','/s','/c', command, ...args] with shell:false). Now gated behind the bearer token landed since the last audit: only an authenticated operator can configure agent.extraArgs/model/addDirs, and that operator can already run agents with bypassPermissions + Bash (RCE by design). No untrusted-input path reaches spec.args (the prompt flows via stdin, not args). Reachability dropped from the prior cross-origin path, so it falls below the daily 8/10 gate. Still worth fixing as defense-in-depth: resolve the gemini .cmd shim and spawn it directly, or reject shell metacharacters in extraArgs."
+    },
+    {
+      "fingerprint": "vault-rag-prompt-injection",
+      "severity": "MEDIUM",
+      "confidence": 6,
+      "title": "Untrusted vault content retrieved into agent prompts can steer tool-enabled agents",
+      "file": "packages/core/src/orchestrator/run-manager.ts (memory block) + memory/vault.ts:73 (inbox indexes as global)",
+      "status": "PERSISTENT",
+      "note": "Still present. Requires the user to import an untrusted .md note into the vault (e.g. inbox), which then indexes globally and can be retrieved into a run's memory block. No remote/unauthenticated writer exists, so below the daily gate. Mitigate by framing injected memory as untrusted reference (not instructions), defaulting agents to least-privilege tools + permissionMode 'default', and excluding low-trust/inbox notes from auto-injection."
+    }
+  ],
+  "hardening_notes": [
+    {
+      "title": "toAbsPath prefix check still missing a trailing separator",
+      "file": "packages/core/src/memory/vault.ts",
+      "line": 34,
+      "note": "abs.startsWith(path.resolve(config.vaultPath)) matches sibling dirs sharing the prefix. NOT reachable: projectSlug/agentSlug and note filenames pass through slugify (/[^a-z0-9]+/g -> '-'), so no '../' or separators survive. Fix anyway: compare against vaultPath + path.sep, treating exact-equal as allowed."
+    },
+    {
+      "title": "No setWindowOpenHandler / will-navigate guard in Electron main",
+      "file": "packages/desktop/src/main.ts",
+      "line": 77,
+      "note": "BrowserWindow is well-hardened (contextIsolation:true, nodeIntegration:false, minimal preload exposing only a version marker, loads 127.0.0.1). Add a setWindowOpenHandler returning {action:'deny'} and a will-navigate guard pinning navigation to the app origin, to harden against any future renderer-side link handling."
+    },
+    {
+      "title": "js-yaml DoS via gray-matter (excluded: DoS)",
+      "file": "pnpm-lock.yaml",
+      "line": 0,
+      "note": "gray-matter -> js-yaml <=4.1.1 has a quadratic-complexity merge-key DoS (GHSA-h67p-54hq-rp68). Auto-excluded per DoS rule, but a malicious vault note with crafted YAML merge keys could spike CPU during scan. Cheap to clear with the other dep bumps."
+    },
+    {
+      "title": "Token injected into served UI HTML",
+      "file": "packages/core/src/api/server.ts",
+      "line": 111,
+      "note": "window.__SPARSTROW_TOKEN__ injection is a deliberate same-origin design for the served UI; acceptable for a single-user localhost app. No rotation/expiry on the token — fine at this threat level, revisit if the service is ever exposed beyond loopback."
+    }
+  ],
+  "supply_chain_summary": {
+    "direct_deps": 0,
+    "transitive_deps": 0,
+    "critical_cves": 0,
+    "high_cves": 7,
+    "moderate_cves": 4,
+    "install_scripts": 0,
+    "lockfile_present": true,
+    "lockfile_tracked": true,
+    "tools_skipped": [],
+    "note": "pnpm allowBuilds allowlist (better-sqlite3, esbuild, node-pty, onnxruntime-node, electron, @tailwindcss/oxide, protobufjs) is a positive control — pnpm blocks arbitrary postinstall by default; these are legitimate native build steps."
+  },
+  "filter_stats": {
+    "candidates_scanned": 16,
+    "hard_exclusion_filtered": 1,
+    "confidence_gate_filtered": 2,
+    "verification_filtered": 0,
+    "reported": 4
+  },
+  "remediation_applied": {
+    "session": "2026-06-28",
+    "fixed": [
+      "Finding #1 drizzle-orm: bumped ^0.44.2 -> ^0.45.2 (resolved 0.45.2). typecheck + 25 tests pass.",
+      "Finding #3 @fastify/static: bumped ^8.3.0 -> ^9.1.1 (resolved 9.1.3). typecheck passes.",
+      "Finding #4 CI: pnpm/action-setup pinned to SHA fc06bc1257f339d1d5d8b3a19a8cae5388b55320 (v4.4.0); added 'permissions: contents: read' to ci.yml and author-check.yml.",
+      "Hardening (js-yaml DoS): pnpm-workspace.yaml override js-yaml@<4.1.2 -> >=4.1.2 (resolved 4.2.0)."
+    ],
+    "deferred": [
+      "Finding #2 tar: NOT applied. Forcing tar >=7.5.11 is a 6->7 major bump under fastembed, which calls tar.x via an esModuleInterop default import (tar_1.default.x) and pins tar ^6.2.0 even in its latest 2.1.0. tar 7's hybrid ESM/CJS shape can make tar_1.default undefined, silently breaking model extraction. Needs a runtime model-download test before overriding. Left as accepted risk (gated on model-host integrity over HTTPS)."
+    ],
+    "audit_delta": "pnpm audit --prod: 11 vulns (7 high / 4 moderate) -> 7 vulns (6 high / 1 moderate). All remaining are the tar/fastembed chain."
+  },
+  "totals": { "critical": 0, "high": 2, "medium": 2, "tentative": 0 },
+  "trend": {
+    "prior_report_date": "2026-06-13T14:00:00Z",
+    "resolved": 1,
+    "persistent": 2,
+    "new": 4,
+    "direction": "improving",
+    "detail": "RESOLVED: noauth-cors-wsorigin-rce (CRITICAL). PERSISTENT: gemini-cmdexe-arg-injection, vault-rag-prompt-injection (both MEDIUM, now auth-gated below the daily gate). NEW: 3 supply-chain dep CVEs + 1 CI action pin. App-layer posture greatly improved (CRITICAL RCE closed); supply-chain hygiene regressed as deps aged."
+  }
+}

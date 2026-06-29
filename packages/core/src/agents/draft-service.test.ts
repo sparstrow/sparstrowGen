@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { clampDraft, extractJson } from "./draft-service.js";
+import { clampDraft, extractJson, guessName } from "./draft-service.js";
+
+describe("guessName (deterministic fallback)", () => {
+  it("extracts an explicitly given name, preserving slug case/hyphens", () => {
+    expect(guessName("Name it spec-writer")).toBe("spec-writer");
+    expect(guessName("call it srs-architect please")).toBe("srs-architect");
+    expect(guessName('let us name the agent "Researcher"')).toBe("Researcher");
+  });
+
+  it("returns undefined for a freeform description (never invents a sentence-name)", () => {
+    expect(
+      guessName("The agent should research the market and write an SRS document"),
+    ).toBeUndefined();
+  });
+});
 
 describe("clampDraft — the free-text → agent-config trust boundary", () => {
   it("keeps valid real-schema fields", () => {
