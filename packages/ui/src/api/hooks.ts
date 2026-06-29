@@ -26,6 +26,14 @@ import type {
   Project,
   ProjectCreate,
   ProjectUpdate,
+  Team,
+  TeamCreate,
+  TeamUpdate,
+  TeamIndexItem,
+  TeamDetail,
+  TeamMember,
+  TeamMemberCreate,
+  TeamMemberUpdate,
   Run,
   RunEvent,
   RunStatus,
@@ -169,6 +177,123 @@ export function useDeleteProject(): UseMutationResult<void, ApiError, string> {
     mutationFn: (id: string) => api<void>(`/projects/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Teams
+// ---------------------------------------------------------------------------
+
+export function useTeams(): UseQueryResult<TeamIndexItem[], ApiError> {
+  return useQuery({
+    queryKey: ["teams"],
+    queryFn: () => api<TeamIndexItem[]>("/teams"),
+  });
+}
+
+export function useTeam(id: string): UseQueryResult<TeamDetail, ApiError> {
+  return useQuery({
+    queryKey: ["team", id],
+    queryFn: () => api<TeamDetail>(`/teams/${id}`),
+    enabled: Boolean(id),
+  });
+}
+
+export function useCreateTeam(): UseMutationResult<Team, ApiError, TeamCreate> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: TeamCreate) => api<Team>("/teams", { method: "POST", body }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["teams"] });
+    },
+  });
+}
+
+export function useUpdateTeam(): UseMutationResult<
+  Team,
+  ApiError,
+  { id: string; data: TeamUpdate }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => api<Team>(`/teams/${id}`, { method: "PUT", body: data }),
+    onSuccess: (_team, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: ["teams"] });
+      void queryClient.invalidateQueries({ queryKey: ["team", id] });
+    },
+  });
+}
+
+export function useDeleteTeam(): UseMutationResult<void, ApiError, string> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<void>(`/teams/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["teams"] });
+    },
+  });
+}
+
+export function useAddTeamMember(): UseMutationResult<
+  TeamMember,
+  ApiError,
+  { teamId: string; data: TeamMemberCreate }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, data }) =>
+      api<TeamMember>(`/teams/${teamId}/members`, { method: "POST", body: data }),
+    onSuccess: (_member, { teamId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["team", teamId] });
+      void queryClient.invalidateQueries({ queryKey: ["teams"] });
+    },
+  });
+}
+
+export function useUpdateTeamMember(): UseMutationResult<
+  TeamMember,
+  ApiError,
+  { teamId: string; memberId: string; data: TeamMemberUpdate }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, memberId, data }) =>
+      api<TeamMember>(`/teams/${teamId}/members/${memberId}`, { method: "PUT", body: data }),
+    onSuccess: (_member, { teamId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["team", teamId] });
+    },
+  });
+}
+
+export function useRemoveTeamMember(): UseMutationResult<
+  void,
+  ApiError,
+  { teamId: string; memberId: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, memberId }) =>
+      api<void>(`/teams/${teamId}/members/${memberId}`, { method: "DELETE" }),
+    onSuccess: (_void, { teamId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["team", teamId] });
+      void queryClient.invalidateQueries({ queryKey: ["teams"] });
+    },
+  });
+}
+
+export function useSetTeamProjects(): UseMutationResult<
+  void,
+  ApiError,
+  { teamId: string; projectIds: string[] }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, projectIds }) =>
+      api<void>(`/teams/${teamId}/projects`, { method: "PUT", body: { projectIds } }),
+    onSuccess: (_void, { teamId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["team", teamId] });
+      void queryClient.invalidateQueries({ queryKey: ["teams"] });
     },
   });
 }
