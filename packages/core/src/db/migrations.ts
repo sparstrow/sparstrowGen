@@ -213,4 +213,32 @@ CREATE VIRTUAL TABLE memory_fts USING fts5(
 );
 `,
   },
+  {
+    id: "0003_teams",
+    sql: `
+CREATE TABLE teams (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  slug TEXT NOT NULL UNIQUE,
+  description TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE team_projects (
+  team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  PRIMARY KEY (team_id, project_id)
+);
+
+CREATE TABLE team_members (
+  id TEXT PRIMARY KEY,
+  team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  team_role TEXT,
+  sort INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_team_members_team ON team_members(team_id, sort);
+`,
+  },
 ];
