@@ -19,6 +19,7 @@ import { projectRoutes } from "./routes/projects.js";
 import { runRoutes } from "./routes/runs.js";
 import { systemRoutes } from "./routes/system.js";
 import { taskRoutes } from "./routes/tasks.js";
+import { teamRoutes } from "./routes/teams.js";
 import { wsRoutes } from "../ws/handler.js";
 import { mcpRoutes } from "../mcp/http-mcp.js";
 import { terminalRoutes, terminalWsRoutes } from "./routes/terminal.js";
@@ -72,6 +73,7 @@ export async function buildServer() {
       await api.register(systemRoutes);
       await api.register(agentRoutes);
       await api.register(projectRoutes);
+      await api.register(teamRoutes);
       await api.register(runRoutes);
       await api.register(memoryRoutes);
       await api.register(taskRoutes);
