@@ -172,7 +172,14 @@ export function TeamDetailPage() {
             )}
           </div>
           
-          <Button variant="destructive" size="icon" onClick={() => setDeleting(true)} className="shrink-0">
+          <Button 
+            variant="destructive" 
+            size="icon" 
+            onClick={() => setDeleting(true)} 
+            className="shrink-0"
+            title="Delete team"
+            aria-label="Delete team"
+          >
             <Trash2 className="size-4" />
           </Button>
         </div>
@@ -336,6 +343,8 @@ function MemberRow({ teamId, member }: { teamId: string, member: any }) {
         className="text-muted-foreground hover:text-destructive shrink-0"
         onClick={() => removeMember.mutate({ teamId, memberId: member.id })}
         disabled={removeMember.isPending}
+        title="Remove member"
+        aria-label={`Remove ${member.agentName}`}
       >
         <X className="size-4" />
       </Button>

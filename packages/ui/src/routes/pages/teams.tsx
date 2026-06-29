@@ -116,7 +116,15 @@ export function TeamsPage() {
             <Card 
               key={team.id} 
               className="cursor-pointer hover:border-primary/50 transition-colors flex flex-col group"
+              role="button"
+              tabIndex={0}
               onClick={() => navigate({ to: "/teams/$teamId", params: { teamId: team.id } })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigate({ to: "/teams/$teamId", params: { teamId: team.id } });
+                }
+              }}
             >
               <CardHeader className="flex-row items-start justify-between space-y-0 pb-2">
                 <div className="space-y-1">
