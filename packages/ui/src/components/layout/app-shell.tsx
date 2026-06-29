@@ -11,6 +11,7 @@ import {
   Play,
   Settings,
   TerminalSquare,
+  Users,
   Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,7 @@ import { ThemeToggle } from "@/theme/theme-toggle";
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/agents", label: "Agents", icon: Bot },
+  { to: "/teams", label: "Teams", icon: Users },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/tasks", label: "Task Board", icon: ListChecks },
   { to: "/messages", label: "Messages", icon: Inbox },
