@@ -10,3 +10,4 @@ export * from "./schemas/task.js";
 export * from "./schemas/pipeline.js";
 export * from "./schemas/cron.js";
 export * from "./schemas/memory.js";
+export * from "./schemas/team.js";

@@ -6,6 +6,8 @@ import {
 import { AppShell } from "@/components/layout/app-shell";
 import { DashboardPage } from "@/routes/pages/dashboard";
 import { AgentsPage } from "@/routes/pages/agents";
+import { TeamsPage } from "@/routes/pages/teams";
+import { TeamDetailPage } from "@/routes/pages/team-detail";
 import { ProjectsPage } from "@/routes/pages/projects";
 import { RunsPage } from "@/routes/pages/runs";
 import { RunDetailPage } from "@/routes/pages/run-detail";
@@ -29,6 +31,18 @@ const agentsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/agents",
   component: AgentsPage,
+});
+
+const teamsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/teams",
+  component: TeamsPage,
+});
+
+const teamDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/teams/$teamId",
+  component: TeamDetailPage,
 });
 
 const projectsRoute = createRoute({
@@ -94,6 +108,8 @@ const terminalsRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
   agentsRoute,
+  teamsRoute,
+  teamDetailRoute,
   projectsRoute,
   runsRoute,
   runDetailRoute,
