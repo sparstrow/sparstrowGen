@@ -26,7 +26,7 @@
 | ② | **Spec** | Claude Code | `.design-src/<page>/SPEC.md` (feature list, [EXISTS]/[NEW]/[CHANGE]/[CONFLICT], backend delta, data contracts) | SPEC written |
 | ③ | **Office-hours** | You (interactive) | `## Scope (LOCKED)` + `### Locked decisions` block appended to SPEC | every [CONFLICT] resolved |
 | ④ | **Autoplan** | `/autoplan` (you approve gate) | `<!-- AUTONOMOUS DECISION LOG -->` appendix with **`Final gate: APPROVED`** | the APPROVED marker is present |
-| ⑤ | **Implement** | **Routine** (autonomous) | branch + commits + green checks + pushed branch / PR | typecheck + tests green |
+| ⑤ | **Implement** | **Routine** — Claude Code on-demand, or an external agent IDE (e.g. Antigravity 2.0) reading [`AGENTS.md`](../AGENTS.md) | branch + commits + green checks + pushed branch / PR | typecheck + tests green |
 | ⑥ | **Merge** | You | squash-merge to `main` | branch protection: PR + 1 approval |
 
 **The hard gate between interactive and routine:** the routine refuses to build any SPEC
@@ -65,6 +65,16 @@ nothing the plan doesn't specify.
    *(Graduation: once a PR-scope token is wired, the routine opens the PR itself.)*
 7. Update [`APP.md`](./APP.md): set the page status to `in-review 🔁` and record the branch.
 8. **STOP.** The routine never merges. You review the PR and squash-merge (⑥).
+
+### Operational lesson (2026-06-29)
+**Push every planning commit immediately — never batch.** A planning branch (office-hours
+lock, autoplan appendix, AGENTS.md, etc.) is only as real as what's pushed. Once, three
+commits were made locally after the initial push and never re-pushed; the PR was merged
+from GitHub's view of the branch (commit 1 only), silently dropping the office-hours lock,
+the `Final gate: APPROVED` marker, and `AGENTS.md` from `main`. A build still succeeded only
+because the executor happened to read the local working tree before branching — that's luck,
+not the system working. **Rule: after any edit to `SPEC.md`/`APP.md`/`AGENTS.md`, commit AND
+push in the same step**, so `origin/main` (post-merge) is never behind what was actually decided.
 
 ### Hard boundaries (the routine must NOT)
 - Merge, force-push, or touch `main` directly (branch protection blocks it anyway).

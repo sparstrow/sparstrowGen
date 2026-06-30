@@ -317,3 +317,151 @@ POST /api/v1/agents  (existing) ◀── create reuses agentCreateSchema
 
 <!-- /autoplan review end -->
 
+---
+
+## Pass 2 (Teams F4/F5) — Office-hours lock (2026-06-28)
+
+Interactive feature-lock for the Teams slice (builder mode; factory's own page, single user —
+demand diagnostic N/A). Decisions below are the contract for `/autoplan` on Pass 2.
+
+### Locked scope (the small wedge)
+Teams Pass 2 is **organization only**: group agents and assign teams to projects. No execution.
+
+- **F4 Teams index** — grid of team cards (name, description, agent-count, assigned-project chips,
+  member avatars = initials/color-hash chip). "New team" → **Dialog** (matches Pass-1/projects),
+  name + description + project assignment.
+- **F4 Team detail** — header (name, description, agent-count, Delete) + assigned-project chip row +
+  **members section, List view only** (flat roster). Add member (combobox over the agent registry),
+  remove member, edit **`team_role` only** (name/role are read-only, derived from the agent template).
+  **Tree/org-chart view + manager→subagent hierarchy CUT from Pass 2** (autoplan UC-A — deferred to
+  the run/deploy design).
+- **F5 nav** — add `teams` route + nav entry; keep existing routes.
+
+### Locked decisions
+- **D1 — NO "Run team" button.** Removed entirely for Pass 2 (not even a stub). Founder decision:
+  team execution is being redesigned as a richer "Team Workspace" (see north-star below), so a Run
+  button now would imply a capability that doesn't exist and pre-commit the wrong execution model.
+- **D2 — Normalized data model.** `teams(id, name, description, created_at, updated_at)`;
+  team↔project as a join table `team_projects(team_id, project_id)`; members as
+  `team_members(id, team_id, agent_id, team_role NULLABLE, sort)` — **flat membership** (autoplan UC-A
+  cut `parent_member_id`/hierarchy from Pass 2). `team_projects` composite PK `(team_id, project_id)`;
+  `teams.name` UNIQUE + `slug` (match the agents/projects convention). FK policy explicit in migration
+  `0003_teams`: `team_members.team_id` / `team_projects.*` / `team_members.agent_id` → `ON DELETE
+  CASCADE` (deleting an agent also removes its memberships — documented + tested; these are the first
+  real FKs while `foreign_keys=ON` is already live). Drizzle + hand-written migration.
+- **D3 — Members reference agent TEMPLATES; derive display fields.** `team_members.agent_id` →
+  the agent registry row (the template). Display name/role come from the agent via join, NOT stored
+  copies. `team_role` is an optional team-scoped label (e.g. "Manager", "Reviewer"), distinct from
+  the agent's own role. Same "DB is source of truth, don't duplicate" principle as Pass 1's
+  SKILL.md. (The design's stored per-member name/role is drift — do not port it.)
+- **D4 — List view only (REVISED by autoplan UC-A).** Tree/org-chart view + the manager→subagent
+  hierarchy are cut from Pass 2 and deferred to the run/deploy design (additive later — a migration +
+  the Tree component, no rework of flat Pass 2). All 3 review voices flagged the hierarchy/Tree as the
+  riskiest, most-likely-invalidated part.
+- **D5 — Agent template→instance model: LOCKED, BUILT LATER.** Founder model: an agent created on
+  the Agents page is a **template**. It is **copied into a project-scoped instance** when (a) a team
+  is deployed to a project, or (b) it runs a standalone task in a project — so that each instance's
+  `agent:self` memory is isolated per project and never bleeds across projects. **Pass 2 stores only
+  template references** (D3). The instance table + copy-on-deploy + per-project `agent:self`
+  isolation are built in the **separate run/deploy design** (bundled with the north-star), because
+  copies are only created once something actually runs — which Pass 2 does not do. Writing it here so
+  it is not lost; it touches the memory scope grammar, run-manager, and tasks.
+
+### Backend delta (Pass 2)
+| Item | Status | Work |
+|---|---|---|
+| `teams` + `team_projects` + `team_members` tables | [NEW] | schema + hand-written migration (adjacency `parent_member_id`) |
+| Teams CRUD API | [NEW] | `/api/v1/teams` routes (inherits bearer auth); members nested under team |
+| Shared zod types | [NEW] | `packages/shared/src/schemas/team.ts` (team, teamMember, create/update) |
+| Teams UI route + nav | [NEW] | `/teams` page, AppShell nav entry (F5) |
+| Teams composites | [NEW] | TeamsIndex, NewTeam Dialog, TeamDetail, MembersList (Tree CUT — UC-A) |
+| Run team / task list / triggers / templates / manager-agent / visual builder | [DEFER] | → Team Workspace north-star (separate design) |
+
+### North-star spawned from this session
+The founder's larger vision — in-team task creation (multi-agent, cron, event triggers, save-as-
+template, deploy-to-project), a conversational **Team Manager Agent** advisor, and an n8n / Power
+Automate-style **visual workflow designer** — is the convergence of the existing Tasks + Pipelines +
+Schedule(cron) + Agent Creator surfaces into one agent-assisted automation builder. It is a north-star
+product area, NOT Pass 2, and overlaps existing pages (surface-ownership is its first design question).
+Captured in `C:\Sparstrow\Startup plans\Sparstrowgen-team-workspace-northstar.md`; gets its own
+`/office-hours` + `/plan-ceo-review`. **Status APPROVED for Pass 2 build is NOT set yet — Pass 2 still
+needs `/autoplan` before the `Final gate: APPROVED` marker the build routine requires.**
+
+<!-- AUTONOMOUS DECISION LOG -->
+# /autoplan Review (2026-06-28, Pass 2 Teams F4/F5)
+
+Codex unavailable (`[codex-unavailable: binary not found]`) — dual-voice = **Claude subagents only**,
+3 independent reviewers (CEO/Design/Eng), no shared context. DX phase: scope is an internal CRUD page
+with no external developer surface — full DX persona/TTHW review would be theater; handled inline
+(validated: input validation + clean error codes covered under Eng F8). Restore point:
+`~/.gstack/projects/Sparstrowgen/docs-factory-loop-autoplan-restore-20260628-214429.md`.
+
+## Consensus tables (single-voice; Codex N/A)
+**CEO** — Right problem? DISPUTED (reviewer: Runs/Dashboard outrank Teams). Premises valid? Mostly,
+but "org-metadata-only" has no standalone payoff until run/deploy lands. Scope calibrated? NO — Tree +
+hierarchy over-built. 6-mo trajectory? RISK — north-star "surface ownership" may invalidate the hierarchy.
+**Design** — Data model + scope sound; **interaction layer under-specified** (states, add-member flow,
+tree edge cases, depth, D3 contradiction). No critical architectural blockers.
+**Eng** — Adjacency model is the right call but **NOT ready as written**: cycle prevention, member-delete
+orphan policy, and the FK cascade-vs-restrict decision (silently changes agent-delete blast radius) are
+unspecified and are exactly where it breaks.
+
+## Cross-phase themes (flagged independently in ≥2 voices — high confidence)
+1. **The manager→subagent hierarchy + Tree view is the risk center.** CEO: cut it (most speculative,
+   may be invalidated by the north-star's surface-ownership question). Eng: it's the source of
+   cycle/infinite-loop risk (F1) and the only real untested complexity. Design: its depth is ambiguous
+   in 3 places (F-4). All three converge → see **User Challenge UC-A**.
+2. **D3 "derived fields" contradiction.** Design F-7 + CEO F5: the design's "click-to-edit member
+   name/role" contradicts D3 (name/role derive from the agent template). Only `team_role` is editable.
+3. **Run-observability outranks Teams** (CEO F3/F4) — backed by APP.md's own note that CEO review
+   ranked Dashboard/Runs above agent-config polish → see **User Challenge UC-B**.
+
+## Auto-decided (added to the plan — P1/P2/P3 below). Principles: P1 completeness, P2 boil-lakes, P5 explicit.
+| # | Phase | Decision | Class | Principle |
+|---|-------|----------|-------|-----------|
+| 1 | Eng | **Cycle guard required** — server-side ancestor walk rejects self-parent + descendant-as-parent (409); tree assembly carries a visited-set, drops back-edges. Required test. | Auto | P1 |
+| 2 | Eng | **FK policy explicit in migration** — `team_members.team_id`/`team_projects.*` → `ON DELETE CASCADE`; `team_members.parent_member_id → team_members(id) ON DELETE CASCADE` (subtree cleanup); `team_members.agent_id → agents(id) ON DELETE CASCADE` **+ documented + tested** (note: this makes agent-delete also remove team memberships — first real FKs in a schema where `foreign_keys=ON` is already live). | Auto | P1/P5 |
+| 3 | Eng | **Member-delete = cascade subtree** (via parent_member_id self-cascade); verified by test. | Auto | P5 |
+| 4 | Eng | **`team_projects` composite PK (team_id, project_id)**; `teams.name` UNIQUE + `slug` to match the agents/projects convention. | Auto | P4/P5 |
+| 5 | Eng | **Response shapes:** index = shallow cards (counts + few avatars, 2 flat queries, no N+1); detail = nested member tree assembled flat→tree in JS, ordered by `(parent_member_id, sort)`. Recursive `z.lazy` `teamMemberNode` schema + flat `teamMember` schema. | Auto | P1/P3 |
+| 6 | Eng | **Ownership validation** — app-side existence checks for `agent_id`/`project_id` → clean 400/409, not raw SQLite FK 500 (mirror agents.ts validate-before-persist). | Auto | P1 |
+| 7 | Eng | **Tests (vitest):** zod incl. recursive node; cycle rejection; cascade behaviors (team→members, agent→members, manager→subtree); flat→tree assembly (ordering, orphan, cycle); composite-PK dup rejection. (More test surface than route code — correct.) | Auto | P1 |
+| 8 | Design | **States registry** — reuse Pass-1 patterns: skeletons; empty (no teams / team-no-members / no-projects-to-assign / no-agents-to-add); error (fetch/save/delete); optimistic-vs-pending for member add/remove + project toggle + delete-confirm Dialog with "agents & projects are kept" copy. | Auto | P1 |
+| 9 | Design | **Add-member flow specified** — combobox/command over the agent registry (filter enabled), optional `team_role` entered at add-time, same template addable once per role; this is the core interaction. | Auto | P1 |
+| 10 | Design | **Member inline-edit = `team_role` ONLY** (name/role read-only, sourced from agent) — reconciles the D3 contradiction. Reuse Pass-1 edit-mode (Save/Cancel/dirty-guard/ESC), not a second click-to-edit paradigm. | Auto | P4/P5 |
+| 11 | Design | **Team detail hierarchy order:** (1) header name+desc+count+Delete, (2) assigned-project chip row, (3) members section (dominant) with List/Tree toggle (default List, per-component state). | Auto | P5 |
+| 12 | Design | **NewTeam = reuse the Pass-1/projects Dialog** (not a divergent inline panel); member avatars = initials/color-hash chip (one net-new visual atom). | Auto | P4 |
+| 13 | CEO | **Protect template→instance semantics** — Pass-2 code treats `team_members.agent_id` strictly as a *template* reference; no code path treats a member as a runnable instance (code comment + no run wiring). | Auto | P1 |
+
+## NOT auto-decided — surfaced to user (autoplan: User Challenges + premise judgment are never auto-decided)
+
+**UC-A — Cut the manager→subagent hierarchy + Tree view from Pass 2?** All three voices converge that
+`parent_member_id` adjacency + the Tree (org-chart) view is the riskiest, most over-built, most
+under-specified part — and the north-star's unanswered "surface ownership" question could invalidate
+the hierarchy entirely. Cutting it → `team_members(team_id, agent_id, team_role, sort)` flat, **List
+view only**; defer hierarchy + Tree to the run/deploy design that actually needs them. This also
+deletes findings #1/#3 (cycles), simplifies #2/#5, and drops the whole tree-edge-case surface.
+*Cost if wrong:* if the north-star keeps the hierarchy, we re-add `parent_member_id` + Tree later (a
+new migration + the Tree component — additive, no rework of what flat Pass 2 builds).
+
+**UC-B — Build Dashboard/Runs before Teams?** CEO voice (backed by APP.md's own note) argues
+run-observability is higher value than agent-config polish, and Teams-without-execution is an inert
+labeled folder until the deferred design lands. *Cost if wrong:* Teams is designed and ready now;
+Dashboard/Runs need their own design pass first, so reordering delays shipping anything from the board.
+
+**Premise note:** the office-hours premises (org-metadata-only, Run undefined, DB source of truth) were
+human-locked; CEO's challenge to their *value* is captured in UC-B, not silently overridden.
+
+## Final gate resolution (2026-06-28)
+- **UC-A → CUT.** Flat membership + List view only; hierarchy (`parent_member_id`) + Tree deferred to
+  the run/deploy design. Consequences for the auto-decided table above: finding **#1 (cycle guard) and
+  #3 (subtree cascade) are N/A** (a flat model can't cycle); **#2** keeps only `team_id`/`agent_id`/
+  `team_projects` cascades (no `parent_member_id` FK); **#5** response is a flat member list ordered by
+  `sort` (no flat→tree assembly); Design **F-4/F-5 tree-edge-cases are N/A**. Findings #4, #6, #7, #8,
+  #9, #10, #11, #12, #13 stand.
+- **UC-B → PROCEED with Teams now** (then Dashboard/Runs).
+
+**Final gate: APPROVED 2026-06-28** (Pass 2 Teams F4/F5 — flat-membership + List-only scope). Plan
+locked; ready for the build routine.
+<!-- /autoplan review end (Pass 2 — APPROVED) -->
+
