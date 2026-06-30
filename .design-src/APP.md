@@ -58,7 +58,7 @@ Big visions parked with a written doc; each needs its own `/office-hours` + `/pl
 
 | North-star | Doc | Spawned from |
 |---|---|---|
-| **Team Workspace / Automation Builder** — in-team tasks (multi-agent, cron, event triggers, templates, deploy-to-project), a conversational Team Manager Agent advisor, and an n8n-style visual workflow designer. Convergence of Tasks + Pipelines + Schedule + Agent Creator. | `C:\Sparstrow\Startup plans\Sparstrowgen-team-workspace-northstar.md` | Agents Teams Pass-2 office-hours, 2026-06-28 |
+| **Team Workspace / Automation Builder** — in-team tasks (multi-agent, cron, event triggers, templates, deploy-to-project), a conversational Team Manager Agent advisor, and an n8n-style visual workflow designer. Convergence of Tasks + Pipelines + Schedule + Agent Creator. | [`docs/team-workspace-northstar.md`](../docs/team-workspace-northstar.md) | Agents Teams Pass-2 office-hours, 2026-06-28 |
 
 ---
 
