@@ -30,28 +30,35 @@ Recommended build order top-to-bottom; reorder during lock-in. `Prio` = product 
 
 | # | Page | Route | Stage | Prio | Next action | Scope sketch |
 |---|------|-------|-------|------|-------------|--------------|
-| 1 | **Agents — Teams** | `/agents` | ✏️ spec'd | P1 | `/office-hours` on the Teams slice | F4 Agent Teams + F5 nav (already specced in `agents/SPEC.md`, Pass 2). "Run team" execution = separate design, stub the button. |
-| 2 | **Dashboard** | `/` | ⬜ backlog | P1 | design in Claude Design | Live workforce view: what's running now, queue depth, recent runs, cost/health. CEO review flagged run-observability as higher value than agent-config polish. |
-| 3 | **Runs** | `/runs` | ⬜ backlog | P1 | design | Run history list: filter by agent/project/status, cost, duration, outcome. |
-| 4 | **Run detail** | `/runs/:id` | ⬜ backlog | P1 | design | Single run: streamed transcript, tool calls, memory injected, artifacts, re-run. |
-| 5 | **Projects** | `/projects` | ⬜ backlog | P2 | design | Project registry: rootDir, assigned agents, memory scope, recent activity. |
-| 6 | **Memory** | `/memory` | ⬜ backlog | P2 | design | Vault browser + hybrid search, scope tree (global/projects/agents/inbox), embedder status. |
-| 7 | **Tasks** | `/tasks` | ⬜ backlog | P2 | design | Task board: assign → agent spawn → status; kanban columns. |
-| 8 | **Pipelines** | `/pipelines` | ⬜ backlog | P2 | design | Multi-step pipeline builder; `{{input}}` piping between steps. |
-| 9 | **Schedule** | `/schedule` | ⬜ backlog | P3 | design | Cron jobs: create/edit/run-now, next-fire, scheduler pause toggle. |
-| 10 | **Messages** | `/messages` | ⬜ backlog | P3 | design | Inbox: agent→agent + agent→you messages, reply/route. |
-| 11 | **Terminals** | `/terminals` | ⬜ backlog | P3 | design | Embedded xterm sessions over `/ws/terminal/:id`. |
-| 12 | **Settings** | `/settings` | ⬜ backlog | P3 | design | Config: concurrency, paths, theme, token, providers, backup. |
+| 1 | **Dashboard** | `/` | ⬜ backlog | P1 | design in Claude Design | Live workforce view: what's running now, queue depth, recent runs, cost/health. CEO review (Teams autoplan) flagged run-observability as higher value than agent-config polish. |
+| 2 | **Runs** | `/runs` | ⬜ backlog | P1 | design | Run history list: filter by agent/project/status, cost, duration, outcome. |
+| 3 | **Run detail** | `/runs/:id` | ⬜ backlog | P1 | design | Single run: streamed transcript, tool calls, memory injected, artifacts, re-run. |
+| 4 | **Projects** | `/projects` | ⬜ backlog | P2 | design | Project registry: rootDir, assigned agents, memory scope, recent activity. |
+| 5 | **Memory** | `/memory` | ⬜ backlog | P2 | design | Vault browser + hybrid search, scope tree (global/projects/agents/inbox), embedder status. |
+| 6 | **Tasks** | `/tasks` | ⬜ backlog | P2 | design | Task board: assign → agent spawn → status; kanban columns. |
+| 7 | **Pipelines** | `/pipelines` | ⬜ backlog | P2 | design | Multi-step pipeline builder; `{{input}}` piping between steps. |
+| 8 | **Schedule** | `/schedule` | ⬜ backlog | P3 | design | Cron jobs: create/edit/run-now, next-fire, scheduler pause toggle. |
+| 9 | **Messages** | `/messages` | ⬜ backlog | P3 | design | Inbox: agent→agent + agent→you messages, reply/route. |
+| 10 | **Terminals** | `/terminals` | ⬜ backlog | P3 | design | Embedded xterm sessions over `/ws/terminal/:id`. |
+| 11 | **Settings** | `/settings` | ⬜ backlog | P3 | design | Config: concurrency, paths, theme, token, providers, backup. |
 
-`placeholder.tsx` is scaffold, not a real page — excluded.
+`placeholder.tsx` is scaffold, not a real page — excluded. Agents (Pass 1 + Teams Pass 2) is fully shipped, see Done table.
 
 ### Done
 | Page | What shipped | Landed |
 |------|--------------|--------|
 | **Agents — Pass 1** | F1 SkillViewer slide-over · F2 split New-agent + Duplicate · F3 deterministic-first Agent Creator (+ `POST /api/v1/agents/draft`, shared `AgentFields`, `renderSkillMd()`) | PR #4 → `main` (`925f9a7`), 2026-06-28 |
 | **Agent draft fix** | F3 draft repair-retry on JSON slip + smarter fallback naming (`fix/agent-draft-retry`) | merged to `main`, 2026-06-28 |
+| **Agents — Teams Pass 2** | F4 Teams (organization only — group agents + assign to projects, flat membership, List view; no Run button, no hierarchy/Tree — cut at `/autoplan` UC-A) + F5 nav. `teams`/`team_projects`/`team_members` schema + CRUD API + UI. Built by Antigravity 2.0 per `AGENTS.md`. | PR #7 → `main` (`5269e32`), 2026-06-29 |
 
-Board is clean — `fix/agent-draft-retry` merged and core restarted (2026-06-28).
+Board is clean — Teams Pass 2 shipped end-to-end (office-hours → autoplan → external-agent build → merge).
+
+### North-stars (captured, not scheduled)
+Big visions parked with a written doc; each needs its own `/office-hours` + `/plan-ceo-review` before it enters the board.
+
+| North-star | Doc | Spawned from |
+|---|---|---|
+| **Team Workspace / Automation Builder** — in-team tasks (multi-agent, cron, event triggers, templates, deploy-to-project), a conversational Team Manager Agent advisor, and an n8n-style visual workflow designer. Convergence of Tasks + Pipelines + Schedule + Agent Creator. | `C:\Sparstrow\Startup plans\Sparstrowgen-team-workspace-northstar.md` | Agents Teams Pass-2 office-hours, 2026-06-28 |
 
 ---
 
