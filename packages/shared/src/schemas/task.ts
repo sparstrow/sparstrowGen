@@ -64,6 +64,18 @@ export const taskSchema = z.object({
   /** P2 task-level tool policy — the most specific level; deny always wins. */
   allowedTools: z.array(z.string()).default([]),
   disallowedTools: z.array(z.string()).default([]),
+  /** P3 delegation tree: set by spawn_subtask, self-FK onto tasks (N levels, cap enforced). */
+  parentTaskId: idSchema.nullable().default(null),
+  /**
+   * P3 S1-a: the delegating parent run's effective toolset, snapshotted at
+   * spawn_subtask time. The child run's resolution is intersected with this bound
+   * (LEAST privilege) — kept separate from the owner-editable allowed/disallowed
+   * columns so an owner edit can't silently lift a delegation clamp.
+   */
+  parentEffectiveTools: z
+    .object({ allowed: z.array(z.string()), disallowed: z.array(z.string()) })
+    .nullable()
+    .default(null),
   dueAt: isoDateSchema.nullable().default(null),
   /** Tenancy forward-marker (D6-followup) — no users table yet; see PHASE6-NOTES. */
   userId: idSchema.nullable().default(null),
@@ -121,10 +133,13 @@ export const taskCreateSchema = taskSchema.omit({
   updatedAt: true,
   runId: true,
   result: true,
-  // Not create-time inputs (set by the escalation flow / tool-policy edits).
+  // Not create-time inputs (set by the escalation flow / tool-policy edits /
+  // the spawn_subtask delegation path).
   wakePayload: true,
   allowedTools: true,
   disallowedTools: true,
+  parentTaskId: true,
+  parentEffectiveTools: true,
   userId: true,
 });
 export type TaskCreate = z.infer<typeof taskCreateSchema>;

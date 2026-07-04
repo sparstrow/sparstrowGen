@@ -289,4 +289,38 @@ ALTER TABLE tasks ADD COLUMN allowed_tools TEXT NOT NULL DEFAULT '[]';
 ALTER TABLE tasks ADD COLUMN disallowed_tools TEXT NOT NULL DEFAULT '[]';
 `,
   },
+  {
+    // P3 delegation, team-bounded swarms & agent instances.
+    // - tasks.parent_task_id: the delegation tree (self-reference; SQLite ADD COLUMN
+    //   cannot add an FK — enforced in code, indexed for the completion-watcher's
+    //   children queries).
+    // - tasks.parent_effective_tools: S1-a LEAST-privilege bound, snapshotted from
+    //   the delegating run at spawn_subtask time (separate from the owner-editable
+    //   task tool columns so an owner edit can't lift a delegation clamp).
+    // - teams ephemeral lifecycle: auto-created around multi-assign tasks,
+    //   soft-archived on terminal status (C6/P3-Q3 — hard delete rejected).
+    // - agent_instances (locked D5): lazy (template, project) deployments;
+    //   runs.agent_instance_id is the EH4 audit seam.
+    // ADD COLUMN-only + one new table — safe under the in-transaction runner.
+    id: "0006_delegation",
+    sql: `
+ALTER TABLE tasks ADD COLUMN parent_task_id TEXT;
+ALTER TABLE tasks ADD COLUMN parent_effective_tools TEXT;
+CREATE INDEX idx_tasks_parent ON tasks(parent_task_id);
+
+ALTER TABLE teams ADD COLUMN is_ephemeral INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE teams ADD COLUMN linked_task_id TEXT;
+ALTER TABLE teams ADD COLUMN archived_at TEXT;
+
+ALTER TABLE runs ADD COLUMN agent_instance_id TEXT;
+
+CREATE TABLE agent_instances (
+  id TEXT PRIMARY KEY,
+  agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX uq_agent_instances_agent_project ON agent_instances(agent_id, project_id);
+`,
+  },
 ];

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWakePrompt } from "./wake-prompt.js";
+import { buildChildrenWakePrompt, buildWakePrompt } from "./wake-prompt.js";
 
 describe("buildWakePrompt", () => {
   it("is fully self-contained: restates task, Q&A, and progress", () => {
@@ -41,5 +41,55 @@ describe("buildWakePrompt", () => {
       answeredQuestions: [],
     });
     expect(out).toContain("(no recorded questions)");
+  });
+});
+
+describe("buildChildrenWakePrompt (P3 lead wake)", () => {
+  it("is fully self-contained: restates the lead's task, every child outcome, and progress", () => {
+    const out = buildChildrenWakePrompt({
+      taskTitle: "Ship the search feature",
+      taskDescription: "Coordinate index build and UI wiring.",
+      children: [
+        {
+          taskId: "tsk_a",
+          title: "Build the index",
+          status: "done",
+          assignedAgentName: "Indexer",
+          result: "Index built, 1200 docs.",
+        },
+        {
+          taskId: "tsk_b",
+          title: "Wire the UI",
+          status: "failed",
+          assignedAgentName: "Frontend",
+          result: "Blocked by missing design tokens.",
+        },
+      ],
+      progressNote: "Spec written; delegated both halves.",
+    });
+    expect(out).toContain("## Resuming after delegation");
+    expect(out).toContain("# Ship the search feature");
+    expect(out).toContain("Coordinate index build and UI wiring.");
+    expect(out).toContain("[done] Build the index (tsk_a — Indexer)");
+    expect(out).toContain("Index built, 1200 docs.");
+    expect(out).toContain("[failed] Wire the UI (tsk_b — Frontend)");
+    expect(out).toContain("Blocked by missing design tokens.");
+    expect(out).toContain("Spec written; delegated both halves.");
+    expect(out).toContain("call task_update");
+    expect(out).not.toContain("undefined");
+  });
+
+  it("handles missing agent names, empty results, and no progress note", () => {
+    const out = buildChildrenWakePrompt({
+      taskTitle: "T",
+      taskDescription: "",
+      children: [{ taskId: "tsk_x", title: "X", status: "done", assignedAgentName: null, result: null }],
+      progressNote: null,
+    });
+    expect(out).toContain("[done] X (tsk_x)");
+    expect(out).toContain("(none reported)");
+    expect(out).toContain("(none recorded)");
+    expect(out).not.toContain("undefined");
+    expect(out).not.toContain("null");
   });
 });

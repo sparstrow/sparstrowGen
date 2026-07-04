@@ -57,6 +57,12 @@ export const runSchema = z.object({
   sessionId: z.string().nullable().default(null),
   lane: z.string().default("foreground"),
   /**
+   * P3/EH4: the project-scoped agent instance this run executed as (null when the
+   * run has no project — the template itself). Stamped at spawn; the audit seam
+   * for instance-keyed busy tracking and instance-scoped `agent:self` memory.
+   */
+  agentInstanceId: idSchema.nullable().default(null),
+  /**
    * Immutable per-run effective toolset snapshot (P2, EH5). Resolved at spawn from
    * Global→Agent→Project→Task; the provider reads ONLY this, never the live agent
    * row, so mutating a row while the run is queued can't change what it may touch.
