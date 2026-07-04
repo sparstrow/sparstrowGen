@@ -25,7 +25,10 @@ export function buildPreamble(
   for (const scope of agent.memoryWriteScopes) {
     try {
       if (scope === "global") writeDirs.push(scopeDir("global"));
-      else if (scope === "agent:self") writeDirs.push(scopeDir("agent", null, agent.slug));
+      // agent:self is instance-aware (P3/D5): inside a project the write dir is
+      // agents/<template>/<project>/ so self-notes never bleed across projects.
+      else if (scope === "agent:self")
+        writeDirs.push(scopeDir("agent", currentProjectSlug, agent.slug));
       else if (scope.startsWith("agent:"))
         writeDirs.push(scopeDir("agent", null, scope.slice("agent:".length)));
       else if (scope === "project:*") {

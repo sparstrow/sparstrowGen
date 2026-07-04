@@ -11,7 +11,7 @@ import { agents, projects, runs } from "../db/schema.js";
 import { HttpError } from "../orchestrator/run-manager.js";
 import { indexer } from "./indexer.js";
 import { searchMemory } from "./search.js";
-import { expandReadScopes, expandWriteScopes } from "./scopes.js";
+import { expandReadScopes, expandWriteScopes, noteMatchesFilters } from "./scopes.js";
 import { writeNote } from "./vault.js";
 
 /**
@@ -85,14 +85,21 @@ export function agentMemorySave(ctx: RunContext, input: AgentSaveInput): MemoryN
   let agentSlug = input.agentSlug ? slugify(input.agentSlug) : null;
   if (scope === "project" && !projectSlug) projectSlug = ctx.projectSlug;
   if (scope === "agent" && !agentSlug) agentSlug = ctx.agent.slug;
+  // P3 (locked D5): a self-write inside a project targets the (template, project)
+  // INSTANCE — writes land under agents/<template>/<project>/ and never bleed into
+  // other projects. Writes to another agent's scope stay template-level.
+  if (scope === "agent") {
+    projectSlug = agentSlug === ctx.agent.slug ? ctx.projectSlug : null;
+  }
 
-  const allowed = expandWriteScopes(ctx.agent, ctx.projectSlug).some((f) => {
-    if (f.scope !== scope) return false;
-    if (scope === "project" && f.projectSlug !== undefined && f.projectSlug !== projectSlug)
-      return false;
-    if (scope === "agent" && f.agentSlug !== undefined && f.agentSlug !== agentSlug) return false;
-    return true;
-  });
+  // One matcher (noteMatchesFilters) decides both search visibility and write
+  // permission, so the two can't drift on instance semantics.
+  const candidate = {
+    scope,
+    projectSlug: scope === "global" ? null : projectSlug,
+    agentSlug: scope === "agent" ? agentSlug : null,
+  };
+  const allowed = noteMatchesFilters(candidate, expandWriteScopes(ctx.agent, ctx.projectSlug));
   if (!allowed) {
     throw new HttpError(
       403,
@@ -107,7 +114,7 @@ export function agentMemorySave(ctx: RunContext, input: AgentSaveInput): MemoryN
     title: input.title,
     content: input.content,
     scope,
-    projectSlug: scope === "project" ? projectSlug : null,
+    projectSlug: scope === "global" ? null : projectSlug,
     agentSlug: scope === "agent" ? agentSlug : null,
     tags: input.tags,
     source: `agent:${ctx.agent.slug}`,
