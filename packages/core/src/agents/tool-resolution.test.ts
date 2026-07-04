@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Agent } from "@sparstrow/shared";
 import { closeDb, openDb } from "../db/connection.js";
@@ -56,9 +59,11 @@ describe("EH5 TOCTOU: claude-code reads the immutable snapshot, not the live age
       maxTurns: null,
     } as unknown as Agent;
 
+    // A real temp dir — with cwd the provider leaks mcp-config.json into the repo.
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sparstrow-test-"));
     const spec = provider.buildHeadlessSpawn(liveAgent, "prompt", {
       runId: "run_1",
-      tempDir: process.cwd(),
+      tempDir,
       sessionId: "sess_1",
       effectiveTools: { allowed: ["Read"], disallowed: ["Bash"] },
     });
