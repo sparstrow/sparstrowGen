@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { taskStatusSchema } from "@sparstrow/shared";
+import { taskAnswerSchema, taskStatusSchema } from "@sparstrow/shared";
 import { HttpError } from "../../orchestrator/run-manager.js";
 import {
   createTask,
@@ -10,6 +10,11 @@ import {
   startTaskRun,
   updateTask,
 } from "../../taskboard/service.js";
+import {
+  answerTaskQuestions,
+  listAttentionQueue,
+  listQuestions,
+} from "../../taskboard/questions.js";
 
 const createSchema = z.object({
   title: z.string().min(1).max(200),
@@ -79,5 +84,27 @@ export async function taskRoutes(app: FastifyInstance): Promise<void> {
     if (!task) throw new HttpError(404, `task not found: ${id}`);
     if (!task.assignedAgentId) throw new HttpError(409, "task has no assignee");
     return startTaskRun(task) ?? task;
+  });
+
+  /** The Human Attention Required queue: blocked tasks with their open questions. */
+  app.get("/tasks/attention/queue", async () => listAttentionQueue());
+
+  /** Questions raised on a task (for the task-detail panel). */
+  app.get("/tasks/:id/questions", async (request) => {
+    const { id } = request.params as { id: string };
+    if (!getTask(id)) throw new HttpError(404, `task not found: ${id}`);
+    return listQuestions(id);
+  });
+
+  /**
+   * Answer a blocked task's question(s) and wake it. Always 200: the answers are
+   * saved regardless. `applied` is false with a reason when the prior run is still
+   * in flight (S4-a "answer saved, applies on next wake") — the client branches on
+   * it rather than treating a saved answer as a failed request.
+   */
+  app.patch("/tasks/:id/answer", async (request) => {
+    const { id } = request.params as { id: string };
+    const body = taskAnswerSchema.parse(request.body);
+    return answerTaskQuestions(id, body);
   });
 }

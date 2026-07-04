@@ -115,6 +115,14 @@ export function TasksPage() {
   const byStatus = (status: TaskStatus) =>
     (tasks.data ?? []).filter((t) => t.status === status);
 
+  // Blocked/awaiting-approval tasks are exceptional states, not workflow stages, so
+  // they render as an amber attention band above the 6-column board (design H5) — the
+  // board never grows a 7th column, and these never silently vanish. Full detail +
+  // the answer composer live in the Dashboard attention queue.
+  const needsAttention = (tasks.data ?? []).filter((t) =>
+    (["blocked", "pending_approval"] as TaskStatus[]).includes(t.status),
+  );
+
   return (
     <div className="flex h-full flex-col gap-4">
       <div className="flex items-center gap-2">
@@ -126,6 +134,21 @@ export function TasksPage() {
           <Plus className="size-4" /> New task
         </Button>
       </div>
+
+      {needsAttention.length > 0 && (
+        <Link
+          to="/"
+          className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm transition-colors hover:bg-amber-500/10"
+        >
+          <span className="rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-white">
+            {needsAttention.length}
+          </span>
+          <span className="font-medium">
+            {needsAttention.length === 1 ? "1 task needs" : `${needsAttention.length} tasks need`} your attention
+          </span>
+          <span className="text-muted-foreground">— answer on the Dashboard →</span>
+        </Link>
+      )}
 
       {tasks.isLoading ? (
         <div className="grid grid-cols-6 gap-3">

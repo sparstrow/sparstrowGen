@@ -53,6 +53,13 @@ Recommended build order top-to-bottom; reorder during lock-in. `Prio` = product 
 
 Board is clean — Teams Pass 2 shipped end-to-end (office-hours → autoplan → external-agent build → merge).
 
+### Engine phases (whole-factory master plan — `fable-handoff/ENGINEERING_PLAN.md`, all 10 locked, `Final gate: APPROVED` 2026-07-03)
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| **P1 — Task lifecycle & human escalation** | 🔁 in-review | branch `feat/p1-task-escalation` (6 commits). Migration `0004` (blocked/blocked_answered/pending_approval/waiting_children + `task_questions` + `runs.lane`); capability registry (rule 20) seeded with `task_block`; wake state machine (EC1, durable, double-wake gate) + `PATCH /tasks/:id/answer` (S4-a); orphan/queued-cancel reconcile; task-aware `RunContext` + `buildWakePrompt` + preamble tools/escalation/trust contract (DX-C1/C2/H2/H3); Dashboard "Human Attention Required" queue + composer + nav badge + task-board attention band. typecheck 6/6, 54 tests, UI build green; migration verified against the real DB. **Remaining P1 UI polish (follow-up):** task-detail route promotion (C3), wake/attention metrics (E3). |
+| P2-lite … P10 | ⬜ locked | Build in dependency order after P1 merges. |
+
 ### North-stars (captured, not scheduled)
 Big visions parked with a written doc; each needs its own `/office-hours` + `/plan-ceo-review` before it enters the board.
 

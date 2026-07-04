@@ -52,6 +52,8 @@ export const runs = sqliteTable(
     injectedContext: text("injected_context"),
     status: text("status").notNull(),
     sessionId: text("session_id"),
+    lane: text("lane").notNull().default("foreground"),
+    effectiveTools: text("effective_tools", { mode: "json" }).$type<string[] | null>(),
     resultText: text("result_text"),
     costUsd: real("cost_usd"),
     numTurns: integer("num_turns"),
@@ -97,11 +99,35 @@ export const tasks = sqliteTable(
     priority: integer("priority").notNull().default(1),
     runId: text("run_id"),
     result: text("result"),
+    wakePayload: text("wake_payload"),
+    userId: text("user_id"),
     dueAt: text("due_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (t) => [index("idx_tasks_status").on(t.status), index("idx_tasks_assigned").on(t.assignedAgentId)],
+);
+
+export const taskQuestions = sqliteTable(
+  "task_questions",
+  {
+    id: text("id").primaryKey(),
+    taskId: text("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    question: text("question").notNull(),
+    whyBlocked: text("why_blocked").notNull().default(""),
+    options: text("options", { mode: "json" }).$type<string[] | null>(),
+    recommendation: text("recommendation"),
+    defaultIfNoAnswer: text("default_if_no_answer"),
+    answer: text("answer"),
+    askedByRunId: text("asked_by_run_id"),
+    askedAt: text("asked_at").notNull(),
+    answeredAt: text("answered_at"),
+    appliedAt: text("applied_at"),
+    userId: text("user_id"),
+  },
+  (t) => [index("idx_task_questions_queue").on(t.answeredAt, t.askedAt), index("idx_task_questions_task").on(t.taskId)],
 );
 
 export const messages = sqliteTable(

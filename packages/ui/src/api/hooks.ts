@@ -39,6 +39,7 @@ import type {
   RunStatus,
   SystemHealth,
   Task,
+  TaskQuestion,
   TaskStatus,
 } from "@sparstrow/shared";
 import { api, type ApiError } from "@/lib/api";
@@ -453,6 +454,54 @@ export function useRunTask(): UseMutationResult<Task, ApiError, string> {
   return useMutation({
     mutationFn: (id: string) => api<Task>(`/tasks/${id}/run`, { method: "POST" }),
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      void queryClient.invalidateQueries({ queryKey: ["runs"] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Attention queue (P1 — the founder's daily surface)
+// ---------------------------------------------------------------------------
+
+export type AttentionRowType = "question" | "ready-for-review";
+
+export interface AttentionRow {
+  type: AttentionRowType;
+  task: Task;
+  questions: TaskQuestion[];
+  ageMs: number;
+}
+
+/** The Human Attention Required queue. Polls so answered items clear promptly. */
+export function useAttentionQueue(): UseQueryResult<AttentionRow[], ApiError> {
+  return useQuery({
+    queryKey: ["attention-queue"],
+    queryFn: () => api<AttentionRow[]>("/tasks/attention/queue"),
+    refetchInterval: 5000,
+  });
+}
+
+export interface AnswerResult {
+  applied: boolean;
+  reason?: string;
+  task: Task | null;
+  questions: TaskQuestion[];
+}
+
+export interface AnswerInput {
+  taskId: string;
+  answers: { questionId: string; answer: string }[];
+}
+
+/** PATCH /tasks/:id/answer — fold answers into a blocked task and wake it. */
+export function useAnswerTask(): UseMutationResult<AnswerResult, ApiError, AnswerInput> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ taskId, answers }) =>
+      api<AnswerResult>(`/tasks/${taskId}/answer`, { method: "PATCH", body: { answers } }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["attention-queue"] });
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
       void queryClient.invalidateQueries({ queryKey: ["runs"] });
     },

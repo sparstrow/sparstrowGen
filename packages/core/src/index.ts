@@ -11,6 +11,7 @@ import { runManager } from "./orchestrator/run-manager.js";
 import { buildServer } from "./api/server.js";
 import { extraToolRegistrars } from "./mcp/http-mcp.js";
 import { registerTaskboardTools } from "./taskboard/agent-tools.js";
+import { registerCapabilities } from "./agents/capability-registry.js";
 import { startScheduler, stopScheduler } from "./scheduler/service.js";
 import { killAllSessions } from "./terminal/manager.js";
 
@@ -26,6 +27,7 @@ async function main(): Promise<void> {
 
   runManager.sweepOrphans();
   extraToolRegistrars.push(registerTaskboardTools);
+  extraToolRegistrars.push(registerCapabilities);
 
   const app = await buildServer();
   await app.listen({ port: config.port, host: config.host });
