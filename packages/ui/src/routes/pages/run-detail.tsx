@@ -106,6 +106,33 @@ export function RunDetailPage() {
         </div>
       )}
 
+      {/* P2 effective-tools snapshot: the immutable audit artifact of what this run
+          could touch (resolved Global→Agent→Project→Task at spawn). Flat list, not a
+          matrix (design H6) — the provenance matrix is deferred. */}
+      {r.effectiveTools && (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-md border px-3 py-2 text-xs">
+          <span className="text-muted-foreground">Tools this run could use:</span>
+          {r.effectiveTools.allowed.length > 0 ? (
+            r.effectiveTools.allowed.map((t) => (
+              <span key={t} className="rounded bg-muted px-1.5 py-0.5 font-mono">
+                {t}
+              </span>
+            ))
+          ) : (
+            <span className="italic text-muted-foreground">provider default</span>
+          )}
+          {r.effectiveTools.disallowed.map((t) => (
+            <span
+              key={t}
+              className="rounded bg-destructive/10 px-1.5 py-0.5 font-mono text-destructive line-through"
+              title="denied by policy"
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">Prompt</CardTitle>
