@@ -1,4 +1,11 @@
-import type { Agent, ProviderHealth, ProviderId, RunEventType, RunResult } from "@sparstrow/shared";
+import type {
+  Agent,
+  EffectiveTools,
+  ProviderHealth,
+  ProviderId,
+  RunEventType,
+  RunResult,
+} from "@sparstrow/shared";
 
 export interface SpawnSpec {
   command: string;
@@ -26,6 +33,12 @@ export interface HeadlessSpawnOptions {
   rootDir?: string;
   /** Resume an earlier provider session instead of starting fresh. */
   resumeSessionId?: string;
+  /**
+   * Immutable per-run effective tool policy (P2, EH5). When present, the provider
+   * MUST use it instead of the live agent row so a row edited while the run was
+   * queued can't change what the run may touch.
+   */
+  effectiveTools?: EffectiveTools;
   extraEnv?: Record<string, string>;
 }
 

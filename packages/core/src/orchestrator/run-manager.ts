@@ -24,6 +24,7 @@ import { scanVault } from "../memory/vault.js";
 import { getProvider } from "../providers/index.js";
 import type { NormalizedEvent } from "../providers/types.js";
 import { buildPreamble, type Assignment } from "./preamble.js";
+import { resolveRunEffectiveTools } from "../agents/tool-resolution.js";
 
 const nowIso = () => new Date().toISOString();
 
@@ -174,10 +175,11 @@ export class RunManager {
     const agent = agentRow as unknown as Agent;
     let projectSlug: string | null = null;
     let projectRootDir: string | undefined;
+    let projectRow: typeof projects.$inferSelect | undefined;
     if (row.projectId) {
-      const project = db.select().from(projects).where(eq(projects.id, row.projectId)).get();
-      projectSlug = project?.slug ?? null;
-      const root = project?.rootDir ?? null;
+      projectRow = db.select().from(projects).where(eq(projects.id, row.projectId)).get();
+      projectSlug = projectRow?.slug ?? null;
+      const root = projectRow?.rootDir ?? null;
       if (root) {
         if (!fs.existsSync(root)) {
           this.failRun(row.id, `project root dir does not exist: ${root}`);
@@ -192,14 +194,21 @@ export class RunManager {
     const memoryBlock = await buildMemoryBlock(agent, projectSlug, row.prompt);
     // A task-triggered run knows its task (DX-C2) — surface it as the assignment.
     let assignment: Assignment | undefined;
+    let taskRow: typeof tasks.$inferSelect | undefined;
     if (row.trigger === "task" && row.triggerRef) {
-      const task = db.select().from(tasks).where(eq(tasks.id, row.triggerRef)).get();
-      if (task) assignment = { taskId: task.id, taskTitle: task.title };
+      taskRow = db.select().from(tasks).where(eq(tasks.id, row.triggerRef)).get();
+      if (taskRow) assignment = { taskId: taskRow.id, taskTitle: taskRow.title };
     }
     const preamble = buildPreamble(agent, projectSlug, assignment);
     const finalPrompt = [preamble, memoryBlock, `## Task\n${row.prompt}`]
       .filter((s) => s.length > 0)
       .join("\n\n");
+
+    // P2/EH5: resolve the effective tool policy (Global→Agent→Project→Task) ONCE and
+    // snapshot it on the run, so the provider reads an immutable set — a row edited
+    // while the run was queued can't change what it may touch.
+    const effectiveTools = resolveRunEffectiveTools({ agent, project: projectRow, task: taskRow });
+    db.update(runs).set({ effectiveTools }).where(eq(runs.id, row.id)).run();
 
     const tempDir = path.join(config.tmpDir, row.id);
     fs.mkdirSync(tempDir, { recursive: true });
@@ -207,6 +216,7 @@ export class RunManager {
     const spec = provider.buildHeadlessSpawn(agent, finalPrompt, {
       runId: row.id,
       tempDir,
+      effectiveTools,
       rootDir: projectRootDir,
       sessionId: row.sessionId ?? crypto.randomUUID(),
       extraEnv: {

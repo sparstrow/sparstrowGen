@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFile } from "node:child_process";
-import type { Agent, ProviderHealth, RunResult } from "@sparstrow/shared";
+import type { Agent, EffectiveTools, ProviderHealth, RunResult } from "@sparstrow/shared";
 import { KNOWN_MODELS } from "@sparstrow/shared";
 import { config } from "../config.js";
 import type {
@@ -25,9 +25,17 @@ export class ClaudeCodeProvider implements ModelProvider {
     return KNOWN_MODELS["claude-code"] ?? [];
   }
 
-  private commonArgs(agent: Agent, tempDir: string, runId?: string): string[] {
+  private commonArgs(
+    agent: Agent,
+    tempDir: string,
+    runId?: string,
+    effectiveTools?: EffectiveTools,
+  ): string[] {
     const args: string[] = ["--model", agent.model];
-    const allowedTools = [...agent.allowedTools];
+    // EH5: prefer the immutable per-run snapshot; fall back to the live agent row
+    // only for interactive/test spawns that have no resolved policy.
+    const allowedTools = [...(effectiveTools?.allowed ?? agent.allowedTools)];
+    const disallowedTools = effectiveTools?.disallowed ?? agent.disallowedTools;
 
     // Auto-wire the sparstrow-memory MCP server (memory_search / memory_save
     // and, from phase 3, task/message tools) into every run that has a run id.
@@ -44,8 +52,8 @@ export class ClaudeCodeProvider implements ModelProvider {
     }
 
     if (allowedTools.length > 0) args.push("--allowedTools", allowedTools.join(","));
-    if (agent.disallowedTools.length > 0)
-      args.push("--disallowedTools", agent.disallowedTools.join(","));
+    if (disallowedTools.length > 0)
+      args.push("--disallowedTools", disallowedTools.join(","));
     if (agent.permissionMode !== "default") args.push("--permission-mode", agent.permissionMode);
     for (const dir of agent.addDirs) args.push("--add-dir", dir);
     // Vault access so agents can read/write memory notes as files.
@@ -66,7 +74,7 @@ export class ClaudeCodeProvider implements ModelProvider {
     if (opts.resumeSessionId) args.push("--resume", opts.resumeSessionId);
     else args.push("--session-id", opts.sessionId);
     if (agent.maxTurns != null) args.push("--max-turns", String(agent.maxTurns));
-    args.push(...this.commonArgs(agent, opts.tempDir, opts.runId));
+    args.push(...this.commonArgs(agent, opts.tempDir, opts.runId, opts.effectiveTools));
     return {
       command: config.claudePath,
       args,
