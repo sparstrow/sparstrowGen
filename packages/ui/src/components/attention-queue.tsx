@@ -1,13 +1,20 @@
 import * as React from "react";
 import { Link } from "@tanstack/react-router";
-import { AlertCircle, CheckCircle2, ClipboardCheck } from "lucide-react";
+import { AlertCircle, ArrowRightLeft, CheckCircle2, ClipboardCheck, ShieldCheck } from "lucide-react";
 import type { TaskQuestion } from "@sparstrow/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { useAgents, useAnswerTask, useAttentionQueue, type AttentionRow } from "@/api/hooks";
+import {
+  useAgents,
+  useAnswerTask,
+  useApproveTask,
+  useAttentionQueue,
+  useDenyTask,
+  type AttentionRow,
+} from "@/api/hooks";
 
 function ageLabel(ms: number): string {
   const m = Math.floor(ms / 60000);
@@ -109,6 +116,104 @@ function QuestionCard({ row, agentName }: { row: AttentionRow; agentName: string
   );
 }
 
+/**
+ * A cross-team spawn awaiting the owner (P3-Q2). EM3: the verbatim agent-authored
+ * description IS the primary content — it is the prompt-injection carrier, so the
+ * owner reads exactly what the child agent would receive, plus the exact tool
+ * bound it would run under.
+ */
+function ApprovalCard({ row }: { row: AttentionRow }) {
+  const approve = useApproveTask();
+  const deny = useDenyTask();
+  const [denying, setDenying] = React.useState(false);
+  const [reason, setReason] = React.useState("");
+  const a = row.approval!;
+
+  return (
+    <div className="rounded-lg border border-sky-500/30 bg-sky-500/5 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-sm font-semibold">
+            <ArrowRightLeft className="size-3.5 shrink-0 text-sky-500" />
+            {a.delegatedByAgentName ?? "An agent"} → {a.targetAgentName ?? "unknown agent"}
+            <span className="font-normal text-muted-foreground">(cross-team)</span>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {a.parentTaskTitle ? `part of "${a.parentTaskTitle}" · ` : ""}
+            requested {ageLabel(row.ageMs)}
+          </p>
+        </div>
+        <Badge variant="outline" className="border-sky-500/40 text-sky-600 dark:text-sky-400">
+          approval
+        </Badge>
+      </div>
+
+      <p className="mt-2 text-xs font-medium text-muted-foreground">
+        Verbatim request "{row.task.title}" — written by the agent, read it as-is:
+      </p>
+      <p className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap rounded border bg-background/60 px-2 py-1.5 text-sm">
+        {a.verbatimDescription || "(empty description)"}
+      </p>
+
+      <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+        <ShieldCheck className="size-3.5 shrink-0" />
+        {a.effectiveBound ? (
+          <span>
+            Would run with at most{" "}
+            {a.effectiveBound.allowed.length > 0 ? (
+              <span className="font-mono">{a.effectiveBound.allowed.join(", ")}</span>
+            ) : (
+              "the default toolset"
+            )}
+            {a.effectiveBound.disallowed.length > 0 && (
+              <>
+                {" "}— never <span className="font-mono">{a.effectiveBound.disallowed.join(", ")}</span>
+              </>
+            )}{" "}
+            (clamped to the delegator's own limits)
+          </span>
+        ) : (
+          <span>Tool bound: the target agent's own configured limits</span>
+        )}
+      </p>
+
+      {denying ? (
+        <div className="mt-3 space-y-2">
+          <Textarea
+            rows={2}
+            autoFocus
+            placeholder="Why deny? (sent to the delegating agent)"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="destructive" disabled={deny.isPending} onClick={() => deny.mutate({ id: row.task.id, reason: reason.trim() || undefined })}>
+              {deny.isPending ? "Denying…" : "Confirm deny"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setDenying(false)}>
+              Back
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 flex items-center gap-2">
+          <Button size="sm" disabled={approve.isPending} onClick={() => approve.mutate(row.task.id)}>
+            {approve.isPending ? "Approving…" : "Approve & run"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setDenying(true)}>
+            Deny
+          </Button>
+          {(approve.isError || deny.isError) && (
+            <span className="text-xs text-destructive">
+              {approve.error?.message ?? deny.error?.message}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ReviewRow({ row }: { row: AttentionRow }) {
   return (
     <Link
@@ -156,6 +261,8 @@ export function AttentionQueue() {
           rows.map((row) =>
             row.type === "question" ? (
               <QuestionCard key={row.task.id} row={row} agentName={agentName(row.task.assignedAgentId)} />
+            ) : row.type === "approval" ? (
+              <ApprovalCard key={row.task.id} row={row} />
             ) : (
               <ReviewRow key={row.task.id} row={row} />
             ),

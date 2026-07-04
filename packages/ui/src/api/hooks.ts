@@ -402,6 +402,8 @@ export interface TaskCreateInput {
   description?: string;
   projectId?: string | null;
   assignedAgentId?: string | null;
+  /** P3: two or more agents ⇒ ephemeral team + one child task per agent. */
+  assignedAgentIds?: string[];
   priority?: number;
 }
 
@@ -464,12 +466,23 @@ export function useRunTask(): UseMutationResult<Task, ApiError, string> {
 // Attention queue (P1 — the founder's daily surface)
 // ---------------------------------------------------------------------------
 
-export type AttentionRowType = "question" | "ready-for-review";
+export type AttentionRowType = "question" | "ready-for-review" | "approval";
+
+/** EM3: the verbatim agent-authored description is the primary approval content. */
+export interface ApprovalDetails {
+  targetAgentName: string | null;
+  delegatedByAgentName: string | null;
+  parentTaskId: string | null;
+  parentTaskTitle: string | null;
+  effectiveBound: { allowed: string[]; disallowed: string[] } | null;
+  verbatimDescription: string;
+}
 
 export interface AttentionRow {
   type: AttentionRowType;
   task: Task;
   questions: TaskQuestion[];
+  approval?: ApprovalDetails;
   ageMs: number;
 }
 
@@ -504,6 +517,31 @@ export function useAnswerTask(): UseMutationResult<AnswerResult, ApiError, Answe
       void queryClient.invalidateQueries({ queryKey: ["attention-queue"] });
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
       void queryClient.invalidateQueries({ queryKey: ["runs"] });
+    },
+  });
+}
+
+/** POST /tasks/:id/approve — run a parked cross-team spawn (P3). */
+export function useApproveTask(): UseMutationResult<Task, ApiError, string> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<Task>(`/tasks/${id}/approve`, { method: "POST" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["attention-queue"] });
+      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      void queryClient.invalidateQueries({ queryKey: ["runs"] });
+    },
+  });
+}
+
+/** POST /tasks/:id/deny — fail a parked cross-team spawn; the lead wakes with the denial (P3). */
+export function useDenyTask(): UseMutationResult<Task, ApiError, { id: string; reason?: string }> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }) => api<Task>(`/tasks/${id}/deny`, { method: "POST", body: { reason } }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["attention-queue"] });
+      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 }

@@ -131,6 +131,20 @@ export function TeamsPage() {
                   <CardTitle className="text-base group-hover:text-primary transition-colors">
                     {team.name}
                   </CardTitle>
+                  {(team.isEphemeral || team.archivedAt) && (
+                    <div className="flex gap-1.5">
+                      {team.isEphemeral && (
+                        <Badge variant="outline" className="text-[10px] border-sky-500/40 text-sky-600 dark:text-sky-400">
+                          ephemeral
+                        </Badge>
+                      )}
+                      {team.archivedAt && (
+                        <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                          archived
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <Badge variant="secondary" className="flex items-center gap-1 shrink-0">
                   <Users className="size-3" />
