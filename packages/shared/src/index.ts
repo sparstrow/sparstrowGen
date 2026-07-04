@@ -2,6 +2,7 @@ export * from "./constants.js";
 export * from "./events.js";
 export * from "./skill-md.js";
 export * from "./wake-prompt.js";
+export * from "./tool-policy.js";
 export * from "./schemas/common.js";
 export * from "./schemas/agent.js";
 export * from "./schemas/agent-draft.js";
