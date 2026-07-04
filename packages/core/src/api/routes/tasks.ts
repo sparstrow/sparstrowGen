@@ -97,14 +97,14 @@ export async function taskRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /**
-   * Answer a blocked task's question(s) and wake it. Returns 409 (with answers
-   * still saved) when the prior run is in flight — S4-a "answer saved, not applied".
+   * Answer a blocked task's question(s) and wake it. Always 200: the answers are
+   * saved regardless. `applied` is false with a reason when the prior run is still
+   * in flight (S4-a "answer saved, applies on next wake") — the client branches on
+   * it rather than treating a saved answer as a failed request.
    */
-  app.patch("/tasks/:id/answer", async (request, reply) => {
+  app.patch("/tasks/:id/answer", async (request) => {
     const { id } = request.params as { id: string };
     const body = taskAnswerSchema.parse(request.body);
-    const result = answerTaskQuestions(id, body);
-    if (!result.applied) reply.code(409);
-    return result;
+    return answerTaskQuestions(id, body);
   });
 }

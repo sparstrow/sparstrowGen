@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { wsHub } from "@/lib/ws";
+import { useAttentionQueue } from "@/api/hooks";
 import { ThemeToggle } from "@/theme/theme-toggle";
 
 const NAV = [
@@ -45,6 +46,9 @@ export function AppShell() {
   const active = NAV.findLast((n) =>
     n.to === "/" ? pathname === "/" : pathname.startsWith(n.to),
   );
+  // Attention count drives the Dashboard nav badge + a header chip (visible anywhere).
+  const attention = useAttentionQueue();
+  const attentionCount = attention.data?.length ?? 0;
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -69,7 +73,12 @@ export function AppShell() {
                 )}
               >
                 <item.icon className="size-4" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {item.to === "/" && attentionCount > 0 ? (
+                  <span className="rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-white">
+                    {attentionCount}
+                  </span>
+                ) : null}
               </Link>
             );
           })}
@@ -83,6 +92,16 @@ export function AppShell() {
         <header className="flex h-14 shrink-0 items-center justify-between border-b px-5">
           <h1 className="text-sm font-semibold">{active?.label ?? "Sparstrowgen"}</h1>
           <div className="flex items-center gap-3">
+            {attentionCount > 0 ? (
+              <Link
+                to="/"
+                className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400"
+                title={`${attentionCount} item(s) need your attention`}
+              >
+                <span className="size-2 rounded-full bg-amber-500" />
+                {attentionCount} waiting
+              </Link>
+            ) : null}
             <span
               className="flex items-center gap-1.5 text-xs text-muted-foreground"
               title={connected ? "Connected to core service" : "Core service unreachable"}

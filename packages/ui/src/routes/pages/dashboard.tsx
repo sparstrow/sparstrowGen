@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { RunStatusBadge } from "@/components/run-status-badge";
+import { AttentionQueue } from "@/components/attention-queue";
 import { useAgents, useHealth, useProjects, useRuns } from "@/api/hooks";
 import { formatCost, formatDate, formatDuration } from "@/lib/format";
 
@@ -29,6 +30,9 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-5">
+      {/* The founder's #1 daily surface: blocked agents + reviews come first (design C1). */}
+      <AttentionQueue />
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
