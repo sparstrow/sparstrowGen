@@ -274,4 +274,19 @@ CREATE INDEX idx_task_questions_queue ON task_questions(answered_at, asked_at);
 CREATE INDEX idx_task_questions_task ON task_questions(task_id);
 `,
   },
+  {
+    // P2-lite tool permissions. Project- and task-level allow/disallow lists feed
+    // resolveEffectiveTools (Global→Agent→Project→Task); global defaults live in the
+    // existing settings table (keys tools.global.allowed / tools.global.disallowed),
+    // so no column for them. ADD COLUMN-only — safe under the in-transaction runner.
+    // (runs.effective_tools already exists from 0004; P2 only changes its JSON shape
+    // from string[] to {allowed,disallowed}, which needs no DDL.)
+    id: "0005_tool_permissions",
+    sql: `
+ALTER TABLE projects ADD COLUMN allowed_tools TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE projects ADD COLUMN disallowed_tools TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE tasks ADD COLUMN allowed_tools TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE tasks ADD COLUMN disallowed_tools TEXT NOT NULL DEFAULT '[]';
+`,
+  },
 ];

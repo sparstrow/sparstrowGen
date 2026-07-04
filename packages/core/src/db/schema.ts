@@ -33,6 +33,8 @@ export const projects = sqliteTable("projects", {
   slug: text("slug").notNull().unique(),
   description: text("description").notNull().default(""),
   rootDir: text("root_dir"),
+  allowedTools: text("allowed_tools", { mode: "json" }).$type<string[]>().notNull().default([]),
+  disallowedTools: text("disallowed_tools", { mode: "json" }).$type<string[]>().notNull().default([]),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -53,7 +55,10 @@ export const runs = sqliteTable(
     status: text("status").notNull(),
     sessionId: text("session_id"),
     lane: text("lane").notNull().default("foreground"),
-    effectiveTools: text("effective_tools", { mode: "json" }).$type<string[] | null>(),
+    effectiveTools: text("effective_tools", { mode: "json" }).$type<{
+      allowed: string[];
+      disallowed: string[];
+    } | null>(),
     resultText: text("result_text"),
     costUsd: real("cost_usd"),
     numTurns: integer("num_turns"),
@@ -100,6 +105,8 @@ export const tasks = sqliteTable(
     runId: text("run_id"),
     result: text("result"),
     wakePayload: text("wake_payload"),
+    allowedTools: text("allowed_tools", { mode: "json" }).$type<string[]>().notNull().default([]),
+    disallowedTools: text("disallowed_tools", { mode: "json" }).$type<string[]>().notNull().default([]),
     userId: text("user_id"),
     dueAt: text("due_at"),
     createdAt: text("created_at").notNull(),
