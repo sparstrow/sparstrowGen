@@ -48,11 +48,16 @@ export class RunManager {
   private busyAgents = new Set<string>();
   private globalCap = DEFAULT_GLOBAL_CONCURRENCY;
 
-  /** Mark runs left over from a previous service process as failed. */
+  /**
+   * Mark runs left over from a previous service process as failed. EC1: also
+   * emit run.completed and reconcile each orphaned run's task, so a task whose
+   * run died mid-flight (e.g. a restart) doesn't stick in `in_progress` forever —
+   * it reconciles to `failed` and surfaces, rather than silently orphaning a lead.
+   */
   sweepOrphans(): void {
     const db = getDb();
     const orphaned = db
-      .select({ id: runs.id })
+      .select()
       .from(runs)
       .where(inArray(runs.status, ["running", "queued"]))
       .all();
@@ -62,6 +67,14 @@ export class RunManager {
       .where(inArray(runs.status, ["running", "queued"]))
       .run();
     logger.warn({ count: orphaned.length }, "swept orphaned runs");
+    for (const row of orphaned) {
+      const run = this.getRun(row.id);
+      if (!run) continue;
+      bus.publish({ type: "run.completed", run });
+      void import("./handoff.js")
+        .then(({ processRunCompletion }) => processRunCompletion(run))
+        .catch((err) => logger.warn({ err, runId: run.id }, "orphan reconciliation failed"));
+    }
   }
 
   createRun(input: RunCreate): Run {
@@ -116,6 +129,10 @@ export class RunManager {
         .run();
       const updated = rowToRun(db.select().from(runs).where(eq(runs.id, runId)).get()!);
       bus.publish({ type: "run.completed", run: updated });
+      // EC1: reconcile the cancelled run's task so it doesn't stick in_progress.
+      void import("./handoff.js")
+        .then(({ processRunCompletion }) => processRunCompletion(updated))
+        .catch((err) => logger.warn({ err, runId }, "cancel reconciliation failed"));
       return updated;
     }
     throw new HttpError(409, `run is not cancellable (status: ${row.status})`);
