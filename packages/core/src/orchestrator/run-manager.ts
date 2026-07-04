@@ -102,7 +102,9 @@ export class RunManager {
       // claude-code optimization applied by the provider spawn, not stored here.
       sessionId: input.resumeSessionId ?? crypto.randomUUID(),
       lane: input.lane ?? "foreground",
-      effectiveTools: input.effectiveTools ?? null,
+      // effectiveTools is resolved + snapshotted at spawn (start()), not at create,
+      // so a queued run reflects the policy in force when it actually runs (EH5).
+      effectiveTools: null,
       createdAt: nowIso(),
     };
     db.insert(runs).values(row).run();

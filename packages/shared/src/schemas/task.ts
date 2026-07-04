@@ -61,6 +61,9 @@ export const taskSchema = z.object({
    * (the memory-audit block) — DX-C1: reusing that name across tables is a bug.
    */
   wakePayload: z.string().nullable().default(null),
+  /** P2 task-level tool policy — the most specific level; deny always wins. */
+  allowedTools: z.array(z.string()).default([]),
+  disallowedTools: z.array(z.string()).default([]),
   dueAt: isoDateSchema.nullable().default(null),
   /** Tenancy forward-marker (D6-followup) — no users table yet; see PHASE6-NOTES. */
   userId: idSchema.nullable().default(null),
@@ -118,6 +121,11 @@ export const taskCreateSchema = taskSchema.omit({
   updatedAt: true,
   runId: true,
   result: true,
+  // Not create-time inputs (set by the escalation flow / tool-policy edits).
+  wakePayload: true,
+  allowedTools: true,
+  disallowedTools: true,
+  userId: true,
 });
 export type TaskCreate = z.infer<typeof taskCreateSchema>;
 

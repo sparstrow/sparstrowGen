@@ -56,8 +56,15 @@ export const runSchema = z.object({
   status: runStatusSchema,
   sessionId: z.string().nullable().default(null),
   lane: z.string().default("foreground"),
-  /** Immutable per-run effective toolset snapshot (P2); null until P2 lands. */
-  effectiveTools: z.array(z.string()).nullable().default(null),
+  /**
+   * Immutable per-run effective toolset snapshot (P2, EH5). Resolved at spawn from
+   * Global→Agent→Project→Task; the provider reads ONLY this, never the live agent
+   * row, so mutating a row while the run is queued can't change what it may touch.
+   */
+  effectiveTools: z
+    .object({ allowed: z.array(z.string()), disallowed: z.array(z.string()) })
+    .nullable()
+    .default(null),
   resultText: z.string().nullable().default(null),
   costUsd: z.number().nullable().default(null),
   numTurns: z.number().int().nullable().default(null),
@@ -92,8 +99,9 @@ export const runCreateSchema = z.object({
   resumeSessionId: z.string().nullable().optional(),
   /** Scheduling lane; createRun defaults to "foreground" when omitted. */
   lane: runLaneSchema.optional(),
-  /** Immutable per-run effective toolset snapshot (P2 resolver output). */
-  effectiveTools: z.array(z.string()).nullable().optional(),
+  // effectiveTools is NOT a create-time input: it is resolved and snapshotted at
+  // spawn time in run-manager.start() (P2), so a queued run always reflects the
+  // policy in force when it actually runs.
 });
 export type RunCreate = z.infer<typeof runCreateSchema>;
 
