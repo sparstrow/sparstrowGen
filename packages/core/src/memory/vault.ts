@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
+import { parseFrontmatter, stringifyFrontmatter } from "./frontmatter.js";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
@@ -112,7 +112,7 @@ export function writeNote(input: MemoryNoteCreate): MemoryNote {
     created: ts,
     updated: ts,
   };
-  const fileContent = matter.stringify(input.content, frontmatter);
+  const fileContent = stringifyFrontmatter(input.content, frontmatter);
 
   fs.mkdirSync(path.dirname(absPath), { recursive: true });
   fs.writeFileSync(absPath, fileContent, "utf8");
@@ -148,7 +148,7 @@ export function readNoteRaw(note: MemoryNote): string {
 /** Body without frontmatter, for excerpts/injection. */
 export function readNoteBody(note: MemoryNote): string {
   const raw = readNoteRaw(note);
-  return matter(raw).content.trim();
+  return parseFrontmatter(raw).content.trim();
 }
 
 export function writeNoteRaw(id: string, content: string): MemoryNote {
@@ -246,8 +246,8 @@ export function scanVault(): ScanResult & { dirtyNoteIds: string[] } {
       let fm: Record<string, unknown> = {};
       let body = raw;
       try {
-        const parsed = matter(raw);
-        fm = parsed.data ?? {};
+        const parsed = parseFrontmatter(raw);
+        fm = parsed.data;
         body = parsed.content;
       } catch {
         // malformed frontmatter — index as plain content
