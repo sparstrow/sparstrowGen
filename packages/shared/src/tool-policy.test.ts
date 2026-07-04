@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { isToolPolicySubset, resolveEffectiveTools, type EffectiveTools } from "./tool-policy.js";
+import {
+  intersectEffectiveTools,
+  isToolPolicySubset,
+  resolveEffectiveTools,
+  type EffectiveTools,
+} from "./tool-policy.js";
 
 const P = (allowed: string[] = [], disallowed: string[] = []) => ({ allowed, disallowed });
 
@@ -68,5 +73,50 @@ describe("isToolPolicySubset — P3 delegation clamp (S1-a)", () => {
     const defaultParent: EffectiveTools = { allowed: [], disallowed: ["Bash"] };
     expect(isToolPolicySubset({ allowed: ["Read", "Edit"], disallowed: ["Bash"] }, defaultParent)).toBe(true);
     expect(isToolPolicySubset({ allowed: ["Bash"], disallowed: [] }, defaultParent)).toBe(false);
+  });
+});
+
+describe("intersectEffectiveTools — S1-a LEAST constructor", () => {
+  const I = (a: EffectiveTools, b: EffectiveTools) => intersectEffectiveTools(a, b);
+
+  it("both allow-lists empty ⇒ empty allow, union of denies (provider default, tighter denies)", () => {
+    expect(I(P([], ["Bash"]), P([], ["Edit"]))).toEqual({ allowed: [], disallowed: ["Bash", "Edit"] });
+  });
+
+  it("one side empty ⇒ the non-default side is the bound", () => {
+    expect(I(P([], ["Edit"]), P(["Read", "WebSearch"], []))).toEqual({
+      allowed: ["Read", "WebSearch"],
+      disallowed: ["Edit"],
+    });
+    expect(I(P(["Read"], []), P([], ["Bash"]))).toEqual({ allowed: ["Read"], disallowed: ["Bash"] });
+  });
+
+  it("both non-empty ⇒ set intersection of allows", () => {
+    expect(I(P(["Read", "Edit"], []), P(["Read", "WebSearch"], []))).toEqual({
+      allowed: ["Read"],
+      disallowed: [],
+    });
+  });
+
+  it("deny at either level removes the tool from the granted set", () => {
+    expect(I(P(["Read", "Bash"], []), P(["Read", "Bash"], ["Bash"]))).toEqual({
+      allowed: ["Read"],
+      disallowed: ["Bash"],
+    });
+  });
+
+  it("property: the intersection is always a subset of both inputs", () => {
+    const cases: [EffectiveTools, EffectiveTools][] = [
+      [P([], []), P([], [])],
+      [P(["Read"], ["Bash"]), P([], ["Edit"])],
+      [P(["Read", "Edit"], []), P(["Read"], ["Edit"])],
+      [P(["A", "B", "C"], ["D"]), P(["B", "C", "E"], ["A"])],
+    ];
+    for (const [a, b] of cases) {
+      const least = I(a, b);
+      // Union of denies + intersected allows ⇒ subset of each input by construction.
+      expect(isToolPolicySubset(least, a)).toBe(true);
+      expect(isToolPolicySubset(least, b)).toBe(true);
+    }
   });
 });

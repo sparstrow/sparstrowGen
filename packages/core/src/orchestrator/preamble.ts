@@ -9,6 +9,9 @@ export interface Assignment {
   taskId: string;
   taskTitle: string;
   delegatedByAgentName?: string | null;
+  /** P3 delegation brief (DX1): parent intent + sibling context for a child run. */
+  parentTaskTitle?: string | null;
+  siblings?: { title: string; status: string; assignedAgentName: string | null }[];
 }
 
 /**
@@ -25,7 +28,10 @@ export function buildPreamble(
   for (const scope of agent.memoryWriteScopes) {
     try {
       if (scope === "global") writeDirs.push(scopeDir("global"));
-      else if (scope === "agent:self") writeDirs.push(scopeDir("agent", null, agent.slug));
+      // agent:self is instance-aware (P3/D5): inside a project the write dir is
+      // agents/<template>/<project>/ so self-notes never bleed across projects.
+      else if (scope === "agent:self")
+        writeDirs.push(scopeDir("agent", currentProjectSlug, agent.slug));
       else if (scope.startsWith("agent:"))
         writeDirs.push(scopeDir("agent", null, scope.slice("agent:".length)));
       else if (scope === "project:*") {
@@ -98,7 +104,27 @@ export function buildPreamble(
       "",
       "## Your assignment",
       `You are working on task ${assignment.taskId}: "${assignment.taskTitle}".${via}`,
-      "When done, call task_update with status done (or failed) and a result summary the requester will read. If you get stuck and only a human can decide, call task_block with specific, one-line-answerable questions — your run will end and you will be re-run with the answer.",
+    );
+    // The delegation brief (DX1): why-you and where this fits, so a child acts
+    // correctly on turn 1 instead of re-deriving (or re-doing) the parent's work.
+    if (assignment.parentTaskTitle) {
+      lines.push(
+        `This is one part of the larger task "${assignment.parentTaskTitle}" — your delegator is suspended until you (and any sibling subtasks) finish, and will synthesize the results. Stay within your brief; do not attempt the whole parent task.`,
+      );
+    }
+    if (assignment.siblings && assignment.siblings.length > 0) {
+      lines.push(
+        "Sibling subtasks in flight alongside yours (context only — do not duplicate their work):",
+        ...assignment.siblings.map(
+          (s) => `- [${s.status}] ${s.title}${s.assignedAgentName ? ` — ${s.assignedAgentName}` : ""}`,
+        ),
+      );
+    }
+    lines.push(
+      "When done, call task_update with status done (or failed) and a result summary the requester will read. If you get stuck and only a human can decide, call task_block with specific, one-line-answerable questions — your run will end and you will be re-run with the answer." +
+        (assignment.parentTaskTitle
+          ? " If your delegator can answer instead, message them via message_send first."
+          : ""),
     );
   }
 

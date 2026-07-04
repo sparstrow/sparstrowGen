@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
+import { parseFrontmatter, stringifyFrontmatter } from "./frontmatter.js";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
@@ -51,12 +51,21 @@ export function scopeDir(
     }
     case "agent": {
       if (!agentSlug) throw new Error("agentSlug required for agent-scoped notes");
-      return `${VAULT_DIRS.agents}/${agentSlug}`;
+      // P3 (locked D5): an agent-scoped note WITH a project is an instance note —
+      // `agents/<template>/<project>/` — so per-project self-memory never bleeds.
+      return projectSlug
+        ? `${VAULT_DIRS.agents}/${agentSlug}/${projectSlug}`
+        : `${VAULT_DIRS.agents}/${agentSlug}`;
     }
   }
 }
 
-/** Derive scope metadata from a vault-relative path. Inbox files index as global. */
+/**
+ * Derive scope metadata from a vault-relative path. Inbox files index as global.
+ * P3 convention: a subfolder under an agent's dir is an instance dir —
+ * `agents/<template>/<project>/note.md` derives the instance scope (frontmatter
+ * still wins over the path in scanVault, as before).
+ */
 export function deriveScopeFromPath(relPath: string): {
   scope: MemoryScopeKind;
   projectSlug: string | null;
@@ -68,7 +77,8 @@ export function deriveScopeFromPath(relPath: string): {
     return { scope: "project", projectSlug: parts[1] ?? null, agentSlug: null };
   }
   if (head === VAULT_DIRS.agents && parts.length >= 3) {
-    return { scope: "agent", projectSlug: null, agentSlug: parts[1] ?? null };
+    const projectSlug = parts.length >= 4 ? (parts[2] ?? null) : null;
+    return { scope: "agent", projectSlug, agentSlug: parts[1] ?? null };
   }
   return { scope: "global", projectSlug: null, agentSlug: null };
 }
@@ -112,7 +122,7 @@ export function writeNote(input: MemoryNoteCreate): MemoryNote {
     created: ts,
     updated: ts,
   };
-  const fileContent = matter.stringify(input.content, frontmatter);
+  const fileContent = stringifyFrontmatter(input.content, frontmatter);
 
   fs.mkdirSync(path.dirname(absPath), { recursive: true });
   fs.writeFileSync(absPath, fileContent, "utf8");
@@ -148,7 +158,7 @@ export function readNoteRaw(note: MemoryNote): string {
 /** Body without frontmatter, for excerpts/injection. */
 export function readNoteBody(note: MemoryNote): string {
   const raw = readNoteRaw(note);
-  return matter(raw).content.trim();
+  return parseFrontmatter(raw).content.trim();
 }
 
 export function writeNoteRaw(id: string, content: string): MemoryNote {
@@ -246,8 +256,8 @@ export function scanVault(): ScanResult & { dirtyNoteIds: string[] } {
       let fm: Record<string, unknown> = {};
       let body = raw;
       try {
-        const parsed = matter(raw);
-        fm = parsed.data ?? {};
+        const parsed = parseFrontmatter(raw);
+        fm = parsed.data;
         body = parsed.content;
       } catch {
         // malformed frontmatter — index as plain content

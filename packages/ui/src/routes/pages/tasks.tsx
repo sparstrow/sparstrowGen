@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Bot, Play, Plus, Trash2, User } from "lucide-react";
+import { ArrowRight, Bot, CornerDownRight, Play, Plus, Trash2, User, Users } from "lucide-react";
 import type { Task, TaskStatus } from "@sparstrow/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,32 @@ const COLUMNS: { status: TaskStatus; label: string; accent: string }[] = [
 
 const PRIORITY_LABELS = ["Low", "Normal", "High", "Urgent"] as const;
 
+/** Child status → tree/mini-meter color (P3 delegation affordances). */
+const CHILD_STATUS_STYLE: Record<string, string> = {
+  done: "text-emerald-600 dark:text-emerald-400",
+  failed: "text-red-600 dark:text-red-400",
+  in_progress: "text-amber-600 dark:text-amber-400",
+  waiting_children: "text-amber-600 dark:text-amber-400",
+  pending_approval: "text-sky-600 dark:text-sky-400",
+  blocked: "text-amber-600 dark:text-amber-400",
+};
+
+/** "3 · 1✓ 1▶ 1⚠" — a parent card's children at a glance (design contract). */
+function ChildrenMeter({ children }: { children: Task[] }) {
+  const done = children.filter((c) => c.status === "done").length;
+  const failed = children.filter((c) => c.status === "failed").length;
+  const active = children.length - done - failed;
+  return (
+    <Badge variant="outline" className="gap-1 text-[10px] tabular-nums" title={`${children.length} subtasks: ${done} done, ${active} active, ${failed} failed`}>
+      <CornerDownRight className="size-2.5" />
+      {children.length}
+      {done > 0 && <span className="text-emerald-600 dark:text-emerald-400">{done}✓</span>}
+      {active > 0 && <span className="text-amber-600 dark:text-amber-400">{active}▶</span>}
+      {failed > 0 && <span className="text-red-600 dark:text-red-400">{failed}⚠</span>}
+    </Badge>
+  );
+}
+
 function priorityBadge(priority: number) {
   const variants = [
     "text-muted-foreground",
@@ -74,7 +100,8 @@ export function TasksPage() {
 
   const [newTitle, setNewTitle] = React.useState("");
   const [newDescription, setNewDescription] = React.useState("");
-  const [newAgentId, setNewAgentId] = React.useState("");
+  // P3: multiple assignees form an ephemeral team (a swarm) around the task.
+  const [newAgentIds, setNewAgentIds] = React.useState<string[]>([]);
   const [newProjectId, setNewProjectId] = React.useState("");
   const [newPriority, setNewPriority] = React.useState("1");
 
@@ -96,7 +123,9 @@ export function TasksPage() {
       {
         title: newTitle.trim(),
         description: newDescription,
-        assignedAgentId: newAgentId || null,
+        // One agent = plain assignment; two or more = ephemeral swarm (P3).
+        assignedAgentId: newAgentIds.length === 1 ? newAgentIds[0] : null,
+        assignedAgentIds: newAgentIds.length > 1 ? newAgentIds : undefined,
         projectId: newProjectId || null,
         priority: Number(newPriority),
       },
@@ -105,15 +134,26 @@ export function TasksPage() {
           setCreateOpen(false);
           setNewTitle("");
           setNewDescription("");
-          setNewAgentId("");
+          setNewAgentIds([]);
           setNewPriority("1");
         },
       },
     );
   };
 
+  // waiting_children (a suspended lead) and blocked_answered (wake in flight) are
+  // working states, not workflow stages — they render inside "In progress" with
+  // their own whisper rather than growing the board (design contract: 6 columns).
   const byStatus = (status: TaskStatus) =>
-    (tasks.data ?? []).filter((t) => t.status === status);
+    (tasks.data ?? []).filter((t) =>
+      status === "in_progress"
+        ? (["in_progress", "waiting_children", "blocked_answered"] as TaskStatus[]).includes(t.status)
+        : t.status === status,
+    );
+
+  const childrenOf = (taskId: string) => (tasks.data ?? []).filter((t) => t.parentTaskId === taskId);
+  const parentOf = (task: Task) =>
+    task.parentTaskId ? (tasks.data ?? []).find((t) => t.id === task.parentTaskId) : undefined;
 
   // Blocked/awaiting-approval tasks are exceptional states, not workflow stages, so
   // they render as an amber attention band above the 6-column board (design H5) — the
@@ -170,29 +210,46 @@ export function TasksPage() {
                   </span>
                 </div>
                 <div className="flex flex-1 flex-col gap-2 p-2">
-                  {items.map((task) => (
-                    <button
-                      key={task.id}
-                      onClick={() => setSelected(task)}
-                      className="rounded-lg border bg-background p-2.5 text-left shadow-sm transition-colors hover:border-primary/40"
-                    >
-                      <p className="line-clamp-2 text-xs font-medium">{task.title}</p>
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        {priorityBadge(task.priority)}
-                        {task.assignedAgentId && (
-                          <Badge variant="secondary" className="gap-1 text-[10px]">
-                            <Bot className="size-2.5" />
-                            {agentName(task.assignedAgentId)}
-                          </Badge>
+                  {items.map((task) => {
+                    const kids = childrenOf(task.id);
+                    const parent = parentOf(task);
+                    return (
+                      <button
+                        key={task.id}
+                        onClick={() => setSelected(task)}
+                        className="rounded-lg border bg-background p-2.5 text-left shadow-sm transition-colors hover:border-primary/40"
+                      >
+                        <p className="line-clamp-2 text-xs font-medium">{task.title}</p>
+                        {task.status === "waiting_children" && kids.length > 0 && (
+                          <p className="mt-0.5 text-[10px] text-amber-600 dark:text-amber-400">
+                            waiting on {kids.filter((k) => !["done", "failed"].includes(k.status)).length} subtask(s)
+                          </p>
                         )}
-                        {task.createdByType === "agent" && (
-                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                            by {agentName(task.createdByAgentId) ?? "agent"}
-                          </Badge>
-                        )}
-                      </div>
-                    </button>
-                  ))}
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {priorityBadge(task.priority)}
+                          {/* P3 delegation affordances: parent chip on children, mini-meter on parents. */}
+                          {parent && (
+                            <Badge variant="outline" className="max-w-32 gap-1 text-[10px] text-muted-foreground" title={`subtask of: ${parent.title}`}>
+                              <CornerDownRight className="size-2.5 shrink-0" />
+                              <span className="truncate">{parent.title}</span>
+                            </Badge>
+                          )}
+                          {kids.length > 0 && <ChildrenMeter children={kids} />}
+                          {task.assignedAgentId && (
+                            <Badge variant="secondary" className="gap-1 text-[10px]">
+                              <Bot className="size-2.5" />
+                              {agentName(task.assignedAgentId)}
+                            </Badge>
+                          )}
+                          {task.createdByType === "agent" && (
+                            <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                              by {agentName(task.createdByAgentId) ?? "agent"}
+                            </Badge>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                   {items.length === 0 && (
                     <p className="px-1 py-3 text-center text-[11px] text-muted-foreground/60">
                       Empty
@@ -232,24 +289,40 @@ export function TasksPage() {
                 placeholder="The assignee runs with only this text — include everything they need."
               />
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <Label>Assign to</Label>
-                <Select value={newAgentId} onValueChange={setNewAgentId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Unassigned" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(agents.data ?? [])
-                      .filter((a) => a.enabled)
-                      .map((a) => (
-                        <SelectItem key={a.id} value={a.id}>
-                          {a.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+            <div className="space-y-1.5">
+              <Label>Assign to</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {(agents.data ?? [])
+                  .filter((a) => a.enabled)
+                  .map((a) => {
+                    const on = newAgentIds.includes(a.id);
+                    return (
+                      <Button
+                        key={a.id}
+                        type="button"
+                        size="sm"
+                        variant={on ? "default" : "outline"}
+                        onClick={() =>
+                          setNewAgentIds((ids) => (on ? ids.filter((x) => x !== a.id) : [...ids, a.id]))
+                        }
+                      >
+                        <Bot className="size-3" /> {a.name}
+                      </Button>
+                    );
+                  })}
               </div>
+              <p className="text-xs text-muted-foreground">
+                {newAgentIds.length === 0 && "None selected — the task lands in the inbox for later triage."}
+                {newAgentIds.length === 1 && "One agent — runs immediately with the task protocol."}
+                {newAgentIds.length > 1 && (
+                  <span className="inline-flex items-center gap-1">
+                    <Users className="size-3" />
+                    {newAgentIds.length} agents — an ephemeral team forms around this task; each gets a subtask and results are aggregated for your review.
+                  </span>
+                )}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Project</Label>
                 <Select value={newProjectId} onValueChange={setNewProjectId}>
@@ -330,29 +403,77 @@ export function TasksPage() {
                   </p>
                 )}
 
+                {/* P3: delegation context — parent link + the children tree
+                    (an indented status-colored list, deliberately NOT a canvas). */}
+                {parentOf(selected) && (
+                  <button
+                    className="flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
+                    onClick={() => setSelected(parentOf(selected)!)}
+                  >
+                    <CornerDownRight className="size-3.5 rotate-180 text-muted-foreground" />
+                    <span className="text-muted-foreground">subtask of</span>
+                    <span className="truncate font-medium">{parentOf(selected)!.title}</span>
+                  </button>
+                )}
+                {childrenOf(selected.id).length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label>Subtasks</Label>
+                    <div className="rounded-lg border">
+                      {childrenOf(selected.id).map((child) => (
+                        <button
+                          key={child.id}
+                          className="flex w-full items-center gap-2 border-b px-3 py-2 text-left text-sm transition-colors last:border-b-0 hover:bg-accent"
+                          onClick={() => setSelected(child)}
+                        >
+                          <CornerDownRight className="size-3.5 shrink-0 text-muted-foreground" />
+                          <span className="min-w-0 flex-1 truncate">{child.title}</span>
+                          {child.assignedAgentId && (
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {agentName(child.assignedAgentId)}
+                            </span>
+                          )}
+                          <span className={cn("shrink-0 text-xs font-medium", CHILD_STATUS_STYLE[child.status] ?? "text-muted-foreground")}>
+                            {child.status.replace(/_/g, " ")}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>Status</Label>
-                    <Select
-                      value={selected.status}
-                      onValueChange={(status) =>
-                        updateTask.mutate({
-                          id: selected.id,
-                          data: { status: status as TaskStatus },
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {COLUMNS.map((c) => (
-                          <SelectItem key={c.status} value={c.status}>
-                            {c.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {/* Escalation states are machine-managed — surface them read-only
+                        instead of a Select the owner could desync. */}
+                    {!COLUMNS.some((c) => c.status === selected.status) ? (
+                      <div className="flex h-9 items-center rounded-md border px-3">
+                        <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400">
+                          {selected.status.replace(/_/g, " ")}
+                        </Badge>
+                      </div>
+                    ) : (
+                      <Select
+                        value={selected.status}
+                        onValueChange={(status) =>
+                          updateTask.mutate({
+                            id: selected.id,
+                            data: { status: status as TaskStatus },
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {COLUMNS.map((c) => (
+                            <SelectItem key={c.status} value={c.status}>
+                              {c.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label>Assignee</Label>

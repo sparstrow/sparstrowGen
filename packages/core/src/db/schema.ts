@@ -1,4 +1,4 @@
-import { index, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import type { McpServerConfig } from "@sparstrow/shared";
 
 export const agents = sqliteTable("agents", {
@@ -55,6 +55,8 @@ export const runs = sqliteTable(
     status: text("status").notNull(),
     sessionId: text("session_id"),
     lane: text("lane").notNull().default("foreground"),
+    // P3/EH4: the project-scoped instance this run executed as (null = template).
+    agentInstanceId: text("agent_instance_id"),
     effectiveTools: text("effective_tools", { mode: "json" }).$type<{
       allowed: string[];
       disallowed: string[];
@@ -107,12 +109,25 @@ export const tasks = sqliteTable(
     wakePayload: text("wake_payload"),
     allowedTools: text("allowed_tools", { mode: "json" }).$type<string[]>().notNull().default([]),
     disallowedTools: text("disallowed_tools", { mode: "json" }).$type<string[]>().notNull().default([]),
+    // P3 delegation tree (self-FK; not declared as a drizzle FK to keep the
+    // ALTER TABLE migration simple — SQLite ADD COLUMN can't add one anyway).
+    parentTaskId: text("parent_task_id"),
+    // P3 S1-a: the delegating parent run's effective toolset, snapshotted at
+    // spawn_subtask time. Child-run resolution is intersected with this bound.
+    parentEffectiveTools: text("parent_effective_tools", { mode: "json" }).$type<{
+      allowed: string[];
+      disallowed: string[];
+    } | null>(),
     userId: text("user_id"),
     dueAt: text("due_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
-  (t) => [index("idx_tasks_status").on(t.status), index("idx_tasks_assigned").on(t.assignedAgentId)],
+  (t) => [
+    index("idx_tasks_status").on(t.status),
+    index("idx_tasks_assigned").on(t.assignedAgentId),
+    index("idx_tasks_parent").on(t.parentTaskId),
+  ],
 );
 
 export const taskQuestions = sqliteTable(
@@ -246,6 +261,11 @@ export const teams = sqliteTable("teams", {
   name: text("name").notNull().unique(),
   slug: text("slug").notNull().unique(),
   description: text("description").notNull().default(""),
+  // P3 ephemeral teams: auto-created around a multi-assign task; soft-archived
+  // (C6/P3-Q3 — never hard-deleted) when the linked task reaches terminal status.
+  isEphemeral: integer("is_ephemeral", { mode: "boolean" }).notNull().default(false),
+  linkedTaskId: text("linked_task_id"),
+  archivedAt: text("archived_at"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -269,4 +289,25 @@ export const teamMembers = sqliteTable(
     sort: integer("sort").notNull().default(0),
   },
   (t) => [index("idx_team_members_team").on(t.teamId, t.sort)],
+);
+
+/**
+ * P3 agent instances (locked D5): (template, project) deployments, created lazily
+ * on the first run of a template inside a project. `agent:self` memory resolves to
+ * the instance; busy-tracking keys on it (P3-Q5). Templates stay the org-level
+ * identity everywhere else — see fable-handoff/P3-SEAM-TABLE.md.
+ */
+export const agentInstances = sqliteTable(
+  "agent_instances",
+  {
+    id: text("id").primaryKey(),
+    agentId: text("agent_id")
+      .notNull()
+      .references(() => agents.id, { onDelete: "cascade" }),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("uq_agent_instances_agent_project").on(t.agentId, t.projectId)],
 );

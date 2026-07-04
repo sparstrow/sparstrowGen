@@ -1,5 +1,6 @@
 import type { Run } from "@sparstrow/shared";
 import { logger } from "../logger.js";
+import { maybeWakeWaitingParent } from "../taskboard/delegation.js";
 import {
   createTask,
   getTask,
@@ -13,6 +14,9 @@ import {
  *    agents without MCP tools (gemini): task_update / handoff directives.
  * 2. Task reconciliation — a task-triggered run whose agent never called
  *    task_update lands in 'review' (succeeded) or 'failed', so nothing sticks.
+ * 3. Delegation watcher (P3): a lead whose run just exited may already have every
+ *    child terminal (they finished while it was still running — the S4-a guard
+ *    deferred the wake); re-evaluate it now.
  */
 export function processRunCompletion(run: Run): void {
   try {
@@ -24,6 +28,14 @@ export function processRunCompletion(run: Run): void {
     reconcileTask(run);
   } catch (err) {
     logger.warn({ err, runId: run.id }, "task reconciliation failed");
+  }
+  try {
+    if (run.trigger === "task" && run.triggerRef) {
+      const task = getTask(run.triggerRef);
+      if (task?.status === "waiting_children") maybeWakeWaitingParent(task.id);
+    }
+  } catch (err) {
+    logger.warn({ err, runId: run.id }, "post-run delegation wake failed");
   }
 }
 

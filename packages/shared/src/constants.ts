@@ -27,3 +27,13 @@ export const KNOWN_MODELS: Record<string, string[]> = {
 
 export const MEMORY_INJECTION_MAX_CHARS = 8000;
 export const MEMORY_INJECTION_TOP_K = 8;
+
+/**
+ * P3 delegation limits — both are settings-backed with these defaults.
+ * Depth bounds runaway recursion + cost (P3-Q4); the cross-team message limit is
+ * the C10 circuit breaker (teams-arch's constant, made a setting per the gate).
+ */
+export const SETTING_DELEGATION_MAX_DEPTH = "delegation.maxDepth";
+export const DEFAULT_DELEGATION_MAX_DEPTH = 3;
+export const SETTING_CROSS_TEAM_MESSAGE_LIMIT = "delegation.crossTeamMessageLimit";
+export const DEFAULT_CROSS_TEAM_MESSAGE_LIMIT = 3;

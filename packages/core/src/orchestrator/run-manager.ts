@@ -25,12 +25,15 @@ import { getProvider } from "../providers/index.js";
 import type { NormalizedEvent } from "../providers/types.js";
 import { buildPreamble, type Assignment } from "./preamble.js";
 import { resolveRunEffectiveTools } from "../agents/tool-resolution.js";
+import { busyKey, ensureAgentInstance } from "../agents/instances.js";
 
 const nowIso = () => new Date().toISOString();
 
 interface ActiveRun {
   child: ChildProcess;
   agentId: string;
+  /** Instance-keyed busy identity (P3-Q5): agentId::projectId, "" for no project. */
+  busyKey: string;
   events: NormalizedEvent[];
   seq: number;
   cancelRequested: boolean;
@@ -46,6 +49,11 @@ function rowToRun(row: typeof runs.$inferSelect): Run {
 
 export class RunManager {
   private active = new Map<string, ActiveRun>();
+  /**
+   * Busy identities (P3-Q5: keyed on the INSTANCE — busyKey(agentId, projectId) —
+   * so one template can run concurrently in different projects; the global cap
+   * still bounds the total).
+   */
   private busyAgents = new Set<string>();
   private globalCap = DEFAULT_GLOBAL_CONCURRENCY;
 
@@ -151,13 +159,14 @@ export class RunManager {
         .orderBy(runs.createdAt)
         .limit(50)
         .all();
-      const next = queued.find((r) => !this.busyAgents.has(r.agentId));
+      const next = queued.find((r) => !this.busyAgents.has(busyKey(r.agentId, r.projectId)));
       if (!next) return;
-      this.busyAgents.add(next.agentId);
+      const nextKey = busyKey(next.agentId, next.projectId);
+      this.busyAgents.add(nextKey);
       this.start(next).catch((err) => {
         logger.error({ err, runId: next.id }, "run start failed");
         this.failRun(next.id, err instanceof Error ? err.message : String(err));
-        this.busyAgents.delete(next.agentId);
+        this.busyAgents.delete(nextKey);
         this.active.delete(next.id);
         queueMicrotask(() => this.tick());
       });
@@ -166,10 +175,11 @@ export class RunManager {
 
   private async start(row: typeof runs.$inferSelect): Promise<void> {
     const db = getDb();
+    const key = busyKey(row.agentId, row.projectId);
     const agentRow = db.select().from(agents).where(eq(agents.id, row.agentId)).get();
     if (!agentRow) {
       this.failRun(row.id, "agent deleted before run started");
-      this.busyAgents.delete(row.agentId);
+      this.busyAgents.delete(key);
       return;
     }
     const agent = agentRow as unknown as Agent;
@@ -183,7 +193,7 @@ export class RunManager {
       if (root) {
         if (!fs.existsSync(root)) {
           this.failRun(row.id, `project root dir does not exist: ${root}`);
-          this.busyAgents.delete(row.agentId);
+          this.busyAgents.delete(key);
           return;
         }
         projectRootDir = root;
@@ -191,13 +201,60 @@ export class RunManager {
     }
     const provider = getProvider(agent.provider);
 
+    // P3 (locked D5): a project run executes as the (template, project) INSTANCE —
+    // created lazily here, template self-notes copied on first create (P3-Q1).
+    // The instance id is the EH4 audit seam stamped on the run below.
+    let agentInstanceId: string | null = null;
+    if (projectRow) {
+      try {
+        agentInstanceId = ensureAgentInstance({
+          agentId: agent.id,
+          agentSlug: agent.slug,
+          projectId: projectRow.id,
+          projectSlug: projectRow.slug,
+        }).id;
+      } catch (err) {
+        logger.warn({ err, runId: row.id }, "agent instance ensure failed — run continues template-scoped");
+      }
+    }
+
     const memoryBlock = await buildMemoryBlock(agent, projectSlug, row.prompt);
-    // A task-triggered run knows its task (DX-C2) — surface it as the assignment.
+    // A task-triggered run knows its task (DX-C2) — surface it as the assignment,
+    // and for a delegated child add the DX1 brief: delegator, parent intent,
+    // sibling context, escalation path.
     let assignment: Assignment | undefined;
     let taskRow: typeof tasks.$inferSelect | undefined;
     if (row.trigger === "task" && row.triggerRef) {
       taskRow = db.select().from(tasks).where(eq(tasks.id, row.triggerRef)).get();
-      if (taskRow) assignment = { taskId: taskRow.id, taskTitle: taskRow.title };
+      if (taskRow) {
+        assignment = { taskId: taskRow.id, taskTitle: taskRow.title };
+        if (taskRow.parentTaskId) {
+          const parent = db.select().from(tasks).where(eq(tasks.id, taskRow.parentTaskId)).get();
+          assignment.parentTaskTitle = parent?.title ?? null;
+          if (taskRow.createdByAgentId) {
+            assignment.delegatedByAgentName =
+              db.select({ name: agents.name }).from(agents).where(eq(agents.id, taskRow.createdByAgentId)).get()
+                ?.name ?? null;
+          }
+          const siblingRows = db
+            .select()
+            .from(tasks)
+            .where(eq(tasks.parentTaskId, taskRow.parentTaskId))
+            .all()
+            .filter((s) => s.id !== taskRow!.id)
+            .slice(0, 10);
+          if (siblingRows.length > 0) {
+            const names = new Map(
+              db.select({ id: agents.id, name: agents.name }).from(agents).all().map((a) => [a.id, a.name]),
+            );
+            assignment.siblings = siblingRows.map((s) => ({
+              title: s.title,
+              status: s.status,
+              assignedAgentName: s.assignedAgentId ? (names.get(s.assignedAgentId) ?? null) : null,
+            }));
+          }
+        }
+      }
     }
     const preamble = buildPreamble(agent, projectSlug, assignment);
     const finalPrompt = [preamble, memoryBlock, `## Task\n${row.prompt}`]
@@ -248,6 +305,7 @@ export class RunManager {
     const state: ActiveRun = {
       child,
       agentId: agent.id,
+      busyKey: key,
       events: [],
       seq: 0,
       cancelRequested: false,
@@ -264,6 +322,7 @@ export class RunManager {
         startedAt: nowIso(),
         pid: child.pid ?? null,
         injectedContext: memoryBlock || null,
+        agentInstanceId,
       })
       .where(eq(runs.id, row.id))
       .run();
@@ -367,7 +426,7 @@ export class RunManager {
       .run();
 
     this.active.delete(runId);
-    this.busyAgents.delete(state.agentId);
+    this.busyAgents.delete(state.busyKey);
 
     const run = this.getRun(runId)!;
     bus.publish({ type: "run.completed", run });

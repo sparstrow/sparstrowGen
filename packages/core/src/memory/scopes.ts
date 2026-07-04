@@ -9,6 +9,11 @@ export interface ScopeFilter {
 /**
  * Expand an agent's memory scope grammar into concrete filters.
  * 'project:*' resolves to the run's current project (if any), otherwise any project.
+ * 'agent:self' is instance-aware (P3, locked D5): inside a project it resolves to
+ * the (template, project) instance — projectSlug set — and outside a project to the
+ * template's own notes (projectSlug null, NOT any-project). 'agent:<x>' stays
+ * cross-project (undefined = any): reading another agent's accumulated knowledge
+ * is deliberate and coarse; instance isolation is about *self* memory.
  */
 export function expandScopes(
   scopes: string[],
@@ -27,7 +32,7 @@ export function expandScopes(
     } else if (scope.startsWith("project:")) {
       filters.push({ scope: "project", projectSlug: scope.slice("project:".length) });
     } else if (scope === "agent:self") {
-      filters.push({ scope: "agent", agentSlug });
+      filters.push({ scope: "agent", agentSlug, projectSlug: currentProjectSlug });
     } else if (scope.startsWith("agent:")) {
       filters.push({ scope: "agent", agentSlug: scope.slice("agent:".length) });
     }
@@ -51,8 +56,13 @@ export function noteMatchesFilters(
     if (f.scope !== note.scope) return false;
     if (f.scope === "project" && f.projectSlug !== undefined && f.projectSlug !== note.projectSlug)
       return false;
-    if (f.scope === "agent" && f.agentSlug !== undefined && f.agentSlug !== note.agentSlug)
-      return false;
+    if (f.scope === "agent") {
+      if (f.agentSlug !== undefined && f.agentSlug !== note.agentSlug) return false;
+      // P3 instance isolation: an agent-scope filter with a projectSlug set (or
+      // explicitly null = template-only) must match the note's instance exactly —
+      // otherwise an instance filter would also see template/other-project notes.
+      if (f.projectSlug !== undefined && f.projectSlug !== note.projectSlug) return false;
+    }
     return true;
   });
 }

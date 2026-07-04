@@ -28,10 +28,16 @@ export const CAPABILITY_DOCS: CapabilityDoc[] = [
     whenToUse: "Your lead or a peer can likely answer — ask them before escalating to a human.",
   },
   {
+    name: "spawn_subtask",
+    intent: "delegate",
+    whenToUse:
+      "Delegate part of YOUR task and wait for the result — you suspend and are re-run when every subtask finishes. Cross-team targets need owner approval.",
+  },
+  {
     name: "task_create",
     intent: "delegate",
     whenToUse:
-      "Fire-and-forget hand-off; use spawn_subtask (P3) if you need the result back, to wait, or to stay accountable.",
+      "Fire-and-forget hand-off; use spawn_subtask if you need the result back, to wait, or to stay accountable.",
   },
   {
     name: "task_update",

@@ -156,6 +156,16 @@ export function TeamDetailPage() {
                   <Badge variant="secondary" className="flex items-center gap-1">
                     <Users className="size-3" /> {team.members.length}
                   </Badge>
+                  {team.isEphemeral && (
+                    <Badge variant="outline" className="border-sky-500/40 text-sky-600 dark:text-sky-400" title="Auto-created around a multi-assign task; archives itself when the task finishes.">
+                      ephemeral
+                    </Badge>
+                  )}
+                  {team.archivedAt && (
+                    <Badge variant="outline" className="text-muted-foreground" title="Soft-archived — kept for run/task history, no longer counts as a shared team.">
+                      archived
+                    </Badge>
+                  )}
                 </div>
                 <p className="mt-2 text-muted-foreground max-w-3xl">
                   {team.description || <span className="italic">No description provided.</span>}

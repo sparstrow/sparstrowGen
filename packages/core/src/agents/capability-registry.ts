@@ -2,6 +2,9 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z, type ZodRawShape } from "zod";
 import type { RunContext } from "../memory/agent-memory.js";
 import { blockTaskWithQuestions } from "../taskboard/questions.js";
+import { spawnSubtask } from "../taskboard/delegation.js";
+import { resolveAgentRef } from "../taskboard/service.js";
+import { currentProjectId } from "../taskboard/agent-tools.js";
 export { renderCapabilityDocs } from "./capability-docs.js";
 
 /**
@@ -92,6 +95,48 @@ export const AGENT_CAPABILITIES: AgentCapability[] = [
             2,
           ),
         );
+      } catch (err) {
+        return errorResult(err);
+      }
+    },
+  },
+  {
+    name: "spawn_subtask",
+    description:
+      "Delegate part of YOUR current task to another agent and suspend until it finishes (delegate-and-wait). Your task moves to waiting_children; end your run after spawning — you will be re-run with every subtask's result. Same-team agents start immediately; agents outside your teams need the owner's approval first. The subtask can never use tools you can't (least-privilege). For fire-and-forget hand-offs with no result back, use task_create instead.",
+    params: {
+      title: z.string().describe("Short subtask title"),
+      description: z
+        .string()
+        .describe(
+          "Complete work brief for the subtask — the assignee has NO other context. Include the goal, constraints, and what a good result looks like.",
+        ),
+      assignToAgent: z.string().describe("Agent name or slug to delegate to"),
+      priority: z.number().int().min(0).max(3).optional().describe("0=low 3=urgent (default 1)"),
+    },
+    handler: (args, ctx) => {
+      try {
+        if (!ctx.taskId) {
+          return errorResult(
+            new Error(
+              "spawn_subtask requires a task context (you are not running a task). Use task_create to hand off work fire-and-forget.",
+            ),
+          );
+        }
+        const assignee = resolveAgentRef(args.assignToAgent as string);
+        const result = spawnSubtask({
+          callerAgentId: ctx.agent.id,
+          callerAgentName: ctx.agent.name,
+          callerRunId: ctx.runId,
+          parentTaskId: ctx.taskId,
+          title: args.title as string,
+          description: args.description as string,
+          assigneeId: assignee.id,
+          assigneeName: assignee.name,
+          projectId: currentProjectId(ctx),
+          priority: (args.priority as number | undefined) ?? 1,
+        });
+        return textResult(JSON.stringify(result, null, 2));
       } catch (err) {
         return errorResult(err);
       }

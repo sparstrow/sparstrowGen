@@ -12,6 +12,7 @@ import {
   resolveAgentRef,
   updateTask,
 } from "./service.js";
+import { checkCrossTeamBreaker } from "./delegation.js";
 
 function textResult(text: string) {
   return { content: [{ type: "text" as const, text }] };
@@ -26,7 +27,7 @@ function errorResult(err: unknown) {
 export function registerTaskboardTools(server: McpServer, ctx: RunContext): void {
   server.tool(
     "task_create",
-    "Create a task on the shared task board, optionally handing it to another agent. The orchestrator runs the assignee with your description — include everything they need, they have no other context.",
+    "Create a task on the shared task board, optionally handing it to another agent — FIRE-AND-FORGET: you will NOT get the result back and will not wait. If you need the result, need to wait, or must stay accountable for the outcome, use spawn_subtask instead. The orchestrator runs the assignee with your description — include everything they need, they have no other context.",
     {
       title: z.string(),
       description: z.string(),
@@ -74,6 +75,19 @@ export function registerTaskboardTools(server: McpServer, ctx: RunContext): void
         if (task.assignedAgentId !== ctx.agent.id && task.createdByAgentId !== ctx.agent.id) {
           throw new HttpError(403, "you may only update tasks you created or were assigned");
         }
+        // P3 (EH1): a suspended lead cannot close its own task around its children.
+        if (task.status === "waiting_children" && args.status) {
+          throw new HttpError(
+            409,
+            "your task is suspended on delegated subtasks (waiting_children) — you cannot set its status now. End your run; you will be re-run with every subtask's result and can report then.",
+          );
+        }
+        if (task.status === "pending_approval" && args.status) {
+          throw new HttpError(
+            409,
+            "this task is awaiting the owner's cross-team approval — its status is the owner's to decide. End your run; you will be woken with the outcome.",
+          );
+        }
         const updated = updateTask(
           args.taskId,
           { ...(args.status ? { status: args.status } : {}), ...(args.result !== undefined ? { result: args.result } : {}) },
@@ -97,11 +111,26 @@ export function registerTaskboardTools(server: McpServer, ctx: RunContext): void
     async (args: { to?: string; subject: string; body: string }) => {
       try {
         const recipient = args.to ? resolveAgentRef(args.to) : null;
+        // C10: cross-team threads on a task are circuit-broken (settings-backed
+        // limit); at the limit the send is refused and the task is blocked for
+        // the owner. Same-team and user-inbox messages are never counted.
+        if (recipient) {
+          checkCrossTeamBreaker({
+            fromAgentId: ctx.agent.id,
+            fromAgentName: ctx.agent.name,
+            toAgentId: recipient.id,
+            toAgentName: recipient.name,
+            taskId: ctx.taskId,
+            runId: ctx.runId,
+          });
+        }
         const message = createMessage({
           fromType: "agent",
           fromAgentId: ctx.agent.id,
           toAgentId: recipient?.id ?? null,
           projectId: ctx.projectSlug ? currentProjectId(ctx) : null,
+          // DX-C2: thread context — a task-triggered run's messages carry its task.
+          taskId: ctx.taskId,
           subject: args.subject,
           body: args.body,
         });
@@ -119,7 +148,7 @@ export function registerTaskboardTools(server: McpServer, ctx: RunContext): void
   );
 }
 
-function currentProjectId(ctx: RunContext): string | null {
+export function currentProjectId(ctx: RunContext): string | null {
   if (!ctx.projectSlug) return null;
   return (
     getDb().select({ id: projects.id }).from(projects).where(eq(projects.slug, ctx.projectSlug)).get()

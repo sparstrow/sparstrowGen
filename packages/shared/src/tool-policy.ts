@@ -67,6 +67,39 @@ export function resolveEffectiveTools(levels: ToolPolicyLevels): EffectiveTools 
 }
 
 /**
+ * LEAST of two effective policies (P3 S1-a): the constructor whose output
+ * isToolPolicySubset (below) verifies. Used at spawn_subtask time — the child's
+ * bound is the parent run's immutable effective snapshot, so a delegated task can
+ * never mint capability its delegator lacked (and at child-run start the normal
+ * Global→Agent→Project→Task resolution is intersected with this bound).
+ *
+ * Semantics over "usable set" = (allow-list, or the provider default when the
+ * allow-list is empty) minus denies:
+ * - disallowed = union (deny at either level stays denied)
+ * - allowed: both empty → empty (provider default, filtered by the union of denies);
+ *   one side empty → the other side's allow-list (the non-default side is the
+ *   tighter bound); both non-empty → set intersection.
+ */
+export function intersectEffectiveTools(a: EffectiveTools, b: EffectiveTools): EffectiveTools {
+  const disallowed: string[] = [];
+  const seenDeny = new Set<string>();
+  for (const t of [...a.disallowed, ...b.disallowed]) {
+    if (!seenDeny.has(t)) {
+      seenDeny.add(t);
+      disallowed.push(t);
+    }
+  }
+  let allowed: string[];
+  if (a.allowed.length === 0) allowed = [...b.allowed];
+  else if (b.allowed.length === 0) allowed = [...a.allowed];
+  else {
+    const bAllows = new Set(b.allowed);
+    allowed = a.allowed.filter((t) => bAllows.has(t));
+  }
+  return { allowed: allowed.filter((t) => !seenDeny.has(t)), disallowed };
+}
+
+/**
  * Is `child`'s effective policy a subset of `parent`'s? (P3 delegation clamp,
  * S1-a: a child task must never gain a tool the parent couldn't use.) A child is
  * within bounds when every tool it could actually run is one the parent could too,

@@ -15,12 +15,19 @@ import {
   listAttentionQueue,
   listQuestions,
 } from "../../taskboard/questions.js";
+import {
+  approveSubtask,
+  createMultiAssignTask,
+  denySubtask,
+} from "../../taskboard/delegation.js";
 
 const createSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().default(""),
   projectId: z.string().nullable().optional(),
   assignedAgentId: z.string().nullable().optional(),
+  /** P3: two or more agents ⇒ ephemeral team + one child task per agent. */
+  assignedAgentIds: z.array(z.string()).optional(),
   priority: z.number().int().min(0).max(3).default(1),
   dueAt: z.string().nullable().optional(),
 });
@@ -47,9 +54,21 @@ export async function taskRoutes(app: FastifyInstance): Promise<void> {
 
   app.post("/tasks", async (request, reply) => {
     const body = createSchema.parse(request.body);
-    const task = createTask({ ...body, createdByType: "user" });
     reply.code(201);
-    return task;
+    // Multi-assign (P3): a swarm of assignees becomes an ephemeral team with one
+    // child task per agent under a waiting_children container.
+    if (body.assignedAgentIds && body.assignedAgentIds.length > 1) {
+      const { parent } = createMultiAssignTask({
+        title: body.title,
+        description: body.description,
+        projectId: body.projectId,
+        agentIds: body.assignedAgentIds,
+        priority: body.priority,
+      });
+      return parent;
+    }
+    const assignedAgentId = body.assignedAgentId ?? body.assignedAgentIds?.[0] ?? null;
+    return createTask({ ...body, assignedAgentId, createdByType: "user" });
   });
 
   app.get("/tasks/:id", async (request) => {
@@ -106,5 +125,25 @@ export async function taskRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params as { id: string };
     const body = taskAnswerSchema.parse(request.body);
     return answerTaskQuestions(id, body);
+  });
+
+  /** P3: approve a cross-team spawn — the child runs, the lead wakes on its result. */
+  app.post("/tasks/:id/approve", async (request) => {
+    const { id } = request.params as { id: string };
+    return approveSubtask(id);
+  });
+
+  /** P3: deny a cross-team spawn — the child fails with the denial; the lead is woken with it. */
+  app.post("/tasks/:id/deny", async (request) => {
+    const { id } = request.params as { id: string };
+    const body = z.object({ reason: z.string().optional() }).parse(request.body ?? {});
+    return denySubtask(id, body.reason ?? null);
+  });
+
+  /** P3: the delegation tree — direct children of a task (detail-panel tree). */
+  app.get("/tasks/:id/children", async (request) => {
+    const { id } = request.params as { id: string };
+    if (!getTask(id)) throw new HttpError(404, `task not found: ${id}`);
+    return listTasks({ parentTaskId: id });
   });
 }

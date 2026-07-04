@@ -8,13 +8,30 @@ export const teamSchema = z.object({
   name: z.string().min(1).max(80),
   slug: slugSchema,
   description: z.string().default(""),
+  /**
+   * P3 ephemeral teams: auto-created around a multi-assign task, soft-archived
+   * (never deleted — C6/P3-Q3, history + FK integrity) when the linked task
+   * reaches a terminal status.
+   */
+  isEphemeral: z.boolean().default(false),
+  linkedTaskId: idSchema.nullable().default(null),
+  archivedAt: isoDateSchema.nullable().default(null),
   createdAt: isoDateSchema,
   updatedAt: isoDateSchema,
 });
 export type Team = z.infer<typeof teamSchema>;
 
 export const teamCreateSchema = teamSchema
-  .omit({ id: true, slug: true, createdAt: true, updatedAt: true })
+  .omit({
+    id: true,
+    slug: true,
+    createdAt: true,
+    updatedAt: true,
+    // Ephemeral lifecycle fields are set by the multi-assign flow, not the API.
+    isEphemeral: true,
+    linkedTaskId: true,
+    archivedAt: true,
+  })
   .extend({ slug: slugSchema.optional() });
 export type TeamCreate = z.infer<typeof teamCreateSchema>;
 

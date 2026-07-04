@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Agent } from "@sparstrow/shared";
 import { closeDb, openDb } from "../db/connection.js";
@@ -38,6 +41,22 @@ describe("resolveRunEffectiveTools — global settings + hierarchy", () => {
     db.insert(settings).values({ key: "tools.global.allowed", value: "not json" }).run();
     expect(readGlobalToolPolicy().allowed).toEqual([]);
   });
+
+  it("P3/S1-a: a delegated task's parent bound clamps the child's resolution (LEAST)", () => {
+    openDb(":memory:");
+    const eff = resolveRunEffectiveTools({
+      // The child's own agent grants Bash + Edit + Read...
+      agent: agent(["Bash", "Edit", "Read"], []),
+      task: {
+        allowedTools: [],
+        disallowedTools: [],
+        // ...but the delegating run could only ever use Read/Edit, no Bash.
+        parentEffectiveTools: { allowed: ["Read", "Edit"], disallowed: ["Bash"] },
+      },
+    });
+    expect(eff.allowed).toEqual(["Edit", "Read"]);
+    expect(eff.disallowed).toContain("Bash");
+  });
 });
 
 describe("EH5 TOCTOU: claude-code reads the immutable snapshot, not the live agent row", () => {
@@ -56,9 +75,11 @@ describe("EH5 TOCTOU: claude-code reads the immutable snapshot, not the live age
       maxTurns: null,
     } as unknown as Agent;
 
+    // A real temp dir — with cwd the provider leaks mcp-config.json into the repo.
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sparstrow-test-"));
     const spec = provider.buildHeadlessSpawn(liveAgent, "prompt", {
       runId: "run_1",
-      tempDir: process.cwd(),
+      tempDir,
       sessionId: "sess_1",
       effectiveTools: { allowed: ["Read"], disallowed: ["Bash"] },
     });
