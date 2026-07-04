@@ -1,24 +1,32 @@
 import { describe, expect, it } from "vitest";
 import {
   AGENT_CAPABILITIES,
+  OWNED_CAPABILITY_NAMES,
   registerCapabilities,
   renderCapabilityDocs,
 } from "./capability-registry.js";
+import { CAPABILITY_DOCS } from "./capability-docs.js";
 
 describe("capability registry (rule 20)", () => {
-  it("every owned capability (has handler) also declares params — no half-registered tool", () => {
+  it("every owned capability has both a handler and params — no half-registered tool", () => {
     for (const cap of AGENT_CAPABILITIES) {
-      if (cap.handler) expect(cap.params, `${cap.name} has a handler but no params`).toBeTruthy();
-      if (cap.params) expect(cap.handler, `${cap.name} has params but no handler`).toBeTruthy();
+      expect(cap.handler, `${cap.name} missing handler`).toBeTruthy();
+      expect(cap.params, `${cap.name} missing params`).toBeTruthy();
+    }
+  });
+
+  it("single source can't drift: every owned capability is documented in CAPABILITY_DOCS", () => {
+    const documented = new Set(CAPABILITY_DOCS.map((d) => d.name));
+    for (const name of OWNED_CAPABILITY_NAMES) {
+      expect(documented.has(name), `${name} is owned but not documented`).toBe(true);
     }
   });
 
   it("registerCapabilities registers exactly the owned capabilities into an MCP server", () => {
     const registered: string[] = [];
     const fakeServer = { tool: (name: string) => registered.push(name) } as never;
-    registerCapabilities(fakeServer, { runId: "run_x", agent: {}, projectSlug: null } as never);
-    const owned = AGENT_CAPABILITIES.filter((c) => c.handler).map((c) => c.name);
-    expect(registered.sort()).toEqual(owned.sort());
+    registerCapabilities(fakeServer, { runId: "run_x", agent: {}, projectSlug: null, taskId: null } as never);
+    expect(registered.sort()).toEqual([...OWNED_CAPABILITY_NAMES].sort());
     // task_block is the first owned capability.
     expect(registered).toContain("task_block");
   });

@@ -16,14 +16,14 @@ import {
 } from "@sparstrow/shared";
 import { config } from "../config.js";
 import { getDb } from "../db/connection.js";
-import { agents, projects, runs, runEvents } from "../db/schema.js";
+import { agents, projects, runs, runEvents, tasks } from "../db/schema.js";
 import { bus } from "../events/bus.js";
 import { logger } from "../logger.js";
 import { buildMemoryBlock } from "../memory/injector.js";
 import { scanVault } from "../memory/vault.js";
 import { getProvider } from "../providers/index.js";
 import type { NormalizedEvent } from "../providers/types.js";
-import { buildPreamble } from "./preamble.js";
+import { buildPreamble, type Assignment } from "./preamble.js";
 
 const nowIso = () => new Date().toISOString();
 
@@ -188,7 +188,13 @@ export class RunManager {
     const provider = getProvider(agent.provider);
 
     const memoryBlock = await buildMemoryBlock(agent, projectSlug, row.prompt);
-    const preamble = buildPreamble(agent, projectSlug);
+    // A task-triggered run knows its task (DX-C2) — surface it as the assignment.
+    let assignment: Assignment | undefined;
+    if (row.trigger === "task" && row.triggerRef) {
+      const task = db.select().from(tasks).where(eq(tasks.id, row.triggerRef)).get();
+      if (task) assignment = { taskId: task.id, taskTitle: task.title };
+    }
+    const preamble = buildPreamble(agent, projectSlug, assignment);
     const finalPrompt = [preamble, memoryBlock, `## Task\n${row.prompt}`]
       .filter((s) => s.length > 0)
       .join("\n\n");

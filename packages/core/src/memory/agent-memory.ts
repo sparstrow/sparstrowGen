@@ -14,10 +14,20 @@ import { searchMemory } from "./search.js";
 import { expandReadScopes, expandWriteScopes } from "./scopes.js";
 import { writeNote } from "./vault.js";
 
+/**
+ * Task-aware run context (DX-C2, P1 foundation). Delegation semantics are invisible
+ * to an agent unless its context knows the task — so MCP tools can auto-scope taskId,
+ * and P3 will populate the parent/team/delegation fields (null in P1).
+ */
 export interface RunContext {
   runId: string;
   agent: Agent;
   projectSlug: string | null;
+  taskId: string | null;
+  parentTaskId: string | null;
+  teamId: string | null;
+  delegatedByAgentName: string | null;
+  delegationDepth: number;
 }
 
 /** Resolve the calling agent from a per-run id (header on gateway/MCP calls). */
@@ -36,7 +46,18 @@ export function resolveRunContext(runId: unknown): RunContext {
   const projectSlug = run.projectId
     ? (db.select().from(projects).where(eq(projects.id, run.projectId)).get()?.slug ?? null)
     : null;
-  return { runId, agent: agentRow as unknown as Agent, projectSlug };
+  // A task-triggered run carries its taskId in triggerRef; P3 adds parent/team.
+  const taskId = run.trigger === "task" ? (run.triggerRef ?? null) : null;
+  return {
+    runId,
+    agent: agentRow as unknown as Agent,
+    projectSlug,
+    taskId,
+    parentTaskId: null,
+    teamId: null,
+    delegatedByAgentName: null,
+    delegationDepth: 0,
+  };
 }
 
 export async function agentMemorySearch(
