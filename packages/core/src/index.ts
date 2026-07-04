@@ -13,6 +13,7 @@ import { extraToolRegistrars } from "./mcp/http-mcp.js";
 import { registerTaskboardTools } from "./taskboard/agent-tools.js";
 import { registerCapabilities } from "./agents/capability-registry.js";
 import { startScheduler, stopScheduler } from "./scheduler/service.js";
+import { initDelegationWatcher, sweepWaitingParents } from "./taskboard/delegation.js";
 import { killAllSessions } from "./terminal/manager.js";
 
 async function main(): Promise<void> {
@@ -26,6 +27,11 @@ async function main(): Promise<void> {
   logger.info(scan, "vault scanned");
 
   runManager.sweepOrphans();
+  // P3 delegation watcher: child-terminal events wake waiting leads; the startup
+  // sweep reconciles parents whose children finished while the service was down.
+  const stopDelegationWatcher = initDelegationWatcher();
+  const woken = sweepWaitingParents();
+  if (woken > 0) logger.info({ woken }, "waiting parents reconciled at startup");
   extraToolRegistrars.push(registerTaskboardTools);
   extraToolRegistrars.push(registerCapabilities);
 
@@ -45,6 +51,7 @@ async function main(): Promise<void> {
     logger.info({ signal }, "shutting down");
     try {
       stopScheduler();
+      stopDelegationWatcher();
       killAllSessions();
       await stopVaultWatcher();
       await app.close();

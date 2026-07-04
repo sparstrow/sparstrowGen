@@ -9,7 +9,7 @@ import {
   type TaskQuestion,
 } from "@sparstrow/shared";
 import { getDb } from "../db/connection.js";
-import { runs, taskQuestions, tasks } from "../db/schema.js";
+import { agents, runs, taskQuestions, tasks } from "../db/schema.js";
 import { bus } from "../events/bus.js";
 import { HttpError, runManager } from "../orchestrator/run-manager.js";
 import { getTask, updateTask } from "./service.js";
@@ -42,33 +42,70 @@ export function listQuestions(taskId: string): TaskQuestion[] {
 
 /**
  * One taxonomy of typed rows for the Human Attention Required queue (design C1).
- * Later phases add types (approval P3, contradiction P5, git-failure P7) — they
- * append row TYPES, never new sections. P1 emits `question` (blocked tasks) and
- * `ready-for-review` (tasks awaiting a human sign-off).
+ * Later phases add types (contradiction P5, git-failure P7) — they append row
+ * TYPES, never new sections. P1 emits `question` (blocked tasks) and
+ * `ready-for-review`; P3 adds `approval` (cross-team spawns awaiting the owner).
  */
-export type AttentionRowType = "question" | "ready-for-review";
+export type AttentionRowType = "question" | "ready-for-review" | "approval";
+
+/**
+ * EM3: the injection carrier — the verbatim agent-authored description — must be
+ * the PRIMARY thing the owner reads on an approval card, alongside the target
+ * agent and the exact tool bound the child would run under.
+ */
+export interface ApprovalDetails {
+  targetAgentName: string | null;
+  delegatedByAgentName: string | null;
+  parentTaskId: string | null;
+  parentTaskTitle: string | null;
+  /** The S1-a LEAST bound the child would run under (null = unbounded/default). */
+  effectiveBound: { allowed: string[]; disallowed: string[] } | null;
+  verbatimDescription: string;
+}
 export interface AttentionRow {
   type: AttentionRowType;
   task: Task;
   questions: TaskQuestion[];
+  approval?: ApprovalDetails;
   ageMs: number;
 }
 
 export function listAttentionQueue(): AttentionRow[] {
-  const rows = getDb()
+  const db = getDb();
+  const rows = db
     .select()
     .from(tasks)
-    .where(inArray(tasks.status, ["blocked", "review"]))
+    .where(inArray(tasks.status, ["blocked", "review", "pending_approval"]))
     .orderBy(asc(tasks.updatedAt))
     .all()
     .map((r) => ({ ...r }) as unknown as Task);
   const now = Date.now();
-  return rows.map((task) => ({
-    type: task.status === "blocked" ? "question" : ("ready-for-review" as AttentionRowType),
-    task,
-    questions: task.status === "blocked" ? listOpenQuestions(task.id) : [],
-    ageMs: Math.max(0, now - new Date(task.updatedAt).getTime()),
-  }));
+  const agentName = (id: string | null): string | null =>
+    id ? (db.select({ name: agents.name }).from(agents).where(eq(agents.id, id)).get()?.name ?? null) : null;
+  return rows.map((task) => {
+    const type: AttentionRowType =
+      task.status === "blocked" ? "question" : task.status === "pending_approval" ? "approval" : "ready-for-review";
+    const row: AttentionRow = {
+      type,
+      task,
+      questions: type === "question" ? listOpenQuestions(task.id) : [],
+      ageMs: Math.max(0, now - new Date(task.updatedAt).getTime()),
+    };
+    if (type === "approval") {
+      const parent = task.parentTaskId
+        ? db.select({ title: tasks.title }).from(tasks).where(eq(tasks.id, task.parentTaskId)).get()
+        : null;
+      row.approval = {
+        targetAgentName: agentName(task.assignedAgentId),
+        delegatedByAgentName: agentName(task.createdByAgentId),
+        parentTaskId: task.parentTaskId,
+        parentTaskTitle: parent?.title ?? null,
+        effectiveBound: task.parentEffectiveTools,
+        verbatimDescription: task.description,
+      };
+    }
+    return row;
+  });
 }
 
 /**

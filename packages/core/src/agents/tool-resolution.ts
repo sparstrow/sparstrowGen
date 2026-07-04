@@ -1,5 +1,10 @@
 import { eq } from "drizzle-orm";
-import { resolveEffectiveTools, type EffectiveTools, type ToolPolicy } from "@sparstrow/shared";
+import {
+  intersectEffectiveTools,
+  resolveEffectiveTools,
+  type EffectiveTools,
+  type ToolPolicy,
+} from "@sparstrow/shared";
 import { getDb } from "../db/connection.js";
 import { settings } from "../db/schema.js";
 
@@ -30,23 +35,35 @@ interface WithToolPolicy {
   disallowedTools: string[];
 }
 
+interface WithDelegationBound extends WithToolPolicy {
+  /** P3 S1-a: the delegating run's snapshot, persisted on the task at spawn_subtask time. */
+  parentEffectiveTools?: EffectiveTools | null;
+}
+
 /**
  * Resolve the immutable effective toolset for a run from Global (settings) → Agent →
  * Project → Task (P2, EH5). Called once at spawn; the result is snapshotted on the run
  * and the provider reads only the snapshot, so mutating any row while the run is queued
  * cannot change what it may touch.
+ *
+ * P3 (S1-a): a delegated task additionally carries its parent run's effective
+ * snapshot; the resolution is intersected with that bound (LEAST privilege), so a
+ * child can never run with capability its delegator lacked — and since each run's
+ * snapshot already folds in ITS bound, clamps compose transitively down the tree.
  */
 export function resolveRunEffectiveTools(input: {
   agent: WithToolPolicy;
   project?: WithToolPolicy | null;
-  task?: WithToolPolicy | null;
+  task?: WithDelegationBound | null;
 }): EffectiveTools {
   const policy = (p?: WithToolPolicy | null): ToolPolicy | null =>
     p ? { allowed: p.allowedTools, disallowed: p.disallowedTools } : null;
-  return resolveEffectiveTools({
+  const resolved = resolveEffectiveTools({
     global: readGlobalToolPolicy(),
     agent: policy(input.agent),
     project: policy(input.project),
     task: policy(input.task),
   });
+  const bound = input.task?.parentEffectiveTools ?? null;
+  return bound ? intersectEffectiveTools(resolved, bound) : resolved;
 }

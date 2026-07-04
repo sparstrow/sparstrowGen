@@ -7,7 +7,7 @@ import {
   type MemorySearchHit,
 } from "@sparstrow/shared";
 import { getDb } from "../db/connection.js";
-import { agents, projects, runs } from "../db/schema.js";
+import { agents, projects, runs, tasks, teams } from "../db/schema.js";
 import { HttpError } from "../orchestrator/run-manager.js";
 import { indexer } from "./indexer.js";
 import { searchMemory } from "./search.js";
@@ -46,17 +46,50 @@ export function resolveRunContext(runId: unknown): RunContext {
   const projectSlug = run.projectId
     ? (db.select().from(projects).where(eq(projects.id, run.projectId)).get()?.slug ?? null)
     : null;
-  // A task-triggered run carries its taskId in triggerRef; P3 adds parent/team.
+  // A task-triggered run carries its taskId in triggerRef; P3 threads the
+  // delegation fields (DX-C2) so tools auto-scope and the preamble can brief.
   const taskId = run.trigger === "task" ? (run.triggerRef ?? null) : null;
+  let parentTaskId: string | null = null;
+  let teamId: string | null = null;
+  let delegatedByAgentName: string | null = null;
+  let delegationDepth = 0;
+  if (taskId) {
+    const taskRow = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+    if (taskRow) {
+      parentTaskId = taskRow.parentTaskId ?? null;
+      if (parentTaskId && taskRow.createdByAgentId) {
+        delegatedByAgentName =
+          db.select({ name: agents.name }).from(agents).where(eq(agents.id, taskRow.createdByAgentId)).get()
+            ?.name ?? null;
+      }
+      // Depth = parent-chain length, cycle-guarded (cap enforced at spawn anyway).
+      const seen = new Set<string>([taskId]);
+      let cursor = parentTaskId;
+      while (cursor && !seen.has(cursor)) {
+        seen.add(cursor);
+        delegationDepth++;
+        cursor =
+          db.select({ parentTaskId: tasks.parentTaskId }).from(tasks).where(eq(tasks.id, cursor)).get()
+            ?.parentTaskId ?? null;
+      }
+      // Ephemeral swarm context: the team linked to this task or its parent.
+      const linked = db
+        .select({ id: teams.id })
+        .from(teams)
+        .where(eq(teams.linkedTaskId, parentTaskId ?? taskId))
+        .get();
+      teamId = linked?.id ?? null;
+    }
+  }
   return {
     runId,
     agent: agentRow as unknown as Agent,
     projectSlug,
     taskId,
-    parentTaskId: null,
-    teamId: null,
-    delegatedByAgentName: null,
-    delegationDepth: 0,
+    parentTaskId,
+    teamId,
+    delegatedByAgentName,
+    delegationDepth,
   };
 }
 

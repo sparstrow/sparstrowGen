@@ -219,12 +219,42 @@ export class RunManager {
     }
 
     const memoryBlock = await buildMemoryBlock(agent, projectSlug, row.prompt);
-    // A task-triggered run knows its task (DX-C2) — surface it as the assignment.
+    // A task-triggered run knows its task (DX-C2) — surface it as the assignment,
+    // and for a delegated child add the DX1 brief: delegator, parent intent,
+    // sibling context, escalation path.
     let assignment: Assignment | undefined;
     let taskRow: typeof tasks.$inferSelect | undefined;
     if (row.trigger === "task" && row.triggerRef) {
       taskRow = db.select().from(tasks).where(eq(tasks.id, row.triggerRef)).get();
-      if (taskRow) assignment = { taskId: taskRow.id, taskTitle: taskRow.title };
+      if (taskRow) {
+        assignment = { taskId: taskRow.id, taskTitle: taskRow.title };
+        if (taskRow.parentTaskId) {
+          const parent = db.select().from(tasks).where(eq(tasks.id, taskRow.parentTaskId)).get();
+          assignment.parentTaskTitle = parent?.title ?? null;
+          if (taskRow.createdByAgentId) {
+            assignment.delegatedByAgentName =
+              db.select({ name: agents.name }).from(agents).where(eq(agents.id, taskRow.createdByAgentId)).get()
+                ?.name ?? null;
+          }
+          const siblingRows = db
+            .select()
+            .from(tasks)
+            .where(eq(tasks.parentTaskId, taskRow.parentTaskId))
+            .all()
+            .filter((s) => s.id !== taskRow!.id)
+            .slice(0, 10);
+          if (siblingRows.length > 0) {
+            const names = new Map(
+              db.select({ id: agents.id, name: agents.name }).from(agents).all().map((a) => [a.id, a.name]),
+            );
+            assignment.siblings = siblingRows.map((s) => ({
+              title: s.title,
+              status: s.status,
+              assignedAgentName: s.assignedAgentId ? (names.get(s.assignedAgentId) ?? null) : null,
+            }));
+          }
+        }
+      }
     }
     const preamble = buildPreamble(agent, projectSlug, assignment);
     const finalPrompt = [preamble, memoryBlock, `## Task\n${row.prompt}`]
