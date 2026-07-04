@@ -55,6 +55,9 @@ export const runSchema = z.object({
   injectedContext: z.string().nullable().default(null),
   status: runStatusSchema,
   sessionId: z.string().nullable().default(null),
+  lane: z.string().default("foreground"),
+  /** Immutable per-run effective toolset snapshot (P2); null until P2 lands. */
+  effectiveTools: z.array(z.string()).nullable().default(null),
   resultText: z.string().nullable().default(null),
   costUsd: z.number().nullable().default(null),
   numTurns: z.number().int().nullable().default(null),
@@ -68,6 +71,14 @@ export const runSchema = z.object({
 });
 export type Run = z.infer<typeof runSchema>;
 
+/**
+ * Run scheduling lanes (EH3). Background LLM consumers (dream cycle, signal
+ * extraction, briefings) run in the `background` lane so they can't starve the
+ * founder's foreground work — the tick scheduler bounds them separately.
+ */
+export const runLaneSchema = z.enum(["foreground", "background"]);
+export type RunLane = z.infer<typeof runLaneSchema>;
+
 export const runCreateSchema = z.object({
   agentId: idSchema,
   projectId: idSchema.nullable().optional(),
@@ -77,6 +88,12 @@ export const runCreateSchema = z.object({
   pipelineRunId: idSchema.nullable().optional(),
   pipelineStepId: idSchema.nullable().optional(),
   timeoutMs: z.number().int().positive().optional(),
+  /** Resume this provider session instead of a fresh one (claude-code only). */
+  resumeSessionId: z.string().nullable().optional(),
+  /** Scheduling lane; createRun defaults to "foreground" when omitted. */
+  lane: runLaneSchema.optional(),
+  /** Immutable per-run effective toolset snapshot (P2 resolver output). */
+  effectiveTools: z.array(z.string()).nullable().optional(),
 });
 export type RunCreate = z.infer<typeof runCreateSchema>;
 

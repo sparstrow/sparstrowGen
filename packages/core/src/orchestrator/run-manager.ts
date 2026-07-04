@@ -85,7 +85,11 @@ export class RunManager {
       mode: "headless",
       prompt: input.prompt,
       status: "queued",
-      sessionId: crypto.randomUUID(),
+      // Fresh-run is the primary wake path (P1-Q1); resumeSessionId is a
+      // claude-code optimization applied by the provider spawn, not stored here.
+      sessionId: input.resumeSessionId ?? crypto.randomUUID(),
+      lane: input.lane ?? "foreground",
+      effectiveTools: input.effectiveTools ?? null,
       createdAt: nowIso(),
     };
     db.insert(runs).values(row).run();

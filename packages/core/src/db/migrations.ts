@@ -241,4 +241,37 @@ CREATE TABLE team_members (
 CREATE INDEX idx_team_members_team ON team_members(team_id, sort);
 `,
   },
+  {
+    // P1 task lifecycle & escalation. Adds the blocked/wake state-machine columns,
+    // the per-question table (EM5), run scheduling lane (EH3), and the tenancy
+    // forward-marker user_id (D6-followup — no users table yet; PHASE6-NOTES tracks
+    // the eventual real migration). ADD COLUMN-only + one new table, so the
+    // in-transaction migration runner is safe (no table rebuild → no need to
+    // toggle foreign_keys).
+    id: "0004_task_lifecycle",
+    sql: `
+ALTER TABLE tasks ADD COLUMN wake_payload TEXT;
+ALTER TABLE tasks ADD COLUMN user_id TEXT;
+ALTER TABLE runs ADD COLUMN lane TEXT NOT NULL DEFAULT 'foreground';
+ALTER TABLE runs ADD COLUMN effective_tools TEXT;
+
+CREATE TABLE task_questions (
+  id TEXT PRIMARY KEY,
+  task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  question TEXT NOT NULL,
+  why_blocked TEXT NOT NULL DEFAULT '',
+  options TEXT,
+  recommendation TEXT,
+  default_if_no_answer TEXT,
+  answer TEXT,
+  asked_by_run_id TEXT,
+  asked_at TEXT NOT NULL,
+  answered_at TEXT,
+  applied_at TEXT,
+  user_id TEXT
+);
+CREATE INDEX idx_task_questions_queue ON task_questions(answered_at, asked_at);
+CREATE INDEX idx_task_questions_task ON task_questions(task_id);
+`,
+  },
 ];
