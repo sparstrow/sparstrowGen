@@ -23,6 +23,8 @@ import {
 } from "../../projects/directives.js";
 import { provisionProject, runProjectIndex } from "../../projects/provision.js";
 import { createClientVariant, syncFromBase } from "../../projects/variants.js";
+import { getProjectBriefing, setProjectBriefing } from "../../projects/briefing.js";
+import { deleteCronJobsForProject, fireJobNow } from "../../scheduler/service.js";
 
 const nowIso = () => new Date().toISOString();
 
@@ -133,8 +135,40 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params as { id: string };
     const existing = getDb().select().from(projects).where(eq(projects.id, id)).get();
     if (!existing) throw new HttpError(404, `project not found: ${id}`);
+    // No FK cascade on cron_jobs.project_id — unschedule + remove them first so no
+    // orphan briefing/cron handle keeps firing against the deleted project.
+    deleteCronJobsForProject(id);
     getDb().delete(projects).where(eq(projects.id, id)).run();
     reply.code(204);
+  });
+
+  // ── Morning briefing (§5, opt-in per project — P4-Q1) ──
+  app.get("/projects/:id/briefing", async (request) => {
+    const { id } = request.params as { id: string };
+    requireProject(id);
+    const job = getProjectBriefing(id);
+    return { enabled: job?.enabled ?? false, cronExpr: job?.cronExpr ?? null, job };
+  });
+
+  app.put("/projects/:id/briefing", async (request) => {
+    const { id } = request.params as { id: string };
+    requireProject(id);
+    const body = z
+      .object({ enabled: z.boolean(), cronExpr: z.string().optional(), timezone: z.string().optional() })
+      .parse(request.body);
+    const job = setProjectBriefing(id, body);
+    return { enabled: job?.enabled ?? false, cronExpr: job?.cronExpr ?? null, job };
+  });
+
+  /** Run the briefing now ("brief me"). */
+  app.post("/projects/:id/briefing/run", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    requireProject(id);
+    const job = getProjectBriefing(id);
+    if (!job) throw new HttpError(409, "briefing is not enabled for this project");
+    fireJobNow(job.id);
+    reply.code(202);
+    return { fired: true };
   });
 
   // ── Project directives (§2/P4-Q2): ordered, toggleable, guaranteed-injected ──
