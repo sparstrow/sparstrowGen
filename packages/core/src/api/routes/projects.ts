@@ -24,6 +24,7 @@ import {
 import { provisionProject, runProjectIndex } from "../../projects/provision.js";
 import { createClientVariant, syncFromBase } from "../../projects/variants.js";
 import { getProjectBriefing, setProjectBriefing } from "../../projects/briefing.js";
+import { listProjectDir } from "../../projects/files.js";
 import { deleteCronJobsForProject, fireJobNow } from "../../scheduler/service.js";
 
 const nowIso = () => new Date().toISOString();
@@ -76,6 +77,15 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const row = getDb().select().from(projects).where(eq(projects.id, id)).get();
     if (!row) throw new HttpError(404, `project not found: ${id}`);
     return getProjectGitState(row.rootDir);
+  });
+
+  /** P4 §4: read-only file tree — one directory level under rootDir (P4-Q4). */
+  app.get("/projects/:id/files", async (request) => {
+    const { id } = request.params as { id: string };
+    const { path: subpath } = z.object({ path: z.string().optional() }).parse(request.query);
+    const row = getDb().select().from(projects).where(eq(projects.id, id)).get();
+    if (!row) throw new HttpError(404, `project not found: ${id}`);
+    return listProjectDir(row.rootDir, subpath ?? "");
   });
 
   /** P4 §2: re-run the auto-index over the project's rootDir (background, debounced). */
