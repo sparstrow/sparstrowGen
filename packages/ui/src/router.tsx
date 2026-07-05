@@ -9,6 +9,7 @@ import { AgentsPage } from "@/routes/pages/agents";
 import { TeamsPage } from "@/routes/pages/teams";
 import { TeamDetailPage } from "@/routes/pages/team-detail";
 import { ProjectsPage } from "@/routes/pages/projects";
+import { ProjectWorkspacePage } from "@/routes/pages/project-detail";
 import { RunsPage } from "@/routes/pages/runs";
 import { RunDetailPage } from "@/routes/pages/run-detail";
 import { MemoryPage } from "@/routes/pages/memory";
@@ -49,6 +50,12 @@ const projectsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/projects",
   component: ProjectsPage,
+});
+
+const projectDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/projects/$projectId",
+  component: ProjectWorkspacePage,
 });
 
 const runsRoute = createRoute({
@@ -111,6 +118,7 @@ const routeTree = rootRoute.addChildren([
   teamsRoute,
   teamDetailRoute,
   projectsRoute,
+  projectDetailRoute,
   runsRoute,
   runDetailRoute,
   memoryRoute,

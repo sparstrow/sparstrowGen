@@ -26,6 +26,11 @@ import type {
   Project,
   ProjectCreate,
   ProjectUpdate,
+  ProjectProvision,
+  ProjectGitState,
+  ProjectDirective,
+  ProjectDirectiveCreate,
+  ProjectDirectiveUpdate,
   Team,
   TeamCreate,
   TeamUpdate,
@@ -179,6 +184,170 @@ export function useDeleteProject(): UseMutationResult<void, ApiError, string> {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
+  });
+}
+
+/** P4 §4: provision a project via scratch/bind/clone. */
+export function useProvisionProject(): UseMutationResult<Project, ApiError, ProjectProvision> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ProjectProvision) => api<Project>("/projects/provision", { method: "POST", body }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["projects"] }),
+  });
+}
+
+/** P4 §1: read-only git state for a project's rootDir. */
+export function useProjectGitState(id: string): UseQueryResult<ProjectGitState, ApiError> {
+  return useQuery({
+    queryKey: ["project-git", id],
+    queryFn: () => api<ProjectGitState>(`/projects/${id}/git`),
+    enabled: Boolean(id),
+    refetchInterval: 30_000,
+  });
+}
+
+/** P4 §7: the client variants forked from this base project. */
+export function useProjectVariants(id: string): UseQueryResult<Project[], ApiError> {
+  return useQuery({
+    queryKey: ["project-variants", id],
+    queryFn: () => api<Project[]>(`/projects/${id}/variants`),
+    enabled: Boolean(id),
+  });
+}
+
+export function useCreateVariant(): UseMutationResult<
+  Project,
+  ApiError,
+  { baseId: string; name: string; rootDir: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ baseId, name, rootDir }) =>
+      api<Project>(`/projects/${baseId}/variants`, { method: "POST", body: { name, rootDir } }),
+    onSuccess: (_r, { baseId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["projects"] });
+      void queryClient.invalidateQueries({ queryKey: ["project-variants", baseId] });
+    },
+  });
+}
+
+export function useSyncFromBase(): UseMutationResult<Task, ApiError, string> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<Task>(`/projects/${id}/sync-from-base`, { method: "POST", body: {} }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+  });
+}
+
+/** P4 §2: re-run the auto-index over the project's rootDir. */
+export function useReindexProject(): UseMutationResult<
+  { started: boolean; runId: string | null },
+  ApiError,
+  string
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api(`/projects/${id}/reindex`, { method: "POST" }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["runs"] }),
+  });
+}
+
+// ── Project directives (§2) ──
+export function useProjectDirectives(id: string): UseQueryResult<ProjectDirective[], ApiError> {
+  return useQuery({
+    queryKey: ["project-directives", id],
+    queryFn: () => api<ProjectDirective[]>(`/projects/${id}/directives`),
+    enabled: Boolean(id),
+  });
+}
+
+export function useCreateDirective(): UseMutationResult<
+  ProjectDirective,
+  ApiError,
+  { projectId: string; data: ProjectDirectiveCreate }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, data }) =>
+      api<ProjectDirective>(`/projects/${projectId}/directives`, { method: "POST", body: data }),
+    onSuccess: (_r, { projectId }) =>
+      void queryClient.invalidateQueries({ queryKey: ["project-directives", projectId] }),
+  });
+}
+
+export function useUpdateDirective(): UseMutationResult<
+  ProjectDirective,
+  ApiError,
+  { projectId: string; id: string; data: ProjectDirectiveUpdate }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, id, data }) =>
+      api<ProjectDirective>(`/projects/${projectId}/directives/${id}`, { method: "PUT", body: data }),
+    onSuccess: (_r, { projectId }) =>
+      void queryClient.invalidateQueries({ queryKey: ["project-directives", projectId] }),
+  });
+}
+
+export function useDeleteDirective(): UseMutationResult<
+  void,
+  ApiError,
+  { projectId: string; id: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, id }) =>
+      api<void>(`/projects/${projectId}/directives/${id}`, { method: "DELETE" }),
+    onSuccess: (_r, { projectId }) =>
+      void queryClient.invalidateQueries({ queryKey: ["project-directives", projectId] }),
+  });
+}
+
+// ── Morning briefing (§5) ──
+export interface BriefingState {
+  enabled: boolean;
+  cronExpr: string | null;
+  job: CronJob | null;
+}
+
+export function useProjectBriefing(id: string): UseQueryResult<BriefingState, ApiError> {
+  return useQuery({
+    queryKey: ["project-briefing", id],
+    queryFn: () => api<BriefingState>(`/projects/${id}/briefing`),
+    enabled: Boolean(id),
+  });
+}
+
+export function useSetBriefing(): UseMutationResult<
+  BriefingState,
+  ApiError,
+  { projectId: string; enabled: boolean; cronExpr?: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, enabled, cronExpr }) =>
+      api<BriefingState>(`/projects/${projectId}/briefing`, { method: "PUT", body: { enabled, cronExpr } }),
+    onSuccess: (_r, { projectId }) =>
+      void queryClient.invalidateQueries({ queryKey: ["project-briefing", projectId] }),
+  });
+}
+
+// ── Read-only files tree (§4) ──
+export interface DirEntry {
+  name: string;
+  type: "dir" | "file";
+  size: number | null;
+}
+export interface DirListing {
+  path: string;
+  entries: DirEntry[];
+}
+
+export function useProjectFiles(id: string, subpath: string): UseQueryResult<DirListing, ApiError> {
+  return useQuery({
+    queryKey: ["project-files", id, subpath],
+    queryFn: () => api<DirListing>(`/projects/${id}/files${qs({ path: subpath })}`),
+    enabled: Boolean(id),
   });
 }
 
