@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
   projectCreateSchema,
+  projectDirectiveCreateSchema,
+  projectDirectiveUpdateSchema,
   projectUpdateSchema,
   slugify,
   type Project,
@@ -11,6 +13,12 @@ import { getDb } from "../../db/connection.js";
 import { projects } from "../../db/schema.js";
 import { HttpError } from "../../orchestrator/run-manager.js";
 import { getProjectGitState } from "../../projects/git-status.js";
+import {
+  createDirective,
+  deleteDirective,
+  listDirectives,
+  updateDirective,
+} from "../../projects/directives.js";
 
 const nowIso = () => new Date().toISOString();
 
@@ -70,6 +78,43 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const existing = getDb().select().from(projects).where(eq(projects.id, id)).get();
     if (!existing) throw new HttpError(404, `project not found: ${id}`);
     getDb().delete(projects).where(eq(projects.id, id)).run();
+    reply.code(204);
+  });
+
+  // ── Project directives (§2/P4-Q2): ordered, toggleable, guaranteed-injected ──
+  const requireProject = (id: string) => {
+    const row = getDb().select().from(projects).where(eq(projects.id, id)).get();
+    if (!row) throw new HttpError(404, `project not found: ${id}`);
+    return row;
+  };
+
+  app.get("/projects/:id/directives", async (request) => {
+    const { id } = request.params as { id: string };
+    requireProject(id);
+    return listDirectives(id);
+  });
+
+  app.post("/projects/:id/directives", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    requireProject(id);
+    const body = projectDirectiveCreateSchema.parse(request.body);
+    reply.code(201);
+    return createDirective(id, body);
+  });
+
+  app.put("/projects/:id/directives/:directiveId", async (request) => {
+    const { id, directiveId } = request.params as { id: string; directiveId: string };
+    requireProject(id);
+    const body = projectDirectiveUpdateSchema.parse(request.body);
+    const updated = updateDirective(id, directiveId, body);
+    if (!updated) throw new HttpError(404, `directive not found: ${directiveId}`);
+    return updated;
+  });
+
+  app.delete("/projects/:id/directives/:directiveId", async (request, reply) => {
+    const { id, directiveId } = request.params as { id: string; directiveId: string };
+    requireProject(id);
+    if (!deleteDirective(id, directiveId)) throw new HttpError(404, `directive not found: ${directiveId}`);
     reply.code(204);
   });
 }

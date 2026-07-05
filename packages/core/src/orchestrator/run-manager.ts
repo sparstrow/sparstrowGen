@@ -26,6 +26,7 @@ import type { NormalizedEvent } from "../providers/types.js";
 import { buildPreamble, type Assignment } from "./preamble.js";
 import { resolveRunEffectiveTools } from "../agents/tool-resolution.js";
 import { busyKey, ensureAgentInstance } from "../agents/instances.js";
+import { buildDirectivesBlock } from "../projects/directives.js";
 
 const nowIso = () => new Date().toISOString();
 
@@ -261,7 +262,11 @@ export class RunManager {
     const preamble = buildPreamble(agent, projectSlug, assignment, {
       sandboxProjectSlug: isSandbox ? projectSlug : null,
     });
-    const finalPrompt = [preamble, memoryBlock, `## Task\n${row.prompt}`]
+    // P4 §2: project directives are GUARANTEED-injected — assembled here as their
+    // own block (after the trusted preamble, before the token-budgeted <memory>
+    // block), so they are never trimmed and never read as untrusted memory DATA.
+    const directivesBlock = buildDirectivesBlock(row.projectId);
+    const finalPrompt = [preamble, directivesBlock, memoryBlock, `## Task\n${row.prompt}`]
       .filter((s) => s.length > 0)
       .join("\n\n");
 
