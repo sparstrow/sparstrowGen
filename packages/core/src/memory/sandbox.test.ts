@@ -124,4 +124,19 @@ describe("EH7 sandbox read isolation", () => {
     expect([...getSandboxProjectSlugs()]).toEqual(["sbx"]);
     closeDb();
   });
+
+  it("the /memory/search LIKE-fallback filter drops sandbox notes for the operator's global search", () => {
+    // Reproduces the exact filter the route applies to its fallback rows.
+    const sandboxSlugs = new Set(["sbx"]);
+    const rows = [
+      { scope: "project", projectSlug: "sbx" }, // confidential sandbox note
+      { scope: "project", projectSlug: "norm" }, // ordinary project note
+      { scope: "global", projectSlug: null },
+    ];
+    const visible = rows.filter((r) => !isForeignSandboxNote(r, sandboxSlugs, null));
+    expect(visible).toEqual([
+      { scope: "project", projectSlug: "norm" },
+      { scope: "global", projectSlug: null },
+    ]);
+  });
 });

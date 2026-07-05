@@ -81,6 +81,16 @@ export async function createClientVariant(baseProjectId: string, input: CreateVa
   const base = db.select().from(projects).where(eq(projects.id, baseProjectId)).get();
   if (!base) throw new HttpError(404, `project not found: ${baseProjectId}`);
   if (!base.rootDir) throw new HttpError(400, "base project has no rootDir to fork from");
+  // EH7: forking would copy the base's project-scope notes into a NEW (non-sandbox)
+  // slug — and the sandbox read-exclusion keys on slug membership, so those copies
+  // would become globally searchable. A sandbox's isolated memory must never be
+  // re-homed into a searchable scope. Promote the project out of the sandbox first.
+  if (base.isSandbox) {
+    throw new HttpError(
+      400,
+      "cannot fork a sandbox project — its memory is isolated (EH7). Promote it out of the sandbox first, then create a variant.",
+    );
+  }
 
   const rootDir = input.rootDir.trim();
   if (!path.isAbsolute(rootDir)) throw new HttpError(400, "variant rootDir must be an absolute path");

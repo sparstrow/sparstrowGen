@@ -67,6 +67,17 @@ describe("client variants (P4 §7)", () => {
     await expect(createClientVariant("prj_base", { name: "V", rootDir: path.join(tmp, "v") })).rejects.toThrow(/no rootDir/);
   });
 
+  it("EH7: REFUSES to fork a sandbox base (would leak isolated notes into a searchable scope)", async () => {
+    const db = openDb(":memory:").db;
+    db.insert(projects)
+      .values({ id: "prj_sbx", name: "Imported", slug: "imported", rootDir: path.join(tmp, "sbx"), isSandbox: true, createdAt: ts, updatedAt: ts })
+      .run();
+    fs.mkdirSync(path.join(tmp, "sbx"));
+    await expect(
+      createClientVariant("prj_sbx", { name: "Variant", rootDir: path.join(tmp, "v") }),
+    ).rejects.toThrow(/sandbox/);
+  });
+
   it("syncFromBase spawns an unassigned review task on the variant; rejects non-variants", () => {
     const db = openDb(":memory:").db;
     db.insert(projects).values([

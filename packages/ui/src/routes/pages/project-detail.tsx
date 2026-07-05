@@ -23,6 +23,7 @@ import {
   useAgents,
   useCreateDirective,
   useCreateTask,
+  useCreateVariant,
   useDeleteDirective,
   useProject,
   useProjectBriefing,
@@ -127,7 +128,11 @@ export function ProjectWorkspacePage() {
               <FilesPanel projectId={projectId} hasRoot={Boolean(p.rootDir)} />
             </TabsContent>
           </Tabs>
-          <VariantsPanel projectId={projectId} isVariant={Boolean(p.parentProjectId)} />
+          <VariantsPanel
+            projectId={projectId}
+            isVariant={Boolean(p.parentProjectId)}
+            isSandbox={p.isSandbox}
+          />
         </div>
       </div>
     </div>
@@ -413,20 +418,28 @@ function FileTree({ projectId, subpath, depth }: { projectId: string; subpath: s
   );
 }
 
-function VariantsPanel({ projectId, isVariant }: { projectId: string; isVariant: boolean }) {
+function VariantsPanel({
+  projectId,
+  isVariant,
+  isSandbox,
+}: {
+  projectId: string;
+  isVariant: boolean;
+  isSandbox: boolean;
+}) {
   const variants = useProjectVariants(projectId);
   const sync = useSyncFromBase();
+  const createVariant = useCreateVariant();
+  const [forking, setForking] = React.useState(false);
+  const [vName, setVName] = React.useState("");
+  const [vRoot, setVRoot] = React.useState("");
   const rows = variants.data ?? [];
+
   if (isVariant) {
     return (
       <div className="rounded-xl border p-3">
         <p className="mb-2 text-sm font-medium">Client variant</p>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={sync.isPending}
-          onClick={() => sync.mutate(projectId)}
-        >
+        <Button size="sm" variant="outline" disabled={sync.isPending} onClick={() => sync.mutate(projectId)}>
           <RefreshCw className="size-3.5" /> {sync.isPending ? "Queuing…" : "Sync from base"}
         </Button>
         {sync.isSuccess && <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">Review task created.</p>}
@@ -434,22 +447,78 @@ function VariantsPanel({ projectId, isVariant }: { projectId: string; isVariant:
       </div>
     );
   }
-  if (rows.length === 0) return null;
+
+  // A sandbox base can't be forked (EH7 — its isolated memory must not be copied
+  // into a searchable variant scope); hide the affordance entirely.
+  if (isSandbox) {
+    if (rows.length === 0) return null;
+    return (
+      <div className="rounded-xl border p-3">
+        <p className="mb-2 text-sm font-medium">Client variants</p>
+        <VariantList rows={rows} />
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl border p-3">
-      <p className="mb-2 text-sm font-medium">Client variants</p>
-      <div className="space-y-1">
-        {rows.map((v) => (
-          <Link
-            key={v.id}
-            to="/projects/$projectId"
-            params={{ projectId: v.id }}
-            className="block truncate rounded px-1 py-1 text-xs transition-colors hover:bg-accent"
-          >
-            {v.name}
-          </Link>
-        ))}
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-sm font-medium">Client variants</p>
+        <Button size="sm" variant="outline" onClick={() => setForking((v) => !v)}>
+          <Plus className="size-3.5" /> New variant
+        </Button>
       </div>
+      {rows.length > 0 && <VariantList rows={rows} />}
+      {forking && (
+        <div className="mt-2 space-y-2 border-t pt-2">
+          <Input value={vName} onChange={(e) => setVName(e.target.value)} placeholder="Variant name (e.g. Clinic A)" className="text-xs" />
+          <Input
+            value={vRoot}
+            onChange={(e) => setVRoot(e.target.value)}
+            placeholder={"C:\\Projects\\clinic-a"}
+            className="font-mono text-xs"
+          />
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              disabled={!vName.trim() || !vRoot.trim() || createVariant.isPending}
+              onClick={() =>
+                createVariant.mutate(
+                  { baseId: projectId, name: vName.trim(), rootDir: vRoot.trim() },
+                  {
+                    onSuccess: () => {
+                      setForking(false);
+                      setVName("");
+                      setVRoot("");
+                    },
+                  },
+                )
+              }
+            >
+              {createVariant.isPending ? "Forking…" : "Fork"}
+            </Button>
+            <span className="text-[11px] text-muted-foreground">Clones the base repo + copies its project memory.</span>
+          </div>
+          {createVariant.isError && <p className="text-xs text-destructive">{createVariant.error.message}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VariantList({ rows }: { rows: { id: string; name: string }[] }) {
+  return (
+    <div className="space-y-1">
+      {rows.map((v) => (
+        <Link
+          key={v.id}
+          to="/projects/$projectId"
+          params={{ projectId: v.id }}
+          className="block truncate rounded px-1 py-1 text-xs transition-colors hover:bg-accent"
+        >
+          {v.name}
+        </Link>
+      ))}
     </div>
   );
 }
