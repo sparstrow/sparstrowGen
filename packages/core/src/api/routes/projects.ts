@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { z } from "zod";
 import {
   projectCreateSchema,
   projectDirectiveCreateSchema,
@@ -21,6 +22,7 @@ import {
   updateDirective,
 } from "../../projects/directives.js";
 import { provisionProject, runProjectIndex } from "../../projects/provision.js";
+import { createClientVariant, syncFromBase } from "../../projects/variants.js";
 
 const nowIso = () => new Date().toISOString();
 
@@ -82,6 +84,36 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const run = runProjectIndex(id);
     reply.code(202);
     return { started: run !== null, runId: run?.id ?? null };
+  });
+
+  /** P4 §7: fork a client variant — clone the base repo + copy its project notes. */
+  app.post("/projects/:id/variants", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = z
+      .object({ name: z.string().min(1).max(80), rootDir: z.string().min(1) })
+      .parse(request.body);
+    const variant = await createClientVariant(id, body);
+    reply.code(201);
+    return variant;
+  });
+
+  /** P4 §7: task-based downstream sync — never auto-merges. */
+  app.post("/projects/:id/sync-from-base", async (request) => {
+    const { id } = request.params as { id: string };
+    const body = z.object({ assignedAgentId: z.string().nullable().optional() }).parse(request.body ?? {});
+    return syncFromBase(id, { assignedAgentId: body.assignedAgentId ?? null });
+  });
+
+  /** P4 §7: the client variants of a base project (for the nested Variants tab). */
+  app.get("/projects/:id/variants", async (request) => {
+    const { id } = request.params as { id: string };
+    return getDb()
+      .select()
+      .from(projects)
+      .where(eq(projects.parentProjectId, id))
+      .orderBy(projects.name)
+      .all()
+      .map(rowToProject);
   });
 
   app.put("/projects/:id", async (request) => {
