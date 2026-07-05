@@ -48,6 +48,23 @@ export function expandWriteScopes(agent: Agent, currentProjectSlug: string | nul
   return expandScopes(agent.memoryWriteScopes, agent.slug, currentProjectSlug);
 }
 
+/**
+ * EH7 (P4 §6) — the single source of truth for the sandbox WRITE clamp. A run
+ * inside a sandbox project may only write memory scoped to THAT project: this
+ * discards every other filter — `global`, ANY `agent` scope (agent:self resolves
+ * to the cross-project template/instance whose seed notes were copied from the
+ * template lineage — the exact leak EH7 names), and any `project` scope for a
+ * different project. Both enforcement points call this: the run-time MCP gate
+ * (agentMemorySave) and the preamble's advertised write-dir list — so what the
+ * agent is told it may write always matches what it actually can.
+ */
+export function clampSandboxWriteScopes(
+  filters: ScopeFilter[],
+  sandboxProjectSlug: string,
+): ScopeFilter[] {
+  return filters.filter((f) => f.scope === "project" && f.projectSlug === sandboxProjectSlug);
+}
+
 export function noteMatchesFilters(
   note: Pick<MemoryNote, "scope" | "projectSlug" | "agentSlug">,
   filters: ScopeFilter[],

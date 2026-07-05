@@ -110,6 +110,19 @@ export function deleteCronJob(id: string): void {
   getDb().delete(cronJobs).where(eq(cronJobs.id, id)).run();
 }
 
+/**
+ * Remove every cron job bound to a project (P4): cron_jobs.project_id has no FK
+ * cascade, so a deleted project would otherwise leave live croner handles firing
+ * against a stale job (and 404-ing inside fire()). Unschedule + delete them.
+ */
+export function deleteCronJobsForProject(projectId: string): number {
+  const db = getDb();
+  const rows = db.select({ id: cronJobs.id }).from(cronJobs).where(eq(cronJobs.projectId, projectId)).all();
+  for (const { id } of rows) unscheduleJob(id);
+  db.delete(cronJobs).where(eq(cronJobs.projectId, projectId)).run();
+  return rows.length;
+}
+
 export function fireJobNow(id: string): void {
   const job = getCronJob(id);
   if (!job) throw new HttpError(404, `cron job not found: ${id}`);

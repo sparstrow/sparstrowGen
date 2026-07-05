@@ -11,7 +11,7 @@ import { getDb } from "../../db/connection.js";
 import { memoryNotes } from "../../db/schema.js";
 import { HttpError } from "../../orchestrator/run-manager.js";
 import { indexer } from "../../memory/indexer.js";
-import { searchMemory } from "../../memory/search.js";
+import { getSandboxProjectSlugs, isForeignSandboxNote, searchMemory } from "../../memory/search.js";
 import {
   deleteNote,
   getNote,
@@ -108,6 +108,10 @@ export async function memoryRoutes(app: FastifyInstance): Promise<void> {
     if (hits.length > 0) return hits;
 
     const pattern = `%${body.query.replace(/[%_]/g, "")}%`;
+    // EH7: the hybrid path drops foreign sandbox notes; this LIKE fallback bypasses
+    // searchMemory, so re-apply the same exclusion (this is a null-caller/global
+    // operator search — it must see no sandbox notes).
+    const sandboxSlugs = getSandboxProjectSlugs();
     const rows = getDb()
       .select()
       .from(memoryNotes)
@@ -119,8 +123,10 @@ export async function memoryRoutes(app: FastifyInstance): Promise<void> {
         ),
       )
       .orderBy(desc(memoryNotes.updatedAt))
-      .limit(body.k)
-      .all();
+      .limit(body.k + sandboxSlugs.size) // headroom for the ones we may drop
+      .all()
+      .filter((row) => !isForeignSandboxNote(row, sandboxSlugs, null))
+      .slice(0, body.k);
     return rows.map((row, i) => {
       let excerpt = "";
       try {

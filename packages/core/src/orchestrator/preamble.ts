@@ -2,6 +2,7 @@ import path from "node:path";
 import type { Agent } from "@sparstrow/shared";
 import { config } from "../config.js";
 import { renderCapabilityDocs } from "../agents/capability-docs.js";
+import { clampSandboxWriteScopes, expandWriteScopes } from "../memory/scopes.js";
 import { scopeDir } from "../memory/vault.js";
 
 /** What the agent is working on this run (DX-C2), rendered as "## Your assignment". */
@@ -19,25 +20,37 @@ export interface Assignment {
  * intent + escalation contract (DX2/DX-H2), the untrusted-data trust boundary
  * (DX-H3), the current assignment (DX-C2), and the memory protocol.
  */
+export interface PreambleOptions {
+  /**
+   * EH7 (P4): when the run's project is a sandbox, pass its slug — the advertised
+   * write dirs are clamped to the sandbox project only, matching the enforcement
+   * in agentMemorySave so the agent is never told it may write folders it can't.
+   */
+  sandboxProjectSlug?: string | null;
+}
+
 export function buildPreamble(
   agent: Agent,
   currentProjectSlug: string | null,
   assignment?: Assignment,
+  opts: PreambleOptions = {},
 ): string {
+  // Derive the advertised write dirs from the SAME expansion + EH7 clamp the
+  // runtime write gate uses, so guidance and enforcement can't drift.
+  let writeFilters = expandWriteScopes(agent, currentProjectSlug);
+  if (opts.sandboxProjectSlug) {
+    writeFilters = clampSandboxWriteScopes(writeFilters, opts.sandboxProjectSlug);
+  }
   const writeDirs: string[] = [];
-  for (const scope of agent.memoryWriteScopes) {
+  for (const f of writeFilters) {
     try {
-      if (scope === "global") writeDirs.push(scopeDir("global"));
-      // agent:self is instance-aware (P3/D5): inside a project the write dir is
-      // agents/<template>/<project>/ so self-notes never bleed across projects.
-      else if (scope === "agent:self")
-        writeDirs.push(scopeDir("agent", currentProjectSlug, agent.slug));
-      else if (scope.startsWith("agent:"))
-        writeDirs.push(scopeDir("agent", null, scope.slice("agent:".length)));
-      else if (scope === "project:*") {
-        if (currentProjectSlug) writeDirs.push(scopeDir("project", currentProjectSlug));
-      } else if (scope.startsWith("project:"))
-        writeDirs.push(scopeDir("project", scope.slice("project:".length)));
+      if (f.scope === "global") writeDirs.push(scopeDir("global"));
+      else if (f.scope === "project") {
+        if (f.projectSlug) writeDirs.push(scopeDir("project", f.projectSlug));
+      } else if (f.scope === "agent" && f.agentSlug) {
+        // agent:self is instance-aware (P3/D5): dir is agents/<template>/<project>/.
+        writeDirs.push(scopeDir("agent", f.projectSlug ?? null, f.agentSlug));
+      }
     } catch {
       // skip unresolvable scopes
     }

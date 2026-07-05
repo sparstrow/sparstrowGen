@@ -11,7 +11,12 @@ import { agents, projects, runs, tasks, teams } from "../db/schema.js";
 import { HttpError } from "../orchestrator/run-manager.js";
 import { indexer } from "./indexer.js";
 import { searchMemory } from "./search.js";
-import { expandReadScopes, expandWriteScopes, noteMatchesFilters } from "./scopes.js";
+import {
+  clampSandboxWriteScopes,
+  expandReadScopes,
+  expandWriteScopes,
+  noteMatchesFilters,
+} from "./scopes.js";
 import { writeNote } from "./vault.js";
 
 /**
@@ -23,6 +28,8 @@ export interface RunContext {
   runId: string;
   agent: Agent;
   projectSlug: string | null;
+  /** EH7 (P4): the run's project is a sandbox — memory writes are clamped to it. */
+  isSandbox: boolean;
   taskId: string | null;
   parentTaskId: string | null;
   teamId: string | null;
@@ -43,9 +50,12 @@ export function resolveRunContext(runId: unknown): RunContext {
   }
   const agentRow = db.select().from(agents).where(eq(agents.id, run.agentId)).get();
   if (!agentRow) throw new HttpError(403, "agent for run no longer exists");
-  const projectSlug = run.projectId
-    ? (db.select().from(projects).where(eq(projects.id, run.projectId)).get()?.slug ?? null)
+  // One project read carries both the slug and the EH7 sandbox flag.
+  const projectRow = run.projectId
+    ? db.select().from(projects).where(eq(projects.id, run.projectId)).get()
     : null;
+  const projectSlug = projectRow?.slug ?? null;
+  const isSandbox = projectRow?.isSandbox ?? false;
   // A task-triggered run carries its taskId in triggerRef; P3 threads the
   // delegation fields (DX-C2) so tools auto-scope and the preamble can brief.
   const taskId = run.trigger === "task" ? (run.triggerRef ?? null) : null;
@@ -85,6 +95,7 @@ export function resolveRunContext(runId: unknown): RunContext {
     runId,
     agent: agentRow as unknown as Agent,
     projectSlug,
+    isSandbox,
     taskId,
     parentTaskId,
     teamId,
@@ -100,7 +111,7 @@ export async function agentMemorySearch(
 ): Promise<MemorySearchHit[]> {
   const filters = expandReadScopes(ctx.agent, ctx.projectSlug);
   if (filters.length === 0) return [];
-  return searchMemory(query, filters, k);
+  return searchMemory(query, filters, k, { callerProjectSlug: ctx.projectSlug });
 }
 
 export interface AgentSaveInput {
@@ -132,11 +143,20 @@ export function agentMemorySave(ctx: RunContext, input: AgentSaveInput): MemoryN
     projectSlug: scope === "global" ? null : projectSlug,
     agentSlug: scope === "agent" ? agentSlug : null,
   };
-  const allowed = noteMatchesFilters(candidate, expandWriteScopes(ctx.agent, ctx.projectSlug));
+  // EH7: inside a sandbox the effective write scopes are clamped to the sandbox
+  // project only — global/agent:self/foreign-project writes are rejected here (the
+  // same clamp the preamble advertised, so the 403 can't surprise the agent).
+  let writeFilters = expandWriteScopes(ctx.agent, ctx.projectSlug);
+  if (ctx.isSandbox && ctx.projectSlug) {
+    writeFilters = clampSandboxWriteScopes(writeFilters, ctx.projectSlug);
+  }
+  const allowed = noteMatchesFilters(candidate, writeFilters);
   if (!allowed) {
     throw new HttpError(
       403,
-      `agent "${ctx.agent.name}" may not write to scope ${scope}${projectSlug ? `:${projectSlug}` : ""}${agentSlug ? `:${agentSlug}` : ""} (allowed: ${ctx.agent.memoryWriteScopes.join(", ")})`,
+      ctx.isSandbox
+        ? `sandbox project "${ctx.projectSlug}": runs may only write project-scoped memory to this project (attempted scope ${scope}${projectSlug ? `:${projectSlug}` : ""}${agentSlug ? `:${agentSlug}` : ""}). Promote the project to write elsewhere.`
+        : `agent "${ctx.agent.name}" may not write to scope ${scope}${projectSlug ? `:${projectSlug}` : ""}${agentSlug ? `:${agentSlug}` : ""} (allowed: ${ctx.agent.memoryWriteScopes.join(", ")})`,
     );
   }
   if (scope === "project" && !projectSlug) {

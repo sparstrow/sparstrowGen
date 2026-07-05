@@ -23,7 +23,15 @@ function rowToAgent(row: typeof agents.$inferSelect): Agent {
 
 export async function agentRoutes(app: FastifyInstance): Promise<void> {
   app.get("/agents", async () => {
-    return getDb().select().from(agents).orderBy(agents.name).all().map(rowToAgent);
+    // Hide factory-managed system agents (Project Indexer/Reporter) from the
+    // roster by default — they are still individually gettable by id.
+    return getDb()
+      .select()
+      .from(agents)
+      .where(eq(agents.isSystem, false))
+      .orderBy(agents.name)
+      .all()
+      .map(rowToAgent);
   });
 
   /**

@@ -26,6 +26,7 @@ import type { NormalizedEvent } from "../providers/types.js";
 import { buildPreamble, type Assignment } from "./preamble.js";
 import { resolveRunEffectiveTools } from "../agents/tool-resolution.js";
 import { busyKey, ensureAgentInstance } from "../agents/instances.js";
+import { buildDirectivesBlock } from "../projects/directives.js";
 
 const nowIso = () => new Date().toISOString();
 
@@ -151,7 +152,10 @@ export class RunManager {
 
   private tick(): void {
     const db = getDb();
-    while (this.active.size < this.globalCap) {
+    // busyAgents is the SYNCHRONOUS in-flight count (added here before start(),
+    // removed on finish/fail) — `active` only fills after start()'s first await, so
+    // it lags within a burst and cannot bound admission. Gate on busyAgents.size.
+    while (this.busyAgents.size < this.globalCap) {
       const queued = db
         .select()
         .from(runs)
@@ -159,7 +163,14 @@ export class RunManager {
         .orderBy(runs.createdAt)
         .limit(50)
         .all();
-      const next = queued.find((r) => !this.busyAgents.has(busyKey(r.agentId, r.projectId)));
+      // P4: reserve ≥1 slot for foreground so background system runs (auto-index,
+      // briefings) can never starve the founder's work (RunLane intent).
+      const backgroundAllowed = this.busyAgents.size < Math.max(1, this.globalCap - 1);
+      const next = queued.find(
+        (r) =>
+          !this.busyAgents.has(busyKey(r.agentId, r.projectId)) &&
+          (r.lane !== "background" || backgroundAllowed),
+      );
       if (!next) return;
       const nextKey = busyKey(next.agentId, next.projectId);
       this.busyAgents.add(nextKey);
@@ -256,8 +267,16 @@ export class RunManager {
         }
       }
     }
-    const preamble = buildPreamble(agent, projectSlug, assignment);
-    const finalPrompt = [preamble, memoryBlock, `## Task\n${row.prompt}`]
+    // EH7: a sandbox run's advertised write dirs are clamped to the sandbox project.
+    const isSandbox = projectRow?.isSandbox ?? false;
+    const preamble = buildPreamble(agent, projectSlug, assignment, {
+      sandboxProjectSlug: isSandbox ? projectSlug : null,
+    });
+    // P4 §2: project directives are GUARANTEED-injected — assembled here as their
+    // own block (after the trusted preamble, before the token-budgeted <memory>
+    // block), so they are never trimmed and never read as untrusted memory DATA.
+    const directivesBlock = buildDirectivesBlock(row.projectId);
+    const finalPrompt = [preamble, directivesBlock, memoryBlock, `## Task\n${row.prompt}`]
       .filter((s) => s.length > 0)
       .join("\n\n");
 
