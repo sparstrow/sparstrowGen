@@ -5,6 +5,7 @@ import {
   projectCreateSchema,
   projectDirectiveCreateSchema,
   projectDirectiveUpdateSchema,
+  projectProvisionSchema,
   projectUpdateSchema,
   slugify,
   type Project,
@@ -19,6 +20,7 @@ import {
   listDirectives,
   updateDirective,
 } from "../../projects/directives.js";
+import { provisionProject, runProjectIndex } from "../../projects/provision.js";
 
 const nowIso = () => new Date().toISOString();
 
@@ -45,6 +47,18 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     return rowToProject(getDb().select().from(projects).where(eq(projects.id, id)).get()!);
   });
 
+  /**
+   * P4 §4 provisioning modal: create a project via scratch (mkdir + optional git
+   * init), bind (existing folder), or clone (public git URL). Performs the
+   * filesystem action, inserts the row, and kicks off a best-effort auto-index.
+   */
+  app.post("/projects/provision", async (request, reply) => {
+    const body = projectProvisionSchema.parse(request.body);
+    const project = await provisionProject(body);
+    reply.code(201);
+    return project;
+  });
+
   app.get("/projects/:id", async (request) => {
     const { id } = request.params as { id: string };
     const row = getDb().select().from(projects).where(eq(projects.id, id)).get();
@@ -58,6 +72,16 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const row = getDb().select().from(projects).where(eq(projects.id, id)).get();
     if (!row) throw new HttpError(404, `project not found: ${id}`);
     return getProjectGitState(row.rootDir);
+  });
+
+  /** P4 §2: re-run the auto-index over the project's rootDir (background, debounced). */
+  app.post("/projects/:id/reindex", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const row = getDb().select().from(projects).where(eq(projects.id, id)).get();
+    if (!row) throw new HttpError(404, `project not found: ${id}`);
+    const run = runProjectIndex(id);
+    reply.code(202);
+    return { started: run !== null, runId: run?.id ?? null };
   });
 
   app.put("/projects/:id", async (request) => {

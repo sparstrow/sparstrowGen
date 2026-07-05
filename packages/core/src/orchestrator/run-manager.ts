@@ -152,7 +152,10 @@ export class RunManager {
 
   private tick(): void {
     const db = getDb();
-    while (this.active.size < this.globalCap) {
+    // busyAgents is the SYNCHRONOUS in-flight count (added here before start(),
+    // removed on finish/fail) — `active` only fills after start()'s first await, so
+    // it lags within a burst and cannot bound admission. Gate on busyAgents.size.
+    while (this.busyAgents.size < this.globalCap) {
       const queued = db
         .select()
         .from(runs)
@@ -160,7 +163,14 @@ export class RunManager {
         .orderBy(runs.createdAt)
         .limit(50)
         .all();
-      const next = queued.find((r) => !this.busyAgents.has(busyKey(r.agentId, r.projectId)));
+      // P4: reserve ≥1 slot for foreground so background system runs (auto-index,
+      // briefings) can never starve the founder's work (RunLane intent).
+      const backgroundAllowed = this.busyAgents.size < Math.max(1, this.globalCap - 1);
+      const next = queued.find(
+        (r) =>
+          !this.busyAgents.has(busyKey(r.agentId, r.projectId)) &&
+          (r.lane !== "background" || backgroundAllowed),
+      );
       if (!next) return;
       const nextKey = busyKey(next.agentId, next.projectId);
       this.busyAgents.add(nextKey);

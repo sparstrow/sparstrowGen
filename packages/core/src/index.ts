@@ -12,6 +12,7 @@ import { buildServer } from "./api/server.js";
 import { extraToolRegistrars } from "./mcp/http-mcp.js";
 import { registerTaskboardTools } from "./taskboard/agent-tools.js";
 import { registerCapabilities } from "./agents/capability-registry.js";
+import { ensureSystemAgents } from "./agents/system-agents.js";
 import { startScheduler, stopScheduler } from "./scheduler/service.js";
 import { initDelegationWatcher, sweepWaitingParents } from "./taskboard/delegation.js";
 import { killAllSessions } from "./terminal/manager.js";
@@ -27,6 +28,9 @@ async function main(): Promise<void> {
   logger.info(scan, "vault scanned");
 
   runManager.sweepOrphans();
+  // P4: seed the factory-managed system agents (Project Indexer/Reporter) that
+  // auto-index + morning-briefing spawn through. Idempotent.
+  ensureSystemAgents();
   // P3 delegation watcher: child-terminal events wake waiting leads; the startup
   // sweep reconciles parents whose children finished while the service was down.
   const stopDelegationWatcher = initDelegationWatcher();

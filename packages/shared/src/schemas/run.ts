@@ -11,7 +11,7 @@ export const runStatusSchema = z.enum([
 ]);
 export type RunStatus = z.infer<typeof runStatusSchema>;
 
-export const runTriggerSchema = z.enum(["manual", "cron", "pipeline", "task", "message"]);
+export const runTriggerSchema = z.enum(["manual", "cron", "pipeline", "task", "message", "system"]);
 export type RunTrigger = z.infer<typeof runTriggerSchema>;
 
 export const runModeSchema = z.enum(["headless", "interactive"]);
