@@ -30,6 +30,8 @@ export interface AppConfig {
   vaultPath: string;
   claudePath: string;
   geminiPath: string;
+  /** git binary for read-only project state (P4). Override with SPARSTROW_GIT_PATH. */
+  gitPath: string;
   /** Bundled stdio MCP server agents call for memory/task/message tools. */
   memoryMcpPath: string;
   /** Bundled CLI for agents without MCP support (gemini). */
@@ -80,6 +82,7 @@ function resolveConfig(): AppConfig {
     vaultPath,
     claudePath: process.env.SPARSTROW_CLAUDE_PATH ?? "claude",
     geminiPath: process.env.SPARSTROW_GEMINI_PATH ?? "gemini",
+    gitPath: process.env.SPARSTROW_GIT_PATH ?? "git",
     memoryMcpPath:
       process.env.SPARSTROW_MEMORY_MCP ??
       path.join(repoRoot, "packages", "memory-mcp", "dist", "index.cjs"),

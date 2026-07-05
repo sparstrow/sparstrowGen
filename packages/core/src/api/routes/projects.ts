@@ -10,6 +10,7 @@ import {
 import { getDb } from "../../db/connection.js";
 import { projects } from "../../db/schema.js";
 import { HttpError } from "../../orchestrator/run-manager.js";
+import { getProjectGitState } from "../../projects/git-status.js";
 
 const nowIso = () => new Date().toISOString();
 
@@ -41,6 +42,14 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const row = getDb().select().from(projects).where(eq(projects.id, id)).get();
     if (!row) throw new HttpError(404, `project not found: ${id}`);
     return rowToProject(row);
+  });
+
+  /** P4 §1: read-only git state for the project's rootDir (branch/dirty/commits). */
+  app.get("/projects/:id/git", async (request) => {
+    const { id } = request.params as { id: string };
+    const row = getDb().select().from(projects).where(eq(projects.id, id)).get();
+    if (!row) throw new HttpError(404, `project not found: ${id}`);
+    return getProjectGitState(row.rootDir);
   });
 
   app.put("/projects/:id", async (request) => {
