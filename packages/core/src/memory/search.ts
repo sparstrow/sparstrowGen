@@ -1,11 +1,35 @@
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import type { MemorySearchHit, MemoryScopeKind } from "@sparstrow/shared";
 import { getDb } from "../db/connection.js";
-import { memoryChunks, memoryNotes } from "../db/schema.js";
+import { memoryChunks, memoryNotes, projects } from "../db/schema.js";
 import { logger } from "../logger.js";
 import { embedQuery, isEmbedderReady } from "./embedder.js";
 import { ftsSearch, isVecAvailable, toFtsMatch, vecSearch } from "./search-store.js";
 import { noteMatchesFilters, type ScopeFilter } from "./scopes.js";
+
+/**
+ * EH7 (P4 §6): the slugs of sandbox projects. Their `project:`-scoped notes are
+ * non-global-searchable — visible ONLY to a caller whose own project IS that
+ * sandbox. Used to drop foreign sandbox notes from every read path.
+ */
+export function getSandboxProjectSlugs(): Set<string> {
+  const rows = getDb()
+    .select({ slug: projects.slug })
+    .from(projects)
+    .where(eq(projects.isSandbox, true))
+    .all();
+  return new Set(rows.map((r) => r.slug));
+}
+
+/** Is this note a foreign sandbox note the caller must not see? */
+export function isForeignSandboxNote(
+  note: { scope: string; projectSlug: string | null },
+  sandboxSlugs: Set<string>,
+  callerProjectSlug: string | null,
+): boolean {
+  if (note.scope !== "project" || !note.projectSlug) return false;
+  return sandboxSlugs.has(note.projectSlug) && note.projectSlug !== callerProjectSlug;
+}
 
 const RRF_K = 60;
 const CANDIDATES = 40;
@@ -22,10 +46,19 @@ interface Scored {
  * Fusion, then scope-filtered. Degrades to FTS-only when the embedder or vec
  * extension is unavailable.
  */
+export interface SearchOptions {
+  /**
+   * EH7: the caller's own project slug. Sandbox project notes are dropped unless
+   * the caller IS that sandbox. Null (user/global search) sees no sandbox notes.
+   */
+  callerProjectSlug?: string | null;
+}
+
 export async function searchMemory(
   query: string,
   filters: ScopeFilter[] | null,
   k: number,
+  opts: SearchOptions = {},
 ): Promise<MemorySearchHit[]> {
   const scores = new Map<number, Scored>();
 
@@ -67,6 +100,7 @@ export async function searchMemory(
 
   const perNoteCount = new Map<string, number>();
   const hits: MemorySearchHit[] = [];
+  const sandboxSlugs = getSandboxProjectSlugs();
 
   const ranked = chunkRows
     .map((chunk) => ({ chunk, scored: scores.get(chunk.id)! }))
@@ -81,6 +115,9 @@ export async function searchMemory(
       agentSlug: note.agentSlug,
     };
     if (filters && !noteMatchesFilters(noteForFilter, filters)) continue;
+    // EH7: a sandbox project's notes are invisible outside that sandbox.
+    if (sandboxSlugs.size > 0 && isForeignSandboxNote(noteForFilter, sandboxSlugs, opts.callerProjectSlug ?? null))
+      continue;
     const count = perNoteCount.get(note.id) ?? 0;
     if (count >= MAX_CHUNKS_PER_NOTE) continue;
     perNoteCount.set(note.id, count + 1);

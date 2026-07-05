@@ -4,7 +4,7 @@ import { MEMORY_INJECTION_MAX_CHARS, MEMORY_INJECTION_TOP_K } from "@sparstrow/s
 import { getDb } from "../db/connection.js";
 import { memoryNotes } from "../db/schema.js";
 import { logger } from "../logger.js";
-import { searchMemory } from "./search.js";
+import { getSandboxProjectSlugs, isForeignSandboxNote, searchMemory } from "./search.js";
 import { expandReadScopes, noteMatchesFilters } from "./scopes.js";
 import { readNoteBody } from "./vault.js";
 
@@ -29,7 +29,9 @@ export async function buildMemoryBlock(
 
   let hits: MemorySearchHit[] = [];
   try {
-    hits = await searchMemory(prompt.slice(0, 800), filters, MEMORY_INJECTION_TOP_K);
+    hits = await searchMemory(prompt.slice(0, 800), filters, MEMORY_INJECTION_TOP_K, {
+      callerProjectSlug: currentProjectSlug,
+    });
   } catch (err) {
     logger.warn({ err }, "memory retrieval failed — falling back to recency");
   }
@@ -92,6 +94,7 @@ function recencyFallback(
     .orderBy(desc(memoryNotes.updatedAt))
     .limit(50)
     .all();
+  const sandboxSlugs = getSandboxProjectSlugs();
   const hits: MemorySearchHit[] = [];
   for (const row of candidates) {
     const note = {
@@ -100,6 +103,8 @@ function recencyFallback(
       agentSlug: row.agentSlug,
     };
     if (!noteMatchesFilters(note, filters)) continue;
+    // EH7: same sandbox exclusion as searchMemory, since this path bypasses it.
+    if (sandboxSlugs.size > 0 && isForeignSandboxNote(note, sandboxSlugs, currentProjectSlug)) continue;
     let body = "";
     try {
       body = readNoteBody({ ...row, scope: row.scope as MemoryScopeKind } as MemoryNote);

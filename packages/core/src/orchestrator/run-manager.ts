@@ -256,7 +256,11 @@ export class RunManager {
         }
       }
     }
-    const preamble = buildPreamble(agent, projectSlug, assignment);
+    // EH7: a sandbox run's advertised write dirs are clamped to the sandbox project.
+    const isSandbox = projectRow?.isSandbox ?? false;
+    const preamble = buildPreamble(agent, projectSlug, assignment, {
+      sandboxProjectSlug: isSandbox ? projectSlug : null,
+    });
     const finalPrompt = [preamble, memoryBlock, `## Task\n${row.prompt}`]
       .filter((s) => s.length > 0)
       .join("\n\n");

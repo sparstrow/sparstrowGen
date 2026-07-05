@@ -103,6 +103,7 @@ describe("agent instances (P3, locked D5)", () => {
         memoryWriteScopes: ["agent:self"],
       } as unknown as Agent,
       projectSlug: "alpha",
+      isSandbox: false,
       taskId: null,
       parentTaskId: null,
       teamId: null,
