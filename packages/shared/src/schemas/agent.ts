@@ -51,13 +51,19 @@ export const agentSchema = z.object({
   memoryWriteScopes: z.array(memoryScopeSchema).default(["agent:self"]),
   extraArgs: z.array(z.string()).default([]),
   enabled: z.boolean().default(true),
+  /**
+   * P4: a factory-managed system agent (Project Indexer, Project Reporter) seeded
+   * at boot, not user-created. Hidden from the default agent list so it doesn't
+   * clutter the roster; still runnable via cron/auto-index.
+   */
+  isSystem: z.boolean().default(false),
   createdAt: isoDateSchema,
   updatedAt: isoDateSchema,
 });
 export type Agent = z.infer<typeof agentSchema>;
 
 export const agentCreateSchema = agentSchema
-  .omit({ id: true, slug: true, createdAt: true, updatedAt: true })
+  .omit({ id: true, slug: true, isSystem: true, createdAt: true, updatedAt: true })
   .extend({ slug: slugSchema.optional() });
 export type AgentCreate = z.infer<typeof agentCreateSchema>;
 

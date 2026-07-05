@@ -23,21 +23,56 @@ export const agents = sqliteTable("agents", {
   memoryWriteScopes: text("memory_write_scopes", { mode: "json" }).$type<string[]>().notNull().default([]),
   extraArgs: text("extra_args", { mode: "json" }).$type<string[]>().notNull().default([]),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  // P4: factory-managed system agent (Project Indexer/Reporter), hidden from the
+  // default roster. Seeded at boot, not user-created.
+  isSystem: integer("is_system", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
 
-export const projects = sqliteTable("projects", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull().unique(),
-  slug: text("slug").notNull().unique(),
-  description: text("description").notNull().default(""),
-  rootDir: text("root_dir"),
-  allowedTools: text("allowed_tools", { mode: "json" }).$type<string[]>().notNull().default([]),
-  disallowedTools: text("disallowed_tools", { mode: "json" }).$type<string[]>().notNull().default([]),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
+export const projects = sqliteTable(
+  "projects",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull().unique(),
+    slug: text("slug").notNull().unique(),
+    description: text("description").notNull().default(""),
+    rootDir: text("root_dir"),
+    allowedTools: text("allowed_tools", { mode: "json" }).$type<string[]>().notNull().default([]),
+    disallowedTools: text("disallowed_tools", { mode: "json" }).$type<string[]>().notNull().default([]),
+    // P4 client variants (§7): self-reference to the base project. Code-enforced FK
+    // (SQLite ADD COLUMN can't add one) — mirrors tasks.parent_task_id.
+    parentProjectId: text("parent_project_id"),
+    // P4 sandbox (§6/EH7): sandboxed runs may only write memory scoped to this
+    // project; its notes are non-global-searchable.
+    isSandbox: integer("is_sandbox", { mode: "boolean" }).notNull().default(false),
+    // P4 git awareness: the remote this rootDir was cloned/bound from (nullable).
+    gitRemote: text("git_remote"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("idx_projects_parent").on(t.parentProjectId)],
+);
+
+/**
+ * P4 project directives (§2/P4-Q2): ordered, toggleable operator rules PREPENDED
+ * (guaranteed-injection, never token-trimmed) into every run in the project.
+ */
+export const projectDirectives = sqliteTable(
+  "project_directives",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    sort: integer("sort").notNull().default(0),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("idx_project_directives_project").on(t.projectId, t.sort)],
+);
 
 export const runs = sqliteTable(
   "runs",

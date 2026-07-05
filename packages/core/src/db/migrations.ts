@@ -323,4 +323,36 @@ CREATE TABLE agent_instances (
 CREATE UNIQUE INDEX uq_agent_instances_agent_project ON agent_instances(agent_id, project_id);
 `,
   },
+  {
+    // P4 projects workspace.
+    // - projects.parent_project_id: client-variant fork link (§7, self-ref;
+    //   code-enforced FK like tasks.parent_task_id, indexed for the variants tab).
+    // - projects.is_sandbox: §6/EH7 — sandboxed runs may only WRITE memory scoped
+    //   to this project; its notes are non-global-searchable.
+    // - projects.git_remote: the remote this rootDir was cloned/bound from.
+    // - agents.is_system: factory-managed system agents (Project Indexer/Reporter),
+    //   hidden from the default roster, seeded at boot.
+    // - project_directives: ordered, toggleable, always-injected project rules (§2/P4-Q2).
+    // ADD COLUMN-only + one new table — safe under the in-transaction runner.
+    id: "0007_projects_workspace",
+    sql: `
+ALTER TABLE projects ADD COLUMN parent_project_id TEXT;
+ALTER TABLE projects ADD COLUMN is_sandbox INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE projects ADD COLUMN git_remote TEXT;
+CREATE INDEX idx_projects_parent ON projects(parent_project_id);
+
+ALTER TABLE agents ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE project_directives (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  sort INTEGER NOT NULL DEFAULT 0,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX idx_project_directives_project ON project_directives(project_id, sort);
+`,
+  },
 ];
