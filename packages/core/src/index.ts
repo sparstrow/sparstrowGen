@@ -17,6 +17,7 @@ import { startScheduler, stopScheduler } from "./scheduler/service.js";
 import { initDelegationWatcher, sweepWaitingParents } from "./taskboard/delegation.js";
 import { killAllSessions } from "./terminal/manager.js";
 import { shutdownGraphPool, sweepOrphanEngines } from "./graph/graph-client.js";
+import { graphToolRegistrar } from "./graph/graph-tools.js";
 
 async function main(): Promise<void> {
   logger.info({ dataDir: config.dataDir, vault: config.vaultPath }, "sparstrow core starting");
@@ -44,6 +45,8 @@ async function main(): Promise<void> {
   if (woken > 0) logger.info({ woken }, "waiting parents reconciled at startup");
   extraToolRegistrars.push(registerTaskboardTools);
   extraToolRegistrars.push(registerCapabilities);
+  // P5: curated graph tools — registration reads the run's spawn-pinned snapshot.
+  extraToolRegistrars.push(graphToolRegistrar);
 
   const app = await buildServer();
   await app.listen({ port: config.port, host: config.host });

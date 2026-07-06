@@ -26,6 +26,7 @@ const ctx = (over: Partial<RunContext>): RunContext =>
   ({
     runId: "run_1",
     agent: mkAgent(["global", "agent:self", "project:*"]),
+    projectId: null,
     projectSlug: "sandboxproj",
     isSandbox: true,
     taskId: null,
@@ -33,6 +34,7 @@ const ctx = (over: Partial<RunContext>): RunContext =>
     teamId: null,
     delegatedByAgentName: null,
     delegationDepth: 0,
+    effectiveTools: null,
     ...over,
   }) as RunContext;
 

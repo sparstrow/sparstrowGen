@@ -25,6 +25,7 @@ import { getProvider } from "../providers/index.js";
 import type { NormalizedEvent } from "../providers/types.js";
 import { buildPreamble, type Assignment } from "./preamble.js";
 import { resolveRunEffectiveTools } from "../agents/tool-resolution.js";
+import { applyGraphAvailabilityGate, graphEngineInstalled } from "../graph/graph-tools.js";
 import { busyKey, ensureAgentInstance } from "../agents/instances.js";
 import { buildDirectivesBlock } from "../projects/directives.js";
 
@@ -283,7 +284,13 @@ export class RunManager {
     // P2/EH5: resolve the effective tool policy (Global→Agent→Project→Task) ONCE and
     // snapshot it on the run, so the provider reads an immutable set — a row edited
     // while the run was queued can't change what it may touch.
-    const effectiveTools = resolveRunEffectiveTools({ agent, project: projectRow, task: taskRow });
+    // P5 (#49): graph-tool availability is pinned into the same snapshot — engine
+    // missing or projectless run ⇒ graph tools disallowed for this run's lifetime,
+    // so surface, preamble, and P3 child-clamps can never disagree mid-run.
+    const effectiveTools = applyGraphAvailabilityGate(
+      resolveRunEffectiveTools({ agent, project: projectRow, task: taskRow }),
+      { engineInstalled: graphEngineInstalled(), hasProject: row.projectId != null },
+    );
     db.update(runs).set({ effectiveTools }).where(eq(runs.id, row.id)).run();
 
     const tempDir = path.join(config.tmpDir, row.id);

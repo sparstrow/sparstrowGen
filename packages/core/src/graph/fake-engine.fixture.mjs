@@ -50,12 +50,17 @@ rl.on("line", (line) => {
   }
   if (msg.method === "tools/call") {
     const { name, arguments: args } = msg.params;
-    const reply = () =>
-      send({
-        jsonrpc: "2.0",
-        id: msg.id,
-        result: { content: [{ type: "text", text: JSON.stringify({ tool: name, args: args ?? {}, pid: process.pid }) }] },
-      });
+    const result = (text) => send({ jsonrpc: "2.0", id: msg.id, result: { content: [{ type: "text", text }] } });
+    // Engine-shaped responses used by graph-tools tests:
+    if (name === "list_projects") {
+      result(JSON.stringify(mode === "empty" ? { projects: [] } : { projects: [{ name: "fixture-project" }] }));
+      return;
+    }
+    if (name === "big" || args?.big === true) {
+      result("x".repeat(100_000));
+      return;
+    }
+    const reply = () => result(JSON.stringify({ tool: name, args: args ?? {}, pid: process.pid }));
     if (name === "sleep") setTimeout(reply, args?.ms ?? 1000);
     else reply();
     return;

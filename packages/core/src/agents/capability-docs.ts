@@ -55,6 +55,44 @@ export const CAPABILITY_DOCS: CapabilityDoc[] = [
     intent: "look-up",
     whenToUse: "You need knowledge you don't have in context — search before guessing.",
   },
+  // P5 graph tools (curated 7, UC1). Docs render only for runs whose spawn
+  // snapshot includes them (renderCapabilityDocs is called with the run's
+  // available names) — a graph-disabled run never sees these advertised.
+  {
+    name: "search_graph",
+    intent: "look-up",
+    whenToUse: "Find a symbol/file/route in the code graph by name or pattern — start here; results carry the qualified_name the other graph tools take.",
+  },
+  {
+    name: "trace_path",
+    intent: "look-up",
+    whenToUse: "Who calls X / what does X call / what breaks if I change it — pass a qualified_name from search_graph.",
+  },
+  {
+    name: "query_graph",
+    intent: "look-up",
+    whenToUse: "Multi-hop or aggregate structure questions in Cypher — call get_graph_schema once first.",
+  },
+  {
+    name: "get_graph_schema",
+    intent: "look-up",
+    whenToUse: "Node labels, edge types, and properties — once, before your first query_graph.",
+  },
+  {
+    name: "get_code_snippet",
+    intent: "look-up",
+    whenToUse: "Exact source of a known symbol by qualified_name — cheaper than reading whole files.",
+  },
+  {
+    name: "get_architecture",
+    intent: "look-up",
+    whenToUse: "Orient in an unfamiliar project (languages, packages, hotspots) — at most once per run, request only the aspects you need.",
+  },
+  {
+    name: "detect_changes",
+    intent: "look-up",
+    whenToUse: "Map the current diff to affected symbols with risk ranking — 'what does this change touch'.",
+  },
 ];
 
 const INTENT_ORDER: CapabilityIntent[] = ["do-work", "delegate", "escalate", "remember", "look-up"];
