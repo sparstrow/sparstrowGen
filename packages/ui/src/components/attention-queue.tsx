@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Link } from "@tanstack/react-router";
-import { AlertCircle, ArrowRightLeft, CheckCircle2, ClipboardCheck, ShieldCheck } from "lucide-react";
-import type { TaskQuestion } from "@sparstrow/shared";
+import { AlertCircle, ArrowRightLeft, CheckCircle2, ClipboardCheck, GitCompareArrows, ShieldCheck } from "lucide-react";
+import type { Task, TaskQuestion } from "@sparstrow/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,8 +13,13 @@ import {
   useApproveTask,
   useAttentionQueue,
   useDenyTask,
+  useResolveContradiction,
   type AttentionRow,
 } from "@/api/hooks";
+
+/** Task-backed rows (question/approval/review) always carry a task; the P5
+ *  contradiction row is the task-null variant. */
+type TaskAttentionRow = AttentionRow & { task: Task };
 
 function ageLabel(ms: number): string {
   const m = Math.floor(ms / 60000);
@@ -26,7 +31,7 @@ function ageLabel(ms: number): string {
 }
 
 /** One blocked task: the agent's progress note + a labeled field per open question. */
-function QuestionCard({ row, agentName }: { row: AttentionRow; agentName: string }) {
+function QuestionCard({ row, agentName }: { row: TaskAttentionRow; agentName: string }) {
   const answer = useAnswerTask();
   const [drafts, setDrafts] = React.useState<Record<string, string>>({});
   const [deferred, setDeferred] = React.useState<string | null>(null);
@@ -122,7 +127,7 @@ function QuestionCard({ row, agentName }: { row: AttentionRow; agentName: string
  * owner reads exactly what the child agent would receive, plus the exact tool
  * bound it would run under.
  */
-function ApprovalCard({ row }: { row: AttentionRow }) {
+function ApprovalCard({ row }: { row: TaskAttentionRow }) {
   const approve = useApproveTask();
   const deny = useDenyTask();
   const [denying, setDenying] = React.useState(false);
@@ -214,7 +219,57 @@ function ApprovalCard({ row }: { row: AttentionRow }) {
   );
 }
 
-function ReviewRow({ row }: { row: AttentionRow }) {
+/**
+ * P5 dream-cycle contradiction flag (P5-Q3: FLAG-ONLY). The owner resolves by
+ * editing/archiving one of the notes in Memory, then dismissing the flag here.
+ */
+function ContradictionCard({ row }: { row: AttentionRow }) {
+  const resolve = useResolveContradiction();
+  const c = row.contradiction!;
+  return (
+    <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-sm font-semibold">
+            <GitCompareArrows className="size-3.5 shrink-0 text-violet-500" />
+            Memory contradiction
+            {c.projectSlug && <span className="font-normal text-muted-foreground">({c.projectSlug})</span>}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            flagged {ageLabel(row.ageMs)} · confidence {Math.round(c.confidence * 100)}% · {c.severity}
+          </p>
+        </div>
+        <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
+          contradiction
+        </Badge>
+      </div>
+      {c.axis && <p className="mt-2 text-sm">{c.axis}</p>}
+      <p className="mt-1 text-xs text-muted-foreground">
+        <Link to="/memory" className="font-medium hover:underline">
+          "{c.noteATitle}"
+        </Link>{" "}
+        vs{" "}
+        <Link to="/memory" className="font-medium hover:underline">
+          "{c.noteBTitle}"
+        </Link>{" "}
+        — open Memory to edit or archive the stale side; nothing is auto-resolved.
+      </p>
+      <div className="mt-3 flex items-center gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={resolve.isPending}
+          onClick={() => resolve.mutate({ id: c.id, resolution: "dismissed by owner" })}
+        >
+          Dismiss flag
+        </Button>
+        {resolve.isError && <span className="text-xs text-destructive">{resolve.error.message}</span>}
+      </div>
+    </div>
+  );
+}
+
+function ReviewRow({ row }: { row: TaskAttentionRow }) {
   return (
     <Link
       to="/tasks"
@@ -259,12 +314,18 @@ export function AttentionQueue() {
           </div>
         ) : (
           rows.map((row) =>
-            row.type === "question" ? (
-              <QuestionCard key={row.task.id} row={row} agentName={agentName(row.task.assignedAgentId)} />
+            row.type === "contradiction" ? (
+              <ContradictionCard key={row.contradiction!.id} row={row} />
+            ) : row.type === "question" ? (
+              <QuestionCard
+                key={row.task!.id}
+                row={row as TaskAttentionRow}
+                agentName={agentName(row.task!.assignedAgentId)}
+              />
             ) : row.type === "approval" ? (
-              <ApprovalCard key={row.task.id} row={row} />
+              <ApprovalCard key={row.task!.id} row={row as TaskAttentionRow} />
             ) : (
-              <ReviewRow key={row.task.id} row={row} />
+              <ReviewRow key={row.task!.id} row={row as TaskAttentionRow} />
             ),
           )
         )}

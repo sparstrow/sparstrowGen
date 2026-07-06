@@ -16,10 +16,13 @@ import type {
   CronJob,
   CronJobCreate,
   CronJobUpdate,
+  MemoryLink,
   MemoryNote,
   MemoryNoteCreate,
+  MemoryNoteType,
   MemoryScopeKind,
   MemorySearchHit,
+  MemorySynthesis,
   Message,
   Pipeline,
   PipelineCreate,
@@ -738,7 +741,7 @@ export function useRunTask(): UseMutationResult<Task, ApiError, string> {
 // Attention queue (P1 — the founder's daily surface)
 // ---------------------------------------------------------------------------
 
-export type AttentionRowType = "question" | "ready-for-review" | "approval";
+export type AttentionRowType = "question" | "ready-for-review" | "approval" | "contradiction";
 
 /** EM3: the verbatim agent-authored description is the primary approval content. */
 export interface ApprovalDetails {
@@ -750,11 +753,26 @@ export interface ApprovalDetails {
   verbatimDescription: string;
 }
 
+/** P5: a dream-cycle memory contradiction flag (flag-only, P5-Q3). */
+export interface ContradictionDetails {
+  id: string;
+  projectSlug: string | null;
+  axis: string;
+  severity: string;
+  confidence: number;
+  noteAId: string;
+  noteATitle: string;
+  noteBId: string;
+  noteBTitle: string;
+}
+
 export interface AttentionRow {
   type: AttentionRowType;
-  task: Task;
+  /** Null for non-task rows (P5 contradiction flags). */
+  task: Task | null;
   questions: TaskQuestion[];
   approval?: ApprovalDetails;
+  contradiction?: ContradictionDetails;
   ageMs: number;
 }
 
@@ -869,6 +887,14 @@ export interface MemoryNoteFilters {
   scope?: MemoryScopeKind;
   projectSlug?: string;
   agentSlug?: string;
+  /** P5 typed memory facet. */
+  type?: MemoryNoteType;
+  /** P5: exact source facet ('signal', 'dream', 'user', 'agent:<slug>'). */
+  source?: string;
+  /** EH6 review queue: only quarantined notes. */
+  quarantined?: boolean;
+  /** Archived notes are hidden by default. */
+  includeArchived?: boolean;
 }
 
 export function useMemoryNotes(
@@ -882,6 +908,10 @@ export function useMemoryNotes(
           scope: filters.scope,
           projectSlug: filters.projectSlug,
           agentSlug: filters.agentSlug,
+          type: filters.type,
+          source: filters.source,
+          quarantined: filters.quarantined ? "true" : undefined,
+          includeArchived: filters.includeArchived ? "true" : undefined,
         })}`,
       ),
   });
@@ -966,16 +996,132 @@ export function useMemoryRescan(): UseMutationResult<MemoryRescanResult, ApiErro
 export interface MemorySearchInput {
   query: string;
   k?: number;
+  /** P5 typed memory facet. */
+  type?: MemoryNoteType;
+  /** P5 synthesis-over-search: also return a cited answer + gaps. */
+  synthesize?: boolean;
+}
+
+export interface MemorySearchResult {
+  hits: MemorySearchHit[];
+  /** Null when synthesize was off or the utility model was unavailable. */
+  synthesis: MemorySynthesis | null;
 }
 
 export function useMemorySearch(): UseMutationResult<
-  MemorySearchHit[],
+  MemorySearchResult,
   ApiError,
   MemorySearchInput
 > {
   return useMutation({
     mutationFn: (body: MemorySearchInput) =>
-      api<MemorySearchHit[]>("/memory/search", { method: "POST", body }),
+      api<MemorySearchResult>("/memory/search", { method: "POST", body }),
+  });
+}
+
+/** P5 wikilinks: a note's outgoing links + backlinks. */
+export interface NoteLinks {
+  outgoing: Array<MemoryLink & { toTitle: string | null; toPath: string | null }>;
+  backlinks: Array<{ fromNoteId: string; fromTitle: string; fromPath: string }>;
+}
+
+export function useNoteLinks(id: string): UseQueryResult<NoteLinks, ApiError> {
+  return useQuery({
+    queryKey: ["note-links", id],
+    queryFn: () => api<NoteLinks>(`/memory/notes/${id}/links`),
+    enabled: Boolean(id),
+  });
+}
+
+/** EH6: approve a quarantined signal note — it becomes injectable. */
+export function useApproveNote(): UseMutationResult<MemoryNote, ApiError, string> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<MemoryNote>(`/memory/notes/${id}/approve`, { method: "POST" }),
+    onSuccess: (_note, id) => {
+      void queryClient.invalidateQueries({ queryKey: ["memory-notes"] });
+      void queryClient.invalidateQueries({ queryKey: ["note-raw", id] });
+    },
+  });
+}
+
+/** P5 soft-archive: hide from retrieval, never delete. */
+export function useArchiveNote(): UseMutationResult<MemoryNote, ApiError, string> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<MemoryNote>(`/memory/notes/${id}/archive`, { method: "POST" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["memory-notes"] });
+    },
+  });
+}
+
+/** P5 signal-noise broom: bulk-delete machine-written notes by source. */
+export function useBulkDeleteNotes(): UseMutationResult<
+  { deleted: number },
+  ApiError,
+  { source: string; projectSlug?: string; quarantinedOnly?: boolean }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body) => api<{ deleted: number }>("/memory/notes/bulk-delete", { method: "POST", body }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["memory-notes"] });
+    },
+  });
+}
+
+/** P5-Q3: dismiss a contradiction flag (resolution is the owner's note-edit). */
+export function useResolveContradiction(): UseMutationResult<
+  unknown,
+  ApiError,
+  { id: string; resolution?: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, resolution }) =>
+      api<unknown>(`/memory/contradictions/${id}/resolve`, { method: "POST", body: { resolution } }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["attention-queue"] });
+    },
+  });
+}
+
+// ── P5 dream cycle (per-project, briefing idiom) ──
+
+export interface DreamState {
+  enabled: boolean;
+  cronExpr: string | null;
+  job: CronJob | null;
+}
+
+export function useProjectDream(projectId: string): UseQueryResult<DreamState, ApiError> {
+  return useQuery({
+    queryKey: ["project-dream", projectId],
+    queryFn: () => api<DreamState>(`/projects/${projectId}/dream`),
+    enabled: Boolean(projectId),
+  });
+}
+
+export function useSetProjectDream(): UseMutationResult<
+  DreamState,
+  ApiError,
+  { projectId: string; enabled: boolean; cronExpr?: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, ...body }) =>
+      api<DreamState>(`/projects/${projectId}/dream`, { method: "PUT", body }),
+    onSuccess: (_state, { projectId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["project-dream", projectId] });
+    },
+  });
+}
+
+export function useRunDreamNow(): UseMutationResult<{ fired: boolean }, ApiError, string> {
+  return useMutation({
+    mutationFn: (projectId: string) =>
+      api<{ fired: boolean }>(`/projects/${projectId}/dream/run`, { method: "POST" }),
   });
 }
 

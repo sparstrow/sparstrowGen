@@ -27,6 +27,7 @@ import {
   useDeleteDirective,
   useProject,
   useProjectBriefing,
+  useProjectDream,
   useProjectDirectives,
   useProjectFiles,
   useProjectGitState,
@@ -38,8 +39,10 @@ import {
   useLaunchViz,
   useProjectViz,
   useReindexProject,
+  useRunDreamNow,
   useStopViz,
   useSetBriefing,
+  useSetProjectDream,
   useSyncFromBase,
   useTasks,
   useUpdateDirective,
@@ -140,6 +143,7 @@ export function ProjectWorkspacePage() {
             isSandbox={p.isSandbox}
           />
           <CodeGraphPanel projectId={projectId} isSandbox={p.isSandbox} hasRoot={Boolean(p.rootDir)} />
+          <DreamCyclePanel projectId={projectId} isSandbox={p.isSandbox} />
         </div>
       </div>
     </div>
@@ -337,6 +341,61 @@ function MemoryPanel({ projectSlug }: { projectSlug: string }) {
           </Link>
         ))
       )}
+    </div>
+  );
+}
+
+/**
+ * P5 dream cycle (P5-Q1: OFF until enabled per project): nightly memory
+ * consolidation — signal extraction from the day's runs, near-duplicate
+ * merges (originals archived, never deleted), contradiction flags into the
+ * Attention queue. Results land as an inbox digest + ws event.
+ */
+function DreamCyclePanel({ projectId, isSandbox }: { projectId: string; isSandbox: boolean }) {
+  const dream = useProjectDream(projectId);
+  const setDream = useSetProjectDream();
+  const runNow = useRunDreamNow();
+  const enabled = dream.data?.enabled ?? false;
+  return (
+    <div className="space-y-3 rounded-xl border p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium">Dream cycle</p>
+          <p className="text-xs text-muted-foreground">
+            Nightly memory consolidation: signals, merges, contradiction flags.
+          </p>
+        </div>
+        <Switch
+          checked={enabled}
+          disabled={setDream.isPending || isSandbox}
+          onCheckedChange={(on) => setDream.mutate({ projectId, enabled: on })}
+        />
+      </div>
+      {isSandbox && (
+        <p className="text-xs text-muted-foreground">
+          Sandboxes don&apos;t dream — promote the project to enable nightly consolidation.
+        </p>
+      )}
+      {enabled && dream.data?.cronExpr && (
+        <div className="flex items-center justify-between">
+          <p className="font-mono text-[11px] text-muted-foreground">schedule: {dream.data.cronExpr}</p>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={runNow.isPending}
+            onClick={() => runNow.mutate(projectId)}
+          >
+            Run now
+          </Button>
+        </div>
+      )}
+      {runNow.isSuccess && (
+        <p className="text-xs text-emerald-600 dark:text-emerald-400">
+          Dream cycle started — the digest lands in your inbox.
+        </p>
+      )}
+      {setDream.isError && <p className="text-xs text-destructive">{setDream.error.message}</p>}
+      {runNow.isError && <p className="text-xs text-destructive">{runNow.error.message}</p>}
     </div>
   );
 }
