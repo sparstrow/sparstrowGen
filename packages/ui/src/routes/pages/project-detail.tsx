@@ -31,6 +31,7 @@ import {
   useProjectFiles,
   useProjectGitState,
   useProjectGraph,
+  useProjectGraphUsage,
   useProjectVariants,
   useProjects,
   useGraphEngine,
@@ -439,6 +440,7 @@ function CodeGraphPanel({
 }) {
   const engine = useGraphEngine();
   const graph = useProjectGraph(projectId);
+  const usage = useProjectGraphUsage(projectId, graph.data?.state === "ready");
   const reindex = useReindexProject();
 
   const engineInstalled = engine.data?.installed ?? false;
@@ -479,10 +481,17 @@ function CodeGraphPanel({
       ) : (
         <div className="space-y-2">
           {s?.state === "ready" && (
-            <p className="font-mono text-[11px] text-muted-foreground">
-              {(s.nodes ?? 0).toLocaleString()} nodes · {(s.edges ?? 0).toLocaleString()} edges
-              {s.indexedAt ? ` · indexed ${formatDate(s.indexedAt)}` : ""}
-            </p>
+            <>
+              <p className="font-mono text-[11px] text-muted-foreground">
+                {(s.nodes ?? 0).toLocaleString()} nodes · {(s.edges ?? 0).toLocaleString()} edges
+                {s.indexedAt ? ` · indexed ${formatDate(s.indexedAt)}` : ""}
+              </p>
+              {usage.data && usage.data.totalRuns > 0 && (
+                <p className="font-mono text-[11px] text-muted-foreground">
+                  used in {usage.data.runsWithGraph} of {usage.data.totalRuns} runs
+                </p>
+              )}
+            </>
           )}
           {(s?.state === "queued" || s?.state === "indexing") && (
             <p className="text-xs text-muted-foreground">

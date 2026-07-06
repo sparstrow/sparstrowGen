@@ -307,6 +307,19 @@ export function useProjectGraph(id: string): UseQueryResult<GraphProjectStatus, 
   });
 }
 
+/** T9: the success-criterion denominator — graph tools used in N of M runs. */
+export function useProjectGraphUsage(
+  id: string,
+  enabled: boolean,
+): UseQueryResult<{ runsWithGraph: number; totalRuns: number }, ApiError> {
+  return useQuery({
+    queryKey: ["project-graph-usage", id],
+    queryFn: () => api<{ runsWithGraph: number; totalRuns: number }>(`/projects/${id}/graph/usage`),
+    enabled: Boolean(id) && enabled,
+    staleTime: 60_000,
+  });
+}
+
 // ── Project directives (§2) ──
 export function useProjectDirectives(id: string): UseQueryResult<ProjectDirective[], ApiError> {
   return useQuery({
