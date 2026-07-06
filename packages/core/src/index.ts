@@ -21,10 +21,34 @@ import { graphToolRegistrar } from "./graph/graph-tools.js";
 import { reconcileInterruptedIndexes, startNightlyGraphRefresh } from "./graph/graph-lifecycle.js";
 import { stopAllViz } from "./graph/viz-manager.js";
 
+/**
+ * Startup watchdog: a core that wedges BEFORE app.listen (seen in the wild:
+ * SQLite WAL-recovery file-lock wait on Windows against a stale session's db
+ * handle) previously hung SILENTLY — the terminal showed only the vite proxy's
+ * ECONNREFUSED spam with zero core output. If listen isn't reached in time,
+ * die loudly naming the last phase so the operator sees the real failure.
+ */
+const STARTUP_WATCHDOG_MS = 45_000;
+let startupPhase = "init";
+function armStartupWatchdog(): NodeJS.Timeout {
+  const timer = setTimeout(() => {
+    logger.fatal(
+      { phase: startupPhase, timeoutMs: STARTUP_WATCHDOG_MS },
+      "core failed to reach listen — startup is wedged (likely a stale session holding the db or port); kill leftover node processes and retry",
+    );
+    process.exit(1);
+  }, STARTUP_WATCHDOG_MS);
+  timer.unref();
+  return timer;
+}
+
 async function main(): Promise<void> {
+  const watchdog = armStartupWatchdog();
   logger.info({ dataDir: config.dataDir, vault: config.vaultPath }, "sparstrow core starting");
   ensureDirs();
+  startupPhase = "open-db";
   openDb();
+  startupPhase = "vault";
   ensureVaultDirs();
   initSearchStore();
 
@@ -55,8 +79,11 @@ async function main(): Promise<void> {
   // P5: curated graph tools — registration reads the run's spawn-pinned snapshot.
   extraToolRegistrars.push(graphToolRegistrar);
 
+  startupPhase = "build-server";
   const app = await buildServer();
+  startupPhase = "listen";
   await app.listen({ port: config.port, host: config.host });
+  clearTimeout(watchdog);
   logger.info({ url: `http://${config.host}:${config.port}` }, "sparstrow core ready");
   startScheduler();
 
