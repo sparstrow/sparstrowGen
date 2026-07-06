@@ -31,3 +31,23 @@ P4 deferrals →
 - **Lane-aware scheduler is coarse** — P4 reserves ≥1 foreground slot so background
   system runs (auto-index, briefings) can't starve the founder's work. A richer
   fair-share / priority scheme can come if background volume grows.
+
+P5 deferrals (graph-engine swap, /autoplan 2026-07-05) →
+- **`detect_changes` in review flows / P6 GOAP inputs** — the engine maps a git diff to
+  affected symbols with risk classification; surface it in a run-detail "diff impact"
+  panel and feed it to the P6 planner as a precondition signal. Agent tool ships in P5;
+  this is the human/planner surface. (S, P6 adjacency)
+- **Nightly risk-ranked diff digest** — "what changed today, riskiest first" into the
+  morning briefing via the existing Reporter cron. Reuses detect_changes. (S, delight)
+- **`search_code` re-export for P8 direct-API agents** — excluded from the curated 7
+  because Claude-CLI agents have native Grep; P8 tool-loop agents won't. One registry
+  entry + docs line when P8 lands. (S, blocked by P8)
+- **Auth-proxied viz route** — the 3D view is an unauthenticated 127.0.0.1 origin opened
+  in a new tab (UC2). If embedding inside the factory UI is ever wanted, proxy it through
+  core's authenticated server instead of an iframe to the raw port. (M, only on demand)
+- **Lesson-decoration of graph results** — when P5 part 2's LESSONS notes exist (portable
+  `(filePath, symbolName)` refs), the graph-tool proxy can annotate matching results with
+  preferred/dead-end lessons at the join layer. (M, needs P5 part 2)
+- **Error-call counting in graph usage aggregate** — "used in N of M runs" ships; counting
+  isError tool_results needs pairing tool_use ids across events. Add if the zero-usage
+  diagnostic proves insufficient. (S)

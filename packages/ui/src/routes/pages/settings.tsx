@@ -4,10 +4,88 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useHealth, useSettings, useUpdateSettings } from "@/api/hooks";
+import {
+  useGraphEngine,
+  useHealth,
+  useIndexAllProjects,
+  useInstallGraphEngine,
+  useRetryGraphEngine,
+  useSettings,
+  useUpdateSettings,
+} from "@/api/hooks";
 import { useTheme, type Theme } from "@/theme/theme-provider";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+/**
+ * P5 (design F4): ONE engine-level row — per-project index state lives on each
+ * project page. Install is the explicit T-a affordance (a predictable Defender
+ * moment); "Index all projects" is the post-install backfill (T10, DX F7);
+ * Retry clears crash-loop breaker latches (audit #40). Download progress
+ * arrives over ws (graph.engine.status → query invalidation), never silent.
+ */
+function GraphEngineRow() {
+  const engine = useGraphEngine();
+  const install = useInstallGraphEngine();
+  const retry = useRetryGraphEngine();
+  const indexAll = useIndexAllProjects();
+  const s = engine.data;
+  if (engine.isLoading || !s) {
+    return (
+      <InfoRow label="Code graph">
+        <Skeleton className="h-5 w-24" />
+      </InfoRow>
+    );
+  }
+  const busy = s.state === "installing" || s.state === "verifying";
+  return (
+    <InfoRow label="Code graph">
+      <span className="flex items-center justify-end gap-1.5">
+        {s.state === "installed" && <Badge variant="success">v{s.pinnedVersion}</Badge>}
+        {s.state === "not-installed" && <Badge variant="secondary">not installed</Badge>}
+        {busy && <Badge variant="secondary">{s.state === "installing" ? "downloading…" : "verifying…"}</Badge>}
+        {s.state === "error" && <Badge variant="destructive">error</Badge>}
+        {s.detail && <span className="max-w-56 truncate text-xs text-muted-foreground">{s.detail}</span>}
+        {(s.state === "not-installed" || s.state === "error") && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={install.isPending || busy}
+            onClick={() => install.mutate("std")}
+          >
+            {s.state === "error" ? "Retry install" : "Install"}
+          </Button>
+        )}
+        {s.state === "installed" && (
+          <>
+            {!s.variants.ui && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={install.isPending || busy}
+                onClick={() => install.mutate("ui")}
+                title="Adds the 3D visualization variant (~37 MB) used by the project pages' Launch 3D view"
+              >
+                Install viz
+              </Button>
+            )}
+            <Button size="sm" variant="outline" disabled={indexAll.isPending} onClick={() => indexAll.mutate()}>
+              {indexAll.isPending ? "Queuing…" : "Index all projects"}
+            </Button>
+            <Button size="sm" variant="ghost" disabled={retry.isPending} onClick={() => retry.mutate()}>
+              Retry engine
+            </Button>
+          </>
+        )}
+        {indexAll.isSuccess && (
+          <span className="text-xs text-emerald-600 dark:text-emerald-400">
+            {indexAll.data.queued} queued{indexAll.data.skipped > 0 ? `, ${indexAll.data.skipped} skipped` : ""}
+          </span>
+        )}
+      </span>
+    </InfoRow>
+  );
+}
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -70,6 +148,7 @@ export function SettingsPage() {
                   </span>
                 </span>
               </InfoRow>
+              <GraphEngineRow />
             </>
           ) : (
             <p className="py-3 text-sm text-destructive">Core service unreachable.</p>

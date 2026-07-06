@@ -102,6 +102,7 @@ describe("agent instances (P3, locked D5)", () => {
         memoryReadScopes: ["agent:self"],
         memoryWriteScopes: ["agent:self"],
       } as unknown as Agent,
+      projectId: null,
       projectSlug: "alpha",
       isSandbox: false,
       taskId: null,
@@ -109,6 +110,7 @@ describe("agent instances (P3, locked D5)", () => {
       teamId: null,
       delegatedByAgentName: null,
       delegationDepth: 0,
+      effectiveTools: null,
     } satisfies RunContext;
 
     const note = agentMemorySave(ctx, {

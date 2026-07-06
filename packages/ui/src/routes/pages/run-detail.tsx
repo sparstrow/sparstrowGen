@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Link, useParams } from "@tanstack/react-router";
-import type { RunEvent } from "@sparstrow/shared";
+import type { EffectiveTools, RunEvent } from "@sparstrow/shared";
 import { ArrowLeft, ChevronRight, OctagonX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -133,6 +133,11 @@ export function RunDetailPage() {
         </div>
       )}
 
+      {/* P5 (design F7): graph usage in the provenance cluster — shown for
+          graph-enabled runs INCLUDING zero ("not used" is the diagnostic that
+          the success criterion is failing), never for graph-disabled runs. */}
+      <GraphUsageLine effectiveTools={r.effectiveTools} events={events} />
+
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">Prompt</CardTitle>
@@ -165,6 +170,72 @@ export function RunDetailPage() {
             )}
           </CardContent>
         </Card>
+      )}
+    </div>
+  );
+}
+
+const GRAPH_TOOLS = [
+  "search_graph",
+  "trace_path",
+  "query_graph",
+  "get_graph_schema",
+  "get_code_snippet",
+  "get_architecture",
+  "detect_changes",
+];
+
+/** Mirrors core's snapshotAllows: disallow wins (either spelling); empty allowed = all. */
+function graphEnabled(eff: EffectiveTools | null | undefined): boolean {
+  if (!eff) return false;
+  return GRAPH_TOOLS.some((n) => {
+    const spellings = [n, `mcp__sparstrow-memory__${n}`];
+    if (spellings.some((s) => eff.disallowed.includes(s))) return false;
+    return eff.allowed.length === 0 || spellings.some((s) => eff.allowed.includes(s));
+  });
+}
+
+/**
+ * P5 T9: "Graph tools: trace_path ×3 · search_graph ×1" / "not used" — computed
+ * from the tool_use blocks already in the transcript (summarizes, never
+ * duplicates run_events). Zero is SHOWN for graph-enabled runs: it is the
+ * signal that the phase success criterion is failing.
+ */
+function GraphUsageLine({
+  effectiveTools,
+  events,
+}: {
+  effectiveTools: EffectiveTools | null | undefined;
+  events: RunEvent[];
+}) {
+  const counts = React.useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of events) {
+      if (e.type !== "assistant") continue;
+      const payload = e.payload as { message?: { content?: unknown } } | null;
+      const content = payload?.message?.content;
+      if (!Array.isArray(content)) continue;
+      for (const block of content as { type?: string; name?: string }[]) {
+        if (block.type !== "tool_use" || !block.name) continue;
+        const bare = block.name.replace(/^mcp__sparstrow-memory__/, "");
+        if (GRAPH_TOOLS.includes(bare)) map.set(bare, (map.get(bare) ?? 0) + 1);
+      }
+    }
+    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  }, [events]);
+
+  if (!graphEnabled(effectiveTools)) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded-md border px-3 py-2 text-xs">
+      <span className="text-muted-foreground">Graph tools:</span>
+      {counts.length === 0 ? (
+        <span className="italic text-muted-foreground">not used</span>
+      ) : (
+        counts.map(([name, n]) => (
+          <span key={name} className="rounded bg-muted px-1.5 py-0.5 font-mono">
+            {name} ×{n}
+          </span>
+        ))
       )}
     </div>
   );

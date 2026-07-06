@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import {
   slugify,
   type Agent,
+  type EffectiveTools,
   type MemoryNote,
   type MemoryScopeKind,
   type MemorySearchHit,
@@ -27,6 +28,8 @@ import { writeNote } from "./vault.js";
 export interface RunContext {
   runId: string;
   agent: Agent;
+  /** P5: db id of the run's project — keys the per-project graph-engine store. */
+  projectId: string | null;
   projectSlug: string | null;
   /** EH7 (P4): the run's project is a sandbox — memory writes are clamped to it. */
   isSandbox: boolean;
@@ -35,6 +38,13 @@ export interface RunContext {
   teamId: string | null;
   delegatedByAgentName: string | null;
   delegationDepth: number;
+  /**
+   * P5 (#49 spawn-pinned availability): the run's immutable effective-tools
+   * snapshot, verbatim from the run row. Tool surfaces derived from it cannot
+   * drift mid-run — a tool advertised at spawn stays registered for the run's
+   * lifetime and degrades via isError, never method-not-found.
+   */
+  effectiveTools: EffectiveTools | null;
 }
 
 /** Resolve the calling agent from a per-run id (header on gateway/MCP calls). */
@@ -94,6 +104,7 @@ export function resolveRunContext(runId: unknown): RunContext {
   return {
     runId,
     agent: agentRow as unknown as Agent,
+    projectId: run.projectId ?? null,
     projectSlug,
     isSandbox,
     taskId,
@@ -101,6 +112,7 @@ export function resolveRunContext(runId: unknown): RunContext {
     teamId,
     delegatedByAgentName,
     delegationDepth,
+    effectiveTools: (run.effectiveTools as EffectiveTools | null) ?? null,
   };
 }
 

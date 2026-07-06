@@ -18,7 +18,37 @@ export type WsServerEvent =
   | { type: "memory.note.removed"; noteId: string; path: string }
   | { type: "terminal.session.opened"; sessionId: string; agentId: string }
   | { type: "terminal.session.closed"; sessionId: string }
-  | { type: "system.health"; health: SystemHealth };
+  | { type: "system.health"; health: SystemHealth }
+  | { type: "graph.engine.status"; status: GraphEngineStatus }
+  | { type: "graph.project.status"; projectId: string; status: GraphProjectStatus };
+
+/**
+ * P5: per-project code-graph index state (derived data — persisted as a JSON
+ * file inside the project's engine store dir, no DB migration). Drives the
+ * project page's Code-graph panel; pushed over /ws on every transition.
+ */
+export interface GraphProjectStatus {
+  state: "none" | "queued" | "indexing" | "ready" | "failed" | "stale";
+  detail: string | null;
+  indexedAt: string | null;
+  nodes: number | null;
+  edges: number | null;
+}
+
+/**
+ * P5: code-graph engine (codebase-memory-mcp) install status — engine-level
+ * only; per-project index state travels separately. Published on every install
+ * transition so the download is owner-visible, never silent.
+ */
+export interface GraphEngineStatus {
+  state: "not-installed" | "installing" | "verifying" | "installed" | "error";
+  installed: boolean;
+  pinnedVersion: string;
+  /** Variants on disk: `std` = query engine (no UI code), `ui` = 3D visualization. */
+  variants: { std: boolean; ui: boolean };
+  exePath: string | null;
+  detail: string | null;
+}
 
 export interface ProviderHealth {
   id: string;

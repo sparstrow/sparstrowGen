@@ -131,7 +131,7 @@ P9 Creator + Skill Specter ─── after P4 (sandbox) + P5 (memory scans)
 | P2 | Hierarchical tool permissions | agents §2, projects §3 | S | — |
 | P3 | Delegation, team-bounded swarms & agent instances | agents §4, teams §3-4, locked D5 | L | P1, P2 |
 | P4 | Projects workspace (git, directives, sandbox, variants) | projects §1-2, §4-7 | M-L | P1 |
-| P5 | Smart memory (graphify + gbrain methods) | memory §1-6 | L | P4 |
+| P5 | Smart memory (code graph [amended: codebase-memory-mcp] + gbrain methods) | memory §1-6 | L | P4 |
 | P6 | GOAP engine + visual node graph | execution §5-7 | L-XL | P1, P3 |
 | P7 | Git automation & execution profiles | execution §1-4 | M | P4 |
 | P8 | Multi-provider direct API | agents §7 | M-L | — (scope gate) |
@@ -419,7 +419,7 @@ injection; cron; `messages`; UI projects page (v0 grid).
    (bind), GitHub import (public `git clone` now; authed clone lands with P7 PATs).
 4. Auto-indexing: on create/refresh, background task summarizes key files (existing
    one-shot runner with a system indexer agent) → writes `project:`-scoped notes.
-   (Upgraded by P5's graphify pass; this phase ships the plumbing + naive summaries.)
+   (Upgraded by P5's graph pass [codebase-memory-mcp]; this phase ships the plumbing + naive summaries.)
 5. Directives: guaranteed-injection project rules — injector prepends directives
    (never trimmed by token budget) for any run in that project.
 6. Morning briefing: system "Project Reporter" agent + per-project cron (opt-in),
@@ -462,10 +462,10 @@ WRITE-scope clamp [EH7] + P3-instance-resolution-before-sandbox ordering are man
 
 ---
 
-## P5 — Smart memory: graphify + gbrain methods  `[memory §1-6]`
+## P5 — Smart memory: code graph + gbrain methods  `[memory §1-6]`
 
 **Objective:** memory stops being flat notes: a per-project **code knowledge graph**
-(graphify), **typed** memory entries, nightly **dream-cycle** consolidation with
+(codebase-memory-mcp — amended from graphify 2026-07-05), **typed** memory entries, nightly **dream-cycle** consolidation with
 contradiction flags, **passive signal capture** from run transcripts, and
 synthesis-over-search answers with citations + gap analysis.
 
@@ -473,16 +473,42 @@ synthesis-over-search answers with citations + gap analysis.
 injector; cron scheduler; run transcripts (`run_events` + `resultText`).
 
 **Net-new:**
-1. Graphify integration [C5 — Windows stdio constraint]:
-   - pinned install (`uv tool install graphify==X.Y.Z`), health-check surfaced in
-     Settings; **feature-degrades** (factory fully functional without it).
-   - `graphify extract` on project create/refresh (after P4's naive pass, this replaces
-     it as the smart pass) → `graphify-out/graph.json` in rootDir (gitignored).
-   - **Graph access = core-side HTTP MCP tools** (`graph_query`, `graph_shortest_path`,
-     `graph_node`), implemented by core reading `graph.json` / shelling `graphify query`
-     — NOT per-task stdio servers (broken on Windows headless).
-   - Query heuristics block appended to system preamble for graph-enabled projects
-     (spec's 3 rules verbatim).
+1. **[AMENDED 2026-07-05 via /autoplan — graphify is OUT]** Code-graph engine =
+   `codebase-memory-mcp` v0.8.1 (DeusData; MIT C static binary, stdio-only MCP,
+   tree-sitter, per-store SQLite WAL). Full reviewed amendment (57-row audit
+   trail, spike report, owner gates) in the 2026-07-05 /autoplan plan file.
+   - Binary manager: per-platform SHA-256 **pinned in core source** (release
+     checksums.txt never trusted), atomic install (temp→rename→health→marker),
+     System32-bsdtar extraction (Windows assets are .zip), explicit Settings
+     install (T-a — a predictable Defender moment, never a silent fetch);
+     **feature-degrades** (factory fully functional without it).
+   - Core = stdio MCP CLIENT to per-project child processes (C5: headless
+     Claude→stdio is broken; core→child pipes are not — spike-verified 63 ms
+     handshake). Per-project `CBM_CACHE_DIR` stores = **isolation by
+     construction** + real-engine leakage proof e2e; pool caps 3 live children,
+     LRU idle-stop, promise-gated spawn, 3-class timeouts (a request timeout
+     never kills a child mid-index), crash-loop breaker → Settings Retry,
+     PID-file orphan sweep (Windows delivers no SIGTERM).
+   - **Curated 7 read-only agent tools** (UC1: search_graph, trace_path,
+     query_graph, get_graph_schema, get_code_snippet, get_architecture,
+     detect_changes) via the capability registry with **spawn-pinned
+     availability** (#49/L929: the gate folds into the run's effective-tools
+     snapshot, so surface ≡ preamble ≡ P3 clamps for the run's lifetime; mid-run
+     degradation = DX3 isError naming the Grep/Read fallback, never
+     method-not-found). Schemas are project-STRIPPED (core injects the project
+     server-side). Lifecycle tools stay core-internal; manage_adr/ingest_traces/
+     search_code excluded (→ TODOS).
+   - Index lifecycle: create (auto) / Reindex (manual — the sandbox opt-in) /
+     nightly sweep, ALL through a global depth-1 semaphore (scheduler lanes
+     never see direct stdio calls); sandboxes never auto-index; **P4's naive
+     notes pass REMAINS** (graph is additive — regression-guarded); engine
+     version bump wipes stores (derived data); interrupted-index reconcile at
+     startup. Status = `.index-status.json` per store (no migration) + ws.
+   - Query-heuristics ladder (≤250 tok, spike-frozen Cypher examples) appended
+     to the preamble ONLY when the full graph surface is available.
+   - 3D viz (UC2): new-tab, launch-on-demand, default-off; randomized
+     127.0.0.1 port; child lives while core holds stdin (spike ⑥); 15-min
+     idle-stop with honest dead-tab copy; sticky `--ui` flag reset on stop.
 2. Typed memory (`0008`): `memory_notes.type` enum
    `note|decision|architecture|pitfall|meeting|lesson` (default `note`, existing rows
    migrate to `note`); type filter in search API + Memory UI facets; agent `memory_write`
@@ -507,16 +533,22 @@ injector; cron scheduler; run transcripts (`run_events` + `resultText`).
 6. Synthesis-over-search: `memory_search` tool gains `synthesize: true` mode — top-k
    hits → synthesized answer with citations + "gaps: what memory doesn't know" line
    (gbrain-think pattern); UI search offers the same toggle.
-7. LESSONS overlay: post-correction reflect step (`graphify reflect` when available)
-   tagging graph nodes preferred/dead-end; lessons render in Memory UI per project.
+7. LESSONS overlay **[re-specced by the 2026-07-05 amendment — no `reflect`
+   equivalent exists]**: lessons are typed memory notes storing portable
+   `(filePath, symbolName)` refs (NEVER the engine's qualified-name grammar —
+   data-level vendor-coupling refused), resolved to engine names at query time
+   by one core-owned translation fn; lessons render in Memory UI per project.
 8. *(CEO E1)* Run-detail memory provenance panel: which notes/directives entered this
    run (persist the injector's manifest on the run row; render in Run detail).
 
-**Assumptions:** Python/uv installable on the host; embedding model already local;
-nightly LLM budget acceptable when capped.
+**Assumptions:** embedding model already local; nightly LLM budget acceptable when
+capped. *(Python/uv host dependency DELETED by the 2026-07-05 amendment — the
+engine is a zero-dependency static binary.)*
 **Risks:** dream-cycle rewriting memory wrongly (mitigate: soft-archive originals,
-never hard-delete, daily digest to inbox); graphify version drift (pinned, manual
-upgrade only [spec]); signal-detector noise (type it `source='signal'`, reviewable,
+never hard-delete, daily digest to inbox); engine version drift (pinned SHA
+constants in source, manual upgrade PRs only; version bump wipes derived stores);
+upstream bus-factor ≈1 (mitigate: adapter seam behind the registry, mirror pinned
+release artifacts); signal-detector noise (type it `source='signal'`, reviewable,
 bulk-delete tool).
 **Dependencies:** P4 (projects lifecycle hooks).
 
@@ -535,7 +567,7 @@ bulk-delete tool).
 - **P5-Q4 → graph refresh on "Reindex" + nightly** (folded — not file-watcher).
 
 **Lock status: 🔒 LOCKED 2026-07-03** (monolithic; every feature degrades gracefully +
-cost-capped per premises PR-5; graphify via core HTTP MCP not stdio [C5]; per-project
+cost-capped per premises PR-5; graph engine via core stdio-client proxy re-exported over HTTP MCP, never agent-direct stdio [C5, amended 2026-07-05]; per-project
 dream-cycle isolation mandatory).
 
 ---
@@ -749,7 +781,7 @@ sandbox machinery, P5 typed memory + graph tools.
 3. Ingestion pipeline *(EH8 — "read-only" and "can clone+graphify hostile repos" are
    incompatible if clone/Bash are agent tools)*: **core clones the repo** (not an agent
    tool); the Intelligence Extractor then runs **Read-only, no Bash, no network,
-   cwd-jailed to the sandbox clone**; `graphify extract` runs with network disabled and
+   cwd-jailed to the sandbox clone**; graph indexing runs with network disabled and
    repo-provided config/hooks ignored (extract/analyze tools often execute project code).
    Found skills reconstructed as **quarantined draft agents** (disabled, sandbox-scoped
    memory, no tool grants). Boundary test vs an actively hostile fixture repo (attempted
@@ -935,7 +967,7 @@ inline fix-up chip).
     the agent-facing `task_update` enum stays the human-meaningful subset.
 23. **Factory-health self-check page** *(E5 — gate APPROVED to BUILD; fold into P7's
     Settings area, extend per phase)*: one Settings surface answering "is my factory
-    armed?" — graphify present, embedder loaded, PAT valid, provider keys/CLIs reachable
+    armed?" — graph engine present, embedder loaded, PAT valid, provider keys/CLIs reachable
     (Claude CLI, Anthropic/Gemini API keys, Ollama up), each green/degraded with why. It
     is the operator-side mirror of the agent's resolved-toolset preamble (rule 22); every
     degrade-by-design dependency registers a health check here.
@@ -1135,7 +1167,7 @@ Dashboard.
 | P1 answer→wake | run in flight | 409, answer queued not applied | "run still active — answer saved" |
 | P3 fan-out | child spawn fails (agent disabled) | task `failed`, lead woken with failure summary | delegation tree shows red node |
 | P3 cross-team | owner denies | lead woken with denial context | tree shows denied node |
-| P5 graphify | binary missing / extract fails | feature-degrade, health-check surfaces | Settings warning chip; agents lose graph tools only |
+| P5 graph engine (codebase-memory-mcp) | binary missing / index fails / crash-loop | feature-degrade, breaker latch, health-check surfaces | Settings engine row + panel badge; agents get DX3 fallback text (spawn-pinned surface — tools never vanish mid-run) |
 | P5 dream cycle | LLM budget hit mid-cycle | stop, resume next night from checkpoint | digest notes partial completion |
 | P6 planner | unsolvable domain | bounce to Planner with diagnostic, ≤N retries | goal `blocked` with diagnostic |
 | P6 executor | node fails, replan cap hit | goal `blocked` (P1 queue) | attention queue entry with plan history |
@@ -1334,7 +1366,7 @@ rebuilds an existing subsystem.
 │ goap/ (P6): planner turn → zod domain → A*|DAG core → plan_nodes → materialize tasks│
 │ git-ops (P7): guard-railed branch/commit/push/PR; PAT core-side only                │
 │ memory/: scopes(+instances) injector(+manifest) search(+synthesize)                 │
-│          graph-tools (graphify graph.json via core HTTP MCP — no stdio) [C5]        │
+│          graph-tools (codebase-memory-mcp children via core stdio-client, re-exported over HTTP MCP) [C5]        │
 │ db: +blocked/pending_approval  +open_questions  +parent_task_id  +agent_instances   │
 │     +project/task tool cols  +goals/plan_nodes/plan_edges  +is_ephemeral  +team_id  │
 │     +memory type/links  +user_id (all new tables, D6)                               │

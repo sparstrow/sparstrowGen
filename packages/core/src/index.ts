@@ -16,11 +16,39 @@ import { ensureSystemAgents } from "./agents/system-agents.js";
 import { startScheduler, stopScheduler } from "./scheduler/service.js";
 import { initDelegationWatcher, sweepWaitingParents } from "./taskboard/delegation.js";
 import { killAllSessions } from "./terminal/manager.js";
+import { shutdownGraphPool, sweepOrphanEngines } from "./graph/graph-client.js";
+import { graphToolRegistrar } from "./graph/graph-tools.js";
+import { reconcileInterruptedIndexes, startNightlyGraphRefresh } from "./graph/graph-lifecycle.js";
+import { stopAllViz } from "./graph/viz-manager.js";
+
+/**
+ * Startup watchdog: a core that wedges BEFORE app.listen (seen in the wild:
+ * SQLite WAL-recovery file-lock wait on Windows against a stale session's db
+ * handle) previously hung SILENTLY — the terminal showed only the vite proxy's
+ * ECONNREFUSED spam with zero core output. If listen isn't reached in time,
+ * die loudly naming the last phase so the operator sees the real failure.
+ */
+const STARTUP_WATCHDOG_MS = 45_000;
+let startupPhase = "init";
+function armStartupWatchdog(): NodeJS.Timeout {
+  const timer = setTimeout(() => {
+    logger.fatal(
+      { phase: startupPhase, timeoutMs: STARTUP_WATCHDOG_MS },
+      "core failed to reach listen — startup is wedged (likely a stale session holding the db or port); kill leftover node processes and retry",
+    );
+    process.exit(1);
+  }, STARTUP_WATCHDOG_MS);
+  timer.unref();
+  return timer;
+}
 
 async function main(): Promise<void> {
+  const watchdog = armStartupWatchdog();
   logger.info({ dataDir: config.dataDir, vault: config.vaultPath }, "sparstrow core starting");
   ensureDirs();
+  startupPhase = "open-db";
   openDb();
+  startupPhase = "vault";
   ensureVaultDirs();
   initSearchStore();
 
@@ -28,6 +56,16 @@ async function main(): Promise<void> {
   logger.info(scan, "vault scanned");
 
   runManager.sweepOrphans();
+  // P5: graph-engine children leaked by a crash / tsx-watch hard restart die
+  // here (Windows delivers no SIGTERM; exe identity verified before killing).
+  void sweepOrphanEngines().then((killed) => {
+    if (killed > 0) logger.warn({ killed }, "graph-engine orphans reaped at startup");
+  });
+  // P5: statuses stuck at queued/indexing mean core died mid-index — mark failed.
+  const staleIndexes = reconcileInterruptedIndexes();
+  if (staleIndexes > 0) logger.warn({ staleIndexes }, "interrupted graph indexes reconciled");
+  // P5 (locked P5-Q4): nightly refresh sweep, serialized by the index semaphore.
+  const stopNightlyGraphRefresh = startNightlyGraphRefresh();
   // P4: seed the factory-managed system agents (Project Indexer/Reporter) that
   // auto-index + morning-briefing spawn through. Idempotent.
   ensureSystemAgents();
@@ -38,9 +76,14 @@ async function main(): Promise<void> {
   if (woken > 0) logger.info({ woken }, "waiting parents reconciled at startup");
   extraToolRegistrars.push(registerTaskboardTools);
   extraToolRegistrars.push(registerCapabilities);
+  // P5: curated graph tools — registration reads the run's spawn-pinned snapshot.
+  extraToolRegistrars.push(graphToolRegistrar);
 
+  startupPhase = "build-server";
   const app = await buildServer();
+  startupPhase = "listen";
   await app.listen({ port: config.port, host: config.host });
+  clearTimeout(watchdog);
   logger.info({ url: `http://${config.host}:${config.port}` }, "sparstrow core ready");
   startScheduler();
 
@@ -56,7 +99,10 @@ async function main(): Promise<void> {
     try {
       stopScheduler();
       stopDelegationWatcher();
+      stopNightlyGraphRefresh();
       killAllSessions();
+      await stopAllViz();
+      await shutdownGraphPool();
       await stopVaultWatcher();
       await app.close();
     } finally {
