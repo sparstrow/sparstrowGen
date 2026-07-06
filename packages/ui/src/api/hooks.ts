@@ -270,11 +270,12 @@ export function useGraphEngine(): UseQueryResult<GraphEngineStatus, ApiError> {
 export function useInstallGraphEngine(): UseMutationResult<
   { started: boolean; status: GraphEngineStatus },
   ApiError,
-  void
+  "std" | "ui" | undefined
 > {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => api("/graph/engine/install", { method: "POST" }),
+    mutationFn: (variant) =>
+      api("/graph/engine/install", { method: "POST", body: variant ? { variant } : undefined }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["graph-engine"] }),
   });
 }
@@ -304,6 +305,40 @@ export function useProjectGraph(id: string): UseQueryResult<GraphProjectStatus, 
     queryKey: ["project-graph", id],
     queryFn: () => api<GraphProjectStatus>(`/projects/${id}/graph`),
     enabled: Boolean(id),
+  });
+}
+
+// T11 (UC2): viz lifecycle — new tab, on-demand, idle auto-stop.
+export interface VizState {
+  running: boolean;
+  url: string | null;
+  startedAt: string | null;
+  idleStopMs: number;
+}
+export function useProjectViz(id: string, enabled: boolean): UseQueryResult<VizState, ApiError> {
+  return useQuery({
+    queryKey: ["project-viz", id],
+    queryFn: () => api<VizState>(`/projects/${id}/graph/viz`),
+    enabled: Boolean(id) && enabled,
+    refetchInterval: (q) => (q.state.data?.running ? 30_000 : false),
+  });
+}
+export function useLaunchViz(): UseMutationResult<
+  { ok: boolean; url?: string; reason?: string; detail?: string | null },
+  ApiError,
+  string
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api(`/projects/${id}/graph/viz`, { method: "POST" }),
+    onSuccess: (_r, id) => void queryClient.invalidateQueries({ queryKey: ["project-viz", id] }),
+  });
+}
+export function useStopViz(): UseMutationResult<void, ApiError, string> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<void>(`/projects/${id}/graph/viz`, { method: "DELETE" }),
+    onSuccess: (_r, id) => void queryClient.invalidateQueries({ queryKey: ["project-viz", id] }),
   });
 }
 

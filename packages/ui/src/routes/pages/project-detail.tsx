@@ -35,7 +35,10 @@ import {
   useProjectVariants,
   useProjects,
   useGraphEngine,
+  useLaunchViz,
+  useProjectViz,
   useReindexProject,
+  useStopViz,
   useSetBriefing,
   useSyncFromBase,
   useTasks,
@@ -441,7 +444,10 @@ function CodeGraphPanel({
   const engine = useGraphEngine();
   const graph = useProjectGraph(projectId);
   const usage = useProjectGraphUsage(projectId, graph.data?.state === "ready");
+  const viz = useProjectViz(projectId, graph.data?.state === "ready");
   const reindex = useReindexProject();
+  const launchViz = useLaunchViz();
+  const stopViz = useStopViz();
 
   const engineInstalled = engine.data?.installed ?? false;
   const s = graph.data;
@@ -525,6 +531,58 @@ function CodeGraphPanel({
             <p className="text-xs text-muted-foreground">Graph pass skipped: {reindex.data.graph}.</p>
           )}
           {reindex.isError && <p className="text-xs text-destructive">{reindex.error.message}</p>}
+
+          {/* T11 (UC2): viz launch — gated on a non-empty graph (F10); the
+              security/idle framing travels WITH the affordance (F9); a stopped
+              viz shows an honest Relaunch state, never a mystery dead tab (F2). */}
+          {s?.state === "ready" && (s.nodes ?? 0) > 0 && (
+            <div className="border-t pt-2">
+              {viz.data?.running && viz.data.url ? (
+                <div className="space-y-1.5">
+                  <span className="flex items-center gap-1.5">
+                    <Button size="sm" variant="outline" asChild>
+                      <a href={viz.data.url} target="_blank" rel="noreferrer noopener">
+                        Open 3D view
+                      </a>
+                    </Button>
+                    <Button size="sm" variant="ghost" disabled={stopViz.isPending} onClick={() => stopViz.mutate(projectId)}>
+                      Stop
+                    </Button>
+                  </span>
+                  <p className="text-[11px] text-muted-foreground">
+                    Running — stops after {Math.round((viz.data.idleStopMs ?? 900000) / 60000)} min; the open tab goes dead then.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={launchViz.isPending}
+                    onClick={() =>
+                      launchViz.mutate(projectId, {
+                        onSuccess: (r) => {
+                          if (r.ok && r.url) window.open(r.url, "_blank", "noopener,noreferrer");
+                        },
+                      })
+                    }
+                  >
+                    {launchViz.isPending ? "Starting…" : "Launch 3D view"}
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground">
+                    Local, unauthenticated, read-only visualization — opens in a new tab, stops after 15 min.
+                  </p>
+                  {launchViz.data && !launchViz.data.ok && (
+                    <p className="text-xs text-destructive">
+                      {launchViz.data.reason === "ui-not-installed"
+                        ? "Viz engine variant not installed — install it from Settings (Install viz)."
+                        : (launchViz.data.detail ?? "Could not start the visualization.")}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

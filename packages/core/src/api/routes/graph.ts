@@ -7,6 +7,7 @@ import { getEngineStatus, installEngine } from "../../graph/binary-manager.js";
 import { getGraphPool } from "../../graph/graph-client.js";
 import { enqueueGraphIndex } from "../../graph/graph-lifecycle.js";
 import { GRAPH_TOOL_NAMES } from "../../graph/graph-tools.js";
+import { launchViz, stopViz, vizStatus } from "../../graph/viz-manager.js";
 
 /**
  * P5 engine-level routes (per-project index state lives on /projects/:id/graph).
@@ -63,6 +64,23 @@ export async function graphRoutes(app: FastifyInstance): Promise<void> {
       .where(and(eq(runs.projectId, id), eq(runEvents.type, "assistant"), or(...nameMarks)))
       .get();
     return { runsWithGraph: used?.n ?? 0, totalRuns: total?.n ?? 0 };
+  });
+
+  // ── T11 (UC2): 3D visualization — new tab, on-demand, idle auto-stop ──
+  app.get("/projects/:id/graph/viz", async (request) => {
+    const { id } = request.params as { id: string };
+    return vizStatus(id);
+  });
+  app.post("/projects/:id/graph/viz", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const res = await launchViz(id);
+    if (!res.ok) reply.code(res.reason === "ui-not-installed" ? 409 : 502);
+    return res;
+  });
+  app.delete("/projects/:id/graph/viz", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    await stopViz(id);
+    reply.code(204);
   });
 
   app.post("/graph/index-all", async (_request, reply) => {

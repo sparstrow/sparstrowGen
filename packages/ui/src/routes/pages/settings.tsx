@@ -47,12 +47,28 @@ function GraphEngineRow() {
         {s.state === "error" && <Badge variant="destructive">error</Badge>}
         {s.detail && <span className="max-w-56 truncate text-xs text-muted-foreground">{s.detail}</span>}
         {(s.state === "not-installed" || s.state === "error") && (
-          <Button size="sm" variant="outline" disabled={install.isPending || busy} onClick={() => install.mutate()}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={install.isPending || busy}
+            onClick={() => install.mutate("std")}
+          >
             {s.state === "error" ? "Retry install" : "Install"}
           </Button>
         )}
         {s.state === "installed" && (
           <>
+            {!s.variants.ui && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={install.isPending || busy}
+                onClick={() => install.mutate("ui")}
+                title="Adds the 3D visualization variant (~37 MB) used by the project pages' Launch 3D view"
+              >
+                Install viz
+              </Button>
+            )}
             <Button size="sm" variant="outline" disabled={indexAll.isPending} onClick={() => indexAll.mutate()}>
               {indexAll.isPending ? "Queuing…" : "Index all projects"}
             </Button>

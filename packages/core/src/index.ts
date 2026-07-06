@@ -19,6 +19,7 @@ import { killAllSessions } from "./terminal/manager.js";
 import { shutdownGraphPool, sweepOrphanEngines } from "./graph/graph-client.js";
 import { graphToolRegistrar } from "./graph/graph-tools.js";
 import { reconcileInterruptedIndexes, startNightlyGraphRefresh } from "./graph/graph-lifecycle.js";
+import { stopAllViz } from "./graph/viz-manager.js";
 
 async function main(): Promise<void> {
   logger.info({ dataDir: config.dataDir, vault: config.vaultPath }, "sparstrow core starting");
@@ -73,6 +74,7 @@ async function main(): Promise<void> {
       stopDelegationWatcher();
       stopNightlyGraphRefresh();
       killAllSessions();
+      await stopAllViz();
       await shutdownGraphPool();
       await stopVaultWatcher();
       await app.close();
