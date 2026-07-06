@@ -96,6 +96,26 @@ export function deleteChunkVectors(chunkIds: number[]): void {
     .run(...chunkIds);
 }
 
+/**
+ * P5 dream cycle: read one chunk's stored embedding back (vec0 supports
+ * projecting the column). BGE embeddings are L2-normalized, so a plain dot
+ * product between two of these IS cosine similarity.
+ */
+export function getChunkVector(chunkId: number): Float32Array | null {
+  if (!vecLoaded) return null;
+  try {
+    const row = getSqlite()
+      .prepare("SELECT embedding FROM memory_vec WHERE chunk_id = ?")
+      .get(BigInt(chunkId)) as { embedding?: Buffer } | undefined;
+    if (!row?.embedding) return null;
+    const buf = row.embedding;
+    return new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
+  } catch (err) {
+    logger.warn({ err, chunkId }, "vector read failed");
+    return null;
+  }
+}
+
 export interface VecHit {
   chunkId: number;
   distance: number;

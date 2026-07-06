@@ -24,6 +24,8 @@ import {
 import { provisionProject, runProjectIndex } from "../../projects/provision.js";
 import { createClientVariant, syncFromBase } from "../../projects/variants.js";
 import { getProjectBriefing, setProjectBriefing } from "../../projects/briefing.js";
+import { getProjectDream, setProjectDream } from "../../projects/dream.js";
+import { runDreamCycle } from "../../memory/dream-cycle.js";
 import { listProjectDir } from "../../projects/files.js";
 import { deleteCronJobsForProject, fireJobNow } from "../../scheduler/service.js";
 import { enqueueGraphIndex, onProjectDeleted, readGraphProjectStatus } from "../../graph/graph-lifecycle.js";
@@ -204,6 +206,33 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const job = getProjectBriefing(id);
     if (!job) throw new HttpError(409, "briefing is not enabled for this project");
     fireJobNow(job.id);
+    reply.code(202);
+    return { fired: true };
+  });
+
+  // ── Dream cycle (P5 item 5, opt-in per project — P5-Q1) ──
+  app.get("/projects/:id/dream", async (request) => {
+    const { id } = request.params as { id: string };
+    requireProject(id);
+    const job = getProjectDream(id);
+    return { enabled: job?.enabled ?? false, cronExpr: job?.cronExpr ?? null, job };
+  });
+
+  app.put("/projects/:id/dream", async (request) => {
+    const { id } = request.params as { id: string };
+    requireProject(id);
+    const body = z
+      .object({ enabled: z.boolean(), cronExpr: z.string().optional(), timezone: z.string().optional() })
+      .parse(request.body);
+    const job = setProjectDream(id, body);
+    return { enabled: job?.enabled ?? false, cronExpr: job?.cronExpr ?? null, job };
+  });
+
+  /** Run tonight's dream cycle now (fire-and-forget; report lands via ws + digest). */
+  app.post("/projects/:id/dream/run", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    requireProject(id);
+    void runDreamCycle(id);
     reply.code(202);
     return { fired: true };
   });
