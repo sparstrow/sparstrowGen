@@ -16,6 +16,7 @@ import { ensureSystemAgents } from "./agents/system-agents.js";
 import { startScheduler, stopScheduler } from "./scheduler/service.js";
 import { initDelegationWatcher, sweepWaitingParents } from "./taskboard/delegation.js";
 import { killAllSessions } from "./terminal/manager.js";
+import { shutdownGraphPool, sweepOrphanEngines } from "./graph/graph-client.js";
 
 async function main(): Promise<void> {
   logger.info({ dataDir: config.dataDir, vault: config.vaultPath }, "sparstrow core starting");
@@ -28,6 +29,11 @@ async function main(): Promise<void> {
   logger.info(scan, "vault scanned");
 
   runManager.sweepOrphans();
+  // P5: graph-engine children leaked by a crash / tsx-watch hard restart die
+  // here (Windows delivers no SIGTERM; exe identity verified before killing).
+  void sweepOrphanEngines().then((killed) => {
+    if (killed > 0) logger.warn({ killed }, "graph-engine orphans reaped at startup");
+  });
   // P4: seed the factory-managed system agents (Project Indexer/Reporter) that
   // auto-index + morning-briefing spawn through. Idempotent.
   ensureSystemAgents();
@@ -57,6 +63,7 @@ async function main(): Promise<void> {
       stopScheduler();
       stopDelegationWatcher();
       killAllSessions();
+      await shutdownGraphPool();
       await stopVaultWatcher();
       await app.close();
     } finally {
