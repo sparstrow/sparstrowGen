@@ -1,5 +1,5 @@
 import { eq, inArray } from "drizzle-orm";
-import type { MemorySearchHit, MemoryScopeKind } from "@sparstrow/shared";
+import type { MemoryNoteType, MemorySearchHit, MemoryScopeKind } from "@sparstrow/shared";
 import { getDb } from "../db/connection.js";
 import { memoryChunks, memoryNotes, projects } from "../db/schema.js";
 import { logger } from "../logger.js";
@@ -52,6 +52,31 @@ export interface SearchOptions {
    * the caller IS that sandbox. Null (user/global search) sees no sandbox notes.
    */
   callerProjectSlug?: string | null;
+  /** P5 typed memory: restrict hits to one note type. */
+  type?: MemoryNoteType;
+  /**
+   * EH6: quarantined notes are excluded from EVERY retrieval path by default —
+   * they are a stored second-order injection channel until the owner approves.
+   * Only the operator review surface sets this.
+   */
+  includeQuarantined?: boolean;
+  /** P5 soft-archive: archived notes are excluded from retrieval by default. */
+  includeArchived?: boolean;
+}
+
+/**
+ * The single P5 row gate shared by all three read paths (searchMemory, the
+ * injector's recencyFallback, the route's LIKE fallback) so type filtering and
+ * the EH6/archive exclusions cannot drift between them.
+ */
+export function noteRowExcluded(
+  note: { type: string; quarantined: boolean; archivedAt: string | null },
+  opts: SearchOptions,
+): boolean {
+  if (opts.type && note.type !== opts.type) return true;
+  if (note.quarantined && !opts.includeQuarantined) return true;
+  if (note.archivedAt != null && !opts.includeArchived) return true;
+  return false;
 }
 
 export async function searchMemory(
@@ -118,6 +143,8 @@ export async function searchMemory(
     // EH7: a sandbox project's notes are invisible outside that sandbox.
     if (sandboxSlugs.size > 0 && isForeignSandboxNote(noteForFilter, sandboxSlugs, opts.callerProjectSlug ?? null))
       continue;
+    // P5: type filter + EH6 quarantine + soft-archive exclusion (shared gate).
+    if (noteRowExcluded(note, opts)) continue;
     const count = perNoteCount.get(note.id) ?? 0;
     if (count >= MAX_CHUNKS_PER_NOTE) continue;
     perNoteCount.set(note.id, count + 1);
@@ -133,6 +160,7 @@ export async function searchMemory(
       score: scored.score,
       vecRank: scored.vecRank,
       ftsRank: scored.ftsRank,
+      type: note.type as MemoryNoteType,
     });
     if (hits.length >= k) break;
   }

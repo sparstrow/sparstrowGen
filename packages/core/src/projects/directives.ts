@@ -83,7 +83,7 @@ export function deleteDirective(projectId: string, id: string): boolean {
  */
 export function buildDirectivesBlock(projectId: string | null): string {
   if (!projectId) return "";
-  const enabled = listDirectives(projectId).filter((d) => d.enabled && d.body.trim().length > 0);
+  const enabled = listEnabledDirectives(projectId);
   if (enabled.length === 0) return "";
   const lines = [
     "## Project directives",
@@ -92,4 +92,13 @@ export function buildDirectivesBlock(projectId: string | null): string {
     ...enabled.map((d, i) => `${i + 1}. ${d.body.trim()}`),
   ];
   return lines.join("\n");
+}
+
+/**
+ * E1 (P5): the directives that buildDirectivesBlock injects, as structured
+ * rows for the run's injected_memory provenance manifest. Same filter + order
+ * as the block so the manifest can never disagree with the prompt.
+ */
+export function listEnabledDirectives(projectId: string): ProjectDirective[] {
+  return listDirectives(projectId).filter((d) => d.enabled && d.body.trim().length > 0);
 }

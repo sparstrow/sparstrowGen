@@ -6,9 +6,11 @@ import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
   VAULT_DIRS,
+  memoryNoteTypeSchema,
   slugify,
   type MemoryNote,
-  type MemoryNoteCreate,
+  type MemoryNoteCreateInput,
+  type MemoryNoteType,
   type MemoryScopeKind,
 } from "@sparstrow/shared";
 import { config } from "../config.js";
@@ -93,6 +95,10 @@ function rowToNote(row: typeof memoryNotes.$inferSelect): MemoryNote {
     title: row.title,
     tags: row.tags,
     source: row.source,
+    type: row.type as MemoryNoteType,
+    quarantined: row.quarantined,
+    archivedAt: row.archivedAt,
+    supersededBy: row.supersededBy,
     contentHash: row.contentHash,
     indexedAt: row.indexedAt,
     createdAt: row.createdAt,
@@ -100,9 +106,15 @@ function rowToNote(row: typeof memoryNotes.$inferSelect): MemoryNote {
   };
 }
 
+/** Coerce arbitrary frontmatter into a valid note type ('note' fallback). */
+export function coerceNoteType(value: unknown): MemoryNoteType {
+  const parsed = memoryNoteTypeSchema.safeParse(value);
+  return parsed.success ? parsed.data : "note";
+}
+
 const sha256 = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
 
-export function writeNote(input: MemoryNoteCreate): MemoryNote {
+export function writeNote(input: MemoryNoteCreateInput): MemoryNote {
   const db = getDb();
   const id = `mem_${nanoid(10)}`;
   const dir = scopeDir(input.scope, input.projectSlug, input.agentSlug);
@@ -111,6 +123,7 @@ export function writeNote(input: MemoryNoteCreate): MemoryNote {
   const absPath = toAbsPath(relPath);
   const ts = nowIso();
 
+  const noteType = input.type ?? "note";
   const frontmatter: Record<string, unknown> = {
     id,
     scope: input.scope,
@@ -119,6 +132,11 @@ export function writeNote(input: MemoryNoteCreate): MemoryNote {
     title: input.title,
     tags: input.tags,
     source: input.source,
+    // P5 typed memory. 'note' is written explicitly so a vault file's kind
+    // survives DB resets (scanVault reads it back).
+    type: noteType,
+    ...(input.refs && input.refs.length > 0 ? { refs: input.refs } : {}),
+    ...(input.quarantined ? { quarantined: true } : {}),
     created: ts,
     updated: ts,
   };
@@ -137,6 +155,8 @@ export function writeNote(input: MemoryNoteCreate): MemoryNote {
     title: input.title,
     tags: input.tags,
     source: input.source,
+    type: noteType,
+    quarantined: input.quarantined ?? false,
     contentHash: sha256(fileContent),
     indexedAt: null,
     createdAt: ts,
@@ -144,6 +164,71 @@ export function writeNote(input: MemoryNoteCreate): MemoryNote {
   };
   db.insert(memoryNotes).values(row).run();
   return rowToNote(row as typeof memoryNotes.$inferSelect);
+}
+
+/**
+ * P5 dream-cycle soft-archive: mark a note archived (never delete), record
+ * which synthesis note superseded it, and mirror both into the file's
+ * frontmatter so the state survives a DB reset. Archived notes drop out of
+ * every retrieval path but remain browsable in the Memory UI.
+ */
+export function archiveNote(id: string, supersededBy: string | null): MemoryNote | null {
+  const note = getNote(id);
+  if (!note) return null;
+  const ts = nowIso();
+  let fileContent: string | null = null;
+  try {
+    const raw = readNoteRaw(note);
+    const { data, content } = parseFrontmatter(raw);
+    data.archived = ts;
+    if (supersededBy) data.superseded_by = supersededBy;
+    data.updated = ts;
+    fileContent = stringifyFrontmatter(content, data);
+    fs.writeFileSync(toAbsPath(note.path), fileContent, "utf8");
+    noteSelfWrite(note.path, sha256(fileContent));
+  } catch (err) {
+    logger.warn({ err, path: note.path }, "archive frontmatter update failed — DB state still set");
+  }
+  getDb()
+    .update(memoryNotes)
+    .set({
+      archivedAt: ts,
+      supersededBy: supersededBy ?? null,
+      updatedAt: ts,
+      ...(fileContent != null ? { contentHash: sha256(fileContent) } : {}),
+    })
+    .where(eq(memoryNotes.id, id))
+    .run();
+  return getNote(id);
+}
+
+/** EH6: owner approves a quarantined note — it becomes injectable/searchable. */
+export function approveNote(id: string): MemoryNote | null {
+  const note = getNote(id);
+  if (!note) return null;
+  const ts = nowIso();
+  let fileContent: string | null = null;
+  try {
+    const raw = readNoteRaw(note);
+    const { data, content } = parseFrontmatter(raw);
+    delete data.quarantined;
+    data.updated = ts;
+    fileContent = stringifyFrontmatter(content, data);
+    fs.writeFileSync(toAbsPath(note.path), fileContent, "utf8");
+    noteSelfWrite(note.path, sha256(fileContent));
+  } catch (err) {
+    logger.warn({ err, path: note.path }, "approve frontmatter update failed — DB state still set");
+  }
+  getDb()
+    .update(memoryNotes)
+    .set({
+      quarantined: false,
+      updatedAt: ts,
+      ...(fileContent != null ? { contentHash: sha256(fileContent) } : {}),
+    })
+    .where(eq(memoryNotes.id, id))
+    .run();
+  return getNote(id);
 }
 
 export function getNote(id: string): MemoryNote | null {
@@ -273,6 +358,12 @@ export function scanVault(): ScanResult & { dirtyNoteIds: string[] } {
         firstHeading(body) ||
         path.basename(relPath, ".md");
       const tags = Array.isArray(fm.tags) ? fm.tags.map(String) : [];
+      // P5: type/quarantined/archived round-trip through frontmatter so the
+      // file stays the source of truth across DB resets and external edits.
+      const noteType = coerceNoteType(fm.type);
+      const quarantined = fm.quarantined === true;
+      const archivedAt = typeof fm.archived === "string" ? fm.archived : null;
+      const supersededBy = typeof fm.superseded_by === "string" ? fm.superseded_by : null;
       const ts = nowIso();
 
       if (existing) {
@@ -283,6 +374,10 @@ export function scanVault(): ScanResult & { dirtyNoteIds: string[] } {
             agentSlug: typeof fm.agent === "string" ? fm.agent : derived.agentSlug,
             title,
             tags,
+            type: noteType,
+            quarantined,
+            archivedAt,
+            supersededBy,
             contentHash: hash,
             indexedAt: null,
             updatedAt: ts,
@@ -303,6 +398,10 @@ export function scanVault(): ScanResult & { dirtyNoteIds: string[] } {
             title,
             tags,
             source: typeof fm.source === "string" ? fm.source : "user",
+            type: noteType,
+            quarantined,
+            archivedAt,
+            supersededBy,
             contentHash: hash,
             indexedAt: null,
             createdAt: typeof fm.created === "string" ? fm.created : ts,

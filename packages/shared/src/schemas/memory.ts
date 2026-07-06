@@ -81,6 +81,8 @@ export const memoryNoteCreateSchema = z.object({
   quarantined: z.boolean().default(false),
 });
 export type MemoryNoteCreate = z.infer<typeof memoryNoteCreateSchema>;
+/** Input-side shape: defaulted fields (tags/source/type/refs/quarantined) optional. */
+export type MemoryNoteCreateInput = z.input<typeof memoryNoteCreateSchema>;
 
 export const memorySearchRequestSchema = z.object({
   query: z.string().min(1),
