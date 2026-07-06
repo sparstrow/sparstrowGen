@@ -268,10 +268,24 @@ export class RunManager {
         }
       }
     }
+    // P2/EH5: resolve the effective tool policy (Global→Agent→Project→Task) ONCE and
+    // snapshot it on the run, so the provider reads an immutable set — a row edited
+    // while the run was queued can't change what it may touch.
+    // P5 (#49): graph-tool availability is pinned into the same snapshot — engine
+    // missing or projectless run ⇒ graph tools disallowed for this run's lifetime,
+    // so surface, preamble, and P3 child-clamps can never disagree mid-run. Resolved
+    // BEFORE the preamble so the advertised tool list reads the same pinned truth.
+    const effectiveTools = applyGraphAvailabilityGate(
+      resolveRunEffectiveTools({ agent, project: projectRow, task: taskRow }),
+      { engineInstalled: graphEngineInstalled(), hasProject: row.projectId != null },
+    );
+    db.update(runs).set({ effectiveTools }).where(eq(runs.id, row.id)).run();
+
     // EH7: a sandbox run's advertised write dirs are clamped to the sandbox project.
     const isSandbox = projectRow?.isSandbox ?? false;
     const preamble = buildPreamble(agent, projectSlug, assignment, {
       sandboxProjectSlug: isSandbox ? projectSlug : null,
+      effectiveTools,
     });
     // P4 §2: project directives are GUARANTEED-injected — assembled here as their
     // own block (after the trusted preamble, before the token-budgeted <memory>
@@ -280,18 +294,6 @@ export class RunManager {
     const finalPrompt = [preamble, directivesBlock, memoryBlock, `## Task\n${row.prompt}`]
       .filter((s) => s.length > 0)
       .join("\n\n");
-
-    // P2/EH5: resolve the effective tool policy (Global→Agent→Project→Task) ONCE and
-    // snapshot it on the run, so the provider reads an immutable set — a row edited
-    // while the run was queued can't change what it may touch.
-    // P5 (#49): graph-tool availability is pinned into the same snapshot — engine
-    // missing or projectless run ⇒ graph tools disallowed for this run's lifetime,
-    // so surface, preamble, and P3 child-clamps can never disagree mid-run.
-    const effectiveTools = applyGraphAvailabilityGate(
-      resolveRunEffectiveTools({ agent, project: projectRow, task: taskRow }),
-      { engineInstalled: graphEngineInstalled(), hasProject: row.projectId != null },
-    );
-    db.update(runs).set({ effectiveTools }).where(eq(runs.id, row.id)).run();
 
     const tempDir = path.join(config.tmpDir, row.id);
     fs.mkdirSync(tempDir, { recursive: true });
