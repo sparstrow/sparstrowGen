@@ -18,7 +18,23 @@ export type WsServerEvent =
   | { type: "memory.note.removed"; noteId: string; path: string }
   | { type: "terminal.session.opened"; sessionId: string; agentId: string }
   | { type: "terminal.session.closed"; sessionId: string }
-  | { type: "system.health"; health: SystemHealth };
+  | { type: "system.health"; health: SystemHealth }
+  | { type: "graph.engine.status"; status: GraphEngineStatus };
+
+/**
+ * P5: code-graph engine (codebase-memory-mcp) install status — engine-level
+ * only; per-project index state travels separately. Published on every install
+ * transition so the download is owner-visible, never silent.
+ */
+export interface GraphEngineStatus {
+  state: "not-installed" | "installing" | "verifying" | "installed" | "error";
+  installed: boolean;
+  pinnedVersion: string;
+  /** Variants on disk: `std` = query engine (no UI code), `ui` = 3D visualization. */
+  variants: { std: boolean; ui: boolean };
+  exePath: string | null;
+  detail: string | null;
+}
 
 export interface ProviderHealth {
   id: string;
