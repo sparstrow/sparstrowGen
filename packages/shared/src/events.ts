@@ -19,7 +19,21 @@ export type WsServerEvent =
   | { type: "terminal.session.opened"; sessionId: string; agentId: string }
   | { type: "terminal.session.closed"; sessionId: string }
   | { type: "system.health"; health: SystemHealth }
-  | { type: "graph.engine.status"; status: GraphEngineStatus };
+  | { type: "graph.engine.status"; status: GraphEngineStatus }
+  | { type: "graph.project.status"; projectId: string; status: GraphProjectStatus };
+
+/**
+ * P5: per-project code-graph index state (derived data — persisted as a JSON
+ * file inside the project's engine store dir, no DB migration). Drives the
+ * project page's Code-graph panel; pushed over /ws on every transition.
+ */
+export interface GraphProjectStatus {
+  state: "none" | "queued" | "indexing" | "ready" | "failed" | "stale";
+  detail: string | null;
+  indexedAt: string | null;
+  nodes: number | null;
+  edges: number | null;
+}
 
 /**
  * P5: code-graph engine (codebase-memory-mcp) install status — engine-level

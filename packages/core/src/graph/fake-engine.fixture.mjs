@@ -51,9 +51,28 @@ rl.on("line", (line) => {
   if (msg.method === "tools/call") {
     const { name, arguments: args } = msg.params;
     const result = (text) => send({ jsonrpc: "2.0", id: msg.id, result: { content: [{ type: "text", text }] } });
-    // Engine-shaped responses used by graph-tools tests:
+    // Engine-shaped responses used by graph-tools / lifecycle tests:
     if (name === "list_projects") {
-      result(JSON.stringify(mode === "empty" ? { projects: [] } : { projects: [{ name: "fixture-project" }] }));
+      result(
+        JSON.stringify(
+          mode === "empty" ? { projects: [] } : { projects: [{ name: "fixture-project", nodes: 42, edges: 99 }] },
+        ),
+      );
+      return;
+    }
+    if (name === "index_repository") {
+      // Small delay so semaphore-ordering tests can observe overlap (or its absence).
+      setTimeout(() => {
+        if (mode === "index-fail") {
+          send({
+            jsonrpc: "2.0",
+            id: msg.id,
+            result: { content: [{ type: "text", text: "parse crashed on hostile input" }], isError: true },
+          });
+        } else {
+          result(JSON.stringify({ indexed: true, repo_path: args?.repo_path ?? null }));
+        }
+      }, 120);
       return;
     }
     if (name === "big" || args?.big === true) {

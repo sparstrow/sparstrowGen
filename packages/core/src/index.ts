@@ -18,6 +18,7 @@ import { initDelegationWatcher, sweepWaitingParents } from "./taskboard/delegati
 import { killAllSessions } from "./terminal/manager.js";
 import { shutdownGraphPool, sweepOrphanEngines } from "./graph/graph-client.js";
 import { graphToolRegistrar } from "./graph/graph-tools.js";
+import { reconcileInterruptedIndexes, startNightlyGraphRefresh } from "./graph/graph-lifecycle.js";
 
 async function main(): Promise<void> {
   logger.info({ dataDir: config.dataDir, vault: config.vaultPath }, "sparstrow core starting");
@@ -35,6 +36,11 @@ async function main(): Promise<void> {
   void sweepOrphanEngines().then((killed) => {
     if (killed > 0) logger.warn({ killed }, "graph-engine orphans reaped at startup");
   });
+  // P5: statuses stuck at queued/indexing mean core died mid-index — mark failed.
+  const staleIndexes = reconcileInterruptedIndexes();
+  if (staleIndexes > 0) logger.warn({ staleIndexes }, "interrupted graph indexes reconciled");
+  // P5 (locked P5-Q4): nightly refresh sweep, serialized by the index semaphore.
+  const stopNightlyGraphRefresh = startNightlyGraphRefresh();
   // P4: seed the factory-managed system agents (Project Indexer/Reporter) that
   // auto-index + morning-briefing spawn through. Idempotent.
   ensureSystemAgents();
@@ -65,6 +71,7 @@ async function main(): Promise<void> {
     try {
       stopScheduler();
       stopDelegationWatcher();
+      stopNightlyGraphRefresh();
       killAllSessions();
       await shutdownGraphPool();
       await stopVaultWatcher();
