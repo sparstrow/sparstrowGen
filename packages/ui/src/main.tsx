@@ -47,6 +47,12 @@ wsHub.subscribe((event) => {
     case "system.health":
       void queryClient.invalidateQueries({ queryKey: ["health"] });
       break;
+    case "graph.engine.status":
+      void queryClient.invalidateQueries({ queryKey: ["graph-engine"] });
+      break;
+    case "graph.project.status":
+      void queryClient.invalidateQueries({ queryKey: ["project-graph", event.projectId] });
+      break;
     default:
       break;
   }

@@ -11,6 +11,8 @@ import type {
   AgentUpdate,
   DraftRequest,
   DraftTurn,
+  GraphEngineStatus,
+  GraphProjectStatus,
   CronJob,
   CronJobCreate,
   CronJobUpdate,
@@ -239,16 +241,69 @@ export function useSyncFromBase(): UseMutationResult<Task, ApiError, string> {
   });
 }
 
-/** P4 §2: re-run the auto-index over the project's rootDir. */
+/** P4 §2 + P5: ONE Reindex action, two passes — notes indexer run + graph index. */
 export function useReindexProject(): UseMutationResult<
-  { started: boolean; runId: string | null },
+  { started: boolean; runId: string | null; graph: string },
   ApiError,
   string
 > {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api(`/projects/${id}/reindex`, { method: "POST" }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["runs"] }),
+    onSuccess: (_res, id) => {
+      void queryClient.invalidateQueries({ queryKey: ["runs"] });
+      void queryClient.invalidateQueries({ queryKey: ["project-graph", id] });
+    },
+  });
+}
+
+// ── P5 code graph (engine-level in Settings; per-project panel on the project page) ──
+
+export function useGraphEngine(): UseQueryResult<GraphEngineStatus, ApiError> {
+  return useQuery({
+    queryKey: ["graph-engine"],
+    queryFn: () => api<GraphEngineStatus>("/graph/engine"),
+  });
+}
+
+/** T-a: explicit owner-initiated install (predictable Defender moment, never silent). */
+export function useInstallGraphEngine(): UseMutationResult<
+  { started: boolean; status: GraphEngineStatus },
+  ApiError,
+  void
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api("/graph/engine/install", { method: "POST" }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["graph-engine"] }),
+  });
+}
+
+/** Settings → Retry: clears crash-loop breaker latches (audit #40). */
+export function useRetryGraphEngine(): UseMutationResult<{ ok: boolean }, ApiError, void> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api("/graph/engine/retry", { method: "POST" }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["graph-engine"] }),
+  });
+}
+
+/** T10: post-install backfill — serialized by the index semaphore, sandboxes excluded. */
+export function useIndexAllProjects(): UseMutationResult<
+  { queued: number; skipped: number },
+  ApiError,
+  void
+> {
+  return useMutation({
+    mutationFn: () => api("/graph/index-all", { method: "POST" }),
+  });
+}
+
+export function useProjectGraph(id: string): UseQueryResult<GraphProjectStatus, ApiError> {
+  return useQuery({
+    queryKey: ["project-graph", id],
+    queryFn: () => api<GraphProjectStatus>(`/projects/${id}/graph`),
+    enabled: Boolean(id),
   });
 }
 

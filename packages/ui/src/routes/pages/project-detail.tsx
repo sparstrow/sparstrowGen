@@ -30,8 +30,10 @@ import {
   useProjectDirectives,
   useProjectFiles,
   useProjectGitState,
+  useProjectGraph,
   useProjectVariants,
   useProjects,
+  useGraphEngine,
   useReindexProject,
   useSetBriefing,
   useSyncFromBase,
@@ -133,6 +135,7 @@ export function ProjectWorkspacePage() {
             isVariant={Boolean(p.parentProjectId)}
             isSandbox={p.isSandbox}
           />
+          <CodeGraphPanel projectId={projectId} isSandbox={p.isSandbox} hasRoot={Boolean(p.rootDir)} />
         </div>
       </div>
     </div>
@@ -316,7 +319,7 @@ function MemoryPanel({ projectSlug }: { projectSlug: string }) {
         <Skeleton className="h-20 w-full" />
       ) : rows.length === 0 ? (
         <p className="py-6 text-center text-xs text-muted-foreground">
-          No project memory yet. Auto-index runs on creation; use “Reindex” to refresh.
+          No project memory yet. Auto-index runs on creation (summary notes + code graph); “Reindex” refreshes both.
         </p>
       ) : (
         rows.map((n) => (
@@ -414,6 +417,107 @@ function FileTree({ projectId, subpath, depth }: { projectId: string; subpath: s
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * P5: per-project code-graph state (design F3: standalone sidebar panel, not a
+ * Memory-tab section — the graph is NOT memory notes; F4: per-project state
+ * lives HERE, Settings shows engine-level only). Header badge is visible
+ * without expanding anything (F11); all feedback is inline text (F8 — no
+ * toast system exists). Cold-start states per F1.
+ */
+function CodeGraphPanel({
+  projectId,
+  isSandbox,
+  hasRoot,
+}: {
+  projectId: string;
+  isSandbox: boolean;
+  hasRoot: boolean;
+}) {
+  const engine = useGraphEngine();
+  const graph = useProjectGraph(projectId);
+  const reindex = useReindexProject();
+
+  const engineInstalled = engine.data?.installed ?? false;
+  const s = graph.data;
+  const badge = !engineInstalled
+    ? { variant: "outline" as const, label: "engine not installed" }
+    : !s || s.state === "none"
+      ? { variant: "outline" as const, label: "no graph" }
+      : s.state === "ready"
+        ? { variant: "success" as const, label: "ready" }
+        : s.state === "failed"
+          ? { variant: "destructive" as const, label: "failed" }
+          : s.state === "stale"
+            ? { variant: "warning" as const, label: "stale" }
+            : { variant: "secondary" as const, label: s.state === "queued" ? "queued" : "indexing…" };
+
+  return (
+    <div className="rounded-xl border p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-sm font-medium">Code graph</p>
+        {engine.isLoading || graph.isLoading ? (
+          <Skeleton className="h-5 w-16" />
+        ) : (
+          <Badge variant={badge.variant}>{badge.label}</Badge>
+        )}
+      </div>
+
+      {!engineInstalled ? (
+        <p className="text-xs text-muted-foreground">
+          Graph engine not installed —{" "}
+          <Link to="/settings" className="underline underline-offset-2 hover:text-foreground">
+            install it in Settings
+          </Link>{" "}
+          to give agents structure-aware code search.
+        </p>
+      ) : !hasRoot ? (
+        <p className="text-xs text-muted-foreground">Bind a root directory to build a code graph.</p>
+      ) : (
+        <div className="space-y-2">
+          {s?.state === "ready" && (
+            <p className="font-mono text-[11px] text-muted-foreground">
+              {(s.nodes ?? 0).toLocaleString()} nodes · {(s.edges ?? 0).toLocaleString()} edges
+              {s.indexedAt ? ` · indexed ${formatDate(s.indexedAt)}` : ""}
+            </p>
+          )}
+          {(s?.state === "queued" || s?.state === "indexing") && (
+            <p className="text-xs text-muted-foreground">
+              Indexing… agents fall back to file search until it finishes.
+            </p>
+          )}
+          {s?.state === "failed" && (
+            <p className="text-xs text-destructive">{s.detail ?? "Index failed."}</p>
+          )}
+          {(s?.state === "none" || s?.state === "stale" || s?.state === "failed") && (
+            <p className="text-xs text-muted-foreground">
+              {s?.state === "stale"
+                ? "Engine was updated — Reindex to rebuild the graph."
+                : s?.state === "failed"
+                  ? "Reindex to retry."
+                  : isSandbox
+                    ? "Sandboxes index only when you click Reindex (untrusted code is never parsed automatically)."
+                    : "No graph yet — Reindex to build it (also queued nightly)."}
+            </p>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={reindex.isPending || s?.state === "queued" || s?.state === "indexing"}
+            onClick={() => reindex.mutate(projectId)}
+          >
+            <RefreshCw className="size-3.5" />{" "}
+            {s?.state === "queued" || s?.state === "indexing" ? "Indexing…" : "Reindex"}
+          </Button>
+          {reindex.isSuccess && reindex.data.graph !== "queued" && (
+            <p className="text-xs text-muted-foreground">Graph pass skipped: {reindex.data.graph}.</p>
+          )}
+          {reindex.isError && <p className="text-xs text-destructive">{reindex.error.message}</p>}
+        </div>
+      )}
     </div>
   );
 }

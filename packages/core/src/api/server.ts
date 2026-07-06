@@ -23,6 +23,7 @@ import { teamRoutes } from "./routes/teams.js";
 import { wsRoutes } from "../ws/handler.js";
 import { mcpRoutes } from "../mcp/http-mcp.js";
 import { terminalRoutes, terminalWsRoutes } from "./routes/terminal.js";
+import { graphRoutes } from "./routes/graph.js";
 import { requireAuth } from "./auth.js";
 
 export async function buildServer() {
@@ -81,6 +82,7 @@ export async function buildServer() {
       await api.register(pipelineRoutes);
       await api.register(cronRoutes);
       await api.register(terminalRoutes);
+      await api.register(graphRoutes);
     },
     { prefix: API_BASE },
   );
