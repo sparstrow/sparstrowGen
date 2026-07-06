@@ -11,7 +11,13 @@ export const runStatusSchema = z.enum([
 ]);
 export type RunStatus = z.infer<typeof runStatusSchema>;
 
-export const runTriggerSchema = z.enum(["manual", "cron", "pipeline", "task", "message", "system"]);
+/**
+ * `dream` (P5): a dream-cycle consolidator run, queue-routed through the
+ * background lane (EH3 — never `completeOnce`). The trigger type IS the
+ * recursion guard: signal extraction never scans dream-triggered runs, so
+ * extractor output can't feed the next night's extraction.
+ */
+export const runTriggerSchema = z.enum(["manual", "cron", "pipeline", "task", "message", "system", "dream"]);
 export type RunTrigger = z.infer<typeof runTriggerSchema>;
 
 export const runModeSchema = z.enum(["headless", "interactive"]);
@@ -42,6 +48,30 @@ export const runEventSchema = z.object({
 });
 export type RunEvent = z.infer<typeof runEventSchema>;
 
+/**
+ * E1 (P5): the injector's structured manifest — which notes and directives
+ * actually entered a run's prompt (post budget-trim, so it reflects what was
+ * INJECTED, not what was retrieved). Persisted on the run row at spawn.
+ * Deliberately NOT named `injected_context`: that column already means the
+ * rendered <memory> block string (plan L158-160 naming landmine).
+ */
+export const injectedMemoryManifestSchema = z.object({
+  notes: z.array(
+    z.object({
+      id: idSchema,
+      path: z.string(),
+      title: z.string(),
+      scope: z.string(),
+      projectSlug: z.string().nullable(),
+      agentSlug: z.string().nullable(),
+      source: z.string(),
+      type: z.string(),
+    }),
+  ),
+  directives: z.array(z.object({ id: idSchema, body: z.string() })),
+});
+export type InjectedMemoryManifest = z.infer<typeof injectedMemoryManifestSchema>;
+
 export const runSchema = z.object({
   id: idSchema,
   agentId: idSchema,
@@ -53,6 +83,15 @@ export const runSchema = z.object({
   mode: runModeSchema,
   prompt: z.string(),
   injectedContext: z.string().nullable().default(null),
+  /** E1 (P5): structured provenance of the injected memory + directives. */
+  injectedMemory: injectedMemoryManifestSchema.nullable().default(null),
+  /**
+   * EH6/EH7 (P5): the run consumed untrusted/external content — it ran in a
+   * sandbox project, executed a delegated (agent-authored) task, or its
+   * transcript used external-content tools (WebFetch/WebSearch/foreign MCP).
+   * Stamped at finalize. Signal notes extracted from such runs are quarantined.
+   */
+  untrusted: z.boolean().default(false),
   status: runStatusSchema,
   sessionId: z.string().nullable().default(null),
   lane: z.string().default("foreground"),

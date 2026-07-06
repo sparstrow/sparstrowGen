@@ -355,4 +355,62 @@ CREATE TABLE project_directives (
 CREATE INDEX idx_project_directives_project ON project_directives(project_id, sort);
 `,
   },
+  {
+    // P5 part 2 — smart memory.
+    // - memory_notes.type: typed memory (note|decision|architecture|pitfall|
+    //   meeting|lesson — enum enforced in zod, not SQL, matching runs.status).
+    //   Existing rows migrate to 'note' via the DEFAULT.
+    // - memory_notes.quarantined (EH6): signal notes from untrusted-content runs
+    //   are non-injectable + invisible to agent reads until owner approval.
+    // - memory_notes.archived_at/superseded_by: dream-cycle soft-archive — merged
+    //   originals are NEVER hard-deleted; they point at the synthesis note.
+    // - memory_links: [[wikilink]] hard edges extracted at index time; to_note_id
+    //   is code-managed (nullable, re-resolved as titles appear/vanish), so no FK.
+    // - memory_contradictions: dream-cycle flags (P5-Q3 FLAG-ONLY), id-ordered
+    //   unique pair so re-detection can't duplicate an open or resolved flag.
+    // - runs.untrusted (EH6 + P4-deferred EH7): consumed untrusted/external
+    //   content; stamped at finalize.
+    // - runs.injected_memory (E1): the injector's structured manifest. NOT named
+    //   injected_context — that column already means the rendered block string.
+    // - agents.signal_extraction: per-agent toggle for the nightly signal pass.
+    // ADD COLUMN-only + two new tables — safe under the in-transaction runner.
+    id: "0008_smart_memory",
+    sql: `
+ALTER TABLE memory_notes ADD COLUMN type TEXT NOT NULL DEFAULT 'note';
+ALTER TABLE memory_notes ADD COLUMN quarantined INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE memory_notes ADD COLUMN archived_at TEXT;
+ALTER TABLE memory_notes ADD COLUMN superseded_by TEXT;
+CREATE INDEX idx_memory_notes_type ON memory_notes(type);
+
+CREATE TABLE memory_links (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  from_note_id TEXT NOT NULL REFERENCES memory_notes(id) ON DELETE CASCADE,
+  to_note_id TEXT,
+  unresolved_title TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX idx_memory_links_from ON memory_links(from_note_id);
+CREATE INDEX idx_memory_links_to ON memory_links(to_note_id);
+
+CREATE TABLE memory_contradictions (
+  id TEXT PRIMARY KEY,
+  project_slug TEXT,
+  note_a TEXT NOT NULL,
+  note_b TEXT NOT NULL,
+  axis TEXT NOT NULL DEFAULT '',
+  severity TEXT NOT NULL DEFAULT 'low',
+  confidence REAL NOT NULL DEFAULT 0,
+  detected_at TEXT NOT NULL,
+  resolved_at TEXT,
+  resolution TEXT
+);
+CREATE INDEX idx_memory_contradictions_open ON memory_contradictions(resolved_at);
+CREATE UNIQUE INDEX uq_memory_contradictions_pair ON memory_contradictions(note_a, note_b);
+
+ALTER TABLE runs ADD COLUMN untrusted INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE runs ADD COLUMN injected_memory TEXT;
+
+ALTER TABLE agents ADD COLUMN signal_extraction INTEGER NOT NULL DEFAULT 1;
+`,
+  },
 ];
