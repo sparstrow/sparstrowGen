@@ -97,6 +97,25 @@
   }
 }
 
+/* P6 Node Graph: @xyflow/react ships hardcoded light-mode chrome (white
+   controls panel, light attribution) that ignores our theme tokens entirely —
+   override with the same CSS variables everything else in the app uses. */
+.react-flow__controls {
+  @apply overflow-hidden rounded-md border border-border bg-card shadow-sm;
+}
+.react-flow__controls-button {
+  @apply border-b border-border bg-card fill-foreground stroke-foreground text-foreground;
+}
+.react-flow__controls-button:hover {
+  @apply bg-accent;
+}
+.react-flow__controls-button svg {
+  fill: currentColor;
+}
+.react-flow__attribution {
+  @apply bg-transparent text-muted-foreground;
+}
+
 /* Motion for the F1 SkillViewer slide-over, the Agent Creator overlay, and the
    Creator "thinking" dots. Plain CSS keyframes (no framer-motion). */
 @keyframes spg-slide-in-right {
