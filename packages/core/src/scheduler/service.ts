@@ -177,6 +177,12 @@ async function fire(job: CronJob): Promise<void> {
       });
     } else if (row.targetType === "pipeline") {
       startPipeline(row.targetId, row.prompt, "cron", row.projectId);
+    } else if (row.targetType === "dream") {
+      // P5: targetId is the PROJECT id. Dynamic import keeps the scheduler
+      // free of the memory subsystem's import graph; runDreamCycle spawns its
+      // own queue-routed consolidator run (EH3) and never throws.
+      const { runDreamCycle } = await import("../memory/dream-cycle.js");
+      void runDreamCycle(row.targetId);
     }
   } catch (err) {
     logger.error({ err, jobId: job.id }, "cron job fire error");

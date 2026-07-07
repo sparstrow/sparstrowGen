@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { idSchema, isoDateSchema } from "./common.js";
 
-export const cronTargetTypeSchema = z.enum(["agent", "pipeline"]);
+/**
+ * `dream` (P5): targetId is the PROJECT id; the scheduler fires the project's
+ * dream cycle (memory consolidation) instead of spawning a run directly.
+ */
+export const cronTargetTypeSchema = z.enum(["agent", "pipeline", "dream"]);
 export type CronTargetType = z.infer<typeof cronTargetTypeSchema>;
 
 export const cronJobSchema = z.object({

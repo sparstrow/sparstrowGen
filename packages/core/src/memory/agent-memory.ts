@@ -3,7 +3,9 @@ import {
   slugify,
   type Agent,
   type EffectiveTools,
+  type LessonRef,
   type MemoryNote,
+  type MemoryNoteType,
   type MemoryScopeKind,
   type MemorySearchHit,
 } from "@sparstrow/shared";
@@ -120,10 +122,12 @@ export async function agentMemorySearch(
   ctx: RunContext,
   query: string,
   k: number,
+  opts: { type?: MemoryNoteType } = {},
 ): Promise<MemorySearchHit[]> {
   const filters = expandReadScopes(ctx.agent, ctx.projectSlug);
   if (filters.length === 0) return [];
-  return searchMemory(query, filters, k, { callerProjectSlug: ctx.projectSlug });
+  // EH6/archive exclusion is searchMemory's default — agents can never opt in.
+  return searchMemory(query, filters, k, { callerProjectSlug: ctx.projectSlug, type: opts.type });
 }
 
 export interface AgentSaveInput {
@@ -133,6 +137,10 @@ export interface AgentSaveInput {
   projectSlug?: string | null;
   agentSlug?: string | null;
   tags: string[];
+  /** P5 typed memory (default 'note'). */
+  type?: MemoryNoteType;
+  /** P5 LESSONS: portable (filePath, symbolName) refs for type='lesson'. */
+  refs?: LessonRef[];
 }
 
 export function agentMemorySave(ctx: RunContext, input: AgentSaveInput): MemoryNote {
@@ -183,6 +191,9 @@ export function agentMemorySave(ctx: RunContext, input: AgentSaveInput): MemoryN
     agentSlug: scope === "agent" ? agentSlug : null,
     tags: input.tags,
     source: `agent:${ctx.agent.slug}`,
+    type: input.type ?? "note",
+    refs: input.refs ?? [],
+    quarantined: false,
   });
   indexer.enqueue([note.id]);
   return note;

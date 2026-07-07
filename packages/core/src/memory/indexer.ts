@@ -6,6 +6,7 @@ import { bus } from "../events/bus.js";
 import { logger } from "../logger.js";
 import { chunkMarkdown } from "./chunker.js";
 import { embedPassages, initEmbedder, isEmbedderReady } from "./embedder.js";
+import { onNoteRemoved, resolveDanglingLinks, syncNoteLinks } from "./links.js";
 import {
   deleteChunkVectors,
   deleteFtsRows,
@@ -47,6 +48,8 @@ class MemoryIndexer {
     deleteFtsRows(ids);
     deleteChunkVectors(ids);
     db.delete(memoryChunks).where(eq(memoryChunks.noteId, noteId)).run();
+    // P5 wikilinks: outgoing links go; inbound links degrade to dangling.
+    onNoteRemoved(noteId);
   }
 
   private async drain(): Promise<void> {
@@ -84,6 +87,15 @@ class MemoryIndexer {
     }
 
     this.removeNote(noteId);
+
+    // P5 wikilinks: hard edges recomputed from the body on every index; then
+    // any dangling links elsewhere that name THIS note's title resolve to it.
+    try {
+      syncNoteLinks(noteId, body);
+      resolveDanglingLinks(noteId, note.title);
+    } catch (err) {
+      logger.warn({ err, noteId }, "wikilink sync failed — note still indexes");
+    }
 
     const chunks = chunkMarkdown(body);
     const tagsText = note.tags.join(" ");

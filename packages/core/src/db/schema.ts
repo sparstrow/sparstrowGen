@@ -23,6 +23,9 @@ export const agents = sqliteTable("agents", {
   memoryWriteScopes: text("memory_write_scopes", { mode: "json" }).$type<string[]>().notNull().default([]),
   extraArgs: text("extra_args", { mode: "json" }).$type<string[]>().notNull().default([]),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  // P5: per-agent signal-extraction toggle — when false, the nightly dream-cycle
+  // signal pass skips this agent's transcripts.
+  signalExtraction: integer("signal_extraction", { mode: "boolean" }).notNull().default(true),
   // P4: factory-managed system agent (Project Indexer/Reporter), hidden from the
   // default roster. Seeded at boot, not user-created.
   isSystem: integer("is_system", { mode: "boolean" }).notNull().default(false),
@@ -87,6 +90,26 @@ export const runs = sqliteTable(
     mode: text("mode").notNull(),
     prompt: text("prompt").notNull(),
     injectedContext: text("injected_context"),
+    // E1 (P5): structured provenance of what the injector actually put into the
+    // prompt (post budget-trim). NOT named injected_context — that column already
+    // means the rendered <memory> block string (plan L158-160 naming landmine).
+    injectedMemory: text("injected_memory", { mode: "json" }).$type<{
+      notes: Array<{
+        id: string;
+        path: string;
+        title: string;
+        scope: string;
+        projectSlug: string | null;
+        agentSlug: string | null;
+        source: string;
+        type: string;
+      }>;
+      directives: Array<{ id: string; body: string }>;
+    } | null>(),
+    // EH6/EH7 (P5): the run consumed untrusted/external content (sandbox project,
+    // delegated task, or external-content tool use). Stamped at finalize; signal
+    // notes extracted from such runs are quarantined.
+    untrusted: integer("untrusted", { mode: "boolean" }).notNull().default(false),
     status: text("status").notNull(),
     sessionId: text("session_id"),
     lane: text("lane").notNull().default("foreground"),
@@ -266,12 +289,73 @@ export const memoryNotes = sqliteTable(
     title: text("title").notNull().default(""),
     tags: text("tags", { mode: "json" }).$type<string[]>().notNull().default([]),
     source: text("source").notNull().default("user"),
+    // P5 typed memory: note|decision|architecture|pitfall|meeting|lesson.
+    // Enum enforced in zod (shared memoryNoteTypeSchema), not SQL.
+    type: text("type").notNull().default("note"),
+    // EH6: non-injectable and invisible to agent reads until owner approval.
+    quarantined: integer("quarantined", { mode: "boolean" }).notNull().default(false),
+    // P5 dream cycle soft-archive: merged originals are archived (never deleted)
+    // and point at the synthesis note that replaced them.
+    archivedAt: text("archived_at"),
+    supersededBy: text("superseded_by"),
     contentHash: text("content_hash").notNull().default(""),
     indexedAt: text("indexed_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
-  (t) => [index("idx_memory_notes_scope").on(t.scope, t.projectSlug, t.agentSlug)],
+  (t) => [
+    index("idx_memory_notes_scope").on(t.scope, t.projectSlug, t.agentSlug),
+    index("idx_memory_notes_type").on(t.type),
+  ],
+);
+
+/**
+ * P5 wikilinks: `[[Note Title]]` edges extracted at index time — hard edges,
+ * no LLM cost. `unresolvedTitle` always holds the raw link text (even when
+ * resolved) so a dangling link re-resolves when a matching note appears and a
+ * resolved link survives its target's deletion as dangling-again.
+ */
+export const memoryLinks = sqliteTable(
+  "memory_links",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    fromNoteId: text("from_note_id")
+      .notNull()
+      .references(() => memoryNotes.id, { onDelete: "cascade" }),
+    toNoteId: text("to_note_id"),
+    unresolvedTitle: text("unresolved_title").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    index("idx_memory_links_from").on(t.fromNoteId),
+    index("idx_memory_links_to").on(t.toNoteId),
+  ],
+);
+
+/**
+ * P5 dream cycle contradiction flags (P5-Q3: FLAG-ONLY, no auto-resolve).
+ * Surfaced as `contradiction` rows in the P1 Attention queue; the owner
+ * resolves by editing/archiving notes themselves and dismissing the flag.
+ * (noteA, noteB) is stored id-ordered so a pair can't be flagged twice.
+ */
+export const memoryContradictions = sqliteTable(
+  "memory_contradictions",
+  {
+    id: text("id").primaryKey(),
+    projectSlug: text("project_slug"),
+    noteA: text("note_a").notNull(),
+    noteB: text("note_b").notNull(),
+    axis: text("axis").notNull().default(""),
+    severity: text("severity").notNull().default("low"),
+    confidence: real("confidence").notNull().default(0),
+    detectedAt: text("detected_at").notNull(),
+    resolvedAt: text("resolved_at"),
+    resolution: text("resolution"),
+  },
+  (t) => [
+    index("idx_memory_contradictions_open").on(t.resolvedAt),
+    uniqueIndex("uq_memory_contradictions_pair").on(t.noteA, t.noteB),
+  ],
 );
 
 export const memoryChunks = sqliteTable(

@@ -24,10 +24,11 @@ import { scanVault } from "../memory/vault.js";
 import { getProvider } from "../providers/index.js";
 import type { NormalizedEvent } from "../providers/types.js";
 import { buildPreamble, type Assignment } from "./preamble.js";
+import { isUntrustedRun } from "./untrusted.js";
 import { resolveRunEffectiveTools } from "../agents/tool-resolution.js";
 import { applyGraphAvailabilityGate, graphEngineInstalled } from "../graph/graph-tools.js";
 import { busyKey, ensureAgentInstance } from "../agents/instances.js";
-import { buildDirectivesBlock } from "../projects/directives.js";
+import { buildDirectivesBlock, listEnabledDirectives } from "../projects/directives.js";
 
 const nowIso = () => new Date().toISOString();
 
@@ -43,6 +44,10 @@ interface ActiveRun {
   timer: NodeJS.Timeout | null;
   startedAtMs: number;
   stderrLines: string[];
+  // EH6/EH7 (P5): spawn-time untrusted signals; combined with transcript tool
+  // use at finalize to stamp runs.untrusted.
+  isSandbox: boolean;
+  delegated: boolean;
 }
 
 function rowToRun(row: typeof runs.$inferSelect): Run {
@@ -230,7 +235,11 @@ export class RunManager {
       }
     }
 
-    const memoryBlock = await buildMemoryBlock(agent, projectSlug, row.prompt);
+    const { block: memoryBlock, manifest: memoryManifest } = await buildMemoryBlock(
+      agent,
+      projectSlug,
+      row.prompt,
+    );
     // A task-triggered run knows its task (DX-C2) — surface it as the assignment,
     // and for a delegated child add the DX1 brief: delegator, parent intent,
     // sibling context, escalation path.
@@ -341,8 +350,23 @@ export class RunManager {
       timer: null,
       startedAtMs: Date.now(),
       stderrLines: [],
+      isSandbox,
+      delegated: taskRow?.parentTaskId != null,
     };
     this.active.set(row.id, state);
+
+    // E1 (P5): structured provenance of what the injector put into the prompt —
+    // the post-budget note manifest plus the same enabled directives the
+    // directives block rendered. Null when nothing was injected.
+    const injectedMemory =
+      memoryManifest.length > 0 || directivesBlock.length > 0
+        ? {
+            notes: memoryManifest,
+            directives: row.projectId
+              ? listEnabledDirectives(row.projectId).map((d) => ({ id: d.id, body: d.body }))
+              : [],
+          }
+        : null;
 
     db.update(runs)
       .set({
@@ -350,6 +374,7 @@ export class RunManager {
         startedAt: nowIso(),
         pid: child.pid ?? null,
         injectedContext: memoryBlock || null,
+        injectedMemory,
         agentInstanceId,
       })
       .where(eq(runs.id, row.id))
@@ -448,6 +473,14 @@ export class RunManager {
         durationMs: Date.now() - state.startedAtMs,
         exitCode,
         error,
+        // EH6/EH7 (P5): stamped here because external-content tool use is only
+        // knowable from the full transcript. Downstream: signal notes extracted
+        // from an untrusted run are written quarantined.
+        untrusted: isUntrustedRun({
+          isSandbox: state.isSandbox,
+          delegated: state.delegated,
+          events: state.events,
+        }),
         finishedAt: nowIso(),
       })
       .where(eq(runs.id, runId))

@@ -49,6 +49,8 @@ export interface AgentFormValues {
   memoryReadScopes: string[];
   memoryWriteScopes: string[];
   enabled: boolean;
+  /** P5: include this agent's transcripts in the nightly signal extraction. */
+  signalExtraction: boolean;
 }
 
 export type SetField = <K extends keyof AgentFormValues>(key: K, value: AgentFormValues[K]) => void;
@@ -69,6 +71,7 @@ export function agentToForm(agent: Agent | null): AgentFormValues {
     memoryReadScopes: agent?.memoryReadScopes ?? ["global", "project:*", "agent:self"],
     memoryWriteScopes: agent?.memoryWriteScopes ?? ["agent:self"],
     enabled: agent?.enabled ?? true,
+    signalExtraction: agent?.signalExtraction ?? true,
   };
 }
 
@@ -98,6 +101,7 @@ export function formToPayload(values: AgentFormValues): AgentCreate {
     memoryWriteScopes: values.memoryWriteScopes,
     extraArgs: [],
     enabled: values.enabled,
+    signalExtraction: values.signalExtraction,
   };
 }
 
@@ -365,6 +369,16 @@ export function AgentFields({ values, set }: { values: AgentFormValues; set: Set
           <p className="text-xs text-muted-foreground">Disabled agents cannot be run.</p>
         </div>
         <Switch checked={values.enabled} onCheckedChange={(v) => set("enabled", v)} />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <Label>Signal extraction</Label>
+          <p className="text-xs text-muted-foreground">
+            Let the nightly dream cycle distill decisions/pitfalls from this agent&apos;s runs.
+          </p>
+        </div>
+        <Switch checked={values.signalExtraction} onCheckedChange={(v) => set("signalExtraction", v)} />
       </div>
     </div>
   );

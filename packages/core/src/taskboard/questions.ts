@@ -9,7 +9,7 @@ import {
   type TaskQuestion,
 } from "@sparstrow/shared";
 import { getDb } from "../db/connection.js";
-import { agents, runs, taskQuestions, tasks } from "../db/schema.js";
+import { agents, memoryContradictions, memoryNotes, runs, taskQuestions, tasks } from "../db/schema.js";
 import { bus } from "../events/bus.js";
 import { HttpError, runManager } from "../orchestrator/run-manager.js";
 import { getTask, updateTask } from "./service.js";
@@ -42,11 +42,12 @@ export function listQuestions(taskId: string): TaskQuestion[] {
 
 /**
  * One taxonomy of typed rows for the Human Attention Required queue (design C1).
- * Later phases add types (contradiction P5, git-failure P7) — they append row
- * TYPES, never new sections. P1 emits `question` (blocked tasks) and
- * `ready-for-review`; P3 adds `approval` (cross-team spawns awaiting the owner).
+ * Later phases add types (git-failure P7) — they append row TYPES, never new
+ * sections. P1 emits `question` (blocked tasks) and `ready-for-review`; P3
+ * adds `approval` (cross-team spawns awaiting the owner); P5 adds
+ * `contradiction` (dream-cycle memory flags, P5-Q3 flag-only).
  */
-export type AttentionRowType = "question" | "ready-for-review" | "approval";
+export type AttentionRowType = "question" | "ready-for-review" | "approval" | "contradiction";
 
 /**
  * EM3: the injection carrier — the verbatim agent-authored description — must be
@@ -62,11 +63,29 @@ export interface ApprovalDetails {
   effectiveBound: { allowed: string[]; disallowed: string[] } | null;
   verbatimDescription: string;
 }
+/**
+ * P5: a dream-cycle contradiction flag as an attention row (flag-only — the
+ * owner resolves by editing/archiving a note and dismissing the flag).
+ */
+export interface ContradictionDetails {
+  id: string;
+  projectSlug: string | null;
+  axis: string;
+  severity: string;
+  confidence: number;
+  noteAId: string;
+  noteATitle: string;
+  noteBId: string;
+  noteBTitle: string;
+}
+
 export interface AttentionRow {
   type: AttentionRowType;
-  task: Task;
+  /** Null for non-task rows (P5 contradiction flags). */
+  task: Task | null;
   questions: TaskQuestion[];
   approval?: ApprovalDetails;
+  contradiction?: ContradictionDetails;
   ageMs: number;
 }
 
@@ -82,7 +101,7 @@ export function listAttentionQueue(): AttentionRow[] {
   const now = Date.now();
   const agentName = (id: string | null): string | null =>
     id ? (db.select({ name: agents.name }).from(agents).where(eq(agents.id, id)).get()?.name ?? null) : null;
-  return rows.map((task) => {
+  const taskRows = rows.map((task) => {
     const type: AttentionRowType =
       task.status === "blocked" ? "question" : task.status === "pending_approval" ? "approval" : "ready-for-review";
     const row: AttentionRow = {
@@ -106,6 +125,36 @@ export function listAttentionQueue(): AttentionRow[] {
     }
     return row;
   });
+
+  // P5: open contradiction flags append as their own row type (never a section).
+  const noteTitle = (id: string): string =>
+    db.select({ title: memoryNotes.title }).from(memoryNotes).where(eq(memoryNotes.id, id)).get()?.title ??
+    "(deleted note)";
+  const contradictionRows: AttentionRow[] = db
+    .select()
+    .from(memoryContradictions)
+    .where(isNull(memoryContradictions.resolvedAt))
+    .orderBy(asc(memoryContradictions.detectedAt))
+    .all()
+    .map((c) => ({
+      type: "contradiction" as const,
+      task: null,
+      questions: [],
+      contradiction: {
+        id: c.id,
+        projectSlug: c.projectSlug,
+        axis: c.axis,
+        severity: c.severity,
+        confidence: c.confidence,
+        noteAId: c.noteA,
+        noteATitle: noteTitle(c.noteA),
+        noteBId: c.noteB,
+        noteBTitle: noteTitle(c.noteB),
+      },
+      ageMs: Math.max(0, now - new Date(c.detectedAt).getTime()),
+    }));
+
+  return [...taskRows, ...contradictionRows];
 }
 
 /**

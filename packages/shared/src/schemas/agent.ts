@@ -52,6 +52,11 @@ export const agentSchema = z.object({
   extraArgs: z.array(z.string()).default([]),
   enabled: z.boolean().default(true),
   /**
+   * P5 signal extraction per-agent toggle: when false, the nightly dream-cycle
+   * signal pass skips this agent's transcripts entirely.
+   */
+  signalExtraction: z.boolean().default(true),
+  /**
    * P4: a factory-managed system agent (Project Indexer, Project Reporter) seeded
    * at boot, not user-created. Hidden from the default agent list so it doesn't
    * clutter the roster; still runnable via cron/auto-index.

@@ -66,6 +66,14 @@ export function RunDetailPage() {
         </Button>
         <span className="font-mono text-sm">{r.id}</span>
         <RunStatusBadge status={r.status} />
+        {r.untrusted && (
+          <span
+            className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-500"
+            title="This run consumed untrusted/external content (sandbox, delegated task, or web/foreign-MCP tools). Signal notes extracted from it are quarantined."
+          >
+            untrusted content
+          </span>
+        )}
         {agent && <span className="text-sm text-muted-foreground">{agent.name} · {agent.model}</span>}
         <div className="flex-1" />
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -85,6 +93,39 @@ export function RunDetailPage() {
           </Button>
         )}
       </div>
+
+      {/* E1 (P5): memory provenance at a glance — which notes and directives
+          entered this run, from the injector's post-budget manifest. The raw
+          block stays available in the collapsible below. */}
+      {r.injectedMemory && (
+        <div className="space-y-1.5 rounded-md border px-3 py-2 text-xs">
+          {r.injectedMemory.notes.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-muted-foreground">Memory injected:</span>
+              {r.injectedMemory.notes.map((n) => (
+                <span
+                  key={n.id}
+                  className="rounded bg-muted px-1.5 py-0.5"
+                  title={`${n.path} · scope ${n.scope}${n.projectSlug ? `/${n.projectSlug}` : ""} · written-by ${n.source}`}
+                >
+                  {n.title}
+                  {n.type !== "note" && <span className="ml-1 text-muted-foreground">({n.type})</span>}
+                </span>
+              ))}
+            </div>
+          )}
+          {r.injectedMemory.directives.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-muted-foreground">Directives applied:</span>
+              {r.injectedMemory.directives.map((d) => (
+                <span key={d.id} className="rounded bg-muted px-1.5 py-0.5" title={d.body}>
+                  {d.body.length > 60 ? `${d.body.slice(0, 60)}…` : d.body}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {r.injectedContext && (
         <div className="rounded-md border">

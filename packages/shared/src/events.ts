@@ -1,7 +1,7 @@
 import type { Run, RunEvent } from "./schemas/run.js";
 import type { Message, Task } from "./schemas/task.js";
 import type { PipelineRun } from "./schemas/pipeline.js";
-import type { MemoryNote } from "./schemas/memory.js";
+import type { MemoryContradiction, MemoryNote } from "./schemas/memory.js";
 
 /** Events broadcast over /ws. Discriminated on `type`. */
 export type WsServerEvent =
@@ -20,7 +20,29 @@ export type WsServerEvent =
   | { type: "terminal.session.closed"; sessionId: string }
   | { type: "system.health"; health: SystemHealth }
   | { type: "graph.engine.status"; status: GraphEngineStatus }
-  | { type: "graph.project.status"; projectId: string; status: GraphProjectStatus };
+  | { type: "graph.project.status"; projectId: string; status: GraphProjectStatus }
+  | { type: "memory.contradiction.flagged"; contradiction: MemoryContradiction }
+  | { type: "dream.completed"; projectId: string; report: DreamReport };
+
+/**
+ * P5 dream cycle: one night's consolidation outcome for a project. Pushed
+ * over /ws for the project page's Dream-cycle panel; the same counts go into
+ * the daily digest inbox message.
+ */
+export interface DreamReport {
+  projectId: string;
+  status: "ok" | "partial" | "skipped" | "failed";
+  /** Why partial/skipped/failed (budget hit, engine error, overlap guard). */
+  detail: string | null;
+  runsScanned: number;
+  signalsWritten: number;
+  signalsQuarantined: number;
+  notesMerged: number;
+  synthesisWritten: number;
+  contradictionsFlagged: number;
+  costUsd: number | null;
+  finishedAt: string;
+}
 
 /**
  * P5: per-project code-graph index state (derived data — persisted as a JSON

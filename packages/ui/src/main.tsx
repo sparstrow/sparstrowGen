@@ -53,6 +53,14 @@ wsHub.subscribe((event) => {
     case "graph.project.status":
       void queryClient.invalidateQueries({ queryKey: ["project-graph", event.projectId] });
       break;
+    case "dream.completed":
+      void queryClient.invalidateQueries({ queryKey: ["project-dream", event.projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["memory-notes"] });
+      void queryClient.invalidateQueries({ queryKey: ["messages"] });
+      break;
+    case "memory.contradiction.flagged":
+      void queryClient.invalidateQueries({ queryKey: ["attention-queue"] });
+      break;
     default:
       break;
   }

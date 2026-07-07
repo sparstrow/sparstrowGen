@@ -48,12 +48,14 @@ export const CAPABILITY_DOCS: CapabilityDoc[] = [
   {
     name: "memory_save",
     intent: "remember",
-    whenToUse: "You learned something durable worth keeping across runs. One topic per note.",
+    whenToUse:
+      "You learned something durable worth keeping across runs. One topic per note; type it (decision/pitfall/architecture/lesson) so it's findable.",
   },
   {
     name: "memory_search",
     intent: "look-up",
-    whenToUse: "You need knowledge you don't have in context — search before guessing.",
+    whenToUse:
+      "You need knowledge you don't have in context — search before guessing. synthesize:true returns one cited answer plus what memory does NOT know.",
   },
   // P5 graph tools (curated 7, UC1). Docs render only for runs whose spawn
   // snapshot includes them (renderCapabilityDocs is called with the run's

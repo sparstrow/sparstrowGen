@@ -60,6 +60,7 @@ function creatorAgent(): Agent {
     memoryWriteScopes: [],
     extraArgs: [],
     enabled: true,
+    signalExtraction: false,
     isSystem: false,
     createdAt: ISO,
     updatedAt: ISO,

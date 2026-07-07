@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
+import { MEMORY_NOTE_TYPES, type LessonRef, type MemoryNoteType } from "@sparstrow/shared";
 import { logger } from "../logger.js";
 import {
   agentMemorySave,
@@ -9,6 +10,7 @@ import {
   resolveRunContext,
   type RunContext,
 } from "../memory/agent-memory.js";
+import { synthesizeSearch } from "../memory/synthesis.js";
 import { HttpError } from "../orchestrator/run-manager.js";
 
 /**
@@ -41,15 +43,36 @@ function buildServerForRun(ctx: RunContext): McpServer {
 
   server.tool(
     "memory_search",
-    "Search your long-term memory (semantic + keyword, scoped to what you may read). Returns matching notes with excerpts and vault paths.",
+    "Search your long-term memory (semantic + keyword, scoped to what you may read). Returns matching notes with excerpts and vault paths. Set synthesize=true for a single cited answer plus a 'gaps' list of what memory does NOT know.",
     {
       query: z.string().describe("What to look for, in natural language"),
       k: z.number().int().min(1).max(25).optional().describe("Max results (default 8)"),
+      type: z
+        .enum(MEMORY_NOTE_TYPES)
+        .optional()
+        .describe("Only notes of this kind (decision, pitfall, architecture, lesson, meeting, note)"),
+      synthesize: z
+        .boolean()
+        .optional()
+        .describe("Also return a synthesized answer with [n] citations and explicit gaps"),
     },
-    async ({ query, k }: { query: string; k?: number }, _extra: ToolExtras) => {
+    async (
+      args: { query: string; k?: number; type?: MemoryNoteType; synthesize?: boolean },
+      _extra: ToolExtras,
+    ) => {
       try {
-        const hits = await agentMemorySearch(ctx, query, k ?? 8);
-        return textResult(JSON.stringify(hits, null, 2));
+        const hits = await agentMemorySearch(ctx, args.query, args.k ?? 8, { type: args.type });
+        if (!args.synthesize) return textResult(JSON.stringify(hits, null, 2));
+        // Degrades to hits-only when the utility model is unavailable — the
+        // tool never errors because synthesis failed.
+        const synthesis = await synthesizeSearch(args.query, hits);
+        return textResult(
+          JSON.stringify(
+            synthesis ? { synthesis, hits } : { synthesis: null, note: "synthesis unavailable — raw hits below", hits },
+            null,
+            2,
+          ),
+        );
       } catch (err) {
         return errorResult(err);
       }
@@ -58,7 +81,7 @@ function buildServerForRun(ctx: RunContext): McpServer {
 
   server.tool(
     "memory_save",
-    "Save a durable memory note (markdown) into your allowed scope. Use for facts, decisions, and knowledge worth remembering across runs. One topic per note.",
+    "Save a durable memory note (markdown) into your allowed scope. Use for facts, decisions, and knowledge worth remembering across runs. One topic per note. Type it: decision|architecture|pitfall|meeting|lesson (default note). A lesson should carry refs to the code it is about.",
     {
       title: z.string().describe("Short descriptive title"),
       content: z.string().describe("Markdown body of the note"),
@@ -67,9 +90,24 @@ function buildServerForRun(ctx: RunContext): McpServer {
         .optional()
         .describe("Where to store it: agent (private, default), project (current project), global"),
       tags: z.array(z.string()).optional().describe("Topic tags"),
+      type: z
+        .enum(MEMORY_NOTE_TYPES)
+        .optional()
+        .describe("Kind of note: note (default) | decision | architecture | pitfall | meeting | lesson"),
+      refs: z
+        .array(z.object({ filePath: z.string().min(1), symbolName: z.string().min(1) }))
+        .optional()
+        .describe("For lessons: the code this is about, as repo-relative filePath + symbolName pairs"),
     },
     async (
-      args: { title: string; content: string; scope?: "global" | "project" | "agent"; tags?: string[] },
+      args: {
+        title: string;
+        content: string;
+        scope?: "global" | "project" | "agent";
+        tags?: string[];
+        type?: MemoryNoteType;
+        refs?: LessonRef[];
+      },
       _extra: ToolExtras,
     ) => {
       try {
@@ -78,8 +116,12 @@ function buildServerForRun(ctx: RunContext): McpServer {
           content: args.content,
           scope: args.scope ?? "agent",
           tags: args.tags ?? [],
+          type: args.type ?? "note",
+          refs: args.refs ?? [],
         });
-        return textResult(JSON.stringify({ saved: true, path: note.path, id: note.id }, null, 2));
+        return textResult(
+          JSON.stringify({ saved: true, path: note.path, id: note.id, type: note.type }, null, 2),
+        );
       } catch (err) {
         return errorResult(err);
       }

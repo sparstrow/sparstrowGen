@@ -20,12 +20,17 @@ P2 matrix UI deferral →
 - **P3 standing-trust delegation grants** — deferred at the P3 gate (per-spawn approval chosen); add "A may delegate to B for this task/always" once real delegation patterns are observed.
 
 P4 deferrals →
-- **EH7 untrusted-content-run clamp** — P4 shipped the sandbox-PROJECT write clamp
-  (a run in an `is_sandbox` project can only write `project:<sandbox>`). The plan's
-  EH7 also names "untrusted-content runs", but main has no `runs.untrusted` signal
-  (only the P3 `<delegated-request>` prompt-wrap + trust-boundary prose). Adding a
-  `runs.untrusted` flag + plumbing belongs with **P5**, where injected-content
-  quarantine actually lands (EH6). Until then, only sandbox-project runs are clamped.
+- **EH7 untrusted-content-run WRITE clamp — still open, narrowed by P5 part 2**
+  (2026-07-06, `feat/p5-memory-p2`): the *signal* shipped — `runs.untrusted` stamped at
+  finalize (sandbox project ∨ delegated task ∨ external-content tool use — WebFetch/
+  WebSearch/foreign `mcp__*`, core's own server exempt) — plus EH6 quarantine of
+  dream-extracted signals from untrusted runs and UNTRUSTED DATA labeling of the
+  injected block. NOT shipped: clamping an untrusted run's own `memory_save` writes
+  (plan EH7) — sandbox runs remain the only write-clamped class; a delegated or
+  WebFetch-consuming run can still write immediately-injectable notes to any allowed
+  scope. Design note for pickup: the tool-use signal is only knowable at finalize, so
+  an in-run write gate needs a live signal (e.g. stamp on first external-content tool
+  result), not the post-hoc flag.
 - **Files tree "open in editor"** — P4 ships a read-only file tree (P4-Q4). Opening a
   file's contents / launching an editor is a trivial later add.
 - **Lane-aware scheduler is coarse** — P4 reserves ≥1 foreground slot so background
@@ -45,9 +50,11 @@ P5 deferrals (graph-engine swap, /autoplan 2026-07-05) →
 - **Auth-proxied viz route** — the 3D view is an unauthenticated 127.0.0.1 origin opened
   in a new tab (UC2). If embedding inside the factory UI is ever wanted, proxy it through
   core's authenticated server instead of an iframe to the raw port. (M, only on demand)
-- **Lesson-decoration of graph results** — when P5 part 2's LESSONS notes exist (portable
-  `(filePath, symbolName)` refs), the graph-tool proxy can annotate matching results with
-  preferred/dead-end lessons at the join layer. (M, needs P5 part 2)
+- **Lesson-decoration of graph results** — P5 part 2 shipped LESSONS notes (portable
+  `(filePath, symbolName)` refs) + `toEngineQualifiedName` (the one vendor-grammar
+  translation site), so the graph-tool proxy can now annotate matching results with
+  preferred/dead-end lessons at the join layer. (M, unblocked 2026-07-06 — decoration
+  itself is what remains)
 - **Error-call counting in graph usage aggregate** — "used in N of M runs" ships; counting
   isError tool_results needs pairing tool_use ids across events. Add if the zero-usage
   diagnostic proves insufficient. (S)
