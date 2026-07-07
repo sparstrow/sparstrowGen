@@ -3,7 +3,7 @@ import type { Agent, EffectiveTools } from "@sparstrow/shared";
 import { config } from "../config.js";
 import { CAPABILITY_DOCS, renderCapabilityDocs } from "../agents/capability-docs.js";
 import { GRAPH_TOOL_NAMES, snapshotAllows } from "../graph/graph-tools.js";
-import { clampSandboxWriteScopes, expandWriteScopes } from "../memory/scopes.js";
+import { resolveWriteFilters } from "../memory/scopes.js";
 import { scopeDir } from "../memory/vault.js";
 
 /** What the agent is working on this run (DX-C2), rendered as "## Your assignment". */
@@ -28,6 +28,13 @@ export interface PreambleOptions {
    * in agentMemorySave so the agent is never told it may write folders it can't.
    */
   sandboxProjectSlug?: string | null;
+  /**
+   * EH7 (P4 §6 + rule 13): the run consumed untrusted content — a sandbox project
+   * OR a delegated/agent-authored task. Advertised write dirs clamp to the run's
+   * own project (global/agent:self/foreign-project dropped), matching the same
+   * `resolveWriteFilters` decision agentMemorySave enforces.
+   */
+  untrusted?: boolean;
   /**
    * P5 (#48): the run's spawn-pinned effective-tools snapshot. The tools-by-
    * intent list is filtered by it so advertised ≡ available — a tool the MCP
@@ -63,12 +70,11 @@ export function buildPreamble(
   assignment?: Assignment,
   opts: PreambleOptions = {},
 ): string {
-  // Derive the advertised write dirs from the SAME expansion + EH7 clamp the
-  // runtime write gate uses, so guidance and enforcement can't drift.
-  let writeFilters = expandWriteScopes(agent, currentProjectSlug);
-  if (opts.sandboxProjectSlug) {
-    writeFilters = clampSandboxWriteScopes(writeFilters, opts.sandboxProjectSlug);
-  }
+  // Derive the advertised write dirs from the SAME resolveWriteFilters decision
+  // the runtime write gate (agentMemorySave) uses, so guidance and enforcement
+  // can't drift. A sandbox slug OR the untrusted flag restricts the run.
+  const restricted = !!opts.sandboxProjectSlug || !!opts.untrusted;
+  const writeFilters = resolveWriteFilters(agent, currentProjectSlug, { restricted });
   const writeDirs: string[] = [];
   for (const f of writeFilters) {
     try {

@@ -14,12 +14,7 @@ import { agents, projects, runs, tasks, teams } from "../db/schema.js";
 import { HttpError } from "../orchestrator/run-manager.js";
 import { indexer } from "./indexer.js";
 import { searchMemory } from "./search.js";
-import {
-  clampSandboxWriteScopes,
-  expandReadScopes,
-  expandWriteScopes,
-  noteMatchesFilters,
-} from "./scopes.js";
+import { expandReadScopes, noteMatchesFilters, resolveWriteFilters } from "./scopes.js";
 import { writeNote } from "./vault.js";
 
 /**
@@ -163,20 +158,30 @@ export function agentMemorySave(ctx: RunContext, input: AgentSaveInput): MemoryN
     projectSlug: scope === "global" ? null : projectSlug,
     agentSlug: scope === "agent" ? agentSlug : null,
   };
-  // EH7: inside a sandbox the effective write scopes are clamped to the sandbox
-  // project only — global/agent:self/foreign-project writes are rejected here (the
-  // same clamp the preamble advertised, so the 403 can't surprise the agent).
-  let writeFilters = expandWriteScopes(ctx.agent, ctx.projectSlug);
-  if (ctx.isSandbox && ctx.projectSlug) {
-    writeFilters = clampSandboxWriteScopes(writeFilters, ctx.projectSlug);
-  }
+  // EH7: an untrusted run (a sandbox project OR a delegated/agent-authored task)
+  // has its write scopes clamped to its own project — global/agent:self/foreign-
+  // project writes are rejected here, the SAME clamp the preamble advertised, so
+  // the 403 can't surprise the agent. A trusted run keeps its full write scopes.
+  const restricted = ctx.isSandbox || ctx.parentTaskId != null;
+  const writeFilters = resolveWriteFilters(ctx.agent, ctx.projectSlug, { restricted });
+  const attempted = `${scope}${projectSlug ? `:${projectSlug}` : ""}${agentSlug ? `:${agentSlug}` : ""}`;
   const allowed = noteMatchesFilters(candidate, writeFilters);
   if (!allowed) {
+    if (restricted) {
+      const kind = ctx.isSandbox
+        ? `sandbox project "${ctx.projectSlug}"`
+        : "untrusted run (delegated / agent-authored work)";
+      const target = ctx.projectSlug
+        ? `this run's project "${ctx.projectSlug}"`
+        : "a project (this run has none)";
+      throw new HttpError(
+        403,
+        `${kind}: runs may only write project-scoped memory to ${target} (attempted scope ${attempted}). Global, agent:self, and other-project writes are blocked to prevent second-order prompt injection.`,
+      );
+    }
     throw new HttpError(
       403,
-      ctx.isSandbox
-        ? `sandbox project "${ctx.projectSlug}": runs may only write project-scoped memory to this project (attempted scope ${scope}${projectSlug ? `:${projectSlug}` : ""}${agentSlug ? `:${agentSlug}` : ""}). Promote the project to write elsewhere.`
-        : `agent "${ctx.agent.name}" may not write to scope ${scope}${projectSlug ? `:${projectSlug}` : ""}${agentSlug ? `:${agentSlug}` : ""} (allowed: ${ctx.agent.memoryWriteScopes.join(", ")})`,
+      `agent "${ctx.agent.name}" may not write to scope ${attempted} (allowed: ${ctx.agent.memoryWriteScopes.join(", ")})`,
     );
   }
   if (scope === "project" && !projectSlug) {

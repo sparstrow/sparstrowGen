@@ -49,20 +49,44 @@ export function expandWriteScopes(agent: Agent, currentProjectSlug: string | nul
 }
 
 /**
- * EH7 (P4 §6) — the single source of truth for the sandbox WRITE clamp. A run
- * inside a sandbox project may only write memory scoped to THAT project: this
- * discards every other filter — `global`, ANY `agent` scope (agent:self resolves
- * to the cross-project template/instance whose seed notes were copied from the
- * template lineage — the exact leak EH7 names), and any `project` scope for a
- * different project. Both enforcement points call this: the run-time MCP gate
- * (agentMemorySave) and the preamble's advertised write-dir list — so what the
- * agent is told it may write always matches what it actually can.
+ * EH7 (P4 §6) — the single source of truth for the untrusted-run WRITE clamp. A
+ * restricted run may only write memory scoped to its OWN project: this discards
+ * every other filter — `global`, ANY `agent` scope (agent:self resolves to the
+ * cross-project template/instance whose seed notes were copied from the template
+ * lineage — the exact leak EH7 names), and any `project` scope for a different
+ * project. Named for its first caller (sandbox); `resolveWriteFilters` now also
+ * routes delegated/untrusted runs through it.
  */
 export function clampSandboxWriteScopes(
   filters: ScopeFilter[],
   sandboxProjectSlug: string,
 ): ScopeFilter[] {
   return filters.filter((f) => f.scope === "project" && f.projectSlug === sandboxProjectSlug);
+}
+
+/**
+ * EH7 (P4 §6 + cross-cutting rule 13) — the effective WRITE filters for a run,
+ * the ONE decision both enforcement points share (the runtime MCP gate
+ * `agentMemorySave` and the preamble's advertised write-dir list) so guidance and
+ * enforcement can never drift.
+ *
+ * A run is `restricted` when it consumed content the operator did not author —
+ * either a **sandbox project** (cloned/unreviewed code) OR a **delegated task**
+ * (its prompt embeds a `<delegated-request>` another agent wrote). Restricted
+ * runs may only write project-scoped memory to their own project; `global`,
+ * `agent:self`, and foreign-project writes are dropped, which closes the stored
+ * second-order prompt-injection channel (a "pitfall" note distilled from hostile
+ * content and later injected as if it were operator guidance). A restricted run
+ * with no project can write nothing. Trusted runs keep their full write scopes.
+ */
+export function resolveWriteFilters(
+  agent: Agent,
+  currentProjectSlug: string | null,
+  opts: { restricted: boolean },
+): ScopeFilter[] {
+  const filters = expandWriteScopes(agent, currentProjectSlug);
+  if (!opts.restricted) return filters;
+  return currentProjectSlug ? clampSandboxWriteScopes(filters, currentProjectSlug) : [];
 }
 
 export function noteMatchesFilters(
