@@ -1,5 +1,5 @@
 import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import type { McpServerConfig } from "@sparstrow/shared";
+import type { AppliedEffect, McpServerConfig } from "@sparstrow/shared";
 
 export const agents = sqliteTable("agents", {
   id: text("id").primaryKey(),
@@ -429,4 +429,111 @@ export const agentInstances = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (t) => [uniqueIndex("uq_agent_instances_agent_project").on(t.agentId, t.projectId)],
+);
+
+/**
+ * P6 goals (engine: LLM-planned-DAG per the P6-Q0 head-to-head). `paused` is a
+ * flag, not a status; `pending_replan_reason` is the row-recoverable replan
+ * barrier; `world_state` is the version-stamped applied-effects AUDIT trail
+ * (annotation, never control flow — readiness derives from edges + tasks).
+ */
+export const goals = sqliteTable(
+  "goals",
+  {
+    id: text("id").primaryKey(),
+    // No FK (tasks.project_id precedent): a goal survives its project/team row.
+    projectId: text("project_id"),
+    teamId: text("team_id"),
+    prompt: text("prompt").notNull(),
+    status: text("status").notNull().default("planning"),
+    planVersion: integer("plan_version").notNull().default(0),
+    replanCount: integer("replan_count").notNull().default(0),
+    consensus: text("consensus").notNull().default("auto"),
+    paused: integer("paused", { mode: "boolean" }).notNull().default(false),
+    pendingReplanReason: text("pending_replan_reason"),
+    blockedReason: text("blocked_reason"),
+    planSummary: text("plan_summary"),
+    plannerRunId: text("planner_run_id"),
+    plannerAttempts: integer("planner_attempts").notNull().default(0),
+    // P6-Q3 consensus gate: the in-flight Reviewer run, and the plan version the
+    // Reviewer last approved (a replan invalidates approval — version mismatch).
+    consensusRunId: text("consensus_run_id"),
+    consensusApprovedVersion: integer("consensus_approved_version"),
+    worldState: text("world_state", { mode: "json" }).$type<AppliedEffect[]>().notNull().default([]),
+    versionLog: text("version_log", { mode: "json" })
+      .$type<Array<{ planVersion: number; reason: string; at: string; nodeCount: number }>>()
+      .notNull()
+      .default([]),
+    userId: text("user_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    index("idx_goals_project").on(t.projectId),
+    index("idx_goals_status").on(t.status),
+    index("idx_goals_user").on(t.userId),
+  ],
+);
+
+/**
+ * P6 plan nodes. NO status column (EM4 — derived from the linked task);
+ * `action_id` is the stable cross-version identity (replan diffing +
+ * completion carry-forward); only rows matching goals.plan_version execute.
+ */
+export const planNodes = sqliteTable(
+  "plan_nodes",
+  {
+    id: text("id").primaryKey(),
+    goalId: text("goal_id")
+      .notNull()
+      .references(() => goals.id, { onDelete: "cascade" }),
+    planVersion: integer("plan_version").notNull(),
+    actionId: text("action_id").notNull(),
+    label: text("label").notNull(),
+    description: text("description").notNull().default(""),
+    agentHint: text("agent_hint"),
+    // Resolved assignee — no FK so agent deletion mid-goal isn't blocked;
+    // materialization re-checks the row exists (startTaskRun precedent).
+    agentId: text("agent_id"),
+    kind: text("kind").notNull().default("work"),
+    pre: text("pre", { mode: "json" }).$type<string[]>().notNull().default([]),
+    effects: text("effects", { mode: "json" }).$type<string[]>().notNull().default([]),
+    cost: real("cost").notNull().default(1),
+    // No FK: tasks are deletable independently; reconciliation treats a
+    // vanished task as node failure.
+    taskId: text("task_id"),
+    position: text("position", { mode: "json" }).$type<{ x: number; y: number } | null>(),
+    userId: text("user_id"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    index("idx_plan_nodes_goal").on(t.goalId, t.planVersion),
+    index("idx_plan_nodes_task").on(t.taskId),
+    index("idx_plan_nodes_user").on(t.userId),
+    uniqueIndex("uq_plan_nodes_goal_version_action").on(t.goalId, t.planVersion, t.actionId),
+  ],
+);
+
+/** P6 plan edges — AUTHORITATIVE dependencies (P6-Q0), recomputed only by plan writes. */
+export const planEdges = sqliteTable(
+  "plan_edges",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    goalId: text("goal_id")
+      .notNull()
+      .references(() => goals.id, { onDelete: "cascade" }),
+    planVersion: integer("plan_version").notNull(),
+    fromNodeId: text("from_node_id")
+      .notNull()
+      .references(() => planNodes.id, { onDelete: "cascade" }),
+    toNodeId: text("to_node_id")
+      .notNull()
+      .references(() => planNodes.id, { onDelete: "cascade" }),
+    userId: text("user_id"),
+  },
+  (t) => [
+    index("idx_plan_edges_goal").on(t.goalId, t.planVersion),
+    index("idx_plan_edges_to").on(t.toNodeId),
+    index("idx_plan_edges_user").on(t.userId),
+  ],
 );

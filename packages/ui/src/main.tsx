@@ -26,6 +26,16 @@ wsHub.subscribe((event) => {
     case "task.created":
     case "task.updated":
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      // P6: node status is DERIVED from its task (EM4) — refresh open goal details.
+      void queryClient.invalidateQueries({ queryKey: ["goal"] });
+      break;
+    case "goal.updated":
+      void queryClient.invalidateQueries({ queryKey: ["goals"] });
+      void queryClient.invalidateQueries({ queryKey: ["goal", event.goal.id] });
+      break;
+    case "goal.plan.updated":
+      void queryClient.invalidateQueries({ queryKey: ["goals"] });
+      void queryClient.invalidateQueries({ queryKey: ["goal", event.goalId] });
       break;
     case "message.created":
       void queryClient.invalidateQueries({ queryKey: ["messages"] });

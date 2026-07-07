@@ -15,6 +15,7 @@ import { RunDetailPage } from "@/routes/pages/run-detail";
 import { MemoryPage } from "@/routes/pages/memory";
 import { SettingsPage } from "@/routes/pages/settings";
 import { TasksPage } from "@/routes/pages/tasks";
+import { GoalDetailPage } from "@/routes/pages/goal-detail";
 import { MessagesPage } from "@/routes/pages/messages";
 import { PipelinesPage } from "@/routes/pages/pipelines";
 import { SchedulePage } from "@/routes/pages/schedule";
@@ -88,6 +89,13 @@ const tasksRoute = createRoute({
   component: TasksPage,
 });
 
+// P6-Q1: goal detail lives under the /tasks surface.
+const goalDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/tasks/goals/$goalId",
+  component: GoalDetailPage,
+});
+
 const messagesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/messages",
@@ -124,6 +132,7 @@ const routeTree = rootRoute.addChildren([
   memoryRoute,
   settingsRoute,
   tasksRoute,
+  goalDetailRoute,
   messagesRoute,
   pipelinesRoute,
   scheduleRoute,

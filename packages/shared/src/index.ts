@@ -15,3 +15,4 @@ export * from "./schemas/cron.js";
 export * from "./schemas/memory.js";
 export * from "./schemas/team.js";
 export * from "./schemas/agent-instance.js";
+export * from "./schemas/goal.js";

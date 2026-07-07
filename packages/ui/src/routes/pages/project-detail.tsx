@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { WorkLauncher } from "@/components/work-launcher";
 import {
   useAgents,
   useCreateDirective,
@@ -109,9 +110,9 @@ export function ProjectWorkspacePage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-        {/* Main stage */}
+        {/* Main stage — the canonical launcher instance (rule 16); P6 adds Goal mode. */}
         <div className="space-y-6">
-          <TaskLauncher projectId={projectId} />
+          <WorkLauncher projectId={projectId} />
           <ActivityFeed projectId={projectId} />
         </div>
 
@@ -163,76 +164,6 @@ function GitBadge({ state, loading }: { state?: ReturnType<typeof useProjectGitS
       {state.ahead > 0 && <span className="text-muted-foreground">↑{state.ahead}</span>}
       {state.behind > 0 && <span className="text-muted-foreground">↓{state.behind}</span>}
     </Badge>
-  );
-}
-
-function TaskLauncher({ projectId }: { projectId: string }) {
-  const agents = useAgents();
-  const createTask = useCreateTask();
-  const [title, setTitle] = React.useState("");
-  const [description, setDescription] = React.useState("");
-  const [agentIds, setAgentIds] = React.useState<string[]>([]);
-
-  const launch = () => {
-    if (!title.trim()) return;
-    createTask.mutate(
-      {
-        title: title.trim(),
-        description: description.trim(),
-        projectId,
-        assignedAgentId: agentIds.length === 1 ? agentIds[0] : null,
-        assignedAgentIds: agentIds.length > 1 ? agentIds : undefined,
-      },
-      {
-        onSuccess: () => {
-          setTitle("");
-          setDescription("");
-          setAgentIds([]);
-        },
-      },
-    );
-  };
-
-  return (
-    <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
-      <p className="text-sm font-medium">What would you like to work on in this project?</p>
-      <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Describe a task…" />
-      <Textarea
-        rows={2}
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Details for the agent (optional)…"
-      />
-      <div className="flex flex-wrap gap-1.5">
-        {(agents.data ?? [])
-          .filter((a) => a.enabled)
-          .map((a) => {
-            const on = agentIds.includes(a.id);
-            return (
-              <Button
-                key={a.id}
-                type="button"
-                size="sm"
-                variant={on ? "default" : "outline"}
-                onClick={() => setAgentIds((ids) => (on ? ids.filter((x) => x !== a.id) : [...ids, a.id]))}
-              >
-                <Bot className="size-3" /> {a.name}
-              </Button>
-            );
-          })}
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
-          {agentIds.length === 0 && "Unassigned → lands in the inbox."}
-          {agentIds.length === 1 && "Runs immediately."}
-          {agentIds.length > 1 && `${agentIds.length} agents → ephemeral swarm.`}
-        </span>
-        <Button size="sm" disabled={!title.trim() || createTask.isPending} onClick={launch}>
-          {createTask.isPending ? "Launching…" : "Launch task"}
-        </Button>
-      </div>
-      {createTask.isError && <p className="text-xs text-destructive">{createTask.error.message}</p>}
-    </div>
   );
 }
 

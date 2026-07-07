@@ -2,6 +2,7 @@ import type { Run, RunEvent } from "./schemas/run.js";
 import type { Message, Task } from "./schemas/task.js";
 import type { PipelineRun } from "./schemas/pipeline.js";
 import type { MemoryContradiction, MemoryNote } from "./schemas/memory.js";
+import type { Goal } from "./schemas/goal.js";
 
 /** Events broadcast over /ws. Discriminated on `type`. */
 export type WsServerEvent =
@@ -22,7 +23,12 @@ export type WsServerEvent =
   | { type: "graph.engine.status"; status: GraphEngineStatus }
   | { type: "graph.project.status"; projectId: string; status: GraphProjectStatus }
   | { type: "memory.contradiction.flagged"; contradiction: MemoryContradiction }
-  | { type: "dream.completed"; projectId: string; report: DreamReport };
+  | { type: "dream.completed"; projectId: string; report: DreamReport }
+  // P6: goal row changed (status/pause/version/blocked). Node-level liveness
+  // rides on the existing task.updated events (node status is DERIVED from its
+  // task — EM4); plan.updated says "the graph itself changed, refetch detail".
+  | { type: "goal.updated"; goal: Goal }
+  | { type: "goal.plan.updated"; goalId: string; planVersion: number };
 
 /**
  * P5 dream cycle: one night's consolidation outcome for a project. Pushed

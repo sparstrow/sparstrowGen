@@ -12,6 +12,7 @@ import { HttpError } from "../orchestrator/run-manager.js";
 import { agentGatewayRoutes } from "./routes/agent-gateway.js";
 import { agentRoutes } from "./routes/agents.js";
 import { cronRoutes } from "./routes/cron.js";
+import { goalRoutes } from "./routes/goals.js";
 import { memoryRoutes } from "./routes/memory.js";
 import { messageRoutes } from "./routes/messages.js";
 import { pipelineRoutes } from "./routes/pipelines.js";
@@ -78,6 +79,7 @@ export async function buildServer() {
       await api.register(runRoutes);
       await api.register(memoryRoutes);
       await api.register(taskRoutes);
+      await api.register(goalRoutes);
       await api.register(messageRoutes);
       await api.register(pipelineRoutes);
       await api.register(cronRoutes);

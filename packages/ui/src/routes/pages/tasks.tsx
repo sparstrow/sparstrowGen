@@ -22,11 +22,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { WorkLauncher } from "@/components/work-launcher";
+import { GoalCard } from "@/routes/pages/goal-detail";
 import {
   useAgents,
   useCreateTask,
   useDeleteTask,
+  useGoals,
   useProjects,
   useRunTask,
   useTasks,
@@ -69,6 +73,46 @@ function ChildrenMeter({ children }: { children: Task[] }) {
       {active > 0 && <span className="text-amber-600 dark:text-amber-400">{active}▶</span>}
       {failed > 0 && <span className="text-red-600 dark:text-red-400">{failed}⚠</span>}
     </Badge>
+  );
+}
+
+/**
+ * The Goals tab (P6): the shared launcher in Goal mode + the goal list.
+ * UI states per rule 14: loading skeletons, error message, and an empty state
+ * that says why it's empty and what fills it.
+ */
+function GoalsTab() {
+  const goals = useGoals();
+  const projects = useProjects();
+  const projectName = (id: string | null) =>
+    id ? (projects.data?.find((p) => p.id === id)?.name ?? null) : null;
+
+  return (
+    <div className="space-y-4">
+      <WorkLauncher defaultMode="goal" />
+      {goals.isLoading ? (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-28 w-full" />
+          ))}
+        </div>
+      ) : goals.isError ? (
+        <p className="rounded-lg border py-8 text-center text-sm text-destructive">
+          {goals.error.message}
+        </p>
+      ) : (goals.data ?? []).length === 0 ? (
+        <p className="rounded-lg border py-12 text-center text-sm text-muted-foreground">
+          No goals yet — describe an outcome above and the Planner maps the steps into a live node
+          graph.
+        </p>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {(goals.data ?? []).map((g) => (
+            <GoalCard key={g.id} goal={g} projectName={projectName(g.projectId)} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -165,16 +209,26 @@ export function TasksPage() {
 
   return (
     <div className="flex h-full flex-col gap-4">
-      <div className="flex items-center gap-2">
-        <p className="text-sm text-muted-foreground">
-          Assigning a task to an agent runs them with the task protocol — results land back here.
-        </p>
-        <div className="flex-1" />
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="size-4" /> New task
-        </Button>
-      </div>
+      {/* P6-Q1: Goals live INSIDE /tasks as a mode/tab — not a separate page. */}
+      <Tabs defaultValue="board" className="flex min-h-0 flex-1 flex-col gap-4">
+        <div className="flex items-center gap-2">
+          <TabsList>
+            <TabsTrigger value="board">Board</TabsTrigger>
+            <TabsTrigger value="goals">Goals</TabsTrigger>
+          </TabsList>
+          <p className="hidden text-sm text-muted-foreground lg:block">
+            Assigning a task to an agent runs them with the task protocol — results land back here.
+          </p>
+          <div className="flex-1" />
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4" /> New task
+          </Button>
+        </div>
 
+        <TabsContent value="goals" className="min-h-0 flex-1 overflow-y-auto">
+          <GoalsTab />
+        </TabsContent>
+        <TabsContent value="board" className="flex min-h-0 flex-1 flex-col gap-4">
       {needsAttention.length > 0 && (
         <Link
           to="/"
@@ -261,6 +315,8 @@ export function TasksPage() {
           })}
         </div>
       )}
+        </TabsContent>
+      </Tabs>
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>

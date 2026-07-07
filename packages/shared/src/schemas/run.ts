@@ -17,7 +17,13 @@ export type RunStatus = z.infer<typeof runStatusSchema>;
  * recursion guard: signal extraction never scans dream-triggered runs, so
  * extractor output can't feed the next night's extraction.
  */
-export const runTriggerSchema = z.enum(["manual", "cron", "pipeline", "task", "message", "system", "dream"]);
+/**
+ * `goal` (P6): a goal-engine run — the Planner authoring/repairing a plan, or
+ * the consensus Reviewer gating a push node. triggerRef = the goal id, so the
+ * Dashboard cost view can attribute goal-engine spend (cross-cutting rule 5).
+ * Node WORK runs are ordinary `task` runs (they execute materialized tasks).
+ */
+export const runTriggerSchema = z.enum(["manual", "cron", "pipeline", "task", "message", "system", "dream", "goal"]);
 export type RunTrigger = z.infer<typeof runTriggerSchema>;
 
 export const runModeSchema = z.enum(["headless", "interactive"]);
