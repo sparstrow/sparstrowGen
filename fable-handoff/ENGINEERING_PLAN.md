@@ -516,8 +516,9 @@ injector; cron scheduler; run transcripts (`run_events` + `resultText`).
 3. Wikilink auto-linking: `[[Note Title]]` parsed at index time → `memory_links` table
    (from_note, to_note, unresolved_title) — hard edges, no LLM cost; Memory UI shows
    backlinks.
-4. Passive signal detection: on `run.completed`, a signal-extractor pass (cheap model,
-   capped tokens) scans the transcript for decisions/pitfalls/architecture claims →
+4. Passive signal detection **[BUILT 2026-07-06 as a NIGHTLY BATCH inside the dream
+   consolidator per P5-Q2 — not per-run on `run.completed`]**: a signal-extractor pass
+   (cheap model, capped tokens) scans the day's transcripts for decisions/pitfalls/architecture claims →
    writes typed, `source='signal'` notes tagged with runId provenance. Budget-capped +
    per-agent toggle. **Queue-routed through `runs.lane`, never `completeOnce`, with a
    trigger-type recursion guard** so extractor runs don't extract themselves or bypass
@@ -530,6 +531,16 @@ injector; cron scheduler; run transcripts (`run_events` + `resultText`).
    dedup near-identical notes (embedding similarity + LLM confirm), merge/synthesize
    overlapping ones (originals soft-archived, synthesis cites sources), contradiction
    pass (sampled pairs → `contradiction` flags surfacing in Attention queue [P1]).
+   *As built (2026-07-06, `feat/p5-memory-p2`): ONE queue-routed consolidator run per
+   project per night (Memory Consolidator system agent — haiku, no tools, no memory
+   scopes; lane `background`, trigger `dream` = the EH3 recursion guard, never
+   `completeOnce`) does all three judgments — signals + merges + contradictions.
+   Greedy-cosine ≥0.85 merge candidates; contradiction candidates from the
+   [0.60,0.85) band, 0.7 confidence floor double-enforced; merges soft-archive via
+   `superseded_by` with citations, NEVER delete. Global nightly $-budget gate
+   (`dream.nightlyBudgetUsd`, default $1) + watermark checkpoint/resume (cap 10
+   runs/night); sandbox projects refused (#41); daily digest to the inbox; cron
+   `targetType 'dream'` per the briefing idiom (P5-Q1 opt-in per project).*
 6. Synthesis-over-search: `memory_search` tool gains `synthesize: true` mode — top-k
    hits → synthesized answer with citations + "gaps: what memory doesn't know" line
    (gbrain-think pattern); UI search offers the same toggle.
@@ -540,6 +551,8 @@ injector; cron scheduler; run transcripts (`run_events` + `resultText`).
    by one core-owned translation fn; lessons render in Memory UI per project.
 8. *(CEO E1)* Run-detail memory provenance panel: which notes/directives entered this
    run (persist the injector's manifest on the run row; render in Run detail).
+   *As built: `runs.injected_memory` — deliberately NOT `injected_context` (the
+   L158-160 naming landmine); manifest records what SURVIVED the char-budget loop.*
 
 **Assumptions:** embedding model already local; nightly LLM budget acceptable when
 capped. *(Python/uv host dependency DELETED by the 2026-07-05 amendment — the
@@ -1696,7 +1709,7 @@ PR-6, and re-escalates on material drift):
 **P1** (foundation: capability registry, task-aware RunContext, wake state machine,
 `task_questions`) → **P2-lite** (resolver + immutable per-run snapshot + clamp) →
 **P3** (delegation, instances, swarms) → **P4** (projects workspace, sandbox, variants) →
-**P5** (memory: graphify + extracted gbrain algorithms, dream cycle) → **P6** (GOAP/DAG
+**P5** (memory: code graph + extracted gbrain algorithms, dream cycle) → **P6** (GOAP/DAG
 engine via P6-Q0 head-to-head + node graph) → **P7** (git automation + PAT + factory-health
 page E5) → **P8** (direct-API tool-loop: Anthropic → Gemini → Ollama) → **P9** (exceptional
 creation + Skill Specter) → **P10** (Team Workspace + canvas).
