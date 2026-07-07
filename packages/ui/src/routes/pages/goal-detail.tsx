@@ -27,6 +27,7 @@ import { GoalGraph } from "@/components/goals/goal-graph";
 import {
   useAgents,
   useCancelGoal,
+  useCancelNode,
   useGoalDetail,
   usePauseGoal,
   useProjects,
@@ -56,6 +57,7 @@ export function GoalDetailPage() {
   const cancel = useCancelGoal();
   const replan = useReplanGoal();
   const retryNode = useRetryNode();
+  const cancelNode = useCancelNode();
   const [selectedNode, setSelectedNode] = React.useState<PlanNodeView | null>(null);
 
   const agentName = React.useCallback(
@@ -242,9 +244,27 @@ export function GoalDetailPage() {
                     .
                   </p>
                 )}
-                {retryNode.isError && <p className="text-xs text-destructive">{retryNode.error.message}</p>}
+                {(retryNode.isError || cancelNode.isError) && (
+                  <p className="text-xs text-destructive">
+                    {retryNode.error?.message ?? cancelNode.error?.message}
+                  </p>
+                )}
               </div>
               <DialogFooter>
+                {/* CEO E2 graph controls: cancel in-flight work, retry a failed step. */}
+                {selectedNode.taskId !== null &&
+                  ["running", "attention", "approval"].includes(selectedNode.status) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive"
+                      onClick={() => cancelNode.mutate({ goalId: goal.id, nodeId: selectedNode.id })}
+                      disabled={cancelNode.isPending}
+                    >
+                      <Ban className="size-3.5" />
+                      {cancelNode.isPending ? "Cancelling…" : "Cancel this step"}
+                    </Button>
+                  )}
                 {selectedNode.status === "failed" && (
                   <Button
                     size="sm"

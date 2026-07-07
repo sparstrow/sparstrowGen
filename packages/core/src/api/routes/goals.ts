@@ -3,6 +3,7 @@ import { z } from "zod";
 import { goalCreateSchema } from "@sparstrow/shared";
 import {
   cancelGoal,
+  cancelNode,
   createGoal,
   deleteGoal,
   getGoalDetail,
@@ -59,6 +60,11 @@ export async function goalRoutes(app: FastifyInstance): Promise<void> {
   app.post("/goals/:id/nodes/:nodeId/retry", async (request) => {
     const { id, nodeId } = request.params as { id: string; nodeId: string };
     return retryNode(id, nodeId);
+  });
+
+  app.post("/goals/:id/nodes/:nodeId/cancel", async (request) => {
+    const { id, nodeId } = request.params as { id: string; nodeId: string };
+    return cancelNode(id, nodeId);
   });
 
   app.delete("/goals/:id", async (request, reply) => {

@@ -183,10 +183,14 @@ export function startTaskRun(task: Task): Task | null {
   }
   if (!autoSpawnAllowed()) return null;
 
-  // EC3: a delegated task's description was authored by ANOTHER AGENT — it enters
-  // the child's prompt as explicitly-delimited untrusted data, never as operator
-  // text. (The preamble's Trust boundary section is the receiving half, DX-H3.)
-  const isDelegated = task.parentTaskId != null && task.createdByType === "agent";
+  // EC3: an agent-authored task description was written by ANOTHER AGENT — it
+  // enters the child's prompt as explicitly-delimited untrusted data, never as
+  // operator text. (The preamble's Trust boundary section is the receiving
+  // half, DX-H3.) P6 widened this from parentTaskId-only: goal plan nodes and
+  // handoff-directive tasks are also model-authored text. The runs.untrusted
+  // STAMP (run-manager) deliberately stays parentTaskId-based — goal work is
+  // owner-initiated, so its memory signals are not quarantined wholesale.
+  const isDelegated = task.createdByType === "agent";
   const body = isDelegated
     ? [
         "<delegated-request>",

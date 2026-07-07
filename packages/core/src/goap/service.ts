@@ -533,8 +533,9 @@ function advanceGoalInner(goalId: string): void {
     const node = plan.nodes.find((n) => n.actionId === actionId)!;
     if (node.kind === "push" && gate && goal.consensusApprovedVersion !== goal.planVersion) {
       if (!goal.consensusRunId) {
-        goal = spawnReviewer(goal, plan, node) ?? goal;
-        if (goal.status !== "running") return;
+        const after = spawnReviewer(goal, plan, node);
+        if (!after) return; // spawnReviewer blocked the goal — stop materializing
+        goal = after;
       }
       continue; // held for the verdict
     }
@@ -787,6 +788,38 @@ export function cancelGoal(id: string): Goal {
     updateTask(view.taskId, { status: "failed", result: "goal cancelled by the operator" }, { triggerRun: false });
   }
   return saveGoal(id, { status: "cancelled", plannerRunId: null, consensusRunId: null });
+}
+
+/**
+ * Cancel ONE node's in-flight work (CEO E2's graph control, via the existing
+ * run-cancel API). The node's task settles `failed`, and the standard failure
+ * flow takes over: replan barrier → Planner (or the owner retries the node).
+ */
+export function cancelNode(goalId: string, nodeId: string): Goal {
+  const db = getDb();
+  const goal = getGoal(goalId);
+  if (!goal) throw new HttpError(404, `goal not found: ${goalId}`);
+  const node = db.select().from(planNodes).where(eq(planNodes.id, nodeId)).get();
+  if (!node || node.goalId !== goalId) throw new HttpError(404, `plan node not found: ${nodeId}`);
+  if (node.planVersion !== goal.planVersion) {
+    throw new HttpError(409, "node belongs to a superseded plan version");
+  }
+  const task = node.taskId ? getTask(node.taskId) : null;
+  if (!task || ["done", "failed"].includes(task.status)) {
+    throw new HttpError(409, "node has no in-flight work to cancel");
+  }
+  if (task.runId) {
+    try {
+      runManager.cancel(task.runId);
+    } catch (err) {
+      logger.warn({ err, goalId, runId: task.runId }, "node cancel: run cancel failed");
+    }
+  }
+  // Settle synchronously (cancelGoal precedent) — the async run-cancel
+  // reconcile is guarded on in_progress and becomes a no-op.
+  updateTask(task.id, { status: "failed", result: "cancelled by the operator" }, { triggerRun: false });
+  advanceGoal(goalId);
+  return getGoal(goalId)!;
 }
 
 /** Retry ONE failed node in place (no replan) — the graph's node-level control. */

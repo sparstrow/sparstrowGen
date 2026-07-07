@@ -223,6 +223,7 @@ export const planEdgeSchema = z.object({
   planVersion: z.number().int().min(1),
   fromNodeId: idSchema,
   toNodeId: idSchema,
+  userId: idSchema.nullable().default(null),
 });
 export type PlanEdge = z.infer<typeof planEdgeSchema>;
 

@@ -132,6 +132,8 @@ describe("goal routes", () => {
 
     const badRetry = await app.inject({ method: "POST", url: `/goals/${id}/nodes/pn_missing/retry` });
     expect(badRetry.statusCode).toBe(404);
+    const badCancel = await app.inject({ method: "POST", url: `/goals/${id}/nodes/pn_missing/cancel` });
+    expect(badCancel.statusCode).toBe(404);
 
     const earlyDelete = await app.inject({ method: "DELETE", url: `/goals/${id}` });
     expect(earlyDelete.statusCode).toBe(409);

@@ -1365,11 +1365,11 @@ export const useResumeGoal = () => useGoalAction("resume");
 export const useCancelGoal = () => useGoalAction("cancel");
 export const useReplanGoal = () => useGoalAction("replan");
 
-export function useRetryNode(): UseMutationResult<Goal, ApiError, { goalId: string; nodeId: string }> {
+function useNodeAction(action: "retry" | "cancel") {
   const queryClient = useQueryClient();
-  return useMutation({
+  return useMutation<Goal, ApiError, { goalId: string; nodeId: string }>({
     mutationFn: ({ goalId, nodeId }) =>
-      api<Goal>(`/goals/${goalId}/nodes/${nodeId}/retry`, { method: "POST" }),
+      api<Goal>(`/goals/${goalId}/nodes/${nodeId}/${action}`, { method: "POST" }),
     onSuccess: (_g, { goalId }) => {
       void queryClient.invalidateQueries({ queryKey: ["goals"] });
       void queryClient.invalidateQueries({ queryKey: ["goal", goalId] });
@@ -1377,6 +1377,9 @@ export function useRetryNode(): UseMutationResult<Goal, ApiError, { goalId: stri
     },
   });
 }
+
+export const useRetryNode = () => useNodeAction("retry");
+export const useCancelNode = () => useNodeAction("cancel");
 
 export function useDeleteGoal(): UseMutationResult<void, ApiError, string> {
   const queryClient = useQueryClient();
