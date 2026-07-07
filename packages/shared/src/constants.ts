@@ -37,3 +37,16 @@ export const SETTING_DELEGATION_MAX_DEPTH = "delegation.maxDepth";
 export const DEFAULT_DELEGATION_MAX_DEPTH = 3;
 export const SETTING_CROSS_TEAM_MESSAGE_LIMIT = "delegation.crossTeamMessageLimit";
 export const DEFAULT_CROSS_TEAM_MESSAGE_LIMIT = 3;
+
+/**
+ * P6 goal engine limits — settings-backed with these defaults.
+ * Replan cap bounds adaptive replanning (cap hit → goal `blocked`, P1
+ * escalation); planner-retry cap bounds the bounce-back loop within ONE
+ * planning round (unusable output after retries → goal `blocked` with the
+ * diagnostic); the node cap bounds plan size (assumption: plans ≤ ~20 nodes).
+ */
+export const SETTING_GOAL_REPLAN_LIMIT = "goal.replanLimit";
+export const DEFAULT_GOAL_REPLAN_LIMIT = 3;
+export const SETTING_GOAL_PLANNER_RETRY_LIMIT = "goal.plannerRetryLimit";
+export const DEFAULT_GOAL_PLANNER_RETRY_LIMIT = 2;
+export const GOAL_MAX_PLAN_NODES = 30;

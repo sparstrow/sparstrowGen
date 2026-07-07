@@ -11,6 +11,9 @@ import type {
   AgentUpdate,
   DraftRequest,
   DraftTurn,
+  Goal,
+  GoalCreate,
+  GoalDetail,
   GraphEngineStatus,
   GraphProjectStatus,
   CronJob,
@@ -1309,5 +1312,79 @@ export function useUpdateSettings(): UseMutationResult<
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["settings"] });
     },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Goals (P6 — the goal engine; detail = graph of the CURRENT plan version)
+// ---------------------------------------------------------------------------
+
+export function useGoals(filter: { projectId?: string; status?: string } = {}): UseQueryResult<Goal[], ApiError> {
+  return useQuery({
+    queryKey: ["goals", filter.projectId ?? "", filter.status ?? ""],
+    queryFn: () => api<Goal[]>(`/goals${qs(filter)}`),
+  });
+}
+
+export function useGoalDetail(id: string): UseQueryResult<GoalDetail, ApiError> {
+  return useQuery({
+    queryKey: ["goal", id],
+    queryFn: () => api<GoalDetail>(`/goals/${id}`),
+    enabled: id.length > 0,
+  });
+}
+
+export function useCreateGoal(): UseMutationResult<Goal, ApiError, GoalCreate> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: GoalCreate) => api<Goal>("/goals", { method: "POST", body }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["goals"] });
+      void queryClient.invalidateQueries({ queryKey: ["runs"] });
+    },
+  });
+}
+
+function useGoalAction(action: "pause" | "resume" | "cancel" | "replan") {
+  const queryClient = useQueryClient();
+  return useMutation<Goal, ApiError, { id: string; reason?: string | null }>({
+    mutationFn: ({ id, reason }) =>
+      api<Goal>(`/goals/${id}/${action}`, {
+        method: "POST",
+        body: action === "replan" ? { reason: reason ?? null } : undefined,
+      }),
+    onSuccess: (_g, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: ["goals"] });
+      void queryClient.invalidateQueries({ queryKey: ["goal", id] });
+    },
+  });
+}
+
+export const usePauseGoal = () => useGoalAction("pause");
+export const useResumeGoal = () => useGoalAction("resume");
+export const useCancelGoal = () => useGoalAction("cancel");
+export const useReplanGoal = () => useGoalAction("replan");
+
+function useNodeAction(action: "retry" | "cancel") {
+  const queryClient = useQueryClient();
+  return useMutation<Goal, ApiError, { goalId: string; nodeId: string }>({
+    mutationFn: ({ goalId, nodeId }) =>
+      api<Goal>(`/goals/${goalId}/nodes/${nodeId}/${action}`, { method: "POST" }),
+    onSuccess: (_g, { goalId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["goals"] });
+      void queryClient.invalidateQueries({ queryKey: ["goal", goalId] });
+      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+}
+
+export const useRetryNode = () => useNodeAction("retry");
+export const useCancelNode = () => useNodeAction("cancel");
+
+export function useDeleteGoal(): UseMutationResult<void, ApiError, string> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<void>(`/goals/${id}`, { method: "DELETE" }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["goals"] }),
   });
 }

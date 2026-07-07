@@ -15,6 +15,8 @@ import { registerCapabilities } from "./agents/capability-registry.js";
 import { ensureSystemAgents } from "./agents/system-agents.js";
 import { startScheduler, stopScheduler } from "./scheduler/service.js";
 import { initDelegationWatcher, sweepWaitingParents } from "./taskboard/delegation.js";
+import { sweepOrphanedPipelineRuns } from "./orchestrator/pipeline-executor.js";
+import { initGoalWatcher, reconcileGoals } from "./goap/service.js";
 import { killAllSessions } from "./terminal/manager.js";
 import { shutdownGraphPool, sweepOrphanEngines } from "./graph/graph-client.js";
 import { graphToolRegistrar } from "./graph/graph-tools.js";
@@ -56,6 +58,9 @@ async function main(): Promise<void> {
   logger.info(scan, "vault scanned");
 
   runManager.sweepOrphans();
+  // P6: a restart mid-pipeline used to leave pipeline_runs 'running' forever —
+  // the same EC1 discipline the run sweep applies.
+  sweepOrphanedPipelineRuns();
   // P5: graph-engine children leaked by a crash / tsx-watch hard restart die
   // here (Windows delivers no SIGTERM; exe identity verified before killing).
   void sweepOrphanEngines().then((killed) => {
@@ -74,6 +79,11 @@ async function main(): Promise<void> {
   const stopDelegationWatcher = initDelegationWatcher();
   const woken = sweepWaitingParents();
   if (woken > 0) logger.info({ woken }, "waiting parents reconciled at startup");
+  // P6 goal engine: bus-driven advance + the EH2 startup reconciliation pass
+  // (planner/reviewer runs swept above still transition their goals here).
+  const stopGoalWatcher = initGoalWatcher();
+  const goalsTouched = reconcileGoals();
+  if (goalsTouched > 0) logger.info({ goalsTouched }, "goals reconciled at startup");
   extraToolRegistrars.push(registerTaskboardTools);
   extraToolRegistrars.push(registerCapabilities);
   // P5: curated graph tools — registration reads the run's spawn-pinned snapshot.
@@ -99,6 +109,7 @@ async function main(): Promise<void> {
     try {
       stopScheduler();
       stopDelegationWatcher();
+      stopGoalWatcher();
       stopNightlyGraphRefresh();
       killAllSessions();
       await stopAllViz();

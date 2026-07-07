@@ -413,4 +413,85 @@ ALTER TABLE runs ADD COLUMN injected_memory TEXT;
 ALTER TABLE agents ADD COLUMN signal_extraction INTEGER NOT NULL DEFAULT 1;
 `,
   },
+  {
+    // P6 goal engine — DDL shape decided by the P6-Q0 head-to-head (LLM-planned-
+    // DAG won; see fable-handoff/P6-ENGINE-DECISION.md). plan_edges is
+    // AUTHORITATIVE (not a render cache): recomputed only by plan writes.
+    // FK policy:
+    // - goals.project_id/team_id: NO FK, code-enforced (tasks.project_id
+    //   precedent) — a goal survives its project/team row.
+    // - plan_nodes.goal_id / plan_edges.goal_id + node refs: real FKs, ON DELETE
+    //   CASCADE — deleting a goal removes its whole graph (tested).
+    // - plan_nodes.task_id: NO FK — tasks are deletable independently; the
+    //   executor treats a vanished task as node failure at reconciliation.
+    // - plan_nodes.agent_id: NO FK (agents.id references would block agent
+    //   deletion mid-goal; resolution re-checks at materialize time).
+    // Node STATUS is deliberately absent (EM4): derived from the linked task.
+    // Every table carries nullable, indexed user_id (rule 3 forward-marker).
+    // New tables only — safe under the in-transaction runner.
+    id: "0009_goal_engine",
+    sql: `
+CREATE TABLE goals (
+  id TEXT PRIMARY KEY,
+  project_id TEXT,
+  team_id TEXT,
+  prompt TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'planning',
+  plan_version INTEGER NOT NULL DEFAULT 0,
+  replan_count INTEGER NOT NULL DEFAULT 0,
+  consensus TEXT NOT NULL DEFAULT 'auto',
+  paused INTEGER NOT NULL DEFAULT 0,
+  pending_replan_reason TEXT,
+  blocked_reason TEXT,
+  plan_summary TEXT,
+  planner_run_id TEXT,
+  planner_attempts INTEGER NOT NULL DEFAULT 0,
+  consensus_run_id TEXT,
+  consensus_approved_version INTEGER,
+  world_state TEXT NOT NULL DEFAULT '[]',
+  version_log TEXT NOT NULL DEFAULT '[]',
+  user_id TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX idx_goals_project ON goals(project_id);
+CREATE INDEX idx_goals_status ON goals(status);
+CREATE INDEX idx_goals_user ON goals(user_id);
+
+CREATE TABLE plan_nodes (
+  id TEXT PRIMARY KEY,
+  goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+  plan_version INTEGER NOT NULL,
+  action_id TEXT NOT NULL,
+  label TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  agent_hint TEXT,
+  agent_id TEXT,
+  kind TEXT NOT NULL DEFAULT 'work',
+  pre TEXT NOT NULL DEFAULT '[]',
+  effects TEXT NOT NULL DEFAULT '[]',
+  cost REAL NOT NULL DEFAULT 1,
+  task_id TEXT,
+  position TEXT,
+  user_id TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX idx_plan_nodes_goal ON plan_nodes(goal_id, plan_version);
+CREATE INDEX idx_plan_nodes_task ON plan_nodes(task_id);
+CREATE INDEX idx_plan_nodes_user ON plan_nodes(user_id);
+CREATE UNIQUE INDEX uq_plan_nodes_goal_version_action ON plan_nodes(goal_id, plan_version, action_id);
+
+CREATE TABLE plan_edges (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+  plan_version INTEGER NOT NULL,
+  from_node_id TEXT NOT NULL REFERENCES plan_nodes(id) ON DELETE CASCADE,
+  to_node_id TEXT NOT NULL REFERENCES plan_nodes(id) ON DELETE CASCADE,
+  user_id TEXT
+);
+CREATE INDEX idx_plan_edges_goal ON plan_edges(goal_id, plan_version);
+CREATE INDEX idx_plan_edges_to ON plan_edges(to_node_id);
+CREATE INDEX idx_plan_edges_user ON plan_edges(user_id);
+`,
+  },
 ];

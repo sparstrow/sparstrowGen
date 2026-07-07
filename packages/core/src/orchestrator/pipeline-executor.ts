@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import type { PipelineRun, Run } from "@sparstrow/shared";
 import { getDb } from "../db/connection.js";
@@ -11,6 +11,32 @@ const nowIso = () => new Date().toISOString();
 
 function rowToPipelineRun(row: typeof pipelineRuns.$inferSelect): PipelineRun {
   return { ...row } as unknown as PipelineRun;
+}
+
+/**
+ * Startup orphan sweep (the gap P6's executor spec called out): doExecute
+ * holds a pipeline run in an in-memory await, so a service restart leaves its
+ * row `running` forever. Mirrors RunManager.sweepOrphans — mark failed, emit
+ * the update so the UI reconciles.
+ */
+export function sweepOrphanedPipelineRuns(): number {
+  const db = getDb();
+  const orphaned = db
+    .select()
+    .from(pipelineRuns)
+    .where(inArray(pipelineRuns.status, ["running", "queued"]))
+    .all();
+  if (orphaned.length === 0) return 0;
+  db.update(pipelineRuns)
+    .set({ status: "failed", finishedAt: nowIso() })
+    .where(inArray(pipelineRuns.status, ["running", "queued"]))
+    .run();
+  for (const row of orphaned) {
+    const pr = getPipelineRun(row.id);
+    if (pr) bus.publish({ type: "pipeline-run.updated", pipelineRun: pr });
+  }
+  logger.warn({ count: orphaned.length }, "swept orphaned pipeline runs");
+  return orphaned.length;
 }
 
 export function getPipelineRun(id: string): PipelineRun | null {
