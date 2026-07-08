@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ArrowRight, Search, Sparkles, X } from "lucide-react";
-import type { Agent, AgentCreate, AgentDraft, DraftMessage } from "@sparstrow/shared";
+import type { Agent, AgentCreate, AgentDraft, AgentMatch, DraftMessage } from "@sparstrow/shared";
 import { renderSkillMd } from "@sparstrow/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -88,6 +88,7 @@ export function AgentCreator({
   const [values, setValues] = React.useState<AgentFormValues>(() => agentToForm(null));
   const [source, setSource] = React.useState<"ai" | "fallback" | null>(null);
   const [followups, setFollowups] = React.useState<string[]>([]);
+  const [matches, setMatches] = React.useState<AgentMatch[]>([]);
   const [turnError, setTurnError] = React.useState<string | null>(null);
   const [findQuery, setFindQuery] = React.useState("");
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -100,6 +101,7 @@ export function AgentCreator({
       setValues(agentToForm(null));
       setSource(null);
       setFollowups([]);
+      setMatches([]);
       setTurnError(null);
       setFindQuery("");
     }
@@ -124,6 +126,7 @@ export function AgentCreator({
           setValues((v) => applyDraft(v, turn.draft));
           setSource(turn.source);
           setFollowups(turn.followups);
+          setMatches(turn.matches);
         },
         onError: (err) => setTurnError(err.message),
       },
@@ -247,6 +250,44 @@ export function AgentCreator({
                         >
                           Retry
                         </Button>
+                      </div>
+                    )}
+                    {matches.length > 0 && (
+                      <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
+                        <p className="mb-1 font-medium text-foreground">
+                          You may already have {matches.length === 1 ? "an agent" : "agents"} like
+                          this — reuse or extend instead of duplicating.
+                        </p>
+                        <div className="space-y-1">
+                          {matches.map((mm) => {
+                            const existing = agents.find((a) => a.id === mm.id);
+                            return (
+                              <div key={mm.id} className="flex items-center justify-between gap-2">
+                                <span className="min-w-0 truncate text-foreground">
+                                  <span className="font-medium">{mm.name}</span>
+                                  {mm.similarity != null && (
+                                    <span className="text-muted-foreground">
+                                      {" · "}
+                                      {Math.round(mm.similarity * 100)}% similar
+                                    </span>
+                                  )}
+                                  {mm.role && (
+                                    <span className="text-muted-foreground"> — {mm.role}</span>
+                                  )}
+                                </span>
+                                {existing && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => onOpenAgent(existing)}
+                                  >
+                                    Open
+                                  </Button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>
