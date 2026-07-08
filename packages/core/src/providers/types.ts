@@ -48,7 +48,8 @@ export interface InteractiveSpawnOptions {
   extraEnv?: Record<string, string>;
 }
 
-export interface ModelProvider {
+/** A provider that spawns a headless CLI child and streams its stdout (P1–P7). */
+export interface CliProvider {
   readonly id: ProviderId;
   readonly kind: "cli";
   listModels(): string[];
@@ -60,3 +61,64 @@ export interface ModelProvider {
   extractResult(events: NormalizedEvent[]): RunResult;
   healthCheck(): Promise<ProviderHealth>;
 }
+
+// ── P8: direct-API providers run core's in-process tool-loop ──
+//
+// The provider is thin: it converts ONE normalized turn to/from its wire format
+// and returns the assistant's text + any tool calls. The loop (orchestrator/
+// tool-loop.ts) is provider-agnostic and shared across Anthropic/Gemini/Ollama —
+// divergence would be a compile error, not a silent behavior split.
+
+/** A provider-neutral content block in the tool-loop's message history. */
+export type ChatBlock =
+  | { type: "text"; text: string }
+  | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> }
+  | { type: "tool_result"; toolUseId: string; content: string; isError?: boolean };
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: ChatBlock[];
+}
+
+/** A tool advertised to the provider — `inputSchema` is JSON Schema. */
+export interface ChatToolSchema {
+  name: string;
+  description: string;
+  inputSchema: unknown;
+}
+
+export interface ChatRequest {
+  model: string;
+  system: string;
+  messages: ChatMessage[];
+  tools: ChatToolSchema[];
+  maxTokens: number;
+}
+
+export interface ChatTurn {
+  /** Assistant content blocks (text + tool_use) this turn — the run's assistant event. */
+  content: ChatBlock[];
+  /** Tool calls the model requested this turn (subset of content). */
+  toolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }>;
+  /** Concatenated assistant text this turn. */
+  text: string;
+  stopReason: "end_turn" | "tool_use" | "max_tokens" | "refusal" | "other";
+  usage: { inputTokens: number; outputTokens: number };
+}
+
+export interface DirectApiProvider {
+  readonly id: ProviderId;
+  readonly kind: "direct_api";
+  listModels(): string[];
+  healthCheck(): Promise<ProviderHealth>;
+  /** Live model list; may throw (no key / unreachable) — the caller degrades. */
+  discoverModels(): Promise<string[]>;
+  /** Whether a stored API key is required (ollama runs local, so false). */
+  readonly requiresApiKey: boolean;
+  /** Run ONE provider turn. Must honor `signal` (cancel/timeout). */
+  chat(req: ChatRequest, signal: AbortSignal): Promise<ChatTurn>;
+  /** Per-1M-token price for cost attribution; null ⇒ free/unknown. */
+  price(model: string): { inputPerMTok: number; outputPerMTok: number } | null;
+}
+
+export type ModelProvider = CliProvider | DirectApiProvider;

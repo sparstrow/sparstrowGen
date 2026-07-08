@@ -43,11 +43,17 @@ export async function completeOnce(
   opts: CompleteOnceOptions = {},
 ): Promise<CompleteOnceResult> {
   const provider = getProvider(agent.provider);
+  // completeOnce is the CLI-only one-shot path (Agent Creator drafts). Direct-API
+  // agents run through the normal tool-loop path, never here.
+  if (provider.kind !== "cli") {
+    throw new Error(`completeOnce supports CLI providers only (got ${agent.provider})`);
+  }
+  const cli = provider;
   const sessionId = opts.resumeSessionId ?? crypto.randomUUID();
   const tempDir = path.join(config.tmpDir, `draft_${nanoid(8)}`);
   fs.mkdirSync(tempDir, { recursive: true });
 
-  const spec = provider.buildHeadlessSpawn(agent, prompt, {
+  const spec = cli.buildHeadlessSpawn(agent, prompt, {
     runId: "", // no run context → provider skips memory-MCP + run-scoped tools
     tempDir,
     sessionId,
@@ -94,7 +100,7 @@ export async function completeOnce(
     }
     if (child.stdout) {
       readline.createInterface({ input: child.stdout }).on("line", (line) => {
-        for (const ev of provider.parseLine(line)) events.push(ev);
+        for (const ev of cli.parseLine(line)) events.push(ev);
       });
     }
     if (child.stderr) {
@@ -113,7 +119,7 @@ export async function completeOnce(
         finish({ text: null, sessionId, isError: true, errorMessage: "draft turn timed out" });
         return;
       }
-      const result = provider.extractResult(events);
+      const result = cli.extractResult(events);
       finish({
         text: result.resultText,
         sessionId: result.sessionId ?? sessionId,

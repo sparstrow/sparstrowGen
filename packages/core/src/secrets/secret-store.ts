@@ -26,6 +26,9 @@ const ALGO = "aes-256-gcm";
 
 /** Well-known secret keys. */
 export const SECRET_GITHUB_PAT = "github.pat";
+/** P8: direct-API provider keys, kept out of the DB / agent env like the PAT. */
+export const SECRET_ANTHROPIC_API_KEY = "anthropic.apiKey";
+export const SECRET_GEMINI_API_KEY = "gemini.apiKey";
 
 interface Entry {
   iv: string; // base64

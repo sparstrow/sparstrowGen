@@ -18,6 +18,7 @@ import { memoryRoutes } from "./routes/memory.js";
 import { messageRoutes } from "./routes/messages.js";
 import { pipelineRoutes } from "./routes/pipelines.js";
 import { projectRoutes } from "./routes/projects.js";
+import { providerRoutes } from "./routes/providers.js";
 import { runRoutes } from "./routes/runs.js";
 import { systemRoutes } from "./routes/system.js";
 import { taskRoutes } from "./routes/tasks.js";
@@ -85,6 +86,7 @@ export async function buildServer() {
       await api.register(pipelineRoutes);
       await api.register(cronRoutes);
       await api.register(gitRoutes);
+      await api.register(providerRoutes);
       await api.register(terminalRoutes);
       await api.register(graphRoutes);
     },

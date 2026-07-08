@@ -1,6 +1,6 @@
 import * as React from "react";
 import type { Agent, AgentCreate, PermissionMode, ProviderId } from "@sparstrow/shared";
-import { KNOWN_MODELS } from "@sparstrow/shared";
+import { KNOWN_MODELS, executionModeForProvider } from "@sparstrow/shared";
 import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -232,15 +232,32 @@ export function AgentFields({ values, set }: { values: AgentFormValues; set: Set
         </h3>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label>Provider</Label>
-            <Select value={values.provider} onValueChange={(v) => set("provider", v as ProviderId)}>
+            <div className="flex items-center justify-between">
+              <Label>Provider</Label>
+              <Badge variant={executionModeForProvider(values.provider) === "direct_api" ? "default" : "secondary"}>
+                {executionModeForProvider(values.provider) === "direct_api" ? "direct API" : "CLI"}
+              </Badge>
+            </div>
+            <Select
+              value={values.provider}
+              onValueChange={(v) => {
+                const next = v as ProviderId;
+                set("provider", next);
+                // Reset the model to the new provider's first known choice so the
+                // model select never shows a value that provider can't run.
+                const first = (KNOWN_MODELS[next] ?? [])[0];
+                if (first) set("model", first);
+              }}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="claude-code">Claude Code (CLI)</SelectItem>
+                <SelectItem value="anthropic-api">Anthropic API</SelectItem>
+                <SelectItem value="ollama">Ollama (local)</SelectItem>
                 <SelectItem value="gemini-cli" disabled>
-                  Gemini CLI (phase 3)
+                  Gemini CLI (retired)
                 </SelectItem>
               </SelectContent>
             </Select>

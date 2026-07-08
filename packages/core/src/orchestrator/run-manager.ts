@@ -12,6 +12,7 @@ import {
   type Agent,
   type Run,
   type RunCreate,
+  type RunResult,
   type RunStatus,
 } from "@sparstrow/shared";
 import { config } from "../config.js";
@@ -21,6 +22,8 @@ import { bus } from "../events/bus.js";
 import { logger } from "../logger.js";
 import { buildMemoryBlock } from "../memory/injector.js";
 import { scanVault } from "../memory/vault.js";
+import { resolveRunContext } from "../memory/agent-memory.js";
+import { runToolLoop } from "./tool-loop.js";
 import { getProvider } from "../providers/index.js";
 import type { NormalizedEvent } from "../providers/types.js";
 import { buildPreamble, type Assignment } from "./preamble.js";
@@ -34,7 +37,10 @@ import { buildDirectivesBlock, listEnabledDirectives } from "../projects/directi
 const nowIso = () => new Date().toISOString();
 
 interface ActiveRun {
-  child: ChildProcess;
+  /** CLI runs: the spawned child. Direct-API runs: null (no process). */
+  child: ChildProcess | null;
+  /** Direct-API runs: aborts the in-flight tool-loop on cancel/timeout. */
+  abort: AbortController | null;
   agentId: string;
   /** Instance-keyed busy identity (P3-Q5): agentId::projectId, "" for no project. */
   busyKey: string;
@@ -138,7 +144,8 @@ export class RunManager {
     const activeRun = this.active.get(runId);
     if (activeRun) {
       activeRun.cancelRequested = true;
-      if (activeRun.child.pid) treeKill(activeRun.child.pid, "SIGTERM");
+      if (activeRun.child?.pid) treeKill(activeRun.child.pid, "SIGTERM");
+      activeRun.abort?.abort(); // direct-API runs have no process — abort the loop
       return rowToRun(row);
     }
     if (row.status === "queued") {
@@ -312,7 +319,96 @@ export class RunManager {
     const tempDir = path.join(config.tmpDir, row.id);
     fs.mkdirSync(tempDir, { recursive: true });
 
-    const spec = provider.buildHeadlessSpawn(agent, finalPrompt, {
+    // E1 (P5): structured provenance of what the injector put into the prompt.
+    const injectedMemory =
+      memoryManifest.length > 0 || directivesBlock.length > 0
+        ? {
+            notes: memoryManifest,
+            directives: row.projectId
+              ? listEnabledDirectives(row.projectId).map((d) => ({ id: d.id, body: d.body }))
+              : [],
+          }
+        : null;
+
+    // ── P8: direct-API runtime — core drives the tool-loop in-process, no child.
+    // Shares ALL of the setup above (memory, preamble, effective-tools snapshot,
+    // instance, provenance); only spawn→stream is replaced by the loop. Events are
+    // recorded identically, so the Runs UI never learns which runtime produced them.
+    if (provider.kind === "direct_api") {
+      const controller = new AbortController();
+      const state: ActiveRun = {
+        child: null,
+        abort: controller,
+        agentId: agent.id,
+        busyKey: key,
+        events: [],
+        seq: 0,
+        cancelRequested: false,
+        timedOut: false,
+        timer: null,
+        startedAtMs: Date.now(),
+        stderrLines: [],
+        isSandbox,
+        delegated: taskRow?.parentTaskId != null,
+      };
+      this.active.set(row.id, state);
+      db.update(runs)
+        .set({
+          status: "running",
+          startedAt: nowIso(),
+          pid: null,
+          injectedContext: memoryBlock || null,
+          injectedMemory,
+          agentInstanceId,
+        })
+        .where(eq(runs.id, row.id))
+        .run();
+      bus.publish({ type: "run.updated", run: this.getRun(row.id)! });
+      logger.info(
+        { runId: row.id, agent: agent.name, provider: agent.provider, mode: "direct_api" },
+        "run started (direct-API tool-loop)",
+      );
+
+      state.timer = setTimeout(() => {
+        state.timedOut = true;
+        controller.abort();
+        logger.warn({ runId: row.id }, "run timed out — aborting tool-loop");
+      }, DEFAULT_RUN_TIMEOUT_MS);
+
+      const ctx = resolveRunContext(row.id);
+      const result = await runToolLoop({
+        provider,
+        ctx,
+        model: agent.model,
+        system: agent.systemPrompt,
+        userPrompt: finalPrompt,
+        effectiveTools,
+        maxTurns: agent.maxTurns ?? 24,
+        maxTokens: 16_000,
+        emit: (type, payload) => {
+          this.recordEvent(row.id, state, type, payload);
+          state.events.push({ type: type as never, payload });
+        },
+        signal: controller.signal,
+      }).catch(
+        (err): RunResult => ({
+          resultText: null,
+          costUsd: null,
+          numTurns: null,
+          sessionId: null,
+          isError: true,
+          errorMessage: err instanceof Error ? err.message : String(err),
+        }),
+      );
+      if (state.timer) clearTimeout(state.timer);
+      this.finalize(row.id, state, result.isError ? 1 : 0, result);
+      return;
+    }
+
+    // Past the early return, `provider` is a CLI provider — capture it so the
+    // narrowing survives into the child.on('close') closure below.
+    const cliProvider = provider;
+    const spec = cliProvider.buildHeadlessSpawn(agent, finalPrompt, {
       runId: row.id,
       tempDir,
       effectiveTools,
@@ -348,6 +444,7 @@ export class RunManager {
 
     const state: ActiveRun = {
       child,
+      abort: null,
       agentId: agent.id,
       busyKey: key,
       events: [],
@@ -361,19 +458,6 @@ export class RunManager {
       delegated: taskRow?.parentTaskId != null,
     };
     this.active.set(row.id, state);
-
-    // E1 (P5): structured provenance of what the injector put into the prompt —
-    // the post-budget note manifest plus the same enabled directives the
-    // directives block rendered. Null when nothing was injected.
-    const injectedMemory =
-      memoryManifest.length > 0 || directivesBlock.length > 0
-        ? {
-            notes: memoryManifest,
-            directives: row.projectId
-              ? listEnabledDirectives(row.projectId).map((d) => ({ id: d.id, body: d.body }))
-              : [],
-          }
-        : null;
 
     db.update(runs)
       .set({
@@ -404,7 +488,7 @@ export class RunManager {
     if (child.stdout) {
       const rl = readline.createInterface({ input: child.stdout });
       rl.on("line", (line) => {
-        for (const event of provider.parseLine(line)) {
+        for (const event of cliProvider.parseLine(line)) {
           this.recordEvent(row.id, state, event.type, event.payload);
           state.events.push(event);
         }
@@ -427,7 +511,7 @@ export class RunManager {
 
     child.on("close", (code) => {
       if (state.timer) clearTimeout(state.timer);
-      this.finalize(row.id, state, code, provider.extractResult(state.events));
+      this.finalize(row.id, state, code, cliProvider.extractResult(state.events));
     });
   }
 
@@ -451,7 +535,7 @@ export class RunManager {
     runId: string,
     state: ActiveRun,
     exitCode: number | null,
-    result: ReturnType<ReturnType<typeof getProvider>["extractResult"]>,
+    result: RunResult,
   ): void {
     const db = getDb();
     let status: RunStatus;

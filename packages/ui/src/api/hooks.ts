@@ -19,6 +19,9 @@ import type {
   CronJob,
   CronJobCreate,
   CronJobUpdate,
+  DiscoverModelsResult,
+  ProviderInfo,
+  ProviderId,
   FactoryHealth,
   OpenPrRequest,
   PrQueue,
@@ -1414,6 +1417,62 @@ export function useOpenPr(): UseMutationResult<
     onSuccess: (_pr, { projectId }) => {
       void queryClient.invalidateQueries({ queryKey: ["pr-queue"] });
       void queryClient.invalidateQueries({ queryKey: ["project-prs", projectId] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Providers (P8 — CLI + direct-API runtimes, key vault, live model discovery)
+// ---------------------------------------------------------------------------
+
+export function useProviders(): UseQueryResult<ProviderInfo[], ApiError> {
+  return useQuery({
+    queryKey: ["providers"],
+    queryFn: () => api<ProviderInfo[]>("/providers"),
+  });
+}
+
+/** Live model discovery for a direct-API provider (degrades to the static list). */
+export function useDiscoverModels(): UseMutationResult<DiscoverModelsResult, ApiError, ProviderId> {
+  return useMutation({
+    mutationFn: (provider: ProviderId) =>
+      api<DiscoverModelsResult>("/providers/discover-models", { method: "POST", body: { provider } }),
+  });
+}
+
+export function useProviderKey(providerId: string, enabled: boolean): UseQueryResult<SecretMeta, ApiError> {
+  return useQuery({
+    queryKey: ["provider-key", providerId],
+    queryFn: () => api<SecretMeta>(`/providers/${providerId}/key`),
+    enabled,
+  });
+}
+
+export function useSetProviderKey(): UseMutationResult<
+  SecretMeta,
+  ApiError,
+  { providerId: string; key: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ providerId, key }) =>
+      api<SecretMeta>(`/providers/${providerId}/key`, { method: "PUT", body: { key } }),
+    onSuccess: (_m, { providerId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["provider-key", providerId] });
+      void queryClient.invalidateQueries({ queryKey: ["providers"] });
+      void queryClient.invalidateQueries({ queryKey: ["factory-health"] });
+    },
+  });
+}
+
+export function useClearProviderKey(): UseMutationResult<void, ApiError, string> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (providerId: string) => api<void>(`/providers/${providerId}/key`, { method: "DELETE" }),
+    onSuccess: (_v, providerId) => {
+      void queryClient.invalidateQueries({ queryKey: ["provider-key", providerId] });
+      void queryClient.invalidateQueries({ queryKey: ["providers"] });
+      void queryClient.invalidateQueries({ queryKey: ["factory-health"] });
     },
   });
 }

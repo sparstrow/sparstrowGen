@@ -6,17 +6,22 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useClearGithubPat,
+  useClearProviderKey,
+  useDiscoverModels,
   useFactoryHealth,
   useGithubPat,
   useGraphEngine,
   useHealth,
   useIndexAllProjects,
   useInstallGraphEngine,
+  useProviders,
   useRetryGraphEngine,
   useSetGithubPat,
+  useSetProviderKey,
   useSettings,
   useUpdateSettings,
 } from "@/api/hooks";
+import type { ProviderInfo, ProviderId } from "@sparstrow/shared";
 import { useTheme, type Theme } from "@/theme/theme-provider";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -213,6 +218,101 @@ function GitCard() {
   );
 }
 
+/** P8 — a direct-API provider's key input (stored in the encrypted secret store). */
+function ProviderKeyInput({ providerId, keyPresent }: { providerId: string; keyPresent: boolean }) {
+  const setKey = useSetProviderKey();
+  const clearKey = useClearProviderKey();
+  const [value, setValue] = React.useState("");
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <Input
+        type="password"
+        className="h-8 font-mono text-xs"
+        placeholder={keyPresent ? "Enter a new key to replace…" : "API key…"}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+      />
+      <Button
+        size="sm"
+        disabled={setKey.isPending || value.trim().length === 0}
+        onClick={() => setKey.mutate({ providerId, key: value.trim() }, { onSuccess: () => setValue("") })}
+      >
+        {keyPresent ? "Replace" : "Save"}
+      </Button>
+      {keyPresent && (
+        <Button size="sm" variant="ghost" disabled={clearKey.isPending} onClick={() => clearKey.mutate(providerId)}>
+          Clear
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** P8 — every runtime, its mode, health, key status, and live model discovery. */
+function ProvidersCard() {
+  const providers = useProviders();
+  const discover = useDiscoverModels();
+  const [discovered, setDiscovered] = React.useState<Record<string, { count: number; live: boolean }>>({});
+
+  const modeBadge = (p: ProviderInfo) =>
+    p.mode === "direct_api" ? <Badge variant="default">direct API</Badge> : <Badge variant="secondary">CLI</Badge>;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Providers</CardTitle>
+        <CardDescription>
+          CLI models log in once from a terminal. Direct-API providers run core&apos;s tool-loop and
+          keep their key in the encrypted secret store (never in an agent&apos;s env).
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="divide-y">
+        {providers.isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : (
+          (providers.data ?? []).map((p) => (
+            <div key={p.id} className="py-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{p.id}</span>
+                  {modeBadge(p)}
+                </div>
+                <Badge variant={p.ok ? "success" : p.requiresKey && !p.keyPresent ? "warning" : "destructive"}>
+                  {p.ok ? (p.version ?? "ready") : p.requiresKey && !p.keyPresent ? "no key" : "unavailable"}
+                </Badge>
+              </div>
+              {p.detail && <p className="mt-0.5 text-xs text-muted-foreground">{p.detail}</p>}
+              {p.mode === "direct_api" && (
+                <div className="mt-1.5 flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={discover.isPending}
+                    onClick={() =>
+                      discover.mutate(p.id as ProviderId, {
+                        onSuccess: (r) =>
+                          setDiscovered((d) => ({ ...d, [p.id]: { count: r.models.length, live: r.live } })),
+                      })
+                    }
+                  >
+                    Discover models
+                  </Button>
+                  {discovered[p.id] && (
+                    <span className="text-xs text-muted-foreground">
+                      {discovered[p.id]!.count} models{discovered[p.id]!.live ? "" : " (static — provider unreachable)"}
+                    </span>
+                  )}
+                </div>
+              )}
+              {p.requiresKey && <ProviderKeyInput providerId={p.id} keyPresent={p.keyPresent} />}
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function SettingsPage() {
   const health = useHealth();
   const settings = useSettings();
@@ -275,27 +375,7 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Providers</CardTitle>
-          <CardDescription>
-            CLI models must be installed and logged in once from a terminal.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="divide-y">
-          {(health.data?.providers ?? []).map((p) => (
-            <div key={p.id} className="flex items-center justify-between py-2">
-              <div>
-                <p className="text-sm font-medium">{p.id}</p>
-                {p.detail && <p className="text-xs text-muted-foreground">{p.detail}</p>}
-              </div>
-              <Badge variant={p.ok ? "success" : "destructive"}>
-                {p.ok ? (p.version ?? "ok") : "unavailable"}
-              </Badge>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+      <ProvidersCard />
 
       <GitCard />
 

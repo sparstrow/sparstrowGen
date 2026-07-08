@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z, type ZodRawShape } from "zod";
+import { z, type ZodRawShape, type ZodTypeAny } from "zod";
+import type { EffectiveTools } from "@sparstrow/shared";
 import type { RunContext } from "../memory/agent-memory.js";
 import { blockTaskWithQuestions } from "../taskboard/questions.js";
 import { spawnSubtask } from "../taskboard/delegation.js";
@@ -155,3 +156,142 @@ export function registerCapabilities(server: McpServer, ctx: RunContext): void {
 
 /** Names of the tools the registry owns the handler for — cross-checked vs docs. */
 export const OWNED_CAPABILITY_NAMES = AGENT_CAPABILITIES.map((c) => c.name);
+
+// ── P8: the SAME registry drives the direct-API tool-loop (rule 20) ──
+//
+// The MCP surface (Claude Code CLI) and the native-tool-schema surface (direct-
+// API) both derive from AGENT_CAPABILITIES: registerCapabilities feeds MCP;
+// nativeToolSchemas + dispatchCapability feed the in-process loop. A capability
+// added once is available on both — divergence is impossible, which is the whole
+// point of a single registry.
+
+/** JSON Schema object shape a provider embeds as a tool's `input_schema`. */
+export interface JsonSchema {
+  type: string;
+  properties?: Record<string, JsonSchema>;
+  required?: string[];
+  items?: JsonSchema;
+  enum?: readonly string[];
+  description?: string;
+  additionalProperties?: boolean;
+}
+
+/** One tool the direct-API loop advertises to a provider (provider-neutral). */
+export interface NativeToolSchema {
+  name: string;
+  description: string;
+  inputSchema: JsonSchema;
+}
+
+/**
+ * Convert one zod field into JSON Schema. Purpose-built for the shapes the
+ * registry actually uses (string/number/boolean/array/object/enum + optional/
+ * default/nullable wrappers), with a parity test guarding it. A dependency-free
+ * converter keeps the trust boundary small — no third-party schema emitter walks
+ * agent-facing tool definitions.
+ */
+export function zodToJsonSchema(schema: ZodTypeAny): JsonSchema {
+  const def = schema._def as { typeName?: string; description?: string };
+  const describe = (js: JsonSchema): JsonSchema => {
+    const d = schema.description ?? def.description;
+    return d ? { ...js, description: d } : js;
+  };
+  switch (def.typeName) {
+    case "ZodString":
+      return describe({ type: "string" });
+    case "ZodNumber": {
+      const checks = (def as { checks?: { kind: string }[] }).checks ?? [];
+      return describe({ type: checks.some((c) => c.kind === "int") ? "integer" : "number" });
+    }
+    case "ZodBoolean":
+      return describe({ type: "boolean" });
+    case "ZodEnum":
+      return describe({ type: "string", enum: (def as { values: string[] }).values });
+    case "ZodArray":
+      return describe({ type: "array", items: zodToJsonSchema((def as { type: ZodTypeAny }).type) });
+    case "ZodObject": {
+      const shape = (schema as unknown as z.ZodObject<z.ZodRawShape>).shape;
+      return describe(objectSchema(shape));
+    }
+    case "ZodOptional":
+    case "ZodNullable":
+    case "ZodDefault": {
+      const inner = zodToJsonSchema((def as { innerType: ZodTypeAny }).innerType);
+      const d = schema.description ?? def.description;
+      return d && !inner.description ? { ...inner, description: d } : inner;
+    }
+    default:
+      // Unknown wrapper — degrade to a permissive object rather than throwing so a
+      // future capability never crashes the whole tool surface.
+      return describe({ type: "object" });
+  }
+}
+
+function objectSchema(shape: ZodRawShape): JsonSchema {
+  const properties: Record<string, JsonSchema> = {};
+  const required: string[] = [];
+  for (const [key, field] of Object.entries(shape)) {
+    const f = field as ZodTypeAny;
+    properties[key] = zodToJsonSchema(f);
+    const tn = (f._def as { typeName?: string }).typeName;
+    if (tn !== "ZodOptional" && tn !== "ZodDefault") required.push(key);
+  }
+  const js: JsonSchema = { type: "object", properties, additionalProperties: false };
+  if (required.length > 0) js.required = required;
+  return js;
+}
+
+/** True when a capability is permitted under a run's effective-tools snapshot. */
+function capabilityAllowed(name: string, effective: EffectiveTools | null): boolean {
+  if (!effective) return true;
+  if (effective.disallowed.includes(name)) return false; // deny-wins (P2)
+  // Empty allow-list ⇒ inherit the provider default (all registry tools). A non-
+  // empty list restricts to explicitly-granted names.
+  return effective.allowed.length === 0 || effective.allowed.includes(name);
+}
+
+/**
+ * The native tool schemas a direct-API agent gets — the registry-owned
+ * capabilities, filtered by the run's immutable effective-tools snapshot so the
+ * P2/P3 clamps apply identically to CLI runs (EH5). This is the direct-API mirror
+ * of the CLI's MCP tool list.
+ */
+export function nativeToolSchemas(effective: EffectiveTools | null): NativeToolSchema[] {
+  return AGENT_CAPABILITIES.filter((c) => capabilityAllowed(c.name, effective)).map((c) => ({
+    name: c.name,
+    description: c.description,
+    inputSchema: objectSchema(c.params),
+  }));
+}
+
+/**
+ * Dispatch one native tool call in-process (no MCP transport). Unknown or
+ * clamped-away tools return an isError result the loop feeds back to the model,
+ * exactly like the MCP surface degrades — never a hard throw the agent can't see.
+ */
+export async function dispatchCapability(
+  name: string,
+  args: Record<string, unknown>,
+  ctx: RunContext,
+  effective: EffectiveTools | null = ctx.effectiveTools,
+): Promise<ToolTextResult> {
+  const cap = AGENT_CAPABILITIES.find((c) => c.name === name);
+  if (!cap) return errorResult(new Error(`unknown tool: ${name}`));
+  if (!capabilityAllowed(name, effective)) {
+    return errorResult(new Error(`tool not permitted for this run: ${name}`));
+  }
+  try {
+    const parsed = z.object(cap.params).parse(args);
+    return await cap.handler(parsed as Record<string, unknown>, ctx);
+  } catch (err) {
+    return errorResult(err);
+  }
+}
+
+/** Flatten a ToolTextResult into the plain string a tool_result block carries. */
+export function toolResultText(result: ToolTextResult): string {
+  return result.content
+    .filter((b): b is { type: "text"; text: string } => b.type === "text")
+    .map((b) => b.text)
+    .join("\n");
+}

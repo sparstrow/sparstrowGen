@@ -40,6 +40,11 @@ export async function terminalRoutes(app: FastifyInstance): Promise<void> {
       if (!row) throw new HttpError(404, `agent not found: ${body.agentId}`);
       const agent = row as unknown as Agent;
       const provider = getProvider(agent.provider);
+      // Interactive terminals are a CLI-provider affordance; direct-API agents
+      // have no shell to attach to.
+      if (provider.kind !== "cli") {
+        throw new HttpError(400, `provider ${agent.provider} has no interactive terminal`);
+      }
       const spec = provider.buildInteractiveSpawn(agent, {
         tempDir: config.tmpDir,
         extraEnv: { SPARSTROW_API: `http://${config.host}:${config.port}` },
