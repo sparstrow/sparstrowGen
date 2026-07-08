@@ -24,7 +24,16 @@ function runGit(args: string[], cwd?: string): Promise<{ ok: boolean; stderr: st
     execFile(
       config.gitPath,
       args,
-      { timeout: GIT_TIMEOUT_MS, windowsHide: true, cwd, maxBuffer: 4 * 1024 * 1024 },
+      {
+        timeout: GIT_TIMEOUT_MS,
+        windowsHide: true,
+        cwd,
+        maxBuffer: 4 * 1024 * 1024,
+        // Never hang on a credential prompt (P9 ingestion clones untrusted URLs
+        // headless). This is CORE's own git child, not an agent process — the EC2
+        // env allowlist governs agents, not core's tooling.
+        env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+      },
       (err, _stdout, stderr) => resolve({ ok: !err, stderr: stderr ?? (err ? String(err) : "") }),
     );
   });
@@ -72,8 +81,27 @@ export async function provisionProject(input: ProjectProvision): Promise<Project
       throw new HttpError(409, `clone target exists and is not empty: ${rootDir}`);
     }
     fs.mkdirSync(path.dirname(rootDir), { recursive: true });
-    const res = await runGit(["clone", "--depth", "50", input.gitUrl, rootDir]);
+    // Harden the clone (P9 §3 — an imported repo may be hostile): block the
+    // ext::/file:: transport RCE vectors, fetch no tags, and never recurse
+    // submodules (the default — we never pass --recurse-submodules). The scheme
+    // allowlist above already rejects non-http(s)/git URLs.
+    const res = await runGit([
+      "-c",
+      "protocol.ext.allow=never",
+      "-c",
+      "protocol.file.allow=never",
+      "clone",
+      "--depth",
+      "50",
+      "--no-tags",
+      input.gitUrl,
+      rootDir,
+    ]);
     if (!res.ok) throw new HttpError(502, `git clone failed: ${res.stderr.slice(0, 300)}`);
+    // Ignore repo-provided hooks (spec: "config/hooks ignored"). git never fetches
+    // remote hooks, but drop the local sample dir so nothing can run against this
+    // clone during later reads.
+    fs.rmSync(path.join(rootDir, ".git", "hooks"), { recursive: true, force: true });
     gitRemote = input.gitUrl;
   }
 

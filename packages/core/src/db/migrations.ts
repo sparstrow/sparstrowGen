@@ -510,4 +510,40 @@ ALTER TABLE projects ADD COLUMN execution_profile TEXT NOT NULL DEFAULT 'factory
 ALTER TABLE projects ADD COLUMN staging_branch TEXT;
 `,
   },
+  {
+    // P9 exceptional creation + Skill Specter ingestion.
+    // - agents.origin ('user' | 'import') + agents.status
+    //   ('active' | 'quarantined' | 'discarded'): imported skills land
+    //   quarantined (enabled=false, no grants) until the operator promotes them.
+    //   Enums enforced in zod, not SQL (matches runs.status / execution_profile).
+    // - agents.specter_report: the Skill Specter security review card (JSON).
+    // - agents.import_id / sandbox_project_id: code-enforced links (SQLite ADD
+    //   COLUMN can't add FKs) to the import batch + sandbox project of origin.
+    // - skill_imports: one row per external-repo ingestion (clone → extract →
+    //   review → ready). Links are code-enforced so the audit row survives
+    //   sandbox project cleanup.
+    // ADD COLUMN- + CREATE TABLE-only — safe under the in-transaction runner.
+    id: "0011_skill_ingestion",
+    sql: `
+ALTER TABLE agents ADD COLUMN origin TEXT NOT NULL DEFAULT 'user';
+ALTER TABLE agents ADD COLUMN status TEXT NOT NULL DEFAULT 'active';
+ALTER TABLE agents ADD COLUMN specter_report TEXT;
+ALTER TABLE agents ADD COLUMN import_id TEXT;
+ALTER TABLE agents ADD COLUMN sandbox_project_id TEXT;
+CREATE INDEX idx_agents_status ON agents(status);
+
+CREATE TABLE skill_imports (
+  id TEXT PRIMARY KEY,
+  source_url TEXT NOT NULL,
+  sandbox_project_id TEXT,
+  status TEXT NOT NULL DEFAULT 'cloning',
+  extractor_run_id TEXT,
+  error TEXT,
+  found_skill_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX idx_skill_imports_status ON skill_imports(status);
+`,
+  },
 ];

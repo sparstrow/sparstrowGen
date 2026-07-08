@@ -50,6 +50,11 @@ export function utilityAgent(systemPrompt: string): Agent {
     enabled: true,
     signalExtraction: false,
     isSystem: false,
+    origin: "user",
+    status: "active",
+    specterReport: null,
+    importId: null,
+    sandboxProjectId: null,
     createdAt: ISO,
     updatedAt: ISO,
   };

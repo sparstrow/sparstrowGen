@@ -6,6 +6,7 @@ import {
 import { AppShell } from "@/components/layout/app-shell";
 import { DashboardPage } from "@/routes/pages/dashboard";
 import { AgentsPage } from "@/routes/pages/agents";
+import { ImportsPage } from "@/routes/pages/imports";
 import { TeamsPage } from "@/routes/pages/teams";
 import { TeamDetailPage } from "@/routes/pages/team-detail";
 import { ProjectsPage } from "@/routes/pages/projects";
@@ -33,6 +34,13 @@ const agentsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/agents",
   component: AgentsPage,
+});
+
+// P9: external agent/skill ingestion + quarantine review.
+const importsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/imports",
+  component: ImportsPage,
 });
 
 const teamsRoute = createRoute({
@@ -123,6 +131,7 @@ const terminalsRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
   agentsRoute,
+  importsRoute,
   teamsRoute,
   teamDetailRoute,
   projectsRoute,

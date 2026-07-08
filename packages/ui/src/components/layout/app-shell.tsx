@@ -8,6 +8,7 @@ import {
   Inbox,
   LayoutDashboard,
   ListChecks,
+  PackagePlus,
   Play,
   Settings,
   TerminalSquare,
@@ -22,6 +23,7 @@ import { ThemeToggle } from "@/theme/theme-toggle";
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/agents", label: "Agents", icon: Bot },
+  { to: "/imports", label: "Imports", icon: PackagePlus },
   { to: "/teams", label: "Teams", icon: Users },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/tasks", label: "Task Board", icon: ListChecks },

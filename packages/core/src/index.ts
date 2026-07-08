@@ -17,6 +17,7 @@ import { startScheduler, stopScheduler } from "./scheduler/service.js";
 import { initDelegationWatcher, sweepWaitingParents } from "./taskboard/delegation.js";
 import { sweepOrphanedPipelineRuns } from "./orchestrator/pipeline-executor.js";
 import { initGoalWatcher, reconcileGoals } from "./goap/service.js";
+import { reconcileInterruptedImports } from "./agents/ingestion.js";
 import { killAllSessions } from "./terminal/manager.js";
 import { shutdownGraphPool, sweepOrphanEngines } from "./graph/graph-client.js";
 import { graphToolRegistrar } from "./graph/graph-tools.js";
@@ -61,6 +62,10 @@ async function main(): Promise<void> {
   // P6: a restart mid-pipeline used to leave pipeline_runs 'running' forever —
   // the same EC1 discipline the run sweep applies.
   sweepOrphanedPipelineRuns();
+  // P9: an import interrupted mid-pipeline (clone/extract/review) by a restart
+  // stays non-terminal forever and the detail UI polls it every 2s — fail it.
+  const staleImports = reconcileInterruptedImports();
+  if (staleImports > 0) logger.warn({ staleImports }, "interrupted skill imports reconciled");
   // P5: graph-engine children leaked by a crash / tsx-watch hard restart die
   // here (Windows delivers no SIGTERM; exe identity verified before killing).
   void sweepOrphanEngines().then((killed) => {

@@ -38,6 +38,8 @@ export interface AgentMatch {
   name: string;
   role: string;
   reason?: string;
+  /** P9 advisory duplicate detection: cosine similarity (0-1) to the draft. */
+  similarity?: number;
 }
 
 /**

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
   agentCreateSchema,
@@ -23,12 +23,14 @@ function rowToAgent(row: typeof agents.$inferSelect): Agent {
 
 export async function agentRoutes(app: FastifyInstance): Promise<void> {
   app.get("/agents", async () => {
-    // Hide factory-managed system agents (Project Indexer/Reporter) from the
-    // roster by default — they are still individually gettable by id.
+    // The roster shows active, user-facing agents only. Factory system agents
+    // (Project Indexer/Reporter, Extractor, Specter) are hidden, and so are P9
+    // quarantined/discarded imports — those live on the Imports surface until
+    // promoted. All rows stay individually gettable by id.
     return getDb()
       .select()
       .from(agents)
-      .where(eq(agents.isSystem, false))
+      .where(and(eq(agents.isSystem, false), eq(agents.status, "active")))
       .orderBy(agents.name)
       .all()
       .map(rowToAgent);
@@ -76,6 +78,17 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     const db = getDb();
     const existing = db.select().from(agents).where(eq(agents.id, id)).get();
     if (!existing) throw new HttpError(404, `agent not found: ${id}`);
+    // P9 quarantine boundary: only ACTIVE agents take a generic update. Enabling
+    // an imported draft and granting it tools happens ONLY through promote (which
+    // re-clamps broad grants, validates scopes, and requires the read-ack).
+    // Without this, PUT would let a hostile imported draft be armed with
+    // Bash(*)/bypassPermissions/global memory-write, bypassing the whole gate.
+    if (existing.status !== "active") {
+      throw new HttpError(
+        409,
+        `agent is ${existing.status}, not active — manage imported drafts via promote/discard`,
+      );
+    }
     if (body.provider) getProvider(body.provider);
     db.update(agents)
       .set({ ...body, updatedAt: nowIso() })

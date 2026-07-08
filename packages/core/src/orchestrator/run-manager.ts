@@ -105,6 +105,10 @@ export class RunManager {
     const agentRow = db.select().from(agents).where(eq(agents.id, input.agentId)).get();
     if (!agentRow) throw new HttpError(404, `agent not found: ${input.agentId}`);
     if (!agentRow.enabled) throw new HttpError(409, `agent is disabled: ${agentRow.name}`);
+    // P9 defense-in-depth: a non-active (quarantined/discarded) agent can NEVER
+    // spawn a run, even if some path armed enabled=true. Only 'active' runs.
+    if (agentRow.status !== "active")
+      throw new HttpError(409, `agent is ${agentRow.status}, not active: ${agentRow.name}`);
     if (input.projectId) {
       const project = db.select().from(projects).where(eq(projects.id, input.projectId)).get();
       if (!project) throw new HttpError(404, `project not found: ${input.projectId}`);
