@@ -24,6 +24,7 @@ import { scanVault } from "../memory/vault.js";
 import { getProvider } from "../providers/index.js";
 import type { NormalizedEvent } from "../providers/types.js";
 import { buildPreamble, type Assignment } from "./preamble.js";
+import { agentChildEnv } from "./child-env.js";
 import { isUntrustedRun } from "./untrusted.js";
 import { resolveRunEffectiveTools } from "../agents/tool-resolution.js";
 import { applyGraphAvailabilityGate, graphEngineInstalled } from "../graph/graph-tools.js";
@@ -290,10 +291,14 @@ export class RunManager {
     );
     db.update(runs).set({ effectiveTools }).where(eq(runs.id, row.id)).run();
 
-    // EH7: a sandbox run's advertised write dirs are clamped to the sandbox project.
+    // EH7: an untrusted run's advertised write dirs are clamped to its own project.
+    // Untrusted = sandbox project OR a delegated (agent-authored) task — the same
+    // predicate agentMemorySave enforces, so advertised ≡ enforced.
     const isSandbox = projectRow?.isSandbox ?? false;
+    const delegated = taskRow?.parentTaskId != null;
     const preamble = buildPreamble(agent, projectSlug, assignment, {
       sandboxProjectSlug: isSandbox ? projectSlug : null,
+      untrusted: isSandbox || delegated,
       effectiveTools,
     });
     // P4 §2: project directives are GUARANTEED-injected — assembled here as their
@@ -332,7 +337,9 @@ export class RunManager {
       spec.viaCmdShell ? ["/d", "/s", "/c", spec.command, ...spec.args] : spec.args,
       {
         cwd: spec.cwd,
-        env: { ...process.env, ...spec.env },
+        // EC2 (P7): explicit allowlist — never spread process.env into an agent
+        // (it carries SPARSTROW_TOKEN, the PAT, deploy secrets). extraEnv wins.
+        env: agentChildEnv(spec.env),
         windowsHide: true,
         shell: false,
         stdio: ["pipe", "pipe", "pipe"],

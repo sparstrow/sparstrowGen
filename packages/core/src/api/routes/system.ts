@@ -1,10 +1,13 @@
 import fs from "node:fs";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { type ProviderHealth, type SystemHealth } from "@sparstrow/shared";
+import { githubPatUpdateSchema, type ProviderHealth, type SystemHealth } from "@sparstrow/shared";
 import { config } from "../../config.js";
 import { getDb, getSqlite } from "../../db/connection.js";
 import { settings } from "../../db/schema.js";
+import { clearPrQueueCache } from "../../projects/pr-queue.js";
+import { SECRET_GITHUB_PAT, deleteSecret, getSecretMeta, setSecret } from "../../secrets/secret-store.js";
+import { getFactoryHealth } from "../../system/factory-health.js";
 import {
   isSchedulerEnabled,
   requestShutdown,
@@ -68,6 +71,30 @@ export async function systemRoutes(app: FastifyInstance): Promise<void> {
     }
     const rows = db.select().from(settings).all();
     return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  });
+
+  /** Rule 23 — "is my factory armed?" self-check (graph engine, embedder, PAT, providers). */
+  app.get("/system/factory-health", async () => getFactoryHealth());
+
+  /**
+   * P7 (EC2) — the GitHub PAT lives in the encrypted secret store, NEVER the
+   * settings table, so it is deliberately absent from GET /system/settings. These
+   * endpoints only ever expose presence + a masked hint; the raw token never
+   * leaves core (used only by core-side git ops).
+   */
+  app.get("/system/secrets/github-pat", async () => getSecretMeta(SECRET_GITHUB_PAT));
+
+  app.put("/system/secrets/github-pat", async (request) => {
+    const { token } = githubPatUpdateSchema.parse(request.body);
+    setSecret(SECRET_GITHUB_PAT, token.trim());
+    clearPrQueueCache();
+    return getSecretMeta(SECRET_GITHUB_PAT);
+  });
+
+  app.delete("/system/secrets/github-pat", async (_request, reply) => {
+    deleteSecret(SECRET_GITHUB_PAT);
+    clearPrQueueCache();
+    reply.code(204);
   });
 
   app.get("/system/scheduler", async () => ({ enabled: isSchedulerEnabled() }));

@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
@@ -25,6 +26,13 @@ export interface AppConfig {
   dbPath: string;
   tmpDir: string;
   logDir: string;
+  /**
+   * EC2 (P7): where core-only secrets (the GitHub PAT) live — an ENCRYPTED file
+   * OUTSIDE dataDir, because the DB/settings/token in dataDir sit in files any
+   * Bash/Read-capable agent could open. Defaults to ~/.sparstrow (never under
+   * dataDir); override with SPARSTROW_SECRETS_DIR. Never handed to an agent.
+   */
+  secretsDir: string;
   /** Where generated per-agent SKILL.md projections are written on disk. */
   agentsDir: string;
   vaultPath: string;
@@ -79,6 +87,7 @@ function resolveConfig(): AppConfig {
     tmpDir: path.join(dataDir, "tmp"),
     logDir: path.join(dataDir, "logs"),
     agentsDir: path.join(dataDir, "agents"),
+    secretsDir: process.env.SPARSTROW_SECRETS_DIR ?? path.join(os.homedir(), ".sparstrow"),
     vaultPath,
     claudePath: process.env.SPARSTROW_CLAUDE_PATH ?? "claude",
     geminiPath: process.env.SPARSTROW_GEMINI_PATH ?? "gemini",

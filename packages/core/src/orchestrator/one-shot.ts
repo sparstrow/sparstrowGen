@@ -8,6 +8,7 @@ import { nanoid } from "nanoid";
 import type { Agent } from "@sparstrow/shared";
 import { config } from "../config.js";
 import { logger } from "../logger.js";
+import { agentChildEnv } from "./child-env.js";
 import { getProvider } from "../providers/index.js";
 import type { NormalizedEvent } from "../providers/types.js";
 
@@ -63,7 +64,8 @@ export async function completeOnce(
       spec.viaCmdShell ? ["/d", "/s", "/c", spec.command, ...spec.args] : spec.args,
       {
         cwd: spec.cwd,
-        env: { ...process.env, ...spec.env },
+        // EC2 (P7): allowlisted child env — no process.env spread into agents.
+        env: agentChildEnv(spec.env),
         windowsHide: true,
         shell: false,
         stdio: ["pipe", "pipe", "pipe"],

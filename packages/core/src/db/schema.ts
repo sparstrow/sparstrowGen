@@ -51,6 +51,11 @@ export const projects = sqliteTable(
     isSandbox: integer("is_sandbox", { mode: "boolean" }).notNull().default(false),
     // P4 git awareness: the remote this rootDir was cloned/bound from (nullable).
     gitRemote: text("git_remote"),
+    // P7 execution profile (factory | production_app): decides the git-ops guard
+    // rails (PR target + protected refs). Enum enforced in zod, not SQL.
+    executionProfile: text("execution_profile").notNull().default("factory"),
+    // P7: the protected staging branch a production_app project PRs into.
+    stagingBranch: text("staging_branch"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },

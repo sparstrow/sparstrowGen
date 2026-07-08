@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { idSchema, isoDateSchema, slugSchema } from "./common.js";
 
+/**
+ * P7 execution profile. `factory` = the Sparstrowgen repo and its own tooling
+ * (PR to main). `production_app` = a client/product repo (PR to a staging
+ * branch; main + staging are both push-protected). Guard rails are core-enforced
+ * off this value, never prompt-enforced.
+ */
+export const executionProfileSchema = z.enum(["factory", "production_app"]);
+export type ExecutionProfile = z.infer<typeof executionProfileSchema>;
+
 export const projectSchema = z.object({
   id: idSchema,
   name: z.string().min(1).max(80),
@@ -20,6 +29,16 @@ export const projectSchema = z.object({
   isSandbox: z.boolean().default(false),
   /** P4: the git remote URL this project's rootDir was cloned from (nullable). */
   gitRemote: z.string().nullable().default(null),
+  /**
+   * P7 execution profile — decides the git-ops guard rails: `factory` PRs to
+   * `main`; `production_app` PRs to the project's staging branch and treats both
+   * `main` and staging as protected (agents may never push directly to either).
+   * All existing projects default to `factory` (P7-Q3); flip client-product
+   * repos to `production_app` manually.
+   */
+  executionProfile: executionProfileSchema.default("factory"),
+  /** P7: the protected integration branch for a `production_app` project (PR target). */
+  stagingBranch: z.string().nullable().default(null),
   createdAt: isoDateSchema,
   updatedAt: isoDateSchema,
 });
@@ -35,6 +54,9 @@ export const projectCreateSchema = projectSchema
     allowedTools: true,
     disallowedTools: true,
     gitRemote: true,
+    // P7 profile fields default to factory and are set via update, not create.
+    executionProfile: true,
+    stagingBranch: true,
     createdAt: true,
     updatedAt: true,
   })
@@ -44,6 +66,9 @@ export type ProjectCreate = z.infer<typeof projectCreateSchema>;
 export const projectUpdateSchema = projectCreateSchema.partial().extend({
   allowedTools: z.array(z.string()).optional(),
   disallowedTools: z.array(z.string()).optional(),
+  // P7: the operator flips a project to production_app + names its staging branch.
+  executionProfile: executionProfileSchema.optional(),
+  stagingBranch: z.string().nullable().optional(),
 });
 export type ProjectUpdate = z.infer<typeof projectUpdateSchema>;
 

@@ -494,4 +494,20 @@ CREATE INDEX idx_plan_edges_to ON plan_edges(to_node_id);
 CREATE INDEX idx_plan_edges_user ON plan_edges(user_id);
 `,
   },
+  {
+    // P7 git automation & execution profiles.
+    // - projects.execution_profile (factory | production_app): the git-ops guard
+    //   rails read this to pick the PR target and the set of push-protected refs.
+    //   Existing rows default to 'factory' (P7-Q3 — flip client repos manually).
+    // - projects.staging_branch: the protected integration branch a production_app
+    //   project PRs into (nullable; irrelevant for factory profile).
+    // The GitHub PAT is deliberately NOT a column (EC2/P7-Q1) — it lives encrypted
+    // outside dataDir in the secret store, never in the agent-readable DB.
+    // ADD COLUMN-only — safe under the in-transaction runner.
+    id: "0010_git_automation",
+    sql: `
+ALTER TABLE projects ADD COLUMN execution_profile TEXT NOT NULL DEFAULT 'factory';
+ALTER TABLE projects ADD COLUMN staging_branch TEXT;
+`,
+  },
 ];

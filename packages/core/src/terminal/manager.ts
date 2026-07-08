@@ -1,6 +1,7 @@
 import * as pty from "node-pty";
 import { nanoid } from "nanoid";
 import { logger } from "../logger.js";
+import { agentChildEnv } from "../orchestrator/child-env.js";
 
 const RING_BUFFER_MAX = 256 * 1024; // 256 KB
 const DETACH_TTL_MS = 10 * 60 * 1000; // 10 min grace after WS disconnect
@@ -45,7 +46,9 @@ export function createSession(opts: {
     cols,
     rows,
     cwd: opts.cwd,
-    env: { ...process.env, ...opts.env } as Record<string, string>,
+    // EC2 (P7): allowlisted child env — a terminal is agent-capable, so it gets
+    // the same no-process.env-spread treatment as headless runs.
+    env: agentChildEnv(opts.env),
     useConpty: true,
   });
 

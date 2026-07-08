@@ -8,6 +8,7 @@ export * from "./schemas/agent.js";
 export * from "./schemas/agent-draft.js";
 export * from "./schemas/project.js";
 export * from "./schemas/project-directive.js";
+export * from "./schemas/git.js";
 export * from "./schemas/run.js";
 export * from "./schemas/task.js";
 export * from "./schemas/pipeline.js";

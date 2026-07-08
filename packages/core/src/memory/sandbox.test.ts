@@ -7,7 +7,7 @@ import { config } from "../config.js";
 import { closeDb, openDb } from "../db/connection.js";
 import { projects } from "../db/schema.js";
 import { agentMemorySave, type RunContext } from "./agent-memory.js";
-import { clampSandboxWriteScopes, expandWriteScopes } from "./scopes.js";
+import { clampSandboxWriteScopes, expandWriteScopes, resolveWriteFilters } from "./scopes.js";
 import { getSandboxProjectSlugs, isForeignSandboxNote } from "./search.js";
 import { HttpError } from "../orchestrator/run-manager.js";
 
@@ -99,6 +99,70 @@ describe("EH7 sandbox write enforcement (agentMemorySave)", () => {
     const nonSbx = ctx({ isSandbox: false, projectSlug: "normalproj" });
     expect(agentMemorySave(nonSbx, { title: "g", content: "x", scope: "global", tags: [] }).scope).toBe("global");
     expect(agentMemorySave(nonSbx, { title: "s", content: "x", scope: "agent", tags: [] }).scope).toBe("agent");
+  });
+});
+
+describe("EH7 untrusted-run write clamp (delegated / non-sandbox — the gap P7 closes)", () => {
+  let vaultDir: string;
+  let originalVault: string;
+
+  beforeEach(() => {
+    closeDb();
+    openDb(":memory:");
+    originalVault = config.vaultPath;
+    vaultDir = fs.mkdtempSync(path.join(os.tmpdir(), "sparstrow-untrusted-"));
+    config.vaultPath = vaultDir;
+  });
+  afterEach(() => {
+    config.vaultPath = originalVault;
+    closeDb();
+    fs.rmSync(vaultDir, { recursive: true, force: true });
+  });
+
+  // A delegated task (parentTaskId set) is untrusted even though its project is
+  // NOT a sandbox — its prompt embeds a <delegated-request> another agent wrote.
+  const delegated = (over: Partial<RunContext> = {}): RunContext =>
+    ctx({ isSandbox: false, projectSlug: "clientproj", parentTaskId: "tsk_parent", ...over });
+
+  it("resolveWriteFilters: restricted keeps only the run's project; unrestricted keeps all", () => {
+    const agent = mkAgent(["global", "agent:self", "project:*"]);
+    expect(resolveWriteFilters(agent, "clientproj", { restricted: true })).toEqual([
+      { scope: "project", projectSlug: "clientproj" },
+    ]);
+    expect(resolveWriteFilters(agent, "clientproj", { restricted: false }).length).toBe(3);
+  });
+
+  it("resolveWriteFilters: a restricted run with NO project can write nothing", () => {
+    expect(resolveWriteFilters(mkAgent(["global", "agent:self", "project:*"]), null, { restricted: true })).toEqual([]);
+  });
+
+  it("ALLOWS a project write to the delegated run's own project", () => {
+    const note = agentMemorySave(delegated(), { title: "finding", content: "x", scope: "project", tags: [] });
+    expect(note.projectSlug).toBe("clientproj");
+  });
+
+  it("REJECTS a global write from a delegated (untrusted, non-sandbox) run", () => {
+    expect(() => agentMemorySave(delegated(), { title: "leak", content: "x", scope: "global", tags: [] })).toThrow(
+      /untrusted run/,
+    );
+  });
+
+  it("REJECTS an agent:self write from a delegated run (the second-order injection vector)", () => {
+    expect(() => agentMemorySave(delegated(), { title: "leak", content: "x", scope: "agent", tags: [] })).toThrow(
+      /untrusted run/,
+    );
+  });
+
+  it("REJECTS a foreign-project write from a delegated run", () => {
+    expect(() =>
+      agentMemorySave(delegated(), { title: "leak", content: "x", scope: "project", projectSlug: "other", tags: [] }),
+    ).toThrow(HttpError);
+  });
+
+  it("a TRUSTED (non-sandbox, non-delegated) run keeps global + self", () => {
+    const trusted = ctx({ isSandbox: false, projectSlug: "clientproj", parentTaskId: null });
+    expect(agentMemorySave(trusted, { title: "g", content: "x", scope: "global", tags: [] }).scope).toBe("global");
+    expect(agentMemorySave(trusted, { title: "s", content: "x", scope: "agent", tags: [] }).scope).toBe("agent");
   });
 });
 

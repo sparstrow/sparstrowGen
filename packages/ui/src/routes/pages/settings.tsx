@@ -5,11 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  useClearGithubPat,
+  useFactoryHealth,
+  useGithubPat,
   useGraphEngine,
   useHealth,
   useIndexAllProjects,
   useInstallGraphEngine,
   useRetryGraphEngine,
+  useSetGithubPat,
   useSettings,
   useUpdateSettings,
 } from "@/api/hooks";
@@ -96,6 +100,119 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
+/**
+ * Rule 23 — the "is my factory armed?" self-check. One row per degrade-by-design
+ * dependency; `armed` is green only when every REQUIRED check is ok. This is the
+ * operator-side mirror of the agent's resolved-toolset preamble.
+ */
+function FactoryHealthCard() {
+  const health = useFactoryHealth();
+  const statusVariant = (s: "ok" | "degraded" | "off") =>
+    s === "ok" ? "success" : s === "degraded" ? "warning" : "destructive";
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between space-y-0">
+        <div>
+          <CardTitle className="text-sm">Factory health</CardTitle>
+          <CardDescription>Is the factory armed? Each degrade-by-design dependency.</CardDescription>
+        </div>
+        {health.data && (
+          <Badge variant={health.data.armed ? "success" : "destructive"}>
+            {health.data.armed ? "armed" : "disarmed"}
+          </Badge>
+        )}
+      </CardHeader>
+      <CardContent className="divide-y">
+        {health.isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : health.data ? (
+          health.data.checks.map((c) => (
+            <div key={c.id} className="flex items-center justify-between gap-4 py-2">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">{c.label}</p>
+                {c.detail && (
+                  <p className="truncate text-xs text-muted-foreground" title={c.detail}>
+                    {c.detail}
+                  </p>
+                )}
+              </div>
+              <Badge variant={statusVariant(c.status)}>{c.status}</Badge>
+            </div>
+          ))
+        ) : (
+          <p className="py-3 text-sm text-destructive">Core service unreachable.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * P7 (EC2) — the GitHub PAT. It lives in the core-only encrypted secret store
+ * (never the DB any agent could read), so this panel only ever shows presence +
+ * a masked hint. Setting it enables PR creation + the Dashboard PR queue.
+ */
+function GitCard() {
+  const pat = useGithubPat();
+  const setPat = useSetGithubPat();
+  const clearPat = useClearGithubPat();
+  const [token, setToken] = React.useState("");
+
+  const present = pat.data?.present ?? false;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Git</CardTitle>
+        <CardDescription>
+          A fine-grained GitHub PAT (contents:rw, pull_requests:rw on your repos). Stored
+          encrypted outside the agent-readable data dir — never injected into an agent.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <InfoRow label="GitHub PAT">
+          {pat.isLoading ? (
+            <Skeleton className="h-5 w-20" />
+          ) : present ? (
+            <span className="flex items-center gap-2">
+              <Badge variant="success">configured</Badge>
+              {pat.data?.hint && <span className="font-mono text-xs">{pat.data.hint}</span>}
+            </span>
+          ) : (
+            <Badge variant="secondary">not set</Badge>
+          )}
+        </InfoRow>
+        <div className="flex items-center gap-2">
+          <Input
+            type="password"
+            className="font-mono text-xs"
+            placeholder={present ? "Enter a new token to replace…" : "github_pat_…"}
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+          />
+          <Button
+            size="sm"
+            disabled={setPat.isPending || token.trim().length === 0}
+            onClick={() => setPat.mutate(token.trim(), { onSuccess: () => setToken("") })}
+          >
+            {present ? "Replace" : "Save"}
+          </Button>
+          {present && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={clearPat.isPending}
+              onClick={() => clearPat.mutate()}
+            >
+              Clear
+            </Button>
+          )}
+        </div>
+        {setPat.isError && <p className="text-xs text-destructive">{setPat.error.message}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function SettingsPage() {
   const health = useHealth();
   const settings = useSettings();
@@ -111,6 +228,8 @@ export function SettingsPage() {
 
   return (
     <div className="max-w-3xl space-y-5">
+      <FactoryHealthCard />
+
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">System</CardTitle>
@@ -177,6 +296,8 @@ export function SettingsPage() {
           ))}
         </CardContent>
       </Card>
+
+      <GitCard />
 
       <Card>
         <CardHeader>
