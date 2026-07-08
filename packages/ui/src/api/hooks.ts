@@ -9,6 +9,9 @@ import type {
   Agent,
   AgentCreate,
   AgentUpdate,
+  PromoteAgent,
+  SkillImport,
+  SkillImportCreate,
   DraftRequest,
   DraftTurn,
   Goal,
@@ -1548,5 +1551,72 @@ export function useDeleteGoal(): UseMutationResult<void, ApiError, string> {
   return useMutation({
     mutationFn: (id: string) => api<void>(`/goals/${id}`, { method: "DELETE" }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["goals"] }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Skill imports (P9 — external agent/skill ingestion + quarantine)
+// ---------------------------------------------------------------------------
+
+export function useSkillImports(): UseQueryResult<SkillImport[], ApiError> {
+  return useQuery({
+    queryKey: ["skill-imports"],
+    queryFn: () => api<SkillImport[]>("/agents/imports"),
+    refetchInterval: 5000,
+  });
+}
+
+export interface SkillImportDetail {
+  import: SkillImport;
+  drafts: Agent[];
+}
+
+export function useSkillImportDetail(id: string): UseQueryResult<SkillImportDetail, ApiError> {
+  return useQuery({
+    queryKey: ["skill-import", id],
+    queryFn: () => api<SkillImportDetail>(`/agents/imports/${id}`),
+    enabled: Boolean(id),
+    // Poll while the clone → extract → review pipeline is still running.
+    refetchInterval: (q) => {
+      const status = q.state.data?.import.status;
+      return status && status !== "ready" && status !== "failed" ? 2000 : false;
+    },
+  });
+}
+
+export function useStartSkillImport(): UseMutationResult<SkillImport, ApiError, SkillImportCreate> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SkillImportCreate) =>
+      api<SkillImport>("/agents/imports", { method: "POST", body }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skill-imports"] }),
+  });
+}
+
+/** Promote a quarantined draft to an active agent (tools re-clamped server-side). */
+export function usePromoteAgent(): UseMutationResult<
+  Agent,
+  ApiError,
+  { id: string; data: PromoteAgent }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => api<Agent>(`/agents/${id}/promote`, { method: "POST", body: data }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["skill-imports"] });
+      void queryClient.invalidateQueries({ queryKey: ["skill-import"] });
+      void queryClient.invalidateQueries({ queryKey: ["agents"] });
+    },
+  });
+}
+
+export function useDiscardAgent(): UseMutationResult<Agent, ApiError, string> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<Agent>(`/agents/${id}/discard`, { method: "POST" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["skill-imports"] });
+      void queryClient.invalidateQueries({ queryKey: ["skill-import"] });
+    },
   });
 }
