@@ -5,6 +5,9 @@ import { agentOriginSchema, agentStatusSchema, specterReportSchema } from "./spe
 export const providerIdSchema = z.enum([
   "claude-code",
   "gemini-cli",
+  // P8.1: Antigravity CLI (`agy`) — a headless CLI provider like gemini-cli, the
+  // sanctioned successor after Gemini CLI was retired.
+  "antigravity",
   // P8: direct-API providers run through core's in-process tool-loop (execution
   // mode is derived from the provider, not stored — see PROVIDER_KINDS).
   "anthropic-api",
@@ -22,6 +25,7 @@ export type ExecutionMode = "cli" | "direct_api";
 export const PROVIDER_KINDS: Record<ProviderId, ExecutionMode> = {
   "claude-code": "cli",
   "gemini-cli": "cli",
+  antigravity: "cli",
   "anthropic-api": "direct_api",
   ollama: "direct_api",
 };

@@ -38,6 +38,8 @@ export interface AppConfig {
   vaultPath: string;
   claudePath: string;
   geminiPath: string;
+  /** P8.1 Antigravity CLI binary (`agy`). Override with SPARSTROW_ANTIGRAVITY_PATH. */
+  antigravityPath: string;
   /** git binary for read-only project state (P4). Override with SPARSTROW_GIT_PATH. */
   gitPath: string;
   /** P8 direct-API base URLs (overridable for tests / self-hosting / proxies). */
@@ -94,6 +96,7 @@ function resolveConfig(): AppConfig {
     vaultPath,
     claudePath: process.env.SPARSTROW_CLAUDE_PATH ?? "claude",
     geminiPath: process.env.SPARSTROW_GEMINI_PATH ?? "gemini",
+    antigravityPath: process.env.SPARSTROW_ANTIGRAVITY_PATH ?? "agy",
     gitPath: process.env.SPARSTROW_GIT_PATH ?? "git",
     anthropicApiBase: (process.env.SPARSTROW_ANTHROPIC_API_BASE ?? "https://api.anthropic.com").replace(/\/+$/, ""),
     ollamaHost: (process.env.SPARSTROW_OLLAMA_HOST ?? "http://127.0.0.1:11434").replace(/\/+$/, ""),

@@ -23,6 +23,18 @@ export const DEFAULT_GLOBAL_CONCURRENCY = 4;
 export const KNOWN_MODELS: Record<string, string[]> = {
   "claude-code": ["opus", "sonnet", "haiku"],
   "gemini-cli": ["gemini-2.5-pro", "gemini-2.5-flash"],
+  // P8.1: exact `agy models` display strings — verified as the tokens `--model`
+  // accepts (agy v1.1.0). The parenthetical is the reasoning-effort tier.
+  antigravity: [
+    "Gemini 3.1 Pro (High)",
+    "Gemini 3.1 Pro (Low)",
+    "Gemini 3.5 Flash (High)",
+    "Gemini 3.5 Flash (Medium)",
+    "Gemini 3.5 Flash (Low)",
+    "Claude Opus 4.6 (Thinking)",
+    "Claude Sonnet 4.6 (Thinking)",
+    "GPT-OSS 120B (Medium)",
+  ],
   // P8 direct-API defaults; the live list comes from POST /providers/discover-models.
   "anthropic-api": [
     "claude-opus-4-8",
