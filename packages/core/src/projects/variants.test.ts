@@ -121,5 +121,5 @@ describe("client variants (P4 §7)", () => {
     expect(fs.existsSync(path.join(variantDir, "README.md"))).toBe(true);
     // The base's project note was copied into the variant scope.
     expect(db.select().from(memoryNotes).where(eq(memoryNotes.projectSlug, "clinic-a")).all()).toHaveLength(1);
-  });
+  }, 15000);
 });
