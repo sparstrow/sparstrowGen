@@ -90,7 +90,7 @@ const modelTurnSchema = z.object({
 
 const DRAFT_KEYS = Object.keys(agentDraftSchema.shape);
 
-function isBroadGrant(tool: string): boolean {
+export function isBroadGrant(tool: string): boolean {
   const t = tool.trim();
   return t === "*" || /\(\s*\*\s*\)/.test(t) || /^bash$/i.test(t);
 }

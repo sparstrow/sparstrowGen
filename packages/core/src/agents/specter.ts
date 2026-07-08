@@ -145,7 +145,7 @@ export function buildSpecterPrompt(skill: FoundSkill, staticResult: StaticResult
   ].join("\n");
 }
 
-function extractJsonObject(text: string): unknown {
+export function extractJsonObject(text: string): unknown {
   let t = text.trim();
   const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fence?.[1]) t = fence[1].trim();
