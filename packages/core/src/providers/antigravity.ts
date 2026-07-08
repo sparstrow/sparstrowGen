@@ -12,7 +12,7 @@ import type {
 
 /**
  * Provider for Google's Antigravity CLI (`agy`, verified against v1.1.0) — the
- * sanctioned successor after Gemini CLI was retired.
+ * sanctioned successor to the now-retired Gemini CLI provider.
  *
  * Headless verified behavior (log-confirmed via ~/.gemini/antigravity-cli/cli.log):
  *  - `agy --model "<display>" --print -` reads the prompt from STDIN. The literal
@@ -23,12 +23,12 @@ import type {
  *  - `--model` tokens are the exact `agy models` display strings (see KNOWN_MODELS).
  *  - `agy.exe` is a real binary, not an npm .cmd shim, so spawns run directly
  *    (viaCmdShell:false) — no cmd.exe quoting layer.
- *  - `--print` output is plain text (no JSON envelope like gemini), so there are
- *    no cost/turn stats and no machine error field; extractResult joins stdout and
+ *  - `--print` output is plain text, not a JSON envelope, so there are no
+ *    cost/turn stats and no machine error field; extractResult joins stdout and
  *    flags only the empty case. Nonzero-exit failures are caught by the executor's
  *    finalize(code, …), which never reaches extractResult.
- * No MCP wiring: like gemini, antigravity agents use the sparstrow-memory CLI and
- * fenced ```sparstrow``` directives (see orchestrator/preamble.ts).
+ * No MCP wiring: antigravity agents use the sparstrow-memory CLI and fenced
+ * ```sparstrow``` directives (see orchestrator/preamble.ts).
  */
 export class AntigravityCliProvider implements CliProvider {
   readonly id = "antigravity" as const;
@@ -53,7 +53,7 @@ export class AntigravityCliProvider implements CliProvider {
   }
 
   private workspaceDirArgs(agent: Agent): string[] {
-    // Mirror gemini: the agent must reach its own memory vault plus any addDirs.
+    // The agent must reach its own memory vault plus any addDirs.
     return [...agent.addDirs, config.vaultPath].flatMap((d) => ["--add-dir", d]);
   }
 

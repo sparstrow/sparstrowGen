@@ -17,7 +17,7 @@ const saveSchema = z.object({
 });
 
 /**
- * REST twin of the /mcp tools, used by the sparstrow-memory CLI (gemini,
+ * REST twin of the /mcp tools, used by the sparstrow-memory CLI (antigravity,
  * humans) with the same per-run header auth and scope enforcement.
  */
 export async function agentGatewayRoutes(app: FastifyInstance): Promise<void> {

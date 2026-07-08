@@ -127,7 +127,7 @@ export function TerminalsPage() {
           <div>
             <p className="text-sm font-medium">No terminal attached</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Open an interactive agent session (claude / gemini) or a plain shell.
+              Open an interactive agent session (claude / antigravity) or a plain shell.
             </p>
           </div>
         </div>

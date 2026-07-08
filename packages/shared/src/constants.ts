@@ -22,7 +22,6 @@ export const DEFAULT_GLOBAL_CONCURRENCY = 4;
 /** Known model choices per provider (free-text also allowed). */
 export const KNOWN_MODELS: Record<string, string[]> = {
   "claude-code": ["opus", "sonnet", "haiku"],
-  "gemini-cli": ["gemini-2.5-pro", "gemini-2.5-flash"],
   // P8.1: exact `agy models` display strings — verified as the tokens `--model`
   // accepts (agy v1.1.0). The parenthetical is the reasoning-effort tier.
   antigravity: [

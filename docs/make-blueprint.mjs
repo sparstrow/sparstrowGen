@@ -340,7 +340,7 @@ const cli = box(
   105,
   280,
   130,
-  "CLAUDE / GEMINI CLIs\nthe actual AI models,\nspawned headless per run\n(your existing logins)",
+  "CLAUDE / ANTIGRAVITY CLIs\nthe actual AI models,\nspawned headless per run\n(your existing logins)",
   COLORS.ai,
   14,
   "robot",

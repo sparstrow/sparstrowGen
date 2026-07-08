@@ -257,9 +257,6 @@ export function AgentFields({ values, set }: { values: AgentFormValues; set: Set
                 <SelectItem value="antigravity">Antigravity (CLI)</SelectItem>
                 <SelectItem value="anthropic-api">Anthropic API</SelectItem>
                 <SelectItem value="ollama">Ollama (local)</SelectItem>
-                <SelectItem value="gemini-cli" disabled>
-                  Gemini CLI (retired)
-                </SelectItem>
               </SelectContent>
             </Select>
           </div>

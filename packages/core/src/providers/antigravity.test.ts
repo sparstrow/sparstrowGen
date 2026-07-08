@@ -31,7 +31,7 @@ const headlessOpts: HeadlessSpawnOptions = {
 };
 
 describe("AntigravityCliProvider — headless spawn", () => {
-  it("runs the real binary directly (viaCmdShell false — regression guard vs gemini's cmd shim)", () => {
+  it("runs the real binary directly (viaCmdShell false — agy.exe is not an npm .cmd shim)", () => {
     const spec = provider.buildHeadlessSpawn(agentWith(), "hi", headlessOpts);
     expect(spec.viaCmdShell).toBe(false);
     expect(spec.command).toBe(config.antigravityPath);

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * sparstrow-memory — CLI twin of the memory MCP server, for agents whose CLI
- * lacks MCP wiring (gemini via shell) and for humans.
+ * lacks MCP wiring (antigravity via shell) and for humans.
  *
  *   sparstrow-memory search "competitor pricing" [--k 8]
  *   sparstrow-memory save --title "Fact" --scope agent --tags a,b --content "..."

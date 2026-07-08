@@ -9,7 +9,7 @@
 ## What Sparstrowgen is
 
 The **factory**: a local-first, single-user agent harness that *builds* apps. CRUD UI over
-agents that wrap CLI models (Claude Code, Gemini CLI), scoped markdown memory with hybrid
+agents that wrap CLI models (Claude Code, Antigravity CLI), scoped markdown memory with hybrid
 vector+FTS search, a task board, pipelines, cron, embedded terminals — Fastify core on
 `127.0.0.1:48750`, React/Vite UI, better-sqlite3, Electron shell. It stays a single-user
 local tool; the cloud/multi-tenant story belongs to the *products* it builds, not here.

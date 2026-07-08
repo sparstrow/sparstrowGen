@@ -14,7 +14,7 @@ export { renderCapabilityDocs } from "./capability-docs.js";
  * preamble "tools by intent" docs; when the direct-API tool-loop lands (P8) it
  * also emits native tool schemas from these same entries. A capability missing
  * from a required surface is a build error — the surfaces cannot drift, and the
- * retired Gemini-CLI fenced-directive grammar is gone (§0.1).
+ * retired Gemini CLI's fenced-directive grammar is gone (§0.1).
  *
  * Entries with a `handler` are registry-OWNED (registered into MCP here). Entries
  * marked `declaredElsewhere` keep their handler in legacy modules for now (agent-
