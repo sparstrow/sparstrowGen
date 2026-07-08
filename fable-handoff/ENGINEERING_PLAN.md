@@ -1099,7 +1099,7 @@ above; rejected at 0C-bis. *Expansion scan* (cherry-picks, autoplan rules applie
 | E1 | Run-detail shows **injected memory provenance** (which notes/directives entered this run) — turns memory debugging from archaeology into a glance | P5 touches injector; run detail exists | S | **AUTO-APPROVED** → folded into P5 (task added) |
 | E2 | **Node-graph run controls** — pause goal, cancel node, retry node from the graph | P6 builds the graph + cancel exists in RunManager | S | **AUTO-APPROVED** → folded into P6 |
 | E3 | **Wake/attention metrics on Dashboard** (blocked count trend, median time-to-answer, wake-loop guard trips) | P1 builds the queue; dashboard exists | S | **AUTO-APPROVED** → folded into P1 |
-| E4 | Global **activity feed** page (every bus event, filterable) | outside any phase's files | M | **DEFERRED → TODOS.md** (P3 pragmatic: Runs page + attention queue cover the need) |
+| E4 | Global **activity feed** page (every bus event, filterable) | outside any phase's files | M | **DEFERRED → DEFERRED_SCOPE.md** (P3 pragmatic: Runs page + attention queue cover the need) |
 | E5 | **Factory health self-check** page (graphify present, embedder loaded, PAT valid, provider CLIs on PATH) | Settings page exists; checks span P5/P7/P8 | M | **TASTE — surfaced at final gate** (genuinely useful for a local app that degrades by design; but it's a new surface no spec asked for) |
 
 ### 0E Temporal interrogation (per-phase gates carry these; program-level)
@@ -1220,7 +1220,7 @@ produced above. NOT-in-scope + leverage map: §"NOT in scope", §"What already e
 | 3 | CEO | E1 memory provenance in run detail → P5 | Auto | P2/P3 | In blast radius, S, closes memory debugging hole | skip |
 | 4 | CEO | E2 node-graph run controls → P6 | Auto | P2 | Graph exists in-phase; cancel API exists | skip |
 | 5 | CEO | E3 wake/attention metrics → P1 | Auto | P1/P2 | Queue + dashboard in blast radius | skip |
-| 6 | CEO | E4 activity feed → TODOS.md | Auto | P3 | Outside blast radius; Runs page covers | in-scope |
+| 6 | CEO | E4 activity feed → DEFERRED_SCOPE.md | Auto | P3 | Outside blast radius; Runs page covers | in-scope |
 | 7 | CEO | E5 health self-check page | **Taste → final gate** | — | Useful for degrade-by-design app vs unasked-for surface | — |
 | 8 | CEO | S1-a child tool policy ⊆ parent effective | Auto | P1 | Delegation must not escalate privileges | unconstrained |
 | 9 | CEO | S1-b Planner consumes P2 resolver for agentHints | Auto | P5 | Plans must not assign unexecutable work | ignore |
@@ -1397,7 +1397,7 @@ mid-wake; SQLite BUSY under dream-cycle + 4 runs; 50-node replan while 3 nodes r
 and a flakiness watchlist (golden transcripts, fake timers, fixture repos — never live
 models in CI).
 
-**TODOS.md** created in-repo with all deferred items (E4 feed, no-network push, OpenAI
+**DEFERRED_SCOPE.md** created in-repo with all deferred items (E4 feed, no-network push, OpenAI
 adapter, DESIGN.md consultation, tool-name normalization, APP.md amendment).
 
 ### Eng dual voices — 3-lens fan-out (architecture / security / data) `[subagent-only]`
@@ -1717,7 +1717,7 @@ creation + Skill Specter) → **P10** (Team Workspace + canvas).
 Cross-cutting rules 1-23 apply to every phase. Artifacts: this plan (per-phase specs +
 appendix), the test-plan artifact at
 `~/.gstack/projects/sparstrow-sparstrowGen/claude-dreamy-engelbart-874599-test-plan-20260702.md`,
-and `TODOS.md` (deferred items).
+and `DEFERRED_SCOPE.md` (deferred items).
 
 **Final gate: APPROVED 2026-07-03.** All 10 phases locked; plan is the build contract.
 <!-- /autoplan review end — master plan APPROVED, all phases LOCKED -->
