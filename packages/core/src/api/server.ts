@@ -11,6 +11,7 @@ import { logger } from "../logger.js";
 import { HttpError } from "../orchestrator/run-manager.js";
 import { agentGatewayRoutes } from "./routes/agent-gateway.js";
 import { agentRoutes } from "./routes/agents.js";
+import { skillImportRoutes } from "./routes/skill-imports.js";
 import { cronRoutes } from "./routes/cron.js";
 import { gitRoutes } from "./routes/git.js";
 import { goalRoutes } from "./routes/goals.js";
@@ -76,6 +77,7 @@ export async function buildServer() {
       api.addHook("onRequest", requireAuth);
       await api.register(systemRoutes);
       await api.register(agentRoutes);
+      await api.register(skillImportRoutes);
       await api.register(projectRoutes);
       await api.register(teamRoutes);
       await api.register(runRoutes);

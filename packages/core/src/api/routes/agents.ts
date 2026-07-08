@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
   agentCreateSchema,
@@ -23,12 +23,14 @@ function rowToAgent(row: typeof agents.$inferSelect): Agent {
 
 export async function agentRoutes(app: FastifyInstance): Promise<void> {
   app.get("/agents", async () => {
-    // Hide factory-managed system agents (Project Indexer/Reporter) from the
-    // roster by default — they are still individually gettable by id.
+    // The roster shows active, user-facing agents only. Factory system agents
+    // (Project Indexer/Reporter, Extractor, Specter) are hidden, and so are P9
+    // quarantined/discarded imports — those live on the Imports surface until
+    // promoted. All rows stay individually gettable by id.
     return getDb()
       .select()
       .from(agents)
-      .where(eq(agents.isSystem, false))
+      .where(and(eq(agents.isSystem, false), eq(agents.status, "active")))
       .orderBy(agents.name)
       .all()
       .map(rowToAgent);
