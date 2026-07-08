@@ -35,7 +35,9 @@ import {
   useProjectGraph,
   useProjectGraphUsage,
   useProjectVariants,
+  useProjectPrs,
   useProjects,
+  useUpdateProject,
   useGraphEngine,
   useLaunchViz,
   useProjectViz,
@@ -50,6 +52,7 @@ import {
   type DirEntry,
 } from "@/api/hooks";
 import { useMemoryNotes } from "@/api/hooks";
+import { PrRow, ProfileBadge } from "@/components/pr-queue";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -89,6 +92,7 @@ export function ProjectWorkspacePage() {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-3xl font-bold tracking-tight">{p.name}</h1>
           <GitBadge state={git.data} loading={git.isLoading} />
+          <ProfileBadge profile={p.executionProfile === "production_app" ? "production_app" : "factory"} />
           {p.isSandbox && (
             <Badge variant="outline" className="border-sky-500/40 text-sky-600 dark:text-sky-400" title="Sandbox: memory writes are isolated to this project.">
               sandbox
@@ -144,6 +148,12 @@ export function ProjectWorkspacePage() {
             isSandbox={p.isSandbox}
           />
           <CodeGraphPanel projectId={projectId} isSandbox={p.isSandbox} hasRoot={Boolean(p.rootDir)} />
+          <GitPanel
+            projectId={projectId}
+            profile={p.executionProfile === "production_app" ? "production_app" : "factory"}
+            stagingBranch={p.stagingBranch ?? null}
+            hasRemote={Boolean(p.gitRemote)}
+          />
           <DreamCyclePanel projectId={projectId} isSandbox={p.isSandbox} />
         </div>
       </div>
@@ -164,6 +174,105 @@ function GitBadge({ state, loading }: { state?: ReturnType<typeof useProjectGitS
       {state.ahead > 0 && <span className="text-muted-foreground">↑{state.ahead}</span>}
       {state.behind > 0 && <span className="text-muted-foreground">↓{state.behind}</span>}
     </Badge>
+  );
+}
+
+/**
+ * P7 §6 (per-project view) — the execution profile control + this project's open
+ * PRs. The profile decides git-ops guard rails: `factory` PRs to main; a
+ * `production_app` protects its staging branch too and PRs there. Flipping it is
+ * the manual owner action the plan locked (P7-Q3 defaults everything to factory).
+ */
+function GitPanel({
+  projectId,
+  profile,
+  stagingBranch,
+  hasRemote,
+}: {
+  projectId: string;
+  profile: "factory" | "production_app";
+  stagingBranch: string | null;
+  hasRemote: boolean;
+}) {
+  const update = useUpdateProject();
+  const prs = useProjectPrs(projectId);
+  const [staging, setStaging] = React.useState(stagingBranch ?? "");
+
+  const setProfile = (next: "factory" | "production_app") => {
+    update.mutate({
+      id: projectId,
+      data: {
+        executionProfile: next,
+        stagingBranch: next === "production_app" ? staging.trim() || "staging" : null,
+      },
+    });
+  };
+
+  return (
+    <div className="space-y-3 rounded-xl border p-3">
+      <div>
+        <p className="text-sm font-medium">Git &amp; pull requests</p>
+        <p className="text-xs text-muted-foreground">
+          Profile sets the PR target and push guard rails.
+        </p>
+      </div>
+
+      <div className="flex gap-2">
+        {(["factory", "production_app"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            disabled={update.isPending}
+            onClick={() => setProfile(v)}
+            className={cn(
+              "flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors hover:bg-accent",
+              profile === v && "border-primary bg-accent",
+            )}
+          >
+            {v === "production_app" ? "production app" : "factory"}
+          </button>
+        ))}
+      </div>
+
+      {profile === "production_app" && (
+        <div className="flex items-center gap-2">
+          <Input
+            className="h-8 font-mono text-xs"
+            placeholder="staging"
+            value={staging}
+            onChange={(e) => setStaging(e.target.value)}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={update.isPending || staging.trim() === (stagingBranch ?? "")}
+            onClick={() => setProfile("production_app")}
+          >
+            Set branch
+          </Button>
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground">
+        PRs target <span className="font-mono">{profile === "production_app" ? (stagingBranch ?? "staging") : "main"}</span>.
+      </p>
+
+      {!hasRemote ? (
+        <p className="text-xs text-muted-foreground">No git remote — bind or clone one to open PRs.</p>
+      ) : prs.isLoading ? (
+        <Skeleton className="h-12 w-full" />
+      ) : prs.data?.error ? (
+        <p className="text-xs text-muted-foreground">{prs.data.error}</p>
+      ) : (prs.data?.pullRequests.length ?? 0) === 0 ? (
+        <p className="text-xs text-muted-foreground">No open pull requests.</p>
+      ) : (
+        <div className="space-y-1">
+          {prs.data!.pullRequests.map((pr) => (
+            <PrRow key={pr.number} pr={pr} />
+          ))}
+        </div>
+      )}
+      {update.isError && <p className="text-xs text-destructive">{update.error.message}</p>}
+    </div>
   );
 }
 

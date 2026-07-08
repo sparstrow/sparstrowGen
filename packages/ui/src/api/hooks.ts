@@ -19,6 +19,12 @@ import type {
   CronJob,
   CronJobCreate,
   CronJobUpdate,
+  FactoryHealth,
+  OpenPrRequest,
+  PrQueue,
+  ProjectPrGroup,
+  PullRequestSummary,
+  SecretMeta,
   MemoryLink,
   MemoryNote,
   MemoryNoteCreate,
@@ -1311,6 +1317,103 @@ export function useUpdateSettings(): UseMutationResult<
       api<Record<string, string>>("/system/settings", { method: "PUT", body }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["settings"] });
+    },
+  });
+}
+
+/** Rule 23 — the "is my factory armed?" self-check. Polls so the readout stays live. */
+export function useFactoryHealth(): UseQueryResult<FactoryHealth, ApiError> {
+  return useQuery({
+    queryKey: ["factory-health"],
+    queryFn: () => api<FactoryHealth>("/system/factory-health"),
+    refetchInterval: 30_000,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Git automation (P7 — PAT secret, PR queue, push/PR)
+// ---------------------------------------------------------------------------
+
+/** EC2: presence + masked hint for the GitHub PAT — never the raw token. */
+export function useGithubPat(): UseQueryResult<SecretMeta, ApiError> {
+  return useQuery({
+    queryKey: ["github-pat"],
+    queryFn: () => api<SecretMeta>("/system/secrets/github-pat"),
+  });
+}
+
+export function useSetGithubPat(): UseMutationResult<SecretMeta, ApiError, string> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (token: string) =>
+      api<SecretMeta>("/system/secrets/github-pat", { method: "PUT", body: { token } }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["github-pat"] });
+      void queryClient.invalidateQueries({ queryKey: ["factory-health"] });
+      void queryClient.invalidateQueries({ queryKey: ["pr-queue"] });
+    },
+  });
+}
+
+export function useClearGithubPat(): UseMutationResult<void, ApiError, void> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<void>("/system/secrets/github-pat", { method: "DELETE" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["github-pat"] });
+      void queryClient.invalidateQueries({ queryKey: ["factory-health"] });
+      void queryClient.invalidateQueries({ queryKey: ["pr-queue"] });
+    },
+  });
+}
+
+/** P7 §6 — the Dashboard aggregate PR queue (all GitHub-remote projects, cached 60s core-side). */
+export function usePrQueue(): UseQueryResult<PrQueue, ApiError> {
+  return useQuery({
+    queryKey: ["pr-queue"],
+    queryFn: () => api<PrQueue>("/git/pull-requests"),
+    refetchInterval: 60_000,
+  });
+}
+
+/** Per-project PR list (the filtered view on project detail). */
+export function useProjectPrs(id: string): UseQueryResult<ProjectPrGroup, ApiError> {
+  return useQuery({
+    queryKey: ["project-prs", id],
+    queryFn: () => api<ProjectPrGroup>(`/projects/${id}/pull-requests`),
+    enabled: Boolean(id),
+    refetchInterval: 60_000,
+  });
+}
+
+/** Push an agent/* branch (core-enforced: protected refs refused). */
+export function usePushBranch(): UseMutationResult<
+  { pushed: boolean; branch: string },
+  ApiError,
+  { projectId: string; branch: string; remote?: string }
+> {
+  return useMutation({
+    mutationFn: ({ projectId, branch, remote }) =>
+      api<{ pushed: boolean; branch: string }>(`/projects/${projectId}/git/push`, {
+        method: "POST",
+        body: { branch, remote },
+      }),
+  });
+}
+
+/** Open a PR from an agent branch — graduates the manual compare-URL step. */
+export function useOpenPr(): UseMutationResult<
+  PullRequestSummary,
+  ApiError,
+  { projectId: string } & OpenPrRequest
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, ...body }) =>
+      api<PullRequestSummary>(`/projects/${projectId}/git/pr`, { method: "POST", body }),
+    onSuccess: (_pr, { projectId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["pr-queue"] });
+      void queryClient.invalidateQueries({ queryKey: ["project-prs", projectId] });
     },
   });
 }

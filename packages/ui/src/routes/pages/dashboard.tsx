@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { RunStatusBadge } from "@/components/run-status-badge";
 import { AttentionQueue } from "@/components/attention-queue";
+import { PrQueueCard } from "@/components/pr-queue";
 import { useAgents, useHealth, useProjects, useRuns } from "@/api/hooks";
 import { formatCost, formatDate, formatDuration } from "@/lib/format";
 
@@ -144,6 +145,9 @@ export function DashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* The founder's #2 morning surface: open PRs across every project (design §6). */}
+      <PrQueueCard />
 
       <Card>
         <CardHeader>
