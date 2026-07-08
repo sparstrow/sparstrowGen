@@ -6,6 +6,7 @@ export * from "./tool-policy.js";
 export * from "./schemas/common.js";
 export * from "./schemas/agent.js";
 export * from "./schemas/agent-draft.js";
+export * from "./schemas/specter.js";
 export * from "./schemas/project.js";
 export * from "./schemas/project-directive.js";
 export * from "./schemas/git.js";

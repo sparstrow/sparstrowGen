@@ -1,5 +1,5 @@
 import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import type { AppliedEffect, McpServerConfig } from "@sparstrow/shared";
+import type { AppliedEffect, McpServerConfig, SpecterReport } from "@sparstrow/shared";
 
 export const agents = sqliteTable("agents", {
   id: text("id").primaryKey(),
@@ -29,9 +29,42 @@ export const agents = sqliteTable("agents", {
   // P4: factory-managed system agent (Project Indexer/Reporter), hidden from the
   // default roster. Seeded at boot, not user-created.
   isSystem: integer("is_system", { mode: "boolean" }).notNull().default(false),
+  // P9: provenance ('user' | 'import') + quarantine lifecycle
+  // ('active' | 'quarantined' | 'discarded'). Imported skills land quarantined
+  // (enabled=false, no tool grants) until the operator promotes them; enums in zod.
+  origin: text("origin").notNull().default("user"),
+  status: text("status").notNull().default("active"),
+  // P9 Skill Specter security review card (pass/flag/block + findings), JSON.
+  specterReport: text("specter_report", { mode: "json" }).$type<SpecterReport | null>(),
+  // P9 code-enforced links (no FK — audit rows survive sandbox cleanup): the
+  // import batch and the sandbox project this skill was extracted from.
+  importId: text("import_id"),
+  sandboxProjectId: text("sandbox_project_id"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
-});
+}, (t) => [index("idx_agents_status").on(t.status)]);
+
+/**
+ * P9 skill ingestion (§3): one row per external-repo import. Core clones the
+ * repo into a sandbox project, the Intelligence Extractor reconstructs skills as
+ * quarantined draft agents, and the Skill Specter reviews each. Links are
+ * code-enforced (no FK) so the audit row survives sandbox cleanup.
+ */
+export const skillImports = sqliteTable(
+  "skill_imports",
+  {
+    id: text("id").primaryKey(),
+    sourceUrl: text("source_url").notNull(),
+    sandboxProjectId: text("sandbox_project_id"),
+    status: text("status").notNull().default("cloning"),
+    extractorRunId: text("extractor_run_id"),
+    error: text("error"),
+    foundSkillCount: integer("found_skill_count").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("idx_skill_imports_status").on(t.status)],
+);
 
 export const projects = sqliteTable(
   "projects",

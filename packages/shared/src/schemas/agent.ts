@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { idSchema, isoDateSchema, slugSchema } from "./common.js";
+import { agentOriginSchema, agentStatusSchema, specterReportSchema } from "./specter.js";
 
 export const providerIdSchema = z.enum([
   "claude-code",
@@ -86,13 +87,40 @@ export const agentSchema = z.object({
    * clutter the roster; still runnable via cron/auto-index.
    */
   isSystem: z.boolean().default(false),
+  /**
+   * P9 provenance: 'user' (operator/Creator-made) or 'import' (a skill
+   * reconstructed from an external repo by the Intelligence Extractor).
+   */
+  origin: agentOriginSchema.default("user"),
+  /**
+   * P9 quarantine lifecycle. Imported skills are 'quarantined' (enabled=false,
+   * no tool grants) until the operator promotes them; 'discarded' is a soft
+   * reject. Enforced server-side — the create/update path can't set it.
+   */
+  status: agentStatusSchema.default("active"),
+  /** P9 Skill Specter security review card (null until reviewed). */
+  specterReport: specterReportSchema.nullable().default(null),
+  /** P9 code-enforced links: the import batch + sandbox project of origin. */
+  importId: z.string().nullable().default(null),
+  sandboxProjectId: z.string().nullable().default(null),
   createdAt: isoDateSchema,
   updatedAt: isoDateSchema,
 });
 export type Agent = z.infer<typeof agentSchema>;
 
 export const agentCreateSchema = agentSchema
-  .omit({ id: true, slug: true, isSystem: true, createdAt: true, updatedAt: true })
+  .omit({
+    id: true,
+    slug: true,
+    isSystem: true,
+    origin: true,
+    status: true,
+    specterReport: true,
+    importId: true,
+    sandboxProjectId: true,
+    createdAt: true,
+    updatedAt: true,
+  })
   .extend({ slug: slugSchema.optional() });
 export type AgentCreate = z.infer<typeof agentCreateSchema>;
 
