@@ -7,7 +7,7 @@ import { config } from "../config.js";
 import type {
   HeadlessSpawnOptions,
   InteractiveSpawnOptions,
-  ModelProvider,
+  CliProvider,
   NormalizedEvent,
   SpawnSpec,
 } from "./types.js";
@@ -17,7 +17,7 @@ import type {
  * Headless: `claude -p --output-format stream-json --verbose` with the prompt on stdin
  * (prompts can exceed Windows' ~32k command-line limit once memory is injected).
  */
-export class ClaudeCodeProvider implements ModelProvider {
+export class ClaudeCodeProvider implements CliProvider {
   readonly id = "claude-code" as const;
   readonly kind = "cli" as const;
 

@@ -3,9 +3,9 @@ import type { Agent, PermissionMode, ProviderHealth, RunResult } from "@sparstro
 import { KNOWN_MODELS } from "@sparstrow/shared";
 import { config } from "../config.js";
 import type {
+  CliProvider,
   HeadlessSpawnOptions,
   InteractiveSpawnOptions,
-  ModelProvider,
   NormalizedEvent,
   SpawnSpec,
 } from "./types.js";
@@ -18,7 +18,7 @@ import type {
  * reassembled in extractResult. No MCP wiring: gemini agents use the
  * sparstrow-memory CLI and fenced ```sparstrow``` directives instead.
  */
-export class GeminiCliProvider implements ModelProvider {
+export class GeminiCliProvider implements CliProvider {
   readonly id = "gemini-cli" as const;
   readonly kind = "cli" as const;
 

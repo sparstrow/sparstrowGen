@@ -23,6 +23,13 @@ export const DEFAULT_GLOBAL_CONCURRENCY = 4;
 export const KNOWN_MODELS: Record<string, string[]> = {
   "claude-code": ["opus", "sonnet", "haiku"],
   "gemini-cli": ["gemini-2.5-pro", "gemini-2.5-flash"],
+  // P8 direct-API defaults; the live list comes from POST /providers/discover-models.
+  "anthropic-api": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5",
+  ],
+  ollama: ["llama3.1", "qwen2.5", "mistral"],
 };
 
 export const MEMORY_INJECTION_MAX_CHARS = 8000;

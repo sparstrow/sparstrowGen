@@ -1,8 +1,32 @@
 import { z } from "zod";
 import { idSchema, isoDateSchema, slugSchema } from "./common.js";
 
-export const providerIdSchema = z.enum(["claude-code", "gemini-cli"]);
+export const providerIdSchema = z.enum([
+  "claude-code",
+  "gemini-cli",
+  // P8: direct-API providers run through core's in-process tool-loop (execution
+  // mode is derived from the provider, not stored — see PROVIDER_KINDS).
+  "anthropic-api",
+  "ollama",
+]);
 export type ProviderId = z.infer<typeof providerIdSchema>;
+
+/**
+ * P8: how a provider executes. `cli` spawns a headless CLI child; `direct_api`
+ * runs core's own tool-call loop against the provider's HTTP API. Derived from
+ * the provider id (one provider → one mode), so there is no `agents.execution_mode`
+ * column to keep in sync — the registry is the single source of truth.
+ */
+export type ExecutionMode = "cli" | "direct_api";
+export const PROVIDER_KINDS: Record<ProviderId, ExecutionMode> = {
+  "claude-code": "cli",
+  "gemini-cli": "cli",
+  "anthropic-api": "direct_api",
+  ollama: "direct_api",
+};
+export function executionModeForProvider(provider: string): ExecutionMode {
+  return PROVIDER_KINDS[provider as ProviderId] ?? "cli";
+}
 
 /** Claude Code permission modes; gemini maps these to --approval-mode. */
 export const permissionModeSchema = z.enum([
