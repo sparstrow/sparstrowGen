@@ -8,9 +8,11 @@ import {
   discardAgent,
   getSkillImportDetail,
   promoteAgent,
+  reconcileInterruptedImports,
   runImportPipeline,
   type IngestionDeps,
 } from "./ingestion.js";
+import { runManager } from "../orchestrator/run-manager.js";
 
 const ts = "2026-01-01T00:00:00.000Z";
 
@@ -175,5 +177,53 @@ describe("skill ingestion pipeline (P9 §3-5)", () => {
     const discarded = discardAgent(draft.id);
     expect(discarded.status).toBe("discarded");
     expect(discarded.enabled).toBe(false);
+  });
+
+  it("discard REJECTS a non-quarantined agent (can't disable an active one)", async () => {
+    seedImport("imp_6");
+    await runImportPipeline("imp_6", "https://example.com/hostile.git", makeDeps());
+    const draft = getSkillImportDetail("imp_6")!.drafts[0]!;
+    promoteAgent(draft.id, {
+      allowedTools: [],
+      disallowedTools: [],
+      memoryReadScopes: [],
+      memoryWriteScopes: [],
+      acknowledgedReadSkill: true,
+    });
+    expect(() => discardAgent(draft.id)).toThrow(/not quarantined/);
+  });
+
+  it("createRun refuses a non-active agent even if enabled was flipped (PUT-arming defense)", async () => {
+    seedImport("imp_7");
+    await runImportPipeline("imp_7", "https://example.com/hostile.git", makeDeps());
+    const draft = getSkillImportDetail("imp_7")!.drafts[0]!;
+    // Simulate an attacker arming the quarantined row via a generic update path:
+    // enabled=true but status still 'quarantined'. The run linchpin must refuse.
+    getDb().update(agents).set({ enabled: true }).where(eq(agents.id, draft.id)).run();
+    expect(() =>
+      runManager.createRun({ agentId: draft.id, prompt: "x", trigger: "manual", triggerRef: "t" }),
+    ).toThrow(/not active/);
+  });
+
+  it("reconcileInterruptedImports fails imports stuck mid-pipeline, leaves terminal ones", () => {
+    const mk = (id: string, status: string) =>
+      getDb()
+        .insert(skillImports)
+        .values({
+          id,
+          sourceUrl: "https://example.com/x.git",
+          status,
+          foundSkillCount: 0,
+          createdAt: ts,
+          updatedAt: ts,
+        })
+        .run();
+    mk("imp_stuck", "reviewing");
+    mk("imp_done", "ready");
+    expect(reconcileInterruptedImports()).toBe(1);
+    const get = (id: string) =>
+      getDb().select().from(skillImports).where(eq(skillImports.id, id)).get()!;
+    expect(get("imp_stuck").status).toBe("failed");
+    expect(get("imp_done").status).toBe("ready"); // terminal rows untouched
   });
 });

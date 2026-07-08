@@ -1,7 +1,8 @@
 import path from "node:path";
-import { desc, eq, or } from "drizzle-orm";
+import { desc, eq, inArray, or } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
+  DEFAULT_RUN_TIMEOUT_MS,
   extractorOutputSchema,
   memoryScopeSchema,
   slugify,
@@ -43,7 +44,11 @@ import {
  */
 
 const nowIso = () => new Date().toISOString();
-const RUN_WAIT_MS = 5 * 60_000;
+// The waiter MUST outlast the run's own timeout, or a slow Extractor/Specter run
+// gets abandoned mid-flight and its result silently dropped (→ "0 skills found"
+// on a real repo). Let the run's own timeout+finalize resolve the promise first;
+// the grace is a small margin over DEFAULT_RUN_TIMEOUT_MS.
+const RUN_WAIT_MS = DEFAULT_RUN_TIMEOUT_MS + 30_000;
 const ALLOWED_SCHEMES = new Set(["http:", "https:", "git:"]);
 
 const EXTRACTOR_PROMPT = [
@@ -259,6 +264,25 @@ function failImport(id: string, error: string): void {
   patchImport(id, { status: "failed", error: error.slice(0, 500) });
 }
 
+/**
+ * EC1 startup reconcile: a crash / tsx-watch restart mid-pipeline leaves an
+ * import stuck in a non-terminal status (the detail UI then polls it every 2s
+ * forever). Fail every such row so the state is terminal. Mirrors
+ * runManager.sweepOrphans / reconcileGoals; called from index.ts main().
+ */
+export function reconcileInterruptedImports(): number {
+  const stuck = getDb()
+    .select({ id: skillImports.id })
+    .from(skillImports)
+    .where(inArray(skillImports.status, ["cloning", "extracting", "reviewing"]))
+    .all();
+  for (const row of stuck) {
+    patchImport(row.id, { status: "failed", error: "interrupted — core restarted mid-import" });
+  }
+  if (stuck.length > 0) logger.info({ count: stuck.length }, "reconciled interrupted skill imports");
+  return stuck.length;
+}
+
 // ─── Pipeline ────────────────────────────────────────────────────────────────
 
 /** The awaitable pipeline: clone → extract → quarantine drafts → Specter review.
@@ -357,6 +381,12 @@ export function discardAgent(id: string): Agent {
   const db = getDb();
   const row = db.select().from(agents).where(eq(agents.id, id)).get();
   if (!row) throw new HttpError(404, `agent not found: ${id}`);
+  // Symmetric with promoteAgent: discard is a quarantine-only soft-reject. Without
+  // this guard, POST /agents/:id/discard could disable+hide any active agent with
+  // no restore path (the roster shows status='active' only).
+  if (row.status !== "quarantined") {
+    throw new HttpError(409, `agent is not quarantined (status: ${row.status})`);
+  }
   db.update(agents)
     .set({ status: "discarded", enabled: false, updatedAt: nowIso() })
     .where(eq(agents.id, id))

@@ -78,6 +78,17 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     const db = getDb();
     const existing = db.select().from(agents).where(eq(agents.id, id)).get();
     if (!existing) throw new HttpError(404, `agent not found: ${id}`);
+    // P9 quarantine boundary: only ACTIVE agents take a generic update. Enabling
+    // an imported draft and granting it tools happens ONLY through promote (which
+    // re-clamps broad grants, validates scopes, and requires the read-ack).
+    // Without this, PUT would let a hostile imported draft be armed with
+    // Bash(*)/bypassPermissions/global memory-write, bypassing the whole gate.
+    if (existing.status !== "active") {
+      throw new HttpError(
+        409,
+        `agent is ${existing.status}, not active — manage imported drafts via promote/discard`,
+      );
+    }
     if (body.provider) getProvider(body.provider);
     db.update(agents)
       .set({ ...body, updatedAt: nowIso() })
