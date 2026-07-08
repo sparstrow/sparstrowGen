@@ -11,7 +11,7 @@ import {
 /**
  * Post-run bookkeeping:
  * 1. Fenced ```sparstrow``` JSON blocks — the structured-handoff fallback for
- *    agents without MCP tools (gemini): task_update / handoff directives.
+ *    agents without MCP tools (antigravity): task_update / handoff directives.
  * 2. Task reconciliation — a task-triggered run whose agent never called
  *    task_update lands in 'review' (succeeded) or 'failed', so nothing sticks.
  * 3. Delegation watcher (P3): a lead whose run just exited may already have every

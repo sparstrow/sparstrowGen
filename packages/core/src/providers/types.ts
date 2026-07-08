@@ -14,7 +14,7 @@ export interface SpawnSpec {
   env: Record<string, string | undefined>;
   /** Written to the child's stdin then closed (used to pass long prompts past Windows arg-length limits). */
   stdinData?: string;
-  /** Spawn through cmd.exe (needed for npm .cmd shims like gemini). */
+  /** Spawn through cmd.exe (needed for npm .cmd shims). */
   viaCmdShell?: boolean;
 }
 
@@ -25,7 +25,7 @@ export interface NormalizedEvent {
 
 export interface HeadlessSpawnOptions {
   runId: string;
-  /** Pre-created scratch dir the provider may write config files into (mcp config, GEMINI.md…). */
+  /** Pre-created scratch dir the provider may write config files into (mcp config, per-CLI context files…). */
   tempDir: string;
   /** Session id we assign so the run can be resumed later. */
   sessionId: string;

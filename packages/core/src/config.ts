@@ -37,7 +37,6 @@ export interface AppConfig {
   agentsDir: string;
   vaultPath: string;
   claudePath: string;
-  geminiPath: string;
   /** P8.1 Antigravity CLI binary (`agy`). Override with SPARSTROW_ANTIGRAVITY_PATH. */
   antigravityPath: string;
   /** git binary for read-only project state (P4). Override with SPARSTROW_GIT_PATH. */
@@ -47,7 +46,7 @@ export interface AppConfig {
   ollamaHost: string;
   /** Bundled stdio MCP server agents call for memory/task/message tools. */
   memoryMcpPath: string;
-  /** Bundled CLI for agents without MCP support (gemini). */
+  /** Bundled CLI for agents without MCP support (antigravity). */
   memoryCliPath: string;
   modelCacheDir: string;
   /** Per-install secret required on /api + /ws (closes the no-auth RCE). */
@@ -95,7 +94,6 @@ function resolveConfig(): AppConfig {
     secretsDir: process.env.SPARSTROW_SECRETS_DIR ?? path.join(os.homedir(), ".sparstrow"),
     vaultPath,
     claudePath: process.env.SPARSTROW_CLAUDE_PATH ?? "claude",
-    geminiPath: process.env.SPARSTROW_GEMINI_PATH ?? "gemini",
     antigravityPath: process.env.SPARSTROW_ANTIGRAVITY_PATH ?? "agy",
     gitPath: process.env.SPARSTROW_GIT_PATH ?? "git",
     anthropicApiBase: (process.env.SPARSTROW_ANTHROPIC_API_BASE ?? "https://api.anthropic.com").replace(/\/+$/, ""),

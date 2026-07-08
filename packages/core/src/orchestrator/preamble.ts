@@ -91,10 +91,10 @@ export function buildPreamble(
   }
   const absWriteDirs = writeDirs.map((d) => path.join(config.vaultPath, d.split("/").join(path.sep)));
 
-  // CLI providers with no --append-system-prompt and no MCP (gemini-cli,
-  // antigravity): the system prompt is carried in-band and memory/handoff go
-  // through the sparstrow-memory CLI + fenced ```sparstrow``` directives.
-  const isCliInBand = agent.provider === "gemini-cli" || agent.provider === "antigravity";
+  // CLI providers with no --append-system-prompt and no MCP (antigravity): the
+  // system prompt is carried in-band and memory/handoff go through the
+  // sparstrow-memory CLI + fenced ```sparstrow``` directives.
+  const isCliInBand = agent.provider === "antigravity";
   const lines: string[] = [];
   if (isCliInBand && agent.systemPrompt.trim().length > 0) {
     lines.push("## System instructions", agent.systemPrompt.trim(), "");

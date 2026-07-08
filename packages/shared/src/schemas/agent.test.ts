@@ -20,7 +20,6 @@ describe("providerIdSchema", () => {
   it("accepts the CLI + P8 direct-API providers (codex is dropped)", () => {
     expect(providerIdSchema.options).toEqual([
       "claude-code",
-      "gemini-cli",
       "antigravity",
       "anthropic-api",
       "ollama",
@@ -30,7 +29,6 @@ describe("providerIdSchema", () => {
 
   it("derives execution mode from the provider id (no stored column)", () => {
     expect(executionModeForProvider("claude-code")).toBe("cli");
-    expect(executionModeForProvider("gemini-cli")).toBe("cli");
     expect(executionModeForProvider("antigravity")).toBe("cli");
     expect(executionModeForProvider("anthropic-api")).toBe("direct_api");
     expect(executionModeForProvider("ollama")).toBe("direct_api");

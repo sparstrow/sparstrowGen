@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "packageManager": "pnpm@11.6.0",
-  "description": "Sparstrowgen — local-first agent harness: orchestrate Claude Code / Gemini CLI agents with scoped Obsidian-compatible memory, task board, pipelines, and cron.",
+  "description": "Sparstrowgen — local-first agent harness: orchestrate Claude Code / Antigravity CLI agents with scoped Obsidian-compatible memory, task board, pipelines, and cron.",
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
