@@ -254,6 +254,7 @@ export function AgentFields({ values, set }: { values: AgentFormValues; set: Set
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="claude-code">Claude Code (CLI)</SelectItem>
+                <SelectItem value="antigravity">Antigravity (CLI)</SelectItem>
                 <SelectItem value="anthropic-api">Anthropic API</SelectItem>
                 <SelectItem value="ollama">Ollama (local)</SelectItem>
                 <SelectItem value="gemini-cli" disabled>

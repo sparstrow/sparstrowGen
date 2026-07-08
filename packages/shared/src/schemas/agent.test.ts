@@ -21,6 +21,7 @@ describe("providerIdSchema", () => {
     expect(providerIdSchema.options).toEqual([
       "claude-code",
       "gemini-cli",
+      "antigravity",
       "anthropic-api",
       "ollama",
     ]);
@@ -30,6 +31,7 @@ describe("providerIdSchema", () => {
   it("derives execution mode from the provider id (no stored column)", () => {
     expect(executionModeForProvider("claude-code")).toBe("cli");
     expect(executionModeForProvider("gemini-cli")).toBe("cli");
+    expect(executionModeForProvider("antigravity")).toBe("cli");
     expect(executionModeForProvider("anthropic-api")).toBe("direct_api");
     expect(executionModeForProvider("ollama")).toBe("direct_api");
     expect(executionModeForProvider("something-else")).toBe("cli");

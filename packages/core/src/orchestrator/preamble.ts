@@ -91,10 +91,12 @@ export function buildPreamble(
   }
   const absWriteDirs = writeDirs.map((d) => path.join(config.vaultPath, d.split("/").join(path.sep)));
 
-  const isGemini = agent.provider === "gemini-cli";
+  // CLI providers with no --append-system-prompt and no MCP (gemini-cli,
+  // antigravity): the system prompt is carried in-band and memory/handoff go
+  // through the sparstrow-memory CLI + fenced ```sparstrow``` directives.
+  const isCliInBand = agent.provider === "gemini-cli" || agent.provider === "antigravity";
   const lines: string[] = [];
-  // gemini has no --append-system-prompt; carry the system prompt in-band.
-  if (isGemini && agent.systemPrompt.trim().length > 0) {
+  if (isCliInBand && agent.systemPrompt.trim().length > 0) {
     lines.push("## System instructions", agent.systemPrompt.trim(), "");
   }
   lines.push(
@@ -106,7 +108,7 @@ export function buildPreamble(
     "## Memory protocol",
     `Your long-term memory is an Obsidian vault at: ${config.vaultPath}`,
   );
-  if (isGemini) {
+  if (isCliInBand) {
     lines.push(
       `To look up additional knowledge mid-task, run: node "${config.memoryCliPath}" search "your query" (semantic + keyword search over your allowed scopes; requires the SPARSTROW_RUN_ID env var already set for you).`,
       `To hand work to another agent or report a task outcome, end your final reply with a fenced block:`,
