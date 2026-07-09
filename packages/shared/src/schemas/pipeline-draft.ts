@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pipelineStepSchema, pipelineCreateSchema } from "./pipeline.js";
+import { pipelineStepSchema, pipelineCreateSchema, type PipelineCreate } from "./pipeline.js";
 
 export const draftPipelineStepSchema = pipelineStepSchema
   .pick({ agentId: true, promptTemplate: true, onFailure: true })
@@ -28,4 +28,60 @@ export interface PipelineDraftTurn {
   reply: string;
   draft: DraftPipeline;
   source: "ai" | "fallback";
+}
+
+// ---------------------------------------------------------------------------
+// Publish gate — pure logic shared by the canvas (Publish button) and tests.
+// v1 pipelines are LINEAR (P10-Q2): edges derive from step order, so "single
+// start / no cycles" holds by construction. The only gate is: a name, at least
+// one step, and every step resolved to a real roster agent with a prompt.
+// ---------------------------------------------------------------------------
+
+export interface PublishValidation {
+  ok: boolean;
+  /** Human-readable reasons the draft can't be published yet (empty when ok). */
+  reasons: string[];
+}
+
+export function validateDraftForPublish(
+  draft: DraftPipeline,
+  roster: { id: string; name: string }[],
+): PublishValidation {
+  const reasons: string[] = [];
+  const name = (draft.name ?? "").trim();
+  if (!name) reasons.push("Add a pipeline name.");
+  if (name.length > 100) reasons.push("Pipeline name must be 100 characters or fewer.");
+
+  const steps = draft.steps ?? [];
+  if (steps.length === 0) reasons.push("Add at least one step.");
+
+  const rosterIds = new Set(roster.map((r) => r.id));
+  steps.forEach((s, i) => {
+    const n = i + 1;
+    const resolved = Boolean(s.agentId) && !s.unresolvedAgentName && rosterIds.has(s.agentId!);
+    if (!resolved) reasons.push(`Step ${n}: pick an agent from this team.`);
+    if (!(s.promptTemplate ?? "").trim()) reasons.push(`Step ${n}: add a prompt.`);
+  });
+
+  return { ok: reasons.length === 0, reasons };
+}
+
+/**
+ * Map a draft to the real pipeline-create payload. Assumes the draft already
+ * passed {@link validateDraftForPublish}; step order becomes `position`.
+ */
+export function draftToCreatePayload(draft: DraftPipeline, teamId: string | null): PipelineCreate {
+  return {
+    name: (draft.name ?? "").trim(),
+    description: (draft.description ?? "").trim(),
+    projectId: null,
+    teamId,
+    enabled: true,
+    steps: (draft.steps ?? []).map((s, i) => ({
+      position: i,
+      agentId: s.agentId ?? "",
+      promptTemplate: (s.promptTemplate ?? "").trim(),
+      onFailure: s.onFailure ?? "abort",
+    })),
+  };
 }
