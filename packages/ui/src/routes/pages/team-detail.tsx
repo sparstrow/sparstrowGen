@@ -8,7 +8,9 @@ import {
   Check, 
   X,
   Plus,
-  Bot
+  Bot,
+  MessageSquare,
+  Send
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,7 +39,8 @@ import {
   useAgents,
   useAddTeamMember,
   useUpdateTeamMember,
-  useRemoveTeamMember
+  useRemoveTeamMember,
+  useTeamManagerChat
 } from "@/api/hooks";
 import { cn } from "@/lib/utils";
 import type { TeamMember } from "@sparstrow/shared";
@@ -227,6 +230,7 @@ export function TeamDetailPage() {
             </div>
             <div className="space-y-6">
               <ProjectsSection teamId={team.id} assignedProjects={team.projects} readOnly={team.isEphemeral} />
+              <ManagerChatPanel teamId={team.id} />
             </div>
           </div>
         </TabsContent>
@@ -570,6 +574,100 @@ function ProjectsSection({ teamId, assignedProjects, readOnly }: { teamId: strin
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------
+// Manager Chat Panel
+// ----------------------------------------------------------------------
+
+function ManagerChatPanel({ teamId }: { teamId: string }) {
+  const [message, setMessage] = React.useState("");
+  const [history, setHistory] = React.useState<{ role: "user" | "advisor"; text: string }[]>([]);
+  const chatMutation = useTeamManagerChat(teamId);
+
+  const handleSend = () => {
+    if (!message.trim() || chatMutation.isPending) return;
+
+    const userMessage = message.trim();
+    setHistory((prev) => [...prev, { role: "user", text: userMessage }]);
+    setMessage("");
+
+    chatMutation.mutate(
+      { message: userMessage },
+      {
+        onSuccess: (data) => {
+          setHistory((prev) => [...prev, { role: "advisor", text: data.reply }]);
+        },
+        onError: (err: any) => {
+          setHistory((prev) => [
+            ...prev,
+            { role: "advisor", text: `Error: ${err.message || "Failed to communicate with Advisor."}` },
+          ]);
+        },
+      }
+    );
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  return (
+    <div className="space-y-4 rounded-lg border bg-card p-4 shadow-sm flex flex-col h-[400px]">
+      <div className="flex items-center gap-2 border-b pb-2">
+        <MessageSquare className="size-5 text-muted-foreground" />
+        <h2 className="text-lg font-semibold">Team Manager Advisor</h2>
+      </div>
+
+      <div className="flex-1 overflow-y-auto space-y-4 py-2">
+        {history.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center mt-8">
+            Ask the Advisor a question about this team's projects, members, or tasks.
+          </p>
+        ) : (
+          history.map((msg, idx) => (
+            <div key={idx} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
+              <div
+                className={cn(
+                  "max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap",
+                  msg.role === "user"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-foreground border"
+                )}
+              >
+                {msg.text}
+              </div>
+            </div>
+          ))
+        )}
+        {chatMutation.isPending && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm bg-muted text-foreground border flex items-center gap-2">
+              <Bot className="size-4 animate-pulse" />
+              Advisor is thinking...
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-end gap-2 pt-2 border-t mt-auto">
+        <Textarea
+          placeholder="Ask a question..."
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="min-h-[40px] max-h-32 resize-none"
+          rows={1}
+        />
+        <Button size="icon" className="shrink-0 mb-[2px]" onClick={handleSend} disabled={!message.trim() || chatMutation.isPending}>
+          <Send className="size-4" />
+        </Button>
+      </div>
     </div>
   );
 }

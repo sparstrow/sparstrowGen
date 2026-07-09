@@ -1622,3 +1622,18 @@ export function useDiscardAgent(): UseMutationResult<Agent, ApiError, string> {
     },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Team Manager Advisor (P10)
+// ---------------------------------------------------------------------------
+
+export function useTeamManagerChat(teamId: string): UseMutationResult<
+  { reply: string },
+  ApiError,
+  { message: string }
+> {
+  return useMutation({
+    mutationFn: (body: { message: string }) =>
+      api<{ reply: string }>(`/teams/${teamId}/manager/chat`, { method: "POST", body }),
+  });
+}
