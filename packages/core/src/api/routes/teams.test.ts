@@ -229,4 +229,26 @@ describe("Team Manager Advisor", () => {
 
     expect(response.statusCode).toBe(400); 
   });
+
+  it("handles draft mode successfully", async () => {
+    vi.mocked(completeOnce).mockResolvedValueOnce({
+      text: JSON.stringify({
+        reply: "Drafting it now.",
+        draft: { name: "Test Pipeline" }
+      }),
+      isError: false
+    } as any);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/teams/team_1/manager/chat",
+      payload: { message: "Make a pipeline", mode: "draft", draft: {} }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const json = response.json();
+    expect(json.reply).toBe("Drafting it now.");
+    expect(json.draft.name).toBe("Test Pipeline");
+    expect(json.source).toBe("ai");
+  });
 });
