@@ -50,8 +50,8 @@ const PRESETS: { label: string; expr: string }[] = [
   { label: "Mondays 8am", expr: "0 8 * * 1" },
 ];
 
-export function SchedulePage() {
-  const jobs = useCronJobs();
+export function SchedulePage({ teamId, readOnly }: { teamId?: string; readOnly?: boolean } = {}) {
+  const jobs = useCronJobs(teamId);
   const agents = useAgents();
   const pipelines = usePipelines();
   const createJob = useCreateCronJob();
@@ -122,9 +122,11 @@ export function SchedulePage() {
           Cron jobs fire agents or pipelines unattended — the service just needs to be running.
         </p>
         <div className="flex-1" />
-        <Button onClick={openCreate}>
-          <Plus className="size-4" /> New cron job
-        </Button>
+        {!readOnly && (
+          <Button onClick={openCreate}>
+            <Plus className="size-4" /> New cron job
+          </Button>
+        )}
       </div>
 
       {jobs.isLoading ? (
@@ -133,12 +135,17 @@ export function SchedulePage() {
           <Skeleton className="h-9 w-full" />
         </div>
       ) : (jobs.data ?? []).length === 0 ? (
-        <div className="rounded-xl border py-16 text-center">
+        <div className="rounded-xl border border-dashed py-16 text-center bg-card">
           <CalendarClock className="mx-auto size-8 text-muted-foreground/40" />
-          <p className="mt-3 text-sm font-medium">Nothing scheduled</p>
+          <p className="mt-3 text-sm font-medium">{teamId ? "Nothing scheduled in this team yet" : "Nothing scheduled"}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Schedule a daily research brief, a weekly review pipeline, anything.
+            {teamId ? "Create one to fire team agents or pipelines unattended." : "Schedule a daily research brief, a weekly review pipeline, anything."}
           </p>
+          {teamId && !readOnly && (
+            <Button variant="link" size="sm" className="mt-2" onClick={openCreate}>
+              Create the first schedule
+            </Button>
+          )}
         </div>
       ) : (
         <div className="rounded-xl border">

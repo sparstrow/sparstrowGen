@@ -671,6 +671,7 @@ export interface TaskFilters {
   status?: TaskStatus;
   projectId?: string;
   assignedAgentId?: string;
+  teamId?: string;
 }
 
 export function useTasks(filters: TaskFilters = {}): UseQueryResult<Task[], ApiError> {
@@ -682,6 +683,7 @@ export function useTasks(filters: TaskFilters = {}): UseQueryResult<Task[], ApiE
           status: filters.status,
           projectId: filters.projectId,
           assignedAgentId: filters.assignedAgentId,
+          teamId: filters.teamId,
         })}`,
       ),
   });
@@ -1144,8 +1146,8 @@ export function useRunDreamNow(): UseMutationResult<{ fired: boolean }, ApiError
 // Pipelines
 // ---------------------------------------------------------------------------
 
-export function usePipelines(): UseQueryResult<Pipeline[], ApiError> {
-  return useQuery({ queryKey: ["pipelines"], queryFn: () => api<Pipeline[]>("/pipelines") });
+export function usePipelines(teamId?: string): UseQueryResult<Pipeline[], ApiError> {
+  return useQuery({ queryKey: ["pipelines", teamId], queryFn: () => api<Pipeline[]>(`/pipelines${qs({ teamId })}`) });
 }
 
 export function usePipeline(id: string): UseQueryResult<Pipeline, ApiError> {
@@ -1213,8 +1215,8 @@ export function usePipelineRuns(pipelineId: string): UseQueryResult<PipelineRun[
 // Cron jobs
 // ---------------------------------------------------------------------------
 
-export function useCronJobs(): UseQueryResult<CronJob[], ApiError> {
-  return useQuery({ queryKey: ["cron-jobs"], queryFn: () => api<CronJob[]>("/cron-jobs") });
+export function useCronJobs(teamId?: string): UseQueryResult<CronJob[], ApiError> {
+  return useQuery({ queryKey: ["cron-jobs", teamId], queryFn: () => api<CronJob[]>(`/cron-jobs${qs({ teamId })}`) });
 }
 
 export function useCreateCronJob(): UseMutationResult<CronJob, ApiError, CronJobCreate> {
