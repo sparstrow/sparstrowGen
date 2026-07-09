@@ -107,7 +107,7 @@ permissions, with an expiry.
    credential helper).
 
 **Where the credential lives — critical:** outside any repo, and **never in the vault
-(`C:\Sparstrow\memory`) or agent memory.** Your agents run Bash and read the vault, so a
+(the `SPARSTROW_VAULT` directory) or agent memory.** Your agents run Bash and read the vault, so a
 token there is exfiltratable. Use the OS credential manager or a gitignored secrets file
 sourced into the environment. The token is gitignored by `.env` / `.env.*` already.
 
