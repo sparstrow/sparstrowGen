@@ -9,7 +9,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Plus } from "lucide-react";
-import type { DraftPipeline, DraftPipelineStep } from "@sparstrow/shared";
+import type { DraftPipeline } from "@sparstrow/shared";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { EditableStepNode, type EditableFlowNode } from "./editable-step-node";
+import { usePipelineDraftEditor } from "./use-pipeline-draft-editor";
 
 /**
  * PipelineCanvas — the P10 editable sibling of the P6 read-only graph (design
@@ -47,24 +48,14 @@ export function PipelineCanvas({
   roster: { id: string; name: string }[];
   onChange: (next: DraftPipeline) => void;
 }) {
-  const steps: DraftPipelineStep[] = value.steps ?? [];
+  const { steps, updateField, patchStep, addStep, removeStep, moveStep } = usePipelineDraftEditor({
+    value,
+    onChange,
+  });
 
   // Which step's prompt is open in the editor dialog (null = closed).
   const [promptIndex, setPromptIndex] = React.useState<number | null>(null);
   const [promptDraft, setPromptDraft] = React.useState("");
-
-  const setSteps = (next: DraftPipelineStep[]) => onChange({ ...value, steps: next });
-  const patchStep = (i: number, patch: Partial<DraftPipelineStep>) =>
-    setSteps(steps.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
-  const addStep = () => setSteps([...steps, { onFailure: "abort" }]);
-  const removeStep = (i: number) => setSteps(steps.filter((_, idx) => idx !== i));
-  const moveStep = (i: number, dir: -1 | 1) => {
-    const j = i + dir;
-    if (j < 0 || j >= steps.length) return;
-    const next = [...steps];
-    [next[i], next[j]] = [next[j]!, next[i]!];
-    setSteps(next);
-  };
 
   const openPrompt = (i: number) => {
     setPromptDraft(steps[i]?.promptTemplate ?? "");
@@ -116,7 +107,7 @@ export function PipelineCanvas({
           <Input
             id="pipeline-name"
             value={value.name ?? ""}
-            onChange={(e) => onChange({ ...value, name: e.target.value })}
+            onChange={(e) => updateField("name", e.target.value)}
             placeholder="e.g. Research → Draft → Review"
             maxLength={100}
           />
@@ -128,7 +119,7 @@ export function PipelineCanvas({
           <Input
             id="pipeline-desc"
             value={value.description ?? ""}
-            onChange={(e) => onChange({ ...value, description: e.target.value })}
+            onChange={(e) => updateField("description", e.target.value)}
             placeholder="Optional"
           />
         </div>

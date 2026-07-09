@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Pencil, Play, Plus, Trash2, Workflow } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Pencil, Play, Plus, Trash2, Workflow, Bot } from "lucide-react";
 import type { Pipeline, RunStatus } from "@sparstrow/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,9 @@ import {
   usePipelines,
   useRunPipeline,
   useUpdatePipeline,
+  useTeam,
 } from "@/api/hooks";
+import { ManagerChatPanel } from "@/components/team/manager-chat-panel";
 import { formatDate, shortId } from "@/lib/format";
 
 interface StepDraft {
@@ -55,6 +57,10 @@ export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?
   const [editing, setEditing] = React.useState<Pipeline | null>(null);
   const [runTarget, setRunTarget] = React.useState<Pipeline | null>(null);
   const [expandedRuns, setExpandedRuns] = React.useState<string | null>(null);
+  const [managerOpen, setManagerOpen] = React.useState(false);
+
+  const teamQuery = useTeam(teamId ?? "");
+  const roster = teamQuery.data?.members.map((m) => ({ id: m.agentId, name: m.agentName })) ?? [];
 
   // editor state
   const [name, setName] = React.useState("");
@@ -140,9 +146,16 @@ export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?
         </p>
         <div className="flex-1" />
         {!readOnly && (
-          <Button onClick={openCreate}>
-            <Plus className="size-4" /> New pipeline
-          </Button>
+          <div className="flex items-center gap-2">
+            {teamId && (
+              <Button variant="outline" onClick={() => setManagerOpen(true)}>
+                <Bot className="mr-2 size-4" /> Draft with Manager
+              </Button>
+            )}
+            <Button onClick={openCreate}>
+              <Plus className="size-4" /> New pipeline
+            </Button>
+          </div>
         )}
       </div>
 
@@ -159,6 +172,16 @@ export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?
             {teamId ? "Create one to chain agents together." : "Build a multi-step chain like research → draft → review."}
           </p>
           {teamId && !readOnly && (
+            <div className="mt-4 flex flex-wrap justify-center gap-3">
+              <Button variant="outline" onClick={() => setManagerOpen(true)}>
+                <Bot className="mr-2 size-4" /> Draft with Manager
+              </Button>
+              <Button onClick={openCreate}>
+                <Plus className="mr-2 size-4" /> Create pipeline
+              </Button>
+            </div>
+          )}
+          {!teamId && !readOnly && (
             <Button variant="link" size="sm" className="mt-2" onClick={openCreate}>
               Create the first pipeline
             </Button>
@@ -380,6 +403,19 @@ export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Manager dialog */}
+      {teamId && (
+        <Dialog open={managerOpen} onOpenChange={setManagerOpen}>
+          <DialogContent className="max-w-4xl p-0 overflow-hidden bg-transparent border-none">
+            <DialogTitle className="sr-only">Draft Pipeline with Manager</DialogTitle>
+            <DialogDescription className="sr-only">
+              Chat with the team manager to draft a pipeline.
+            </DialogDescription>
+            <ManagerChatPanel teamId={teamId} roster={roster} defaultMode="draft" />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
