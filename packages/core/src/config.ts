@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
-import { DEFAULT_PORT, DEFAULT_VAULT_PATH } from "@sparstrow/shared";
+import { DEFAULT_PORT } from "@sparstrow/shared";
 
 function findRepoRoot(start: string): string {
   let dir = start;
@@ -80,9 +80,12 @@ function loadOrCreateToken(dataDir: string): string {
   }
 }
 
-function resolveConfig(): AppConfig {
+export function resolveConfig(): AppConfig {
   const dataDir = process.env.SPARSTROW_DATA_DIR ?? path.join(repoRoot, "data");
-  const vaultPath = process.env.SPARSTROW_VAULT ?? DEFAULT_VAULT_PATH;
+  // Vault defaults to a sibling of the repo (…/<parent>/memory), resolved from
+  // repoRoot so the install is drive-portable. `|| ` (not `??`) so a set-but-empty
+  // SPARSTROW_VAULT falls back instead of resolving to an empty path.
+  const vaultPath = process.env.SPARSTROW_VAULT?.trim() || path.join(path.dirname(repoRoot), "memory");
   return {
     port: Number(process.env.SPARSTROW_PORT ?? DEFAULT_PORT),
     host: process.env.SPARSTROW_HOST ?? "127.0.0.1",

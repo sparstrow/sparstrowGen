@@ -3,8 +3,6 @@ export const API_BASE = "/api/v1";
 export const WS_PATH = "/ws";
 export const TERMINAL_WS_PATH = "/ws/terminal";
 
-export const DEFAULT_VAULT_PATH = "C:\\Sparstrow\\memory";
-
 export const EMBEDDING_DIM = 384;
 export const EMBEDDING_MODEL = "BGE-small-en-v1.5";
 
