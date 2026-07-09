@@ -3,7 +3,7 @@
 // destination is a single complete .db (no torn copy, no lost WAL data) even
 // while the core is running. Lives under packages/core so better-sqlite3
 // resolves; pass paths relative to wherever you invoke node from:
-//   node packages/core/scripts/backup-db.mjs data/sparstrow.db C:/Sparstrow/memory/.db-backup/sparstrow.db
+//   node packages/core/scripts/backup-db.mjs data/sparstrow.db "$SPARSTROW_VAULT/.db-backup/sparstrow.db"
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";

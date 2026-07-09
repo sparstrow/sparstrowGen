@@ -5,9 +5,13 @@
 # can use ~/.ssh.
 
 $ErrorActionPreference = 'Stop'
-$gen    = 'C:\Sparstrow\Sparstrowgen'
-$vault  = 'C:\Sparstrow\memory'
-$dbDest = 'C:/Sparstrow/memory/.db-backup/sparstrow.db'
+# Resolve paths relative to this script (packages/core/scripts/) so the backup is
+# drive/location portable. $PSScriptRoot is reliable no matter what cwd Task
+# Scheduler invokes with; ..\..\..\ walks scripts -> core -> packages -> repo root.
+$gen    = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+# Vault precedence matches config.ts: $env:SPARSTROW_VAULT, else the repo's sibling.
+$vault  = if ($env:SPARSTROW_VAULT) { $env:SPARSTROW_VAULT } else { Join-Path (Split-Path $gen -Parent) 'memory' }
+$dbDest = Join-Path $vault '.db-backup\sparstrow.db'
 
 # 1) Consistent DB snapshot into the vault's (watcher-ignored) .db-backup/ folder.
 Set-Location $gen
