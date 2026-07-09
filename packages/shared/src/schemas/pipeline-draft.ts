@@ -85,3 +85,35 @@ export function draftToCreatePayload(draft: DraftPipeline, teamId: string | null
     })),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Pure draft step mutators
+// ---------------------------------------------------------------------------
+
+export function addDraftStep(steps: DraftPipelineStep[]): DraftPipelineStep[] {
+  return [...steps, { onFailure: "abort" }];
+}
+
+export function patchDraftStep(
+  steps: DraftPipelineStep[],
+  index: number,
+  patch: Partial<DraftPipelineStep>,
+): DraftPipelineStep[] {
+  if (index < 0 || index >= steps.length) return steps;
+  return steps.map((s, i) => (i === index ? { ...s, ...patch } : s));
+}
+
+export function removeDraftStep(steps: DraftPipelineStep[], index: number): DraftPipelineStep[] {
+  if (index < 0 || index >= steps.length) return steps;
+  return steps.filter((_, i) => i !== index);
+}
+
+export function moveDraftStep(steps: DraftPipelineStep[], index: number, dir: -1 | 1): DraftPipelineStep[] {
+  const target = index + dir;
+  if (index < 0 || index >= steps.length || target < 0 || target >= steps.length) {
+    return steps;
+  }
+  const next = [...steps];
+  [next[index], next[target]] = [next[target]!, next[index]!];
+  return next;
+}
