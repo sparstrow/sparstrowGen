@@ -47,6 +47,35 @@ export async function getFactoryHealth(): Promise<FactoryHealth> {
     required: true,
   });
 
+  // Stored paths (optional — a stale row is a per-item problem, not a factory
+  // outage). agents.cwd / projects.root_dir hold absolute paths; after a drive
+  // move or repo relocation they can point at directories that no longer exist,
+  // which would otherwise surface as a confusing spawn/git failure far downstream.
+  let staleDetail = "all resolve";
+  let staleStatus: FactoryHealthCheck["status"] = "ok";
+  try {
+    const db = getSqlite();
+    const stored = [
+      ...(db.prepare("SELECT cwd AS p FROM agents WHERE cwd IS NOT NULL").all() as { p: string }[]),
+      ...(db.prepare("SELECT root_dir AS p FROM projects WHERE root_dir IS NOT NULL").all() as { p: string }[]),
+    ].map((r) => r.p);
+    const missing = [...new Set(stored)].filter((p) => !fs.existsSync(p));
+    if (missing.length > 0) {
+      staleStatus = "degraded";
+      staleDetail = `${missing.length} stored agent/project path(s) not found on disk — check affected agents/projects after a move`;
+    }
+  } catch {
+    staleStatus = "degraded";
+    staleDetail = "could not read stored paths";
+  }
+  checks.push({
+    id: "stale-paths",
+    label: "Agent/project paths",
+    status: staleStatus,
+    detail: staleDetail,
+    required: false,
+  });
+
   // Providers (claude-code required; others degrade). One healthCheck each.
   const providers = await Promise.all(listProviders().map((p) => p.healthCheck()));
   for (const ph of providers) {
