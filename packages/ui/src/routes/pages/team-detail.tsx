@@ -43,7 +43,7 @@ import {
   useTeamManagerChat
 } from "@/api/hooks";
 import { cn } from "@/lib/utils";
-import type { TeamMember } from "@sparstrow/shared";
+import type { TeamMember, DraftPipeline } from "@sparstrow/shared";
 
 function getInitials(name: string) {
   return name.substring(0, 2).toUpperCase();
@@ -583,6 +583,8 @@ function ProjectsSection({ teamId, assignedProjects, readOnly }: { teamId: strin
 // ----------------------------------------------------------------------
 
 function ManagerChatPanel({ teamId }: { teamId: string }) {
+  const [mode, setMode] = React.useState<"advisor" | "draft">("advisor");
+  const [draft, setDraft] = React.useState<DraftPipeline | undefined>(undefined);
   const [message, setMessage] = React.useState("");
   const [history, setHistory] = React.useState<{ role: "user" | "advisor"; text: string }[]>([]);
   const chatMutation = useTeamManagerChat(teamId);
@@ -595,10 +597,13 @@ function ManagerChatPanel({ teamId }: { teamId: string }) {
     setMessage("");
 
     chatMutation.mutate(
-      { message: userMessage },
+      { message: userMessage, mode, draft: mode === "draft" ? draft : undefined },
       {
         onSuccess: (data) => {
           setHistory((prev) => [...prev, { role: "advisor", text: data.reply }]);
+          if ("draft" in data && data.draft) {
+            setDraft(data.draft);
+          }
         },
         onError: (err: any) => {
           setHistory((prev) => [
@@ -618,56 +623,130 @@ function ManagerChatPanel({ teamId }: { teamId: string }) {
   };
 
   return (
-    <div className="space-y-4 rounded-lg border bg-card p-4 shadow-sm flex flex-col h-[400px]">
-      <div className="flex items-center gap-2 border-b pb-2">
-        <MessageSquare className="size-5 text-muted-foreground" />
-        <h2 className="text-lg font-semibold">Team Manager Advisor</h2>
-      </div>
+    <div className="flex gap-4">
+      <div className="flex-1 space-y-4 rounded-lg border bg-card p-4 shadow-sm flex flex-col h-[500px]">
+        <div className="flex items-center justify-between border-b pb-2">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="size-5 text-muted-foreground" />
+            <h2 className="text-lg font-semibold">Team Manager</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={mode === "advisor" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setMode("advisor")}
+            >
+              Advisor
+            </Button>
+            <Button
+              variant={mode === "draft" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setMode("draft")}
+            >
+              Draft Pipeline
+            </Button>
+          </div>
+        </div>
 
-      <div className="flex-1 overflow-y-auto space-y-4 py-2">
-        {history.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center mt-8">
-            Ask the Advisor a question about this team's projects, members, or tasks.
-          </p>
-        ) : (
-          history.map((msg, idx) => (
-            <div key={idx} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
-              <div
-                className={cn(
-                  "max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap",
-                  msg.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground border"
-                )}
-              >
-                {msg.text}
+        <div className="flex-1 overflow-y-auto space-y-4 py-2">
+          {history.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center mt-8">
+              {mode === "advisor" 
+                ? "Ask the Advisor a question about this team's projects, members, or tasks." 
+                : "Ask the Manager to draft a new pipeline for this team."}
+            </p>
+          ) : (
+            history.map((msg, idx) => (
+              <div key={idx} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
+                <div
+                  className={cn(
+                    "max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap",
+                    msg.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-foreground border"
+                  )}
+                >
+                  {msg.text}
+                </div>
+              </div>
+            ))
+          )}
+          {chatMutation.isPending && (
+            <div className="flex justify-start">
+              <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm bg-muted text-foreground border flex items-center gap-2">
+                <Bot className="size-4 animate-pulse" />
+                {mode === "draft" ? "Drafting..." : "Advisor is thinking..."}
               </div>
             </div>
-          ))
-        )}
-        {chatMutation.isPending && (
-          <div className="flex justify-start">
-            <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm bg-muted text-foreground border flex items-center gap-2">
-              <Bot className="size-4 animate-pulse" />
-              Advisor is thinking...
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
 
-      <div className="flex items-end gap-2 pt-2 border-t mt-auto">
-        <Textarea
-          placeholder="Ask a question..."
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className="min-h-[40px] max-h-32 resize-none"
-          rows={1}
-        />
-        <Button size="icon" className="shrink-0 mb-[2px]" onClick={handleSend} disabled={!message.trim() || chatMutation.isPending}>
-          <Send className="size-4" />
-        </Button>
+        <div className="flex items-end gap-2 pt-2 border-t mt-auto">
+          <Textarea
+            placeholder="Ask a question..."
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="min-h-[40px] max-h-32 resize-none"
+            rows={1}
+          />
+          <Button size="icon" className="shrink-0 mb-[2px]" onClick={handleSend} disabled={!message.trim() || chatMutation.isPending}>
+            <Send className="size-4" />
+          </Button>
+        </div>
       </div>
+      
+      {mode === "draft" && (
+        <div className="w-[350px] shrink-0 space-y-4 rounded-lg border bg-card p-4 shadow-sm flex flex-col h-[500px] overflow-y-auto">
+          <h3 className="font-semibold border-b pb-2">Pipeline Draft Preview</h3>
+          {!draft ? (
+            <p className="text-sm text-muted-foreground">No draft yet.</p>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs text-muted-foreground font-semibold">Name</p>
+                <p className="text-sm">{draft.name || <span className="italic text-muted-foreground">Unnamed Pipeline</span>}</p>
+              </div>
+              {draft.description && (
+                <div>
+                  <p className="text-xs text-muted-foreground font-semibold">Description</p>
+                  <p className="text-sm text-muted-foreground">{draft.description}</p>
+                </div>
+              )}
+              
+              <div>
+                <p className="text-xs text-muted-foreground font-semibold mb-2">Steps</p>
+                {!draft.steps || draft.steps.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">No steps defined.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {draft.steps.map((step, idx) => (
+                      <div key={idx} className="rounded border p-2 text-sm bg-muted/30">
+                        <div className="flex items-center gap-2 font-medium mb-1">
+                          <span className="text-muted-foreground text-xs">{idx + 1}.</span>
+                          {step.unresolvedAgentName ? (
+                            <span className="bg-destructive/10 text-destructive text-xs px-1.5 py-0.5 rounded border border-destructive/20 font-semibold">
+                              Unknown Agent: {step.unresolvedAgentName} - Needs resolution
+                            </span>
+                          ) : (
+                            <span>{step.agentId || "No agent"}</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                          {step.promptTemplate || "No prompt template"}
+                        </p>
+                        {step.onFailure === "continue" && (
+                          <p className="text-xs text-muted-foreground mt-1 font-medium">On Failure: Continue</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
