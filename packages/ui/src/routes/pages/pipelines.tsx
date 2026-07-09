@@ -113,7 +113,7 @@ export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?
     if (editing) {
       updatePipeline.mutate({ id: editing.id, data: body }, { onSuccess });
     } else {
-      createPipeline.mutate({ ...body, projectId: null, enabled: true }, { onSuccess });
+      createPipeline.mutate({ ...body, projectId: null, teamId: null, enabled: true }, { onSuccess });
     }
   };
 
