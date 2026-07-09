@@ -17,6 +17,7 @@ export const pipelineSchema = z.object({
   id: idSchema,
   name: z.string().min(1).max(100),
   projectId: idSchema.nullable().default(null),
+  teamId: idSchema.nullable().default(null),
   description: z.string().default(""),
   enabled: z.boolean().default(true),
   steps: z.array(pipelineStepSchema).default([]),

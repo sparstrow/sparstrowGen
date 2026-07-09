@@ -1,10 +1,10 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { Pipeline } from "@sparstrow/shared";
 import { getDb } from "../../db/connection.js";
-import { pipelineSteps, pipelines } from "../../db/schema.js";
+import { pipelineSteps, pipelines, agents, teams } from "../../db/schema.js";
 import { HttpError } from "../../orchestrator/run-manager.js";
 import {
   getPipelineRun,
@@ -23,6 +23,7 @@ const stepSchema = z.object({
 const createBody = z.object({
   name: z.string().min(1).max(100),
   projectId: z.string().nullable().optional(),
+  teamId: z.string().nullable().optional(),
   description: z.string().default(""),
   enabled: z.boolean().default(true),
   steps: z.array(stepSchema).default([]),
@@ -61,6 +62,23 @@ function allWithSteps(teamId?: string): Pipeline[] {
     });
 }
 
+function assertAgentsExist(steps: z.infer<typeof stepSchema>[]): void {
+  if (steps.length === 0) return;
+  const db = getDb();
+  const agentIds = Array.from(new Set(steps.map((s) => s.agentId)));
+  const existingAgents = db
+    .select({ id: agents.id })
+    .from(agents)
+    .where(inArray(agents.id, agentIds))
+    .all();
+
+  const existingIds = new Set(existingAgents.map((a) => a.id));
+  const missing = agentIds.filter((id) => !existingIds.has(id));
+  if (missing.length > 0) {
+    throw new HttpError(400, `unknown agentIds: ${missing.join(", ")}`);
+  }
+}
+
 function replaceSteps(pipelineId: string, inputs: z.infer<typeof stepSchema>[]): void {
   const db = getDb();
   db.delete(pipelineSteps).where(eq(pipelineSteps.pipelineId, pipelineId)).run();
@@ -88,6 +106,14 @@ export async function pipelineRoutes(app: FastifyInstance): Promise<void> {
   app.post("/pipelines", async (request, reply) => {
     const db = getDb();
     const body = createBody.parse(request.body);
+
+    if (body.teamId) {
+      const team = db.select().from(teams).where(eq(teams.id, body.teamId)).get();
+      if (!team) throw new HttpError(400, `unknown teamId: ${body.teamId}`);
+    }
+
+    assertAgentsExist(body.steps);
+
     const id = `pipe_${nanoid(10)}`;
     const ts = nowIso();
     db.insert(pipelines)
@@ -95,6 +121,7 @@ export async function pipelineRoutes(app: FastifyInstance): Promise<void> {
         id,
         name: body.name,
         projectId: body.projectId ?? null,
+        teamId: body.teamId ?? null,
         description: body.description,
         enabled: body.enabled,
         createdAt: ts,
@@ -125,7 +152,10 @@ export async function pipelineRoutes(app: FastifyInstance): Promise<void> {
         .where(eq(pipelines.id, id))
         .run();
     }
-    if (steps !== undefined) replaceSteps(id, steps);
+    if (steps !== undefined) {
+      assertAgentsExist(steps);
+      replaceSteps(id, steps);
+    }
     return withSteps(id);
   });
 
