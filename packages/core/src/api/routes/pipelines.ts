@@ -43,11 +43,12 @@ function withSteps(id: string): Pipeline | null {
   return { ...row, steps } as unknown as Pipeline;
 }
 
-function allWithSteps(): Pipeline[] {
+function allWithSteps(teamId?: string): Pipeline[] {
   const db = getDb();
   return db
     .select()
     .from(pipelines)
+    .where(teamId ? eq(pipelines.teamId, teamId) : undefined)
     .all()
     .map((row) => {
       const steps = db
@@ -79,7 +80,10 @@ function replaceSteps(pipelineId: string, inputs: z.infer<typeof stepSchema>[]):
 }
 
 export async function pipelineRoutes(app: FastifyInstance): Promise<void> {
-  app.get("/pipelines", async () => allWithSteps());
+  app.get("/pipelines", async (request) => {
+    const query = z.object({ teamId: z.string().optional() }).parse(request.query);
+    return allWithSteps(query.teamId);
+  });
 
   app.post("/pipelines", async (request, reply) => {
     const db = getDb();

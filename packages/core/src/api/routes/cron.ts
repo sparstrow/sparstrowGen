@@ -24,7 +24,10 @@ const createBody = z.object({
 const updateBody = createBody.partial();
 
 export async function cronRoutes(app: FastifyInstance): Promise<void> {
-  app.get("/cron-jobs", async () => listCronJobs());
+  app.get("/cron-jobs", async (request) => {
+    const query = z.object({ teamId: z.string().optional() }).parse(request.query);
+    return listCronJobs(query.teamId);
+  });
 
   app.post("/cron-jobs", async (request, reply) => {
     const body = createBody.parse(request.body);
