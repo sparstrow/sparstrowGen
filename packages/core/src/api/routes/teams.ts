@@ -12,8 +12,11 @@ import {
   type Team,
 } from "@sparstrow/shared";
 import { getDb } from "../../db/connection.js";
-import { teams, teamMembers, teamProjects, agents, projects } from "../../db/schema.js";
+import { teams, teamMembers, teamProjects, agents, projects, settings, tasks, pipelines, cronJobs } from "../../db/schema.js";
 import { HttpError } from "../../orchestrator/run-manager.js";
+import { z } from "zod";
+import { completeOnce } from "../../orchestrator/one-shot.js";
+import { TEAM_MANAGER_SLUG } from "../../agents/system-agents.js";
 
 const nowIso = () => new Date().toISOString();
 
@@ -268,4 +271,85 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
 
     reply.code(204);
   });
+
+  // ── Team Manager (Advisor) ─────────────────────────────────────────────
+
+  app.post("/teams/:id/manager/chat", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const bodySchema = z.object({ message: z.string().min(1) });
+    const { message } = bodySchema.parse(request.body);
+    
+    const db = getDb();
+    
+    // Feature gate check
+    const managerSetting = db.select().from(settings).where(eq(settings.key, "team_manager_enabled")).get();
+    if (managerSetting && (managerSetting.value === "false" || managerSetting.value === "0")) {
+      throw new HttpError(403, "Team Manager is disabled by global settings");
+    }
+
+    const teamRow = db.select().from(teams).where(eq(teams.id, id)).get();
+    if (!teamRow) throw new HttpError(404, `team not found: ${id}`);
+    
+    // Fetch system agent
+    const managerAgent = db.select().from(agents).where(eq(agents.slug, TEAM_MANAGER_SLUG)).get();
+    if (!managerAgent) throw new HttpError(500, "Team Manager system agent not seeded");
+
+    // Gather context
+    const members = db
+      .select({ name: agents.name, role: agents.role, teamRole: teamMembers.teamRole })
+      .from(teamMembers)
+      .innerJoin(agents, eq(teamMembers.agentId, agents.id))
+      .where(eq(teamMembers.teamId, id))
+      .all();
+      
+    const assignedProjects = db
+      .select({ name: projects.name })
+      .from(teamProjects)
+      .innerJoin(projects, eq(teamProjects.projectId, projects.id))
+      .where(eq(teamProjects.teamId, id))
+      .all();
+
+    const activeTasks = db.select().from(tasks).where(sql`${tasks.teamId} = ${id} AND ${tasks.status} IN ('pending', 'running')`).all();
+    const teamPipelines = db.select().from(pipelines).where(eq(pipelines.teamId, id)).all();
+    const teamCron = db.select().from(cronJobs).where(eq(cronJobs.teamId, id)).all();
+
+    const prompt = buildAdvisorPrompt(teamRow, members, assignedProjects, activeTasks, teamPipelines, teamCron, message);
+    
+    const replyText = await completeOnce(managerAgent as any, prompt);
+    
+    return { reply: parseAdvisorResponse(replyText.text ?? "") };
+  });
+}
+
+export function buildAdvisorPrompt(
+  team: any, 
+  members: any[], 
+  projects: any[], 
+  tasks: any[], 
+  pipelines: any[], 
+  cronJobs: any[], 
+  userMessage: string
+): string {
+  return `You are advising the team: ${team.name}
+Description: ${team.description || 'None'}
+
+Roster:
+${members.map(m => `- ${m.name} (${m.role}): ${m.teamRole || 'No specific team role'}`).join('\n')}
+
+Assigned Projects:
+${projects.map(p => `- ${p.name}`).join('\n') || 'None'}
+
+Active Tasks:
+${tasks.map(t => `- [${t.status}] ${t.title}`).join('\n') || 'None'}
+
+Pipelines: ${pipelines.length}
+Cron Jobs: ${cronJobs.length}
+
+User Question: ${userMessage}
+
+Please answer the question based on the team context above.`;
+}
+
+export function parseAdvisorResponse(text: string): string {
+  return text.trim();
 }
