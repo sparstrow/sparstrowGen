@@ -47,6 +47,7 @@ const listQuerySchema = z.object({
   status: z.string().optional(),
   projectId: z.string().optional(),
   assignedAgentId: z.string().optional(),
+  teamId: z.string().optional(),
 });
 
 export async function taskRoutes(app: FastifyInstance): Promise<void> {

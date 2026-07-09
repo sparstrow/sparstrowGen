@@ -33,8 +33,14 @@ export function getCronJob(id: string): CronJob | null {
   return row ? rowToCronJob(row) : null;
 }
 
-export function listCronJobs(): CronJob[] {
-  return getDb().select().from(cronJobs).orderBy(desc(cronJobs.createdAt)).all().map(rowToCronJob);
+export function listCronJobs(teamId?: string): CronJob[] {
+  return getDb()
+    .select()
+    .from(cronJobs)
+    .where(teamId ? eq(cronJobs.teamId, teamId) : undefined)
+    .orderBy(desc(cronJobs.createdAt))
+    .all()
+    .map(rowToCronJob);
 }
 
 export function createCronJob(input: {

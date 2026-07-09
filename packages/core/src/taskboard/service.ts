@@ -105,12 +105,14 @@ export function listTasks(filter: {
   projectId?: string;
   assignedAgentId?: string;
   parentTaskId?: string;
+  teamId?: string;
 }): Task[] {
   const conditions: SQL[] = [];
   if (filter.status) conditions.push(eq(tasks.status, filter.status));
   if (filter.projectId) conditions.push(eq(tasks.projectId, filter.projectId));
   if (filter.assignedAgentId) conditions.push(eq(tasks.assignedAgentId, filter.assignedAgentId));
   if (filter.parentTaskId) conditions.push(eq(tasks.parentTaskId, filter.parentTaskId));
+  if (filter.teamId) conditions.push(eq(tasks.teamId, filter.teamId));
   return getDb()
     .select()
     .from(tasks)

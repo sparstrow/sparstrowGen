@@ -546,4 +546,18 @@ CREATE TABLE skill_imports (
 CREATE INDEX idx_skill_imports_status ON skill_imports(status);
 `,
   },
+  {
+    // P10 Part 1: Team Workspace schema & ownership foundation.
+    // team_id is nullable (NULL = global). No FK to teams table (SQLite ADD COLUMN
+    // can't add FKs — code-enforced, like tasks.parent_task_id).
+    id: "0012_team_workspace",
+    sql: `
+ALTER TABLE tasks ADD COLUMN team_id TEXT;
+ALTER TABLE pipelines ADD COLUMN team_id TEXT;
+ALTER TABLE cron_jobs ADD COLUMN team_id TEXT;
+CREATE INDEX idx_tasks_team ON tasks(team_id);
+CREATE INDEX idx_pipelines_team ON pipelines(team_id);
+CREATE INDEX idx_cron_jobs_team ON cron_jobs(team_id);
+`,
+  },
 ];

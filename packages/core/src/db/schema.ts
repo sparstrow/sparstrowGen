@@ -215,6 +215,7 @@ export const tasks = sqliteTable(
       disallowed: string[];
     } | null>(),
     userId: text("user_id"),
+    teamId: text("team_id"),
     dueAt: text("due_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -223,6 +224,7 @@ export const tasks = sqliteTable(
     index("idx_tasks_status").on(t.status),
     index("idx_tasks_assigned").on(t.assignedAgentId),
     index("idx_tasks_parent").on(t.parentTaskId),
+    index("idx_tasks_team").on(t.teamId),
   ],
 );
 
@@ -270,11 +272,12 @@ export const pipelines = sqliteTable("pipelines", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   projectId: text("project_id"),
+  teamId: text("team_id"),
   description: text("description").notNull().default(""),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
-});
+}, (t) => [index("idx_pipelines_team").on(t.teamId)]);
 
 export const pipelineSteps = sqliteTable(
   "pipeline_steps",
@@ -309,12 +312,13 @@ export const cronJobs = sqliteTable("cron_jobs", {
   targetId: text("target_id").notNull(),
   prompt: text("prompt").notNull(),
   projectId: text("project_id"),
+  teamId: text("team_id"),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   lastRunAt: text("last_run_at"),
   nextRunAt: text("next_run_at"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
-});
+}, (t) => [index("idx_cron_jobs_team").on(t.teamId)]);
 
 export const memoryNotes = sqliteTable(
   "memory_notes",
