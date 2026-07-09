@@ -58,3 +58,19 @@ P5 deferrals (graph-engine swap, /autoplan 2026-07-05) →
 - **Error-call counting in graph usage aggregate** — "used in N of M runs" ships; counting
   isError tool_results needs pairing tool_use ids across events. Add if the zero-usage
   diagnostic proves insufficient. (S)
+
+Portability deferrals (/autoplan 2026-07-08, `docs/portability-plan.md`, branch
+`fix/portable-vault-path`) →
+- **Full migration of DB-stored absolute paths to relative storage** — `agents.cwd` and
+  `projects.root_dir` hold absolute paths written at create time, read back across
+  run-manager / provision / git-ops / variants / terminal-manager + 3 API routes. A drive
+  move leaves existing rows stale. The portability plan shipped a *warning-only*
+  factory-health `stale-paths` check (loud, not silent) but NOT a migration — relativizing
+  at write time + resolving at read time touches 6+ call sites and doesn't help rows that
+  are already stale before the migration ships. Do it if a real second-machine / drive-move
+  workflow becomes routine. (M)
+- **`??` → empty-string gap on `SPARSTROW_DATA_DIR` (config.ts) and `SPARSTROW_SECRETS_DIR`
+  (config.ts)** — same latent bug the vault-path fix closed: `??` only substitutes on
+  null/undefined, so a set-but-empty env var resolves to an empty/partial path. Left out of
+  the portability PR to keep it scoped to the vault path. One-line each
+  (`?.trim() || <fallback>`) when touched next. (S)
