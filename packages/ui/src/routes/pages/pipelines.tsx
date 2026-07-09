@@ -43,8 +43,8 @@ interface StepDraft {
 
 const EMPTY_STEP: StepDraft = { agentId: "", promptTemplate: "{{input}}", onFailure: "abort" };
 
-export function PipelinesPage() {
-  const pipelines = usePipelines();
+export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?: boolean } = {}) {
+  const pipelines = usePipelines(teamId);
   const agents = useAgents();
   const createPipeline = useCreatePipeline();
   const updatePipeline = useUpdatePipeline();
@@ -139,9 +139,11 @@ export function PipelinesPage() {
           {"{{trigger_prompt}}"} and {"{{steps.N.output}}"}.
         </p>
         <div className="flex-1" />
-        <Button onClick={openCreate}>
-          <Plus className="size-4" /> New pipeline
-        </Button>
+        {!readOnly && (
+          <Button onClick={openCreate}>
+            <Plus className="size-4" /> New pipeline
+          </Button>
+        )}
       </div>
 
       {pipelines.isLoading ? (
@@ -150,12 +152,17 @@ export function PipelinesPage() {
           <Skeleton className="h-24 w-full" />
         </div>
       ) : (pipelines.data ?? []).length === 0 ? (
-        <div className="rounded-xl border py-16 text-center">
+        <div className="rounded-xl border border-dashed py-16 text-center bg-card">
           <Workflow className="mx-auto size-8 text-muted-foreground/40" />
-          <p className="mt-3 text-sm font-medium">No pipelines yet</p>
+          <p className="mt-3 text-sm font-medium">{teamId ? "No pipelines in this team yet" : "No pipelines yet"}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Build a multi-step chain like research → draft → review.
+            {teamId ? "Create one to chain agents together." : "Build a multi-step chain like research → draft → review."}
           </p>
+          {teamId && !readOnly && (
+            <Button variant="link" size="sm" className="mt-2" onClick={openCreate}>
+              Create the first pipeline
+            </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-3">

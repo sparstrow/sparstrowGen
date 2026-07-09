@@ -24,6 +24,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TasksPage } from "@/routes/pages/tasks";
+import { PipelinesPage } from "@/routes/pages/pipelines";
+import { SchedulePage } from "@/routes/pages/schedule";
 import { 
   useTeam, 
   useUpdateTeam, 
@@ -170,6 +174,11 @@ export function TeamDetailPage() {
                 <p className="mt-2 text-muted-foreground max-w-3xl">
                   {team.description || <span className="italic">No description provided.</span>}
                 </p>
+                {team.isEphemeral && (
+                  <p className="mt-2 text-sm text-sky-600 dark:text-sky-400 bg-sky-500/10 p-2 rounded-md border border-sky-500/20 w-fit">
+                    This is an ephemeral team created around a task. It is read-only and will be archived automatically.
+                  </p>
+                )}
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -195,14 +204,33 @@ export function TeamDetailPage() {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-8">
-        <div className="md:col-span-2 space-y-6">
-          <MembersSection teamId={team.id} members={team.members} />
-        </div>
-        <div className="space-y-6">
-          <ProjectsSection teamId={team.id} assignedProjects={team.projects} />
-        </div>
-      </div>
+      <Tabs defaultValue="tasks" className="flex flex-col gap-6">
+        <TabsList className="w-fit">
+          <TabsTrigger value="tasks">Tasks</TabsTrigger>
+          <TabsTrigger value="pipelines">Pipelines</TabsTrigger>
+          <TabsTrigger value="schedules">Schedules</TabsTrigger>
+          <TabsTrigger value="members">Members</TabsTrigger>
+        </TabsList>
+        <TabsContent value="tasks">
+          <TasksPage teamId={team.id} readOnly={team.isEphemeral} />
+        </TabsContent>
+        <TabsContent value="pipelines">
+          <PipelinesPage teamId={team.id} readOnly={team.isEphemeral} />
+        </TabsContent>
+        <TabsContent value="schedules">
+          <SchedulePage teamId={team.id} readOnly={team.isEphemeral} />
+        </TabsContent>
+        <TabsContent value="members">
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="md:col-span-2 space-y-6">
+              <MembersSection teamId={team.id} members={team.members} readOnly={team.isEphemeral} />
+            </div>
+            <div className="space-y-6">
+              <ProjectsSection teamId={team.id} assignedProjects={team.projects} readOnly={team.isEphemeral} />
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={deleting} onOpenChange={setDeleting}>
         <DialogContent>
@@ -233,7 +261,7 @@ export function TeamDetailPage() {
 // Members Section
 // ----------------------------------------------------------------------
 
-function MembersSection({ teamId, members }: { teamId: string, members: any[] }) {
+function MembersSection({ teamId, members, readOnly }: { teamId: string, members: any[], readOnly?: boolean }) {
   const agentsQuery = useAgents();
   const removeMember = useRemoveTeamMember();
   
@@ -245,22 +273,26 @@ function MembersSection({ teamId, members }: { teamId: string, members: any[] })
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <Users className="size-5 text-muted-foreground" /> Team Members
         </h2>
-        <Button size="sm" onClick={() => setAddOpen(true)}>
-          <Plus className="size-4 mr-2" /> Add Member
-        </Button>
+        {!readOnly && (
+          <Button size="sm" onClick={() => setAddOpen(true)}>
+            <Plus className="size-4 mr-2" /> Add Member
+          </Button>
+        )}
       </div>
 
       {members.length === 0 ? (
         <div className="rounded-xl border border-dashed py-8 text-center bg-card">
           <p className="text-sm text-muted-foreground">No agents in this team.</p>
-          <Button variant="link" size="sm" className="mt-2" onClick={() => setAddOpen(true)}>
-            Add the first member
-          </Button>
+          {!readOnly && (
+            <Button variant="link" size="sm" className="mt-2" onClick={() => setAddOpen(true)}>
+              Add the first member
+            </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-2">
           {members.map(m => (
-            <MemberRow key={m.id} teamId={teamId} member={m} />
+            <MemberRow key={m.id} teamId={teamId} member={m} readOnly={readOnly} />
           ))}
         </div>
       )}
@@ -276,7 +308,7 @@ function MembersSection({ teamId, members }: { teamId: string, members: any[] })
   );
 }
 
-function MemberRow({ teamId, member }: { teamId: string, member: any }) {
+function MemberRow({ teamId, member, readOnly }: { teamId: string, member: any, readOnly?: boolean }) {
   const updateMember = useUpdateTeamMember();
   const removeMember = useRemoveTeamMember();
   
@@ -334,30 +366,32 @@ function MemberRow({ teamId, member }: { teamId: string, member: any }) {
           </div>
         ) : (
           <div 
-            className="text-xs text-muted-foreground mt-1 cursor-pointer hover:text-foreground transition-colors group flex items-center gap-1"
-            onClick={() => setIsEditing(true)}
+            className={cn("text-xs text-muted-foreground mt-1 flex items-center gap-1", !readOnly && "cursor-pointer hover:text-foreground transition-colors group")}
+            onClick={() => !readOnly && setIsEditing(true)}
           >
             {member.teamRole ? (
               <span className="font-medium text-foreground">{member.teamRole}</span>
             ) : (
               <span className="italic">No team role set</span>
             )}
-            <span className="opacity-0 group-hover:opacity-100 text-[10px] underline ml-1">Edit</span>
+            {!readOnly && <span className="opacity-0 group-hover:opacity-100 text-[10px] underline ml-1">Edit</span>}
           </div>
         )}
       </div>
       
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        className="text-muted-foreground hover:text-destructive shrink-0"
-        onClick={() => removeMember.mutate({ teamId, memberId: member.id })}
-        disabled={removeMember.isPending}
-        title="Remove member"
-        aria-label={`Remove ${member.agentName}`}
-      >
-        <X className="size-4" />
-      </Button>
+      {!readOnly && (
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="text-muted-foreground hover:text-destructive shrink-0"
+          onClick={() => removeMember.mutate({ teamId, memberId: member.id })}
+          disabled={removeMember.isPending}
+          title="Remove member"
+          aria-label={`Remove ${member.agentName}`}
+        >
+          <X className="size-4" />
+        </Button>
+      )}
     </div>
   );
 }
@@ -452,7 +486,7 @@ function AddMemberDialog({ teamId, open, onOpenChange, existingAgentIds, agents 
 // Projects Section
 // ----------------------------------------------------------------------
 
-function ProjectsSection({ teamId, assignedProjects }: { teamId: string, assignedProjects: any[] }) {
+function ProjectsSection({ teamId, assignedProjects, readOnly }: { teamId: string, assignedProjects: any[], readOnly?: boolean }) {
   const projectsQuery = useProjects();
   const setProjects = useSetTeamProjects();
   
@@ -476,9 +510,11 @@ function ProjectsSection({ teamId, assignedProjects }: { teamId: string, assigne
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <FolderKanban className="size-5 text-muted-foreground" /> Assigned Projects
         </h2>
-        <Button size="sm" variant="outline" onClick={openManage}>
-          Manage
-        </Button>
+        {!readOnly && (
+          <Button size="sm" variant="outline" onClick={openManage}>
+            Manage
+          </Button>
+        )}
       </div>
 
       {assignedProjects.length === 0 ? (

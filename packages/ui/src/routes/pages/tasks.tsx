@@ -130,10 +130,10 @@ function priorityBadge(priority: number) {
   );
 }
 
-export function TasksPage() {
+export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: boolean } = {}) {
   const agents = useAgents();
   const projects = useProjects();
-  const tasks = useTasks();
+  const tasks = useTasks({ teamId });
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
@@ -220,9 +220,11 @@ export function TasksPage() {
             Assigning a task to an agent runs them with the task protocol — results land back here.
           </p>
           <div className="flex-1" />
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="size-4" /> New task
-          </Button>
+          {!readOnly && (
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="size-4" /> New task
+            </Button>
+          )}
         </div>
 
         <TabsContent value="goals" className="min-h-0 flex-1 overflow-y-auto">
@@ -249,6 +251,15 @@ export function TasksPage() {
           {COLUMNS.map((c) => (
             <Skeleton key={c.status} className="h-64 w-full" />
           ))}
+        </div>
+      ) : tasks.data?.length === 0 && teamId ? (
+        <div className="rounded-xl border border-dashed py-16 text-center bg-card">
+          <p className="text-sm font-medium">No tasks in this team yet</p>
+          {!readOnly && (
+            <Button variant="link" size="sm" className="mt-2" onClick={() => setCreateOpen(true)}>
+              Create the first task
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto md:grid-cols-3 xl:grid-cols-6">
