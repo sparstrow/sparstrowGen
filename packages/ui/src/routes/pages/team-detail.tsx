@@ -10,7 +10,9 @@ import {
   Plus,
   Bot,
   MessageSquare,
-  Send
+  Send,
+  Pencil,
+  Rocket
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TasksPage } from "@/routes/pages/tasks";
 import { PipelinesPage } from "@/routes/pages/pipelines";
 import { SchedulePage } from "@/routes/pages/schedule";
+import { PipelineCanvas } from "@/components/pipelines/pipeline-canvas";
 import { 
   useTeam, 
   useUpdateTeam, 
@@ -40,10 +43,16 @@ import {
   useAddTeamMember,
   useUpdateTeamMember,
   useRemoveTeamMember,
-  useTeamManagerChat
+  useTeamManagerChat,
+  useCreatePipeline
 } from "@/api/hooks";
 import { cn } from "@/lib/utils";
-import type { TeamMember, DraftPipeline } from "@sparstrow/shared";
+import {
+  validateDraftForPublish,
+  draftToCreatePayload,
+  type TeamMember,
+  type DraftPipeline,
+} from "@sparstrow/shared";
 
 function getInitials(name: string) {
   return name.substring(0, 2).toUpperCase();
@@ -230,7 +239,10 @@ export function TeamDetailPage() {
             </div>
             <div className="space-y-6">
               <ProjectsSection teamId={team.id} assignedProjects={team.projects} readOnly={team.isEphemeral} />
-              <ManagerChatPanel teamId={team.id} />
+              <ManagerChatPanel
+                teamId={team.id}
+                roster={team.members.map((m) => ({ id: m.agentId, name: m.agentName }))}
+              />
             </div>
           </div>
         </TabsContent>
@@ -582,12 +594,42 @@ function ProjectsSection({ teamId, assignedProjects, readOnly }: { teamId: strin
 // Manager Chat Panel
 // ----------------------------------------------------------------------
 
-function ManagerChatPanel({ teamId }: { teamId: string }) {
+function ManagerChatPanel({
+  teamId,
+  roster,
+}: {
+  teamId: string;
+  roster: { id: string; name: string }[];
+}) {
   const [mode, setMode] = React.useState<"advisor" | "draft">("advisor");
   const [draft, setDraft] = React.useState<DraftPipeline | undefined>(undefined);
   const [message, setMessage] = React.useState("");
   const [history, setHistory] = React.useState<{ role: "user" | "advisor"; text: string }[]>([]);
+  const [canvasOpen, setCanvasOpen] = React.useState(false);
   const chatMutation = useTeamManagerChat(teamId);
+  const createPipeline = useCreatePipeline();
+
+  const validation = draft ? validateDraftForPublish(draft, roster) : { ok: false, reasons: [] };
+
+  const handlePublish = () => {
+    if (!draft || !validation.ok) return;
+    createPipeline.mutate(draftToCreatePayload(draft, teamId), {
+      onSuccess: (created) => {
+        setCanvasOpen(false);
+        setHistory((prev) => [
+          ...prev,
+          { role: "advisor", text: `✓ Published "${created.name}" to this team's pipelines.` },
+        ]);
+        setDraft(undefined);
+      },
+      onError: (err: any) => {
+        setHistory((prev) => [
+          ...prev,
+          { role: "advisor", text: `Publish failed: ${err.message || "could not create pipeline."}` },
+        ]);
+      },
+    });
+  };
 
   const handleSend = () => {
     if (!message.trim() || chatMutation.isPending) return;
@@ -698,7 +740,14 @@ function ManagerChatPanel({ teamId }: { teamId: string }) {
       
       {mode === "draft" && (
         <div className="w-[350px] shrink-0 space-y-4 rounded-lg border bg-card p-4 shadow-sm flex flex-col h-[500px] overflow-y-auto">
-          <h3 className="font-semibold border-b pb-2">Pipeline Draft Preview</h3>
+          <div className="flex items-center justify-between border-b pb-2">
+            <h3 className="font-semibold">Pipeline Draft Preview</h3>
+            {draft && (
+              <Button size="sm" variant="outline" onClick={() => setCanvasOpen(true)}>
+                <Pencil className="mr-2 size-3.5" /> Edit in canvas
+              </Button>
+            )}
+          </div>
           {!draft ? (
             <p className="text-sm text-muted-foreground">No draft yet.</p>
           ) : (
@@ -747,6 +796,41 @@ function ManagerChatPanel({ teamId }: { teamId: string }) {
           )}
         </div>
       )}
+
+      <Dialog open={canvasOpen} onOpenChange={setCanvasOpen}>
+        <DialogContent className="flex h-[85vh] max-w-5xl flex-col gap-3">
+          <DialogHeader>
+            <DialogTitle>Edit &amp; publish pipeline</DialogTitle>
+            <DialogDescription>
+              Arrange the steps, resolve any flagged agents, then publish to this team&apos;s pipelines.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1">
+            {draft && <PipelineCanvas value={draft} roster={roster} onChange={setDraft} />}
+          </div>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              {validation.ok ? (
+                <span className="text-emerald-600 dark:text-emerald-400">Ready to publish.</span>
+              ) : (
+                <span>
+                  {validation.reasons[0]}
+                  {validation.reasons.length > 1 ? ` (+${validation.reasons.length - 1} more)` : ""}
+                </span>
+              )}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setCanvasOpen(false)}>
+                Close
+              </Button>
+              <Button onClick={handlePublish} disabled={!validation.ok || createPipeline.isPending}>
+                <Rocket className="mr-2 size-4" />
+                {createPipeline.isPending ? "Publishing…" : "Publish"}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
