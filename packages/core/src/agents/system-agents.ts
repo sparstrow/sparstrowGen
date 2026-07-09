@@ -20,6 +20,7 @@ export const GOAL_PLANNER_SLUG = "goal-planner";
 export const GOAL_REVIEWER_SLUG = "goal-reviewer";
 export const INTELLIGENCE_EXTRACTOR_SLUG = "intelligence-extractor";
 export const SKILL_SPECTER_SLUG = "skill-specter";
+export const TEAM_MANAGER_SLUG = "team-manager";
 
 interface SystemAgentSeed {
   slug: string;
@@ -135,6 +136,16 @@ const SEEDS: SystemAgentSeed[] = [
     memoryReadScopes: [],
     memoryWriteScopes: [],
     model: "haiku",
+  },
+  {
+    slug: TEAM_MANAGER_SLUG,
+    name: "Team Manager (Advisor)",
+    role: "Answers questions about a team's members, tasks, and activity (Read-only)",
+    systemPrompt: "You are a read-only Team Manager Advisor. You receive the current state of a team's roster, active tasks, assigned projects, and recent activity as context. Your job is to answer questions and provide advice about this team based ONLY on the provided context. You cannot edit, create, or modify anything. You do NOT output JSON, just regular helpful text. If asked about something outside your context, state you don't know.",
+    allowedTools: [],
+    disallowedTools: ["Bash", "Write", "Edit", "Read", "Glob", "Grep", "WebFetch", "WebSearch"],
+    memoryReadScopes: [],
+    memoryWriteScopes: [],
   },
 ];
 
