@@ -10,6 +10,7 @@ import {
   type TeamIndexItem,
   type TeamDetail,
   type Team,
+  teamManagerChatRequestSchema,
 } from "@sparstrow/shared";
 import { getDb } from "../../db/connection.js";
 import { teams, teamMembers, teamProjects, agents, projects, settings, tasks, pipelines, cronJobs } from "../../db/schema.js";
@@ -17,6 +18,7 @@ import { HttpError } from "../../orchestrator/run-manager.js";
 import { z } from "zod";
 import { completeOnce } from "../../orchestrator/one-shot.js";
 import { TEAM_MANAGER_SLUG } from "../../agents/system-agents.js";
+import { runPipelineDraftTurn } from "../../agents/pipeline-draft-service.js";
 
 const nowIso = () => new Date().toISOString();
 
@@ -276,8 +278,7 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
 
   app.post("/teams/:id/manager/chat", async (request, reply) => {
     const { id } = request.params as { id: string };
-    const bodySchema = z.object({ message: z.string().min(1) });
-    const { message } = bodySchema.parse(request.body);
+    const reqBody = teamManagerChatRequestSchema.parse(request.body);
     
     const db = getDb();
     
@@ -296,12 +297,17 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
 
     // Gather context
     const members = db
-      .select({ name: agents.name, role: agents.role, teamRole: teamMembers.teamRole })
+      .select({ id: agents.id, name: agents.name, role: agents.role, teamRole: teamMembers.teamRole })
       .from(teamMembers)
       .innerJoin(agents, eq(teamMembers.agentId, agents.id))
       .where(eq(teamMembers.teamId, id))
       .all();
       
+    if (reqBody.mode === "draft") {
+      const turn = await runPipelineDraftTurn(reqBody, members.map(m => ({ id: m.id, name: m.name })));
+      return turn;
+    }
+
     const assignedProjects = db
       .select({ name: projects.name })
       .from(teamProjects)
@@ -313,7 +319,7 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
     const teamPipelines = db.select().from(pipelines).where(eq(pipelines.teamId, id)).all();
     const teamCron = db.select().from(cronJobs).where(eq(cronJobs.teamId, id)).all();
 
-    const prompt = buildAdvisorPrompt(teamRow, members, assignedProjects, activeTasks, teamPipelines, teamCron, message);
+    const prompt = buildAdvisorPrompt(teamRow, members, assignedProjects, activeTasks, teamPipelines, teamCron, reqBody.message);
     
     const replyText = await completeOnce(managerAgent as any, prompt);
     

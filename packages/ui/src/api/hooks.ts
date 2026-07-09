@@ -66,6 +66,8 @@ import type {
   Task,
   TaskQuestion,
   TaskStatus,
+  PipelineDraftTurn,
+  TeamManagerChatRequest,
 } from "@sparstrow/shared";
 import { api, type ApiError } from "@/lib/api";
 
@@ -1628,12 +1630,12 @@ export function useDiscardAgent(): UseMutationResult<Agent, ApiError, string> {
 // ---------------------------------------------------------------------------
 
 export function useTeamManagerChat(teamId: string): UseMutationResult<
-  { reply: string },
+  PipelineDraftTurn | { reply: string },
   ApiError,
-  { message: string }
+  TeamManagerChatRequest
 > {
   return useMutation({
-    mutationFn: (body: { message: string }) =>
-      api<{ reply: string }>(`/teams/${teamId}/manager/chat`, { method: "POST", body }),
+    mutationFn: (body: TeamManagerChatRequest) =>
+      api<PipelineDraftTurn | { reply: string }>(`/teams/${teamId}/manager/chat`, { method: "POST", body }),
   });
 }
