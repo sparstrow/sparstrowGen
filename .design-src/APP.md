@@ -71,6 +71,7 @@ Board is clean — Teams Pass 2 shipped end-to-end (office-hours → autoplan �
 | **P10 Part 3 — Team Manager Agent: Advisor mode** | 🔁 in-review | branch `feat/team-manager-advisor`. PR compare URL: https://github.com/sparstrow/sparstrowGen/compare/main...feat/team-manager-advisor?expand=1 |
 | **P10 Part 4 — Team Manager Agent: Draft mode** | 🔁 in-review | branch `feat/p10-part4`. PR compare URL: https://github.com/sparstrow/sparstrowGen/pull/new/feat/p10-part4 |
 | **P10 Part 5a — Pipeline publish backend seam** | 🔁 in-review | branch `feat/p10-part5a-seam`. PR compare URL: https://github.com/sparstrow/sparstrowGen/pull/new/feat/p10-part5a-seam |
+| **P10 Part 6 — Team Workspace convergence & a11y** | 🔁 in-review | branch `feat/p10-part5c`. PR compare URL: https://github.com/sparstrow/sparstrowGen/compare/main...feat/p10-part5c?expand=1 |
 
 ### North-stars (captured, not scheduled)
 Big visions parked with a written doc; each needs its own `/office-hours` + `/plan-ceo-review` before it enters the board.
