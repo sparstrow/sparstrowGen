@@ -55,6 +55,10 @@ Everything you bring is captured the same way, then routed differently:
 | _New concept_ | `new-concept` | ⬜ to design | → Reviewers → north-star/plan |
 | _New design (HTML)_ | `design` | ⬜ to design | → decode → SPEC → review → build |
 | _Feature change_ | `feature-change` | ⬜ to design | → review → build |
+| [Deferred scope](./deferred-scope.md) | _disposition_ | 🔒 locked 2026-07-11 | freezer → revive → intake |
+
+_Deferred scope is cross-cutting (not a capture ramp): fed by human dream-plans and by agents
+cutting scope in any other workflow. Record: [`../../DEFERRED_SCOPE.md`](../../DEFERRED_SCOPE.md)._
 
 > Doc organization is provisional and will be revisited as more workflows land.
 > Final step (after all workflows are locked): wire enforcement — `CLAUDE.md` routing +

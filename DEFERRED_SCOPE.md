@@ -1,4 +1,25 @@
-# TODOS — deferred with context
+# DEFERRED_SCOPE — parked with context (the freezer)
+
+The durable record of scope intentionally **not** built now. Governed by
+[`docs/workflows/deferred-scope.md`](docs/workflows/deferred-scope.md). Two feeders: a human
+dream/future plan (via the Listener), or an agent cutting scope mid-work — the **"no silent
+scope-drop" rule**: whenever you defer, cut, or say "later / out of scope," log it here at that
+moment. Nothing here is a promise to build; it's a waiting room. When an item's time comes it is
+**revived** into `docs/intake/` as a fresh capture and runs the normal review → build flow.
+
+**Entry format** (newer entries; the grouped lists below predate it and are kept as-is):
+
+```
+### <title>
+- source: human-dream | agent-defer | review-outcome
+- project: factory | <slug>
+- what: <the deferred scope>
+- why deferred: <rationale>
+- revisit when: <the trigger>
+- size: (S|M|L)   ·   date: YYYY-MM-DD   ·   links: <capture id / PR>
+```
+
+---
 
 Deferred by /autoplan master-plan review, 2026-07-02 (see
 `fable-handoff/ENGINEERING_PLAN.md` appendix for rationale):
