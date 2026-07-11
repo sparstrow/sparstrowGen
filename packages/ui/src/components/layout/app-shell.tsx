@@ -8,12 +8,14 @@ import {
   Inbox,
   LayoutDashboard,
   ListChecks,
+  Menu,
   PackagePlus,
   Play,
   Settings,
   TerminalSquare,
   Users,
   Workflow,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { wsHub } from "@/lib/ws";
@@ -48,16 +50,42 @@ export function AppShell() {
   const active = NAV.findLast((n) =>
     n.to === "/" ? pathname === "/" : pathname.startsWith(n.to),
   );
+  // Below md the sidebar is an off-canvas drawer; close it whenever the route
+  // changes so tapping a nav item doesn't leave the overlay covering the page.
+  const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
+  React.useEffect(() => setMobileNavOpen(false), [pathname]);
   // Attention count drives the Dashboard nav badge + a header chip (visible anywhere).
   const attention = useAttentionQueue();
   const attentionCount = attention.data?.length ?? 0;
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
-      <aside className="flex w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
+      {/* Mobile-only backdrop; tapping it dismisses the drawer. */}
+      {mobileNavOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          onClick={() => setMobileNavOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground transition-transform duration-200 md:static md:translate-x-0",
+          mobileNavOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
         <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
           <Bot className="size-5" />
           <span className="text-sm font-semibold tracking-tight">Sparstrowgen</span>
+          <button
+            type="button"
+            className="ml-auto rounded-md p-1 text-muted-foreground hover:text-sidebar-accent-foreground md:hidden"
+            onClick={() => setMobileNavOpen(false)}
+            aria-label="Close navigation"
+          >
+            <X className="size-5" />
+          </button>
         </div>
         <nav className="flex-1 space-y-0.5 overflow-y-auto p-2">
           {NAV.map((item) => {
@@ -92,7 +120,17 @@ export function AppShell() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center justify-between border-b px-5">
-          <h1 className="text-sm font-semibold">{active?.label ?? "Sparstrowgen"}</h1>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="-ml-1 rounded-md p-1 text-muted-foreground hover:text-foreground md:hidden"
+              onClick={() => setMobileNavOpen(true)}
+              aria-label="Open navigation"
+            >
+              <Menu className="size-5" />
+            </button>
+            <h1 className="text-sm font-semibold">{active?.label ?? "Sparstrowgen"}</h1>
+          </div>
           <div className="flex items-center gap-3">
             {attentionCount > 0 ? (
               <Link
