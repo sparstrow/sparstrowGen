@@ -140,9 +140,9 @@ export function RunsPage() {
                 <TableHead>Project</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Trigger</TableHead>
-                <TableHead>Turns</TableHead>
-                <TableHead>Cost</TableHead>
-                <TableHead>Duration</TableHead>
+                <TableHead className="text-right">Turns</TableHead>
+                <TableHead className="text-right">Cost</TableHead>
+                <TableHead className="text-right">Duration</TableHead>
                 <TableHead>Created</TableHead>
               </TableRow>
             </TableHeader>
@@ -166,9 +166,13 @@ export function RunsPage() {
                     <RunStatusBadge status={run.status} />
                   </TableCell>
                   <TableCell className="text-muted-foreground">{run.trigger}</TableCell>
-                  <TableCell className="text-muted-foreground">{run.numTurns ?? "—"}</TableCell>
-                  <TableCell className="text-muted-foreground">{formatCost(run.costUsd)}</TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {run.numTurns ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {formatCost(run.costUsd)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
                     {formatDuration(run.durationMs)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">

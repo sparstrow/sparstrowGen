@@ -170,8 +170,8 @@ export function DashboardPage() {
                   <TableHead>Agent</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Trigger</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Cost</TableHead>
+                  <TableHead className="text-right">Duration</TableHead>
+                  <TableHead className="text-right">Cost</TableHead>
                   <TableHead>Created</TableHead>
                 </TableRow>
               </TableHeader>
@@ -191,10 +191,10 @@ export function DashboardPage() {
                       <RunStatusBadge status={run.status} />
                     </TableCell>
                     <TableCell className="text-muted-foreground">{run.trigger}</TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {formatDuration(run.durationMs)}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {formatCost(run.costUsd)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">

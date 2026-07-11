@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { RunStatusBadge } from "@/components/run-status-badge";
 import {
@@ -56,6 +57,7 @@ export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?
   const [editorOpen, setEditorOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Pipeline | null>(null);
   const [runTarget, setRunTarget] = React.useState<Pipeline | null>(null);
+  const [confirmDelete, setConfirmDelete] = React.useState<Pipeline | null>(null);
   const [expandedRuns, setExpandedRuns] = React.useState<string | null>(null);
   const [managerOpen, setManagerOpen] = React.useState(false);
 
@@ -236,7 +238,7 @@ export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?
                     size="sm"
                     variant="ghost"
                     className="text-destructive hover:text-destructive"
-                    onClick={() => deletePipeline.mutate(p.id)}
+                    onClick={() => setConfirmDelete(p)}
                   >
                     <Trash2 className="size-3.5" />
                   </Button>
@@ -416,6 +418,19 @@ export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?
           </DialogContent>
         </Dialog>
       )}
+
+      <ConfirmDialog
+        open={confirmDelete != null}
+        onOpenChange={(open) => !open && setConfirmDelete(null)}
+        title={confirmDelete ? `Delete “${confirmDelete.name}”?` : "Delete pipeline?"}
+        description="The pipeline and its step configuration are removed. Past runs are kept. This can't be undone."
+        pending={deletePipeline.isPending}
+        pendingLabel="Deleting…"
+        onConfirm={() =>
+          confirmDelete &&
+          deletePipeline.mutate(confirmDelete.id, { onSuccess: () => setConfirmDelete(null) })
+        }
+      />
     </div>
   );
 }

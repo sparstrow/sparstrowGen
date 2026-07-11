@@ -19,15 +19,20 @@ const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 );
 CardHeader.displayName = "CardHeader";
 
-const CardTitle = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn("font-semibold leading-none tracking-tight", className)}
-      {...props}
-    />
-  ),
-);
+// Renders a real heading (default h2) so card sections show up in the document
+// outline for screen-reader / keyboard navigation. Tailwind's preflight resets
+// heading size/weight/margins to inherit, so this is visually identical to the
+// previous <div>. Pass `as` to fit a page's heading hierarchy (e.g. "h3").
+const CardTitle = React.forwardRef<
+  HTMLHeadingElement,
+  React.HTMLAttributes<HTMLHeadingElement> & { as?: "h2" | "h3" | "h4" }
+>(({ className, as: Tag = "h2", ...props }, ref) => (
+  <Tag
+    ref={ref}
+    className={cn("font-semibold leading-none tracking-tight", className)}
+    {...props}
+  />
+));
 CardTitle.displayName = "CardTitle";
 
 const CardDescription = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(

@@ -5,6 +5,7 @@ import { RouterProvider } from "@tanstack/react-router";
 import { ThemeProvider } from "@/theme/theme-provider";
 import { wsHub } from "@/lib/ws";
 import { router } from "@/router";
+import "@fontsource-variable/inter";
 import "@/styles/globals.css";
 
 const queryClient = new QueryClient({

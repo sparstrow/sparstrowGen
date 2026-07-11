@@ -29,6 +29,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   useAgents,
   useApproveNote,
@@ -62,6 +63,7 @@ export function MemoryPage() {
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [createOpen, setCreateOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [bulkSignalOpen, setBulkSignalOpen] = React.useState(false);
   const [editMode, setEditMode] = React.useState(false);
   const [editContent, setEditContent] = React.useState("");
   const [searchResult, setSearchResult] = React.useState<MemorySearchResult | null>(null);
@@ -188,7 +190,7 @@ export function MemoryPage() {
               type="button"
               className="ml-auto rounded-full border border-destructive/40 px-2 py-0.5 text-[11px] text-destructive transition-colors hover:bg-destructive/10"
               disabled={bulkDelete.isPending}
-              onClick={() => bulkDelete.mutate({ source: "signal" })}
+              onClick={() => setBulkSignalOpen(true)}
               title="Delete every extracted signal note (the nightly pass can re-learn)"
             >
               delete all signals
@@ -441,6 +443,22 @@ export function MemoryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={bulkSignalOpen}
+        onOpenChange={setBulkSignalOpen}
+        title="Delete all signal notes?"
+        description="Every extracted signal note is removed from the vault. The nightly pass can re-learn them, but this can't be undone directly."
+        confirmLabel="Delete all signals"
+        pending={bulkDelete.isPending}
+        pendingLabel="Deleting…"
+        onConfirm={() =>
+          bulkDelete.mutate(
+            { source: "signal" },
+            { onSuccess: () => setBulkSignalOpen(false) },
+          )
+        }
+      />
     </div>
   );
 }

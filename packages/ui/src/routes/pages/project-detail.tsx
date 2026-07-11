@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { WorkLauncher } from "@/components/work-launcher";
 import {
   useAgents,
@@ -315,6 +316,9 @@ function DirectivesPanel({ projectId }: { projectId: string }) {
   const update = useUpdateDirective();
   const remove = useDeleteDirective();
   const [draft, setDraft] = React.useState("");
+  const [confirmRemove, setConfirmRemove] = React.useState<{ id: string; body: string } | null>(
+    null,
+  );
 
   const add = () => {
     if (!draft.trim()) return;
@@ -336,12 +340,32 @@ function DirectivesPanel({ projectId }: { projectId: string }) {
           <span className={cn("flex-1 text-xs", !d.enabled && "text-muted-foreground line-through")}>{d.body}</span>
           <button
             className="text-muted-foreground hover:text-destructive"
-            onClick={() => remove.mutate({ projectId, id: d.id })}
+            aria-label="Delete directive"
+            onClick={() => setConfirmRemove({ id: d.id, body: d.body })}
           >
             <Trash2 className="size-3.5" />
           </button>
         </div>
       ))}
+      <ConfirmDialog
+        open={confirmRemove != null}
+        onOpenChange={(open) => !open && setConfirmRemove(null)}
+        title="Delete this directive?"
+        description={
+          confirmRemove
+            ? `“${confirmRemove.body}” will no longer be injected into runs for this project.`
+            : "This rule will no longer be injected into runs for this project."
+        }
+        pending={remove.isPending}
+        pendingLabel="Deleting…"
+        onConfirm={() =>
+          confirmRemove &&
+          remove.mutate(
+            { projectId, id: confirmRemove.id },
+            { onSuccess: () => setConfirmRemove(null) },
+          )
+        }
+      />
       <div className="flex gap-2">
         <Input
           value={draft}
