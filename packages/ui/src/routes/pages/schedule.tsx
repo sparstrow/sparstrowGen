@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Table,
   TableBody,
@@ -61,6 +62,7 @@ export function SchedulePage({ teamId, readOnly }: { teamId?: string; readOnly?:
 
   const [editorOpen, setEditorOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<CronJob | null>(null);
+  const [confirmDelete, setConfirmDelete] = React.useState<CronJob | null>(null);
 
   const [name, setName] = React.useState("");
   const [cronExpr, setCronExpr] = React.useState("0 9 * * *");
@@ -205,7 +207,7 @@ export function SchedulePage({ teamId, readOnly }: { teamId?: string; readOnly?:
                         variant="ghost"
                         title="Delete"
                         className="text-destructive hover:text-destructive"
-                        onClick={() => deleteJob.mutate(job.id)}
+                        onClick={() => setConfirmDelete(job)}
                       >
                         <Trash2 className="size-3.5" />
                       </Button>
@@ -324,6 +326,19 @@ export function SchedulePage({ teamId, readOnly }: { teamId?: string; readOnly?:
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmDelete != null}
+        onOpenChange={(open) => !open && setConfirmDelete(null)}
+        title={confirmDelete ? `Delete “${confirmDelete.name}”?` : "Delete cron job?"}
+        description="This schedule stops firing and is removed. This can't be undone."
+        pending={deleteJob.isPending}
+        pendingLabel="Deleting…"
+        onConfirm={() =>
+          confirmDelete &&
+          deleteJob.mutate(confirmDelete.id, { onSuccess: () => setConfirmDelete(null) })
+        }
+      />
     </div>
   );
 }
