@@ -37,6 +37,63 @@ moment. Nothing here is a promise to build; it's a waiting room. When an item's 
 
 ---
 
+_The 4 entries below were folded in from a standalone `TODOS.md` (a parallel, rival version of_
+_this file, produced by an `/autoplan` CEO review of `docs/project-delete-plan.md` on 2026-07-11)._
+_`TODOS.md` itself was kept, not deleted — `docs/project-delete-plan.md` (in-progress in a_
+_separate worktree) still references it by name (tasks T18-T20); deleting it would break those._
+_This is a copy, not a move._
+
+### Auto-purge of trash after N days
+- source: review-outcome
+- project: factory
+- what: a scheduled job that permanently deletes projects sitting in trash longer than a
+  configurable retention window (default 30 days).
+- why deferred: explicitly marked "NOT in scope (yet)" by the plan owner; an independent
+  outside-voice review flagged it as a high-severity 6-month regret if left unaddressed —
+  surfaced as Taste Decision T-CEO-2 at the Final Approval Gate rather than silently added to
+  the initial scope. Reuses the existing dream-cycle-style scheduler pattern, not new infra
+  from scratch; needs a retention config knob and a pre-purge warning.
+- revisit when: Project Delete v1 ships and `<dataDir>/deleted-projects/` starts growing
+  unbounded in practice.
+- size: S   ·   date: 2026-07-11   ·   links: docs/project-delete-plan.md, TODOS.md
+
+### Bulk delete / multi-select for Deleted Projects
+- source: review-outcome
+- project: factory
+- what: select multiple trashed projects and restore or permanently delete them together,
+  instead of one at a time.
+- why deferred: explicitly deferred by the plan owner; not reconsidered during CEO review — a
+  clean, uncontested deferral, not blast-radius-adjacent to v1's file set.
+- revisit when: Project Delete v1 ships and users regularly have more than a handful of
+  trashed projects.
+- size: M   ·   date: 2026-07-11   ·   links: docs/project-delete-plan.md, TODOS.md
+
+### Formal DESIGN.md
+- source: review-outcome
+- project: factory
+- what: document the design system that already exists in practice (Dialog primitives,
+  `text-destructive` confirm-gate pattern, App UI classification, spacing/typography tokens)
+  via `/design-consultation` (or our own equivalent once written).
+- why deferred: pure documentation effort, no functional change; flagged as a non-blocking gap
+  while reviewing `docs/project-delete-plan.md`. The only source of truth today is a
+  point-in-time design audit and reading the code directly.
+- revisit when: nothing blocks it — worth doing before the next design-heavy review needs a
+  real spec to calibrate against instead of inferring conventions from recent commits.
+- size: M   ·   date: 2026-07-11   ·   links: docs/reference/audits/2026-07-10-design-audit.md, TODOS.md
+
+### General-purpose soft-delete/auto-purge primitive
+- source: review-outcome
+- project: factory
+- what: generalize the soft-delete + trash + auto-purge pattern built for projects into a
+  reusable primitive other entity types could adopt later.
+- why deferred: named as a 12-month "platonic ideal" direction during CEO review, not an
+  immediate need — no second consumer exists today; building it now would be speculative
+  generalization ahead of actual demand.
+- revisit when: a second concrete need for entity-level soft-delete emerges.
+- size: XL   ·   date: 2026-07-11   ·   links: TODOS.md
+
+---
+
 Deferred by /autoplan master-plan review, 2026-07-02 (see
 `fable-handoff/ENGINEERING_PLAN.md` appendix for rationale):
 
