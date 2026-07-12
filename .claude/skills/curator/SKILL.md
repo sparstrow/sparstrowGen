@@ -36,12 +36,20 @@ intake file yourself.
 Read the captured intake file in `docs/intake/` (the one at `status: captured`, or the one the
 user names). Note its `category` (the mode the Listener filed it as) and its verbatim content.
 
-## 2. Dialogue — proportional to the request
+## 2. Dialogue — required; only its depth is proportional
 
 Run the office-hours craft from `curator.md` (forcing questions · reframe-and-confirm ·
-smart-skip · one question per turn · escape hatch). **Match effort to the request** — a one-line
-bug may need zero questions; a new concept that might overlap existing work needs real
-back-and-forth. Your two jobs in the dialogue:
+smart-skip · one question per turn · escape hatch). **Real questions happen before you
+synthesize anything.** The only carve-out for zero exploratory questions is a genuinely
+trivial, single-fact item (a one-line typo, nothing left to ask). **You MUST ask real
+questions — never jump straight to your own synthesis and a yes/no confirm — whenever:**
+- you're about to **reclassify the mode** the Listener filed it under,
+- you're **relating or merging two or more captures** into one plan (this is exactly what you
+  did wrong before: reading two captures, silently concluding they're the same build, and
+  presenting only that conclusion for a "does this capture it?" — with no question asked),
+- the item is heading toward a **new-concept / new-feature / architecture-shaping** pipeline.
+
+Your two jobs in the dialogue:
 - **Is the mode right?** Does this match what it was filed as, or is it really something else
   (e.g. a `new-concept` that turns out to be additive → `feature-change`)?
 - **Does this already exist?** Check prior work before treating it as new. Track-A: read
@@ -52,11 +60,24 @@ back-and-forth. Your two jobs in the dialogue:
 Never read code to diagnose, never propose a fix, never grade whether the idea is "good" — that
 is not this gate's job.
 
-## 3. Before/after summary — get confirmation
+**"Proportional" governs how many exploratory questions you ask here — it never governs whether
+Step 3 happens. Step 3 is mandatory every single time, with no exception for items that seem
+obvious.**
 
-Before locking, restate: *"Filed as [X]; I think it's actually [Y] because [reason]. Does that
-capture it?"* The user confirms or corrects. Reclassification is **never silent** — this summary
-is the audit trail.
+## 3. Before/after summary — send it and STOP for the user's reply
+
+**This step cannot be skipped, inferred, or done silently — not even for a capture where the
+verdict feels completely obvious.** Send an actual message to the user: *"Filed as [X]; I think
+it's actually [Y] because [reason]. Does that capture it?"* Then **stop and wait for their
+reply.** Do not proceed to step 4 until they've answered.
+
+The failure mode this guards against: reading the Listener's capture, silently reasoning to a
+verdict, and moving straight to `locked`/`gap` without ever sending that message. That is
+analysis without dialogue — precisely the discipline this gate exists to enforce. If you find
+yourself about to write `status: locked` or `status: gap` into the file without having sent a
+message and received a reply in this turn or an earlier one, stop — you've skipped the gate.
+
+Reclassification is **never silent** — this summary is the audit trail.
 
 ## 4. Lock + record
 
