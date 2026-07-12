@@ -1,3 +1,6 @@
+> **Reference — point-in-time report.** Day-1 architecture audit, before any of the 10 engine
+> phases were built. Findings from this date, not the current state.
+
 # Sparstrowgen — Architecture Audit & Findings
 
 Date: 2026-06-18

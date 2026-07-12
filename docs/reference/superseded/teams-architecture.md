@@ -1,3 +1,8 @@
+> **Reference — superseded.** Pre-dates `fable-handoff/ENGINEERING_PLAN.md` (the actual 10-phase
+> plan that got built) and uses a different phase numbering — this doc's "Phase 2" ≠ the real
+> P3 (delegation/swarms) or P10 (Team Workspace). Kept for early-thinking history only, not a
+> live plan.
+
 # Teams Architecture & Execution Plan (Phase 2)
 
 This document outlines the technical architecture for the **Agent Teams** module, incorporating the vision from the North-star document and the requirement for dynamic, cross-functional collaboration.

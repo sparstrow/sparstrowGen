@@ -1,3 +1,7 @@
+> **Reference — superseded.** Pre-dates `fable-handoff/ENGINEERING_PLAN.md` (the actual 10-phase
+> plan that got built) and uses a different phase numbering — this doc's "Phase 5" ≠ the real
+> P5. Kept for early-thinking history only, not a live plan.
+
 # Memory Architecture (Phase 5)
 
 This document outlines the technical architecture for the **Memory Module** (Phase 5). Memory in Sparstrowgen is how agents maintain context over time without having to re-read the entire codebase on every task.

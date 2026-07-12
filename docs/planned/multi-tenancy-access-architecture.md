@@ -1,3 +1,8 @@
+> **Planned — still valid future scope**, not superseded. This is the "Phase-6 foresight" already
+> referenced by `fable-handoff/ENGINEERING_PLAN.md`'s cross-cutting rule 3 (every table carries a
+> nullable `user_id` marker from `0004` onward *in anticipation of* this). Nothing to build yet —
+> kept here as the target shape for when multi-tenancy actually happens.
+
 > [!WARNING]
 > **FUTURE VISION ONLY — DO NOT IMPLEMENT YET**
 > This Phase 6 architecture outlines the future transition to a multi-user cloud model (Vercel/Supabase). It must be *considered* when structuring databases or API boundaries during Phases 1-5, but it should **not** be built right now. The factory currently remains a single-user, local SQLite application.

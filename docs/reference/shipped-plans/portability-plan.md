@@ -1,4 +1,11 @@
 <!-- /autoplan restore point: /c/Users/gsrih/.gstack/projects/Sparstrowgen/Phase9-Cleanup-autoplan-restore-20260708-203229.md -->
+
+> **Reference — shipped.** Verified against the current code: T1-T4 of this plan's task list
+> are implemented (`DEFAULT_VAULT_PATH` removed, `resolveConfig` exported, the `stale-paths`
+> factory-health check exists, `daily-backup.ps1` derives the vault path). Matches
+> `Fix/portable vault path (#25)`, including the secondary `??`/empty-string bug this plan's
+> own eng review flagged. Kept for historical design detail only.
+
 # Remove Hardcoded Paths and Prevent Link Breakages
 
 > Reviewed via `/autoplan` 2026-07-08 (CEO + Eng, dual-voice: this session + one independent

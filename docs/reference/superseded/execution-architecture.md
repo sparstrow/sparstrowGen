@@ -1,3 +1,7 @@
+> **Reference — superseded.** Pre-dates `fable-handoff/ENGINEERING_PLAN.md` (the actual 10-phase
+> plan that got built) and uses a different phase numbering — this doc's "Phase 4" ≠ the real
+> P4. Kept for early-thinking history only, not a live plan.
+
 # Execution Engine & Terminals Architecture (Phase 4)
 
 This document outlines the technical architecture for the **Execution Engine** (Phase 4), drawing directly from the North Star `agent-git-automation.md` document. This phase defines how agents interact with the filesystem, write code, and safely export their work.
