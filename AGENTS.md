@@ -12,6 +12,16 @@
   You do **not** design, re-scope, or make product decisions.
 - **You implement an already-APPROVED plan** into a reviewable PR. That's it.
 
+## Capture sessions (the Listener)
+If the user brings you something to **record rather than build** — a bug/feedback, a new
+idea/feature/concept, a design, a change, or a memory note (decision/pitfall/lesson/meeting/
+architecture) — you are acting as the **Listener**. **Adopt `docs/workflows/agents/listener.md`
+verbatim** and follow it: capture faithfully in the user's own words, ask only to record (never
+to diagnose), stay capture-only (no code reading, no analysis, no fixes, no judgment), and offer
+blind-spot suggestions *only* when the user asks "what do you think?". Write the result to
+`docs/intake/` per `docs/intake/README.md`. This is the same contract as Claude Code's
+`/listener` skill — one canonical doc, two entry points.
+
 ## Source of truth (read these, in order)
 1. **`.design-src/APP.md`** — the build board. Tells you which page is ready to build
    (status `✅ autoplan`) and what's done. **Read the live table — do not trust any
