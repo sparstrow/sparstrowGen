@@ -6,7 +6,7 @@
 
 Shared foundation:
 - Capture agent → [Listener](./agents/listener.md).
-- Analysis + routing gate → [Reviewer](./agents/reviewer.md).
+- Analysis + routing gate → [Curator](./agents/curator.md).
 - Gap specialist (intake-track) → [Pipeline Suggester](./agents/pipeline-suggester.md).
 - Gap specialist (memory-track) → [Memory Archivist](./agents/memory-archivist.md).
 - Capture format + pool → [`../intake/`](../intake/).
@@ -18,12 +18,12 @@ Shared foundation:
 **Trigger:** immediately after any Listener capture — this is not something you invoke
 separately.
 
-1. The **Reviewer** runs an office-hours-style session, **proportional to the request** — a
+1. The **Curator** runs an office-hours-style session, **proportional to the request** — a
    trivial capture gets a fast pass, a request that might overlap existing work gets real
    dialogue. It checks existing memory/docs via `memory_search` (Track A: reads the files
-   directly — see the Reviewer doc's noted limitation), and for `pitfall` captures attempts
+   directly — see the Curator doc's noted limitation), and for `pitfall` captures attempts
    attribution to a causing agent/run (deferred capability, see `DEFERRED_SCOPE.md`).
-2. **Before locking**, the Reviewer produces a before/after summary — what the capture was
+2. **Before locking**, the Curator produces a before/after summary — what the capture was
    filed as, and what it's determined to be now. Mode can change through the dialogue (e.g. a
    `new-concept` turns out to be additive to something that already exists → `feature-change`).
    **You confirm this summary before it locks.** Reclassification is never silent.
@@ -53,7 +53,7 @@ happens if Pipeline Suggester proposes it as a step for one specific pipeline.
     │                              ▲                                    ▲
     ▼                              │ pipeline                           │ Memory Archivist:
  locked ───────────────────────────┤ exists                             │ scope proposed +
- (Reviewer: office-hours           │                                    │ you confirm
+ (Curator: office-hours           │                                    │ you confirm
   dialogue proportional to         │ no pipeline
   the request, mode confirmed/     ▼
   changed, before/after           gap ──▶ Pipeline Suggester ──▶ you decide:
@@ -69,23 +69,23 @@ into `routed`, once the missing pipeline actually gets built.
 
 ## The Product
 
-- Reviewer/Pipeline Suggester/Memory Archivist run as system agents, auto-triggered on the
-  relevant `status` transition (`captured` → Reviewer; intake `gap` → Pipeline Suggester;
+- Curator/Pipeline Suggester/Memory Archivist run as system agents, auto-triggered on the
+  relevant `status` transition (`captured` → Curator; intake `gap` → Pipeline Suggester;
   memory-track `locked` → Memory Archivist) — no manual invocation.
 - `captures.status` gains the five values above (extends the `captures` table from
   [`feedback.md`](./feedback.md)'s Product section).
-- Reviewer's research tools are `memory_search` + codebase-memory-mcp graph tools (P5
-  infrastructure), not raw filesystem access — see the Reviewer doc for the Track A gap this
+- Curator's research tools are `memory_search` + codebase-memory-mcp graph tools (P5
+  infrastructure), not raw filesystem access — see the Curator doc for the Track A gap this
   closes.
 - A `gap` proposal that's accepted becomes a real build-board row — closing the loop from
   "a request came in with no home" to "here's exactly what to build," driven by demand.
 
-→ Build-board rows when scheduled: `captures.status` migration (5-state) · Reviewer/Pipeline
+→ Build-board rows when scheduled: `captures.status` migration (5-state) · Curator/Pipeline
 Suggester/Memory Archivist system agents · auto-trigger wiring · gap-proposal →
 build-board-row promotion.
 
 ## The Agents
 
-Linked above — [Reviewer](./agents/reviewer.md), [Pipeline Suggester](./agents/pipeline-suggester.md),
+Linked above — [Curator](./agents/curator.md), [Pipeline Suggester](./agents/pipeline-suggester.md),
 [Memory Archivist](./agents/memory-archivist.md). All three follow the same discipline as the
 Listener: least-privilege tools, emit-then-persist, nothing written without your confirm.

@@ -18,9 +18,12 @@ When the user's request matches an available skill, invoke it via the Skill tool
 - Anything to *capture, not build* — a bug/feedback, a new idea/feature/concept, a design, a
   change, or a memory note (decision/pitfall/lesson/meeting/architecture) → invoke **/listener**
   (capture-only; see `docs/workflows/agents/listener.md`).
+- Review/classify/route a captured item — "is this the right mode", "where does this go", "is
+  there a pipeline for this", or right after a `/listener` capture → invoke **/curator**
+  (analysis + routing gate, effort-proportional; see `docs/workflows/agents/curator.md`).
 
 > The gstack routes below are being replaced workflow-by-workflow by our own agents (Listener,
-> Reviewer, Pipeline Suggester, Memory Archivist, …). This section gets its full rewrite once
+> Curator, Pipeline Suggester, Memory Archivist, …). This section gets its full rewrite once
 > the remaining workflows are locked.
 
 Key routing rules (gstack — legacy, being phased out):

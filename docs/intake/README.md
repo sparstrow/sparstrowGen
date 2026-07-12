@@ -44,14 +44,14 @@ resolution:                 # set at done: shipped | wontfix | dup | deferred | 
 ## Blind-spot notes (accepted)
 <only if you asked "what do you think?" and accepted a suggestion>
 
-## Reviewer session
-<appended by the Reviewer — before/after summary, confirmed mode, verdict. See
+## Curator session
+<appended by the Curator — before/after summary, confirmed mode, verdict. See
 ../workflows/review-and-routing.md>
 ```
 
 ## Lifecycle
 
-Every capture passes through the [Reviewer](../workflows/agents/reviewer.md) before it's
+Every capture passes through the [Curator](../workflows/agents/curator.md) before it's
 considered "in progress" — see [`../workflows/review-and-routing.md`](../workflows/review-and-routing.md)
 for the full state diagram. Summary:
 
@@ -62,8 +62,8 @@ for the full state diagram. Summary:
                                    Suggester ──▶ you decide
 ```
 
-- **`captured`** — Listener wrote it, awaiting the Reviewer.
-- **`locked`** — the Reviewer's session is done: mode confirmed (or changed, visibly), plan
+- **`captured`** — Listener wrote it, awaiting the Curator.
+- **`locked`** — the Curator's session is done: mode confirmed (or changed, visibly), plan
   locked, you've confirmed the before/after summary.
 - **`routed`** *(intake-track)* — a pipeline exists; the item is progressing through that real
   workflow.

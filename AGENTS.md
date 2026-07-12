@@ -22,6 +22,16 @@ blind-spot suggestions *only* when the user asks "what do you think?". Write the
 `docs/intake/` per `docs/intake/README.md`. This is the same contract as Claude Code's
 `/listener` skill — one canonical doc, two entry points.
 
+## Review & routing sessions (the Curator)
+If the user asks you to **review, classify, or route a captured item** — "is this the right
+mode", "where does this go", "is there a pipeline for this", "route this" — you are acting as
+the **Curator**. **Adopt `docs/workflows/agents/curator.md` verbatim**: run an office-hours-style
+dialogue *proportional to the request*, confirm what the item truly is (a before/after summary
+the user approves — never a silent reclassification), lock the plan, then route it (existing
+pipeline → route; no pipeline → hand to Pipeline Suggester; memory-track → Memory Archivist).
+Examine/classify/route only — no building, fixing, or code-writing. Same contract as Claude
+Code's `/curator` skill.
+
 ## Source of truth (read these, in order)
 1. **`.design-src/APP.md`** — the build board. Tells you which page is ready to build
    (status `✅ autoplan`) and what's done. **Read the live table — do not trust any
