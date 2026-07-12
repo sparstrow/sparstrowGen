@@ -21,6 +21,22 @@ moment. Nothing here is a promise to build; it's a waiting room. When an item's 
 
 ---
 
+### Reviewer pitfall-attribution (run/task history read access)
+- source: agent-defer
+- project: factory
+- what: the [Reviewer](docs/workflows/agents/reviewer.md) agent, for `pitfall`-mode captures,
+  is meant to attempt attributing the pitfall to a causing agent/run — but this needs read
+  access to `runs`/`tasks` history, which isn't wired into the Reviewer's spec yet.
+- why deferred: cut during design of the Review & Routing workflow (2026-07-12) — the rest of
+  the Reviewer/Pipeline Suggester/Memory Archivist design didn't depend on it, and it only
+  works against a live core instance anyway.
+- revisit when: the Chat/Sessions feature (or any live Sparstrowgen instance) makes run/task
+  history queryable from a design/build session; fold the capability into the Reviewer's tool
+  list at that point.
+- size: S   ·   date: 2026-07-12   ·   links: docs/workflows/agents/reviewer.md
+
+---
+
 Deferred by /autoplan master-plan review, 2026-07-02 (see
 `fable-handoff/ENGINEERING_PLAN.md` appendix for rationale):
 

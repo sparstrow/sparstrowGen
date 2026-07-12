@@ -19,23 +19,29 @@ The Process is the prototype; the Product is the proven process, productized. Th
 section is the bridge — the same prompt is *how Claude behaves now* and *the agent deployed
 later*.
 
-## Unified front, divergent back
+## Unified front, one gate, divergent back
 
-Everything you bring is captured the same way, then routed differently:
+Everything you bring is captured the same way, reviewed by the same gate, then routed
+differently:
 
 ```
-                             ┌─ feedback ──────▶ Investigate ─▶ fix
- you ─▶ Listener (capture) ─▶ intake ─┼─ new-feature/concept ─▶ Reviewers (CEO·eng·design·dx) ─▶ plan ─▶ build
-        one agent, mode-driven  (one pool) ├─ design (HTML) ────▶ decode ─▶ SPEC ─▶ review ─▶ build
-                             └─ feature-change ─▶ review ─▶ build
+                                                         ┌─ routed ─▶ Investigate ─▶ fix           (feedback)
+                                                         ├─ routed ─▶ plan ─▶ build                (new-feature/concept/design/feature-change)
+ you ─▶ Listener (capture) ─▶ intake ─▶ Reviewer (lock) ─┤
+        one agent, mode-driven   (one pool)  (analysis,  └─ gap ─▶ Pipeline Suggester ─▶ you build it
+                                              proportional
+                                              to the request)
+                                                         └─ (memory-track modes) ─▶ Memory Archivist ─▶ vault
 ```
 
 - **Shared front** — one [Listener](./agents/listener.md) (mode-driven), one capture format +
   pool ([`../intake/`](../intake/)). Capture is *never* analysis: no code, no judgment, no fix;
   blind-spot suggestions only when you ask.
-- **Divergent back** — each category routes into its own workflow (a doc below). In
-  Sparstrowgen this is one `captures` table + per-category triggers (a task for feedback, a
-  reviewer **pipeline+team** for features — the P10 primitives).
+- **One gate** — every capture, every mode, passes through the [Reviewer](./agents/reviewer.md)
+  before it's "in progress." No standing CEO/eng/design/dx panel — effort is proportional to
+  the request. See [Review & Routing](./review-and-routing.md) for the full state machine.
+- **Divergent back** — each mode-family then routes into its own workflow (a doc below). In
+  Sparstrowgen this is one `captures` table + per-family triggers.
 
 ## Shared components
 
@@ -43,22 +49,28 @@ Everything you bring is captured the same way, then routed differently:
 |---|---|
 | Listener (capture agent, all modes) | [`agents/listener.md`](./agents/listener.md) |
 | Capture format + lifecycle + pool | [`../intake/`](../intake/) |
-| Reviewer agents (our CEO/eng/design/dx) | `agents/` — _to author_ (extract from gstack copies in `data/skill-imports/`) |
+| Reviewer (analysis + routing gate, all modes) | [`agents/reviewer.md`](./agents/reviewer.md) |
+| Pipeline Suggester (intake-track gap specialist) | [`agents/pipeline-suggester.md`](./agents/pipeline-suggester.md) |
+| Memory Archivist (memory-track scope specialist) | [`agents/memory-archivist.md`](./agents/memory-archivist.md) |
 | Investigator agent | `agents/` — _to author_ |
 
 ## Catalog
 
 | Workflow | Category | Status | Downstream |
 |---|---|---|---|
-| [Feedback](./feedback.md) | `feedback` | 🔒 locked 2026-07-11 | → Investigate → fix |
-| _New feature_ | `new-feature` | ⬜ to design | → Reviewers → plan → build |
-| _New concept_ | `new-concept` | ⬜ to design | → Reviewers → north-star/plan |
-| _New design (HTML)_ | `design` | ⬜ to design | → decode → SPEC → review → build |
-| _Feature change_ | `feature-change` | ⬜ to design | → review → build |
+| [Feedback](./feedback.md) | `feedback` | 🔒 locked 2026-07-11 | Reviewer → Investigate → fix |
+| _New feature_ | `new-feature` | ⬜ to design | Reviewer → routed/gap → plan → build |
+| _New concept_ | `new-concept` | ⬜ to design | Reviewer → routed/gap → north-star/plan |
+| _New design (HTML)_ | `design` | ⬜ to design | Reviewer → decode → SPEC → build |
+| _Feature change_ | `feature-change` | ⬜ to design | Reviewer → routed/gap → build |
+| _Decision / pitfall / lesson / meeting / architecture_ | memory-track | ⬜ to design | Reviewer → Memory Archivist → vault |
+| [Review & Routing](./review-and-routing.md) | _cross-cutting_ | 🔒 locked 2026-07-12 | the gate every capture passes through |
 | [Deferred scope](./deferred-scope.md) | _disposition_ | 🔒 locked 2026-07-11 | freezer → revive → intake |
 
-_Deferred scope is cross-cutting (not a capture ramp): fed by human dream-plans and by agents
-cutting scope in any other workflow. Record: [`../../DEFERRED_SCOPE.md`](../../DEFERRED_SCOPE.md)._
+_Review & Routing and Deferred Scope are cross-cutting, not capture ramps of their own — the
+former sits between the Listener and every other workflow; the latter is fed by human
+dream-plans, agent scope-cuts, **and** Reviewer gap outcomes you decide to park. Record:
+[`../../DEFERRED_SCOPE.md`](../../DEFERRED_SCOPE.md)._
 
 > Doc organization is provisional and will be revisited as more workflows land.
 > Final step (after all workflows are locked): wire enforcement — `CLAUDE.md` routing +

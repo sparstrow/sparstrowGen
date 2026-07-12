@@ -24,14 +24,15 @@ covers all categories.
 ```
 ---
 id: 0001
-category: feedback          # feedback | new-feature | new-concept | design | feature-change
-status: under-review        # under-review → done   (done ⇒ moved to done/)
+category: feedback          # feedback|new-feature|new-concept|design|feature-change (intake-track)
+                             # decision|pitfall|lesson|meeting|architecture (memory-track)
+status: captured             # see Lifecycle below
 project: factory            # factory (self) | <project-slug>
 surface: Agents / Agent Creator
 date: 2026-07-11 14:30
 screenshots: [assets/0001-draft-gone.png]
-links: {}                   # { review, plan, pr } — filled in as they appear
-resolution:                 # set at done: shipped | wontfix | dup | deferred
+links: {}                   # { review, proposal, plan, pr, memory_note } — filled in as they appear
+resolution:                 # set at done: shipped | wontfix | dup | deferred | persisted
 ---
 
 ## What I brought (verbatim)
@@ -42,16 +43,39 @@ resolution:                 # set at done: shipped | wontfix | dup | deferred
 
 ## Blind-spot notes (accepted)
 <only if you asked "what do you think?" and accepted a suggestion>
+
+## Reviewer session
+<appended by the Reviewer — before/after summary, confirmed mode, verdict. See
+../workflows/review-and-routing.md>
 ```
 
 ## Lifecycle
 
-- **`under-review`** — captured and live in the pool, moving through its category's workflow
-  (feedback → investigate; new-feature/concept → the review spine; design → decode + SPEC).
-- **`done`** — resolved: a `resolution:` + a link to the fix (PR/commit), then the file is
-  **moved to `done/`**. Closed items (wontfix / dup / deferred) also go to `done/` with the
-  resolution recorded; deferred ones are additionally logged in
-  [`../../DEFERRED_SCOPE.md`](../../DEFERRED_SCOPE.md).
+Every capture passes through the [Reviewer](../workflows/agents/reviewer.md) before it's
+considered "in progress" — see [`../workflows/review-and-routing.md`](../workflows/review-and-routing.md)
+for the full state diagram. Summary:
+
+```
+ SHARED                    INTAKE-TRACK                       MEMORY-TRACK
+ captured → locked ─────▶  routed ──────────▶ done            scoped ────▶ done
+                           gap ──▶ Pipeline
+                                   Suggester ──▶ you decide
+```
+
+- **`captured`** — Listener wrote it, awaiting the Reviewer.
+- **`locked`** — the Reviewer's session is done: mode confirmed (or changed, visibly), plan
+  locked, you've confirmed the before/after summary.
+- **`routed`** *(intake-track)* — a pipeline exists; the item is progressing through that real
+  workflow.
+- **`gap`** *(intake-track)* — no pipeline exists; [Pipeline Suggester](../workflows/agents/pipeline-suggester.md)
+  has proposed extend-existing vs. build-new. You decide: build it now (→ eventually `routed`)
+  or park it (→ `done`, logged in [`../../DEFERRED_SCOPE.md`](../../DEFERRED_SCOPE.md) as
+  `source: review-outcome`).
+- **`scoped`** *(memory-track)* — the [Memory Archivist](../workflows/agents/memory-archivist.md)
+  proposed a write scope (agent/project/global) and you confirmed it.
+- **`done`** — resolved: a `resolution:` + a link (PR/commit for intake-track, the memory note
+  for memory-track), then the file is **moved to `done/`**. Closed items (wontfix / dup /
+  deferred) also go to `done/` with the resolution recorded.
 
 Nothing is ever deleted. `done/` is the audit trail and a retro input. To see the open queue,
 list the pool root (or, in-app, filter by `status`/`category`).

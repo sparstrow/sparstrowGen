@@ -8,6 +8,7 @@
 Shared foundation (don't re-read here — they're the source of truth):
 - Capture agent → [Listener](./agents/listener.md), run in `feedback` mode.
 - Capture format + lifecycle → [`../intake/`](../intake/).
+- Analysis + routing gate every capture passes through → [Review & Routing](./review-and-routing.md).
 
 ---
 
@@ -23,12 +24,17 @@ it — text + screenshots — to a chat.
    *"in your screenshot the draft panel is gone but the toast says 'saved' — were you seeing a
    discard, or a navigation? same thing?"* Helps you describe what you saw more completely;
    never *why the code did it*.
-3. The item is saved to `docs/intake/` as `category: feedback, status: under-review`.
-4. **Route to analysis** (a separate session): our **Investigator** agent reads the item,
+3. The item is saved as `category: feedback, status: captured`.
+4. **The [Reviewer](./agents/reviewer.md) runs its fast pass** (Review & Routing) — for
+   feedback this is typically light-touch: confirm the mode really is `feedback` (not secretly
+   a `new-feature` in disguise) and confirm the Investigate pipeline exists. `status: locked` →
+   `status: routed`.
+5. **Route to analysis** (a separate session): our **Investigator** agent reads the item,
    appends findings, and links out to where the fix is tracked. Your capture block is
    untouched.
-5. **Close the loop:** when the fix ships, Claude sets `resolution:` + the PR link and moves
-   the file to `docs/intake/done/`. Deferred → `done/` + a line in `DEFERRED_SCOPE.md`.
+6. **Close the loop:** when the fix ships, Claude sets `resolution:` + the PR link, `status:
+   done`, and moves the file to `docs/intake/done/`. Deferred → `done/` + a line in
+   `DEFERRED_SCOPE.md`.
 
 **Out of scope for capture:** code reading, root cause, fixes, severity ranking, batching
 unrelated issues. Those belong to Investigate and Build.
