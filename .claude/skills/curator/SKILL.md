@@ -64,12 +64,33 @@ is not this gate's job.
 Step 3 happens. Step 3 is mandatory every single time, with no exception for items that seem
 obvious.**
 
-## 3. Before/after summary — send it and STOP for the user's reply
+## 3. Before/after mode call — present it as a decision brief, then STOP for the user's reply
 
 **This step cannot be skipped, inferred, or done silently — not even for a capture where the
-verdict feels completely obvious.** Send an actual message to the user: *"Filed as [X]; I think
-it's actually [Y] because [reason]. Does that capture it?"* Then **stop and wait for their
-reply.** Do not proceed to step 4 until they've answered.
+verdict feels completely obvious.** And don't ask it open-ended or as a bare yes/no — present it
+as a **decision brief** (this is the "like office-hours" part the user wants), then stop and
+wait. Do not proceed to step 4 until they've answered.
+
+Every place you ask the user to *choose* — the mode reclassification here, and later
+merge-or-keep-separate and which-pipeline — uses this format:
+
+```
+D<N> — <one-line question, e.g. "Reclassify 0001 from feedback → feature-change?">
+What's being decided: <plain English, 2-3 sentences; why it matters>
+If we pick wrong: <one sentence — what gets mis-built, mis-filed, or lost>
+Recommendation: <option> — because <reason>
+Options:
+A) <label>  (recommended)
+   ✅ <concrete pro>   ❌ <real con>
+B) <label>
+   ✅ <pro>            ❌ <con>
+Net: <one line on the actual tradeoff>
+```
+
+At least 2 options; every option gets a ✅ AND a ❌ (a menu with no downsides isn't a real
+decision aid); the **Recommendation** and **If we pick wrong** lines are mandatory. Number
+briefs `D1`, `D2`… so the user can answer "D2: B". (Fact-gathering questions in step 2 stay
+open-ended — the brief format is only for actual choices.)
 
 The failure mode this guards against: reading the Listener's capture, silently reasoning to a
 verdict, and moving straight to `locked`/`gap` without ever sending that message. That is

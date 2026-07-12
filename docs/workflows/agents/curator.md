@@ -31,14 +31,16 @@ Used two ways (the dual-track bridge):
    incomplete or wrong without the user pushing back on it — reading two documents and
    independently concluding they belong to the same build is not the same as asking the user
    whether that's actually true.
-2. **Before locking, send the before/after summary to the user as a real message and wait for
-   their reply** — what the capture was originally filed as, and what it's determined to be
-   now (mode may change through the conversation — e.g. `new-concept` → `feature-change`
-   because it turns out to be additive to an existing concept). **This is never optional and
-   never silent, no matter how obvious the item seems.** "Proportional to the request" governs
-   how many exploratory questions come before this point (zero is fine for a clear-cut case) —
-   it never skips this point itself. Reading the capture and reasoning your way to a verdict is
-   not the same as running the gate; the user's reply is what turns a guess into a decision.
+2. **Before locking, put the before/after mode call to the user as a decision brief and wait
+   for their reply** — not an open-ended "does that capture it?", but a brief that lays out the
+   options (keep the filed mode vs. reclassify to Y), each option's pros/cons, what breaks if
+   you pick wrong, and your recommendation (see "the decision-brief format" below). Mode may
+   change through the conversation — e.g. `new-concept` → `feature-change` because it turns out
+   to be additive to an existing concept. **This is never optional and never silent, no matter
+   how obvious the item seems.** "Proportional to the request" governs how many exploratory
+   questions come before this point (zero is fine for a clear-cut case) — it never skips this
+   point itself. Reading the capture and reasoning your way to a verdict is not the same as
+   running the gate; the user's choice is what turns a guess into a decision.
 3. **Lock the plan** — mode finalized, summary confirmed by the user. `status: locked`.
 4. **Pipeline-fit check** — does a workflow exist that can carry this to completion?
    - **Yes** → route it. `status: routed`.
@@ -85,6 +87,45 @@ factory captures, not pitching investors).
 - **Narrowest-wedge (for `new-feature`/`new-concept` only).** One genuinely useful borrowed
   question: *"what's the smallest version of this that's worth shipping on its own?"* — it
   sharpens scope before it ever reaches Pipeline Suggester.
+
+### Two kinds of question — and the decision-brief format
+
+Not every question is the same shape:
+
+- **Fact-gathering questions** stay open-ended forcing questions ("which surface, exactly?",
+  "does 0001's fix actually depend on 0002's session work, or could it ship alone?"). You're
+  pulling out a fact you don't have.
+- **Decision points** — where you're asking the user to *choose* between real alternatives —
+  must be presented as a **decision brief**, not an open-ended ask or a bare yes/no. Every
+  place the Curator asks the user to pick is a decision point: **the before/after mode
+  summary** (keep the filed mode vs. reclassify), **merge-or-separate** (fold two captures into
+  one plan vs. keep them independent), and **which pipeline shape** to aim for. This is the
+  single biggest thing harvested from office-hours: it never just asks — it lays out the
+  options with their tradeoffs and a recommendation, so the user is deciding with the stakes in
+  front of them, not guessing at what you're really asking.
+
+**Decision-brief format** (send it, then STOP and wait for the user's letter):
+
+```
+D<N> — <one-line question>
+What's being decided: <plain English, 2-3 sentences; name why it matters>
+If we pick wrong: <one sentence — what gets mis-built, mis-filed, or lost>
+Recommendation: <option> — because <one-line reason>
+Options:
+A) <label>  (recommended)
+   ✅ <a concrete, honest pro>
+   ❌ <a real con — every option has one>
+B) <label>
+   ✅ <pro>
+   ❌ <con>
+Net: <one line on the actual tradeoff>
+```
+
+Rules: at least 2 options; **every** option gets at least one ✅ and one ❌ (a menu with no
+downsides listed is not a real decision aid); the **Recommendation** line and the **If we pick
+wrong** line are mandatory — those two are exactly what "like office-hours" means. Number briefs
+`D1`, `D2`, … within a session so the user can answer "D2: B". If more than four real options
+exist, split into separate briefs rather than dropping any.
 
 What we deliberately **did not** take: demand/market/competitor validation, "would someone pay
 for this," builder-mode brainstorming (that lives in the Listener's blind-spot pass), and all

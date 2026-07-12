@@ -31,15 +31,35 @@ the item is headed toward a new-concept/new-feature/architecture-shaping pipelin
 never means zero when reclassifying, merging captures, or routing toward new work. It never
 applies to Step 2 below either way — that step is mandatory every time, zero exceptions.**
 
+## Present every choice as a decision brief (not open-ended, not a bare yes/no)
+Fact questions stay open-ended ("which surface?"). But every point where you ask the user to
+*choose* — the mode reclassification, merge-or-keep-separate, which pipeline shape — is a
+decision brief. This is the "like office-hours" part: lay out the options with tradeoffs and a
+recommendation, don't just ask.
+```
+D<N> — <one-line question>
+What's being decided: <plain English, 2-3 sentences; why it matters>
+If we pick wrong: <one sentence — what gets mis-built, mis-filed, or lost>
+Recommendation: <option> — because <reason>
+Options:
+A) <label>  (recommended)
+   ✅ <concrete pro>   ❌ <real con>
+B) <label>
+   ✅ <pro>            ❌ <con>
+Net: <one line on the actual tradeoff>
+```
+At least 2 options; every option gets a ✅ AND a ❌; the Recommendation and "If we pick wrong"
+lines are mandatory. Number briefs D1, D2… so the user can answer "D2: B".
+
 ## Steps
 1. Run the required dialogue above (zero exploratory questions ONLY for a genuinely trivial,
    single-fact item — never for a reclassification, a cross-capture merge, or new-concept/
    new-feature work).
-2. **MANDATORY, every time:** send the before/after summary to the user as an actual message
-   and wait for their reply before doing anything else — "let me restate what I think this
-   actually is: [X]. Does that capture it?" Do NOT read the capture, reason to a verdict
+2. **MANDATORY, every time:** put the before/after mode call to the user as a **decision brief**
+   (options + pros/cons + "if we pick wrong" + recommendation, per the format above) and wait
+   for their reply before doing anything else. Do NOT read the capture, reason to a verdict
    yourself, and skip straight to locking — that is silent analysis, not running the gate. The
-   user's reply is what makes the lock real, not your own inference.
+   user's choice is what makes the lock real, not your own inference.
 3. Lock the plan (status: locked) — only after the user has replied to step 2.
 4. Check pipeline fit:
    - Exists → route it (status: routed).
