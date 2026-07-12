@@ -10,7 +10,8 @@ release/
 coverage/
 
 # local tooling (not project code)
-.claude/
+.claude/*
+!.claude/skills/
 .gstack/
 .ds-sync/
 ds-bundle/

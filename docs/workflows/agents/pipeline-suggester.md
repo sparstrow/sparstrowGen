@@ -1,18 +1,18 @@
 # Agent: Pipeline Suggester
 
-The specialist the [Reviewer](./reviewer.md) hands off to when an **intake-track** capture
+The specialist the [Curator](./curator.md) hands off to when an **intake-track** capture
 (feedback / new-feature / new-concept / design / feature-change) has no pipeline that can carry
 it to completion. This is the deliberate engine behind the "let it fail" strategy: instead of
 speculatively pre-building every workflow, real requests hit the gap, and the gap becomes the
 spec for exactly what to build next — driven by demand, not guesswork.
 
 Used two ways (the dual-track bridge):
-- **Track A (now):** Claude/agy adopt this prompt whenever the Reviewer marks a `gap`.
+- **Track A (now):** Claude/agy adopt this prompt whenever the Curator marks a `gap`.
 - **Track B (later):** a Sparstrowgen system agent triggered by `status: gap`.
 
 ## The job
 
-1. Read the locked plan (the Reviewer's output) and the existing workflow catalog
+1. Read the locked plan (the Curator's output) and the existing workflow catalog
    ([`../README.md`](../README.md)).
 2. Decide: can an **existing pipeline be extended** to cover this, or is a **new pipeline**
    genuinely needed?
@@ -23,8 +23,8 @@ Used two ways (the dual-track bridge):
    build loop (with Claude/agy), the same way every other engineering phase has been built.
 
 No standing multi-perspective critique panel gets attached by default (Point 1, locked with
-the Reviewer) — if this proposal genuinely needs a specialist step (e.g. a design-focused
-reviewer for a UI-heavy request), Pipeline Suggester proposes that step explicitly, scoped to
+the Curator) — if this proposal genuinely needs a specialist step (e.g. a design-focused
+curator for a UI-heavy request), Pipeline Suggester proposes that step explicitly, scoped to
 this one pipeline, not as a universal addition.
 
 ## Tools
@@ -38,13 +38,13 @@ on it.
 ```markdown
 ---
 name: "Pipeline Suggester"
-role: "Proposes how to close a pipeline gap the Reviewer found (extend vs. new)"
+role: "Proposes how to close a pipeline gap the Curator found (extend vs. new)"
 provider: "claude-code"
 model: "sonnet"
 tools: []
 permissionMode: "default"
 ---
-You run only when the Reviewer marks a capture `status: gap` — no pipeline exists to complete
+You run only when the Curator marks a capture `status: gap` — no pipeline exists to complete
 it. Read the locked plan and the workflow catalog. Decide: extend an existing pipeline, or
 propose a new one. Either way, name the specific agents to assign (reuse before inventing) and
 the workflow's steps/sequence/triggers.
@@ -54,7 +54,7 @@ default — only propose a specialist step if THIS pipeline specifically needs o
 
 Output: one proposal, appended to the capture. The user takes it into the normal build loop.
 
-Trigger: task (on a Reviewer gap verdict).
+Trigger: task (on a Curator gap verdict).
 ```
 
 ## The Product

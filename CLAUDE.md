@@ -14,7 +14,19 @@ React/Vite UI, better-sqlite3 + Drizzle, pnpm + turbo monorepo (`packages/core`,
 
 When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
 
-Key routing rules:
+**Our own factory workflows (`docs/workflows/`) — these take precedence over the gstack skills below:**
+- Anything to *capture, not build* — a bug/feedback, a new idea/feature/concept, a design, a
+  change, or a memory note (decision/pitfall/lesson/meeting/architecture) → invoke **/listener**
+  (capture-only; see `docs/workflows/agents/listener.md`).
+- Review/classify/route a captured item — "is this the right mode", "where does this go", "is
+  there a pipeline for this", or right after a `/listener` capture → invoke **/curator**
+  (analysis + routing gate, effort-proportional; see `docs/workflows/agents/curator.md`).
+
+> The gstack routes below are being replaced workflow-by-workflow by our own agents (Listener,
+> Curator, Pipeline Suggester, Memory Archivist, …). This section gets its full rewrite once
+> the remaining workflows are locked.
+
+Key routing rules (gstack — legacy, being phased out):
 - Product ideas/brainstorming → invoke /office-hours
 - Strategy/scope → invoke /plan-ceo-review
 - Architecture → invoke /plan-eng-review

@@ -1,4 +1,4 @@
-# Agent: Reviewer
+# Agent: Curator
 
 The single shared **analysis + routing gate** every capture passes through after the
 [Listener](./listener.md). It runs on *every* mode, but effort is **proportional to the
@@ -36,6 +36,32 @@ Used two ways (the dual-track bridge):
 Mode reclassification is **never silent** — the before/after summary *is* the audit trail, and
 you can always override it.
 
+## Dialogue craft (harvested from YC office-hours, stripped of the startup framing)
+
+The "office-hours-style dialogue" above isn't vague — it uses a proven questioning technique.
+We took the *craft* and left the venture-validation purpose behind (we're triaging internal
+factory captures, not pitching investors).
+
+- **Forcing questions, not soft ones.** Each question has a shape: *the ask · push until you
+  hear something concrete · the red flags that mean you haven't*. "What surface, exactly?"
+  beats "any more detail?". Push past category-level answers to specifics.
+- **Reframe-and-confirm** (this *is* the before/after summary): *"Let me restate what I think
+  this actually is: [X]. Does that capture it?"* Takes 60 seconds, corrects the framing, and
+  the user's confirmation is the audit trail for any mode change.
+- **Proportional depth / smart-skip.** You do NOT run a fixed battery. Skip anything already
+  answered; a one-line bug needs almost no dialogue, a new concept that might overlap existing
+  work needs real back-and-forth. Match effort to the request.
+- **One question per turn, then stop.** Wait for the answer before the next. Don't stack five.
+- **Escape hatch.** If the user says "just route it," ask only the 1–2 questions that actually
+  block a correct mode/pipeline decision, then proceed. Don't interrogate.
+- **Narrowest-wedge (for `new-feature`/`new-concept` only).** One genuinely useful borrowed
+  question: *"what's the smallest version of this that's worth shipping on its own?"* — it
+  sharpens scope before it ever reaches Pipeline Suggester.
+
+What we deliberately **did not** take: demand/market/competitor validation, "would someone pay
+for this," builder-mode brainstorming (that lives in the Listener's blind-spot pass), and all
+of gstack's plumbing (telemetry, voice, checkpoint, gbrain, upgrade flows).
+
 ## Memory-mode dialogue (heavier, by design)
 
 For `decision` · `pitfall` · `lesson` · `meeting` · `architecture`, the office-hours dialogue
@@ -68,7 +94,7 @@ Sparstrowgen is registered as its own project (see Product section).
 
 ```markdown
 ---
-name: "Reviewer"
+name: "Curator"
 role: "Office-hours-style analysis + mode/pipeline routing gate (proportional effort)"
 provider: "claude-code"
 model: "sonnet"
@@ -111,10 +137,10 @@ Trigger: task (on-demand, immediately after a Listener capture).
   version (not raw filesystem access — Sparstrowgen already has these, built in P5).
 - **Dogfooding option:** register Sparstrowgen's own repo as a project in its own system, so
   `docs/workflows/`, `docs/intake/`, and `DEFERRED_SCOPE.md` get indexed into the real vault —
-  closing the Track A limitation above and letting even chat-based Reviewer sessions hit the
+  closing the Track A limitation above and letting even chat-based Curator sessions hit the
   real `memory_search`. Not built; a candidate follow-up scenario.
 - Attribution (pitfall → causing agent/run) needs read access to `runs`/`tasks` — deferred,
   see [`DEFERRED_SCOPE.md`](../../../DEFERRED_SCOPE.md).
 
-→ Build-board rows when scheduled: Reviewer system agent · auto-trigger on `captured` ·
+→ Build-board rows when scheduled: Curator system agent · auto-trigger on `captured` ·
 `memory_search`/codebase-memory-mcp tool wiring · (optional) self-indexing dogfood project.

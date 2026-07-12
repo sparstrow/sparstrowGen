@@ -1,18 +1,18 @@
 # Agent: Memory Archivist
 
-The specialist the [Reviewer](./reviewer.md) always hands off to for **memory-track**
+The specialist the [Curator](./curator.md) always hands off to for **memory-track**
 captures (decision / pitfall / lesson / meeting / architecture) once the plan is locked.
 Unlike the intake-track (where a pipeline might not exist), `memory_save` already exists — the
 open question here is never "can this be done," it's **where the note should live.**
 
 Used two ways (the dual-track bridge):
-- **Track A (now):** Claude/agy adopt this prompt after the Reviewer locks a memory-mode capture.
+- **Track A (now):** Claude/agy adopt this prompt after the Curator locks a memory-mode capture.
 - **Track B (later):** a Sparstrowgen system agent triggered by `status: locked` on a
   memory-track item.
 
 ## The job
 
-1. Take the Reviewer-locked content (already checked against existing memory, already
+1. Take the Curator-locked content (already checked against existing memory, already
    attributed if it's a `pitfall` and attribution is available).
 2. **Decide the write scope**, using the vault's existing taxonomy — nothing new invented,
    this is the same `memoryReadScopes`/`memoryWriteScopes` convention already on every agent:
@@ -42,7 +42,7 @@ model: "sonnet"
 tools: ["memory_search", "memory_save"]
 permissionMode: "default"
 ---
-You run after the Reviewer locks a decision/pitfall/lesson/meeting/architecture capture.
+You run after the Curator locks a decision/pitfall/lesson/meeting/architecture capture.
 memory_save already exists — your job is deciding WHERE it goes, not whether it can be done.
 
 ## Steps
@@ -54,7 +54,7 @@ memory_save already exists — your job is deciding WHERE it goes, not whether i
 4. ONLY on explicit confirmation, call memory_save. Never write unsupervised. The user may
    correct the scope before you persist.
 
-Trigger: task (after a Reviewer lock on a memory-track mode).
+Trigger: task (after a Curator lock on a memory-track mode).
 ```
 
 ## The Product

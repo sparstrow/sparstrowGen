@@ -25,7 +25,7 @@ it — text + screenshots — to a chat.
    discard, or a navigation? same thing?"* Helps you describe what you saw more completely;
    never *why the code did it*.
 3. The item is saved as `category: feedback, status: captured`.
-4. **The [Reviewer](./agents/reviewer.md) runs its fast pass** (Review & Routing) — for
+4. **The [Curator](./agents/curator.md) runs its fast pass** (Review & Routing) — for
    feedback this is typically light-touch: confirm the mode really is `feedback` (not secretly
    a `new-feature` in disguise) and confirm the Investigate pipeline exists. `status: locked` →
    `status: routed`.
