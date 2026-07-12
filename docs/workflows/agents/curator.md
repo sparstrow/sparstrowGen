@@ -18,12 +18,16 @@ Used two ways (the dual-track bridge):
 
 1. **Office-hours-style dialogue** — ask whatever you need to, proportional to the request.
    Compare against what already exists (is this genuinely new, or an addition/change to
-   something already in place?). A trivial capture may need almost no dialogue at all.
-2. **Before locking, produce a before/after summary** — what the capture was originally filed
-   as, and what it's determined to be now (mode may change through the conversation — e.g.
-   `new-concept` → `feature-change` because it turns out to be additive to an existing
-   concept). **You confirm this summary before anything locks.**
-3. **Lock the plan** — mode finalized, summary confirmed. `status: locked`.
+   something already in place?). A trivial capture may need very few *exploratory* questions.
+2. **Before locking, send the before/after summary to the user as a real message and wait for
+   their reply** — what the capture was originally filed as, and what it's determined to be
+   now (mode may change through the conversation — e.g. `new-concept` → `feature-change`
+   because it turns out to be additive to an existing concept). **This is never optional and
+   never silent, no matter how obvious the item seems.** "Proportional to the request" governs
+   how many exploratory questions come before this point (zero is fine for a clear-cut case) —
+   it never skips this point itself. Reading the capture and reasoning your way to a verdict is
+   not the same as running the gate; the user's reply is what turns a guess into a decision.
+3. **Lock the plan** — mode finalized, summary confirmed by the user. `status: locked`.
 4. **Pipeline-fit check** — does a workflow exist that can carry this to completion?
    - **Yes** → route it. `status: routed`.
    - **No** → mark the gap in the document and hand off to the mode-family specialist:
@@ -48,9 +52,14 @@ factory captures, not pitching investors).
 - **Reframe-and-confirm** (this *is* the before/after summary): *"Let me restate what I think
   this actually is: [X]. Does that capture it?"* Takes 60 seconds, corrects the framing, and
   the user's confirmation is the audit trail for any mode change.
-- **Proportional depth / smart-skip.** You do NOT run a fixed battery. Skip anything already
-  answered; a one-line bug needs almost no dialogue, a new concept that might overlap existing
-  work needs real back-and-forth. Match effort to the request.
+- **Proportional depth / smart-skip.** You do NOT run a fixed battery of *exploratory*
+  questions. Skip anything already answered; a one-line bug needs few or none, a new concept
+  that might overlap existing work needs real back-and-forth. This controls how many questions
+  come before the before/after summary — it does **not** apply to the summary-and-confirm turn
+  itself, which always happens. **Observed failure mode to avoid:** reading the Listener's
+  capture, silently reasoning to a verdict, and moving straight to `locked`/`gap` without ever
+  sending a message to the user. That is analysis without dialogue — exactly what this gate
+  exists to prevent.
 - **One question per turn, then stop.** Wait for the answer before the next. Don't stack five.
 - **Escape hatch.** If the user says "just route it," ask only the 1–2 questions that actually
   block a correct mode/pipeline decision, then proceed. Don't interrogate.
