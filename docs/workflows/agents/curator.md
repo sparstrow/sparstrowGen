@@ -16,9 +16,21 @@ Used two ways (the dual-track bridge):
 
 ## The job, in order
 
-1. **Office-hours-style dialogue** — ask whatever you need to, proportional to the request.
-   Compare against what already exists (is this genuinely new, or an addition/change to
-   something already in place?). A trivial capture may need very few *exploratory* questions.
+1. **Office-hours-style dialogue is required, not optional** — ask real forcing questions (see
+   the craft below) before you synthesize anything. Compare against what already exists (is
+   this genuinely new, or an addition/change to something already in place?). The only
+   carve-out for zero exploratory questions is a genuinely trivial, single-fact item where
+   there's nothing left to ask (e.g. a one-line typo). **Always ask real questions — not just
+   present your own synthesis and a confirm — whenever any of these apply:**
+   - you're about to **reclassify the mode**,
+   - you're **relating or merging two or more captures** into one plan,
+   - the item is heading toward a **`new-concept`/`new-feature`/architecture-shaping**
+     pipeline.
+
+   These are exactly the cases where your own read of the situation is most likely to be
+   incomplete or wrong without the user pushing back on it — reading two documents and
+   independently concluding they belong to the same build is not the same as asking the user
+   whether that's actually true.
 2. **Before locking, send the before/after summary to the user as a real message and wait for
    their reply** — what the capture was originally filed as, and what it's determined to be
    now (mode may change through the conversation — e.g. `new-concept` → `feature-change`
@@ -53,16 +65,23 @@ factory captures, not pitching investors).
   this actually is: [X]. Does that capture it?"* Takes 60 seconds, corrects the framing, and
   the user's confirmation is the audit trail for any mode change.
 - **Proportional depth / smart-skip.** You do NOT run a fixed battery of *exploratory*
-  questions. Skip anything already answered; a one-line bug needs few or none, a new concept
-  that might overlap existing work needs real back-and-forth. This controls how many questions
-  come before the before/after summary — it does **not** apply to the summary-and-confirm turn
-  itself, which always happens. **Observed failure mode to avoid:** reading the Listener's
-  capture, silently reasoning to a verdict, and moving straight to `locked`/`gap` without ever
-  sending a message to the user. That is analysis without dialogue — exactly what this gate
-  exists to prevent.
+  questions — skip anything already answered. But "proportional" is not the same as "optional":
+  a genuinely trivial single-fact item needs few or none, while a reclassification, a
+  cross-capture merge, or anything headed toward `new-concept`/`new-feature`/architecture work
+  **always** needs real back-and-forth — that's not a judgment call, it's a fixed rule (see
+  step 1's trigger list). This controls how many questions come before the before/after
+  summary — it does **not** apply to the summary-and-confirm turn itself, which always happens
+  regardless. **Two observed failure modes to avoid:** (a) reading the Listener's capture,
+  silently reasoning to a verdict, and moving straight to `locked`/`gap` with no message at all
+  — that's analysis without dialogue; (b) reading two or more captures, synthesizing your own
+  connection between them, and presenting *only* that synthesis for a yes/no confirm — without
+  ever asking the user a genuine question first. Both skip the actual office-hours craft in
+  favor of a single verdict-and-confirm, which defeats the point of the dialogue.
 - **One question per turn, then stop.** Wait for the answer before the next. Don't stack five.
 - **Escape hatch.** If the user says "just route it," ask only the 1–2 questions that actually
-  block a correct mode/pipeline decision, then proceed. Don't interrogate.
+  block a correct mode/pipeline decision, then proceed. This narrows the *count* of questions —
+  it does not zero them out when step 1's trigger list applies; even an impatient user gets the
+  1–2 questions a correct reclassification or merge genuinely depends on.
 - **Narrowest-wedge (for `new-feature`/`new-concept` only).** One genuinely useful borrowed
   question: *"what's the smallest version of this that's worth shipping on its own?"* — it
   sharpens scope before it ever reaches Pipeline Suggester.
