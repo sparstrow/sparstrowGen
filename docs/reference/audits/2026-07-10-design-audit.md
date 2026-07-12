@@ -1,3 +1,6 @@
+> **Reference — point-in-time report.** Design audit from PR #39. Not a live plan; findings
+> from this date, not the current state.
+
 # Design Audit — Sparstrowgen UI
 
 - **Date:** 2026-07-10

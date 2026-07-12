@@ -1,3 +1,7 @@
+> **Reference — superseded.** Pre-dates `fable-handoff/ENGINEERING_PLAN.md` (the actual 10-phase
+> plan that got built) and uses a different phase numbering — this doc's "Phase 1" ≠ the real
+> P1. Kept for early-thinking history only, not a live plan.
+
 # Agents Architecture & Execution Plan (Phase 1)
 
 This document translates your product vision for **Agents** into a concrete technical architecture for the Sparstrowgen factory. Once you approve this, we will lock it in and move on to designing Phase 2: Teams.

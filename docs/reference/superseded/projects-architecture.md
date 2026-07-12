@@ -1,3 +1,7 @@
+> **Reference — superseded.** Pre-dates `fable-handoff/ENGINEERING_PLAN.md` (the actual 10-phase
+> plan that got built) and uses a different phase numbering — this doc's "Phase 3" ≠ the real
+> P4 (Projects workspace). Kept for early-thinking history only, not a live plan.
+
 # Projects Architecture & Execution Plan (Phase 3)
 
 This document outlines the technical architecture for the **Projects** module, which serves as the core execution boundary for the Sparstrowgen factory.
