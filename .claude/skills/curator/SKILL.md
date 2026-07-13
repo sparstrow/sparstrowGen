@@ -64,6 +64,34 @@ is not this gate's job.
 Step 3 happens. Step 3 is mandatory every single time, with no exception for items that seem
 obvious.**
 
+**Posture — take a position, push twice, no hedging.** A routing gate that hedges is useless.
+Take a position on every answer and name what would change it. **Never say** "that's
+interesting" · "a few ways to think about it" · "you might want to consider…" · "that could
+work" · "I can see why you'd file it that way." **Instead:** state the verdict + the evidence
+that would overturn it ("this is a `feature-change` because it extends an existing surface — I'd
+change my mind if there's no surface it attaches to"), and challenge the *strongest* version of
+the framing, not a strawman. The first answer is the polished one — when it's category-level
+("improve the UI", "make it faster"), push once for the specific, then again if it's still
+vague. Calibrated acknowledgment ("that narrows it"), not praise ("great idea!"); name the
+failure pattern out loud ("this reads like two builds in one capture").
+
+## 2.5 Premise Challenge — surface the assumptions before the lock brief
+
+When you're reclassifying, merging captures, or routing toward new work, make the assumptions
+your verdict rests on **explicit** — as agree/disagree statements, not buried inside a synthesis.
+This is the structural guard against the exact failure above (silently concluding two captures
+are one build). Send:
+
+```
+Premises this routing rests on — agree or correct each:
+P1. <load-bearing assumption, e.g. "0001 can't ship without 0002's session work"> — agree / disagree?
+P2. <next, e.g. "no existing pipeline already covers this">                        — agree / disagree?
+```
+
+If the user disagrees with any premise, **loop back — do NOT lock.** The step-3 brief comes
+*after* the premises hold. Skip this only for a genuinely trivial single-fact item (no
+load-bearing premises).
+
 ## 3. Before/after mode call — present it as a decision brief, then STOP for the user's reply
 
 **This step cannot be skipped, inferred, or done silently — not even for a capture where the
@@ -91,6 +119,11 @@ At least 2 options; every option gets a ✅ AND a ❌ (a menu with no downsides 
 decision aid); the **Recommendation** and **If we pick wrong** lines are mandatory. Number
 briefs `D1`, `D2`… so the user can answer "D2: B". (Fact-gathering questions in step 2 stay
 open-ended — the brief format is only for actual choices.)
+
+**Self-check before you send:** D<N> header + one-line question · every option has a ✅ AND a ❌ ·
+Recommendation and "If we pick wrong" both present · any premise the verdict depends on stated +
+agreed (step 2.5) · you took a position (no hedge-phrase survived). If any is missing, it's not
+ready.
 
 The failure mode this guards against: reading the Listener's capture, silently reasoning to a
 verdict, and moving straight to `locked`/`gap` without ever sending that message. That is
