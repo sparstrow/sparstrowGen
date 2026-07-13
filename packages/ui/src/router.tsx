@@ -21,6 +21,8 @@ import { MessagesPage } from "@/routes/pages/messages";
 import { ChatPage } from "@/routes/pages/chat";
 import { AgentCreatePage } from "@/routes/pages/agent-create";
 import { PipelinesPage } from "@/routes/pages/pipelines";
+import { KnowledgePage } from "@/routes/pages/knowledge";
+import { KnowledgeArticlePage } from "@/routes/pages/knowledge-article";
 import { SchedulePage } from "@/routes/pages/schedule";
 import { TerminalsPage } from "@/routes/pages/terminals";
 
@@ -138,6 +140,19 @@ const scheduleRoute = createRoute({
   component: SchedulePage,
 });
 
+// Intake 0003: in-app tutorial — content bundled from src/content/knowledge/.
+const knowledgeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/knowledge",
+  component: KnowledgePage,
+});
+
+const knowledgeArticleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/knowledge/$articleId",
+  component: KnowledgeArticlePage,
+});
+
 const terminalsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/terminals",
@@ -163,6 +178,8 @@ const routeTree = rootRoute.addChildren([
   messagesRoute,
   pipelinesRoute,
   scheduleRoute,
+  knowledgeRoute,
+  knowledgeArticleRoute,
   terminalsRoute,
 ]);
 

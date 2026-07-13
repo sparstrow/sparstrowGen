@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Link } from "@tanstack/react-router";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -98,16 +99,26 @@ export function Markdown({ content }: { content: string }) {
           ul: ({ children }) => <ul className="my-3 list-disc space-y-1 pl-6">{children}</ul>,
           ol: ({ children }) => <ol className="my-3 list-decimal space-y-1 pl-6">{children}</ol>,
           li: ({ children }) => <li className="[&>p]:my-1">{children}</li>,
-          a: ({ href, children }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="font-medium underline underline-offset-2 hover:text-muted-foreground"
-            >
-              {children}
-            </a>
-          ),
+          a: ({ href, children }) =>
+            // In-app paths (e.g. Knowledge Center cross-links) navigate via the
+            // router; everything else opens externally in a new tab.
+            href?.startsWith("/") ? (
+              <Link
+                to={href}
+                className="font-medium underline underline-offset-2 hover:text-muted-foreground"
+              >
+                {children}
+              </Link>
+            ) : (
+              <a
+                href={href}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="font-medium underline underline-offset-2 hover:text-muted-foreground"
+              >
+                {children}
+              </a>
+            ),
           blockquote: ({ children }) => (
             <blockquote className="my-3 border-l border-border pl-4 text-muted-foreground [&>p]:my-1">
               {children}

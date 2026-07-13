@@ -55,16 +55,22 @@ nothing the plan doesn't specify.
    decisions, **not** the decoded design module (it carries pre-lock field names/providers).
 3. Implement task-by-task. **One atomic commit per task**, message references the task id
    (e.g. `feat(agents): P1.2 shared agent-fieldset`).
-4. `pnpm typecheck && pnpm test` — both must be green before pushing. Fix or stop; never
+4. **Update the Knowledge Center** (intake 0003 rider): if the change adds or alters
+   anything a *user* would see or do, update the matching article(s) in
+   `packages/ui/src/content/knowledge/` **in the same branch/PR** (bump the article's
+   `updated:` date). Write for user understanding — what changed *for a user*, not
+   line-by-line code trivia; skip internal refactors entirely. New surface → new article
+   registered in its section per `.design-src/knowledge-center/SPEC.md`.
+5. `pnpm typecheck && pnpm test` — both must be green before pushing. Fix or stop; never
    push red.
-5. `git push github-agent HEAD` — push over the SSH remote (per-agent git identity is
+6. `git push github-agent HEAD` — push over the SSH remote (per-agent git identity is
    injected automatically → `author-check` CI passes).
-6. **PR:** `gh pr create` is blocked on this machine (gh is authed as the wrong account).
+7. **PR:** `gh pr create` is blocked on this machine (gh is authed as the wrong account).
    So the routine prints the compare URL for you to open the PR in one click:
    `https://github.com/sparstrow/sparstrowGen/compare/main...<branch>?expand=1`
    *(Graduation: once a PR-scope token is wired, the routine opens the PR itself.)*
-7. Update [`APP.md`](./APP.md): set the page status to `in-review 🔁` and record the branch.
-8. **STOP.** The routine never merges. You review the PR and squash-merge (⑥).
+8. Update [`APP.md`](./APP.md): set the page status to `in-review 🔁` and record the branch.
+9. **STOP.** The routine never merges. You review the PR and squash-merge (⑥).
 
 ### Operational lesson (2026-06-29)
 **Push every planning commit immediately — never batch.** A planning branch (office-hours

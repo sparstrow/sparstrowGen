@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import {
+  BookOpen,
   Bot,
   Brain,
   CalendarClock,
@@ -36,6 +37,7 @@ const NAV = [
   { to: "/pipelines", label: "Pipelines", icon: Workflow },
   { to: "/schedule", label: "Schedule", icon: CalendarClock },
   { to: "/memory", label: "Memory", icon: Brain },
+  { to: "/knowledge", label: "Knowledge Center", icon: BookOpen },
   { to: "/terminals", label: "Terminals", icon: TerminalSquare },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
