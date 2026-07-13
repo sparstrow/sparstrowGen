@@ -41,6 +41,7 @@ Recommended build order top-to-bottom; reorder during lock-in. `Prio` = product 
 | 9 | **Messages** | `/messages` | ⬜ backlog | P3 | design | Inbox: agent→agent + agent→you messages, reply/route. |
 | 10 | **Terminals** | `/terminals` | ⬜ backlog | P3 | design | Embedded xterm sessions over `/ws/terminal/:id`. |
 | 11 | **Settings** | `/settings` | ⬜ backlog | P3 | design | Config: concurrency, paths, theme, token, providers, backup. |
+| 12 | **Knowledge Center** | `/knowledge` | 🔁 in-review | P2 | review + merge PR (branch `claude/knowledge-center-tab-0ed4a8`) | In-app tutorial: every workflow/surface/concept as subpages; markdown-in-repo content (`packages/ui/src/content/knowledge/`) so docs update in the same PR as the feature. Fast-tracked from intake 0003 (SPEC = `.design-src/knowledge-center/SPEC.md`; design + office-hours skipped by Curator D2=B). Rider: FACTORY-LOOP §⑤ gains a mandatory "update the matching Knowledge Center article" step. |
 
 `placeholder.tsx` is scaffold, not a real page — excluded. Agents (Pass 1 + Teams Pass 2) is fully shipped, see Done table.
 
