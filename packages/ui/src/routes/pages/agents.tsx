@@ -35,7 +35,6 @@ import {
   formToPayload,
   type AgentFormValues,
 } from "@/components/agent-form";
-import { AgentCreator } from "@/components/agent-creator";
 import { NewAgentButton } from "@/components/new-agent-button";
 import { SkillViewer } from "@/components/skill-viewer";
 import {
@@ -58,8 +57,6 @@ export function AgentsPage() {
   // Manual create dialog (F2 "Manually create" / Agent Creator handoff).
   const [manualOpen, setManualOpen] = React.useState(false);
   const [manualSeed, setManualSeed] = React.useState<AgentFormValues | null>(null);
-  // Agent Creator (F3).
-  const [creatorOpen, setCreatorOpen] = React.useState(false);
   // SkillViewer (F1).
   const [viewer, setViewer] = React.useState<{ agent: Agent; edit: boolean } | null>(null);
   const [deleting, setDeleting] = React.useState<Agent | null>(null);
@@ -69,9 +66,10 @@ export function AgentsPage() {
     createAgent.reset();
     setManualOpen(true);
   };
+  // Intake 0001: the Agent Creator is a dedicated full page (session-backed).
   const openCreator = () => {
     createAgent.reset();
-    setCreatorOpen(true);
+    void navigate({ to: "/agents/create" });
   };
   const openViewer = (agent: Agent, edit = false) => {
     updateAgent.reset();
@@ -222,27 +220,6 @@ export function AgentsPage() {
           viewer &&
           updateAgent.mutate({ id: viewer.agent.id, data: payload })
         }
-      />
-
-      <AgentCreator
-        open={creatorOpen}
-        onOpenChange={setCreatorOpen}
-        agents={agents.data ?? []}
-        creating={createAgent.isPending}
-        createError={manualError}
-        onCreate={(payload) =>
-          createAgent.mutate(payload, { onSuccess: () => setCreatorOpen(false) })
-        }
-        onSwitchToManual={(seed) => {
-          setCreatorOpen(false);
-          createAgent.reset();
-          setManualSeed(seed);
-          setManualOpen(true);
-        }}
-        onOpenAgent={(agent) => {
-          setCreatorOpen(false);
-          openViewer(agent);
-        }}
       />
 
       <AgentFormDialog

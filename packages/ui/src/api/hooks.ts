@@ -68,6 +68,14 @@ import type {
   TaskStatus,
   PipelineDraftTurn,
   TeamManagerChatRequest,
+  ChatRetryRequest,
+  ChatSession,
+  ChatSessionCreate,
+  ChatSessionDetail,
+  ChatSessionListQuery,
+  ChatSessionUpdate,
+  ChatTurn,
+  ChatTurnRequest,
 } from "@sparstrow/shared";
 import { api, type ApiError } from "@/lib/api";
 
@@ -894,6 +902,98 @@ export function useMarkMessageRead(): UseMutationResult<Message, ApiError, strin
     mutationFn: (id: string) => api<Message>(`/messages/${id}/mark-read`, { method: "POST" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["messages"] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Chat sessions (unified session-chat architecture, intake 0001+0002)
+// ---------------------------------------------------------------------------
+
+export function useChatSessions(
+  filters: ChatSessionListQuery = {},
+): UseQueryResult<ChatSession[], ApiError> {
+  return useQuery({
+    queryKey: ["chat-sessions", filters],
+    queryFn: () =>
+      api<ChatSession[]>(
+        `/chat/sessions${qs({
+          kind: filters.kind,
+          projectId: filters.projectId,
+          agentId: filters.agentId,
+          status: filters.status,
+        })}`,
+      ),
+  });
+}
+
+export function useChatSession(id: string | null): UseQueryResult<ChatSessionDetail, ApiError> {
+  return useQuery({
+    queryKey: ["chat-session", id],
+    queryFn: () => api<ChatSessionDetail>(`/chat/sessions/${id}`),
+    enabled: Boolean(id),
+  });
+}
+
+export function useCreateChatSession(): UseMutationResult<
+  ChatSession,
+  ApiError,
+  ChatSessionCreate
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ChatSessionCreate) =>
+      api<ChatSession>("/chat/sessions", { method: "POST", body }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+    },
+  });
+}
+
+export function useUpdateChatSession(): UseMutationResult<
+  ChatSession,
+  ApiError,
+  { id: string; data: ChatSessionUpdate }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) =>
+      api<ChatSession>(`/chat/sessions/${id}`, { method: "PATCH", body: data }),
+    onSuccess: (_session, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+      void queryClient.invalidateQueries({ queryKey: ["chat-session", id] });
+    },
+  });
+}
+
+export function usePostChatTurn(): UseMutationResult<
+  ChatTurn,
+  ApiError,
+  { sessionId: string } & ChatTurnRequest
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sessionId, ...body }) =>
+      api<ChatTurn>(`/chat/sessions/${sessionId}/messages`, { method: "POST", body }),
+    onSuccess: (_turn, { sessionId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+      void queryClient.invalidateQueries({ queryKey: ["chat-session", sessionId] });
+    },
+  });
+}
+
+export function useRetryChatTurn(): UseMutationResult<
+  ChatTurn,
+  ApiError,
+  { sessionId: string } & ChatRetryRequest
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sessionId, ...body }) =>
+      api<ChatTurn>(`/chat/sessions/${sessionId}/retry`, { method: "POST", body }),
+    onSuccess: (_turn, { sessionId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+      void queryClient.invalidateQueries({ queryKey: ["chat-session", sessionId] });
     },
   });
 }

@@ -57,4 +57,7 @@ export interface DraftTurn {
   matches: AgentMatch[];
   sessionId: string | null;
   source: "ai" | "fallback";
+  /** When source is "fallback": the actual failure reason (timeout, usage
+   *  limit, CLI missing…) so the UI can name it instead of a vague banner. */
+  errorReason?: string | null;
 }

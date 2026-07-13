@@ -18,6 +18,8 @@ import { SettingsPage } from "@/routes/pages/settings";
 import { TasksPage } from "@/routes/pages/tasks";
 import { GoalDetailPage } from "@/routes/pages/goal-detail";
 import { MessagesPage } from "@/routes/pages/messages";
+import { ChatPage } from "@/routes/pages/chat";
+import { AgentCreatePage } from "@/routes/pages/agent-create";
 import { PipelinesPage } from "@/routes/pages/pipelines";
 import { SchedulePage } from "@/routes/pages/schedule";
 import { TerminalsPage } from "@/routes/pages/terminals";
@@ -34,6 +36,13 @@ const agentsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/agents",
   component: AgentsPage,
+});
+
+// Intake 0001: the Agent Creator interview as a dedicated full page (session-backed).
+const agentCreateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/agents/create",
+  component: AgentCreatePage,
 });
 
 // P9: external agent/skill ingestion + quarantine review.
@@ -110,6 +119,13 @@ const messagesRoute = createRoute({
   component: MessagesPage,
 });
 
+// Intake 0002: session-based chat surface (free / project / agent contexts).
+const chatRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/chat",
+  component: ChatPage,
+});
+
 const pipelinesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/pipelines",
@@ -131,6 +147,8 @@ const terminalsRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
   agentsRoute,
+  agentCreateRoute,
+  chatRoute,
   importsRoute,
   teamsRoute,
   teamDetailRoute,

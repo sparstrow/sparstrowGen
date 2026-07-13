@@ -20,3 +20,4 @@ export * from "./schemas/team.js";
 export * from "./schemas/agent-instance.js";
 export * from "./schemas/goal.js";
 export * from "./schemas/pipeline-draft.js";
+export * from "./schemas/chat.js";

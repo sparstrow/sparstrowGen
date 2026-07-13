@@ -158,3 +158,94 @@
 .spg-dot {
   animation: spg-pulse 1s ease-in-out infinite;
 }
+
+/* Chat surface: turns settle in with a short fade+rise (opacity/transform
+   only, 180ms ease-out — state feedback, not choreography). */
+@keyframes spg-turn-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.spg-turn {
+  animation: spg-turn-in 0.18s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+/* Syntax highlighting (rehype-highlight / highlight.js) tuned to the neutral
+   token system: restrained OKLCH hues, one step calmer than editor themes,
+   with light and dark variants. Only the classes hljs actually emits. */
+:root {
+  --hl-comment: oklch(0.55 0.01 250);
+  --hl-keyword: oklch(0.45 0.13 300);
+  --hl-string: oklch(0.45 0.09 150);
+  --hl-number: oklch(0.5 0.12 50);
+  --hl-title: oklch(0.42 0.1 250);
+  --hl-attr: oklch(0.45 0.08 220);
+}
+
+.dark {
+  --hl-comment: oklch(0.62 0.01 250);
+  --hl-keyword: oklch(0.75 0.1 300);
+  --hl-string: oklch(0.76 0.09 150);
+  --hl-number: oklch(0.78 0.1 50);
+  --hl-title: oklch(0.78 0.08 250);
+  --hl-attr: oklch(0.75 0.07 220);
+}
+
+.hljs-comment,
+.hljs-quote,
+.hljs-meta {
+  color: var(--hl-comment);
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag,
+.hljs-operator {
+  color: var(--hl-keyword);
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-selector-attr,
+.hljs-selector-pseudo {
+  color: var(--hl-string);
+}
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link,
+.hljs-deletion {
+  color: var(--hl-number);
+}
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.function_,
+.hljs-section,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: var(--hl-title);
+}
+.hljs-attr,
+.hljs-attribute,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-type,
+.hljs-built_in,
+.hljs-params,
+.hljs-property {
+  color: var(--hl-attr);
+}
+.hljs-emphasis {
+  font-style: italic;
+}
+.hljs-strong {
+  font-weight: 600;
+}
