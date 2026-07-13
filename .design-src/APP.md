@@ -41,9 +41,8 @@ Recommended build order top-to-bottom; reorder during lock-in. `Prio` = product 
 | 9 | **Messages** | `/messages` | ⬜ backlog | P3 | design | Inbox: agent→agent + agent→you messages, reply/route. |
 | 10 | **Terminals** | `/terminals` | ⬜ backlog | P3 | design | Embedded xterm sessions over `/ws/terminal/:id`. |
 | 11 | **Settings** | `/settings` | ⬜ backlog | P3 | design | Config: concurrency, paths, theme, token, providers, backup. |
-| 12 | **Knowledge Center** | `/knowledge` | 🔁 in-review | P2 | review + merge PR (branch `claude/knowledge-center-tab-0ed4a8`) | In-app tutorial: every workflow/surface/concept as subpages; markdown-in-repo content (`packages/ui/src/content/knowledge/`) so docs update in the same PR as the feature. Fast-tracked from intake 0003 (SPEC = `.design-src/knowledge-center/SPEC.md`; design + office-hours skipped by Curator D2=B). Rider: FACTORY-LOOP §⑤ gains a mandatory "update the matching Knowledge Center article" step. |
 
-`placeholder.tsx` is scaffold, not a real page — excluded. Agents (Pass 1 + Teams Pass 2) is fully shipped, see Done table.
+`placeholder.tsx` is scaffold, not a real page — excluded. Agents (Pass 1 + Teams Pass 2) and Knowledge Center are fully shipped, see Done table.
 
 ### Done
 | Page | What shipped | Landed |
@@ -51,6 +50,7 @@ Recommended build order top-to-bottom; reorder during lock-in. `Prio` = product 
 | **Agents — Pass 1** | F1 SkillViewer slide-over · F2 split New-agent + Duplicate · F3 deterministic-first Agent Creator (+ `POST /api/v1/agents/draft`, shared `AgentFields`, `renderSkillMd()`) | PR #4 → `main` (`925f9a7`), 2026-06-28 |
 | **Agent draft fix** | F3 draft repair-retry on JSON slip + smarter fallback naming (`fix/agent-draft-retry`) | merged to `main`, 2026-06-28 |
 | **Agents — Teams Pass 2** | F4 Teams (organization only — group agents + assign to projects, flat membership, List view; no Run button, no hierarchy/Tree — cut at `/autoplan` UC-A) + F5 nav. `teams`/`team_projects`/`team_members` schema + CRUD API + UI. Built by Antigravity 2.0 per `AGENTS.md`. | PR #7 → `main` (`5269e32`), 2026-06-29 |
+| **Knowledge Center** | `/knowledge` in-app tutorial (intake 0003, fast-tracked — design + office-hours skipped by Curator D2=B): section-grouped index w/ full-text search + article subpages (sidebar map, prev/next, not-found), 22 fresh articles (getting started ×4, all 12 surfaces, 4 concepts, limitations + docs-currency). Content = markdown-in-repo (`packages/ui/src/content/knowledge/`, Vite glob-raw) so docs diff rides the feature PR — enforced by the new FACTORY-LOOP §⑤ step 4. Rode along: markdown in-app links now SPA-navigate. | PR #48 → `main` (`3ab3762`), 2026-07-13 |
 
 Board is clean — Teams Pass 2 shipped end-to-end (office-hours → autoplan → external-agent build → merge).
 
