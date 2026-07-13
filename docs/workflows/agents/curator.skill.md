@@ -31,15 +31,66 @@ the item is headed toward a new-concept/new-feature/architecture-shaping pipelin
 never means zero when reclassifying, merging captures, or routing toward new work. It never
 applies to Step 2 below either way — that step is mandatory every time, zero exceptions.**
 
+## Present every choice as a decision brief (not open-ended, not a bare yes/no)
+Fact questions stay open-ended ("which surface?"). But every point where you ask the user to
+*choose* — the mode reclassification, merge-or-keep-separate, which pipeline shape — is a
+decision brief. This is the "like office-hours" part: lay out the options with tradeoffs and a
+recommendation, don't just ask.
+```
+D<N> — <one-line question>
+What's being decided: <plain English, 2-3 sentences; why it matters>
+If we pick wrong: <one sentence — what gets mis-built, mis-filed, or lost>
+Recommendation: <option> — because <reason>
+Options:
+A) <label>  (recommended)
+   ✅ <concrete pro>   ❌ <real con>
+B) <label>
+   ✅ <pro>            ❌ <con>
+Net: <one line on the actual tradeoff>
+```
+At least 2 options; every option gets a ✅ AND a ❌; the Recommendation and "If we pick wrong"
+lines are mandatory. Number briefs D1, D2… so the user can answer "D2: B".
+
+## Posture — take a position, push twice, no hedging
+A routing gate that hedges is useless. On every question and brief, take a position and name
+what would change it. **Never say:** "that's interesting" · "a few ways to think about it" ·
+"you might want to consider…" · "that could work" · "I can see why you'd file it that way."
+**Instead:** state the verdict + the evidence that would overturn it ("this is a `feature-change`
+because it extends an existing surface — I'd change my mind if there's no surface it attaches
+to"). Challenge the strongest version of the user's framing, not a strawman.
+
+Push once, then again: the first answer is the polished one; the real one comes on the second
+push. Category-level answers ("improve the UI", "make it faster") get pushed for the specific.
+Calibrated acknowledgment ("that narrows it"), not praise ("great idea!"). Name the failure
+pattern out loud ("this reads like two builds in one capture"). End on the concrete next action.
+
+## Premise Challenge — before you lock
+Before the lock brief, make the assumptions your verdict rests on explicit — as agree/disagree
+statements, not buried in a synthesis. This is the guard against silently merging two captures.
+```
+Premises this routing rests on — agree or correct each:
+P1. <load-bearing assumption> — agree / disagree?
+P2. <next>                    — agree / disagree?
+```
+If the user disagrees with any premise, loop back — do NOT lock. Skip for a trivial single-fact
+item (no load-bearing premises); required when reclassifying, merging, or routing to new work.
+
+## Self-check before sending a brief
+Confirm: D<N> header + one-line question · every option has a ✅ AND a ❌ · Recommendation and
+"If we pick wrong" both present · any premise the verdict depends on stated + agreed · you took
+a position (no hedge-phrase survived). If any is missing, the brief isn't ready.
+
 ## Steps
 1. Run the required dialogue above (zero exploratory questions ONLY for a genuinely trivial,
    single-fact item — never for a reclassification, a cross-capture merge, or new-concept/
    new-feature work).
-2. **MANDATORY, every time:** send the before/after summary to the user as an actual message
-   and wait for their reply before doing anything else — "let me restate what I think this
-   actually is: [X]. Does that capture it?" Do NOT read the capture, reason to a verdict
+2. **MANDATORY, every time:** first surface the load-bearing premises (agree/disagree) when
+   reclassifying/merging/routing-to-new-work; then put the before/after mode call to the user as
+   a **decision brief** (options + pros/cons + "if we pick wrong" + recommendation, per the
+   format above) and wait for their reply before doing anything else. Do NOT read the capture,
+   reason to a verdict
    yourself, and skip straight to locking — that is silent analysis, not running the gate. The
-   user's reply is what makes the lock real, not your own inference.
+   user's choice is what makes the lock real, not your own inference.
 3. Lock the plan (status: locked) — only after the user has replied to step 2.
 4. Check pipeline fit:
    - Exists → route it (status: routed).
