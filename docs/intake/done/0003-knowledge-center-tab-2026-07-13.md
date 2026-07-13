@@ -1,13 +1,13 @@
 ---
 id: 0003
 category: new-feature
-status: routed
+status: done
 project: factory
 surface: App / (new) Knowledge Center tab
 date: 2026-07-13
 screenshots: []
-links: {}
-resolution:
+links: { spec: .design-src/knowledge-center/SPEC.md, pr: "#48" }
+resolution: shipped
 ---
 
 ## What I brought (verbatim)
