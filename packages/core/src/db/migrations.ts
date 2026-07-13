@@ -560,4 +560,39 @@ CREATE INDEX idx_pipelines_team ON pipelines(team_id);
 CREATE INDEX idx_cron_jobs_team ON cron_jobs(team_id);
 `,
   },
+  {
+    // Unified session-chat architecture (intake 0001+0002): persistent chat
+    // sessions + messages for the Chat surface and the Agent Creator page.
+    // project_id/agent_id are code-enforced FKs (nullable by kind); messages
+    // cascade with their session.
+    id: "0013_chat_sessions",
+    sql: `
+CREATE TABLE chat_sessions (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
+  project_id TEXT,
+  agent_id TEXT,
+  provider TEXT,
+  model TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  draft TEXT,
+  last_message_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX idx_chat_sessions_kind ON chat_sessions(kind, status);
+CREATE INDEX idx_chat_sessions_project ON chat_sessions(project_id);
+
+CREATE TABLE chat_messages (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+  role TEXT NOT NULL,
+  content TEXT NOT NULL,
+  meta TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX idx_chat_messages_session ON chat_messages(session_id, created_at);
+`,
+  },
 ];

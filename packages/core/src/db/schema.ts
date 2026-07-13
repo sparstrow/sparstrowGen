@@ -268,6 +268,49 @@ export const messages = sqliteTable(
   (t) => [index("idx_messages_to").on(t.toAgentId, t.status)],
 );
 
+/**
+ * Unified session-chat architecture (intake 0001+0002): one session row per
+ * conversation across every chat surface (free / project / agent /
+ * agent-creator). project_id/agent_id are code-enforced FKs (nullable by kind).
+ * `draft` is the Agent Creator's accumulated clamped AgentDraft (JSON).
+ */
+export const chatSessions = sqliteTable(
+  "chat_sessions",
+  {
+    id: text("id").primaryKey(),
+    kind: text("kind").notNull(),
+    title: text("title").notNull().default(""),
+    projectId: text("project_id"),
+    agentId: text("agent_id"),
+    provider: text("provider"),
+    model: text("model"),
+    status: text("status").notNull().default("active"),
+    draft: text("draft", { mode: "json" }).$type<Record<string, unknown> | null>(),
+    lastMessageAt: text("last_message_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    index("idx_chat_sessions_kind").on(t.kind, t.status),
+    index("idx_chat_sessions_project").on(t.projectId),
+  ],
+);
+
+export const chatMessages = sqliteTable(
+  "chat_messages",
+  {
+    id: text("id").primaryKey(),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => chatSessions.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    content: text("content").notNull(),
+    meta: text("meta", { mode: "json" }).$type<Record<string, unknown> | null>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("idx_chat_messages_session").on(t.sessionId, t.createdAt)],
+);
+
 export const pipelines = sqliteTable("pipelines", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),

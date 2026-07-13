@@ -19,11 +19,23 @@ const modelList = providerIdSchema.options
   .join("; ");
 
 /** Built from the REAL enum + model list so the model can't draft a provider
- *  (e.g. the design module's `codex`) the app cannot run. */
-const CREATOR_SYSTEM_PROMPT = `You are the Agent Creator for Sparstrowgen, a local-first harness that runs CLI coding agents.
-Interview the user to design ONE agent. Ask exactly ONE focused question per turn.
-Respond with STRICT JSON ONLY — no prose, no markdown fences:
+ *  (e.g. the design module's `codex`) the app cannot run.
+ *
+ *  Intake 0001 rewrite: no reply-length cap (explain as much as needed), one
+ *  question at a time until the workflow is fully understood, and a mandatory
+ *  understanding-summary + explicit user confirmation BEFORE drafting the final
+ *  agent. Prompt-craft guidance borrows from Anthropic's skill-creator:
+ *  right-size the degrees of freedom, be concrete, never pad. */
+const CREATOR_SYSTEM_PROMPT = `You are the Agent Creator for Sparstrowgen, a local-first harness that runs CLI coding agents. Your job is to interview the user and design ONE extraordinary agent — an agent whose system prompt is a complete, precise operating manual with real behavioral controls, guardrails, and validation steps.
+Respond with STRICT JSON ONLY — no prose outside the JSON, no markdown fences:
 {"reply": string, "intent": "build" | "find", "draft": { ... }, "readyToCreate": boolean, "followups": string[]}
+
+How to run the interview:
+- Ask exactly ONE focused question per turn, but "reply" itself has NO length limit — explain your reasoning, teach the user what matters, and say why you're asking. Never compress to the point of being cryptic.
+- Keep interviewing, one question at a time, until you fully understand: the agent's purpose and expected outcome, its end-to-end workflow (inputs → steps → outputs), what "done" looks like, its failure modes, and its boundaries (what it must never do).
+- CONFIRMATION GATE: before you write the final systemPrompt, present a structured summary of your understanding in "reply" — the agent's purpose, its workflow step by step, inputs, output contract, tools/permissions, and guardrails — and explicitly ask the user to confirm or correct it. Only after the user confirms may you draft the complete systemPrompt. Do not skip this gate even if the user's first message seems complete.
+- "followups": up to 3 suggested user replies that PROVE you've analyzed this specific agent — concrete, specific to its domain and the current open question (e.g. "It should fail the review when coverage drops" — never generic filler like "Sounds good" or "Tell me more").
+
 draft fields (all optional, use ONLY these names):
 - name (string), role (short string), systemPrompt (markdown body — a COMPLETE operating manual; see structure below)
 - provider: one of ${providerList}
@@ -31,32 +43,45 @@ draft fields (all optional, use ONLY these names):
 - cwd (string or null), allowedTools (string[]), disallowedTools (string[])
 - permissionMode: one of default | acceptEdits | plan
 - memoryReadScopes (string[]), memoryWriteScopes (string[])
-systemPrompt structure — write a complete operating manual whose length follows the job. Do NOT pad, and do NOT truncate to hit any line count. Use these sections where they apply (a simple agent may need only a few; a complex one needs all):
+
+systemPrompt craft — write a complete operating manual whose length follows the job. Do NOT pad, and do NOT truncate to hit any line count. Principles:
+- Match the degrees of freedom to the task: fragile or high-stakes steps get exact, prescriptive instructions and validation checks; judgment calls get principles and heuristics instead of scripts.
+- Be concrete: include the exact output format/contract, worked examples where they disambiguate, and explicit decision rules for edge cases.
+- Build in behavioral controls: when to stop, when to escalate to the user, how to verify its own output before declaring success.
+Use these sections where they apply (a simple agent may need only a few; a complex one needs all):
 - Role & mandate — what this agent owns and is accountable for
 - Inputs — what it must gather or be given before acting
 - Output contract — the exact shape/format of what it produces
 - Constraints & guardrails — what it must never do; least privilege
-- Working loop — step-by-step how it operates, including when to escalate or stop
+- Working loop — step-by-step how it operates, including validation and when to escalate or stop
+
 Rules:
 - NEVER set permissionMode to "bypassPermissions". NEVER grant wildcard tools like "*" or "Bash(*)". Prefer least privilege.
 - Echo the accumulated draft each turn, adding newly learned fields.
 - If "Existing similar agents" are listed in the context, name the closest one in your reply and suggest reusing or extending it before creating a duplicate — advisory only; still help them build if they choose to.
-- Set readyToCreate true only once name, role, provider and model are all set.
-- Keep "reply" to 1-2 sentences. "followups": up to 3 short suggested user replies.`;
+- Set readyToCreate true only once name, role, provider and model are all set AND the user has confirmed your workflow summary.`;
 
 const ISO = "2026-01-01T00:00:00.000Z";
 
+/** Provider/model override for a Creator turn — the user-approved secondary
+ *  model failover path (intake 0001). Never applied silently: the UI asks
+ *  first, then re-runs the turn with this override. */
+export interface DraftTurnOptions {
+  provider?: Agent["provider"];
+  model?: string;
+}
+
 /** Synthetic, non-persisted agent used only to drive the Creator turn. No
  *  tools, read-only — it just emits JSON. Never written to the agents table. */
-function creatorAgent(): Agent {
+function creatorAgent(opts: DraftTurnOptions = {}): Agent {
   return {
     id: "agent-creator",
     name: "Agent Creator",
     slug: "agent-creator",
     role: "",
     systemPrompt: CREATOR_SYSTEM_PROMPT,
-    provider: "claude-code",
-    model: "sonnet",
+    provider: opts.provider ?? "claude-code",
+    model: opts.model ?? "sonnet",
     cwd: null,
     addDirs: [],
     allowedTools: [],
@@ -145,7 +170,7 @@ export function guessName(text: string): string | undefined {
 /** Announced deterministic turn: used when the AI is unavailable or returns
  *  unusable output. The UI shows `source: "fallback"` so it never looks like
  *  a silent substitution. */
-function deterministicTurn(req: DraftRequest): DraftTurn {
+function deterministicTurn(req: DraftRequest, errorReason?: string | null): DraftTurn {
   const lastUser = [...req.messages].reverse().find((m) => m.role === "user")?.content ?? "";
   const draft = clampDraft({ ...(req.draft ?? {}) });
   if (!draft.name) {
@@ -155,8 +180,7 @@ function deterministicTurn(req: DraftRequest): DraftTurn {
   if (!draft.provider) draft.provider = "claude-code";
   if (!draft.model) draft.model = "sonnet";
   return {
-    reply:
-      "AI drafting is unavailable right now, so I'm in basic mode. I've prefilled what I could — edit the fields on the right, or switch to the manual form.",
+    reply: `AI drafting is unavailable right now${errorReason ? ` (${errorReason})` : ""}, so I'm in basic mode. I've prefilled what I could — edit the fields on the right, or switch to the manual form.`,
     intent: "build",
     draft,
     readyToCreate: isReady(draft),
@@ -164,6 +188,7 @@ function deterministicTurn(req: DraftRequest): DraftTurn {
     matches: [],
     sessionId: null,
     source: "fallback",
+    errorReason: errorReason ?? null,
   };
 }
 
@@ -236,19 +261,28 @@ function parseTurn(text: string, req: DraftRequest): DraftTurn | null {
 async function aiAttempt(
   prompt: string,
   req: DraftRequest,
-): Promise<{ turn: DraftTurn | null; transportFailed: boolean }> {
+  opts: DraftTurnOptions = {},
+): Promise<{ turn: DraftTurn | null; transportFailed: boolean; errorReason: string | null }> {
   let result;
   try {
-    result = await completeOnce(creatorAgent(), prompt, { timeoutMs: 90_000 });
+    result = await completeOnce(creatorAgent(opts), prompt, { timeoutMs: 90_000 });
   } catch (err) {
     logger.warn({ err }, "agent draft turn threw");
-    return { turn: null, transportFailed: true };
+    return {
+      turn: null,
+      transportFailed: true,
+      errorReason: err instanceof Error ? err.message : String(err),
+    };
   }
   if (result.isError || !result.text) {
     logger.info({ err: result.errorMessage }, "agent draft: AI unavailable");
-    return { turn: null, transportFailed: true };
+    return {
+      turn: null,
+      transportFailed: true,
+      errorReason: result.errorMessage ?? "the model returned no output",
+    };
   }
-  return { turn: parseTurn(result.text, req), transportFailed: false };
+  return { turn: parseTurn(result.text, req), transportFailed: false, errorReason: null };
 }
 
 /**
@@ -265,7 +299,10 @@ async function aiAttempt(
  * "you already have X" hint survives the AI/fallback branches. Neither scan can
  * block a create, and both degrade to empty on any failure.
  */
-export async function runAgentDraftTurn(req: DraftRequest): Promise<DraftTurn> {
+export async function runAgentDraftTurn(
+  req: DraftRequest,
+  opts: DraftTurnOptions = {},
+): Promise<DraftTurn> {
   const interviewText = req.messages
     .filter((m) => m.role === "user")
     .map((m) => m.content)
@@ -273,16 +310,19 @@ export async function runAgentDraftTurn(req: DraftRequest): Promise<DraftTurn> {
   const preflight = await runPreflight(clampDraft({ ...(req.draft ?? {}) }), interviewText);
   const prompt = buildPrompt(req, preflight);
 
-  const first = await aiAttempt(prompt, req);
+  const first = await aiAttempt(prompt, req, opts);
   let turn = first.turn;
+  let errorReason = first.errorReason;
   if (!turn && !first.transportFailed) {
     // A parse miss gets one strict repair retry; a transport failure skips it —
     // it won't help and just doubles the wait.
     const repairPrompt = `${prompt}\n\nIMPORTANT: Respond with ONLY the JSON object — no prose, no markdown code fences.`;
-    turn = (await aiAttempt(repairPrompt, req)).turn;
+    const repair = await aiAttempt(repairPrompt, req, opts);
+    turn = repair.turn;
+    errorReason = repair.errorReason ?? "the model's reply was not valid JSON";
     if (!turn) logger.info("agent draft: model JSON unparseable after repair retry; deterministic fallback");
   }
 
-  const resolved = turn ?? deterministicTurn(req);
+  const resolved = turn ?? deterministicTurn(req, errorReason);
   return { ...resolved, matches: preflight.matches };
 }
