@@ -8,13 +8,18 @@
     "build": "tsc",
     "start": "electron .",
     "typecheck": "tsc --noEmit",
-    "dist": "electron-builder --win nsis"
+    "dist:prepare": "node scripts/prepare-resources.mjs",
+    "dist": "npm run build && npm run dist:prepare && electron-builder --win nsis",
+    "dist:publish": "npm run build && npm run dist:prepare && electron-builder --win nsis --publish always"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "electron": "^36.4.0",
     "electron-builder": "^26.0.12",
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.6.2"
   },
   "build": {
     "appId": "com.sparstrow.sparstrowgen",
@@ -25,6 +30,13 @@
     "files": [
       "dist/**/*"
     ],
+    "extraResources": [
+      { "from": "resources-staging/core", "to": "core" },
+      { "from": "resources-staging/ui", "to": "ui" },
+      { "from": "resources-staging/memory-mcp", "to": "memory-mcp" },
+      { "from": "resources-staging/memory-cli", "to": "memory-cli" },
+      { "from": "resources-staging/node-runtime", "to": "node-runtime" }
+    ],
     "win": {
       "target": "nsis"
     },
@@ -32,6 +44,11 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "runAfterFinish": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "sparstrow",
+      "repo": "sparstrowGen"
     }
   }
 }

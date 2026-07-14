@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UpdateBanner } from "@/components/update-banner";
 import { wsHub } from "@/lib/ws";
 import { useAttentionQueue } from "@/api/hooks";
 import { ThemeToggle } from "@/theme/theme-toggle";
@@ -161,6 +162,7 @@ export function AppShell() {
             <ThemeToggle />
           </div>
         </header>
+        <UpdateBanner />
         <main className="min-h-0 flex-1 overflow-y-auto p-5">
           <Outlet />
         </main>

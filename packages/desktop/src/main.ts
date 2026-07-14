@@ -1,6 +1,9 @@
 import path from "node:path";
 import { BrowserWindow, app, type Tray } from "electron";
 import { ServiceManager, findRepoRoot } from "./service-manager";
+import { applyPackagedEnv } from "./packaged-env";
+import { configureCoreClient } from "./core-client";
+import { setupUpdater } from "./updater";
 import { createTray } from "./tray";
 
 const DEV = process.env.SPARSTROW_DEV === "1";
@@ -8,8 +11,15 @@ const UI_URL = DEV
   ? (process.env.SPARSTROW_UI_URL ?? "http://127.0.0.1:5173")
   : (process.env.SPARSTROW_CORE_URL ?? "http://127.0.0.1:48750");
 
-const repoRoot = findRepoRoot(__dirname);
-const services = new ServiceManager(repoRoot);
+// 0004 Phase 0: in packaged mode, point every data path at persistent
+// userData and every resource at the install dir BEFORE the supervisor spawns
+// core — the dev repo is never touched by a packaged run.
+const packagedPaths = applyPackagedEnv();
+const repoRoot = packagedPaths ? app.getPath("userData") : findRepoRoot(__dirname);
+const services = new ServiceManager(repoRoot, packagedPaths);
+// Token-authed shell→core client (tray, updater): the token file lives in
+// the active data dir — userData in packaged mode, repo data/ in dev.
+configureCoreClient(packagedPaths?.dataDir ?? path.join(repoRoot, "data"));
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -33,6 +43,9 @@ if (!app.requestSingleInstanceLock()) {
 
     if (app.isPackaged) {
       app.setLoginItemSettings({ openAtLogin: true });
+      // 0004 Phase 2: notify-only update checks (packaged only — dev has no
+      // release feed to compare against).
+      setupUpdater(() => mainWindow);
     }
   });
 

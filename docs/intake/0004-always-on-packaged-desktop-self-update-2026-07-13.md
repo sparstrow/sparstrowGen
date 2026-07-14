@@ -1,12 +1,12 @@
 ---
 id: 0004
 category: new-feature
-status: captured
+status: routed
 project: factory
 surface: App / Desktop shell + self-update flow
 date: 2026-07-13
 screenshots: []
-links: { plan: "~/.claude/plans/is-the-app-can-shiny-hippo.md" }
+links: { plan: "~/.claude/plans/is-the-app-can-shiny-hippo.md", branch: "feat/0004-packaged-desktop-self-update" }
 resolution:
 ---
 

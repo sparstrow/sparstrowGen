@@ -1,7 +1,12 @@
 import fs from "node:fs";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { githubPatUpdateSchema, type ProviderHealth, type SystemHealth } from "@sparstrow/shared";
+import {
+  githubPatUpdateSchema,
+  type ProviderHealth,
+  type SystemHealth,
+  type UpdateReadiness,
+} from "@sparstrow/shared";
 import { config } from "../../config.js";
 import { getDb, getSqlite } from "../../db/connection.js";
 import { settings } from "../../db/schema.js";
@@ -9,10 +14,13 @@ import { clearPrQueueCache } from "../../projects/pr-queue.js";
 import { SECRET_GITHUB_PAT, deleteSecret, getSecretMeta, setSecret } from "../../secrets/secret-store.js";
 import { getFactoryHealth } from "../../system/factory-health.js";
 import {
+  isDraining,
   isSchedulerEnabled,
   requestShutdown,
+  setDraining,
   setSchedulerEnabled,
 } from "../../lifecycle.js";
+import { runManager } from "../../orchestrator/run-manager.js";
 import { logger } from "../../logger.js";
 import { embedderStatus } from "../../memory/embedder.js";
 import { isVecAvailable } from "../../memory/search-store.js";
@@ -108,6 +116,46 @@ export async function systemRoutes(app: FastifyInstance): Promise<void> {
       setSchedulerEnabled(enabled);
     }
     return { enabled: isSchedulerEnabled() };
+  });
+
+  /**
+   * 0004 Phase 2 — drain-aware update flow (desktop updater). prepare-update
+   * pauses cron + stops admitting runs; readiness is polled until busy===0;
+   * resume-after-update undoes both if the user cancels the install.
+   */
+  app.post("/system/prepare-update", async (): Promise<UpdateReadiness> => {
+    if (isSchedulerEnabled()) {
+      stopScheduler();
+      setSchedulerEnabled(false);
+    }
+    setDraining(true);
+    logger.info({ busy: runManager.busyCount() }, "update drain started");
+    return {
+      draining: true,
+      busy: runManager.busyCount(),
+      runs: runManager.listBlockingRuns(),
+    };
+  });
+
+  app.get("/system/update-readiness", async (): Promise<UpdateReadiness> => ({
+    draining: isDraining(),
+    busy: runManager.busyCount(),
+    runs: runManager.listBlockingRuns(),
+  }));
+
+  app.post("/system/resume-after-update", async (): Promise<UpdateReadiness> => {
+    setDraining(false);
+    if (!isSchedulerEnabled()) {
+      startScheduler();
+      setSchedulerEnabled(true);
+    }
+    runManager.kick();
+    logger.info("update drain cancelled — scheduler + admissions resumed");
+    return {
+      draining: false,
+      busy: runManager.busyCount(),
+      runs: runManager.listBlockingRuns(),
+    };
   });
 
   /** Graceful shutdown, used by the desktop shell on quit. */

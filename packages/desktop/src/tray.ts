@@ -1,6 +1,5 @@
 import { Menu, Tray, nativeImage } from "electron";
-
-const CORE_URL = process.env.SPARSTROW_CORE_URL ?? "http://127.0.0.1:48750";
+import { coreFetch } from "./core-client";
 
 /** 16x16 solid indigo rounded square drawn as a raw BGRA bitmap — no asset file. */
 function trayIcon(): Electron.NativeImage {
@@ -34,7 +33,7 @@ export function createTray(deps: TrayDeps): Tray {
   tray.setToolTip("Sparstrowgen");
 
   let schedulerEnabled = true;
-  void fetch(`${CORE_URL}/api/v1/system/scheduler`)
+  void coreFetch("/system/scheduler")
     .then((r) => r.json() as Promise<{ enabled: boolean }>)
     .then(({ enabled }) => {
       schedulerEnabled = enabled;
@@ -49,10 +48,9 @@ export function createTray(deps: TrayDeps): Tray {
         {
           label: schedulerEnabled ? "Pause scheduler" : "Resume scheduler",
           click: () => {
-            void fetch(`${CORE_URL}/api/v1/system/scheduler`, {
+            void coreFetch("/system/scheduler", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ enabled: !schedulerEnabled }),
+              body: { enabled: !schedulerEnabled },
             })
               .then((r) => r.json() as Promise<{ enabled: boolean }>)
               .then(({ enabled }) => {
