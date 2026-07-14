@@ -9,7 +9,7 @@
     "start": "electron .",
     "typecheck": "tsc --noEmit",
     "dist:prepare": "node scripts/prepare-resources.mjs",
-    "dist": "npm run build && npm run dist:prepare && electron-builder --win nsis",
+    "dist": "npm run build && npm run dist:prepare && electron-builder --win nsis --publish never",
     "dist:publish": "npm run build && npm run dist:prepare && electron-builder --win nsis --publish always"
   },
   "devDependencies": {
@@ -31,11 +31,11 @@
       "dist/**/*"
     ],
     "extraResources": [
-      { "from": "resources-staging/core", "to": "core" },
-      { "from": "resources-staging/ui", "to": "ui" },
-      { "from": "resources-staging/memory-mcp", "to": "memory-mcp" },
-      { "from": "resources-staging/memory-cli", "to": "memory-cli" },
-      { "from": "resources-staging/node-runtime", "to": "node-runtime" }
+      { "from": "resources-staging/core", "to": "core", "filter": ["**/*"] },
+      { "from": "resources-staging/ui", "to": "ui", "filter": ["**/*"] },
+      { "from": "resources-staging/memory-mcp", "to": "memory-mcp", "filter": ["**/*"] },
+      { "from": "resources-staging/memory-cli", "to": "memory-cli", "filter": ["**/*"] },
+      { "from": "resources-staging/node-runtime", "to": "node-runtime", "filter": ["**/*"] }
     ],
     "win": {
       "target": "nsis"

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { BrowserWindow, app, type Tray } from "electron";
 import { ServiceManager, findRepoRoot } from "./service-manager";
-import { applyPackagedEnv } from "./packaged-env";
+import { applyPackagedEnv, ensureCoreNodeModules } from "./packaged-env";
 import { configureCoreClient } from "./core-client";
 import { setupUpdater } from "./updater";
 import { createTray } from "./tray";
@@ -15,6 +15,9 @@ const UI_URL = DEV
 // userData and every resource at the install dir BEFORE the supervisor spawns
 // core — the dev repo is never touched by a packaged run.
 const packagedPaths = applyPackagedEnv();
+// Re-link the core's node_modules from the shipped `vendor` dir before anything
+// tries to spawn it (electron-builder can't ship a dir named node_modules).
+if (packagedPaths) ensureCoreNodeModules(packagedPaths);
 const repoRoot = packagedPaths ? app.getPath("userData") : findRepoRoot(__dirname);
 const services = new ServiceManager(repoRoot, packagedPaths);
 // Token-authed shell→core client (tray, updater): the token file lives in

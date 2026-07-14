@@ -1,5 +1,11 @@
 packages:
   - packages/*
+  # The desktop packaging step deploys a copy of @sparstrow/core into
+  # packages/desktop/resources-staging/core (and electron-builder writes to
+  # release/). Exclude both so pnpm never discovers a duplicate workspace
+  # package mid-build and tries to reconcile/purge the real node_modules.
+  - "!packages/*/resources-staging/**"
+  - "!packages/*/release/**"
 
 # Security: force patched versions of transitive deps flagged by `pnpm audit`.
 # js-yaml <4.1.2 (via gray-matter) has a quadratic-complexity merge-key DoS.
