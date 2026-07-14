@@ -81,6 +81,16 @@ function loadOrCreateToken(dataDir: string): string {
 }
 
 export function resolveConfig(): AppConfig {
+  // 0004 Phase 0 hardening: a packaged run must never fall back to repoRoot —
+  // findRepoRoot would resolve somewhere inside the install dir and the DB
+  // would be wiped on every update. The desktop shell always sets these.
+  if (process.env.SPARSTROW_PACKAGED === "1") {
+    for (const key of ["SPARSTROW_DATA_DIR", "SPARSTROW_VAULT"]) {
+      if (!process.env[key]?.trim()) {
+        throw new Error(`packaged mode requires ${key} to be set (refusing repoRoot fallback)`);
+      }
+    }
+  }
   const dataDir = process.env.SPARSTROW_DATA_DIR ?? path.join(repoRoot, "data");
   // Vault defaults to a sibling of the repo (…/<parent>/memory), resolved from
   // repoRoot so the install is drive-portable. `|| ` (not `??`) so a set-but-empty

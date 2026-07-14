@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import type { PackagedPaths } from "./packaged-env";
 
 const CORE_URL = process.env.SPARSTROW_CORE_URL ?? "http://127.0.0.1:48750";
 const HEALTH_URL = `${CORE_URL}/api/v1/system/health`;
@@ -45,8 +46,16 @@ export class ServiceManager {
   private logBytes = 0;
   private logPath: string;
 
-  constructor(private repoRoot: string) {
-    const logDir = path.join(repoRoot, "data", "logs");
+  /**
+   * @param repoRoot dev-mode repo checkout (spawns core via tsx from src).
+   * @param packaged packaged-mode paths (spawns the bundled dist with the
+   *   bundled Node; resolves nothing from the repo). Null/undefined in dev.
+   */
+  constructor(
+    private repoRoot: string,
+    private packaged: PackagedPaths | null = null,
+  ) {
+    const logDir = packaged?.logDir ?? path.join(repoRoot, "data", "logs");
     fs.mkdirSync(logDir, { recursive: true });
     this.logPath = path.join(logDir, "core-service.log");
   }
@@ -75,19 +84,30 @@ export class ServiceManager {
   }
 
   private spawnCore(): void {
-    const coreDir = path.join(this.repoRoot, "packages", "core");
-    const tsxCli = require.resolve("tsx/cli", { paths: [coreDir] });
-    const entry = path.join(coreDir, "src", "index.ts");
-
     this.rotateLogIfNeeded();
     this.logStream ??= fs.createWriteStream(this.logPath, { flags: "a" });
 
     // The core MUST run on plain Node, never Electron-as-Node: native modules
     // (better-sqlite3, node-pty, onnxruntime) are compiled for the system Node
     // ABI. Packaged builds point SPARSTROW_NODE at the bundled runtime.
-    const nodeBin = process.env.SPARSTROW_NODE ?? "node";
-    const child = spawn(nodeBin, [tsxCli, entry], {
-      cwd: coreDir,
+    let nodeBin: string;
+    let args: string[];
+    let cwd: string;
+    if (this.packaged) {
+      // Packaged: run the prebuilt bundle with the bundled Node from the
+      // install's resources — nothing is resolved from a repo checkout.
+      nodeBin = process.env.SPARSTROW_NODE ?? this.packaged.nodeBin;
+      args = [this.packaged.coreEntry];
+      cwd = this.packaged.coreCwd;
+    } else {
+      const coreDir = path.join(this.repoRoot, "packages", "core");
+      const tsxCli = require.resolve("tsx/cli", { paths: [coreDir] });
+      nodeBin = process.env.SPARSTROW_NODE ?? "node";
+      args = [tsxCli, path.join(coreDir, "src", "index.ts")];
+      cwd = coreDir;
+    }
+    const child = spawn(nodeBin, args, {
+      cwd,
       env: { ...process.env },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,

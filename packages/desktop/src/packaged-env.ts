@@ -1,0 +1,54 @@
+import path from "node:path";
+import { app } from "electron";
+
+/**
+ * 0004 Phase 0 — the three-locations separation. In packaged mode every data
+ * path points at a persistent per-user dir (userData) and every code/resource
+ * path points inside the installed app (resourcesPath). The dev repo is never
+ * referenced: merging to `main` cannot touch the running process or its data.
+ */
+export interface PackagedPaths {
+  /** Persistent per-user data root (DB, tmp, logs, models, token). */
+  dataDir: string;
+  /** Persistent memory vault. */
+  vaultPath: string;
+  /** Bundled core entry (built JS, not tsx). */
+  coreEntry: string;
+  /** cwd for the core process — its deployed package dir (node_modules beside it). */
+  coreCwd: string;
+  /** Bundled plain-Node runtime (never Electron-as-Node: native-module ABI). */
+  nodeBin: string;
+  /** Supervisor log dir (lives under dataDir so it survives updates). */
+  logDir: string;
+}
+
+/**
+ * When running packaged, export the SPARSTROW_* env the core reads
+ * (config.ts already honors every one of these — no core logic change) and
+ * return the spawn paths for the ServiceManager. Returns null in dev, where
+ * the repo layout is used unchanged.
+ */
+export function applyPackagedEnv(): PackagedPaths | null {
+  if (!app.isPackaged) return null;
+  const userData = app.getPath("userData");
+  const res = process.resourcesPath;
+  const coreCwd = path.join(res, "core");
+  const paths: PackagedPaths = {
+    dataDir: path.join(userData, "data"),
+    vaultPath: path.join(userData, "memory"),
+    coreEntry: path.join(coreCwd, "dist", "index.js"),
+    coreCwd,
+    nodeBin: path.join(res, "node-runtime", process.platform === "win32" ? "node.exe" : "node"),
+    logDir: path.join(userData, "data", "logs"),
+  };
+  process.env.SPARSTROW_PACKAGED = "1";
+  // `??=` so an explicit override (e.g. pointing a packaged build at a test
+  // data dir) still wins over the defaults.
+  process.env.SPARSTROW_DATA_DIR ??= paths.dataDir;
+  process.env.SPARSTROW_VAULT ??= paths.vaultPath;
+  process.env.SPARSTROW_MEMORY_MCP ??= path.join(res, "memory-mcp", "index.cjs");
+  process.env.SPARSTROW_MEMORY_CLI ??= path.join(res, "memory-cli", "index.cjs");
+  process.env.SPARSTROW_UI_DIST ??= path.join(res, "ui");
+  process.env.SPARSTROW_NODE ??= paths.nodeBin;
+  return paths;
+}
