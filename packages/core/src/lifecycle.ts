@@ -23,3 +23,20 @@ export function setSchedulerEnabled(value: boolean): void {
 export function isSchedulerEnabled(): boolean {
   return schedulerEnabled;
 }
+
+/**
+ * 0004 Phase 2 — update drain. While draining, the run manager admits no new
+ * runs (queued runs stay queued; running ones finish). The desktop updater
+ * sets this via POST /system/prepare-update, polls /system/update-readiness
+ * until busy===0, then quitAndInstall()s; a user cancel clears it via
+ * POST /system/resume-after-update.
+ */
+let draining = false;
+
+export function setDraining(value: boolean): void {
+  draining = value;
+}
+
+export function isDraining(): boolean {
+  return draining;
+}

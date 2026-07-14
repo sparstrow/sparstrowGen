@@ -16,6 +16,7 @@ import {
   type RunStatus,
 } from "@sparstrow/shared";
 import { config } from "../config.js";
+import { isDraining } from "../lifecycle.js";
 import { getDb } from "../db/connection.js";
 import { agents, projects, runs, runEvents, tasks } from "../db/schema.js";
 import { bus } from "../events/bus.js";
@@ -169,6 +170,10 @@ export class RunManager {
   }
 
   private tick(): void {
+    // 0004 Phase 2: while an update is draining, admit NOTHING new — queued
+    // runs stay queued (they resume after the restart or on resume-after-update);
+    // in-flight runs finish and release busyAgents toward readiness.
+    if (isDraining()) return;
     const db = getDb();
     // busyAgents is the SYNCHRONOUS in-flight count (added here before start(),
     // removed on finish/fail) — `active` only fills after start()'s first await, so
@@ -615,6 +620,33 @@ export class RunManager {
       .run();
     const run = this.getRun(runId);
     if (run) bus.publish({ type: "run.completed", run });
+  }
+
+  /** 0004 Phase 2: synchronous in-flight count — busy===0 ⇒ safe to restart. */
+  busyCount(): number {
+    return this.busyAgents.size;
+  }
+
+  /** The runs an update is waiting on, for "waiting for N agents…" UI. */
+  listBlockingRuns(): { id: string; agentId: string; agentName: string | null; startedAt: string | null }[] {
+    const db = getDb();
+    const names = new Map(
+      db.select({ id: agents.id, name: agents.name }).from(agents).all().map((a) => [a.id, a.name]),
+    );
+    return [...this.active.entries()].map(([id, state]) => {
+      const row = db.select().from(runs).where(eq(runs.id, id)).get();
+      return {
+        id,
+        agentId: state.agentId,
+        agentName: names.get(state.agentId) ?? null,
+        startedAt: row?.startedAt ?? null,
+      };
+    });
+  }
+
+  /** Re-admit queued runs (used after resume-after-update clears draining). */
+  kick(): void {
+    queueMicrotask(() => this.tick());
   }
 
   getRun(runId: string): Run | null {
