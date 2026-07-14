@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { app } from "electron";
 
@@ -51,4 +52,25 @@ export function applyPackagedEnv(): PackagedPaths | null {
   process.env.SPARSTROW_UI_DIST ??= path.join(res, "ui");
   process.env.SPARSTROW_NODE ??= paths.nodeBin;
   return paths;
+}
+
+/**
+ * Restore the core's `node_modules` from the shipped `vendor` dir. The packaging
+ * step renames deps to `vendor` because electron-builder refuses to copy a dir
+ * named `node_modules` (see prepare-resources.mjs); Node still needs a real
+ * `node_modules` beside dist/ to resolve them. A directory junction is instant
+ * and needs no admin; the per-user install dir is writable. Idempotent, and
+ * re-runs every launch because an update replaces the install dir wholesale
+ * (fresh `vendor`, no `node_modules`). Falls back to a copy if the junction is
+ * refused (e.g. a locked-down per-machine install on a different volume).
+ */
+export function ensureCoreNodeModules(paths: PackagedPaths): void {
+  const nm = path.join(paths.coreCwd, "node_modules");
+  const vendor = path.join(paths.coreCwd, "vendor");
+  if (fs.existsSync(nm) || !fs.existsSync(vendor)) return;
+  try {
+    fs.symlinkSync(vendor, nm, "junction");
+  } catch {
+    fs.cpSync(vendor, nm, { recursive: true });
+  }
 }

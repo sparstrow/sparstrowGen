@@ -40,13 +40,33 @@ fs.rmSync(staging, { recursive: true, force: true });
 fs.mkdirSync(staging, { recursive: true });
 
 // 1. Core: bundle + deploy with prod node_modules (natives ride along).
+// node-linker=hoisted is LOAD-BEARING: pnpm's default node_modules is a tree of
+// symlinks into .pnpm/, and electron-builder's copier can't follow them.
+// Hoisted emits a flat, symlink-free real tree (verified: 0 symlinks, every
+// native .node present).
 run("pnpm --filter @sparstrow/core build");
-run(`pnpm --filter @sparstrow/core deploy --prod --legacy "${path.join(staging, "core")}"`);
+run(
+  `pnpm --filter @sparstrow/core deploy --prod --legacy --config.node-linker=hoisted "${path.join(staging, "core")}"`,
+);
 // The deploy snapshot includes src/tsconfig etc. — harmless but dead weight; trim.
 for (const extra of ["src", "build.mjs", "tsconfig.json", "vitest.config.ts", "scripts"]) {
   fs.rmSync(path.join(staging, "core", extra), { recursive: true, force: true });
 }
 mustExist(path.join(staging, "core", "dist", "index.js"), "core build failed");
+// electron-builder's extraResources copier UNCONDITIONALLY skips any directory
+// literally named `node_modules` (a `filter` can't override it). So rename the
+// deployed deps to `vendor` — that survives packaging intact — and the desktop
+// shell junctions `node_modules` -> `vendor` at first launch (see
+// ensureCoreNodeModules in packaged-env.ts). Confirmed: `vendor` ships whole
+// (214 pkgs, native .node present); `node_modules` gets stripped to nothing.
+const coreNm = path.join(staging, "core", "node_modules");
+const coreVendor = path.join(staging, "core", "vendor");
+mustExist(
+  path.join(coreNm, "better-sqlite3", "build", "Release", "better_sqlite3.node"),
+  "native prebuilds missing from staged core — deploy/linker regression",
+);
+fs.rmSync(coreVendor, { recursive: true, force: true });
+fs.renameSync(coreNm, coreVendor);
 
 // 2. UI.
 const uiDist = path.join(repoRoot, "packages", "ui", "dist");
