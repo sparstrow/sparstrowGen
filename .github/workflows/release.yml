@@ -37,3 +37,18 @@ jobs:
       - run: pnpm --filter @sparstrow/desktop dist:publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # electron-builder leaves the release as an empty-bodied DRAFT. Fill the
+      # notes from the merged PRs since the previous tag; the draft stays a
+      # draft — publishing it (a human click) is the release gate, and
+      # electron-updater only sees the update once it's published.
+      - name: Generate release notes
+        shell: bash
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            -f tag_name="${GITHUB_REF_NAME}" --jq .body > notes.md
+          RELEASE_ID=$(gh api "repos/${GITHUB_REPOSITORY}/releases" \
+            --jq ".[] | select(.tag_name==\"${GITHUB_REF_NAME}\") | .id" | head -1)
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            -F body=@notes.md > /dev/null
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
