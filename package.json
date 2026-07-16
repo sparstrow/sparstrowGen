@@ -8,7 +8,9 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "dev:preview:core": "node scripts/dev-preview.mjs core",
+    "dev:preview:ui": "node scripts/dev-preview.mjs ui"
   },
   "devDependencies": {
     "turbo": "^2.5.4",
