@@ -26,6 +26,7 @@ covers all categories.
 id: 0001
 category: feedback          # feedback|new-feature|new-concept|design|feature-change (intake-track)
                              # decision|pitfall|lesson|meeting|architecture (memory-track)
+secondary_modes: []         # optional — see "Primary + secondary mode" below. Omit or [] if N/A.
 status: captured             # see Lifecycle below
 project: factory            # factory (self) | <project-slug>
 surface: Agents / Agent Creator
@@ -48,6 +49,24 @@ resolution:                 # set at done: shipped | wontfix | dup | deferred | 
 <appended by the Curator — before/after summary, confirmed mode, verdict. See
 ../workflows/review-and-routing.md>
 ```
+
+## Primary + secondary mode (added 2026-07-14)
+
+A single captured item is sometimes genuinely dual-natured — one event, not two, that touches
+two modes. E.g. "we hit this pitfall because of assumption X, and the lesson is always validate
+Y first" is one paragraph that's both a `pitfall` and a `lesson`. That's different from a dump
+that bundles two *separate* actionable things (which the Listener should split into two capture
+docs instead — see the Listener's split-detection guardrail).
+
+**Exactly one primary mode** (`category:`) drives routing — intake-track → a pipeline,
+memory-track → the [Memory Archivist](../workflows/agents/memory-archivist.md). These are
+different destinations; a single lockstep flow can't serve both, so routing needs a lead.
+
+**`secondary_modes:`** records the other facet(s) so nothing is lost — including across the
+intake/memory-track boundary (a `pitfall` whose secondary is `new-feature`: the lesson AND the
+guard worth building). The Curator sees both when routing the primary, and a secondary mode is a
+candidate for its own follow-up capture later if it warrants independent action — not spawned
+automatically, just not forgotten.
 
 ## Lifecycle
 

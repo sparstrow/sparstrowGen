@@ -1,13 +1,13 @@
 ---
 id: 0004
 category: new-feature
-status: routed
+status: done
 project: factory
 surface: App / Desktop shell + self-update flow
 date: 2026-07-13
 screenshots: []
-links: { plan: "~/.claude/plans/is-the-app-can-shiny-hippo.md", branch: "feat/0004-packaged-desktop-self-update" }
-resolution:
+links: { plan: "~/.claude/plans/is-the-app-can-shiny-hippo.md", pr: "https://github.com/sparstrow/sparstrowGen/pull/51", followup: "docs/intake/0005-core-port-conflict-dev-vs-packaged-2026-07-13.md" }
+resolution: shipped
 ---
 
 ## What I brought (verbatim)

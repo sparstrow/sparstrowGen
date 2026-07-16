@@ -1,13 +1,13 @@
 ---
 id: 0001
 category: new-concept
-status: gap
+status: done
 project: factory
 surface: Agents / Agent Creator
 date: 2026-07-12
 screenshots: [assets/0001-agent-creator-modal.png, assets/0001-agent-creator-session-loss.png, assets/0001-agent-creator-error.png]
-links: { "0002": "docs/intake/0002-chat-interface-concept-2026-07-12.md" }
-resolution:
+links: { "0002": "docs/intake/done/0002-chat-interface-concept-2026-07-12.md", pr: "https://github.com/sparstrow/sparstrowGen/pull/47" }
+resolution: shipped
 ---
 
 ## What I brought (verbatim)

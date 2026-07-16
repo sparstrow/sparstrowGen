@@ -1,13 +1,13 @@
 ---
 id: 0005
 category: feature-change
-status: done
+status: locked
 project: factory
 surface: Desktop shell (service-manager) + Core config + UI dev proxy
 date: 2026-07-13
 screenshots: []
 links: { plan: "docs/intake/0004-always-on-packaged-desktop-self-update-2026-07-13.md" }
-resolution: wontfix
+resolution:
 ---
 
 ## What I brought (verbatim)
@@ -94,3 +94,42 @@ No code change. If this recurs often enough to matter, the better lever is proba
 already-running core (as `service-manager.ts`'s existing adopt-logic already does for the packaged
 app) rather than running a second instance on a second port — but that's a new idea, not this
 item's scope; capture separately if it becomes worth pursuing.
+
+## Reopened (2026-07-14)
+
+**The wontfix rested on a false premise.** The user had understood — from an earlier remark this
+was heard, second-hand — that the packaged Electron app "doesn't require a local host," i.e. that
+it doesn't bind a port at all. On that premise, running a dev core on a second port looked like
+pure waste: two processes for a conflict the packaged app would never actually cause.
+
+**That premise is wrong, and it was proven wrong directly**, not by inference: the 0004 installer
+was built and the packaged core was booted exactly as the Electron shell runs it — bundled Node,
+bundled dist, junctioned deps — and it came up serving `http://127.0.0.1:48750` and answering
+`/system/health`. The Electron window itself is nothing but `mainWindow.loadURL(UI_URL)` pointed
+at that same local server (`main.ts:9`, `service-manager.ts:5`). There is no mode where this app
+runs without a bound TCP port — that's the shape of the architecture (local Fastify + local
+SQLite), not a config choice. "Can't ship to Supabase/Vercel" (0004's opening question) was never
+a claim that no port is used locally; those are two different statements that got compressed into
+one.
+
+**With the correct premise, the original concern stands and the tradeoff flips:**
+- The packaged app is about to run 24/7 on this machine, starting now — not an occasional
+  ephemeral chat session that might collide once in a while.
+- Every time a coding session (like this one) needs to spin up an isolated preview/dev core to
+  verify a code change — which is routine, not rare — it will now collide with a *permanent*
+  resident on 48750, not a temporary one.
+- The memory cost of a second core process (one more SQLite connection, one more small embedder
+  model) is real but modest — not the kind of cost that should block being able to test code
+  changes without taking down the live, always-on factory (agents mid-run and all) every time.
+
+**Decision: reinstate the original fix.** Two separate cores — one permanent (packaged app,
+port 48750, real persistent data), one disposable (dev/preview, a different port, throwaway
+data) — same direction as the original proposal:
+1. Packaged/always-on app keeps port 48750 unchanged.
+2. Dev/test instances set `SPARSTROW_PORT` (e.g. `48751`) — `config.ts` already reads this env var,
+   no core code change needed.
+3. `packages/ui/vite.config.ts:49`'s hardcoded `http://127.0.0.1:48750` proxy target becomes
+   env-driven so the dev UI proxy follows wherever the dev core landed.
+
+Status reopened `locked`; routing unchanged from the original verdict — folds into 0004's own
+build track (Phase 0/1), no separate pipeline. Ready to implement.

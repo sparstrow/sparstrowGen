@@ -1,10 +1,11 @@
 # APP.md — Sparstrowgen master plan & build board
 
-> **Status: DRAFT v0 (2026-06-28) — pending lock-in.**
-> Single source of truth for *which page is at which stage*. The build routine reads this
-> to find the next `autoplan ✅` page; you read it to see what's waiting on your time.
-> Workflow it drives: [`FACTORY-LOOP.md`](./FACTORY-LOOP.md). Per-page detail lives in
-> `.design-src/<page>/SPEC.md`.
+> **📦 FROZEN — HISTORICAL RECORD (superseded 2026-07-14).**
+> This page-by-page build board drove the early UI work and the P1–P10 engine (all shipped).
+> It is **no longer the source of truth** and is **not** on any agent's read-path — do not read
+> it to decide what to build next, and do not spend time updating it. The live workflow,
+> git flow, and current work queue are defined in `CLAUDE.md` and `docs/intake/`. Kept only
+> as the historical record of the page-by-page era.
 
 ## What Sparstrowgen is
 

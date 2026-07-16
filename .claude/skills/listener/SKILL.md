@@ -23,7 +23,9 @@ Holding this line *is* the value: capture stays honest precisely because it refu
 analysis.
 
 Canonical source of truth (read the relevant part, don't duplicate it):
-- **`docs/workflows/agents/listener.md`** — the discipline + the full per-mode question tables.
+- **`docs/workflows/agents/listener.md`** — the discipline + guardrails + the full per-mode
+  question tables. **Read its "Guardrails" section before a large/multi-part dump** — it covers
+  split detection, smart-skip, long-dump structuring, and batched reflect-back.
 - **`docs/intake/README.md`** — the capture file format + lifecycle.
 
 This skill is how you run a capture *in Claude Code*, where — unlike the in-app agent — you
@@ -48,6 +50,36 @@ Read that mode's row in `docs/workflows/agents/listener.md` for its question foc
 - Reflect back a 1–2 sentence "what I understood" and get the user's confirmation. Their words
   are the record; correct only when they correct you.
 
+## 2.5 Large or multi-part dumps — apply these before writing anything
+
+A big dump (a whole feature idea, a wall of feedback, a session's worth of notes) needs more
+than the default flow above. Full detail + worked examples in `docs/workflows/agents/listener.md`
+under **"Guardrails"** — the short version:
+
+1. **Split detection first.** Scan for distinct, independently actionable pieces (different
+   surfaces, different problems, asks with different root causes). If there's more than one,
+   stop and ask: *"This reads like [N] separate things: (1)... (2).... Separate captures, or one
+   item with several parts?"* — don't silently decide either way.
+2. **Smart-skip.** Don't ask a mode-focus question the dump already answered. Only ask what's
+   genuinely missing.
+3. **Structure the verbatim block, don't paraphrase it.** Sub-headers per topic are fine; cutting
+   a specific detail because it "seems minor" is editing, not capture — keep it.
+4. **Batch the reflect-back.** One structured "what I understood" covering every piece (numbered,
+   if split), then ask only the smallest set of missing questions — not one question per
+   paragraph.
+5. **Mode-fit check.** The 10 modes are broad, not exhaustive. If a dump is a real stretch for
+   every mode — not just an imperfect label, but structurally different from all of them — say so
+   directly: name the closest 1-2 modes and why they don't quite fit, then ask whether to capture
+   under the closest one anyway (flagged as an imperfect fit) or clarify what kind of thing this
+   actually is. Never silently force a bad-fit mode.
+6. **Primary + secondary mode.** Different from split detection: that's for two *separate*
+   actionable things bundled in a dump (→ two docs). This is for ONE event/insight that genuinely
+   touches two modes — e.g. one paragraph that's both a `pitfall` and a `lesson`. Pick one
+   primary mode to drive routing (intake-track and memory-track go to different destinations —
+   pipeline vs. Memory Archivist — so routing needs a lead), and record the other facet in
+   `secondary_modes:` (see `docs/intake/README.md`) instead of losing it or splitting into two
+   thin, redundant docs.
+
 ## 3. Screenshots
 
 You can't save a pasted image as a file (your write path is text, not binary). So view it, then
@@ -64,16 +96,22 @@ dropped.
 ## 5. Write the capture
 
 Once the user confirms, write the file to `docs/intake/` per `docs/intake/README.md`:
-- **id** = the highest `NNNN` currently in `docs/intake/` + 1 (start at `0001`).
+- **id** = the highest `NNNN` currently in `docs/intake/` (including `done/`) + 1 (start at
+  `0001`).
 - **filename** `NNNN-<title-slug>-<YYYY-MM-DD>.md`.
-- **frontmatter**: `id`, `category` (the mode), `status: captured`, `project` (`factory` or the
-  project slug), `surface`, `date`, `screenshots`, `links: {}`, `resolution:` (empty).
+- **frontmatter**: `id`, `category` (the primary mode), `secondary_modes: []` (per §2.5's
+  primary+secondary guardrail — omit or leave `[]` if not applicable), `status: captured`,
+  `project` (`factory` or the project slug), `surface`, `date`, `screenshots`, `links: {}`,
+  `resolution:` (empty).
 - **body**: `## What I brought (verbatim)` (this block is sacred — later work appends below it,
   never rewrites it), `## What the Listener understood`, and `## Blind-spot notes (accepted)`
   only if any were accepted.
+- **If split into multiple items** (per §2.5): write one file per item, each a complete capture
+  in its own right, and cross-reference them in each `links:` field (e.g.
+  `links: { related: "docs/intake/000X-other-item-....md" }`).
 
 ## 6. Hand off — then stop
 
-Tell the user it's captured and that the **Curator** runs next (mode-correctness +
-pipeline-fit). Do **not** start reviewing, analyzing, or fixing yourself. The capture session
-ends here.
+Tell the user it's captured (note how many docs, if split) and that the **Curator** runs next
+(mode-correctness + pipeline-fit). Do **not** start reviewing, analyzing, or fixing yourself.
+The capture session ends here.

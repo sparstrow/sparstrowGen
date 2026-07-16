@@ -168,3 +168,12 @@ Portability deferrals (/autoplan 2026-07-08, `docs/portability-plan.md`, branch
   null/undefined, so a set-but-empty env var resolves to an empty/partial path. Left out of
   the portability PR to keep it scoped to the vault path. One-line each
   (`?.trim() || <fallback>`) when touched next. (S)
+
+Workflow-v2 UAT deferral (office-hours 2026-07-15, `docs/planned/factory-workflow-v2.md`) →
+- **Beta release channel for higher-fidelity UAT** — the locked interim is UAT via the `staging`
+  dev build on the dev port (48751, needs intake 0005). The *best* end state is a packaged beta
+  channel: CI builds a beta from `staging`, a separate "Sparstrowgen Beta" install
+  notify-updates from it exactly as the stable app updates from `main`, so UAT tests the real
+  packaged artifact (catching packaging-class bugs the dev build can't — the 0004 installer bug
+  is the cautionary example). Reuses 0004's electron-updater channel support. Graduate to it when
+  packaging-fidelity actually bites — not built speculatively. (M, source: review-outcome)
