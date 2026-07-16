@@ -29,8 +29,12 @@ code-writing in either role.
 - **Commit author** is repo-set to `Sparstrow Agent <agent@sparstrow.com>`. Do NOT override it or
   add a `Co-Authored-By:` trailer — CI `author-check` fails otherwise.
 - **Never touch `main` directly** — it is branch-protected (PR + approval + checks, squash-only, no
-  force-push). Agents branch off `staging` (off `origin/main` until `staging` exists), build, gate,
-  merge to `staging`; the owner promotes `staging` → `main`.
+  force-push). Agents branch off fresh `origin/staging`, build, gate, merge to `staging`; the owner
+  promotes `staging` → `main`. **Never commit directly on a local `staging`/`main` checkout, for any
+  kind of session** — the only commands run there are the squash-merge and its push. With multiple
+  agent accounts working concurrently, derive branch names from something unique (the intake id, or
+  a specific slug) and check `git ls-remote --heads origin <name>` before pushing a new one — see
+  `CLAUDE.md`'s Git flow section for the full rule.
 - **Stay in scope** — build only the plan's tasks; no "while I'm here" additions.
 - **Never weaken trust boundaries** — no `bypassPermissions`, no wildcard tool grants.
 - **Toolchain:** `pnpm` on Node 24 (better-sqlite3 / node-pty ABI). Don't run the core server during

@@ -71,6 +71,17 @@ gate, merge to `staging`.
 
 - **`staging` = the agents' trunk.** Branch off fresh `origin/staging`, build, **pass the gate**,
   then merge to `staging`. Agents may **auto-merge to `staging` only after the gate is green**.
+- **Never commit directly on a local `staging` (or `main`) checkout — no exceptions, including
+  chat/doc-only sessions.** Every unit of work, whatever kind, gets its own branch off fresh
+  `origin/staging` first. The *only* commands run against a local `staging` checkout are the
+  squash-merge itself and the push that lands it — never an `Edit`/`Write` followed by a commit.
+- **Branch-naming collision guard (multi-account safety).** With multiple accounts (agents)
+  branching off `staging` concurrently, two agents picking the same generic name (`fix/bug`,
+  `feat/update`) can collide on push. Always derive the branch name from something unique to the
+  work: the intake id when one exists (`fix/0005-dev-port`), otherwise a short, specific slug
+  that wouldn't plausibly collide with concurrent work. Before pushing a new branch, check it
+  doesn't already exist on the remote (`git ls-remote --heads origin <name>`) — if it does,
+  that's a signal another account already claimed that name or that work, not a name to fight over.
 - **`main` = the owner's release gate.** The owner reviews `staging` and promotes `staging` → `main`
   — the only human merge. `main` stays release-quality, so the always-on app never updates from
   unseen code. CI ships on `main` tags.
