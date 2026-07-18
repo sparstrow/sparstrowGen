@@ -150,6 +150,8 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
   const runTask = useRunTask();
 
   const [createOpen, setCreateOpen] = React.useState(false);
+  // Per-column quick-add: the + in a column header creates directly into that stage.
+  const [createStatus, setCreateStatus] = React.useState<TaskStatus | null>(null);
   const [selected, setSelected] = React.useState<Task | null>(null);
 
   const [newTitle, setNewTitle] = React.useState("");
@@ -184,8 +186,14 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
         priority: Number(newPriority),
       },
       {
-        onSuccess: () => {
+        onSuccess: (task) => {
+          // The server decides the initial column (inbox, or todo when
+          // assigned); a column quick-add then moves it there, same as a drag.
+          if (createStatus && task.status !== createStatus) {
+            updateTask.mutate({ id: task.id, data: { status: createStatus } });
+          }
           setCreateOpen(false);
+          setCreateStatus(null);
           setNewTitle("");
           setNewDescription("");
           setNewAgentIds([]);
@@ -261,7 +269,12 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
           </p>
           <div className="flex-1" />
           {!readOnly && (
-            <Button onClick={() => setCreateOpen(true)}>
+            <Button
+              onClick={() => {
+                setCreateStatus(null);
+                setCreateOpen(true);
+              }}
+            >
               <Plus className="size-4" /> New task
             </Button>
           )}
@@ -314,6 +327,14 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
                   accent={col.accent}
                   count={items.length}
                   itemIds={items.map((t) => t.id)}
+                  onAdd={
+                    !readOnly && !["done", "failed"].includes(col.status)
+                      ? () => {
+                          setCreateStatus(col.status);
+                          setCreateOpen(true);
+                        }
+                      : undefined
+                  }
                 >
                   {items.map((task) => {
                     const kids = childrenOf(task.id);

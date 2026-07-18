@@ -75,7 +75,7 @@ function SortablePin({ item }: { item: PinnedItem }) {
  * (projects, runs, …) and reordered here by drag-and-drop; the order persists
  * in localStorage.
  */
-export function PinnedItems() {
+export function PinnedItems({ collapsed = false }: { collapsed?: boolean }) {
   const pins = usePins((s) => s.pins);
   const reorder = usePins((s) => s.reorder);
   const sensors = useSensors(
@@ -87,6 +87,29 @@ export function PinnedItems() {
     const { active, over } = event;
     if (over && active.id !== over.id) reorder(String(active.id), String(over.id));
   };
+
+  // Icon rail: pins stay reachable as icon-only links; reordering needs the
+  // expanded sidebar.
+  if (collapsed) {
+    if (pins.length === 0) return null;
+    return (
+      <div className="space-y-0.5 px-2 pt-3">
+        {pins.map((p) => {
+          const Icon = KIND_ICONS[p.kind];
+          return (
+            <Link
+              key={p.key}
+              to={p.to}
+              title={p.label}
+              className="flex items-center justify-center rounded-md py-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+            >
+              <Icon className="size-4" />
+            </Link>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="px-2 pt-3">

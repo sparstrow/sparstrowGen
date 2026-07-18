@@ -29,7 +29,9 @@ import { ThemeToggle } from "@/theme/theme-toggle";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { PinnedItems } from "@/components/layout/pinned-items";
+import { TabStrip } from "@/components/layout/tab-strip";
 import { WorkspaceSwitcher } from "@/components/layout/workspace-switcher";
+import { useWorkspaceTabs } from "@/lib/workspace-tabs";
 
 interface NavItem {
   to: string;
@@ -90,6 +92,7 @@ export function AppShell() {
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   React.useEffect(() => setMobileNavOpen(false), [pathname]);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const collapsed = useWorkspaceTabs((s) => s.sidebarCollapsed);
   // Attention count drives the Dashboard nav badge + a header chip (visible anywhere).
   const attention = useAttentionQueue();
   const attentionCount = attention.data?.length ?? 0;
@@ -108,12 +111,13 @@ export function AppShell() {
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground transition-transform duration-200 md:static md:translate-x-0",
+          collapsed && "md:w-14",
           mobileNavOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="flex items-center gap-1 border-b border-sidebar-border p-2">
           <div className="min-w-0 flex-1">
-            <WorkspaceSwitcher />
+            <WorkspaceSwitcher collapsed={collapsed && !mobileNavOpen} />
           </div>
           <button
             type="button"
@@ -130,23 +134,37 @@ export function AppShell() {
             <button
               type="button"
               onClick={() => setPaletteOpen(true)}
-              className="flex w-full items-center gap-2 rounded-md border bg-background/60 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+              title="Search (Ctrl K)"
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md border bg-background/60 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground",
+                collapsed && "md:justify-center md:border-transparent md:bg-transparent md:px-0 md:hover:bg-sidebar-accent/60",
+              )}
             >
               <Search className="size-4" />
-              <span className="flex-1 text-left">Search…</span>
-              <kbd className="rounded border bg-muted px-1.5 font-mono text-[10px]">
+              <span className={cn("flex-1 text-left", collapsed && "md:hidden")}>Search…</span>
+              <kbd
+                className={cn(
+                  "rounded border bg-muted px-1.5 font-mono text-[10px]",
+                  collapsed && "md:hidden",
+                )}
+              >
                 {isMac ? "⌘K" : "Ctrl K"}
               </kbd>
             </button>
           </div>
 
-          <PinnedItems />
+          <PinnedItems collapsed={collapsed && !mobileNavOpen} />
 
           <nav className="space-y-4 px-2 pt-3">
             {NAV_GROUPS.map((group) => (
               <div key={group.heading ?? "root"}>
                 {group.heading && (
-                  <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                  <p
+                    className={cn(
+                      "px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70",
+                      collapsed && "md:hidden",
+                    )}
+                  >
                     {group.heading}
                   </p>
                 )}
@@ -158,17 +176,26 @@ export function AppShell() {
                       <Link
                         key={item.to}
                         to={item.to}
+                        title={item.label}
                         className={cn(
                           "flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                          collapsed && "md:justify-center md:px-0",
                           isActive
                             ? "bg-sidebar-accent text-sidebar-accent-foreground"
                             : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
                         )}
                       >
                         <item.icon className="size-4" />
-                        <span className="flex-1">{item.label}</span>
+                        <span className={cn("flex-1", collapsed && "md:hidden")}>
+                          {item.label}
+                        </span>
                         {item.to === "/" && attentionCount > 0 ? (
-                          <span className="rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-white">
+                          <span
+                            className={cn(
+                              "rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-white",
+                              collapsed && "md:hidden",
+                            )}
+                          >
                             {attentionCount}
                           </span>
                         ) : null}
@@ -181,13 +208,19 @@ export function AppShell() {
           </nav>
         </div>
 
-        <div className="border-t border-sidebar-border p-3 text-xs text-muted-foreground">
+        <div
+          className={cn(
+            "border-t border-sidebar-border p-3 text-xs text-muted-foreground",
+            collapsed && "md:hidden",
+          )}
+        >
           v0.1.0 · local
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b px-5">
+        <TabStrip />
+        <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b px-5">
           <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
