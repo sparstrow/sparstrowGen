@@ -1,20 +1,24 @@
 ---
 title: Agents & Imports
 section: Surfaces
-description: Manage your agent roster, view skills, and safely ingest external skill packs through quarantine.
+description: Manage your agent roster, assign skills, and safely ingest external skill packs through quarantine.
 order: 2
-updated: 2026-07-13
+updated: 2026-07-18
 ---
 
 ## The Agents page
 
-Your full roster. From here you can:
+Your full roster, as a searchable list. Filter by All / Enabled / Disabled, sort by name or
+last active, and search by name, role, model, or provider. Each row shows the agent's avatar
+and a ready/disabled status. From here you can:
 
 - **Create** — via the interview or the manual form
   (see [Create your first agent](/knowledge/create-your-first-agent)).
 - **Duplicate** — clone an agent as a starting point for a variant.
-- **Inspect skills** — click a skill to open the **Skill Viewer** slide-over and read
-  exactly what document the agent is working from.
+- **Inspect its definition** — click the agent to open the **Skill Viewer** slide-over and read
+  its generated `SKILL.md` (the agent's own role and instructions).
+- **Manage skills** — from the row's ⋯ menu, attach reusable
+  [skills](/knowledge/skills) to the agent; a count chip on the row shows how many it carries.
 - **Edit** — prompt, model, tools. Changes apply to *future* runs only; running and past
   runs keep the policy snapshot they started with.
 
