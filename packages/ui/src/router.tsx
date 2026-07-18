@@ -25,6 +25,7 @@ import { KnowledgePage } from "@/routes/pages/knowledge";
 import { KnowledgeArticlePage } from "@/routes/pages/knowledge-article";
 import { SchedulePage } from "@/routes/pages/schedule";
 import { TerminalsPage } from "@/routes/pages/terminals";
+import { SkillsPage } from "@/routes/pages/skills";
 
 const rootRoute = createRootRoute({ component: AppShell });
 
@@ -164,6 +165,13 @@ const terminalsRoute = createRoute({
   component: TerminalsPage,
 });
 
+// Workspace skills: reusable instruction packs assignable to agents.
+const skillsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/skills",
+  component: SkillsPage,
+});
+
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
   agentsRoute,
@@ -186,6 +194,7 @@ const routeTree = rootRoute.addChildren([
   knowledgeRoute,
   knowledgeArticleRoute,
   terminalsRoute,
+  skillsRoute,
 ]);
 
 export const router = createRouter({ routeTree });

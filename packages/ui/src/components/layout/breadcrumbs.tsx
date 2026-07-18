@@ -17,6 +17,7 @@ const SECTION_LABELS: Record<string, string> = {
   pipelines: "Pipelines",
   schedule: "Schedule",
   memory: "Memory",
+  skills: "Skills",
   knowledge: "Knowledge Center",
   terminals: "Terminals",
   settings: "Settings",

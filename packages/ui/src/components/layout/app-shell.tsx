@@ -13,6 +13,7 @@ import {
   MessagesSquare,
   PackagePlus,
   Play,
+  Puzzle,
   Search,
   Settings,
   TerminalSquare,
@@ -69,6 +70,7 @@ const NAV_GROUPS: { heading: string | null; items: NavItem[] }[] = [
   {
     heading: "Configure",
     items: [
+      { to: "/skills", label: "Skills", icon: Puzzle },
       { to: "/terminals", label: "Terminals", icon: TerminalSquare },
       { to: "/knowledge", label: "Knowledge Center", icon: BookOpen },
       { to: "/settings", label: "Settings", icon: Settings },

@@ -595,4 +595,28 @@ CREATE TABLE chat_messages (
 CREATE INDEX idx_chat_messages_session ON chat_messages(session_id, created_at);
 `,
   },
+  {
+    // Workspace skills (Multica pattern): reusable instruction packs assigned
+    // to agents many-to-many; enabled+assigned skills are injected into the
+    // run prompt as a guaranteed block.
+    id: "0014_skills",
+    sql: `
+CREATE TABLE skills (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  description TEXT NOT NULL DEFAULT '',
+  content TEXT NOT NULL DEFAULT '',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE agent_skills (
+  agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  skill_id TEXT NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+  PRIMARY KEY (agent_id, skill_id)
+);
+CREATE INDEX idx_agent_skills_skill ON agent_skills(skill_id);
+`,
+  },
 ];

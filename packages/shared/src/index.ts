@@ -16,6 +16,7 @@ export * from "./schemas/task.js";
 export * from "./schemas/pipeline.js";
 export * from "./schemas/cron.js";
 export * from "./schemas/memory.js";
+export * from "./schemas/skill.js";
 export * from "./schemas/team.js";
 export * from "./schemas/agent-instance.js";
 export * from "./schemas/goal.js";

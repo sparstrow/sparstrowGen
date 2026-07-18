@@ -8,6 +8,7 @@ import {
   FlaskConical,
   MoreHorizontal,
   Pencil,
+  Puzzle,
   Search,
   Trash2,
 } from "lucide-react";
@@ -53,6 +54,9 @@ import {
   useAgents,
   useCreateAgent,
   useDeleteAgent,
+  useSetAgentSkills,
+  useSkillAssignments,
+  useSkills,
   useTestSpawnAgent,
   useUpdateAgent,
 } from "@/api/hooks";
@@ -72,6 +76,24 @@ export function AgentsPage() {
   // SkillViewer (F1).
   const [viewer, setViewer] = React.useState<{ agent: Agent; edit: boolean } | null>(null);
   const [deleting, setDeleting] = React.useState<Agent | null>(null);
+
+  // Workspace-skill assignment (Multica pattern): checkbox dialog per agent.
+  const skills = useSkills();
+  const skillAssignments = useSkillAssignments();
+  const setAgentSkills = useSetAgentSkills();
+  const [skillsFor, setSkillsFor] = React.useState<Agent | null>(null);
+  const [draftSkillIds, setDraftSkillIds] = React.useState<Set<string>>(new Set());
+  const assignedSkillIds = React.useCallback(
+    (agentId: string) =>
+      (skillAssignments.data ?? []).filter((a) => a.agentId === agentId).map((a) => a.skillId),
+    [skillAssignments.data],
+  );
+  const skillName = (id: string) => skills.data?.find((s) => s.id === id)?.name ?? id;
+  const openSkills = (agent: Agent) => {
+    setAgentSkills.reset();
+    setDraftSkillIds(new Set(assignedSkillIds(agent.id)));
+    setSkillsFor(agent);
+  };
 
   const openManual = () => {
     setManualSeed(null);
@@ -236,6 +258,16 @@ export function AgentsPage() {
                           <Badge variant="secondary" className="text-[10px]">
                             {agent.provider}
                           </Badge>
+                          {assignedSkillIds(agent.id).length > 0 && (
+                            <Badge
+                              variant="outline"
+                              className="gap-1 text-[10px] text-muted-foreground"
+                              title={assignedSkillIds(agent.id).map(skillName).join(", ")}
+                            >
+                              <Puzzle className="size-2.5" />
+                              {assignedSkillIds(agent.id).length}
+                            </Badge>
+                          )}
                         </span>
                         <span className="block max-w-64 truncate text-xs text-muted-foreground">
                           {agent.role || "No role description"}
@@ -289,6 +321,9 @@ export function AgentsPage() {
                         </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => openViewer(agent, true)}>
                           <Pencil /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => openSkills(agent)}>
+                          <Puzzle /> Manage skills
                         </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => duplicate(agent)}>
                           <Copy /> Duplicate
@@ -347,6 +382,80 @@ export function AgentsPage() {
           createAgent.mutate(payload, { onSuccess: () => setManualOpen(false) })
         }
       />
+
+      {/* Manage skills dialog */}
+      <Dialog open={skillsFor != null} onOpenChange={(open) => !open && setSkillsFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Skills for {skillsFor?.name}</DialogTitle>
+            <DialogDescription>
+              Checked skills are injected into every run of this agent. Manage the skills
+              themselves on the Skills page.
+            </DialogDescription>
+          </DialogHeader>
+          {(skills.data ?? []).length === 0 ? (
+            <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+              No skills exist yet — create one on the Skills page first.
+            </p>
+          ) : (
+            <div className="max-h-72 space-y-1 overflow-y-auto">
+              {(skills.data ?? []).map((s) => (
+                <label
+                  key={s.id}
+                  className="flex cursor-pointer items-start gap-3 rounded-md p-2 transition-colors hover:bg-accent"
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-4 w-4 rounded border-input"
+                    checked={draftSkillIds.has(s.id)}
+                    onChange={() =>
+                      setDraftSkillIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(s.id)) next.delete(s.id);
+                        else next.add(s.id);
+                        return next;
+                      })
+                    }
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 text-sm font-medium">
+                      {s.name}
+                      {!s.enabled && (
+                        <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                          disabled
+                        </Badge>
+                      )}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {s.description || "No description"}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+          {setAgentSkills.isError && (
+            <p className="text-sm text-destructive">{setAgentSkills.error.message}</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSkillsFor(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={setAgentSkills.isPending}
+              onClick={() =>
+                skillsFor &&
+                setAgentSkills.mutate(
+                  { agentId: skillsFor.id, skillIds: [...draftSkillIds] },
+                  { onSuccess: () => setSkillsFor(null) },
+                )
+              }
+            >
+              {setAgentSkills.isPending ? "Saving…" : "Save skills"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={deleting != null} onOpenChange={(open) => !open && setDeleting(null)}>
         <DialogContent>

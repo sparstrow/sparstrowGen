@@ -55,6 +55,10 @@ import type {
   TeamCreate,
   TeamUpdate,
   TeamIndexItem,
+  AgentSkillAssignment,
+  Skill,
+  SkillCreate,
+  SkillUpdate,
   TeamDetail,
   TeamMember,
   TeamMemberCreate,
@@ -485,6 +489,63 @@ export function useProjectFiles(id: string, subpath: string): UseQueryResult<Dir
 // ---------------------------------------------------------------------------
 // Teams
 // ---------------------------------------------------------------------------
+
+// ── Skills ──────────────────────────────────────────────────────────────
+
+export function useSkills(): UseQueryResult<Skill[], ApiError> {
+  return useQuery({
+    queryKey: ["skills"],
+    queryFn: () => api<Skill[]>("/skills"),
+  });
+}
+
+export function useSkillAssignments(): UseQueryResult<AgentSkillAssignment[], ApiError> {
+  return useQuery({
+    queryKey: ["skills", "assignments"],
+    queryFn: () => api<AgentSkillAssignment[]>("/skills/assignments"),
+  });
+}
+
+export function useCreateSkill(): UseMutationResult<Skill, ApiError, SkillCreate> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SkillCreate) => api<Skill>("/skills", { method: "POST", body }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
+  });
+}
+
+export function useUpdateSkill(): UseMutationResult<
+  Skill,
+  ApiError,
+  { id: string; data: SkillUpdate }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => api<Skill>(`/skills/${id}`, { method: "PUT", body: data }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
+  });
+}
+
+export function useDeleteSkill(): UseMutationResult<void, ApiError, string> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<void>(`/skills/${id}`, { method: "DELETE" }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
+  });
+}
+
+export function useSetAgentSkills(): UseMutationResult<
+  Skill[],
+  ApiError,
+  { agentId: string; skillIds: string[] }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ agentId, skillIds }) =>
+      api<Skill[]>(`/agents/${agentId}/skills`, { method: "PUT", body: { skillIds } }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
+  });
+}
 
 export function useTeams(): UseQueryResult<TeamIndexItem[], ApiError> {
   return useQuery({

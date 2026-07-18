@@ -1,6 +1,7 @@
 import {
   BookOpen,
   Bot,
+  Puzzle,
   Brain,
   CalendarClock,
   FolderKanban,
@@ -36,6 +37,7 @@ export const NAV_META: Record<string, NavMeta> = {
   pipelines: { label: "Pipelines", icon: Workflow },
   schedule: { label: "Schedule", icon: CalendarClock },
   memory: { label: "Memory", icon: Brain },
+  skills: { label: "Skills", icon: Puzzle },
   knowledge: { label: "Knowledge Center", icon: BookOpen },
   terminals: { label: "Terminals", icon: TerminalSquare },
   settings: { label: "Settings", icon: Settings },
