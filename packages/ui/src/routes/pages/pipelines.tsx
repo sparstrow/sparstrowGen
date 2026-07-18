@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Pencil, Play, Plus, Trash2, Workflow, Bot } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarClock, ChevronDown, ChevronRight, Pencil, Play, Plus, Trash2, Workflow, Bot } from "lucide-react";
 import type { Pipeline, RunStatus } from "@sparstrow/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ import { RunStatusBadge } from "@/components/run-status-badge";
 import {
   useAgents,
   useCreatePipeline,
+  useCronJobs,
   useDeletePipeline,
   usePipelineRuns,
   usePipelines,
@@ -63,6 +64,11 @@ export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?
 
   const teamQuery = useTeam(teamId ?? "");
   const roster = teamQuery.data?.members.map((m) => ({ id: m.agentId, name: m.agentName })) ?? [];
+
+  // Automation health: which pipelines have a cron trigger pointed at them.
+  const cronJobs = useCronJobs();
+  const cronsFor = (pipelineId: string) =>
+    (cronJobs.data ?? []).filter((j) => j.targetType === "pipeline" && j.targetId === pipelineId);
 
   // editor state
   const [name, setName] = React.useState("");
@@ -196,8 +202,36 @@ export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?
               <div className="flex flex-wrap items-center gap-3 p-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
+                    <span
+                      className={
+                        "size-2 shrink-0 rounded-full " +
+                        (p.enabled && p.steps.length > 0
+                          ? "bg-emerald-500"
+                          : p.enabled
+                            ? "bg-amber-500"
+                            : "bg-muted-foreground/40")
+                      }
+                      title={
+                        p.enabled && p.steps.length > 0
+                          ? "Healthy — enabled with steps"
+                          : p.enabled
+                            ? "Enabled but has no steps"
+                            : "Disabled"
+                      }
+                    />
                     <p className="font-medium">{p.name}</p>
                     {!p.enabled && <Badge variant="outline">disabled</Badge>}
+                    {cronsFor(p.id).map((j) => (
+                      <Badge
+                        key={j.id}
+                        variant={j.enabled ? "info" : "outline"}
+                        className="gap-1 text-[10px]"
+                        title={`${j.name} — next: ${j.enabled ? formatDate(j.nextRunAt) : "paused"}`}
+                      >
+                        <CalendarClock className="size-2.5" />
+                        <span className="font-mono">{j.cronExpr}</span>
+                      </Badge>
+                    ))}
                   </div>
                   {p.description && (
                     <p className="mt-0.5 truncate text-sm text-muted-foreground">{p.description}</p>

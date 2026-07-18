@@ -1,5 +1,6 @@
 import * as React from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { ArrowLeft, ArrowRight, History, Plus, Sparkles } from "lucide-react";
 import type {
   Agent,
@@ -249,9 +250,10 @@ export function AgentCreatePage() {
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-2 divide-x">
+      <PanelGroup direction="horizontal" autoSaveId="agent-creator-layout" className="min-h-0 flex-1">
         {/* Left: persistent interview chat */}
-        <div className="flex min-h-0 flex-col">
+        <Panel defaultSize={50} minSize={30}>
+        <div className="flex h-full min-h-0 flex-col">
           <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-5">
             {messages.length === 0 && !pendingContent ? (
               <div className="space-y-3">
@@ -353,16 +355,19 @@ export function AgentCreatePage() {
             />
           </div>
         </div>
+        </Panel>
+        <PanelResizeHandle className="w-px bg-border transition-colors data-[resize-handle-state=drag]:bg-primary data-[resize-handle-state=hover]:bg-primary/50" />
 
         {/* Right: live draft + SKILL.md preview + create */}
-        <div className="flex min-h-0 flex-col">
+        <Panel defaultSize={50} minSize={30}>
+        <div className="flex h-full min-h-0 flex-col">
           <div className="flex-1 space-y-4 overflow-y-auto p-5">
             <AgentFields values={values} set={(k, val) => setValues((v) => ({ ...v, [k]: val }))} />
             <div>
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                SKILL.md preview
+                SKILL.md preview — updates live as the interview fills the draft
               </p>
-              <pre className="max-h-64 overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs leading-relaxed">
+              <pre className="max-h-96 overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs leading-relaxed">
                 {renderSkillMd(payload)}
               </pre>
             </div>
@@ -394,7 +399,8 @@ export function AgentCreatePage() {
             )}
           </div>
         </div>
-      </div>
+        </Panel>
+      </PanelGroup>
     </div>
   );
 }

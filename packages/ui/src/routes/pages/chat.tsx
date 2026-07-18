@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import {
   Archive,
   ArrowUp,
@@ -92,6 +93,11 @@ function GhostSelect({
   );
 }
 
+/** Left rail of the split-pane layout: filters + the saved-session list. */
+function ChatThreadList({ children }: { children: React.ReactNode }) {
+  return <aside className="flex h-full flex-col bg-sidebar">{children}</aside>;
+}
+
 /**
  * The composer is the center of gravity (Claude Code desktop style): a single
  * bordered container holding the textarea, the context/model controls, and
@@ -163,7 +169,20 @@ export function ChatPage() {
     status: showArchived ? undefined : "active",
   });
 
-  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  // The active session is URL state (?session=id): linkable, survives reload,
+  // and back/forward moves between conversations.
+  const navigate = useNavigate({ from: "/chat" });
+  const search = useSearch({ from: "/chat" });
+  const selectedId = search.session ?? null;
+  const setSelectedId = React.useCallback(
+    (id: string | null) => {
+      void navigate({
+        search: id ? { session: id } : {},
+        replace: false,
+      });
+    },
+    [navigate],
+  );
   const detail = useChatSession(selectedId);
   const session = detail.data?.session ?? null;
 
@@ -396,8 +415,10 @@ export function ChatPage() {
 
   return (
     <div className="-m-5 flex h-[calc(100vh-3.5rem)] min-h-0 overflow-hidden">
-      {/* Session rail */}
-      <aside className="flex w-72 shrink-0 flex-col border-r bg-sidebar">
+      <PanelGroup direction="horizontal" autoSaveId="chat-layout" className="min-h-0 flex-1">
+        {/* Session rail */}
+        <Panel defaultSize={24} minSize={16} maxSize={40} className="hidden md:block">
+          <ChatThreadList>
         <div className="space-y-2.5 px-3 pb-2 pt-3">
           <Button variant="outline" className="w-full justify-start bg-background" onClick={startNew}>
             <Plus className="size-4" /> New chat
@@ -479,10 +500,13 @@ export function ChatPage() {
             })
           )}
         </div>
-      </aside>
+          </ChatThreadList>
+        </Panel>
+        <PanelResizeHandle className="hidden w-px bg-border transition-colors data-[resize-handle-state=drag]:bg-primary data-[resize-handle-state=hover]:bg-primary/50 md:block" />
 
-      {/* Conversation */}
-      <section className="flex min-w-0 flex-1 flex-col bg-background">
+        {/* Conversation */}
+        <Panel defaultSize={76} minSize={40}>
+          <section className="flex h-full min-w-0 flex-col bg-background">
         {session ? (
           <>
             <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b px-4">
@@ -618,7 +642,9 @@ export function ChatPage() {
             </div>
           </div>
         )}
-      </section>
+          </section>
+        </Panel>
+      </PanelGroup>
 
       {/* Preview panel — always available; honest when there's nothing to run. */}
       {previewOpen && (

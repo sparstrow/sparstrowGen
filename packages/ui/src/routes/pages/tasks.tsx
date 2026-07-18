@@ -1,7 +1,17 @@
 import * as React from "react";
 import { Link } from "@tanstack/react-router";
+import {
+  DndContext,
+  PointerSensor,
+  pointerWithin,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import { ArrowRight, Bot, CornerDownRight, Play, Plus, Trash2, User, Users } from "lucide-react";
 import type { Task, TaskStatus } from "@sparstrow/shared";
+import { BoardCard } from "@/components/board/board-card";
+import { BoardColumn } from "@/components/board/board-column";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -199,6 +209,36 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
   const parentOf = (task: Task) =>
     task.parentTaskId ? (tasks.data ?? []).find((t) => t.id === task.parentTaskId) : undefined;
 
+  // Kanban drag: a pointer-distance activation keeps plain clicks opening the
+  // detail dialog; a drop onto a column (or a card in it) moves the task there.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  );
+  const onDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || readOnly) return;
+    const overId = String(over.id);
+    let targetStatus: TaskStatus | null = null;
+    if (overId.startsWith("col:")) {
+      targetStatus = overId.slice(4) as TaskStatus;
+    } else {
+      const overTask = (tasks.data ?? []).find((t) => t.id === overId);
+      if (overTask) {
+        targetStatus = COLUMNS.some((c) => c.status === overTask.status)
+          ? overTask.status
+          : "in_progress";
+      }
+    }
+    const task = (tasks.data ?? []).find((t) => t.id === active.id);
+    if (!task || !targetStatus || task.status === targetStatus) return;
+    if (!COLUMNS.some((c) => c.status === targetStatus)) return;
+    updateTask.mutate({ id: task.id, data: { status: targetStatus } });
+  };
+
+  // Escalation/suspension states are machine-managed — those cards can't be
+  // dragged into a different workflow stage by hand.
+  const draggable = (t: Task) => !readOnly && COLUMNS.some((c) => c.status === t.status);
+
   // Blocked/awaiting-approval tasks are exceptional states, not workflow stages, so
   // they render as an amber attention band above the 6-column board (design H5) — the
   // board never grows a 7th column, and these never silently vanish. Full detail +
@@ -262,27 +302,28 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
           )}
         </div>
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto md:grid-cols-3 xl:grid-cols-6">
-          {COLUMNS.map((col) => {
-            const items = byStatus(col.status);
-            return (
-              <div key={col.status} className="flex min-h-48 flex-col rounded-xl border bg-muted/30">
-                <div className="flex items-center gap-2 border-b px-3 py-2.5">
-                  <span className={cn("size-2 rounded-full", col.accent)} />
-                  <span className="text-xs font-semibold">{col.label}</span>
-                  <span className="ml-auto text-xs tabular-nums text-muted-foreground">
-                    {items.length}
-                  </span>
-                </div>
-                <div className="flex flex-1 flex-col gap-2 p-2">
+        <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={onDragEnd}>
+          <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto md:grid-cols-3 xl:grid-cols-6">
+            {COLUMNS.map((col) => {
+              const items = byStatus(col.status);
+              return (
+                <BoardColumn
+                  key={col.status}
+                  status={col.status}
+                  label={col.label}
+                  accent={col.accent}
+                  count={items.length}
+                  itemIds={items.map((t) => t.id)}
+                >
                   {items.map((task) => {
                     const kids = childrenOf(task.id);
                     const parent = parentOf(task);
                     return (
-                      <button
+                      <BoardCard
                         key={task.id}
+                        id={task.id}
+                        disabled={!draggable(task)}
                         onClick={() => setSelected(task)}
-                        className="rounded-lg border bg-background p-2.5 text-left shadow-sm transition-colors hover:border-primary/40"
                       >
                         <p className="line-clamp-2 text-xs font-medium">{task.title}</p>
                         {task.status === "waiting_children" && kids.length > 0 && (
@@ -312,19 +353,19 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
                             </Badge>
                           )}
                         </div>
-                      </button>
+                      </BoardCard>
                     );
                   })}
                   {items.length === 0 && (
                     <p className="px-1 py-3 text-center text-[11px] text-muted-foreground/60">
-                      Empty
+                      Drop a card here
                     </p>
                   )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                </BoardColumn>
+              );
+            })}
+          </div>
+        </DndContext>
       )}
         </TabsContent>
       </Tabs>

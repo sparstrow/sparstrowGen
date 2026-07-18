@@ -2,6 +2,7 @@ import * as React from "react";
 import { Link } from "@tanstack/react-router";
 import { BookOpen, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { PageContainer } from "@/components/layout/page-container";
 import {
   KNOWLEDGE_ARTICLES,
   groupBySection,
@@ -26,7 +27,7 @@ export function KnowledgePage() {
   const groups = groupBySection(filtered);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
+    <PageContainer size="md" className="space-y-8">
       <div className="space-y-3">
         <div className="flex items-center gap-2.5">
           <BookOpen className="size-5 text-muted-foreground" />
@@ -98,6 +99,6 @@ export function KnowledgePage() {
           </section>
         ))
       )}
-    </div>
+    </PageContainer>
   );
 }

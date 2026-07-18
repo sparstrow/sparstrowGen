@@ -122,10 +122,15 @@ const messagesRoute = createRoute({
 });
 
 // Intake 0002: session-based chat surface (free / project / agent contexts).
+// The active session lives in the URL (?session=id) so conversations are linkable.
 const chatRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/chat",
   component: ChatPage,
+  validateSearch: (search: Record<string, unknown>): { session?: string } =>
+    typeof search.session === "string" && search.session
+      ? { session: search.session }
+      : {},
 });
 
 const pipelinesRoute = createRoute({

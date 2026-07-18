@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useClearGithubPat,
   useClearProviderKey,
@@ -313,127 +314,195 @@ function ProvidersCard() {
   );
 }
 
-export function SettingsPage() {
+function SystemCard() {
   const health = useHealth();
-  const settings = useSettings();
-  const updateSettings = useUpdateSettings();
-  const { theme, setTheme } = useTheme();
-  const [draft, setDraft] = React.useState<Record<string, string>>({});
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">System</CardTitle>
+      </CardHeader>
+      <CardContent className="divide-y">
+        {health.isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : health.data ? (
+          <>
+            <InfoRow label="Version">v{health.data.version}</InfoRow>
+            <InfoRow label="Uptime">{formatDuration(health.data.uptimeMs)}</InfoRow>
+            <InfoRow label="Database">
+              <span className="font-mono text-xs">{health.data.db.path}</span>
+            </InfoRow>
+            <InfoRow label="Memory vault">
+              <span className="font-mono text-xs">{health.data.vault.path}</span>
+            </InfoRow>
+            <InfoRow label="Search">
+              <span className="flex gap-1.5">
+                <Badge variant={health.data.search.fts ? "success" : "destructive"}>
+                  keyword {health.data.search.fts ? "on" : "off"}
+                </Badge>
+                <Badge variant={health.data.search.vec ? "success" : "warning"}>
+                  semantic {health.data.search.vec ? "on" : "off"}
+                </Badge>
+              </span>
+            </InfoRow>
+            <InfoRow label="Embedder">
+              <span className="flex items-center gap-1.5">
+                <Badge variant={health.data.embedder.ready ? "success" : "secondary"}>
+                  {health.data.embedder.ready ? "ready" : "not ready"}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {health.data.embedder.model}
+                </span>
+              </span>
+            </InfoRow>
+            <GraphEngineRow />
+          </>
+        ) : (
+          <p className="py-3 text-sm text-destructive">Core service unreachable.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
+function AppearanceCard() {
+  const { theme, setTheme } = useTheme();
   const themes: { value: Theme; label: string }[] = [
     { value: "light", label: "Light" },
     { value: "dark", label: "Dark" },
     { value: "system", label: "System" },
   ];
-
   return (
-    <div className="max-w-3xl space-y-5">
-      <FactoryHealthCard />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">System</CardTitle>
-        </CardHeader>
-        <CardContent className="divide-y">
-          {health.isLoading ? (
-            <Skeleton className="h-24 w-full" />
-          ) : health.data ? (
-            <>
-              <InfoRow label="Version">v{health.data.version}</InfoRow>
-              <InfoRow label="Uptime">{formatDuration(health.data.uptimeMs)}</InfoRow>
-              <InfoRow label="Database">
-                <span className="font-mono text-xs">{health.data.db.path}</span>
-              </InfoRow>
-              <InfoRow label="Memory vault">
-                <span className="font-mono text-xs">{health.data.vault.path}</span>
-              </InfoRow>
-              <InfoRow label="Search">
-                <span className="flex gap-1.5">
-                  <Badge variant={health.data.search.fts ? "success" : "destructive"}>
-                    keyword {health.data.search.fts ? "on" : "off"}
-                  </Badge>
-                  <Badge variant={health.data.search.vec ? "success" : "warning"}>
-                    semantic {health.data.search.vec ? "on" : "off"}
-                  </Badge>
-                </span>
-              </InfoRow>
-              <InfoRow label="Embedder">
-                <span className="flex items-center gap-1.5">
-                  <Badge variant={health.data.embedder.ready ? "success" : "secondary"}>
-                    {health.data.embedder.ready ? "ready" : "not ready"}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {health.data.embedder.model}
-                  </span>
-                </span>
-              </InfoRow>
-              <GraphEngineRow />
-            </>
-          ) : (
-            <p className="py-3 text-sm text-destructive">Core service unreachable.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      <ProvidersCard />
-
-      <GitCard />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Appearance</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            {themes.map((t) => (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() => setTheme(t.value)}
-                className={cn(
-                  "flex-1 rounded-md border px-4 py-3 text-sm font-medium transition-colors hover:bg-accent",
-                  theme === t.value && "border-primary bg-accent",
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Advanced</CardTitle>
-          <CardDescription>Raw key/value settings stored in the core database.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {Object.entries(settings.data ?? {}).length === 0 && (
-            <p className="text-sm text-muted-foreground">No settings stored yet.</p>
-          )}
-          {Object.entries(settings.data ?? {}).map(([key, value]) => (
-            <div key={key} className="flex items-center gap-2">
-              <span className="w-48 shrink-0 font-mono text-xs">{key}</span>
-              <Input
-                className="font-mono text-xs"
-                value={draft[key] ?? value}
-                onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
-              />
-            </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Appearance</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex gap-2">
+          {themes.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => setTheme(t.value)}
+              className={cn(
+                "flex-1 rounded-md border px-4 py-3 text-sm font-medium transition-colors hover:bg-accent",
+                theme === t.value && "border-primary bg-accent",
+              )}
+            >
+              {t.label}
+            </button>
           ))}
-          {Object.keys(draft).length > 0 && (
-            <div className="flex justify-end pt-2">
-              <Button
-                size="sm"
-                disabled={updateSettings.isPending}
-                onClick={() => updateSettings.mutate(draft, { onSuccess: () => setDraft({}) })}
-              >
-                Save changes
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AdvancedCard() {
+  const settings = useSettings();
+  const updateSettings = useUpdateSettings();
+  const [draft, setDraft] = React.useState<Record<string, string>>({});
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Advanced</CardTitle>
+        <CardDescription>Raw key/value settings stored in the core database.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {Object.entries(settings.data ?? {}).length === 0 && (
+          <p className="text-sm text-muted-foreground">No settings stored yet.</p>
+        )}
+        {Object.entries(settings.data ?? {}).map(([key, value]) => (
+          <div key={key} className="flex items-center gap-2">
+            <span className="w-48 shrink-0 font-mono text-xs">{key}</span>
+            <Input
+              className="font-mono text-xs"
+              value={draft[key] ?? value}
+              onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+            />
+          </div>
+        ))}
+        {Object.keys(draft).length > 0 && (
+          <div className="flex justify-end pt-2">
+            <Button
+              size="sm"
+              disabled={updateSettings.isPending}
+              onClick={() => updateSettings.mutate(draft, { onSuccess: () => setDraft({}) })}
+            >
+              Save changes
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ProfileCard() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Profile</CardTitle>
+        <CardDescription>
+          Sparstrowgen is a local, single-user workspace — there is no hosted account. Your
+          GitHub identity below is what agents ship PRs with.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <InfoRow label="Workspace">Sparstrowgen · 127.0.0.1</InfoRow>
+        <InfoRow label="Mode">
+          <Badge variant="secondary">local single-user</Badge>
+        </InfoRow>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Settings, grouped Multica-style into nested tabs:
+ * Account (Profile, Preferences) and Workspace (General, Integrations).
+ */
+export function SettingsPage() {
+  return (
+    <div className="max-w-3xl">
+      <Tabs defaultValue="account">
+        <TabsList>
+          <TabsTrigger value="account">Account</TabsTrigger>
+          <TabsTrigger value="workspace">Workspace</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="account" className="pt-3">
+          <Tabs defaultValue="profile">
+            <TabsList>
+              <TabsTrigger value="profile">Profile</TabsTrigger>
+              <TabsTrigger value="preferences">Preferences</TabsTrigger>
+            </TabsList>
+            <TabsContent value="profile" className="space-y-5 pt-3">
+              <ProfileCard />
+              <GitCard />
+            </TabsContent>
+            <TabsContent value="preferences" className="space-y-5 pt-3">
+              <AppearanceCard />
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        <TabsContent value="workspace" className="pt-3">
+          <Tabs defaultValue="general">
+            <TabsList>
+              <TabsTrigger value="general">General</TabsTrigger>
+              <TabsTrigger value="integrations">Integrations</TabsTrigger>
+            </TabsList>
+            <TabsContent value="general" className="space-y-5 pt-3">
+              <FactoryHealthCard />
+              <SystemCard />
+              <AdvancedCard />
+            </TabsContent>
+            <TabsContent value="integrations" className="space-y-5 pt-3">
+              <ProvidersCard />
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

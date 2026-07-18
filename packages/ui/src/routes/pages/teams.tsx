@@ -1,6 +1,7 @@
 import * as React from "react";
-import { FolderKanban, Plus, Users } from "lucide-react";
+import { Crown, FolderKanban, Plus, Users } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import { ActorAvatar } from "@/components/actor-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,9 +20,53 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCreateTeam, useTeams, useProjects, useSetTeamProjects } from "@/api/hooks";
 import type { Team } from "@sparstrow/shared";
 
-// Helper for initials
-function getInitials(name: string) {
-  return name.substring(0, 2).toUpperCase();
+/**
+ * The team's delegation hierarchy at a glance: the first member (sort order —
+ * set on the team detail page) leads, delegating to the workers underneath.
+ */
+function TeamHierarchy({ members }: { members: { agentId: string; agentName: string }[] }) {
+  if (members.length === 0) {
+    return (
+      <p className="py-3 text-center text-xs italic text-muted-foreground">
+        No agents yet — add members on the team page.
+      </p>
+    );
+  }
+  const [leader, ...workers] = members;
+  return (
+    <div className="flex flex-col items-center">
+      <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-1.5">
+        <ActorAvatar name={leader!.agentName} size="md" />
+        <div className="min-w-0">
+          <p className="flex items-center gap-1 text-xs font-medium">
+            <Crown className="size-3 text-amber-500" />
+            <span className="truncate">{leader!.agentName}</span>
+          </p>
+          <p className="text-[10px] text-muted-foreground">Team Leader</p>
+        </div>
+      </div>
+      {workers.length > 0 && (
+        <>
+          <span className="h-3 w-px bg-border" aria-hidden="true" />
+          <div className="flex w-full items-start justify-center gap-1.5 border-t border-dashed pt-2">
+            {workers.slice(0, 6).map((w) => (
+              <div key={w.agentId} className="flex w-14 flex-col items-center gap-1">
+                <ActorAvatar name={w.agentName} size="sm" />
+                <span className="w-full truncate text-center text-[10px] text-muted-foreground">
+                  {w.agentName}
+                </span>
+              </div>
+            ))}
+            {workers.length > 6 && (
+              <span className="self-center text-[10px] text-muted-foreground">
+                +{workers.length - 6}
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 export function TeamsPage() {
@@ -151,36 +196,25 @@ export function TeamsPage() {
                   {team.memberCount}
                 </Badge>
               </CardHeader>
-              <CardContent className="space-y-4 flex-1">
+              <CardContent className="space-y-3 flex-1">
                 <p className="line-clamp-2 text-sm text-muted-foreground min-h-[40px]">
                   {team.description || "No description."}
                 </p>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {team.projectCount > 0 ? (
-                      <Badge variant="outline" className="flex items-center gap-1 font-normal">
-                        <FolderKanban className="size-3 text-muted-foreground" />
-                        {team.projectCount} project{team.projectCount !== 1 && 's'}
-                      </Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground italic">No projects</span>
-                    )}
-                  </div>
-                  
-                  {team.members.length > 0 && (
-                    <div className="flex -space-x-2">
-                      {team.members.map((m) => (
-                        <div 
-                          key={m.agentId} 
-                          className="flex size-6 shrink-0 items-center justify-center rounded-full border border-background bg-secondary text-[10px] font-medium ring-1 ring-border"
-                          title={m.agentName}
-                        >
-                          {getInitials(m.agentName)}
-                        </div>
-                      ))}
-                    </div>
+
+                <TeamHierarchy members={team.members} />
+
+                <div className="flex items-center justify-between border-t pt-3">
+                  {team.projectCount > 0 ? (
+                    <Badge variant="outline" className="flex items-center gap-1 font-normal">
+                      <FolderKanban className="size-3 text-muted-foreground" />
+                      {team.projectCount} project{team.projectCount !== 1 && 's'}
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-muted-foreground italic">No projects</span>
                   )}
+                  <span className="text-xs text-muted-foreground">
+                    {team.memberCount} agent{team.memberCount !== 1 && "s"}
+                  </span>
                 </div>
               </CardContent>
             </Card>
