@@ -203,4 +203,67 @@ describe("Skill routes", () => {
     });
     expect(badSkill.statusCode).toBe(400);
   });
+
+  it("imports a runtime skill with the 409-then-overwrite conflict flow", async () => {
+    const fs = await import("node:fs");
+    const os = await import("node:os");
+    const path = await import("node:path");
+    const { defaultLocalSkillRoots } = await import("../../agents/local-skills.js");
+    // The route uses the default roots — plant a real skill in the first one
+    // (the user-level claude skills dir), namespaced to this test run.
+    const root = defaultLocalSkillRoots()[0]!.path;
+    const dir = path.join(root, `sparstrow-test-${Date.now().toString(36)}`);
+    fs.mkdirSync(dir, { recursive: true });
+    const sourcePath = path.join(dir, "SKILL.md");
+    fs.writeFileSync(sourcePath, "---\nname: Import me\ndescription: d\n---\nBody v1\n", "utf8");
+    try {
+      const created = await app.inject({
+        method: "POST",
+        url: "/skills/import-local",
+        payload: { sourcePath },
+      });
+      expect(created.statusCode).toBe(201);
+      expect(created.json().action).toBe("created");
+      expect(created.json().skill.content).toBe("Body v1");
+
+      const conflict = await app.inject({
+        method: "POST",
+        url: "/skills/import-local",
+        payload: { sourcePath },
+      });
+      expect(conflict.statusCode).toBe(409);
+
+      fs.writeFileSync(sourcePath, "---\nname: Import me\n---\nBody v2\n", "utf8");
+      const overwritten = await app.inject({
+        method: "POST",
+        url: "/skills/import-local",
+        payload: { sourcePath },
+      });
+      // still 409 without the flag
+      expect(overwritten.statusCode).toBe(409);
+      const forced = await app.inject({
+        method: "POST",
+        url: "/skills/import-local",
+        payload: { sourcePath, overwrite: true },
+      });
+      expect(forced.statusCode).toBe(200);
+      expect(forced.json().action).toBe("updated");
+      expect(forced.json().skill.content).toBe("Body v2");
+
+      const outside = await app.inject({
+        method: "POST",
+        url: "/skills/import-local",
+        payload: { sourcePath: path.join(os.tmpdir(), "SKILL.md") },
+      });
+      expect(outside.statusCode).toBe(400);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("lists runtime skills without error even when roots are empty", async () => {
+    const res = await app.inject({ method: "GET", url: "/skills/local" });
+    expect(res.statusCode).toBe(200);
+    expect(Array.isArray(res.json())).toBe(true);
+  });
 });

@@ -40,6 +40,25 @@ export const agentSkillAssignmentSchema = z.object({
 });
 export type AgentSkillAssignment = z.infer<typeof agentSkillAssignmentSchema>;
 
+/** One skill discovered on a local CLI runtime (GET /skills/local). */
+export const localSkillSummarySchema = z.object({
+  key: z.string(),
+  name: z.string(),
+  description: z.string(),
+  sourcePath: z.string(),
+  provider: z.string(),
+  root: z.enum(["provider", "universal"]),
+  fileCount: z.number().int(),
+});
+export type LocalSkillSummary = z.infer<typeof localSkillSummarySchema>;
+
+/** Result of an import (POST /skills/import-local | /skills/import-url). */
+export const skillImportResultSchema = z.object({
+  action: z.enum(["created", "updated"]),
+  skill: skillSchema,
+});
+export type SkillImportResult = z.infer<typeof skillImportResultSchema>;
+
 /** PUT /agents/:id/skills — replaces the agent's full assignment set. */
 export const setAgentSkillsSchema = z.object({
   skillIds: z.array(idSchema),

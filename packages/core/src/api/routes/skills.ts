@@ -7,10 +7,16 @@ import {
   skillUpdateSchema,
   type Skill,
 } from "@sparstrow/shared";
+import { z } from "zod";
 import { getDb } from "../../db/connection.js";
 import { agents, agentSkills, skills } from "../../db/schema.js";
 import { HttpError } from "../../orchestrator/run-manager.js";
 import { listSkillsForAgent, setSkillsForAgent } from "../../agents/agent-skills.js";
+import {
+  discoverLocalSkills,
+  fetchSkillFromUrl,
+  readLocalSkill,
+} from "../../agents/local-skills.js";
 
 const nowIso = () => new Date().toISOString();
 
@@ -72,6 +78,79 @@ export async function skillRoutes(app: FastifyInstance): Promise<void> {
     if (!existing) throw new HttpError(404, `skill not found: ${id}`);
     getDb().delete(skills).where(eq(skills.id, id)).run();
     reply.code(204);
+  });
+
+  // ── Runtime + URL import (the Multica three-path "New skill" flow) ──────
+
+  /** Skills already installed on this machine's CLI runtimes. */
+  app.get("/skills/local", async () => discoverLocalSkills());
+
+  /**
+   * Create-or-overwrite a workspace skill from imported content. A name
+   * collision without `overwrite` is a 409 carrying the conflicting skill —
+   * the UI turns that into an explicit overwrite prompt (Multica's flow).
+   */
+  const upsertImported = (
+    imported: { name: string; description: string; content: string },
+    overwrite: boolean,
+  ): { action: "created" | "updated"; skill: Skill } => {
+    const db = getDb();
+    const existing = db.select().from(skills).where(eq(skills.name, imported.name)).get();
+    const ts = nowIso();
+    if (existing) {
+      if (!overwrite) {
+        throw new HttpError(
+          409,
+          `a skill named "${imported.name}" already exists — import again with overwrite to replace it`,
+        );
+      }
+      db.update(skills)
+        .set({ description: imported.description, content: imported.content, updatedAt: ts })
+        .where(eq(skills.id, existing.id))
+        .run();
+      return {
+        action: "updated",
+        skill: rowToSkill(db.select().from(skills).where(eq(skills.id, existing.id)).get()!),
+      };
+    }
+    const id = `skl_${nanoid(10)}`;
+    db.insert(skills)
+      .values({ ...imported, id, enabled: true, createdAt: ts, updatedAt: ts })
+      .run();
+    return {
+      action: "created",
+      skill: rowToSkill(db.select().from(skills).where(eq(skills.id, id)).get()!),
+    };
+  };
+
+  app.post("/skills/import-local", async (request, reply) => {
+    const body = z
+      .object({ sourcePath: z.string().min(1), overwrite: z.boolean().default(false) })
+      .parse(request.body);
+    let imported;
+    try {
+      imported = readLocalSkill(body.sourcePath);
+    } catch (err) {
+      throw new HttpError(400, err instanceof Error ? err.message : String(err));
+    }
+    const result = upsertImported(imported, body.overwrite);
+    reply.code(result.action === "created" ? 201 : 200);
+    return result;
+  });
+
+  app.post("/skills/import-url", async (request, reply) => {
+    const body = z
+      .object({ url: z.string().min(1), overwrite: z.boolean().default(false) })
+      .parse(request.body);
+    let imported;
+    try {
+      imported = await fetchSkillFromUrl(body.url);
+    } catch (err) {
+      throw new HttpError(400, err instanceof Error ? err.message : String(err));
+    }
+    const result = upsertImported(imported, body.overwrite);
+    reply.code(result.action === "created" ? 201 : 200);
+    return result;
   });
 
   app.get("/agents/:id/skills", async (request) => {

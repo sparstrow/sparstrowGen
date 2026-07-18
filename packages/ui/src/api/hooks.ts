@@ -56,8 +56,10 @@ import type {
   TeamUpdate,
   TeamIndexItem,
   AgentSkillAssignment,
+  LocalSkillSummary,
   Skill,
   SkillCreate,
+  SkillImportResult,
   SkillUpdate,
   TeamDetail,
   TeamMember,
@@ -530,6 +532,39 @@ export function useDeleteSkill(): UseMutationResult<void, ApiError, string> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api<void>(`/skills/${id}`, { method: "DELETE" }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
+  });
+}
+
+export function useLocalSkills(enabled: boolean): UseQueryResult<LocalSkillSummary[], ApiError> {
+  return useQuery({
+    queryKey: ["skills", "local"],
+    queryFn: () => api<LocalSkillSummary[]>("/skills/local"),
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useImportLocalSkill(): UseMutationResult<
+  SkillImportResult,
+  ApiError,
+  { sourcePath: string; overwrite?: boolean }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body) => api<SkillImportResult>("/skills/import-local", { method: "POST", body }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
+  });
+}
+
+export function useImportUrlSkill(): UseMutationResult<
+  SkillImportResult,
+  ApiError,
+  { url: string; overwrite?: boolean }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body) => api<SkillImportResult>("/skills/import-url", { method: "POST", body }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
   });
 }
