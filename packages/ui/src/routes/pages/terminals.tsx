@@ -20,6 +20,7 @@ import {
   useTerminalSessions,
   type TerminalSession,
 } from "@/api/hooks";
+import { PageContainer } from "@/components/layout/page-container";
 import { formatDate, shortId } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -51,7 +52,7 @@ export function TerminalsPage() {
   const active = list.find((s) => s.id === activeId) ?? null;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
+    <PageContainer size="lg" className="flex h-full min-h-0 flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <Select value={newAgentId} onValueChange={setNewAgentId}>
           <SelectTrigger className="w-48">
@@ -132,7 +133,7 @@ export function TerminalsPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
 

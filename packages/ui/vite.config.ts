@@ -34,6 +34,14 @@ const authHeader: Record<string, string> = {};
 const resolvedToken = devToken();
 if (resolvedToken) authHeader.Authorization = `Bearer ${resolvedToken}`;
 
+// The dev proxy points at wherever the dev core is actually listening. Defaults
+// to the core's default 127.0.0.1:48750; set SPARSTROW_PORT (and SPARSTROW_HOST)
+// to follow a dev core on a non-default port — e.g. 48751 while an always-on
+// packaged app holds 48750 (intake 0005). Same env vars core's config.ts reads,
+// so the two never disagree.
+const coreHost = process.env.SPARSTROW_HOST || "127.0.0.1";
+const corePort = Number(process.env.SPARSTROW_PORT) || 48750;
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
@@ -46,12 +54,12 @@ export default defineConfig({
     port: Number(process.env.PORT) || 5173,
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:48750",
+        target: `http://${coreHost}:${corePort}`,
         changeOrigin: true,
         headers: authHeader,
       },
       "/ws": {
-        target: "ws://127.0.0.1:48750",
+        target: `ws://${coreHost}:${corePort}`,
         ws: true,
         headers: authHeader,
       },

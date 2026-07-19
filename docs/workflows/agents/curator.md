@@ -54,6 +54,12 @@ Used two ways (the dual-track bridge):
 Mode reclassification is **never silent** — the before/after summary *is* the audit trail, and
 you can always override it.
 
+**Secondary modes (if the Listener recorded one — see `docs/intake/README.md`):** route on the
+primary `category:` only; a `secondary_modes:` entry is not a second pipeline to activate now.
+Note it in your before/after summary, and if it looks like it genuinely warrants its own action
+(not just a fact worth remembering alongside the primary), say so and ask whether to spin off a
+follow-up capture — don't silently drop it, and don't silently act on it either.
+
 ## Dialogue craft (harvested from YC office-hours, stripped of the startup framing)
 
 The "office-hours-style dialogue" above isn't vague — it uses a proven questioning technique.
@@ -108,24 +114,34 @@ Not every question is the same shape:
 
 ```
 D<N> — <one-line question>
-What's being decided: <plain English, 2-3 sentences; name why it matters>
+ELI10: <plain English a 16-year-old could follow, 2-4 sentences, naming the stakes>
 If we pick wrong: <one sentence — what gets mis-built, mis-filed, or lost>
 Recommendation: <option> — because <one-line reason>
+Completeness: A=X/10, B=Y/10   (or: Note: options differ in kind, not coverage — no score)
 Options:
-A) <label>  (recommended)
-   ✅ <a concrete, honest pro>
-   ❌ <a real con — every option has one>
+A) <label>  (recommended)  [effort: human ~Xh / CC ~Ym — only when the option involves build effort]
+   ✅ <a concrete, honest pro, ≥40 characters>
+   ✅ <a second pro, ≥40 characters>
+   ❌ <a real con, ≥40 characters — every option has one>
 B) <label>
+   ✅ <pro>
    ✅ <pro>
    ❌ <con>
 Net: <one line on the actual tradeoff>
 ```
 
-Rules: at least 2 options; **every** option gets at least one ✅ and one ❌ (a menu with no
-downsides listed is not a real decision aid); the **Recommendation** line and the **If we pick
-wrong** line are mandatory — those two are exactly what "like office-hours" means. Number briefs
-`D1`, `D2`, … within a session so the user can answer "D2: B". If more than four real options
-exist, split into separate briefs rather than dropping any.
+Rules: at least 2 options; **every** option gets at least two ✅ and one ❌, each ≥40 characters
+(a menu with a one-word con, or no downside at all, is not a real decision aid) — a one-way or
+destructive confirmation may use the hard-stop escape `✅ No cons — this is a hard-stop choice`
+instead; the **ELI10**, **Recommendation**, and **If we pick wrong** lines are mandatory; score
+**Completeness** whenever options differ in thoroughness (10 = handles every edge case, 7 = happy
+path, 3 = shortcut) — write the "differs in kind" note instead when they don't; add the
+**effort** dual-scale tag only on options that actually involve build/investigation work, so the
+AI-vs-human time gap is visible at the moment of deciding. On a genuine taste call with no real
+preference, keep `Recommendation: <default> — this is a taste call, no strong preference either
+way` and leave `(recommended)` on the default option regardless. Number briefs `D1`, `D2`, …
+within a session so the user can answer "D2: B". If more than four real options exist, split
+into separate briefs rather than dropping any.
 
 ### Take a position — the anti-sycophancy rule
 
@@ -186,14 +202,31 @@ this — it triggers exactly when you're reclassifying, merging, or routing towa
 ### Self-check before you send a brief
 
 Before any decision brief leaves your hands, confirm: (1) it has a `D<N>` header and a one-line
-question; (2) **every** option carries at least one honest ✅ and one honest ❌; (3) the
-**Recommendation** and **If we pick wrong** lines are both present; (4) any premise the verdict
-depends on has been stated and agreed; (5) you took a position — no hedge-phrase from the
-anti-sycophancy list survived. If any of those is missing, the brief isn't ready.
+question; (2) an **ELI10** line is present, naming the stakes in plain English; (3) **every**
+option carries at least two honest ✅ and one honest ❌, each ≥40 characters (or the hard-stop
+escape, for a one-way confirmation); (4) **Completeness** is scored, or the "differs in kind"
+note is present; (5) the **Recommendation** and **If we pick wrong** lines are both present, with
+effort dual-scale tags on any option that involves real build/investigation work; (6) any premise
+the verdict depends on has been stated and agreed; (7) you took a position — no hedge-phrase from
+the anti-sycophancy list survived. If any of those is missing, the brief isn't ready.
+
+### Voice — plain, concrete, no padding
+
+Not gstack's brand voice (that's excluded below, on purpose) — a narrower, repo-scoped discipline
+for how this gate talks. Lead with the verdict, not a wind-up. Name the actual file, mode, or
+capture id instead of describing it abstractly. No AI-vocabulary filler: *delve, crucial, robust,
+comprehensive, nuanced, multifaceted, furthermore, moreover, additionally, pivotal, landscape,
+tapestry, underscore, foster, showcase, intricate, vibrant, fundamental, significant.* No em
+dashes standing in for a real sentence break.
+
+- **Good:** "0006 is `feature-change`, not `new-concept` — Projects/Agents/Pipelines already
+  exist, this changes how they're used, it doesn't invent a new one."
+- **Bad:** "This capture represents a nuanced feature-change that could significantly enhance the
+  existing project workflow landscape."
 
 What we deliberately **did not** take: demand/market/competitor validation, "would someone pay
-for this," builder-mode brainstorming (that lives in the Listener's blind-spot pass), and all
-of gstack's plumbing (telemetry, voice, checkpoint, gbrain, upgrade flows).
+for this," builder-mode brainstorming (that lives in the Listener's blind-spot pass), and
+gstack's own product plumbing (telemetry, its branded voice, checkpoint, gbrain, upgrade flows).
 
 ## Memory-mode dialogue (heavier, by design)
 
@@ -222,6 +255,16 @@ a running Sparstrowgen instance with these docs actually indexed into its vault 
 aren't, yet. So today, Claude/agy fall back to reading these files directly. This is a real gap,
 not a design choice — closed automatically once the Product below ships, or sooner if
 Sparstrowgen is registered as its own project (see Product section).
+
+**Track A only — if `AskUserQuestion` isn't callable, stop, don't fake it.** Every decision brief
+is a real tool call, not prose. If the host disables native `AskUserQuestion` (some route through
+an `mcp__*__AskUserQuestion` variant instead — prefer that variant if one is in your tool list),
+and *no* variant is callable at all, the Curator session is **BLOCKED**: stop, tell the user
+`BLOCKED — AskUserQuestion unavailable`, and wait. Writing the brief as chat prose and moving on
+as if it were answered is exactly the silent-analysis failure mode this whole gate exists to
+prevent — a faked decision is worse than an unanswered one. Track B doesn't have this failure
+mode: its decision briefs are emitted as data for the UI to render (the P10 Manager draft
+pattern) and confirmed there, never through this tool.
 
 ## SKILL.md (portable — paste into Sparstrowgen)
 

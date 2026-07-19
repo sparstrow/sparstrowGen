@@ -1,10 +1,21 @@
 import * as React from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import type { Project, ProjectCreateMode } from "@sparstrow/shared";
-import { FolderGit2, FolderPlus, Github, Plus } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  FolderGit2,
+  FolderPlus,
+  Github,
+  MoreHorizontal,
+  Pin,
+  PinOff,
+  Plus,
+  Search,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -13,13 +24,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useProjects, useProvisionProject } from "@/api/hooks";
 import { formatDate } from "@/lib/format";
+import { pinKey, usePins } from "@/lib/pins";
 
 const MODES: { mode: ProjectCreateMode; label: string; icon: React.ReactNode; hint: string }[] = [
   { mode: "scratch", label: "Start from scratch", icon: <FolderPlus className="size-4" />, hint: "Create a new empty folder." },
@@ -27,9 +54,23 @@ const MODES: { mode: ProjectCreateMode; label: string; icon: React.ReactNode; hi
   { mode: "clone", label: "Import from GitHub", icon: <Github className="size-4" />, hint: "Clone a public repository." },
 ];
 
+type ProjectSortKey = "name" | "createdAt";
+
 export function ProjectsPage() {
+  const navigate = useNavigate();
   const projects = useProjects();
   const provision = useProvisionProject();
+  const pins = usePins();
+
+  const [query, setQuery] = React.useState("");
+  const [sort, setSort] = React.useState<{ key: ProjectSortKey; dir: "asc" | "desc" }>({
+    key: "createdAt",
+    dir: "desc",
+  });
+  const onSort = (key: ProjectSortKey) =>
+    setSort((s) =>
+      s.key === key ? { key, dir: s.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" },
+    );
 
   const [open, setOpen] = React.useState(false);
   const [mode, setMode] = React.useState<ProjectCreateMode>("scratch");
@@ -42,6 +83,33 @@ export function ProjectsPage() {
 
   // Only base projects at the root; variants live under their base's Variants list.
   const roots = (projects.data ?? []).filter((p) => !p.parentProjectId);
+
+  const visible = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = roots.filter(
+      (p) =>
+        !q ||
+        p.name.toLowerCase().includes(q) ||
+        p.slug.toLowerCase().includes(q) ||
+        (p.rootDir ?? "").toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q),
+    );
+    const dir = sort.dir === "desc" ? -1 : 1;
+    return [...filtered].sort((a, b) =>
+      (sort.key === "name"
+        ? a.name.localeCompare(b.name)
+        : a.createdAt.localeCompare(b.createdAt)) * dir,
+    );
+  }, [roots, query, sort]);
+
+  const togglePin = (p: Project) => {
+    const key = pinKey("project", p.id);
+    if (pins.isPinned(key)) pins.unpin(key);
+    else pins.pin({ key, kind: "project", label: p.name, to: `/projects/${p.id}` });
+  };
+
+  const sortIcon = (key: ProjectSortKey) =>
+    sort.key !== key ? ArrowUpDown : sort.dir === "desc" ? ArrowDown : ArrowUp;
 
   const openModal = () => {
     setMode("scratch");
@@ -73,19 +141,31 @@ export function ProjectsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Filter projects…"
+            className="h-9 w-56 pl-8"
+            aria-label="Filter projects"
+          />
+        </div>
+        <p className="hidden text-sm text-muted-foreground lg:block">
           Projects bind agents to a real directory — with git state, directives, and scoped memory.
         </p>
+        <div className="flex-1" />
         <Button onClick={openModal}>
           <Plus className="size-4" /> New project
         </Button>
       </div>
 
       {projects.isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
+        <div className="space-y-2">
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
         </div>
       ) : roots.length === 0 ? (
         <div className="rounded-xl border py-16 text-center">
@@ -98,35 +178,125 @@ export function ProjectsPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {roots.map((project) => (
-            <Link key={project.id} to="/projects/$projectId" params={{ projectId: project.id }}>
-              <Card className="h-full transition-colors hover:border-primary/50">
-                <CardHeader className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-base">{project.name}</CardTitle>
-                    {project.isSandbox && (
-                      <Badge variant="outline" className="text-[10px] border-sky-500/40 text-sky-600 dark:text-sky-400">
-                        sandbox
-                      </Badge>
-                    )}
-                  </div>
-                  <Badge variant="outline" className="w-fit font-mono text-[10px]">
-                    {project.slug}
-                  </Badge>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <p className="line-clamp-2 min-h-10 text-sm text-muted-foreground">
-                    {project.description || "No description."}
-                  </p>
-                  {project.rootDir && (
-                    <p className="break-all font-mono text-xs text-muted-foreground">{project.rootDir}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground">created {formatDate(project.createdAt)}</p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+        <div className="rounded-xl border">
+          <Table className="[&_td]:px-3 [&_td]:py-2 [&_th]:h-8 [&_th]:px-3">
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  <button
+                    type="button"
+                    onClick={() => onSort("name")}
+                    className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+                  >
+                    Project {React.createElement(sortIcon("name"), { className: "size-3" })}
+                  </button>
+                </TableHead>
+                <TableHead>Slug</TableHead>
+                <TableHead>Directory</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>
+                  <button
+                    type="button"
+                    onClick={() => onSort("createdAt")}
+                    className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+                  >
+                    Created {React.createElement(sortIcon("createdAt"), { className: "size-3" })}
+                  </button>
+                </TableHead>
+                <TableHead className="w-10" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visible.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                    No projects match “{query}”.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                visible.map((project) => (
+                  <TableRow
+                    key={project.id}
+                    className="cursor-pointer text-xs"
+                    onClick={() =>
+                      void navigate({ to: "/projects/$projectId", params: { projectId: project.id } })
+                    }
+                  >
+                    <TableCell>
+                      <span className="flex items-center gap-2">
+                        <Link
+                          to="/projects/$projectId"
+                          params={{ projectId: project.id }}
+                          className="font-medium hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {project.name}
+                        </Link>
+                        {project.isSandbox && (
+                          <Badge variant="outline" className="text-[10px] border-sky-500/40 text-sky-600 dark:text-sky-400">
+                            sandbox
+                          </Badge>
+                        )}
+                        {pins.isPinned(pinKey("project", project.id)) && (
+                          <Pin className="size-3 text-muted-foreground" />
+                        )}
+                      </span>
+                    </TableCell>
+                    <TableCell className="font-mono text-muted-foreground">{project.slug}</TableCell>
+                    <TableCell className="max-w-64 truncate font-mono text-muted-foreground" title={project.rootDir ?? undefined}>
+                      {project.rootDir || "—"}
+                    </TableCell>
+                    <TableCell className="max-w-72 truncate text-muted-foreground">
+                      {project.description || "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDate(project.createdAt)}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none">
+                          <MoreHorizontal className="size-4" />
+                          <span className="sr-only">Project actions</span>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() =>
+                              void navigate({
+                                to: "/projects/$projectId",
+                                params: { projectId: project.id },
+                              })
+                            }
+                          >
+                            Open workspace
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => togglePin(project)}>
+                            {pins.isPinned(pinKey("project", project.id)) ? (
+                              <>
+                                <PinOff className="size-4" /> Unpin from sidebar
+                              </>
+                            ) : (
+                              <>
+                                <Pin className="size-4" /> Pin to sidebar
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            disabled={!project.rootDir}
+                            onClick={() =>
+                              project.rootDir && void navigator.clipboard.writeText(project.rootDir)
+                            }
+                          >
+                            Copy directory path
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       )}
 

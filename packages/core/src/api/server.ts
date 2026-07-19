@@ -24,6 +24,7 @@ import { providerRoutes } from "./routes/providers.js";
 import { runRoutes } from "./routes/runs.js";
 import { systemRoutes } from "./routes/system.js";
 import { taskRoutes } from "./routes/tasks.js";
+import { skillRoutes } from "./routes/skills.js";
 import { teamRoutes } from "./routes/teams.js";
 import { wsRoutes } from "../ws/handler.js";
 import { mcpRoutes } from "../mcp/http-mcp.js";
@@ -78,6 +79,7 @@ export async function buildServer() {
       api.addHook("onRequest", requireAuth);
       await api.register(systemRoutes);
       await api.register(agentRoutes);
+      await api.register(skillRoutes);
       await api.register(skillImportRoutes);
       await api.register(projectRoutes);
       await api.register(teamRoutes);

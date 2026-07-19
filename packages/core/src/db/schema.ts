@@ -460,6 +460,46 @@ export const settings = sqliteTable("settings", {
   value: text("value").notNull(),
 });
 
+/**
+ * Workspace skills: reusable instruction packs (Markdown) assignable to agents.
+ * Assigned + enabled skills are injected into the agent's run prompt as a
+ * guaranteed block (see agents/agent-skills.ts).
+ */
+export const skills = sqliteTable("skills", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description").notNull().default(""),
+  content: text("content").notNull().default(""),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  // Origin provenance (detail page's Origin panel): manual | url | runtime,
+  // plus the source path/URL and, for runtime copies, the provider.
+  sourceType: text("source_type").notNull().default("manual"),
+  sourceRef: text("source_ref"),
+  sourceProvider: text("source_provider"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/** Supporting files bundled with a skill (relative path → text content). */
+export const skillFiles = sqliteTable(
+  "skill_files",
+  {
+    skillId: text("skill_id").notNull().references(() => skills.id, { onDelete: "cascade" }),
+    path: text("path").notNull(),
+    content: text("content").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.skillId, t.path] })],
+);
+
+export const agentSkills = sqliteTable(
+  "agent_skills",
+  {
+    agentId: text("agent_id").notNull().references(() => agents.id, { onDelete: "cascade" }),
+    skillId: text("skill_id").notNull().references(() => skills.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.agentId, t.skillId] })],
+);
+
 export const teams = sqliteTable("teams", {
   id: text("id").primaryKey(),
   name: text("name").notNull().unique(),

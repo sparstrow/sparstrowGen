@@ -34,6 +34,7 @@ import { resolveRunEffectiveTools } from "../agents/tool-resolution.js";
 import { applyGraphAvailabilityGate, graphEngineInstalled } from "../graph/graph-tools.js";
 import { busyKey, ensureAgentInstance } from "../agents/instances.js";
 import { buildDirectivesBlock, listEnabledDirectives } from "../projects/directives.js";
+import { buildSkillsBlock } from "../agents/agent-skills.js";
 
 const nowIso = () => new Date().toISOString();
 
@@ -321,7 +322,10 @@ export class RunManager {
     // own block (after the trusted preamble, before the token-budgeted <memory>
     // block), so they are never trimmed and never read as untrusted memory DATA.
     const directivesBlock = buildDirectivesBlock(row.projectId);
-    const finalPrompt = [preamble, directivesBlock, memoryBlock, `## Task\n${row.prompt}`]
+    // Assigned + enabled workspace skills are trusted, owner-authored
+    // instructions — injected next to directives, never trimmed.
+    const skillsBlock = buildSkillsBlock(agent.id);
+    const finalPrompt = [preamble, skillsBlock, directivesBlock, memoryBlock, `## Task\n${row.prompt}`]
       .filter((s) => s.length > 0)
       .join("\n\n");
 

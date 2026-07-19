@@ -38,18 +38,24 @@ decision brief. This is the "like office-hours" part: lay out the options with t
 recommendation, don't just ask.
 ```
 D<N> — <one-line question>
-What's being decided: <plain English, 2-3 sentences; why it matters>
+ELI10: <plain English a 16-year-old could follow, 2-4 sentences, naming the stakes>
 If we pick wrong: <one sentence — what gets mis-built, mis-filed, or lost>
 Recommendation: <option> — because <reason>
+Completeness: A=X/10, B=Y/10   (or: Note: options differ in kind, not coverage — no score)
 Options:
-A) <label>  (recommended)
-   ✅ <concrete pro>   ❌ <real con>
+A) <label>  (recommended)  [effort: human ~Xh / CC ~Ym — only when build/investigation is involved]
+   ✅ <concrete pro, ≥40 chars>   ✅ <second pro, ≥40 chars>   ❌ <real con, ≥40 chars>
 B) <label>
-   ✅ <pro>            ❌ <con>
+   ✅ <pro>            ✅ <pro>            ❌ <con>
 Net: <one line on the actual tradeoff>
 ```
-At least 2 options; every option gets a ✅ AND a ❌; the Recommendation and "If we pick wrong"
-lines are mandatory. Number briefs D1, D2… so the user can answer "D2: B".
+At least 2 options; every option gets ≥2 ✅ and 1 ❌, each ≥40 characters (a destructive
+one-way confirm may use `✅ No cons — this is a hard-stop choice` instead); ELI10,
+Recommendation, and "If we pick wrong" are mandatory; score Completeness whenever options differ
+in thoroughness, or write the "differs in kind" note when they don't; add the effort tag only on
+options that involve real work. Neutral/taste calls keep `Recommendation: <default> — a taste
+call, no strong preference` with `(recommended)` still on the default. Number briefs D1, D2… so
+the user can answer "D2: B".
 
 ## Posture — take a position, push twice, no hedging
 A routing gate that hedges is useless. On every question and brief, take a position and name
@@ -76,9 +82,22 @@ If the user disagrees with any premise, loop back — do NOT lock. Skip for a tr
 item (no load-bearing premises); required when reclassifying, merging, or routing to new work.
 
 ## Self-check before sending a brief
-Confirm: D<N> header + one-line question · every option has a ✅ AND a ❌ · Recommendation and
-"If we pick wrong" both present · any premise the verdict depends on stated + agreed · you took
-a position (no hedge-phrase survived). If any is missing, the brief isn't ready.
+Confirm: D<N> header + one-line question · ELI10 line present · every option has ≥2 ✅ and 1 ❌,
+each ≥40 chars (or the hard-stop escape) · Completeness scored or "differs in kind" noted ·
+Recommendation and "If we pick wrong" both present, with effort tags on effort-bearing options ·
+any premise the verdict depends on stated + agreed · you took a position (no hedge-phrase
+survived). If any is missing, the brief isn't ready.
+
+## Voice — plain, concrete, no padding
+Not gstack's brand voice — a narrower, repo-scoped discipline. Lead with the verdict, not a
+wind-up. Name the actual file/mode/capture id, not an abstract description. No AI-vocabulary
+filler: *delve, crucial, robust, comprehensive, nuanced, multifaceted, furthermore, moreover,
+additionally, pivotal, landscape, tapestry, underscore, foster, showcase, intricate, vibrant,
+fundamental, significant.* No em dashes standing in for a real sentence break.
+- Good: "0006 is `feature-change`, not `new-concept` — the surface already exists, this changes
+  how it's used."
+- Bad: "This capture represents a nuanced feature-change that could significantly enhance the
+  existing workflow landscape."
 
 ## Steps
 1. Run the required dialogue above (zero exploratory questions ONLY for a genuinely trivial,
@@ -98,6 +117,11 @@ a position (no hedge-phrase survived). If any is missing, the brief isn't ready.
      often, by design — a gap is how the factory discovers what to build next.
    - Memory-track modes always hand off to Memory Archivist next (memory_save already exists;
      the open question is scope, not existence).
+
+**Secondary modes:** route on primary `category:` only — a `secondary_modes:` entry isn't a
+second pipeline to activate now. Mention it in the before/after summary; if it looks like it
+warrants its own action, ask whether to spin off a follow-up capture rather than dropping or
+silently acting on it.
 
 ## Memory-mode specifics
 For decision/pitfall/lesson/meeting/architecture: explicitly check existing memory for

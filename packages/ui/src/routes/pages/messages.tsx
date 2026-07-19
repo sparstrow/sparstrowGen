@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Bot, Inbox, MailOpen, Send, User } from "lucide-react";
+import { ArrowRight, AtSign, Bell, Bot, Inbox, MailOpen, Send, User } from "lucide-react";
 import type { Message } from "@sparstrow/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,96 @@ import { formatDate, shortId } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | "user-inbox" | "unread";
+
+function FeedSection({
+  icon: Icon,
+  title,
+  hint,
+  unread,
+  messages,
+  emptyText,
+  onOpen,
+  fromLabel,
+  toLabel,
+}: {
+  icon: typeof Bell;
+  title: string;
+  hint: string;
+  unread: number;
+  messages: Message[];
+  emptyText: string;
+  onOpen: (m: Message) => void;
+  fromLabel: (m: Message) => string;
+  toLabel: (m: Message) => string;
+}) {
+  return (
+    <section>
+      <div className="mb-2 flex items-center gap-2">
+        <Icon className="size-4 text-muted-foreground" />
+        <h3 className="text-sm font-semibold">{title}</h3>
+        {unread > 0 && (
+          <Badge className="h-4 rounded-full px-1.5 text-[10px]">{unread} unread</Badge>
+        )}
+        <span className="text-xs text-muted-foreground">· {hint}</span>
+      </div>
+      {messages.length === 0 ? (
+        <p className="rounded-xl border border-dashed px-4 py-6 text-center text-xs text-muted-foreground">
+          {emptyText}
+        </p>
+      ) : (
+        <div className="divide-y rounded-xl border">
+          {messages.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => onOpen(m)}
+              className={cn(
+                "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 first:rounded-t-xl last:rounded-b-xl",
+                m.status === "unread" && "bg-primary/5",
+              )}
+            >
+              <span className="mt-0.5 shrink-0 rounded-full border bg-muted p-1.5">
+                {m.fromType === "user" ? (
+                  <User className="size-3.5" />
+                ) : (
+                  <Bot className="size-3.5" />
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={cn(
+                      "text-sm",
+                      m.status === "unread" ? "font-semibold" : "font-medium",
+                    )}
+                  >
+                    {fromLabel(m)}
+                  </span>
+                  <ArrowRight className="size-3 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">{toLabel(m)}</span>
+                  {m.status === "unread" && <Badge className="h-4 px-1.5 text-[10px]">new</Badge>}
+                  {m.spawnedRunId && (
+                    <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
+                      spawned run
+                    </Badge>
+                  )}
+                </span>
+                <span className="mt-0.5 block truncate text-sm">
+                  {m.subject || <span className="text-muted-foreground">(no subject)</span>}
+                </span>
+                <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                  {m.body}
+                </span>
+              </span>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {formatDate(m.createdAt)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
 
 export function MessagesPage() {
   const agents = useAgents();
@@ -114,57 +204,51 @@ export function MessagesPage() {
           </p>
         </div>
       ) : (
-        <div className="divide-y rounded-xl border">
-          {filtered.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => openMessage(m)}
-              className={cn(
-                "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50",
-                m.status === "unread" && "bg-primary/5",
-              )}
-            >
-              <span className="mt-0.5 shrink-0 rounded-full border bg-muted p-1.5">
-                {m.fromType === "user" ? (
-                  <User className="size-3.5" />
-                ) : (
-                  <Bot className="size-3.5" />
-                )}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={cn(
-                      "text-sm",
-                      m.status === "unread" ? "font-semibold" : "font-medium",
-                    )}
-                  >
-                    {fromLabel(m)}
-                  </span>
-                  <ArrowRight className="size-3 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">{toLabel(m)}</span>
-                  {m.status === "unread" && (
-                    <Badge className="h-4 px-1.5 text-[10px]">new</Badge>
-                  )}
-                  {m.spawnedRunId && (
-                    <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
-                      spawned run
-                    </Badge>
-                  )}
-                </span>
-                <span className="mt-0.5 block truncate text-sm">
-                  {m.subject || <span className="text-muted-foreground">(no subject)</span>}
-                </span>
-                <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                  {m.body}
-                </span>
-              </span>
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {formatDate(m.createdAt)}
-              </span>
-            </button>
-          ))}
-        </div>
+        (() => {
+          // Structured feed: direct agent→you messages are the mentions that
+          // demand attention; everything else (your sent mail, agent↔agent
+          // traffic) is system notifications. Unread float to the top of each.
+          const byUnreadThenDate = (a: Message, b: Message) =>
+            a.status === b.status
+              ? b.createdAt.localeCompare(a.createdAt)
+              : a.status === "unread"
+                ? -1
+                : 1;
+          const mentions = filtered
+            .filter((m) => m.fromType === "agent" && m.toAgentId === null)
+            .sort(byUnreadThenDate);
+          const system = filtered
+            .filter((m) => !(m.fromType === "agent" && m.toAgentId === null))
+            .sort(byUnreadThenDate);
+          const unreadIn = (list: Message[]) =>
+            list.filter((m) => m.status === "unread").length;
+          return (
+            <div className="space-y-5">
+              <FeedSection
+                icon={AtSign}
+                title="Agent mentions"
+                hint="Agents writing directly to you"
+                unread={unreadIn(mentions)}
+                messages={mentions}
+                emptyText="No agent has written to you yet — message one and it replies here."
+                onOpen={openMessage}
+                fromLabel={fromLabel}
+                toLabel={toLabel}
+              />
+              <FeedSection
+                icon={Bell}
+                title="System notifications"
+                hint="Your sent messages and agent-to-agent traffic"
+                unread={unreadIn(system)}
+                messages={system}
+                emptyText="No system traffic yet."
+                onOpen={openMessage}
+                fromLabel={fromLabel}
+                toLabel={toLabel}
+              />
+            </div>
+          );
+        })()
       )}
 
       {/* Compose dialog */}

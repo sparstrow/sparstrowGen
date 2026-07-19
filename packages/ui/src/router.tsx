@@ -25,6 +25,8 @@ import { KnowledgePage } from "@/routes/pages/knowledge";
 import { KnowledgeArticlePage } from "@/routes/pages/knowledge-article";
 import { SchedulePage } from "@/routes/pages/schedule";
 import { TerminalsPage } from "@/routes/pages/terminals";
+import { SkillsPage } from "@/routes/pages/skills";
+import { SkillDetailPage } from "@/routes/pages/skill-detail";
 
 const rootRoute = createRootRoute({ component: AppShell });
 
@@ -122,10 +124,15 @@ const messagesRoute = createRoute({
 });
 
 // Intake 0002: session-based chat surface (free / project / agent contexts).
+// The active session lives in the URL (?session=id) so conversations are linkable.
 const chatRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/chat",
   component: ChatPage,
+  validateSearch: (search: Record<string, unknown>): { session?: string } =>
+    typeof search.session === "string" && search.session
+      ? { session: search.session }
+      : {},
 });
 
 const pipelinesRoute = createRoute({
@@ -159,6 +166,19 @@ const terminalsRoute = createRoute({
   component: TerminalsPage,
 });
 
+// Workspace skills: reusable instruction packs assignable to agents.
+const skillsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/skills",
+  component: SkillsPage,
+});
+
+const skillDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/skills/$skillId",
+  component: SkillDetailPage,
+});
+
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
   agentsRoute,
@@ -181,6 +201,8 @@ const routeTree = rootRoute.addChildren([
   knowledgeRoute,
   knowledgeArticleRoute,
   terminalsRoute,
+  skillsRoute,
+  skillDetailRoute,
 ]);
 
 export const router = createRouter({ routeTree });

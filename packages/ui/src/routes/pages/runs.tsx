@@ -1,7 +1,8 @@
 import * as React from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Plus, X } from "lucide-react";
-import type { RunStatus } from "@sparstrow/shared";
+import { ArrowDown, ArrowUp, ArrowUpDown, Plus, Search, X } from "lucide-react";
+import type { Run, RunStatus } from "@sparstrow/shared";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,6 +36,38 @@ import { formatCost, formatDate, formatDuration, shortId } from "@/lib/format";
 
 const STATUSES: RunStatus[] = ["queued", "running", "succeeded", "failed", "cancelled", "timeout"];
 
+type SortKey = "createdAt" | "numTurns" | "costUsd" | "durationMs";
+
+function SortHeader({
+  label,
+  col,
+  sort,
+  onSort,
+  className,
+}: {
+  label: string;
+  col: SortKey;
+  sort: { key: SortKey; dir: "asc" | "desc" };
+  onSort: (key: SortKey) => void;
+  className?: string;
+}) {
+  const active = sort.key === col;
+  const Icon = !active ? ArrowUpDown : sort.dir === "desc" ? ArrowDown : ArrowUp;
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(col)}
+      className={
+        "inline-flex items-center gap-1 transition-colors hover:text-foreground " +
+        (active ? "text-foreground " : "") +
+        (className ?? "")
+      }
+    >
+      {label} <Icon className="size-3" />
+    </button>
+  );
+}
+
 export function RunsPage() {
   const navigate = useNavigate();
   const [agentFilter, setAgentFilter] = React.useState<string>("");
@@ -58,6 +91,34 @@ export function RunsPage() {
   const projectName = (id: string | null) =>
     id ? (projects.data?.find((p) => p.id === id)?.name ?? shortId(id)) : "—";
 
+  // Dense-grid affordances: free-text filter + client-side column sorting.
+  const [query, setQuery] = React.useState("");
+  const [sort, setSort] = React.useState<{ key: SortKey; dir: "asc" | "desc" }>({
+    key: "createdAt",
+    dir: "desc",
+  });
+  const onSort = (key: SortKey) =>
+    setSort((s) => (s.key === key ? { key, dir: s.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" }));
+
+  const visibleRuns = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = (runs.data ?? []).filter(
+      (r) =>
+        !q ||
+        r.id.toLowerCase().includes(q) ||
+        agentName(r.agentId).toLowerCase().includes(q) ||
+        projectName(r.projectId).toLowerCase().includes(q) ||
+        r.trigger.toLowerCase().includes(q),
+    );
+    const dir = sort.dir === "desc" ? -1 : 1;
+    return [...filtered].sort((a, b) => {
+      if (sort.key === "createdAt") return a.createdAt.localeCompare(b.createdAt) * dir;
+      const av = (a[sort.key] as number | null) ?? -1;
+      const bv = (b[sort.key] as number | null) ?? -1;
+      return (av - bv) * dir;
+    });
+  }, [runs.data, query, sort, agents.data, projects.data]);
+
   const submitRun = () => {
     if (!newAgentId || !newPrompt.trim()) return;
     createRun.mutate(
@@ -75,6 +136,16 @@ export function RunsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Filter runs…"
+            className="h-9 w-48 pl-8"
+            aria-label="Filter runs"
+          />
+        </div>
         <Select value={agentFilter} onValueChange={setAgentFilter}>
           <SelectTrigger className="w-44">
             <SelectValue placeholder="All agents" />
@@ -131,55 +202,71 @@ export function RunsPage() {
           </p>
         </div>
       ) : (
-        <div className="rounded-xl border">
-          <Table>
-            <TableHeader>
+        <div className="max-h-[calc(100vh-14rem)] overflow-auto rounded-xl border">
+          <Table className="[&_td]:px-3 [&_td]:py-1.5 [&_th]:h-8 [&_th]:px-3">
+            <TableHeader className="sticky top-0 z-10 bg-background shadow-[inset_0_-1px_0_0_hsl(var(--border))]">
               <TableRow>
                 <TableHead>Run</TableHead>
                 <TableHead>Agent</TableHead>
                 <TableHead>Project</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Trigger</TableHead>
-                <TableHead className="text-right">Turns</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
-                <TableHead className="text-right">Duration</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead className="text-right">
+                  <SortHeader label="Turns" col="numTurns" sort={sort} onSort={onSort} />
+                </TableHead>
+                <TableHead className="text-right">
+                  <SortHeader label="Cost" col="costUsd" sort={sort} onSort={onSort} />
+                </TableHead>
+                <TableHead className="text-right">
+                  <SortHeader label="Duration" col="durationMs" sort={sort} onSort={onSort} />
+                </TableHead>
+                <TableHead>
+                  <SortHeader label="Created" col="createdAt" sort={sort} onSort={onSort} />
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(runs.data ?? []).map((run) => (
-                <TableRow key={run.id}>
-                  <TableCell className="font-mono text-xs">
-                    <Link
-                      to="/runs/$runId"
-                      params={{ runId: run.id }}
-                      className="hover:underline"
-                    >
-                      {shortId(run.id)}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="font-medium">{agentName(run.agentId)}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {projectName(run.projectId)}
-                  </TableCell>
-                  <TableCell>
-                    <RunStatusBadge status={run.status} />
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{run.trigger}</TableCell>
-                  <TableCell className="text-right tabular-nums text-muted-foreground">
-                    {run.numTurns ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-muted-foreground">
-                    {formatCost(run.costUsd)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-muted-foreground">
-                    {formatDuration(run.durationMs)}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDate(run.createdAt)}
+              {visibleRuns.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                    No runs match “{query}”.
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                visibleRuns.map((run: Run) => (
+                  <TableRow key={run.id} className="text-xs">
+                    <TableCell className="font-mono">
+                      <Link
+                        to="/runs/$runId"
+                        params={{ runId: run.id }}
+                        className="hover:underline"
+                      >
+                        {shortId(run.id)}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="font-medium">{agentName(run.agentId)}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {projectName(run.projectId)}
+                    </TableCell>
+                    <TableCell>
+                      <RunStatusBadge status={run.status} />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{run.trigger}</TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {run.numTurns ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {formatCost(run.costUsd)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {formatDuration(run.durationMs)}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDate(run.createdAt)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>

@@ -1,13 +1,13 @@
 ---
 id: 0002
 category: new-concept
-status: gap
+status: done
 project: factory
 surface: Messages
 date: 2026-07-12
 screenshots: [assets/0002-messages-ui-1.png, assets/0002-messages-ui-2.png, assets/0002-messages-sidebar-filter.png]
-links: { "0001": "docs/intake/0001-agent-creator-prompt-improvements-2026-07-12.md" }
-resolution:
+links: { "0001": "docs/intake/done/0001-agent-creator-prompt-improvements-2026-07-12.md", pr: "https://github.com/sparstrow/sparstrowGen/pull/47" }
+resolution: shipped
 ---
 
 ## What I brought (verbatim)

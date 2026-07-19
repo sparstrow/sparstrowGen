@@ -55,6 +55,13 @@ import type {
   TeamCreate,
   TeamUpdate,
   TeamIndexItem,
+  AgentSkillAssignment,
+  LocalSkillSummary,
+  Skill,
+  SkillCreate,
+  SkillDetail,
+  SkillImportResult,
+  SkillUpdate,
   TeamDetail,
   TeamMember,
   TeamMemberCreate,
@@ -485,6 +492,104 @@ export function useProjectFiles(id: string, subpath: string): UseQueryResult<Dir
 // ---------------------------------------------------------------------------
 // Teams
 // ---------------------------------------------------------------------------
+
+// ── Skills ──────────────────────────────────────────────────────────────
+
+export function useSkills(): UseQueryResult<Skill[], ApiError> {
+  return useQuery({
+    queryKey: ["skills"],
+    queryFn: () => api<Skill[]>("/skills"),
+  });
+}
+
+export function useSkill(id: string): UseQueryResult<SkillDetail, ApiError> {
+  return useQuery({
+    queryKey: ["skills", id],
+    queryFn: () => api<SkillDetail>(`/skills/${id}`),
+    enabled: id.length > 0,
+  });
+}
+
+export function useSkillAssignments(): UseQueryResult<AgentSkillAssignment[], ApiError> {
+  return useQuery({
+    queryKey: ["skills", "assignments"],
+    queryFn: () => api<AgentSkillAssignment[]>("/skills/assignments"),
+  });
+}
+
+export function useCreateSkill(): UseMutationResult<Skill, ApiError, SkillCreate> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SkillCreate) => api<Skill>("/skills", { method: "POST", body }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
+  });
+}
+
+export function useUpdateSkill(): UseMutationResult<
+  Skill,
+  ApiError,
+  { id: string; data: SkillUpdate }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => api<Skill>(`/skills/${id}`, { method: "PUT", body: data }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
+  });
+}
+
+export function useDeleteSkill(): UseMutationResult<void, ApiError, string> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<void>(`/skills/${id}`, { method: "DELETE" }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
+  });
+}
+
+export function useLocalSkills(enabled: boolean): UseQueryResult<LocalSkillSummary[], ApiError> {
+  return useQuery({
+    queryKey: ["skills", "local"],
+    queryFn: () => api<LocalSkillSummary[]>("/skills/local"),
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useImportLocalSkill(): UseMutationResult<
+  SkillImportResult,
+  ApiError,
+  { sourcePath: string; overwrite?: boolean }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body) => api<SkillImportResult>("/skills/import-local", { method: "POST", body }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
+  });
+}
+
+export function useImportUrlSkill(): UseMutationResult<
+  SkillImportResult,
+  ApiError,
+  { url: string; overwrite?: boolean }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body) => api<SkillImportResult>("/skills/import-url", { method: "POST", body }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
+  });
+}
+
+export function useSetAgentSkills(): UseMutationResult<
+  Skill[],
+  ApiError,
+  { agentId: string; skillIds: string[] }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ agentId, skillIds }) =>
+      api<Skill[]>(`/agents/${agentId}/skills`, { method: "PUT", body: { skillIds } }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
+  });
+}
 
 export function useTeams(): UseQueryResult<TeamIndexItem[], ApiError> {
   return useQuery({

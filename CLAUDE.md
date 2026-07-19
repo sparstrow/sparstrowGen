@@ -1,41 +1,200 @@
 # CLAUDE.md — Sparstrowgen
 
-Sparstrowgen is a local-first, single-user agent factory: Fastify core on `127.0.0.1:48750`,
-React/Vite UI, better-sqlite3 + Drizzle, pnpm + turbo monorepo (`packages/core`, `ui`, `shared`,
-`memory-cli`, `memory-mcp`, `desktop`).
+Sparstrowgen is a local-first, single-user **agent factory**: a Fastify core on
+`127.0.0.1:48750`, React/Vite UI, better-sqlite3 + Drizzle, Electron desktop shell, packaged
+as an always-on Windows app with notify-only self-update. pnpm + turbo monorepo:
+`packages/{core, ui, shared, memory-cli, memory-mcp, desktop}`.
 
-- Build/verify: `pnpm typecheck && pnpm test` — both must be green before pushing.
-- `main` is branch-protected: PR + 1 approval + `typecheck` + `author-check`; squash-only.
-- Commit author must be `@sparstrow.com`. Do NOT add `Co-Authored-By: Claude` trailers (fails `author-check`).
-- Process runbook: `.design-src/FACTORY-LOOP.md`. Build board: `.design-src/APP.md`.
-- External-agent contract: `AGENTS.md`.
+**This file is the single source of truth for how Sparstrowgen gets built.** Every coding agent
+— Claude Code, `agy` (Antigravity), any harness — follows the SAME rules here. There is **no
+per-tool carve-out and no conversational-mode exemption**: the gate below applies to Claude Code
+exactly as it applies to `agy`, whether you plan-and-build in one session or implement a handed-off
+plan. `AGENTS.md` points here; never maintain divergent build rules anywhere else.
+
+## Do NOT read these (frozen history — off the read-path)
+
+- `.design-src/APP.md`, `fable-handoff/ENGINEERING_PLAN.md`, `.design-src/*/SPEC.md` — the
+  page-by-page and P1–P10 engine work, all shipped and banner-frozen. Never read them for current
+  state, never update them. Reading them wastes tokens on finished work.
+- **Live** captured work → `docs/intake/`. **Approved** plans → `docs/planned/`. Shipped intake →
+  `docs/intake/done/`.
+
+## Build & verify
+
+- `pnpm typecheck && pnpm test` — Node 24 (better-sqlite3 / node-pty native ABI).
+- Don't run the core server during a build (SQLite locks). Start from a clean working tree.
+- Package the desktop app: `pnpm --filter @sparstrow/ui build && pnpm --filter @sparstrow/memory-mcp build && pnpm --filter @sparstrow/memory-cli build && pnpm --filter @sparstrow/desktop dist`.
+
+## The loop
+
+`CAPTURE → PLAN → BUILD (parallel) → VERIFY → PROMOTE → SHIP`
+
+1. **Capture** — `/listener` writes one intake doc per item to `docs/intake/` in the owner's
+   words. Capture only: no analysis, no code reading, no fixes.
+2. **Plan** — `/curator` (analysis + real office-hours dialogue), then the planning skills
+   (`/office-hours`, `/plan-ceo-review`, `/plan-eng-review`, `/plan-devex-review`, `/autoplan`)
+   produce a **phased plan**. Each phase is tagged **parallel-safe or serial** and declares the
+   **files/modules it owns**.
+3. **Build** — one worktree per parallel phase (Claude Code or `agy`), branched off `staging`.
+   One atomic commit per task.
+4. **Verify** — the Definition of Done below. Non-negotiable, same for every agent.
+5. **Promote** — the owner reviews the **running app on `staging`** and promotes `staging` → `main`.
+6. **Ship** — CI on a `main` tag builds + publishes; the packaged app shows a notify-only
+   "update available".
+
+**Intake lifecycle is mandatory bookkeeping:** when a change ships, set its intake doc to
+`status: done` + `resolution: shipped` + the PR link and move it to `docs/intake/done/`. (This was
+silently skipped for 0001/0002/0004 — don't skip it.)
+
+## Definition of Done — the gate (all green, before any merge)
+
+Green typecheck+test proves correctness, not that the feature works. A change is **not done** until:
+
+1. **`pnpm typecheck`** — clean.
+2. **`pnpm test`** — green, PLUS new tests for what you built (bug fix → regression test; new
+   surface → golden-path coverage).
+3. **Real-artifact usability test** — drive the actual running thing, never a mock:
+   - UI/backend → boot the dev server or packaged app and exercise the flow in a real browser
+     (the Browser-pane preview, in-app Chrome, or `agy`'s browser); observe it work.
+   - CLI/integration → send a real input and read the real output. A canned/echo reply is a **FAIL**
+     (e.g. the Antigravity chat returning "I'm the Antigravity agent…" instead of answering).
+   - Packaging/artifact → build AND boot the artifact (the boot test that caught the 0004 installer
+     is a required step, not luck).
+   - If it's broken, fix it and re-verify before it counts as done.
+4. **Design/UI bar** — frontend is **top-level, not deferred**: match the design system, handle
+   empty / loading / error states, not just "it renders".
+5. **Knowledge Center currency** — the in-app Knowledge Center
+   (`packages/ui/src/content/knowledge/`) documents every surface, and its promise is that docs
+   ship in the same change as the features they describe. After any update or change, update the
+   Knowledge Center **if the change touches something it describes or adds a user-facing
+   surface/workflow** (new page, new flow, renamed concept, changed behavior). Internal-only
+   changes with no user-visible effect don't need it — but decide explicitly, don't skip by
+   default.
+
+## Git flow
+
+`staging` is **live** (created 2026-07-14). Branch off fresh `origin/staging`, build, pass the
+gate, merge to `staging`.
+
+- **`staging` = the agents' trunk.** Branch off fresh `origin/staging`, build, **pass the gate**,
+  then merge to `staging`. Agents may **auto-merge to `staging` only after the gate is green**.
+- **Never commit directly on a local `staging` (or `main`) checkout — no exceptions, including
+  chat/doc-only sessions.** Every unit of work, whatever kind, gets its own branch off fresh
+  `origin/staging` first. The *only* commands run against a local `staging` checkout are the
+  squash-merge itself and the push that lands it — never an `Edit`/`Write` followed by a commit.
+- **Branch-naming collision guard (multi-account safety).** With multiple accounts (agents)
+  branching off `staging` concurrently, two agents picking the same generic name (`fix/bug`,
+  `feat/update`) can collide on push. Always derive the branch name from something unique to the
+  work: the intake id when one exists (`fix/0005-dev-port`), otherwise a short, specific slug
+  that wouldn't plausibly collide with concurrent work. Before pushing a new branch, check it
+  doesn't already exist on the remote (`git ls-remote --heads origin <name>`) — if it does,
+  that's a signal another account already claimed that name or that work, not a name to fight over.
+- **`main` = the owner's release gate.** The owner reviews `staging` and promotes `staging` → `main`
+  — the only human merge. `main` stays release-quality, so the always-on app never updates from
+  unseen code. CI ships on `main` tags.
+- **Squash-merge, always** (both levels). One clean commit per feature; agent working commits are
+  disposable scaffolding.
+- **Never** merge, force-push, `reset --hard`, or otherwise touch `main` (or `staging`) directly to
+  route around a check. Never touch `main` from an agent at all.
+- **Never reuse a squash-merged branch name** — re-pushing recreates it with diverged history.
+- **`main` and `staging` are permanent — never delete either, under any circumstance.** This
+  includes the `staging` → `main` promotion PR itself: in that one PR, `staging` is the *head*
+  branch, which would make "auto-delete head branches" remove it like any throwaway agent branch
+  if it weren't protected. `staging` must carry a GitHub branch-protection rule with "restrict
+  deletions" (owner-set, one-time) precisely so that promotion never deletes it. The local branch-
+  hygiene rule below is about ephemeral agent/feature branches only — it never applies to `main`
+  or `staging`, regardless of what any `[gone]` marker might say.
+- **Branch hygiene (yours to run, ephemeral branches only):** `fetch.prune=true` is set (dead
+  remote-tracking refs auto-clear) and GitHub auto-deletes remote branches on merge. **You delete
+  the local branch once its upstream shows `[gone]`.** Squash-merge hides merges from
+  `git branch -d`, so `[gone]` is the safe signal. Never delete a branch checked out in another
+  worktree, and never `main` or `staging` (see above).
+
+## Parallelism
+
+The plan tags two phases parallel-safe **only when their file/module ownership is disjoint** — else
+concurrent worktrees collide on `staging`. Assign each parallel phase its own worktree + agent
+account (you have 2 Claude + 1 `agy`). Serial phases (shared-file or dependency-ordered) run one at
+a time. The plan is the coordination artifact that makes concurrent agents safe.
+
+## Engineering conduct — hold this bar (identical for every harness)
+
+Build so the codebase reads as if one disciplined engineer wrote all of it.
+
+- **Scope discipline.** Build only the plan's task list. No unrequested refactors, abstractions,
+  "while I'm here" cleanups, or speculative future-proofing. Three similar lines beat a premature
+  abstraction. Flag unrelated debt in the PR, don't fold it in.
+- **No defensive code for things that can't happen.** Trust internal invariants and framework
+  guarantees; validate only at real boundaries (user input, external APIs, untrusted/agent-authored
+  content).
+- **Comments: default to none.** Add one only when the *why* is non-obvious (a hidden constraint, a
+  bug workaround, a subtle invariant). Never restate the code; never reference a task/issue number.
+- **Security first.** No OWASP-Top-10-class bugs (injection, XSS, SSRF, secret leakage, trust-boundary
+  bypass). If you write one, fix it before moving on — never behind a TODO.
+- **Never weaken trust boundaries** — no `bypassPermissions`, no wildcard tool grants; the plan's
+  security tasks are mandatory, not optional.
+- **Destructive/hard-to-reverse actions are opt-in, never a shortcut.** Force-push, `reset --hard`,
+  deleting branches/files, `--no-verify`, history rewrites — find the root cause instead. If a plan
+  genuinely needs one, say so visibly; never do it silently.
+- **Verify before claiming done** — the Definition of Done above. typecheck+test green is necessary,
+  not sufficient.
+- **Git hygiene.** New commits over amends. Don't skip hooks or bypass signing.
+
+## Coding behavior — LLM-mistake guardrails
+
+Behavioral guidelines to reduce common LLM coding mistakes; they complement the engineering
+conduct above. Tradeoff: these bias toward caution over speed — for trivial tasks, use judgment.
+
+1. **Think before coding.** Don't assume. Don't hide confusion. Surface tradeoffs.
+   - State your assumptions explicitly. If uncertain, ask.
+   - If multiple interpretations exist, present them — don't pick silently.
+   - If a simpler approach exists, say so. Push back when warranted.
+   - If something is unclear, stop. Name what's confusing. Ask.
+2. **Simplicity first.** Minimum code that solves the problem. Nothing speculative.
+   - No features beyond what was asked. No abstractions for single-use code.
+   - No "flexibility" or "configurability" that wasn't requested.
+   - No error handling for impossible scenarios.
+   - If you write 200 lines and it could be 50, rewrite it. Ask: "Would a senior engineer say
+     this is overcomplicated?" If yes, simplify.
+3. **Surgical changes.** Touch only what you must. Clean up only your own mess.
+   - Don't "improve" adjacent code, comments, or formatting. Don't refactor what isn't broken.
+   - Match existing style, even if you'd do it differently.
+   - If you notice unrelated dead code, mention it — don't delete it.
+   - Remove imports/variables/functions that YOUR changes made unused; leave pre-existing dead
+     code unless asked.
+   - The test: every changed line traces directly to the user's request.
+4. **Goal-driven execution.** Define success criteria. Loop until verified.
+   - Transform tasks into verifiable goals: "Add validation" → "write tests for invalid inputs,
+     then make them pass"; "Fix the bug" → "write a test that reproduces it, then make it pass";
+     "Refactor X" → "ensure tests pass before and after".
+   - For multi-step tasks, state a brief plan: `1. [Step] → verify: [check]` per step.
+   - Strong success criteria let you loop independently; weak ones ("make it work") force
+     constant clarification.
+
+These guidelines are working if: fewer unnecessary changes in diffs, fewer rewrites due to
+overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+## Non-negotiables
+
+- **Commit author** is repo-set to `Sparstrow Agent <agent@sparstrow.com>`. Do NOT override it or add
+  a `Co-Authored-By:` trailer (from Claude, Codex, anyone) — CI `author-check` fails otherwise.
+- **`main` is branch-protected** — PR + 1 approval + `typecheck` + `author-check`, squash-only, no
+  force-push. You cannot and must not merge it.
+- **Stay in scope** — build only the plan's tasks.
 
 ## Skill routing
 
-When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
+When a request matches a skill, invoke it via the Skill tool. When in doubt, invoke it.
 
-**Our own factory workflows (`docs/workflows/`) — these take precedence over the gstack skills below:**
-- Anything to *capture, not build* — a bug/feedback, a new idea/feature/concept, a design, a
-  change, or a memory note (decision/pitfall/lesson/meeting/architecture) → invoke **/listener**
-  (capture-only; see `docs/workflows/agents/listener.md`).
-- Review/classify/route a captured item — "is this the right mode", "where does this go", "is
-  there a pipeline for this", or right after a `/listener` capture → invoke **/curator**
-  (analysis + routing gate, effort-proportional; see `docs/workflows/agents/curator.md`).
+- **Capture** — a bug/feedback, a new idea/feature/concept, a design, a change, or a memory note
+  ("log this", "note this", "remember this decision") → **/listener** (capture only).
+- **Review / classify / route a capture** — "is this the right mode", "where does this go", "plan
+  this", or right after a `/listener` capture → **/curator**.
+- **Shape a concept / brainstorm** → **/office-hours**. **Strategy/scope** → **/plan-ceo-review**.
+  **Architecture** → **/plan-eng-review**. **Developer experience** → **/plan-devex-review**.
+  **Full auto-review of a plan** → **/autoplan**.
+- **Bugs / root cause** → **/investigate**. **QA a running surface** → **/qa**. **Ship a PR** →
+  **/ship**. **Land + deploy** → **/land-and-deploy**.
 
-> The gstack routes below are being replaced workflow-by-workflow by our own agents (Listener,
-> Curator, Pipeline Suggester, Memory Archivist, …). This section gets its full rewrite once
-> the remaining workflows are locked.
-
-Key routing rules (gstack — legacy, being phased out):
-- Product ideas/brainstorming → invoke /office-hours
-- Strategy/scope → invoke /plan-ceo-review
-- Architecture → invoke /plan-eng-review
-- Design system/plan review → invoke /design-consultation or /plan-design-review
-- Full review pipeline → invoke /autoplan
-- Bugs/errors → invoke /investigate
-- QA/testing site behavior → invoke /qa or /qa-only
-- Code review/diff check → invoke /review
-- Visual polish → invoke /design-review
-- Ship/deploy/PR → invoke /ship or /land-and-deploy
-- Save progress → invoke /context-save
-- Resume context → invoke /context-restore
+**Deferred — do not route to these now:** Memory Archivist, Pipeline Suggester. The *ideas* become
+Sparstrowgen product features later; they are not build-process steps.

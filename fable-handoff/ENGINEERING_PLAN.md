@@ -1,15 +1,20 @@
 <!-- /autoplan restore point: ~/.gstack/projects/sparstrow-sparstrowGen/claude-dreamy-engelbart-874599-autoplan-restore-20260702-204613.md -->
 # Sparstrowgen Master Engineering Plan
 
-> **Status: 🔒 ALL 10 PHASES LOCKED — `Final gate: APPROVED` 2026-07-03.**
-> All four /autoplan review phases (CEO, Design, Eng, DX) ran with independent code-grounded
-> subagent voices; the owner answered every phase's questions and locked P1→P10 sequentially
-> (audit trail below, decisions #1-104). Per the §0 process contract, **implementation may
-> now begin**, executing phases in dependency order (P1 foundation first).
-> Source inputs: `fable-handoff/FABLE_START_HERE.md` + the six antigravity architecture
-> specs (`.design-src/{agents,teams,projects,execution,memory,access}/architecture.md`)
-> + the existing codebase at commit `9a561d3`. Stack revised in §0.1 (owner, 2026-07-03).
-> Author: Claude Fable 5. Owner: solo founder.
+> **📦 FROZEN — HISTORICAL RECORD (all 10 phases P1–P10 shipped & merged, 2026-07-09).**
+> Do **NOT** read this file to determine current state or what to build next — every phase
+> here is done. It is kept only as the audit trail of how the engine was planned and built.
+> The live workflow and current source-of-truth are defined in `CLAUDE.md`; captured, not-yet-built
+> work lives in `docs/intake/`. This plan is no longer part of the read-path for any agent.
+>
+> <details><summary>Original lock header (historical)</summary>
+>
+> **Status: 🔒 ALL 10 PHASES LOCKED — `Final gate: APPROVED` 2026-07-03.** All four /autoplan
+> review phases (CEO, Design, Eng, DX) ran with independent code-grounded subagent voices; the
+> owner answered every phase's questions and locked P1→P10 sequentially (audit trail below,
+> decisions #1-104). Source inputs: `fable-handoff/FABLE_START_HERE.md` + the six antigravity
+> architecture specs + the existing codebase at commit `9a561d3`. Author: Claude Fable 5.
+> </details>
 
 ---
 

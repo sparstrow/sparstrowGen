@@ -2,7 +2,7 @@
 title: Settings
 section: Surfaces
 description: Providers and keys, factory health, GitHub PAT, the code-graph engine, and app configuration.
-order: 12
+order: 13
 updated: 2026-07-13
 ---
 

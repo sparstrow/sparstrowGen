@@ -51,6 +51,29 @@ const PRESETS: { label: string; expr: string }[] = [
   { label: "Mondays 8am", expr: "0 8 * * 1" },
 ];
 
+const cnDot = (s: "ok" | "warn" | "off") =>
+  "size-2 rounded-full " +
+  (s === "ok" ? "bg-emerald-500" : s === "warn" ? "bg-amber-500" : "bg-muted-foreground/40");
+
+/** Best-effort plain-English rendering of common cron shapes; falls back to the raw expression. */
+function describeCron(expr: string): string {
+  const preset = PRESETS.find((p) => p.expr === expr);
+  if (preset) return preset.label;
+  const parts = expr.trim().split(/\s+/);
+  if (parts.length !== 5) return expr;
+  const [min, hour, , , dow] = parts;
+  const everyN = min!.match(/^\*\/(\d+)$/);
+  if (everyN && hour === "*") return `Every ${everyN[1]} minutes`;
+  if (/^\d+$/.test(min!) && hour === "*") return `Hourly at :${min!.padStart(2, "0")}`;
+  if (/^\d+$/.test(min!) && /^\d+$/.test(hour!)) {
+    const time = `${hour!.padStart(2, "0")}:${min!.padStart(2, "0")}`;
+    if (dow === "*") return `Daily at ${time}`;
+    if (dow === "1-5") return `Weekdays at ${time}`;
+    return `At ${time} (dow ${dow})`;
+  }
+  return expr;
+}
+
 export function SchedulePage({ teamId, readOnly }: { teamId?: string; readOnly?: boolean } = {}) {
   const jobs = useCronJobs(teamId);
   const agents = useAgents();
@@ -131,6 +154,44 @@ export function SchedulePage({ teamId, readOnly }: { teamId?: string; readOnly?:
         )}
       </div>
 
+      {/* Automation health strip: active vs paused triggers + the next firing. */}
+      {(jobs.data ?? []).length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          {(() => {
+            const all = jobs.data ?? [];
+            const active = all.filter((j) => j.enabled);
+            const next = active
+              .map((j) => j.nextRunAt)
+              .filter((d): d is string => Boolean(d))
+              .sort()[0];
+            return (
+              <>
+                <div className="rounded-xl border px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Active triggers</p>
+                  <p className="mt-1 flex items-center gap-2 text-lg font-semibold tabular-nums">
+                    <span className={cnDot(active.length > 0 ? "ok" : "off")} />
+                    {active.length}
+                  </p>
+                </div>
+                <div className="rounded-xl border px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Paused</p>
+                  <p className="mt-1 flex items-center gap-2 text-lg font-semibold tabular-nums">
+                    <span className={cnDot(all.length - active.length > 0 ? "warn" : "off")} />
+                    {all.length - active.length}
+                  </p>
+                </div>
+                <div className="rounded-xl border px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Next firing</p>
+                  <p className="mt-1 truncate text-sm font-medium">
+                    {next ? formatDate(next) : "—"}
+                  </p>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      )}
+
       {jobs.isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-9 w-full" />
@@ -166,8 +227,21 @@ export function SchedulePage({ teamId, readOnly }: { teamId?: string; readOnly?:
             <TableBody>
               {(jobs.data ?? []).map((job) => (
                 <TableRow key={job.id}>
-                  <TableCell className="font-medium">{job.name}</TableCell>
-                  <TableCell className="font-mono text-xs">{job.cronExpr}</TableCell>
+                  <TableCell className="font-medium">
+                    <span className="flex items-center gap-2">
+                      <span
+                        className={cnDot(job.enabled ? "ok" : "off")}
+                        title={job.enabled ? "Active" : "Paused"}
+                      />
+                      {job.name}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="block text-sm">{describeCron(job.cronExpr)}</span>
+                    <span className="block font-mono text-[11px] text-muted-foreground">
+                      {job.cronExpr}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="text-[10px]">
                       {job.targetType}

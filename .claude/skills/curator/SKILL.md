@@ -104,26 +104,44 @@ merge-or-keep-separate and which-pipeline — uses this format:
 
 ```
 D<N> — <one-line question, e.g. "Reclassify 0001 from feedback → feature-change?">
-What's being decided: <plain English, 2-3 sentences; why it matters>
+ELI10: <plain English a 16-year-old could follow, 2-4 sentences, naming the stakes>
 If we pick wrong: <one sentence — what gets mis-built, mis-filed, or lost>
 Recommendation: <option> — because <reason>
+Completeness: A=X/10, B=Y/10   (or: Note: options differ in kind, not coverage — no score)
 Options:
-A) <label>  (recommended)
-   ✅ <concrete pro>   ❌ <real con>
+A) <label>  (recommended)  [effort: human ~Xh / CC ~Ym — only when build/investigation is involved]
+   ✅ <concrete pro, ≥40 chars>
+   ✅ <second pro, ≥40 chars>
+   ❌ <real con, ≥40 chars>
 B) <label>
-   ✅ <pro>            ❌ <con>
+   ✅ <pro>
+   ✅ <pro>
+   ❌ <con>
 Net: <one line on the actual tradeoff>
 ```
 
-At least 2 options; every option gets a ✅ AND a ❌ (a menu with no downsides isn't a real
-decision aid); the **Recommendation** and **If we pick wrong** lines are mandatory. Number
-briefs `D1`, `D2`… so the user can answer "D2: B". (Fact-gathering questions in step 2 stay
-open-ended — the brief format is only for actual choices.)
+At least 2 options; every option gets ≥2 ✅ and 1 ❌, each ≥40 characters (a menu with a
+one-word con, or none at all, isn't a real decision aid) — a one-way/destructive confirmation
+may use `✅ No cons — this is a hard-stop choice` instead; the **ELI10**, **Recommendation**, and
+**If we pick wrong** lines are mandatory; score **Completeness** whenever options differ in
+thoroughness (10 = every edge case, 7 = happy path, 3 = shortcut), or write the "differs in
+kind" note when they don't; add the **effort** dual-scale tag only on options that involve real
+build/investigation work. A genuine taste call keeps `Recommendation: <default> — a taste call,
+no strong preference either way` with `(recommended)` still on the default. Number briefs `D1`,
+`D2`… so the user can answer "D2: B". (Fact-gathering questions in step 2 stay open-ended — the
+brief format is only for actual choices.)
 
-**Self-check before you send:** D<N> header + one-line question · every option has a ✅ AND a ❌ ·
-Recommendation and "If we pick wrong" both present · any premise the verdict depends on stated +
-agreed (step 2.5) · you took a position (no hedge-phrase survived). If any is missing, it's not
-ready.
+**Self-check before you send:** D<N> header + one-line question · ELI10 line present · every
+option has ≥2 ✅ and 1 ❌, each ≥40 chars (or the hard-stop escape) · Completeness scored or
+"differs in kind" noted · Recommendation and "If we pick wrong" both present, with effort tags
+where relevant · any premise the verdict depends on stated + agreed (step 2.5) · you took a
+position (no hedge-phrase survived). If any is missing, it's not ready.
+
+**If `AskUserQuestion` isn't callable, stop — don't fake it.** Prefer any `mcp__*__AskUserQuestion`
+variant in your tool list over the native tool if one is present. If no variant is callable at
+all, report `BLOCKED — AskUserQuestion unavailable` and wait. A decision brief written as chat
+prose with no real tool call, then treated as answered, is a faked decision — worse than an
+unanswered one, and exactly the silent-analysis failure mode this whole gate exists to prevent.
 
 The failure mode this guards against: reading the Listener's capture, silently reasoning to a
 verdict, and moving straight to `locked`/`gap` without ever sending that message. That is
@@ -132,6 +150,20 @@ yourself about to write `status: locked` or `status: gap` into the file without 
 message and received a reply in this turn or an earlier one, stop — you've skipped the gate.
 
 Reclassification is **never silent** — this summary is the audit trail.
+
+### Voice — plain, concrete, no padding
+
+Not gstack's brand voice — a narrower, repo-scoped discipline for how this gate talks. Lead with
+the verdict, not a wind-up. Name the actual file, mode, or capture id instead of describing it
+abstractly. No AI-vocabulary filler: *delve, crucial, robust, comprehensive, nuanced,
+multifaceted, furthermore, moreover, additionally, pivotal, landscape, tapestry, underscore,
+foster, showcase, intricate, vibrant, fundamental, significant.* No em dashes standing in for a
+real sentence break.
+
+- **Good:** "0006 is `feature-change`, not `new-concept` — Projects/Agents/Pipelines already
+  exist, this changes how they're used, it doesn't invent a new one."
+- **Bad:** "This capture represents a nuanced feature-change that could significantly enhance the
+  existing project workflow landscape."
 
 ## 4. Lock + record
 
