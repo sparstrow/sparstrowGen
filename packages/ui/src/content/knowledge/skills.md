@@ -3,7 +3,7 @@ title: Skills
 section: Surfaces
 description: Reusable instruction packs you assign to agents — injected into every run, created three ways.
 order: 11
-updated: 2026-07-18
+updated: 2026-07-19
 ---
 
 A **skill** is a reusable set of instructions — a Markdown pack — that you assign to agents.
@@ -18,14 +18,27 @@ across your whole roster instead of pasting it into each agent's system prompt.
 
 ## The Skills page
 
-Find it under **Configure → Skills**. Each row shows the skill, how many agents use it, its
-size, an enable toggle, and the last-updated date. Search and the All / Enabled / Disabled
-filter narrow the list.
+Find it under **Configure → Skills**. Each row shows the skill, its **origin** (Manual, URL, or
+the runtime provider it came from), how many agents use it, its **file** count, an enable
+toggle, and the last-updated date. Search and the All / Enabled / Disabled filter narrow the
+list.
 
 - **Enabled toggle** — a disabled skill stays assigned to its agents but is *not* injected into
   runs. Use it to pause a skill everywhere at once without un-assigning it.
-- **Edit** opens the instructions in a Markdown editor; **Delete** removes it (assigned agents
-  simply stop receiving it on future runs).
+- Click a skill's name to open its **detail page**; the **⋯ menu** has **Edit** (opens the
+  instructions in a Markdown editor) and **Delete** (assigned agents simply stop receiving it on
+  future runs).
+
+## The skill detail page
+
+Opening a skill shows everything it carries:
+
+- **File browser** — a folder tree of every file in the skill's bundle, `SKILL.md` first.
+  Select a file to view it: Markdown files render, other files show as raw text.
+- **Metadata** — file count, created/updated dates, and the skill's ID.
+- **Origin** — where the skill came from: created manually, imported from a URL (with the
+  source link), or copied from a local runtime (with the provider and source path).
+- **Used by** — the agents this skill is assigned to.
 
 ## Three ways to add a skill
 
@@ -39,8 +52,8 @@ filter narrow the list.
 3. **Copy from runtime** — promote a skill already installed on this machine's CLI runtimes. The
    dialog scans the standard skill directories (`~/.claude/skills`,
    `~/.gemini/antigravity-cli/skills`, and the cross-tool `~/.agents/skills`) and lists what it
-   finds; **Import** copies the `SKILL.md` into your workspace library. The original file is
-   never touched.
+   finds; **Import** copies the whole skill — the `SKILL.md` *and* every supporting file it
+   bundles — into your workspace library. The original files are never touched.
 
 If a skill you're importing has the same name as one already in the library, the import stops
 and offers **Overwrite** — take it to replace the existing skill's contents, or rename to keep
@@ -57,12 +70,14 @@ count chip on the agent row shows how many it has.
 When an agent runs, every skill that is **assigned to it and enabled** is injected into the run
 prompt as a guaranteed block, alongside the project's directives — it's never trimmed to save
 tokens. The agent sees each skill's name, description, and full instructions and is told to
-follow them when a task matches. Changing or disabling a skill affects *future* runs; runs
-already in flight keep the prompt they started with.
+follow them when a task matches. If the skill bundles supporting files, they're written to disk
+and the block points the agent at that folder so it can read them on demand. Changing or
+disabling a skill affects *future* runs; runs already in flight keep the prompt they started
+with.
 
 ## Notes & limitations
 
 - A very large skill body is capped when injected (about 20 KB per skill) so one runaway paste
   can't crowd out the rest of the prompt.
-- "Copy from runtime" imports the `SKILL.md` body only — a skill that ships extra bundled files
-  brings its instructions across, not its attachments.
+- Runtime bundles follow the same caps as the source tools: up to 128 files, 1 MB per file, and
+  8 MB total; binary files are skipped. A skill that exceeds those brings across what fits.

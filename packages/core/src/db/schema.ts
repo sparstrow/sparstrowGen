@@ -471,9 +471,25 @@ export const skills = sqliteTable("skills", {
   description: text("description").notNull().default(""),
   content: text("content").notNull().default(""),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  // Origin provenance (detail page's Origin panel): manual | url | runtime,
+  // plus the source path/URL and, for runtime copies, the provider.
+  sourceType: text("source_type").notNull().default("manual"),
+  sourceRef: text("source_ref"),
+  sourceProvider: text("source_provider"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+/** Supporting files bundled with a skill (relative path → text content). */
+export const skillFiles = sqliteTable(
+  "skill_files",
+  {
+    skillId: text("skill_id").notNull().references(() => skills.id, { onDelete: "cascade" }),
+    path: text("path").notNull(),
+    content: text("content").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.skillId, t.path] })],
+);
 
 export const agentSkills = sqliteTable(
   "agent_skills",

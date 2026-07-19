@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fastify from "fastify";
 import { eq } from "drizzle-orm";
 import { closeDb, openDb } from "../../db/connection.js";
-import { agents, agentSkills, skills } from "../../db/schema.js";
+import { agents, agentSkills, skillFiles, skills } from "../../db/schema.js";
 import { skillRoutes } from "./skills.js";
 import { buildSkillsBlock, setSkillsForAgent } from "../../agents/agent-skills.js";
 
@@ -85,6 +85,18 @@ describe("buildSkillsBlock", () => {
     expect(block).toContain("### Skill: PDF handling");
     expect(block).toContain("Work with PDF files.");
     expect(block).toContain("Always use pypdf.");
+  });
+
+  it("points the agent at the on-disk bundle when a skill has supporting files", () => {
+    db.insert(skills)
+      .values({ id: "skl_1", name: "Bundle", content: "Body", createdAt: ts, updatedAt: ts })
+      .run();
+    db.insert(skillFiles).values({ skillId: "skl_1", path: "ref.md", content: "x" }).run();
+    setSkillsForAgent("agt_1", ["skl_1"]);
+
+    const block = buildSkillsBlock("agt_1");
+    expect(block).toContain("1 supporting file");
+    expect(block).toContain("skl_1");
   });
 
   it("skips disabled skills even when assigned", () => {
@@ -265,5 +277,59 @@ describe("Skill routes", () => {
     const res = await app.inject({ method: "GET", url: "/skills/local" });
     expect(res.statusCode).toBe(200);
     expect(Array.isArray(res.json())).toBe(true);
+  });
+
+  it("imports a runtime bundle: persists files, counts them, materializes to disk", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const { defaultLocalSkillRoots } = await import("../../agents/local-skills.js");
+    const { skillFilesDir } = await import("../../agents/agent-skills.js");
+    const root = defaultLocalSkillRoots()[0]!.path;
+    const dir = path.join(root, `sparstrow-bundle-${Date.now().toString(36)}`);
+    fs.mkdirSync(path.join(dir, "scripts"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "SKILL.md"), "---\nname: Bundle me\ndescription: d\n---\nBody\n", "utf8");
+    fs.writeFileSync(path.join(dir, "reference.md"), "# Ref", "utf8");
+    fs.writeFileSync(path.join(dir, "scripts", "run.py"), "print(1)", "utf8");
+    let skillId = "";
+    try {
+      const created = await app.inject({
+        method: "POST",
+        url: "/skills/import-local",
+        payload: { sourcePath: path.join(dir, "SKILL.md") },
+      });
+      expect(created.statusCode).toBe(201);
+      skillId = created.json().skill.id;
+      expect(created.json().skill.fileCount).toBe(2);
+
+      // GET /skills/:id returns the full bundle.
+      const detail = await app.inject({ method: "GET", url: `/skills/${skillId}` });
+      expect(detail.statusCode).toBe(200);
+      expect(detail.json().files.map((f: { path: string }) => f.path).sort()).toEqual([
+        "reference.md",
+        "scripts/run.py",
+      ]);
+
+      // list carries fileCount too.
+      const list = await app.inject({ method: "GET", url: "/skills" });
+      expect(list.json()[0].fileCount).toBe(2);
+
+      // Files were projected to disk under the skill's dir.
+      const onDisk = skillFilesDir(skillId);
+      expect(fs.existsSync(path.join(onDisk, "SKILL.md"))).toBe(true);
+      expect(fs.existsSync(path.join(onDisk, "scripts", "run.py"))).toBe(true);
+
+      // Delete removes the on-disk bundle.
+      await app.inject({ method: "DELETE", url: `/skills/${skillId}` });
+      expect(fs.existsSync(onDisk)).toBe(false);
+      skillId = "";
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+      if (skillId) fs.rmSync(skillFilesDir(skillId), { recursive: true, force: true });
+    }
+  });
+
+  it("GET /skills/:id 404s for an unknown id", async () => {
+    const res = await app.inject({ method: "GET", url: "/skills/skl_missing" });
+    expect(res.statusCode).toBe(404);
   });
 });

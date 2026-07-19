@@ -1,11 +1,14 @@
 import * as React from "react";
+import { Link } from "@tanstack/react-router";
 import type { Skill } from "@sparstrow/shared";
 import {
   Bot,
   ChevronRight,
   Download,
   FilePlus2,
+  Files,
   HardDrive,
+  Link2,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -63,6 +66,25 @@ interface EditorState {
   name: string;
   description: string;
   content: string;
+}
+
+const ORIGIN_META: Record<
+  Skill["sourceType"],
+  { label: string; icon: typeof Pencil }
+> = {
+  manual: { label: "Manual", icon: Pencil },
+  url: { label: "URL", icon: Link2 },
+  runtime: { label: "Runtime", icon: HardDrive },
+};
+
+function OriginBadge({ skill }: { skill: Skill }) {
+  const meta = ORIGIN_META[skill.sourceType];
+  return (
+    <Badge variant="secondary" className="gap-1 text-[10px] font-normal" title={skill.sourceRef ?? undefined}>
+      <meta.icon className="size-2.5" />
+      {skill.sourceProvider ?? meta.label}
+    </Badge>
+  );
 }
 
 export function SkillsPage() {
@@ -212,8 +234,9 @@ export function SkillsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Skill</TableHead>
+                <TableHead>Origin</TableHead>
                 <TableHead>Used by</TableHead>
-                <TableHead>Size</TableHead>
+                <TableHead>Files</TableHead>
                 <TableHead>Enabled</TableHead>
                 <TableHead>Updated</TableHead>
                 <TableHead className="w-10" />
@@ -222,7 +245,7 @@ export function SkillsPage() {
             <TableBody>
               {visible.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
                     No skills match{q ? ` “${query.trim()}”` : " this filter"}.
                   </TableCell>
                 </TableRow>
@@ -232,9 +255,10 @@ export function SkillsPage() {
                   return (
                     <TableRow key={skill.id}>
                       <TableCell>
-                        <button
+                        <Link
+                          to="/skills/$skillId"
+                          params={{ skillId: skill.id }}
                           className="flex items-start gap-2.5 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          onClick={() => openEdit(skill)}
                         >
                           <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted">
                             <Puzzle className="size-3.5 text-muted-foreground" />
@@ -247,7 +271,10 @@ export function SkillsPage() {
                               {skill.description || "No description"}
                             </span>
                           </span>
-                        </button>
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <OriginBadge skill={skill} />
                       </TableCell>
                       <TableCell>
                         {users.length === 0 ? (
@@ -263,11 +290,10 @@ export function SkillsPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-xs tabular-nums text-muted-foreground">
-                        {skill.content.length === 0
-                          ? "—"
-                          : skill.content.length > 1024
-                            ? `${(skill.content.length / 1024).toFixed(1)} KB`
-                            : `${skill.content.length} chars`}
+                        <span className="inline-flex items-center gap-1.5" title={`${skill.fileCount + 1} files including SKILL.md`}>
+                          <Files className="size-3 text-muted-foreground" />
+                          {skill.fileCount + 1}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <Switch

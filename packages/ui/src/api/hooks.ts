@@ -59,6 +59,7 @@ import type {
   LocalSkillSummary,
   Skill,
   SkillCreate,
+  SkillDetail,
   SkillImportResult,
   SkillUpdate,
   TeamDetail,
@@ -498,6 +499,14 @@ export function useSkills(): UseQueryResult<Skill[], ApiError> {
   return useQuery({
     queryKey: ["skills"],
     queryFn: () => api<Skill[]>("/skills"),
+  });
+}
+
+export function useSkill(id: string): UseQueryResult<SkillDetail, ApiError> {
+  return useQuery({
+    queryKey: ["skills", id],
+    queryFn: () => api<SkillDetail>(`/skills/${id}`),
+    enabled: id.length > 0,
   });
 }
 

@@ -619,4 +619,22 @@ CREATE TABLE agent_skills (
 CREATE INDEX idx_agent_skills_skill ON agent_skills(skill_id);
 `,
   },
+  {
+    // Skill depth (Multica parity): origin provenance on skills + the full
+    // supporting-file bundle, so a runtime import carries every file, not
+    // just SKILL.md.
+    id: "0015_skill_files_and_origin",
+    sql: `
+ALTER TABLE skills ADD COLUMN source_type TEXT NOT NULL DEFAULT 'manual';
+ALTER TABLE skills ADD COLUMN source_ref TEXT;
+ALTER TABLE skills ADD COLUMN source_provider TEXT;
+
+CREATE TABLE skill_files (
+  skill_id TEXT NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+  path TEXT NOT NULL,
+  content TEXT NOT NULL,
+  PRIMARY KEY (skill_id, path)
+);
+`,
+  },
 ];

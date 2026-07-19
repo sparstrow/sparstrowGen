@@ -7,6 +7,7 @@ import {
   normalizeSkillUrl,
   parseSkillFrontmatter,
   readLocalSkill,
+  readLocalSkillBundle,
   type LocalSkillRoot,
 } from "./local-skills.js";
 
@@ -98,6 +99,32 @@ describe("readLocalSkill", () => {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, "notes.md"), "x", "utf8");
     expect(() => readLocalSkill(path.join(dir, "notes.md"), roots)).toThrow(/known runtime/);
+  });
+});
+
+describe("readLocalSkillBundle", () => {
+  it("carries supporting files, excludes SKILL.md, and skips binary files", () => {
+    const p = writeSkill(roots[0]!.path, "impeccable", "name: Impeccable\ndescription: d", "Body");
+    const dir = path.dirname(p);
+    fs.writeFileSync(path.join(dir, "reference.md"), "# Reference", "utf8");
+    fs.mkdirSync(path.join(dir, "scripts"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "scripts", "run.py"), "print('hi')", "utf8");
+    fs.writeFileSync(path.join(dir, "logo.bin"), Buffer.from([1, 2, 0, 3]));
+
+    const bundle = readLocalSkillBundle(p, roots);
+    expect(bundle.name).toBe("Impeccable");
+    expect(bundle.content).toBe("Body");
+    const paths = bundle.files.map((f) => f.path).sort();
+    expect(paths).toEqual(["reference.md", "scripts/run.py"]);
+    expect(bundle.files.every((f) => f.path !== "SKILL.md")).toBe(true);
+    expect(bundle.skipped).toBe(1); // the binary
+  });
+
+  it("honors the same trust boundary as readLocalSkill", () => {
+    const outside = path.join(tmp, "outside");
+    fs.mkdirSync(outside, { recursive: true });
+    fs.writeFileSync(path.join(outside, "SKILL.md"), "---\nname: evil\n---\nx", "utf8");
+    expect(() => readLocalSkillBundle(path.join(outside, "SKILL.md"), roots)).toThrow(/known runtime/);
   });
 });
 

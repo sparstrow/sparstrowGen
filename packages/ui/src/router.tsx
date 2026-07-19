@@ -26,6 +26,7 @@ import { KnowledgeArticlePage } from "@/routes/pages/knowledge-article";
 import { SchedulePage } from "@/routes/pages/schedule";
 import { TerminalsPage } from "@/routes/pages/terminals";
 import { SkillsPage } from "@/routes/pages/skills";
+import { SkillDetailPage } from "@/routes/pages/skill-detail";
 
 const rootRoute = createRootRoute({ component: AppShell });
 
@@ -172,6 +173,12 @@ const skillsRoute = createRoute({
   component: SkillsPage,
 });
 
+const skillDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/skills/$skillId",
+  component: SkillDetailPage,
+});
+
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
   agentsRoute,
@@ -195,6 +202,7 @@ const routeTree = rootRoute.addChildren([
   knowledgeArticleRoute,
   terminalsRoute,
   skillsRoute,
+  skillDetailRoute,
 ]);
 
 export const router = createRouter({ routeTree });

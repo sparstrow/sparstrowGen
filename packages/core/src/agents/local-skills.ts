@@ -166,6 +166,81 @@ export function readLocalSkill(
   };
 }
 
+const MAX_BUNDLE_BYTES = 8 << 20; // 8 MB total, matches Multica
+
+/** Cheap binary sniff: a NUL byte in the first 8KB means "not text — skip". */
+function isBinary(buf: Buffer): boolean {
+  const probe = buf.subarray(0, 8192);
+  return probe.includes(0);
+}
+
+export interface LocalSkillBundle {
+  name: string;
+  description: string;
+  content: string;
+  /** Supporting files (relative paths, forward slashes), SKILL.md excluded. */
+  files: { path: string; content: string }[];
+  /** Files skipped for being binary or over the per-file/bundle caps. */
+  skipped: number;
+}
+
+/**
+ * Read a discovered skill INCLUDING its supporting files — the full bundle a
+ * Multica import carries. Same trust boundary as readLocalSkill; caps mirror
+ * Multica's (128 files, 1 MB/file, 8 MB bundle); binary files are skipped.
+ */
+export function readLocalSkillBundle(
+  sourcePath: string,
+  roots: LocalSkillRoot[] = defaultLocalSkillRoots(),
+): LocalSkillBundle {
+  const base = readLocalSkill(sourcePath, roots);
+  const skillDir = path.dirname(path.resolve(sourcePath));
+  const files: { path: string; content: string }[] = [];
+  let skipped = 0;
+  let bundleBytes = 0;
+  const walk = (dir: string, depth: number) => {
+    if (depth > MAX_DIR_DEPTH) return;
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        walk(full, depth + 1);
+        continue;
+      }
+      if (!e.isFile()) continue;
+      const rel = path.relative(skillDir, full).split(path.sep).join("/");
+      if (rel === "SKILL.md") continue; // carried as `content`
+      if (files.length >= MAX_FILE_COUNT) {
+        skipped++;
+        continue;
+      }
+      try {
+        const stat = fs.statSync(full);
+        if (stat.size > MAX_SKILL_MD_BYTES || bundleBytes + stat.size > MAX_BUNDLE_BYTES) {
+          skipped++;
+          continue;
+        }
+        const buf = fs.readFileSync(full);
+        if (isBinary(buf)) {
+          skipped++;
+          continue;
+        }
+        bundleBytes += stat.size;
+        files.push({ path: rel, content: buf.toString("utf8") });
+      } catch {
+        skipped++;
+      }
+    }
+  };
+  walk(skillDir, 0);
+  return { ...base, files, skipped };
+}
+
 // ── Import from URL (ClawHub / skills.sh / GitHub / any raw SKILL.md) ──────
 
 const MAX_URL_BYTES = 1 << 20;
