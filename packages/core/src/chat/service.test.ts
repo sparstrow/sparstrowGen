@@ -16,6 +16,7 @@ vi.mock("../agents/preflight.js", () => ({
 }));
 
 import {
+  buildTranscriptPrompt,
   classifyTurnError,
   createChatSession,
   fallbackTarget,
@@ -26,6 +27,37 @@ import {
   retryChatTurn,
   updateChatSession,
 } from "./service.js";
+
+const msg = (role: "user" | "assistant", content: string) =>
+  ({ id: `m_${content.length}_${role}`, role, content }) as any;
+
+describe("buildTranscriptPrompt — argv budget (intake 0009)", () => {
+  it("keeps the newest messages within the byte budget, dropping oldest first", () => {
+    const history = [
+      msg("user", "A".repeat(20_000)),
+      msg("assistant", "B".repeat(20_000)),
+      msg("user", "what is 2+2?"),
+    ];
+    const prompt = buildTranscriptPrompt(history);
+    // Must stay well under Windows' ~32KB command-line ceiling.
+    expect(Buffer.byteLength(prompt, "utf8")).toBeLessThan(32_000);
+    // The newest message survives; the oldest is dropped.
+    expect(prompt).toContain("what is 2+2?");
+    expect(prompt).not.toContain("A".repeat(20_000));
+  });
+
+  it("keeps the newest message even when it alone exceeds the budget", () => {
+    const huge = "Z".repeat(40_000);
+    const prompt = buildTranscriptPrompt([msg("user", huge)]);
+    expect(prompt).toContain(huge);
+  });
+
+  it("keeps a short conversation intact", () => {
+    const prompt = buildTranscriptPrompt([msg("user", "hi"), msg("assistant", "hello")]);
+    expect(prompt).toContain("User: hi");
+    expect(prompt).toContain("Assistant: hello");
+  });
+});
 
 const ts = "2026-01-01T00:00:00Z";
 

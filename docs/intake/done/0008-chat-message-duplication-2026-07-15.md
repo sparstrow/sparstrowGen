@@ -2,13 +2,13 @@
 id: 0008
 category: feedback
 secondary_modes: []
-status: captured
+status: done
 project: factory
 surface: Chat / Free chat (cross-surface — also observed in Claude Code)
 date: 2026-07-15
 screenshots: [assets/0008-chat-message-duplication.png]
 links: { related: "docs/intake/0009-agy-canned-reply-ignores-input-2026-07-15.md" }
-resolution:
+resolution: shipped — optimistic pending bubble suppressed once the server's user row lands (packages/ui/src/lib/chat-pending.ts)
 ---
 
 ## What I brought (verbatim)

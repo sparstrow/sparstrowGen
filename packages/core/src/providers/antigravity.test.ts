@@ -37,14 +37,27 @@ describe("AntigravityCliProvider — headless spawn", () => {
     expect(spec.command).toBe(config.antigravityPath);
   });
 
-  it("passes the prompt via stdin, never argv (long prompts dodge the ~32KB Windows limit)", () => {
-    const big = "x".repeat(50_000);
-    const spec = provider.buildHeadlessSpawn(agentWith(), big, headlessOpts);
-    expect(spec.stdinData).toBe(big);
-    expect(spec.args.join(" ")).not.toContain(big);
+  // Regression — intake 0009. `--print` takes the prompt as its VALUE; agy has no
+  // stdin path at all (`agy --print` with no value prints usage). The old spawn
+  // emitted `--print -`, so the model received the literal prompt "-" and answered
+  // every turn with its generic greeting ("How can I help you today?"), ignoring
+  // the user entirely. Verified against agy v1.1.7:
+  //   agy --print -            + stdin "What is 2 plus 2?" → "How can I help you today?"
+  //   agy --print "What is 2 plus 2? Reply with just the number." → "4"
+  it("passes the prompt as --print's value, never the literal `-` (intake 0009)", () => {
+    const spec = provider.buildHeadlessSpawn(agentWith(), "What is 2 plus 2?", headlessOpts);
+    const printIdx = spec.args.indexOf("--print");
+    expect(printIdx).toBeGreaterThanOrEqual(0);
+    expect(spec.args[printIdx + 1]).toBe("What is 2 plus 2?");
+    expect(spec.args).not.toContain("-");
   });
 
-  it("puts --model before a trailing `--print -` so --print can't swallow the flag", () => {
+  it("does not rely on stdin — agy never reads it in print mode (intake 0009)", () => {
+    const spec = provider.buildHeadlessSpawn(agentWith(), "hi", headlessOpts);
+    expect(spec.stdinData).toBeUndefined();
+  });
+
+  it("puts --model before --print so --print can't swallow the flag", () => {
     const spec = provider.buildHeadlessSpawn(
       agentWith({ model: "Gemini 3.5 Flash (Low)" }),
       "hi",
@@ -55,8 +68,8 @@ describe("AntigravityCliProvider — headless spawn", () => {
     expect(modelIdx).toBe(0);
     expect(spec.args[modelIdx + 1]).toBe("Gemini 3.5 Flash (Low)");
     expect(printIdx).toBeGreaterThan(modelIdx);
-    // `--print -` must be the tail, with `-` as its literal stdin marker.
-    expect(spec.args.slice(-2)).toEqual(["--print", "-"]);
+    // the prompt is the tail, as --print's value
+    expect(spec.args[spec.args.length - 2]).toBe("--print");
   });
 
   it("always adds the memory vault to --add-dir alongside the agent's addDirs", () => {

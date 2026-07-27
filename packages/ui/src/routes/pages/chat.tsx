@@ -40,6 +40,7 @@ import {
   useRetryChatTurn,
   useUpdateChatSession,
 } from "@/api/hooks";
+import { shouldShowPendingBubble } from "@/lib/chat-pending";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -556,9 +557,12 @@ export function ChatPage() {
                 ) : (
                   messages.map((m) => <ChatTurnView key={m.id} message={m} />)
                 )}
-                {pending?.sessionId === session.id && pending.content && (
-                  <ChatTurnView message={{ role: "user", content: pending.content, meta: null }} />
-                )}
+                {pending?.sessionId === session.id &&
+                  shouldShowPendingBubble(messages, pending.content) && (
+                    <ChatTurnView
+                      message={{ role: "user", content: pending.content, meta: null }}
+                    />
+                  )}
                 {busy && <ThinkingDots label={session.model ?? undefined} />}
                 {turnError && !busy && (
                   <TurnErrorBanner
