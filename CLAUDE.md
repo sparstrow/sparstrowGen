@@ -381,8 +381,19 @@ gate, merge to `staging`.
 - **`main` = the owner's release gate.** The owner reviews `staging` and promotes `staging` → `main`
   — the only human merge. `main` stays release-quality, so the always-on app never updates from
   unseen code. CI ships on `main` tags.
-- **Squash-merge, always** (both levels). One clean commit per feature; agent working commits are
-  disposable scaffolding.
+- **Merge method differs by level, and the difference is load-bearing.**
+  - **Feature branch → `staging`: squash.** One clean commit per feature; agent working commits are
+    disposable scaffolding. Safe because the branch is deleted straight after — its orphaned
+    ancestry never matters again.
+  - **`staging` → `main`: a real merge commit. Never squash.** Squashing two *permanent* branches
+    writes main a new commit holding staging's content with **no ancestry link to it**. The merge
+    base stays frozen before the split, so the next promotion replays every staging commit against
+    a `main` that already has that content under a different SHA — conflicting on every file
+    touched before and after. It compounds each time. This is not hypothetical: PR #53 was squashed
+    and the next promotion hit 10 conflicts, every one of them a phantom.
+  - `main`'s ruleset must therefore keep **"Merge commit" among the allowed merge methods**.
+    Squash-only on a release branch is a feature-branch rule applied where it does the opposite of
+    what it's for.
 - **Never** merge, force-push, `reset --hard`, or otherwise touch `main` (or `staging`) directly to
   route around a check. Never touch `main` from an agent at all.
 - **Never reuse a squash-merged branch name** — re-pushing recreates it with diverged history.

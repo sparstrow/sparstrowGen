@@ -14,7 +14,8 @@ commit), the Phase 6 invariants for the hosted multi-tenant transition, and the 
 reference-only boundary. **Part II — the build contract:** the superpowers loop (brainstorm → spec →
 plan → worktree → TDD build → review → verify → finish → promote), the skill gate, the iron law of
 TDD, the **Definition of Done** gate, the git flow (`staging` as the agents' trunk, `main` as the
-owner's release gate, squash-merge always, branch hygiene), test placement, the parallelism rules,
+owner's release gate, squash to `staging` but a merge commit to `main`, branch hygiene), test
+placement, the parallelism rules,
 and the engineering conduct bar.
 
 **Read `CLAUDE.md` before doing anything and follow every rule in it.** Do not rely on this file
@@ -49,8 +50,9 @@ Specs go to `docs/specs/`, plans to `docs/plans/` — this overrides the plugin'
   error) in both themes, in the same change. Never a polish pass deferred to later.
 - **Commit author** is repo-set to `Sparstrow Agent <agent@sparstrow.com>`. Do NOT override it or
   add a `Co-Authored-By:` trailer — CI `author-check` fails otherwise.
-- **Never touch `main` directly** — it is branch-protected (PR + approval + checks, squash-only, no
-  force-push). Agents branch off fresh `origin/staging`, build, gate, merge to `staging`; the owner
+- **Never touch `main` directly** — it is branch-protected (PR + approval + checks, no
+  force-push). Promotion to `main` uses a **merge commit, never a squash** — see `CLAUDE.md`'s Git
+  flow for why squashing two permanent branches manufactures conflicts. Agents branch off fresh `origin/staging`, build, gate, merge to `staging`; the owner
   promotes `staging` → `main`. **Never commit directly on a local `staging`/`main` checkout, for any
   kind of session** — the only commands run there are the squash-merge and its push. With multiple
   agent accounts working concurrently, derive branch names from something unique (the plan or spec
