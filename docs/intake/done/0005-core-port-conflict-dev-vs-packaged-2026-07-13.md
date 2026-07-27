@@ -1,13 +1,13 @@
 ---
 id: 0005
 category: feature-change
-status: locked
+status: done
 project: factory
 surface: Desktop shell (service-manager) + Core config + UI dev proxy
 date: 2026-07-13
 screenshots: []
 links: { plan: "docs/intake/0004-always-on-packaged-desktop-self-update-2026-07-13.md" }
-resolution:
+resolution: shipped — cc058c5 (dev/preview core on 48751; env-driven vite proxy; pnpm dev:preview:*), on main
 ---
 
 ## What I brought (verbatim)
