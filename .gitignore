@@ -22,3 +22,6 @@ ds-bundle/
 
 # Claude Design exports: keep export.html + SPEC.md, ignore regenerable decode output
 .design-src/**/decoded/
+
+# Visual brainstorming companion (superpowers)
+.superpowers/

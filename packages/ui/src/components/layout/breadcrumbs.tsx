@@ -1,6 +1,13 @@
 import * as React from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { ChevronRight } from "lucide-react";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { useProjects, useTeams } from "@/api/hooks";
 import { getArticle } from "@/lib/knowledge";
 import { shortId } from "@/lib/format";
@@ -80,32 +87,37 @@ export function Breadcrumbs() {
   }, [pathname, projects.data, teams.data]);
 
   return (
-    <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 text-sm">
-      {crumbs.map((c, i) => {
-        const last = i === crumbs.length - 1;
-        return (
-          <React.Fragment key={`${c.label}-${i}`}>
-            {i > 0 && <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />}
-            {c.to && !last ? (
-              <Link
-                to={c.to}
-                className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {c.label}
-              </Link>
-            ) : (
-              <span
-                className={
-                  last ? "truncate font-semibold" : "shrink-0 text-muted-foreground"
-                }
-                aria-current={last ? "page" : undefined}
-              >
-                {c.label}
-              </span>
-            )}
-          </React.Fragment>
-        );
-      })}
-    </nav>
+    <Breadcrumb className="min-w-0">
+      <BreadcrumbList className="min-w-0 flex-nowrap gap-1 sm:gap-1">
+        {crumbs.map((c, i) => {
+          const last = i === crumbs.length - 1;
+          return (
+            <React.Fragment key={`${c.label}-${i}`}>
+              {i > 0 && (
+                <BreadcrumbSeparator className="shrink-0 text-muted-foreground/60" />
+              )}
+              <BreadcrumbItem className="min-w-0">
+                {c.to && !last ? (
+                  <BreadcrumbLink asChild className="shrink-0">
+                    {/* exact: a parent crumb prefix-matches the current path, and
+                        without this the router marks it aria-current="page" too —
+                        two current-page markers in one breadcrumb trail. */}
+                    <Link to={c.to} activeOptions={{ exact: true }}>
+                      {c.label}
+                    </Link>
+                  </BreadcrumbLink>
+                ) : last ? (
+                  <BreadcrumbPage className="truncate font-semibold">
+                    {c.label}
+                  </BreadcrumbPage>
+                ) : (
+                  <span className="shrink-0">{c.label}</span>
+                )}
+              </BreadcrumbItem>
+            </React.Fragment>
+          );
+        })}
+      </BreadcrumbList>
+    </Breadcrumb>
   );
 }

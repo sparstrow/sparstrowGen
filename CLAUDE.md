@@ -303,6 +303,14 @@ If you didn't watch it fail, you don't know it tests the right thing.
 - **Exceptions need the owner's say-so**, and are limited to config files, generated code, and
   docs-only changes. "Too simple to test", "I'll test after", "I already checked it manually", and
   "I'm being pragmatic" are rationalizations, not exceptions.
+- **Standing exception, granted 2026-07-27: vendored shadcn/ui primitives in
+  `packages/ui/src/components/ui/`.** They are registry-generated source adapted to repo
+  conventions, not logic we authored, and the real risk in them is visual and accessibility
+  behaviour that a unit test does not catch — the Design/UI bar and the real-artifact test in the
+  Definition of Done are what actually cover them. This exception is **narrow**: it covers the
+  vendored file itself, never a consumer built on top of it, and never a primitive carrying
+  repo-specific logic beyond styling and prop plumbing. A primitive that grows real behaviour
+  leaves the exception and needs tests like anything else.
 
 ## Definition of Done — the gate (all green, before any merge)
 

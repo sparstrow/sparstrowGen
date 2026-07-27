@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { ThemeProvider } from "@/theme/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 import { wsHub } from "@/lib/ws";
 import { router } from "@/router";
 import "@fontsource-variable/inter";
@@ -82,6 +83,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
+        <Toaster />
       </QueryClientProvider>
     </ThemeProvider>
   </React.StrictMode>,
