@@ -14,12 +14,17 @@ import type {
  * Provider for Google's Antigravity CLI (`agy`, verified against v1.1.0) — the
  * sanctioned successor to the now-retired Gemini CLI provider.
  *
- * Headless verified behavior (log-confirmed via ~/.gemini/antigravity-cli/cli.log):
- *  - `agy --model "<display>" --print -` reads the prompt from STDIN. The literal
- *    `-` is the stdin marker; it stops `--print` from greedily swallowing the
- *    trailing `--model` flag into the prompt text (which silently falls back to
- *    the settings.json default model — a per-agent-model no-op). So `--model`
- *    MUST come before `--print -`, and the prompt travels via SpawnSpec.stdinData.
+ * Headless verified behavior (re-verified against agy v1.1.7, intake 0009):
+ *  - `agy --model "<display>" --print "<prompt>"` — the prompt is `--print`'s
+ *    VALUE. **agy has no stdin path in print mode**: `agy --print` with no value
+ *    prints usage, and `agy --print -` sends the model the literal prompt "-",
+ *    which it answers with a generic greeting while ignoring stdin entirely.
+ *    That was the cause of intake 0009 (every turn returned "How can I help you
+ *    today?"). Because `--print` consumes the next token, it must come LAST,
+ *    after `--model` and every other flag.
+ *  - The prompt therefore travels in argv, which is bounded by Windows' ~32KB
+ *    command-line limit. Callers must budget it — chat does so in
+ *    `buildTranscriptPrompt` (TRANSCRIPT_BUDGET_BYTES).
  *  - `--model` tokens are the exact `agy models` display strings (see KNOWN_MODELS).
  *  - `agy.exe` is a real binary, not an npm .cmd shim, so spawns run directly
  *    (viaCmdShell:false) — no cmd.exe quoting layer.
@@ -58,7 +63,8 @@ export class AntigravityCliProvider implements CliProvider {
   }
 
   buildHeadlessSpawn(agent: Agent, prompt: string, opts: HeadlessSpawnOptions): SpawnSpec {
-    // `--model` before `--print -`; prompt via stdin. Order is load-bearing.
+    // `--model` first, prompt last as `--print`'s value. Order is load-bearing:
+    // --print consumes the next token, so it must come after every other flag.
     const args: string[] = [
       "--model",
       agent.model,
@@ -66,7 +72,7 @@ export class AntigravityCliProvider implements CliProvider {
       ...this.workspaceDirArgs(agent),
       ...agent.extraArgs,
       "--print",
-      "-",
+      prompt,
     ];
     return {
       command: config.antigravityPath,
@@ -77,7 +83,6 @@ export class AntigravityCliProvider implements CliProvider {
         SPARSTROW_API: `http://${config.host}:${config.port}`,
         ...opts.extraEnv,
       },
-      stdinData: prompt,
       viaCmdShell: false,
     };
   }

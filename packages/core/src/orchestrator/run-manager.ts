@@ -17,7 +17,7 @@ import {
 } from "@sparstrow/shared";
 import { config } from "../config.js";
 import { isDraining } from "../lifecycle.js";
-import { getDb } from "../db/connection.js";
+import { getDb, isDbOpen } from "../db/connection.js";
 import { agents, projects, runs, runEvents, tasks } from "../db/schema.js";
 import { bus } from "../events/bus.js";
 import { logger } from "../logger.js";
@@ -550,6 +550,13 @@ export class RunManager {
     exitCode: number | null,
     result: RunResult,
   ): void {
+    // A child's `close` can arrive after the database is shut (core shutdown, or
+    // a fast-failing spawn racing test teardown). getDb() throws there, and this
+    // path is an event handler, so the throw escapes as an uncaught exception.
+    if (!isDbOpen()) {
+      logger.warn({ runId }, "run finalize skipped — database already closed");
+      return;
+    }
     const db = getDb();
     let status: RunStatus;
     if (state.cancelRequested) status = "cancelled";

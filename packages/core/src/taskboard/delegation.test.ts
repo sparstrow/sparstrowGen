@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { runManager } from "../orchestrator/run-manager.js";
 import { and, eq } from "drizzle-orm";
 import { closeDb, openDb } from "../db/connection.js";
 import { agents, messages, runs, taskQuestions, tasks, teamMembers, teams } from "../db/schema.js";
@@ -73,12 +74,39 @@ const spawn = (over: Partial<Parameters<typeof spawnSubtask>[0]> = {}) =>
 describe("P3 delegation — spawn_subtask, watcher, approvals, breaker", () => {
   let db: ReturnType<typeof openDb>["db"];
 
+  let stubRuns = 0;
+
   beforeEach(() => {
     closeDb();
     db = openDb(":memory:").db;
     seed(db);
+    // wakeTask spawns a real run after the wake transition. Left live, the spawn
+    // fails (no agent CLI), finalize flips the task to `failed`, and any
+    // assertion on the woken state is racing that — which is exactly what broke
+    // on Linux, where ENOENT returns faster than Windows. Stubbing the spawn is
+    // also what CLAUDE.md requires: tests never execute real agent CLIs.
+    stubRuns = 0;
+    vi.spyOn(runManager, "createRun").mockImplementation((input) => {
+      const id = `run_stub_${++stubRuns}`;
+      db.insert(runs)
+        .values({
+          id,
+          agentId: input.agentId,
+          trigger: input.trigger,
+          triggerRef: input.triggerRef ?? null,
+          mode: "headless",
+          prompt: input.prompt,
+          status: "running",
+          createdAt: ts,
+        })
+        .run();
+      return db.select().from(runs).where(eq(runs.id, id)).get()! as never;
+    });
   });
-  afterEach(() => closeDb());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    closeDb();
+  });
 
   it("same-team spawn: child carries parentage + the S1-a bound, runs immediately; parent suspends (EH1)", () => {
     const res = spawn();

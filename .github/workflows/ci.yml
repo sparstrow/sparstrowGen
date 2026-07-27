@@ -1,14 +1,22 @@
 name: CI
 
-# Factory CI: type-check the whole monorepo on every PR to main and on main itself.
-# Tests/build are intentionally not wired yet — the repo has no test suite (a known
-# gap). Add `pnpm test` here once tests exist, and `pnpm build` for a bundling gate.
+# Factory CI: type-check and test the monorepo.
+#
+# Triggers cover BOTH permanent branches. `staging` is the agents' trunk and is
+# where every feature branch lands — it was previously untriggered, so nothing
+# mechanical checked the code agents merge. Agents squash-merge and push directly
+# to staging (no PR), so the `push` trigger is the one that matters there.
+#
+# `typecheck` and `test` are separate jobs on purpose. `typecheck` is a required
+# status check on main; `test` is new and deliberately NOT required yet, so a
+# native-module failure on ubuntu (better-sqlite3 / node-pty) cannot block main
+# before the job has proven itself green. Add `test` to main's ruleset once it has.
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, staging]
   push:
-    branches: [main]
+    branches: [main, staging]
 
 # Cancel superseded runs on the same ref (saves minutes on rapid agent pushes).
 concurrency:
@@ -31,3 +39,16 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0 — SHA-pinned (third-party); reads packageManager (pnpm@11.6.0) from package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test

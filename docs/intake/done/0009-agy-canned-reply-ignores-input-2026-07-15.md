@@ -2,13 +2,13 @@
 id: 0009
 category: feedback
 secondary_modes: []
-status: captured
+status: done
 project: factory
 surface: Chat / Free chat — antigravity provider (agy CLI, Gemini 3.1 Pro (High))
 date: 2026-07-15
 screenshots: [assets/0009-agy-canned-reply.png]
 links: { related: "docs/intake/0008-chat-message-duplication-2026-07-15.md" }
-resolution:
+resolution: shipped — `--print` now carries the prompt as its value; agy has no stdin path (packages/core/src/providers/antigravity.ts)
 ---
 
 ## What I brought (verbatim)

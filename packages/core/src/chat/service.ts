@@ -1,4 +1,4 @@
-import { and, desc, eq, type SQL } from "drizzle-orm";
+import { and, desc, eq, sql, type SQL } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
   executionModeForProvider,
@@ -29,6 +29,13 @@ const ATTEMPTS_PER_MODEL = 2;
 
 /** Only the last N messages are replayed to the model each turn. */
 const TRANSCRIPT_WINDOW = 40;
+
+/** Byte ceiling for the replayed transcript. CLI providers that take the prompt
+ *  as an argv value (antigravity — see intake 0009) hit Windows' ~32KB command
+ *  line limit, so the window is capped by size as well as by count. Oldest
+ *  messages drop first; the newest message is always kept even if it alone
+ *  exceeds the budget, because dropping it would send a promptless turn. */
+const TRANSCRIPT_BUDGET_BYTES = 24_000;
 
 const TURN_TIMEOUT_MS = 120_000;
 
@@ -126,7 +133,11 @@ export function listChatMessages(sessionId: string): ChatMessage[] {
     .select()
     .from(chatMessages)
     .where(eq(chatMessages.sessionId, sessionId))
-    .orderBy(chatMessages.createdAt, chatMessages.id)
+    // `id` is a random nanoid, so it is a coin flip as a tiebreaker — and
+    // createdAt is millisecond-resolution, so a turn that completes inside one
+    // millisecond ties. A losing flip puts the user message last and the next
+    // postChatTurn 409s. rowid is monotonic in insertion order.
+    .orderBy(chatMessages.createdAt, sql`${chatMessages}.rowid`)
     .all();
   return rows.map(rowToMessage);
 }
@@ -251,12 +262,23 @@ function chatAgent(
   return base;
 }
 
-function buildTranscriptPrompt(history: ChatMessage[]): string {
-  const window = history.slice(-TRANSCRIPT_WINDOW);
-  const transcript = window
-    .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
-    .join("\n\n");
-  return `Conversation so far:\n\n${transcript}\n\nRespond to the user's latest message.`;
+export function buildTranscriptPrompt(history: ChatMessage[]): string {
+  const lines = history
+    .slice(-TRANSCRIPT_WINDOW)
+    .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`);
+
+  // Keep the newest messages that fit the byte budget, dropping oldest first.
+  // The last line is always kept — a turn with no prompt is worse than a long one.
+  const kept: string[] = [];
+  let bytes = 0;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const size = Buffer.byteLength(lines[i]!, "utf8") + 2;
+    if (kept.length > 0 && bytes + size > TRANSCRIPT_BUDGET_BYTES) break;
+    kept.unshift(lines[i]!);
+    bytes += size;
+  }
+
+  return `Conversation so far:\n\n${kept.join("\n\n")}\n\nRespond to the user's latest message.`;
 }
 
 interface ModelTarget {

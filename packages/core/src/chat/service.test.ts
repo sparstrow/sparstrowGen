@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { closeDb, openDb } from "../db/connection.js";
-import { agents, projects } from "../db/schema.js";
+import { agents, chatMessages, projects } from "../db/schema.js";
 import { completeOnce } from "../orchestrator/one-shot.js";
 
 vi.mock("../logger.js", () => ({
@@ -16,6 +16,7 @@ vi.mock("../agents/preflight.js", () => ({
 }));
 
 import {
+  buildTranscriptPrompt,
   classifyTurnError,
   createChatSession,
   fallbackTarget,
@@ -26,6 +27,37 @@ import {
   retryChatTurn,
   updateChatSession,
 } from "./service.js";
+
+const msg = (role: "user" | "assistant", content: string) =>
+  ({ id: `m_${content.length}_${role}`, role, content }) as any;
+
+describe("buildTranscriptPrompt — argv budget (intake 0009)", () => {
+  it("keeps the newest messages within the byte budget, dropping oldest first", () => {
+    const history = [
+      msg("user", "A".repeat(20_000)),
+      msg("assistant", "B".repeat(20_000)),
+      msg("user", "what is 2+2?"),
+    ];
+    const prompt = buildTranscriptPrompt(history);
+    // Must stay well under Windows' ~32KB command-line ceiling.
+    expect(Buffer.byteLength(prompt, "utf8")).toBeLessThan(32_000);
+    // The newest message survives; the oldest is dropped.
+    expect(prompt).toContain("what is 2+2?");
+    expect(prompt).not.toContain("A".repeat(20_000));
+  });
+
+  it("keeps the newest message even when it alone exceeds the budget", () => {
+    const huge = "Z".repeat(40_000);
+    const prompt = buildTranscriptPrompt([msg("user", huge)]);
+    expect(prompt).toContain(huge);
+  });
+
+  it("keeps a short conversation intact", () => {
+    const prompt = buildTranscriptPrompt([msg("user", "hi"), msg("assistant", "hello")]);
+    expect(prompt).toContain("User: hi");
+    expect(prompt).toContain("Assistant: hello");
+  });
+});
 
 const ts = "2026-01-01T00:00:00Z";
 
@@ -208,6 +240,31 @@ describe("chat service", () => {
       // The first reply keeps its original model stamp.
       const first = listChatMessages(session.id).find((m) => m.role === "assistant");
       expect(first?.meta).toMatchObject({ model: "sonnet" });
+    });
+
+    it("orders same-millisecond messages by insertion, not by random id", async () => {
+      // createdAt is millisecond-resolution and ids are random nanoids, so when a
+      // turn completes inside one millisecond the user/assistant order was decided
+      // by a coin flip. A losing flip puts the user message last and the next
+      // postChatTurn 409s with "the previous turn hasn't completed". CI is fast
+      // enough to hit it; it passed on one runner and failed on another for the
+      // same commit.
+      vi.mocked(completeOnce).mockResolvedValue(okResult("instant reply"));
+      const session = createChatSession({ kind: "free" });
+      const sameMs = "2026-01-01T00:00:00.000Z";
+
+      for (let i = 0; i < 40; i++) {
+        db.insert(chatMessages)
+          .values([
+            { id: `chm_zzz_user_${i}`, sessionId: session.id, role: "user", content: `q${i}`, meta: null, createdAt: sameMs },
+            { id: `chm_aaa_asst_${i}`, sessionId: session.id, role: "assistant", content: `a${i}`, meta: null, createdAt: sameMs },
+          ])
+          .run();
+      }
+
+      const ordered = listChatMessages(session.id);
+      expect(ordered.at(-1)!.role).toBe("assistant");
+      expect(ordered.map((m) => m.content).slice(0, 4)).toEqual(["q0", "a0", "q1", "a1"]);
     });
 
     it("archived sessions refuse turns", async () => {

@@ -452,12 +452,28 @@ pressure toward giving that project a git remote, which is the real fix.
 phase.** Combining the database swap with multi-tenancy makes every failure ambiguous and removes
 every rollback point.
 
-**Phase 6-pre — focused frontend pass.** Capture existing owner feedback as intake items under the
-established `docs/intake/` convention and fix the surfaces with real complaints. Scoped to existing
-pages; not a comprehensive redesign. The UI layer is the least affected by this migration — Vite,
-React, TanStack Router, shadcn and the token set are all unchanged — so this work survives it nearly
-intact. It precedes 6a because 6a is the longest stretch in which success means nothing looks
-different.
+**Phase 6-pre — full frontend redesign.** *(Scope revised by the owner 2026-07-27. This previously
+read "focused frontend pass … not a comprehensive redesign", scoped to fixing surfaces with real
+complaints captured as `docs/intake/` items. Both premises are gone: `docs/intake/` is retired, and
+the pass is now a deliberate, design-led redesign rather than a complaint-driven patch.)*
+
+The reason for the change is a finding, not a preference. The UI adopted the shadcn/ui *look*
+without the shadcn/ui *components* — there was no shadcn MCP or CLI wired at the time, so the
+primitive layer was hand-approximated while attention went to the backend. Sparstrowgen ships **18
+primitives**; Multica, on the same design system, ships **60 plus 12 shared common components**.
+The gap is not cosmetic: there is no `empty`, no `alert`, no toast, and no form/field primitive, so
+the Definition of Done's "all four states, always" cannot actually be satisfied on any surface —
+the components it presumes do not exist.
+
+Scope: all 24 pages under `packages/ui/src/routes/pages/`, on real shadcn primitives sourced through
+the shadcn MCP per `CLAUDE.md`'s Frontend & design contract, held to production-grade UI/UX —
+user-friendly, no AI slop, deliberate hierarchy, spacing, overflow and motion. Multica's frontend is
+a reference to mine for patterns worth adopting, on the same parts-donor terms as everywhere else:
+adopt the conclusion, never the Next.js shell.
+
+It still precedes 6a, and now for a second reason as well as the original one — 6a is the longest
+stretch in which success means nothing looks different, and redesigning on top of a migrating data
+layer would confuse two unrelated classes of failure.
 
 | Phase | Ships | True on completion | Effort |
 | --- | --- | --- | --- |
