@@ -1,5 +1,12 @@
 # Intake
 
+> [!WARNING]
+> **RETIRED — takes no new entries.** The Listener/Curator capture flow was replaced by the
+> superpowers methodology; see `CLAUDE.md`, Part II. New work starts with `brainstorming` and lands
+> a spec in [`../specs/`](../specs/) and a plan in [`../plans/`](../plans/). This directory is kept
+> as history. Anything still open here is **revived as a fresh spec** under `docs/specs/` when its
+> time comes — don't resume it in place.
+
 The single pool for everything you bring to the factory — captured by the
 [Listener](../workflows/agents/listener.md), one item per thing, in one unified format,
 regardless of category. **The front is unified; the back diverges** — each category then

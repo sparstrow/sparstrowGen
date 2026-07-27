@@ -1,11 +1,18 @@
-# DEFERRED_SCOPE — parked with context (the freezer)
+# Legacy freezer — parked with context (2026-07-02 → 2026-07-15)
 
-The durable record of scope intentionally **not** built now. Governed by
-[`docs/workflows/deferred-scope.md`](docs/workflows/deferred-scope.md). Two feeders: a human
-dream/future plan (via the Listener), or an agent cutting scope mid-work — the **"no silent
-scope-drop" rule**: whenever you defer, cut, or say "later / out of scope," log it here at that
-moment. Nothing here is a promise to build; it's a waiting room. When an item's time comes it is
-**revived** into `docs/intake/` as a fresh capture and runs the normal review → build flow.
+> [!NOTE]
+> **Historical ledger, kept whole.** This was the root `DEFERRED_SCOPE.md`. New deferrals get their
+> own file in [`.`](./) — see [README](./README.md) and `CLAUDE.md`, Part II. Still authoritative
+> for what it records: read it before assuming something is unrecorded.
+>
+> Two caveats. Links into `docs/workflows/` point at files **deleted on 2026-07-26** (recoverable
+> from git). And the **Curator pitfall-attribution** entry immediately below is **void** — the
+> Curator was retired with the Listener/Curator flow, so there is no agent left to give the
+> capability to.
+
+The durable record of scope intentionally **not** built now. Nothing here is a promise to build;
+it's a waiting room. When an item's time comes it is **revived as a fresh spec** in `docs/specs/`
+and runs the normal spec → plan → build flow.
 
 **Entry format** (newer entries; the grouped lists below predate it and are kept as-is):
 
