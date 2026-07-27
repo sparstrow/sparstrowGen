@@ -1,4 +1,4 @@
-import { and, desc, eq, type SQL } from "drizzle-orm";
+import { and, desc, eq, sql, type SQL } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
   executionModeForProvider,
@@ -133,7 +133,11 @@ export function listChatMessages(sessionId: string): ChatMessage[] {
     .select()
     .from(chatMessages)
     .where(eq(chatMessages.sessionId, sessionId))
-    .orderBy(chatMessages.createdAt, chatMessages.id)
+    // `id` is a random nanoid, so it is a coin flip as a tiebreaker — and
+    // createdAt is millisecond-resolution, so a turn that completes inside one
+    // millisecond ties. A losing flip puts the user message last and the next
+    // postChatTurn 409s. rowid is monotonic in insertion order.
+    .orderBy(chatMessages.createdAt, sql`${chatMessages}.rowid`)
     .all();
   return rows.map(rowToMessage);
 }
