@@ -1,9 +1,10 @@
 # Reference
 
 Historical and point-in-time material — nothing here is a live plan. If you're looking for
-what's actually being worked on, see [`docs/workflows/`](../workflows/) (process) or
-[`docs/planned/`](../planned/) (open, unbuilt plans). For what's shipped, `.design-src/APP.md`
-is the single source of truth.
+what's actually being worked on, see [`docs/specs/`](../specs/) and [`docs/plans/`](../plans/)
+(current work) or [`docs/planned/`](../planned/) (architecture specs predating that flow). The
+build process itself is `CLAUDE.md`, Part II. For what's shipped, `.design-src/APP.md` is the
+single source of truth.
 
 ```
 audits/           point-in-time reports (design, security, architecture) — findings from

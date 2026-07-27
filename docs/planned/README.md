@@ -1,8 +1,9 @@
 # Planned
 
-Real, unbuilt plans — future scope the factory intends to act on, not yet scheduled through
-the build loop. Distinct from [`docs/reference/`](../reference/) (historical, done or
-abandoned) and [`docs/workflows/`](../workflows/) (how we work, not what we're building).
+Architecture specs that predate the superpowers flow — future scope the factory intends to act on.
+Distinct from [`docs/reference/`](../reference/) (historical, done or abandoned) and
+[`docs/deferred/`](../deferred/) (parked, with a revival trigger).
 
-When a plan here is scheduled, it becomes a row in `.design-src/APP.md`; once merged, the plan
-moves to `docs/reference/shipped-plans/`.
+**New work does not land here.** Designs go to [`docs/specs/`](../specs/) and implementation plans
+to [`docs/plans/`](../plans/) — see `CLAUDE.md`, Part II. This directory keeps the specs written
+before that change, `phase6-hosted-foundation.md` above all.

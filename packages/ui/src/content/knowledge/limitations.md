@@ -39,6 +39,7 @@ marked otherwise.
 
 ## Where the list is maintained
 
-Deliberate scope deferrals live in the repo's `DEFERRED_SCOPE.md` with reasons and
-review dates. When a limitation here is lifted, this page is updated in the same PR —
-see [How these docs stay current](/knowledge/how-docs-stay-current).
+Deliberate scope deferrals live in the repo's `docs/deferred/` — one file per item,
+each with the reason it was deferred and the condition that should bring it back.
+When a limitation here is lifted, this page is updated in the same PR — see
+[How these docs stay current](/knowledge/how-docs-stay-current).
