@@ -56,6 +56,13 @@ export function getDb(): Db {
   return dbInstance;
 }
 
+/** Async child-process handlers can outlive the database (shutdown, or a test
+ *  tearing down while a child is still exiting). Check before touching getDb()
+ *  on those paths — throwing there escapes as an uncaught exception. */
+export function isDbOpen(): boolean {
+  return dbInstance !== null;
+}
+
 export function getSqlite(): Database.Database {
   if (!sqliteInstance) throw new Error("DB not opened yet — call openDb() first");
   return sqliteInstance;
