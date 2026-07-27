@@ -350,13 +350,43 @@ that owns the logic:
 | Server behaviour — orchestrator, providers, memory, api | `packages/core/src/**/*.test.ts` |
 | Policy resolution, schemas, shared pure logic | `packages/shared/src/*.test.ts` |
 | Every schema migration | `packages/core/src/db/migration-<nnnn>.test.ts` |
+| UI logic — render predicates, formatting, state rules | `packages/ui/src/**/*.test.ts` |
+
+**The iron law covers the frontend.** "It's UI" is not an exception — it never was, but the table
+had no UI row and `packages/ui` had no harness, which made the rule unenforceable in practice. Both
+are fixed: vitest runs in `packages/ui` and `pnpm test` picks it up.
+
+Frontend TDD works best by keeping the decision separate from the markup. Extract the rule into a
+pure function under `packages/ui/src/lib/` and test that — no DOM, no harness ceremony, and the
+component keeps only the rendering. `lib/chat-pending.ts` is the worked example: the "should the
+optimistic bubble show" rule is five lines and five tests, while `chat.tsx` just calls it. Reach for
+a component-rendering harness only when the behaviour genuinely lives in the markup.
 
 - Logic that lives in `shared` is tested in `shared` — never re-tested through a `core` caller as a
   substitute for its own test.
 - **Every migration gets its own numbered test.** The existing `migration-0004`…`0013` series is the
   pattern; the Phase 6 tenancy and RLS migrations continue it.
 - Tests must never execute the owner's real agent CLIs or consume real quota. Pass a test-created
-  fake or missing executable path to agent subprocess code.
+  fake or missing executable path to agent subprocess code. *Debugging* may invoke a real CLI when
+  there is no other way to learn its contract — that is how intake 0009 was found — but it is a
+  deliberate, narrated step, never something a test does on its own.
+
+### What CI actually enforces
+
+Know the difference between what the gate asks of you and what a machine checks:
+
+| Check | `staging` | `main` |
+| --- | --- | --- |
+| `typecheck` | on push + PR | on push + PR — **required** |
+| `test` | on push + PR | on push + PR — not yet required |
+| `author-check` | — | PR — **required** |
+
+**Everything else in the Definition of Done is yours to run.** The real-artifact usability test, the
+design bar, Knowledge Center currency, and the architecture contract have no automation behind them
+and never will. Do not read a green PR as a passed gate.
+
+Wiring `test` as a required check on `main` is the owner's one-time ruleset change, once the job has
+proven green on `staging`.
 
 ## Git flow
 
