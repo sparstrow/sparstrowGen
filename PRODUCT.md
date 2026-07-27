@@ -5,17 +5,23 @@
 
 ## Product purpose
 
-Sparstrowgen is a local-first, single-user **agent factory**: a Fastify core that spawns and
+Sparstrowgen is a local-first **agent factory**: a Fastify core that spawns and
 supervises CLI coding agents (Claude Code, Antigravity) over projects on the owner's machine,
 with persistent memory, task/goal orchestration, pipelines, and a React control-room UI.
 The UI is the cockpit the owner lives in while agents do the work.
 
 ## Users
 
-Exactly one: the owner-operator. A senior developer running the factory on a Windows desktop,
-usually alongside an IDE, during long day-and-evening sessions. Fluent in Claude Code desktop,
-Linear-class tools, and terminals. Zero tolerance for toy-looking UI; instantly notices
-off-spacing and mismatched controls.
+**Today: exactly one** — the owner-operator. A senior developer running the factory on a Windows
+desktop, usually alongside an IDE, during long day-and-evening sessions. Fluent in Claude Code
+desktop, Linear-class tools, and terminals. Zero tolerance for toy-looking UI; instantly notices
+off-spacing and mismatched controls. **He remains the design bar** — every surface is built to
+satisfy him first.
+
+**After Phase 6** (`docs/planned/phase6-hosted-foundation.md`): workspace members on their own
+local daemons, then non-developer sales and marketing staff on cloud runtimes. Staff are not
+developers — they will never install Electron or authenticate an agent CLI, so any surface they
+touch has to hold up without a terminal beside it.
 
 ## Register
 

@@ -38,6 +38,6 @@ by path. Richer diagram rendering (e.g. Mermaid) is a known future enhancement.
 
 ## Spotted something wrong?
 
-If an article disagrees with the app, that's a bug worth capturing — file it through
-the factory's intake (the Listener) like any other feedback, and the fix will land
-here through the same PR discipline.
+If an article disagrees with the app, that's a bug worth reporting like any other.
+It gets designed and planned like any other change, and the fix lands here through
+the same PR discipline.
