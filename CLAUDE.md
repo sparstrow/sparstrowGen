@@ -13,8 +13,8 @@ plan. `AGENTS.md` points here; never maintain divergent build rules anywhere els
 
 The file has two halves. **Part I — the code contract** (shape, stack, frontend, Phase 6
 invariants) is what the codebase is. **Part II — the build contract** (the superpowers loop, the
-skill gate, TDD, the Definition of Done, git flow, conduct) is how work moves. A change must satisfy
-both; green tests only satisfy the second.
+skill gate, **how to ask the owner a question**, TDD, the Definition of Done, git flow, conduct) is
+how work moves. A change must satisfy both; green tests only satisfy the second.
 
 **The build methodology is the superpowers plugin, with two standing house rules:** every skill
 invocation is asked for first (never auto-invoked), and TDD is the iron law.
@@ -254,6 +254,9 @@ violating this file. The single exception is `using-superpowers`, which loads at
 Asking is not a licence to skip the work. If the owner defers or declines a skill, say plainly what
 that costs — no spec, no plan, no red test — and proceed under that stated choice.
 
+**How to ask is governed separately.** The skill gate says *when* to ask; the decision brief below
+says *how*. A skill-gate question is a technical question and carries the full brief like any other.
+
 ### The skills
 
 The loop above is the order they run in. Reach for them off-sequence when the trigger fires:
@@ -281,6 +284,87 @@ for all frontend work**, per the design contract in Part I.
 `/listener`, `/curator` and `/pipeline-suggester` skills and their `docs/workflows/` specs were
 **deleted** on 2026-07-26 — not dormant, gone. Recover from git if ever needed. Memory Archivist and
 Pipeline Suggester survive as *product* ideas in `docs/deferred/`, not as build steps.
+
+## Asking the owner — the decision brief
+
+### The owner's knowledge profile — assume this, always
+
+The owner directs this product and writes its requirements, but is **not** an infrastructure or
+release engineer, and is learning those domains *while* Sparstrowgen is being built.
+
+**Solid ground:** application development, running things on localhost, Git and GitHub for source
+control.
+
+**Not solid ground — explain from first principles, every time, however basic it feels:** CI/CD and
+what actually triggers a pipeline; release engineering (tags, versioning, artifacts, signing,
+channels); desktop distribution and auto-update; production-grade and zero-downtime deployment;
+database administration, migrations, backups and rollback; hosting, networking and infrastructure;
+operational multi-tenancy. Phase 6 is *entirely* inside this list.
+
+**The consequence that matters, and it is not optional to handle:** when a question arrives in
+unfamiliar vocabulary, the owner cannot evaluate it and will answer *"go with your recommendation"*
+to keep the work moving. **That is not consent to the technical choice — it is a signal that the
+question failed.** Treat it as feedback on the question, never as approval of the answer: re-ask in
+plain language with a scenario, or state the assumption you are proceeding under so it can be
+corrected later.
+
+The same applies to any answer that dodges the discrimination the question was asking for —
+selecting nearly every option, "both", "whatever you think". Stop, say plainly what that answer
+would imply, and re-frame.
+
+### Every technical question carries a decision brief
+
+No exceptions, including questions that feel small. A question without this is not ready to be
+asked.
+
+1. **What is actually being decided** — plain language, no jargon. Name the concrete thing that will
+   be different afterwards.
+2. **A scenario** — walk through what happens in the real app under each option. *"You click
+   Publish; within 30 minutes the app already open on your machine shows a banner"* beats *"the
+   updater polls the feed"*.
+3. **Pros** — per option.
+4. **Cons** — per option.
+5. **Blast radius** — if this choice is wrong: what breaks, who sees it, how far it spreads, how
+   long before anyone notices, and how it would be discovered. State plainly whether it is
+   reversible or a **one-way door**.
+6. **Caveats** — what is assumed, unverified, or uncertain. Anything not personally checked in this
+   session is named as unchecked.
+7. **A score out of 10** for each option, and what would make it a 10.
+8. **The recommendation** — one option, and the reasoning for it.
+
+Define every term of art inline, at first use. If an option cannot be explained without a term the
+profile above marks unfamiliar, then explaining that term **is part of the question**, not a
+prerequisite the owner is expected to bring.
+
+Never manufacture a choice. If one option is clearly correct, say so and proceed — asking is for
+genuine forks, and a fake fork spends the owner's attention for nothing.
+
+### Blind-spot duty
+
+The owner cannot ask about a risk they have never encountered. Surfacing those unprompted is the
+agent's job. **Silence here is not neutrality — it is a decision taken on the owner's behalf.**
+
+Real examples from this repo. Every one of them passes `typecheck` and `test`:
+
+- **The tag is not the version.** `electron-updater` compares the installed app against the version
+  inside `packages/desktop/package.json`, not the git tag. Tagging `v0.2.0` while that file says
+  `0.1.0` publishes a feed every client reads as "already up to date" — a release that appears to
+  succeed and ships nothing.
+- **A published release is not a released release.** `electron-builder` leaves the GitHub Release as
+  a **draft**, and `electron-updater` cannot see drafts. Without a human clicking Publish, a
+  perfectly good build reaches nobody.
+- **Silence is not health.** The updater suppressed check errors while idle, so a feed that had
+  *never once worked* looked identical to one with no new version. It failed every 30 minutes,
+  invisibly, for as long as the app had been installed.
+- **Squash is not always safe.** Squashing `staging` → `main` severs ancestry and makes every later
+  promotion conflict on every file. PR #53 did exactly this and the next promotion hit 10 phantom
+  conflicts. Squash is right for feature branches and wrong for permanent ones.
+- **Green is not verified.** Adding `@sparstrow/shared` to `packages/desktop` typechecks clean,
+  tests clean, and fails only at startup inside the packaged app — the worst failure mode available.
+
+When work touches anything on the unfamiliar list, also say what the **standard industry practice**
+is and why, not merely what this repo happens to do. The owner is calibrating against a field they
+have not worked in, and cannot tell a local convention from a universal one unless told.
 
 ## Test-driven development — the iron law
 
@@ -493,7 +577,12 @@ Build so the codebase reads as if one disciplined engineer wrote all of it.
 
 - **Think before coding.** State assumptions explicitly. If two readings of the request exist,
   present both — don't pick silently. If a simpler approach exists, say so; push back when
-  warranted. If something is unclear, stop and name what's confusing rather than guessing.
+  warranted. If something is unclear, stop and name what's confusing rather than guessing. When that
+  means putting a question to the owner, it carries the decision brief above.
+- **Explain, don't just execute.** The owner is learning these domains while the product is built,
+  so the reasoning is part of the deliverable, not a courtesy. Say what you did, why that way, and
+  what the alternative would have cost. A correct change the owner cannot evaluate leaves them less
+  able to direct the next one.
 - **Scope discipline.** Build only the plan's task list. No unrequested refactors, abstractions,
   "while I'm here" cleanups, speculative future-proofing, or configurability nobody asked for.
   Three similar lines beat a premature abstraction. Flag unrelated debt in the PR, don't fold it in.
