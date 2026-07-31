@@ -14,5 +14,8 @@
     "sourceMap": false,
     "types": ["node"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Tests are run by vitest, never compiled. Without this they land in dist/,
+  // and electron-builder ships dist/**/* into the packaged app.
+  "exclude": ["src/**/*.test.ts"]
 }

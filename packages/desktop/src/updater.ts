@@ -1,6 +1,7 @@
 import { ipcMain, type BrowserWindow } from "electron";
 import { autoUpdater, type UpdateInfo } from "electron-updater";
 import { coreFetch } from "./core-client";
+import { shouldSurfaceCheckError } from "./update-status";
 
 /**
  * 0004 Phase 2 — notify-only self-update. Never downloads, never installs,
@@ -33,6 +34,8 @@ export type UpdateStatus =
 
 let status: UpdateStatus = { state: "idle" };
 let availableVersion = "";
+let consecutiveFailures = 0;
+let everReachedFeed = false;
 let drainTimer: NodeJS.Timeout | null = null;
 let getWindow: () => BrowserWindow | null = () => null;
 
@@ -112,8 +115,17 @@ export function setupUpdater(windowGetter: () => BrowserWindow | null): void {
   autoUpdater.autoInstallOnAppQuit = false;
 
   autoUpdater.on("update-available", (info: UpdateInfo) => {
+    consecutiveFailures = 0;
+    everReachedFeed = true;
     availableVersion = info.version;
     setStatus({ state: "available", version: info.version });
+  });
+  // Reaching the feed and being told "nothing new" is the only other proof the
+  // release pipeline works. Without it, a feed that 404s forever is
+  // indistinguishable from one that has simply never had a new version.
+  autoUpdater.on("update-not-available", () => {
+    consecutiveFailures = 0;
+    everReachedFeed = true;
   });
   autoUpdater.on("download-progress", (p) => {
     setStatus({ state: "downloading", version: availableVersion, percent: Math.round(p.percent) });
@@ -123,10 +135,17 @@ export function setupUpdater(windowGetter: () => BrowserWindow | null): void {
     setStatus({ state: "downloaded", version: info.version });
   });
   autoUpdater.on("error", (err) => {
-    // Check failures are routine offline; only surface if mid-flow.
-    if (status.state !== "idle" && status.state !== "available") {
-      setStatus({ state: "error", message: err.message });
+    consecutiveFailures += 1;
+    if (!shouldSurfaceCheckError({ state: status.state, consecutiveFailures, everReachedFeed })) {
+      return;
     }
+    setStatus({
+      state: "error",
+      message: everReachedFeed
+        ? err.message
+        : `Cannot reach the update feed (${consecutiveFailures} attempts). No release has been published, ` +
+          `or the app cannot see it. Updates will not arrive until this is fixed. Last error: ${err.message}`,
+    });
   });
 
   ipcMain.handle("sparstrow:update-status-get", () => status);

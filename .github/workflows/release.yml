@@ -5,6 +5,13 @@ name: Release
 # builds the self-contained NSIS installer and publishes it + latest.yml
 # (electron-updater's feed) to a GitHub Release; every always-on packaged app
 # then shows "Update available" and updates only on an explicit click.
+#
+# THE TAG NAME IS NOT THE VERSION. electron-updater compares the installed
+# app's version against the version inside latest.yml, which comes from
+# packages/desktop/package.json — not from the tag. Tagging v0.2.0 while that
+# file still says 0.1.0 publishes a feed advertising 0.1.0, which every client
+# reads as "already up to date". The release then looks successful and ships
+# nothing. Bump the file and tag the commit that contains the bump.
 
 on:
   push:
@@ -15,8 +22,31 @@ permissions:
   contents: write # create the release + upload installer assets
 
 jobs:
+  # A tag trigger cannot be filtered by branch — `on.push.tags` fires for a v*
+  # tag pushed anywhere, including staging or a feature branch. CLAUDE.md's
+  # contract is "CI ships on MAIN tags", so the branch check has to happen here.
+  # Cheap, and it fails the release before any build work.
+  guard:
+    name: tag must be on main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need main's history to test ancestry
+      - name: Verify the tagged commit is on main
+        shell: bash
+        run: |
+          git fetch origin main --quiet
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
+            echo "::error::Tag ${GITHUB_REF_NAME} points at ${GITHUB_SHA}, which is not on origin/main."
+            echo "Releases ship from main only. Promote staging -> main first, then tag that commit."
+            exit 1
+          fi
+          echo "OK: ${GITHUB_SHA} is on main."
+
   release:
     name: build & publish installer
+    needs: guard
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
