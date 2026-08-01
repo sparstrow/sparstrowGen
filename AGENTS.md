@@ -35,9 +35,7 @@ CLI, Cursor, Copilot CLI, Droid, OpenCode). Then, in this repo:
    generated code, docs-only) need the owner's say-so.
 
 Specs go to `docs/specs/`, plans to `docs/plans/` — this overrides the plugin's
-`docs/superpowers/…` defaults. The old Listener/Curator capture flow is **retired** and its pool is
-archived at `docs/archive/intake/`; don't write there. Nothing under `docs/archive/` is on the
-read-path — don't read it for current state either.
+`docs/superpowers/…` defaults.
 
 ## Non-negotiables (the safety net — full contract in `CLAUDE.md`)
 
@@ -67,3 +65,13 @@ read-path — don't read it for current state either.
   a build (SQLite locks). Start from a clean working tree.
 - **Branch hygiene:** delete your local branch once its upstream shows `[gone]`; never delete a
   branch checked out in another worktree.
+
+---
+
+## Archived history — `docs/archive/`
+
+Finished and superseded material. **It is not on the read-path, and no active work should need it.**
+No method or workflow in it is to be followed — all of them are replaced by the rules above.
+
+Open it only to **investigate**: why or how a feature shipped, or the root cause of behaviour that
+exists today. Evidence of the past, never guidance for the present.

@@ -34,8 +34,11 @@ declares itself its successor as the live backlog. Nothing in it is waiting on a
 
 ## Constraints
 
-- **`CLAUDE.md` Part I is the contract.** The read-path section names `docs/planned/` and the
-  do-not-read list explicitly, so it is amended in this same change.
+- **`CLAUDE.md` and `AGENTS.md` carry a pointer, not a description.** Both are amended in this same
+  change, but the archive gets **one short section at the end of each file** and no mention anywhere
+  in an active workflow section. The contracts state three things — it is off the read-path, no
+  method in it may be followed, and it is for investigation only — and nothing more. Detail about
+  what the archive contains belongs in `docs/archive/README.md`, not in the build contract.
 - **No live scope may be frozen.** Three files in `docs/planned/` look archivable and are not.
 - **No pointer may be left dangling** — including comments inside source files.
 - Docs-only: no production logic changes, so the TDD iron law's docs exception applies. The 6

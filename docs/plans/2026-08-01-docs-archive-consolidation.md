@@ -78,14 +78,33 @@ Rewrite `fable-handoff/…` → `docs/archive/fable-handoff/…`:
       — `CLAUDE.md` says do not read it
 - [x] Say plainly that the whole directory is off the read-path
 
-## Task 7 — `CLAUDE.md` read-path (same PR, per the non-negotiable)
+## Task 7 — `CLAUDE.md` and `AGENTS.md` (same PR, per the non-negotiable)
 
-Line numbers are `origin/staging`'s, confirmed in the worktree:
+- [x] `docs/planned/` bullet: note that everything left in it is live, and flag
+      `verification-agent-gym-app.md` as the one that reads like history and is not
+- [x] Remove every archive reference from the read-path and from all active workflow sections
+- [x] Add a single closing **Archived history** section to both files
 
-- [x] **Line 36** — `docs/planned/` description: note the two superseded plans moved out
-- [x] **Line 43** — the `docs/intake/` retired-history paragraph → `docs/archive/intake/`
-- [x] **Lines 48–50** — the "Do NOT read these" list → new paths, plus a sentence that
-      `docs/archive/` as a whole is off the read-path
+**Revised after owner feedback, 2026-08-01.** The first pass put a detailed "Do NOT read these"
+block *inside* the read-path section, enumerating `intake/`, `design-src/`, `fable-handoff/` and the
+names-preserved rule. The owner's direction: the contracts should carry only a brief pointer, at the
+**end** of each file, and no active workflow section should reference the archive at all.
+
+So both files now say the same three things and nothing more:
+
+1. `docs/archive/` is finished and superseded material.
+2. It is off the read-path, and **no method or workflow in it may be followed** — all replaced.
+3. Open it for **investigation only** — why or how something shipped, or the root cause of current
+   behaviour. Evidence of the past, never guidance for the present.
+
+Removed as part of this: the archive block in the read-path, `(intake 0006)` from the
+`docs/planned/` bullet, "It replaces the old Listener/Curator capture flow; that flow and its
+`docs/intake/` are retired" from the superpowers loop section, the `docs/workflows/` paragraph, and
+`intake 0009` from the testing section (now named as "the `agy` canned-reply bug"). `AGENTS.md`'s
+archive sentences came out of its specs/plans paragraph.
+
+The detail that was cut still exists in full in `docs/archive/README.md`, which is the right home
+for it — the archive documents itself; the contracts do not.
 
 `.specify/memory/constitution.md` needs no amendment — verified it contains zero path references,
 so no rule stated there changes.

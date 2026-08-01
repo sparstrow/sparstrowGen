@@ -36,31 +36,14 @@ this repo has specific ones. Follow the skill for everything this file doesn't s
 - **`docs/planned/`** — architecture specs that predate the superpowers flow. Everything left in it
   is live. `phase6-hosted-foundation.md` is the **active architecture**;
   `multi-tenancy-access-architecture.md` is its vision parent — *considered, never built from*;
-  `verification-agent-gym-app.md` is an approved design **still waiting on a plan** (intake 0006) —
-  it reads like history and is not.
+  `verification-agent-gym-app.md` is an approved design **still waiting on a plan** — it reads like
+  history and is not.
 - **`docs/deferred/`** — the freezer; one file per deferred item. **Every deferral is written here,
   at the moment it is made** — see the no-silent-scope-drop rule in Part II.
 - **`packages/ui/src/content/knowledge/`** — the shipped in-app Knowledge Center.
 
-`docs/workflows/` and the root `DEFERRED_SCOPE.md` are gone — the freezer moved to
-`docs/deferred/`, and the retired agent specs are recoverable from git.
-
-### Do NOT read these (frozen history — off the read-path)
-
-**`docs/archive/` in its entirety.** One directory, and the name is the rule: nothing inside it is
-current, nothing inside it gets updated, and reading it wastes tokens on finished work. It holds
-`audits/`, `shipped-plans/`, `superseded/`, plus:
-
-- **`intake/`** — the retired Listener/Curator capture pool, replaced by superpowers. Takes no new
-  entries. All seven of its open captures were triaged into
-  `docs/specs/2026-07-27-intake-backlog-triage-and-sequencing.md`, which is its successor as the
-  live backlog. Reviving an item means a fresh spec, never resuming it in place.
-- **`design-src/`** and **`fable-handoff/`** — the page-by-page design era and the P1–P10 engine
-  work, all shipped and banner-frozen. These were at the repo root until 2026-08-01.
-
-Archived documents keep their **basename**; only the parent directory changed. A stale pointer to
-`ENGINEERING_PLAN.md` or `APP.md` anywhere in the repo still resolves by grep — so if you find one,
-you have not found live work.
+Everything above is the read-path. Anything not listed there is not authoritative — see
+**Archived history** at the end of this file.
 
 ## Project shape
 
@@ -206,8 +189,7 @@ policy to declare, while our daemons hold keys, credentials, and private checkou
 
 ## The loop — superpowers
 
-The build methodology is the **superpowers** plugin. It replaces the old Listener/Curator capture
-flow; that flow and its `docs/intake/` are retired.
+The build methodology is the **superpowers** plugin.
 
 `WORKTREE → BRAINSTORM → SPEC → (review) → PLAN → TDD BUILD → REVIEW → VERIFY → FINISH → PROMOTE`
 
@@ -471,8 +453,8 @@ a component-rendering harness only when the behaviour genuinely lives in the mar
   pattern; the Phase 6 tenancy and RLS migrations continue it.
 - Tests must never execute the owner's real agent CLIs or consume real quota. Pass a test-created
   fake or missing executable path to agent subprocess code. *Debugging* may invoke a real CLI when
-  there is no other way to learn its contract — that is how intake 0009 was found — but it is a
-  deliberate, narrated step, never something a test does on its own.
+  there is no other way to learn its contract — that is how the `agy` canned-reply bug was found —
+  but it is a deliberate, narrated step, never something a test does on its own.
 
 ### What CI actually enforces
 
@@ -632,5 +614,20 @@ Build so the codebase reads as if one disciplined engineer wrote all of it.
 - **`main` is branch-protected** — PR + 1 approval + `typecheck` + `author-check`, squash-only, no
   force-push. You cannot and must not merge it.
 - **This file stays current.** When a change alters a rule here — a boundary moves, a stack decision
-  changes, a Phase 6 invariant is superseded — update `CLAUDE.md` in the same PR. The frozen design
+  changes, a Phase 6 invariant is superseded — update `CLAUDE.md` in the same PR. The archived design
   docs rotted because nobody did; don't repeat it.
+
+---
+
+## Archived history — `docs/archive/`
+
+Finished and superseded material: earlier architecture, plans that shipped, point-in-time audits,
+and the capture flow that preceded superpowers.
+
+**It is not on the read-path, and no active work should ever need it.** Nothing in it is a current
+instruction — do not adopt any method, workflow, or convention found there. Every one of them has
+been replaced by the contracts above.
+
+Open it for one purpose: **investigation.** Tracing why or how a feature shipped, or finding the
+root cause of behaviour that exists today. Read it as evidence of what happened, never as guidance
+for what to do.
