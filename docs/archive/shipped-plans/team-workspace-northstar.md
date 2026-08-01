@@ -1,5 +1,5 @@
 > **Reference — shipped.** This north-star was fully realized as **P10 — Team Workspace**
-> (6 parts, all merged) — see `.design-src/APP.md`'s Engine Phases table for the authoritative
+> (6 parts, all merged) — see `../design-src/APP.md`'s Engine Phases table for the authoritative
 > merged record. Kept for historical vision detail only.
 
 # North-star: Sparstrowgen Team Workspace / Automation Builder
@@ -9,7 +9,7 @@ Founder: Sri Hari
 Repo: C:\Sparstrow\Sparstrowgen
 Status: CAPTURED (vision locked, NOT yet designed) — needs its own /office-hours + /plan-ceo-review
 Companion docs: `Sparstrowgen-reframe-and-finish-plan.md`, `Sparstrow-design-handoff-workflow.md`,
-`Sparstrowgen/.design-src/agents/SPEC.md` (Pass 2 lock that spawned this)
+`docs/archive/design-src/agents/SPEC.md` (Pass 2 lock that spawned this)
 
 ---
 

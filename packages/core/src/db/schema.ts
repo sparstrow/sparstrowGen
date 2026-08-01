@@ -539,7 +539,7 @@ export const teamMembers = sqliteTable(
  * P3 agent instances (locked D5): (template, project) deployments, created lazily
  * on the first run of a template inside a project. `agent:self` memory resolves to
  * the instance; busy-tracking keys on it (P3-Q5). Templates stay the org-level
- * identity everywhere else — see fable-handoff/P3-SEAM-TABLE.md.
+ * identity everywhere else — see docs/archive/fable-handoff/P3-SEAM-TABLE.md.
  */
 export const agentInstances = sqliteTable(
   "agent_instances",

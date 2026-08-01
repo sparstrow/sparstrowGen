@@ -33,23 +33,17 @@ this repo has specific ones. Follow the skill for everything this file doesn't s
 - **`docs/specs/`** — approved designs, one per topic (`YYYY-MM-DD-<topic>-design.md`).
   **`docs/plans/`** — implementation plans (`YYYY-MM-DD-<feature>.md`). Both are written by the
   superpowers skills; see Part II.
-- **`docs/planned/`** — architecture specs that predate the superpowers flow.
-  `phase6-hosted-foundation.md` is the **active architecture**;
-  `multi-tenancy-access-architecture.md` is its vision parent — *considered, never built from*.
+- **`docs/planned/`** — architecture specs that predate the superpowers flow. Everything left in it
+  is live. `phase6-hosted-foundation.md` is the **active architecture**;
+  `multi-tenancy-access-architecture.md` is its vision parent — *considered, never built from*;
+  `verification-agent-gym-app.md` is an approved design **still waiting on a plan** — it reads like
+  history and is not.
 - **`docs/deferred/`** — the freezer; one file per deferred item. **Every deferral is written here,
   at the moment it is made** — see the no-silent-scope-drop rule in Part II.
 - **`packages/ui/src/content/knowledge/`** — the shipped in-app Knowledge Center.
 
-`docs/intake/` is **retired history** — the Listener/Curator capture flow it served is replaced by
-superpowers. It takes no new entries; anything still open there is revived as a fresh spec under
-`docs/specs/` when its time comes. `docs/workflows/` and the root `DEFERRED_SCOPE.md` are gone —
-the freezer moved to `docs/deferred/`, and the retired agent specs are recoverable from git.
-
-### Do NOT read these (frozen history — off the read-path)
-
-- `.design-src/APP.md`, `fable-handoff/ENGINEERING_PLAN.md`, `.design-src/*/SPEC.md` — the
-  page-by-page and P1–P10 engine work, all shipped and banner-frozen. Never read them for current
-  state, never update them. Reading them wastes tokens on finished work.
+Everything above is the read-path. Anything not listed there is not authoritative — see
+**Archived history** at the end of this file.
 
 ## Project shape
 
@@ -195,8 +189,7 @@ policy to declare, while our daemons hold keys, credentials, and private checkou
 
 ## The loop — superpowers
 
-The build methodology is the **superpowers** plugin. It replaces the old Listener/Curator capture
-flow; that flow and its `docs/intake/` are retired.
+The build methodology is the **superpowers** plugin.
 
 `WORKTREE → BRAINSTORM → SPEC → (review) → PLAN → TDD BUILD → REVIEW → VERIFY → FINISH → PROMOTE`
 
@@ -460,8 +453,8 @@ a component-rendering harness only when the behaviour genuinely lives in the mar
   pattern; the Phase 6 tenancy and RLS migrations continue it.
 - Tests must never execute the owner's real agent CLIs or consume real quota. Pass a test-created
   fake or missing executable path to agent subprocess code. *Debugging* may invoke a real CLI when
-  there is no other way to learn its contract — that is how intake 0009 was found — but it is a
-  deliberate, narrated step, never something a test does on its own.
+  there is no other way to learn its contract — that is how the `agy` canned-reply bug was found —
+  but it is a deliberate, narrated step, never something a test does on its own.
 
 ### What CI actually enforces
 
@@ -621,5 +614,20 @@ Build so the codebase reads as if one disciplined engineer wrote all of it.
 - **`main` is branch-protected** — PR + 1 approval + `typecheck` + `author-check`, squash-only, no
   force-push. You cannot and must not merge it.
 - **This file stays current.** When a change alters a rule here — a boundary moves, a stack decision
-  changes, a Phase 6 invariant is superseded — update `CLAUDE.md` in the same PR. The frozen design
+  changes, a Phase 6 invariant is superseded — update `CLAUDE.md` in the same PR. The archived design
   docs rotted because nobody did; don't repeat it.
+
+---
+
+## Archived history — `docs/archive/`
+
+Finished and superseded material: earlier architecture, plans that shipped, point-in-time audits,
+and the capture flow that preceded superpowers.
+
+**It is not on the read-path, and no active work should ever need it.** Nothing in it is a current
+instruction — do not adopt any method, workflow, or convention found there. Every one of them has
+been replaced by the contracts above.
+
+Open it for one purpose: **investigation.** Tracing why or how a feature shipped, or finding the
+root cause of behaviour that exists today. Read it as evidence of what happened, never as guidance
+for what to do.

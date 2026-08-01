@@ -1,5 +1,5 @@
 > **Reference — shipped.** This plan's status line said "setup not yet executed," but git
-> automation actually shipped as **P7** (PR #19) — see `.design-src/APP.md`'s Engine Phases
+> automation actually shipped as **P7** (PR #19) — see `../design-src/APP.md`'s Engine Phases
 > table for the authoritative merged record. Kept for historical design detail only.
 
 # Design: Agent Git Automation & CI/CD
