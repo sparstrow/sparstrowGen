@@ -8,10 +8,10 @@ import type {
 
 /**
  * P6 DAG core — the engine the P6-Q0 head-to-head decided on (see
- * fable-handoff/P6-ENGINE-DECISION.md). Everything here is a PURE function
- * over plan data: validation (the deterministic replacement for the A*
- * solver), ready-set computation, derived node status (EM4), replan diffing,
- * and layout. No DB, no bus — the executor owns side effects.
+ * docs/archive/fable-handoff/P6-ENGINE-DECISION.md). Everything here is a
+ * PURE function over plan data: validation (the deterministic replacement
+ * for the A* solver), ready-set computation, derived node status (EM4),
+ * replan diffing, and layout. No DB, no bus — the executor owns side effects.
  */
 
 export interface RosterAgent {

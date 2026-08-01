@@ -1,7 +1,8 @@
 # PRODUCT.md — Sparstrowgen
 
-> Bootstrapped from repo evidence (CLAUDE.md, docs/intake/0001+0002 in the user's own words,
-> .design-src/APP.md) by an autonomous design session. Refine with `$impeccable teach` anytime.
+> Bootstrapped from repo evidence (CLAUDE.md, docs/archive/intake/done/0001+0002 in the user's own
+> words, docs/archive/design-src/APP.md) by an autonomous design session. Refine with
+> `$impeccable teach` anytime.
 
 ## Product purpose
 

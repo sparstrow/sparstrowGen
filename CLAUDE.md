@@ -33,23 +33,34 @@ this repo has specific ones. Follow the skill for everything this file doesn't s
 - **`docs/specs/`** — approved designs, one per topic (`YYYY-MM-DD-<topic>-design.md`).
   **`docs/plans/`** — implementation plans (`YYYY-MM-DD-<feature>.md`). Both are written by the
   superpowers skills; see Part II.
-- **`docs/planned/`** — architecture specs that predate the superpowers flow.
-  `phase6-hosted-foundation.md` is the **active architecture**;
-  `multi-tenancy-access-architecture.md` is its vision parent — *considered, never built from*.
+- **`docs/planned/`** — architecture specs that predate the superpowers flow. Everything left in it
+  is live. `phase6-hosted-foundation.md` is the **active architecture**;
+  `multi-tenancy-access-architecture.md` is its vision parent — *considered, never built from*;
+  `verification-agent-gym-app.md` is an approved design **still waiting on a plan** (intake 0006) —
+  it reads like history and is not.
 - **`docs/deferred/`** — the freezer; one file per deferred item. **Every deferral is written here,
   at the moment it is made** — see the no-silent-scope-drop rule in Part II.
 - **`packages/ui/src/content/knowledge/`** — the shipped in-app Knowledge Center.
 
-`docs/intake/` is **retired history** — the Listener/Curator capture flow it served is replaced by
-superpowers. It takes no new entries; anything still open there is revived as a fresh spec under
-`docs/specs/` when its time comes. `docs/workflows/` and the root `DEFERRED_SCOPE.md` are gone —
-the freezer moved to `docs/deferred/`, and the retired agent specs are recoverable from git.
+`docs/workflows/` and the root `DEFERRED_SCOPE.md` are gone — the freezer moved to
+`docs/deferred/`, and the retired agent specs are recoverable from git.
 
 ### Do NOT read these (frozen history — off the read-path)
 
-- `.design-src/APP.md`, `fable-handoff/ENGINEERING_PLAN.md`, `.design-src/*/SPEC.md` — the
-  page-by-page and P1–P10 engine work, all shipped and banner-frozen. Never read them for current
-  state, never update them. Reading them wastes tokens on finished work.
+**`docs/archive/` in its entirety.** One directory, and the name is the rule: nothing inside it is
+current, nothing inside it gets updated, and reading it wastes tokens on finished work. It holds
+`audits/`, `shipped-plans/`, `superseded/`, plus:
+
+- **`intake/`** — the retired Listener/Curator capture pool, replaced by superpowers. Takes no new
+  entries. All seven of its open captures were triaged into
+  `docs/specs/2026-07-27-intake-backlog-triage-and-sequencing.md`, which is its successor as the
+  live backlog. Reviving an item means a fresh spec, never resuming it in place.
+- **`design-src/`** and **`fable-handoff/`** — the page-by-page design era and the P1–P10 engine
+  work, all shipped and banner-frozen. These were at the repo root until 2026-08-01.
+
+Archived documents keep their **basename**; only the parent directory changed. A stale pointer to
+`ENGINEERING_PLAN.md` or `APP.md` anywhere in the repo still resolves by grep — so if you find one,
+you have not found live work.
 
 ## Project shape
 

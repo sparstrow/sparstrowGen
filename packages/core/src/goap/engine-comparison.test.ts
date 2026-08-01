@@ -4,11 +4,11 @@ import { isPushLike, readyActionIds, validatePlan, type NodeExecView } from "./d
 
 /**
  * P6-Q0 head-to-head harness — the executable half of
- * fable-handoff/P6-ENGINE-DECISION.md. Encodes BOTH candidate engines:
- * the shipped DAG core (imported) and a real A* GOAP solver (below, test-only
- * per the decision — no dead production code), and runs the decision doc's
- * three goals through each. Every `[harness]` claim in the doc is asserted
- * here; if a claim rots, this file fails.
+ * docs/archive/fable-handoff/P6-ENGINE-DECISION.md. Encodes BOTH candidate
+ * engines: the shipped DAG core (imported) and a real A* GOAP solver (below,
+ * test-only per the decision — no dead production code), and runs the decision
+ * doc's three goals through each. Every `[harness]` claim in the doc is
+ * asserted here; if a claim rots, this file fails.
  */
 
 // ---------------------------------------------------------------------------

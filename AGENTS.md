@@ -35,8 +35,9 @@ CLI, Cursor, Copilot CLI, Droid, OpenCode). Then, in this repo:
    generated code, docs-only) need the owner's say-so.
 
 Specs go to `docs/specs/`, plans to `docs/plans/` — this overrides the plugin's
-`docs/superpowers/…` defaults. The old Listener/Curator capture flow and `docs/intake/` are
-**retired**; don't write there.
+`docs/superpowers/…` defaults. The old Listener/Curator capture flow is **retired** and its pool is
+archived at `docs/archive/intake/`; don't write there. Nothing under `docs/archive/` is on the
+read-path — don't read it for current state either.
 
 ## Non-negotiables (the safety net — full contract in `CLAUDE.md`)
 

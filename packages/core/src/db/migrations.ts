@@ -415,8 +415,9 @@ ALTER TABLE agents ADD COLUMN signal_extraction INTEGER NOT NULL DEFAULT 1;
   },
   {
     // P6 goal engine — DDL shape decided by the P6-Q0 head-to-head (LLM-planned-
-    // DAG won; see fable-handoff/P6-ENGINE-DECISION.md). plan_edges is
-    // AUTHORITATIVE (not a render cache): recomputed only by plan writes.
+    // DAG won; see docs/archive/fable-handoff/P6-ENGINE-DECISION.md).
+    // plan_edges is AUTHORITATIVE (not a render cache): recomputed only by
+    // plan writes.
     // FK policy:
     // - goals.project_id/team_id: NO FK, code-enforced (tasks.project_id
     //   precedent) — a goal survives its project/team row.
