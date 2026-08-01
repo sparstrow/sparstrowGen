@@ -1,8 +1,32 @@
 # Project Delete — Trash / Restore / Permanent Delete
 
-> **Status: DRAFT (design captured 2026-07-08) — NOT yet reviewed or approved.**
-> Captured from a design conversation while mid-drive-move; build this from the D:
-> checkout. Good `/autoplan` candidate (schema change + destructive cascade + new UI
+- **source:** human-dream
+- **project:** factory
+- **size:** L
+- **date:** 2026-07-08
+- **links:** design captured in a `/autoplan` session; never reviewed, never planned, never built
+
+**What:** a two-stage delete for projects. Stage one moves the project's folder to a trash area and
+hides it from the active list, keeping memory and run/task/message history intact so it can be
+restored. Stage two permanently deletes folder, memory, history, and the database row behind a
+type-the-project-name confirmation. The full design is kept whole below.
+
+**Why deferred:** it was never approved. The design was captured mid-drive-move on 2026-07-08 and
+went straight into the freezer without a review — the doc's own banner said "NOT yet reviewed or
+approved". Verified 2026-08-01 that nothing shipped: no `deleted_at` column in `schema.ts`, no
+`deleted-projects` path, and no trash/restore code anywhere in `packages/`. It sat at the `docs/`
+root for four weeks as an unowned draft, which is why it moved here rather than into
+`docs/archive/` — the archive is for what was done or abandoned, and this is neither.
+
+**Revisit when:** a project is lost to the existing one-shot hard delete, or project count grows
+past the point where the UI's lack of any delete becomes the top complaint. Reviving it means a
+fresh spec in `docs/specs/`, not resuming this document in place — its four related deferrals
+(auto-purge, bulk delete, and the soft-delete primitive) were captured in the untracked root
+`TODOS.md` and are **not** in the repo, so re-derive them rather than assuming they are recorded.
+
+> **Historical banner, kept for the record.** Status: DRAFT (design captured 2026-07-08) — NOT yet
+> reviewed or approved. Captured from a design conversation while mid-drive-move; build this from
+> the D: checkout. Good `/autoplan` candidate (schema change + destructive cascade + new UI
 > surface), or build directly with the locked defaults below.
 
 ## Motivation

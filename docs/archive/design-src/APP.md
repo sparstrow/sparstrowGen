@@ -3,9 +3,12 @@
 > **📦 FROZEN — HISTORICAL RECORD (superseded 2026-07-14).**
 > This page-by-page build board drove the early UI work and the P1–P10 engine (all shipped).
 > It is **no longer the source of truth** and is **not** on any agent's read-path — do not read
-> it to decide what to build next, and do not spend time updating it. The live workflow,
-> git flow, and current work queue are defined in `CLAUDE.md` and `docs/intake/`. Kept only
-> as the historical record of the page-by-page era.
+> it to decide what to build next, and do not spend time updating it. The live workflow and
+> git flow are defined in `CLAUDE.md`; the current work queue is `docs/specs/` and
+> `docs/plans/`. Kept only as the historical record of the page-by-page era.
+>
+> *(Moved from the repo root to `docs/archive/design-src/` on 2026-08-01, and the work-queue
+> pointer corrected — it named `docs/intake/`, which was retired on 2026-07-26.)*
 
 ## What Sparstrowgen is
 
@@ -87,7 +90,7 @@ Big visions parked with a written doc; each needs its own `/office-hours` + `/pl
 
 *(Empty — the only north-star captured so far, Team Workspace / Automation Builder, was fully
 scheduled and shipped as **P10** (6 parts, all merged); see the Engine Phases table above. Its
-doc moved to [`docs/reference/shipped-plans/team-workspace-northstar.md`](../docs/reference/shipped-plans/team-workspace-northstar.md).)*
+doc moved to [`docs/archive/shipped-plans/team-workspace-northstar.md`](../shipped-plans/team-workspace-northstar.md).)*
 
 ---
 

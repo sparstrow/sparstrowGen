@@ -86,7 +86,7 @@ _This is a copy, not a move._
   point-in-time design audit and reading the code directly.
 - revisit when: nothing blocks it — worth doing before the next design-heavy review needs a
   real spec to calibrate against instead of inferring conventions from recent commits.
-- size: M   ·   date: 2026-07-11   ·   links: docs/reference/audits/2026-07-10-design-audit.md, TODOS.md
+- size: M   ·   date: 2026-07-11   ·   links: docs/archive/audits/2026-07-10-design-audit.md, TODOS.md (never committed — not in the repo)
 
 ### General-purpose soft-delete/auto-purge primitive
 - source: review-outcome

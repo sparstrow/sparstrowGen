@@ -21,7 +21,7 @@ ds-bundle/
 .design-sync/node_modules
 
 # Claude Design exports: keep export.html + SPEC.md, ignore regenerable decode output
-.design-src/**/decoded/
+docs/archive/design-src/**/decoded/
 
 # Visual brainstorming companion (superpowers)
 .superpowers/
