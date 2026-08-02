@@ -1,0 +1,1 @@
+- [2026-08-01 .claude/ audit](project_claude_dir_audit_2026-08-01.md) — gitignore fix unmerged, worktree drift hides agents/hooks from git, dup-branch worktrees, zero hooks configured
