@@ -11,8 +11,18 @@ release/
 coverage/
 
 # local tooling (not project code)
+# .claude/* hides the harness's own state — worktrees/, settings.local.json,
+# launch.json, *.lock. Everything re-admitted below is project code that every
+# agent and machine must see: agy reads only what is committed, so a hook or an
+# agent living solely in an ignored file does not exist for Antigravity.
 .claude/*
 !.claude/skills/
+!.claude/agents/
+!.claude/commands/
+!.claude/hooks/
+!.claude/rules/
+!.claude/agent-memory/
+!.claude/settings.json
 .gstack/
 .ds-sync/
 ds-bundle/
