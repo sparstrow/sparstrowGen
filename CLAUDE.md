@@ -479,13 +479,17 @@ proven green on `staging`.
 gate, merge to `staging`.
 
 - **`staging` = the agents' trunk.** Branch off fresh `origin/staging`, build, **pass the gate**,
-  then merge to `staging`. A green gate is what *permits* the merge to `staging` — it is not what
-  triggers it. `finishing-a-development-branch` still presents merge / PR / keep / discard and the
-  owner still chooses, consistent with the skill gate. Never merge on a green gate alone.
+  then land it. GitHub's `staging-protected` ruleset enforces this now: `staging` requires a pull
+  request (`required_approving_review_count: 0`) with `test` and `typecheck` as required status
+  checks, and blocks direct/force pushes outright. A green gate is what *permits* the merge — it is
+  no longer only a convention, GitHub itself refuses a red one. The PR needs zero human approvals,
+  so the agent that opens it also merges it: `gh pr create --base staging …` then
+  `gh pr merge --squash --auto` once checks pass. No owner action, no waiting.
 - **Never commit directly on a local `staging` (or `main`) checkout — no exceptions, including
   chat/doc-only sessions.** Every unit of work, whatever kind, gets its own branch off fresh
-  `origin/staging` first. The *only* commands run against a local `staging` checkout are the
-  squash-merge itself and the push that lands it — never an `Edit`/`Write` followed by a commit.
+  `origin/staging` first. Nothing is ever pushed straight to `staging` from a local checkout —
+  GitHub's ruleset rejects it — so there is no longer an exception for a landing push either: the
+  only way onto `staging` is a PR from the feature branch, squash-merged by GitHub itself.
 - **Branch-naming collision guard (multi-account safety).** With multiple accounts (agents)
   branching off `staging` concurrently, two agents picking the same generic name (`fix/bug`,
   `feat/update`) can collide on push. Always derive the branch name from something unique to the
@@ -497,9 +501,10 @@ gate, merge to `staging`.
   — the only human merge. `main` stays release-quality, so the always-on app never updates from
   unseen code. CI ships on `main` tags.
 - **Merge method differs by level, and the difference is load-bearing.**
-  - **Feature branch → `staging`: squash.** One clean commit per feature; agent working commits are
-    disposable scaffolding. Safe because the branch is deleted straight after — its orphaned
-    ancestry never matters again.
+  - **Feature branch → `staging`: squash, via a required PR.** One clean commit per feature; agent
+    working commits are disposable scaffolding. `staging-protected` sets `allowed_merge_methods:
+    [squash]`, so this is enforced by GitHub, not just convention. Safe because the branch is
+    deleted straight after — its orphaned ancestry never matters again.
   - **`staging` → `main`: a real merge commit. Never squash.** Squashing two *permanent* branches
     writes main a new commit holding staging's content with **no ancestry link to it**. The merge
     base stays frozen before the split, so the next promotion replays every staging commit against
@@ -541,9 +546,10 @@ Both git skills ship generic defaults that are wrong here. **This section wins o
 **`finishing-a-development-branch`:**
 - Its Step 3 probes `main`/`master` for the base branch. **The base is always `staging`.** Never
   offer, and never perform, anything that targets `main` — that merge is the owner's alone.
-- Option 1 "merge back locally" means **squash-merge to `staging`**, only after the full Definition
-  of Done is green. One clean commit per feature.
-- Option 2 "push and create a PR" means a PR **targeting `staging`**.
+- Staging lands only via **Option 2 "push and create a PR"**: PR **targeting `staging`**, opened
+  with `gh pr create --base staging`, full Definition of Done green, then
+  `gh pr merge --squash --auto`. Zero approvals are required, so the agent merges its own PR —
+  this is not an owner gate the way `staging` → `main` is.
 - Option 4 "discard" still requires the typed confirmation, and still may not delete `main`,
   `staging`, or a branch checked out in another worktree.
 - Its cleanup step must **never remove a `.claude/worktrees/` worktree** — the harness owns those.
@@ -551,7 +557,7 @@ Both git skills ship generic defaults that are wrong here. **This section wins o
 
 ## Parallelism
 
-`writing-plans` produces tasks, not the parallel-safe-tagged phases the old flow used. **When work
+`writing-plans` produces tasks. **When work
 is split across concurrent agents, the split happens at the spec level** — one spec, one plan, one
 worktree, one branch, one agent — and two specs may run concurrently **only when their file/module
 ownership is disjoint**, judged against the Project shape in Part I. Otherwise concurrent worktrees
