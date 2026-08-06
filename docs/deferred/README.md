@@ -5,11 +5,11 @@
 
 This is the **no silent scope-drop rule**: the moment you defer, cut, or say "later", "out of
 scope", "not now", or "a follow-up" — write the entry before moving on. A deferral that only exists
-in a chat message is a deferral that gets lost. See `CLAUDE.md`, Part II.
+in a chat message is a deferral that gets lost. See the constitution, Principle VII.
 
 Nothing here is a promise to build. It's a waiting room with reasons attached. When an item's time
-comes it is **revived as a fresh spec** in [`../specs/`](../specs/) and runs the normal
-spec → plan → build flow.
+comes it is **revived as a fresh spec** — `/speckit.specify` in a new `specs/<NNN>-<slug>/` — and
+runs the normal loop. Never resume a frozen entry in place; write the spec fresh.
 
 ## Entry format
 
