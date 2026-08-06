@@ -1,0 +1,3 @@
+- [2026-08-01 .claude/ audit](project_claude_dir_audit_2026-08-01.md) — gitignore fix (now merged via PR #63), worktree drift, dup-branch worktrees, zero hooks configured
+- [2026-08-01 stale worktree verdicts](stale_worktree_investigation_2026-08-01.md) — both charming-nightingale-2dc17f and supabase-vercel-deployment-a159aa safe to discard, work already landed
+- [Claude Code hook mechanics (reference)](claude_code_hook_mechanics.md) — verified vs. suspect claims about SessionStart/PreToolUse/cron, for grounding future hook recommendations
