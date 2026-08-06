@@ -3,14 +3,17 @@ name: CI
 # Factory CI: type-check and test the monorepo.
 #
 # Triggers cover BOTH permanent branches. `staging` is the agents' trunk and is
-# where every feature branch lands — it was previously untriggered, so nothing
-# mechanical checked the code agents merge. Agents squash-merge and push directly
-# to staging (no PR), so the `push` trigger is the one that matters there.
+# where every feature branch lands. Agents reach it only through a pull request —
+# the `staging-protected` ruleset blocks direct and force pushes — so the
+# `pull_request` trigger is the merge gate. The `push` trigger still matters: it
+# is the POST-MERGE run, and it is the only thing that catches two PRs that each
+# passed against an older `staging` and break in combination. Worktree cleanup
+# waits on it (see CLAUDE.md, The loop → Cleanup).
 #
-# `typecheck` and `test` are separate jobs on purpose. `typecheck` is a required
-# status check on main; `test` is new and deliberately NOT required yet, so a
-# native-module failure on ubuntu (better-sqlite3 / node-pty) cannot block main
-# before the job has proven itself green. Add `test` to main's ruleset once it has.
+# `typecheck` and `test` are separate jobs on purpose. Both are required status
+# checks on `staging`. On `main`, only `typecheck` is required — `test` is not,
+# so a native-module failure on ubuntu (better-sqlite3 / node-pty) cannot block a
+# promotion. Add `test` to main's ruleset once it has proven itself green there.
 
 on:
   pull_request:
