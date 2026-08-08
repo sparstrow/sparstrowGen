@@ -9,6 +9,7 @@ export * from "./schemas/agent-draft.js";
 export * from "./schemas/specter.js";
 export * from "./schemas/project.js";
 export * from "./schemas/project-directive.js";
+export * from "./schemas/host-fs.js";
 export * from "./schemas/git.js";
 export * from "./schemas/provider-api.js";
 export * from "./schemas/run.js";

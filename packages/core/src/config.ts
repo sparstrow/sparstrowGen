@@ -55,6 +55,20 @@ export interface AppConfig {
    *  derived at spawn so commits are attributable to a specific agent.
    *  Override with SPARSTROW_AGENT_EMAIL. */
   agentEmail: string;
+  /**
+   * 001 FR-022a — the registration gate for host filesystem browsing. Routes
+   * that enumerate the host's directories are registered ONLY when this is
+   * "local"; a hosted core has no such route to refuse, because enumerating
+   * the server's filesystem would cross a tenant boundary.
+   *
+   * This is an explicit declaration rather than an inference from the bind
+   * host: a hosted core behind a reverse proxy binds 127.0.0.1 and is reached
+   * from the internet, so "we bound loopback" does NOT mean "we are local".
+   * That is the same hole that makes the per-request loopback check (FR-022b)
+   * insufficient on its own — the two layers exist because either one alone
+   * fails behind a proxy.
+   */
+  deployment: "local" | "hosted";
 }
 
 /**
@@ -120,6 +134,7 @@ export function resolveConfig(): AppConfig {
     modelCacheDir: path.join(dataDir, "models"),
     apiToken: loadOrCreateToken(dataDir),
     agentEmail: process.env.SPARSTROW_AGENT_EMAIL ?? "agent@sparstrow.com",
+    deployment: process.env.SPARSTROW_DEPLOYMENT === "hosted" ? "hosted" : "local",
   };
 }
 
