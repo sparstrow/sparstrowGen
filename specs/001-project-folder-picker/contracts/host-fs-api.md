@@ -84,8 +84,14 @@ One directory level (FR-010 – FR-013).
 | Status | When |
 |---|---|
 | `400` | `path` is present but not absolute; or the target exists and is not a directory |
-| `403` | Caller is not loopback; or the OS denied access to the directory (`EACCES`/`EPERM`) |
+| `403` | Caller is not loopback (`error: "loopback callers only"`), **or** the OS denied access to the directory (`error` naming the directory). See the note below — these must be distinguishable. |
 | `404` | The path does not exist |
+
+**Two different `403`s.** A trust-boundary refusal and an ordinary locked folder share a status
+code but are not the same event: the first means the caller may not use this capability at all,
+the second means this one directory is not readable and navigation should continue. Their error
+bodies MUST differ, so the interface never shows security wording for a click on
+`C:\System Volume Information`.
 
 ---
 
