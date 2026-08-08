@@ -6,6 +6,7 @@ import {
   ArrowUp,
   ArrowUpDown,
   FolderGit2,
+  FolderOpen,
   FolderPlus,
   Github,
   MoreHorizontal,
@@ -45,6 +46,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useProjects, useProvisionProject } from "@/api/hooks";
+import { nativePickerAvailable, pickDirectoryNative } from "@/lib/directory-picker";
 import { formatDate } from "@/lib/format";
 import { pinKey, usePins } from "@/lib/pins";
 
@@ -80,6 +82,26 @@ export function ProjectsPage() {
   const [gitUrl, setGitUrl] = React.useState("");
   const [gitInit, setGitInit] = React.useState(false);
   const [isSandbox, setIsSandbox] = React.useState(false);
+  const [pickerError, setPickerError] = React.useState<string | null>(null);
+
+  // 001 FR-007/FR-008: the desktop shell gets the real Explorer dialog. Resolved
+  // once — the bridge is injected before the app loads and never appears later.
+  const nativePicker = React.useMemo(nativePickerAvailable, []);
+
+  // FR-003/FR-004: fill the field on a choice, leave it alone on cancel. A
+  // rejection means the shell could not open the dialog at all; say so and
+  // leave the owner typing, rather than failing silently.
+  const browseNative = async () => {
+    setPickerError(null);
+    try {
+      const picked = await pickDirectoryNative(rootDir.trim() || undefined);
+      if (picked) setRootDir(picked);
+    } catch (err) {
+      setPickerError(
+        `Could not open the folder picker: ${err instanceof Error ? err.message : String(err)}. Type the path instead.`,
+      );
+    }
+  };
 
   // Only base projects at the root; variants live under their base's Variants list.
   const roots = (projects.data ?? []).filter((p) => !p.parentProjectId);
@@ -118,6 +140,7 @@ export function ProjectsPage() {
     setRootDir("");
     setGitUrl("");
     setGitInit(false);
+    setPickerError(null);
     setIsSandbox(false);
     provision.reset();
     setOpen(true);
@@ -349,13 +372,25 @@ export function ProjectsPage() {
             )}
 
             <div className="space-y-1.5">
-              <Label>{mode === "clone" ? "Clone into (absolute path)" : "Root directory (absolute path)"}</Label>
-              <Input
-                value={rootDir}
-                onChange={(e) => setRootDir(e.target.value)}
-                placeholder={"C:\\Projects\\my-app"}
-                className="font-mono text-xs"
-              />
+              <Label htmlFor="project-root-dir">
+                {mode === "clone" ? "Clone into (absolute path)" : "Root directory (absolute path)"}
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="project-root-dir"
+                  value={rootDir}
+                  onChange={(e) => setRootDir(e.target.value)}
+                  placeholder={"C:\\Projects\\my-app"}
+                  className="font-mono text-xs"
+                />
+                {nativePicker && (
+                  <Button type="button" variant="outline" onClick={browseNative} className="shrink-0">
+                    <FolderOpen className="size-4" />
+                    Browse…
+                  </Button>
+                )}
+              </div>
+              {pickerError && <p className="text-xs text-destructive">{pickerError}</p>}
             </div>
 
             {mode === "scratch" && (

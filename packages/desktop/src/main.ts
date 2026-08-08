@@ -1,6 +1,7 @@
 import path from "node:path";
-import { BrowserWindow, app, type Tray } from "electron";
+import { BrowserWindow, app, ipcMain, type Tray } from "electron";
 import { ServiceManager, findRepoRoot } from "./service-manager";
+import { pickDirectory } from "./dialogs";
 import { applyPackagedEnv, ensureCoreNodeModules } from "./packaged-env";
 import { configureCoreClient } from "./core-client";
 import { setupUpdater } from "./updater";
@@ -40,6 +41,12 @@ if (!app.requestSingleInstanceLock()) {
     } catch (err) {
       console.error("[main] core failed to start:", err);
     }
+
+    // 001 US1: the native folder picker for the New project dialog. Registered
+    // once, alongside the update handlers, and always window-modal.
+    ipcMain.handle("sparstrow:pick-directory", (_e, defaultPath?: string) =>
+      pickDirectory(mainWindow, defaultPath),
+    );
 
     tray = createTray({ openWindow, quit: () => quitApp() });
     openWindow();

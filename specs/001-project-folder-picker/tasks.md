@@ -32,8 +32,8 @@ binding gate is the real-artifact verification that closes each phase.
 **Purpose**: Satisfy the mandatory frontend prerequisites before any component is written, and
 close the one gap planning left open.
 
-- [ ] T001 Invoke the `/shadcn` skill and the Shadcn UI MCP, read `DESIGN.md` for tokens and motion and `PRODUCT.md` for register, and confirm the primitive set named in research R8 (`dialog`, `button`, `input`, `scroll-area`, `breadcrumb`, `empty`, `skeleton`, `alert`, `separator`) is all already vendored under `packages/ui/src/components/ui/` — this is Principle V's obligation, not a preference
-- [ ] T002 [P] Retry `list_blocks` on the Shadcn UI MCP — it failed with a GitHub API error during planning — and record the outcome in `specs/001-project-folder-picker/research.md` under R8, either confirming or correcting the "no existing block covers this" claim
+- [X] T001 Invoke the `/shadcn` skill and the Shadcn UI MCP, read `DESIGN.md` for tokens and motion and `PRODUCT.md` for register, and confirm the primitive set named in research R8 (`dialog`, `button`, `input`, `scroll-area`, `breadcrumb`, `empty`, `skeleton`, `alert`, `separator`) is all already vendored under `packages/ui/src/components/ui/` — this is Principle V's obligation, not a preference
+- [X] T002 [P] Retry `list_blocks` on the Shadcn UI MCP — it failed with a GitHub API error during planning — and record the outcome in `specs/001-project-folder-picker/research.md` under R8, either confirming or correcting the "no existing block covers this" claim
 
 ---
 
@@ -43,9 +43,9 @@ close the one gap planning left open.
 
 **⚠️ No user story work can begin until this phase is complete.**
 
-- [ ] T003 Create `packages/ui/src/lib/directory-picker.ts` exporting `nativePickerAvailable()`, which returns true only when `window.sparstrowDesktop?.dialogs?.pickDirectory` is a function — probing the function itself, not the `sparstrowDesktop` object, so a shell predating this feature degrades instead of throwing (research R7)
-- [ ] T004 Create `packages/ui/src/lib/directory-picker.test.ts` covering `nativePickerAvailable()` for three cases: no `sparstrowDesktop` at all, `sparstrowDesktop` present without `dialogs` (the old-shell case), and the function present
-- [ ] T005 Add the **Browse…** button beside the root directory input in `packages/ui/src/routes/pages/projects.tsx` (the field at ~line 351, present in all three modes including the "Clone into" label), rendered only when a picker surface is available so it is absent rather than inert until US1/US2 land — keep the input editable and never disable it (FR-002)
+- [X] T003 Create `packages/ui/src/lib/directory-picker.ts` exporting `nativePickerAvailable()`, which returns true only when `window.sparstrowDesktop?.dialogs?.pickDirectory` is a function — probing the function itself, not the `sparstrowDesktop` object, so a shell predating this feature degrades instead of throwing (research R7)
+- [X] T004 Create `packages/ui/src/lib/directory-picker.test.ts` covering `nativePickerAvailable()` for three cases: no `sparstrowDesktop` at all, `sparstrowDesktop` present without `dialogs` (the old-shell case), and the function present
+- [X] T005 Add the **Browse…** button beside the root directory input in `packages/ui/src/routes/pages/projects.tsx` (the field at ~line 351, present in all three modes including the "Clone into" label), rendered only when a picker surface is available so it is absent rather than inert until US1/US2 land — keep the input editable and never disable it (FR-002)
 
 **Checkpoint**: The field has a button that correctly shows nothing yet, and the surface decision is tested.
 
@@ -61,10 +61,10 @@ absolute path lands in the field and a project provisions against it.
 
 **Depends on**: Phase 2. Needs nothing from US2 or US3 — no core endpoint is involved.
 
-- [ ] T006 [P] [US1] Create `packages/desktop/src/dialogs.ts` exporting `pickDirectory(win, defaultPath?)` that calls `dialog.showOpenDialog(win, { properties: ["openDirectory"], defaultPath })`, validates `defaultPath` is an absolute existing directory before passing it (omitting it otherwise, so a stale value never blocks the dialog), and returns `filePaths[0]` or `null` per [contracts/desktop-preload.md](./contracts/desktop-preload.md)
-- [ ] T007 [US1] Register the `sparstrow:pick-directory` `ipcMain.handle` in `packages/desktop/src/main.ts`, passing `mainWindow` so the dialog is window-modal, following the handler shape already used in `packages/desktop/src/updater.ts`
-- [ ] T008 [US1] Expose `dialogs.pickDirectory` on the `contextBridge` surface in `packages/desktop/src/preload.ts`, keeping it invoke-only and extending the existing comment to record this as the second deliberate exception to "HTTP/WS only" and why
-- [ ] T009 [US1] Wire the Browse… button in `packages/ui/src/routes/pages/projects.tsx` to the native picker when `nativePickerAvailable()`, writing the resolved path into the field and leaving it untouched on `null` (FR-003, FR-004), passing the field's current value as `defaultPath` (FR-005), and **handling a rejected promise** by surfacing the failure and leaving the field editable — the spec's "the packaged app fails to open the native dialog" edge case, which is the one path here with no automated coverage behind it
+- [X] T006 [P] [US1] Create `packages/desktop/src/dialogs.ts` exporting `pickDirectory(win, defaultPath?)` that calls `dialog.showOpenDialog(win, { properties: ["openDirectory"], defaultPath })`, validates `defaultPath` is an absolute existing directory before passing it (omitting it otherwise, so a stale value never blocks the dialog), and returns `filePaths[0]` or `null` per [contracts/desktop-preload.md](./contracts/desktop-preload.md)
+- [X] T007 [US1] Register the `sparstrow:pick-directory` `ipcMain.handle` in `packages/desktop/src/main.ts`, passing `mainWindow` so the dialog is window-modal, following the handler shape already used in `packages/desktop/src/updater.ts`
+- [X] T008 [US1] Expose `dialogs.pickDirectory` on the `contextBridge` surface in `packages/desktop/src/preload.ts`, keeping it invoke-only and extending the existing comment to record this as the second deliberate exception to "HTTP/WS only" and why
+- [X] T009 [US1] Wire the Browse… button in `packages/ui/src/routes/pages/projects.tsx` to the native picker when `nativePickerAvailable()`, writing the resolved path into the field and leaving it untouched on `null` (FR-003, FR-004), passing the field's current value as `defaultPath` (FR-005), and **handling a rejected promise** by surfacing the failure and leaving the field editable — the spec's "the packaged app fails to open the native dialog" edge case, which is the one path here with no automated coverage behind it
 - [ ] T010 [US1] **Verify on the packaged app** per [quickstart.md](./quickstart.md) §6 — build the distributable, install, boot, and drive all seven steps. A dev-mode Electron launch does not satisfy this (SC-009)
 
 **Checkpoint**: US1 fully functional in the real artifact. Shippable alone.

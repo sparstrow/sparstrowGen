@@ -187,11 +187,18 @@ Principle V demands map directly: `skeleton` while a listing loads, `empty` for 
 subdirectories, `alert` for a directory that cannot be read, and the scroll area for the
 populated case.
 
-**Reported honestly**: the `list_blocks` call **failed** this session with a GitHub API error, so
-the block registry was *not* inspected. The claim being made is therefore about components only.
-The residual risk is low — blocks are page-level compositions (dashboards, sidebars, login
-screens) and a modal directory picker is not the kind of thing they cover — but "no block exists"
-is not something this session verified, and it should not be read as if it had.
+**Reported honestly**: the `list_blocks` call **failed** with a GitHub API error, so the block
+registry was *not* inspected. The claim being made is therefore about components only. The
+residual risk is low — blocks are page-level compositions (dashboards, sidebars, login screens)
+and a modal directory picker is not the kind of thing they cover — but "no block exists" is not
+something this session verified, and it should not be read as if it had.
+
+**T002 outcome (build phase)**: retried once during Phase 1 and it **failed identically** —
+`MCP error -32603: Failed to list blocks: Unexpected response from GitHub API`. This is an
+upstream/registry availability problem, not something the feature can resolve, so the block
+registry stays uninspected and the component-level finding above stands as the basis for the
+design. Worth a retry on any future frontend feature rather than assuming it is permanently
+broken.
 
 **Icons**: lucide only, `size-4` in controls and `size-3.5` in metadata rows, per CLAUDE.md.
 `Folder`, `FolderPlus`, `HardDrive`, `ChevronUp` cover the surface.
