@@ -45,6 +45,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { DirectoryPickerDialog } from "@/components/directory-picker-dialog";
 import { useProjects, useProvisionProject } from "@/api/hooks";
 import { nativePickerAvailable, pickDirectoryNative } from "@/lib/directory-picker";
 import { formatDate } from "@/lib/format";
@@ -83,6 +84,7 @@ export function ProjectsPage() {
   const [gitInit, setGitInit] = React.useState(false);
   const [isSandbox, setIsSandbox] = React.useState(false);
   const [pickerError, setPickerError] = React.useState<string | null>(null);
+  const [browserOpen, setBrowserOpen] = React.useState(false);
 
   // 001 FR-007/FR-008: the desktop shell gets the real Explorer dialog. Resolved
   // once — the bridge is injected before the app loads and never appears later.
@@ -383,14 +385,29 @@ export function ProjectsPage() {
                   placeholder={"C:\\Projects\\my-app"}
                   className="font-mono text-xs"
                 />
-                {nativePicker && (
-                  <Button type="button" variant="outline" onClick={browseNative} className="shrink-0">
-                    <FolderOpen className="size-4" />
-                    Browse…
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={nativePicker ? browseNative : () => setBrowserOpen(true)}
+                  className="shrink-0"
+                >
+                  <FolderOpen className="size-4" />
+                  Browse…
+                </Button>
               </div>
               {pickerError && <p className="text-xs text-destructive">{pickerError}</p>}
+              {!nativePicker && (
+                <DirectoryPickerDialog
+                  open={browserOpen}
+                  onOpenChange={setBrowserOpen}
+                  mode={mode}
+                  initialPath={rootDir}
+                  onSelect={(picked) => {
+                    setRootDir(picked);
+                    setBrowserOpen(false);
+                  }}
+                />
+              )}
             </div>
 
             {mode === "scratch" && (

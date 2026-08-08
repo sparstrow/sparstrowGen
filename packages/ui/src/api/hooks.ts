@@ -43,6 +43,9 @@ import type {
   PipelineCreate,
   PipelineRun,
   PipelineUpdate,
+  CreateDirectoryRequest,
+  DirectoryListing,
+  VolumeList,
   Project,
   ProjectCreate,
   ProjectUpdate,
@@ -230,6 +233,47 @@ export function useProvisionProject(): UseMutationResult<Project, ApiError, Proj
   return useMutation({
     mutationFn: (body: ProjectProvision) => api<Project>("/projects/provision", { method: "POST", body }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["projects"] }),
+  });
+}
+
+/**
+ * 001 — host directory browsing for the New project folder picker. Served only
+ * by a local core (FR-022a); in any other deployment these 404 and the picker
+ * is not offered. `enabled` is the caller's gate so nothing is fetched until
+ * the picker actually opens.
+ */
+export function useHostVolumes(enabled: boolean): UseQueryResult<VolumeList, ApiError> {
+  return useQuery({
+    queryKey: ["host-fs", "volumes"],
+    queryFn: () => api<VolumeList>("/host-fs/volumes"),
+    enabled,
+  });
+}
+
+/** `path` null means "the volume list is showing"; undefined means "the home directory". */
+export function useHostDir(
+  path: string | undefined,
+  enabled: boolean,
+): UseQueryResult<DirectoryListing, ApiError> {
+  return useQuery({
+    queryKey: ["host-fs", "dir", path ?? null],
+    queryFn: () =>
+      api<DirectoryListing>(`/host-fs/dirs${path ? `?path=${encodeURIComponent(path)}` : ""}`),
+    enabled,
+    // A directory the owner is navigating can change under them; don't serve
+    // a stale listing from an earlier visit in the same session.
+    staleTime: 0,
+  });
+}
+
+export function useCreateHostDir(): UseMutationResult<
+  DirectoryListing,
+  ApiError,
+  CreateDirectoryRequest
+> {
+  return useMutation({
+    mutationFn: (body: CreateDirectoryRequest) =>
+      api<DirectoryListing>("/host-fs/dirs", { method: "POST", body }),
   });
 }
 
