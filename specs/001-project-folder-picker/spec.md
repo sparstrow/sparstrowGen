@@ -8,6 +8,15 @@
 
 **Input**: User description: "A folder picker for the 'Root directory (absolute path)' field in the New project dialog, so the owner never has to type an absolute Windows path by hand. Two surfaces: (1) inside the packaged desktop app, a Browse… button opens the real Windows Explorer directory-selection dialog; (2) everywhere else — the dev server in a browser, and any future hosted web client — a Browse… button opens an in-app directory browser that navigates the local machine's filesystem one level at a time. The in-app browser must also be able to create a new folder, but only for the 'Start from scratch' and 'Import from GitHub' modes, because both target a directory that does not exist yet. The typed-path input stays as-is in both surfaces — the picker fills it, never replaces it."
 
+## Clarifications
+
+### Session 2026-08-08
+
+- Q: How should the system enforce that host directory browsing can never be reached from a hosted, multi-tenant deployment? (FR-022) → A: Both layers — the capability is registered only when the core runs in local/desktop mode (absent entirely, 404, in a hosted build), and it additionally refuses non-loopback callers at request time. The registration gate is the load-bearing control, because a hosted deployment behind a reverse proxy presents loopback source addresses and would defeat a loopback check used on its own.
+- Q: What counts as real-artifact verification for the native Explorer half of this feature? (User Story 1) → A: The packaged desktop application. A dev-mode Electron launch is not acceptable evidence for Story 1, because this feature adds a preload bridge entry and packaging changes how preload scripts are resolved and bundled — the exact class of failure that passes typecheck, passes tests, and appears only in the installed app.
+- Q: Should the variant fork field on the project detail page get the same Browse… affordance in this unit of work? (scope) → A: No — hold scope to the New project dialog. The variant fork field keeps its typed input. Deferral recorded at `docs/deferred/2026-08-08-variant-fork-folder-picker.md`.
+- Q: What should the in-app directory browser show when it opens with nothing useful in the field? (FR-005, FR-009) → A: The home directory of the account the core runs as, with the volume list reachable in one action from there. Opening at a bare drive list would cost several navigations to reach a typical project folder, which undercuts the speed that justifies Story 2; opening at home keeps the common case fast without making anything unreachable.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Pick a folder with the real Explorer dialog (Priority: P1)
@@ -23,9 +32,10 @@ native dialog is both the best experience available and the least code to reach 
 alone removes hand-typed paths from the real product, so it is a viable standalone release even
 if nothing else in this feature is built.
 
-**Independent Test**: Build and boot the packaged desktop app, open the New project dialog,
-click Browse…, choose any folder, and confirm the field is populated with that folder's absolute
-path and that the project can then be created against it.
+**Independent Test**: Build the distributable, install and boot **the packaged desktop app**,
+open the New project dialog, click Browse…, choose any folder, and confirm the field is
+populated with that folder's absolute path and that the project can then be created against it.
+A dev-mode Electron launch does not satisfy this test — see SC-009.
 
 **Acceptance Scenarios**:
 
@@ -49,9 +59,10 @@ path and that the project can then be created against it.
 ### User Story 2 - Pick a folder without a native dialog (Priority: P2)
 
 The owner is running the app in a browser rather than the packaged desktop shell. Clicking
-**Browse…** opens an in-app directory browser instead. It starts at a sensible location, lists
-the machine's drives, and lets the owner step into a folder, step back up, and read the full path
-of wherever they currently are. Choosing a folder closes the browser and fills the field.
+**Browse…** opens an in-app directory browser instead. It starts at their home directory, and
+lets the owner step into a folder, step back up, jump to the machine's drive list in one action,
+and read the full path of wherever they currently are. Choosing a folder closes the browser and
+fills the field.
 
 **Why this priority**: It removes hand-typed paths from every surface the desktop dialog cannot
 reach, including day-to-day development against the dev server and any future web client. It
@@ -65,9 +76,12 @@ contains that folder's absolute path.
 
 1. **Given** the app is not running inside the packaged desktop shell, **When** the owner clicks
    Browse…, **Then** an in-app directory browser opens rather than an operating system dialog.
-2. **Given** the in-app browser is open, **When** it first appears, **Then** it shows the
-   available drives or volumes of the machine the core is running on, and it displays the full
-   absolute path of the current location.
+2. **Given** the root directory field is empty, **When** the in-app browser first appears,
+   **Then** it opens at the home directory of the account the core runs as, and displays the
+   full absolute path of that location.
+2a. **Given** the in-app browser is open at any location, **When** the owner activates the
+   volumes affordance, **Then** it shows the drives or volumes available on the machine the core
+   is running on, in a single action from wherever they were.
 3. **Given** the in-app browser is showing a folder, **When** the owner activates a listed
    subfolder, **Then** the browser navigates into it and shows that folder's immediate
    subfolders.
@@ -163,7 +177,9 @@ is populated with the new folder's absolute path and the project provisions succ
 - **FR-004**: Cancelling or dismissing the picker MUST leave the field's existing value and the
   rest of the New project dialog untouched.
 - **FR-005**: Where the field already contains a path to an existing directory, the picker MUST
-  open at that directory; otherwise it MUST open at a defined default location.
+  open at that directory; otherwise it MUST open at the home directory of the account the core
+  runs as — not at the volume list, which costs several navigations to reach a typical project
+  folder.
 
 #### Surface selection
 
@@ -177,8 +193,10 @@ is populated with the new folder's absolute path and the project provisions succ
 
 #### The in-app directory browser
 
-- **FR-009**: The in-app browser MUST list the drives or volumes available on the machine the
-  core runs on, as its top level.
+- **FR-009**: The in-app browser MUST be able to list the drives or volumes available on the
+  machine the core runs on. This is its top level for reaching anywhere on the machine, and MUST
+  be reachable in a single action from any location — but per FR-005 it is not where the browser
+  opens by default.
 - **FR-010**: The in-app browser MUST list the immediate subdirectories of one directory at a
   time, and MUST NOT list files, which cannot be chosen as a project root.
 - **FR-011**: The in-app browser MUST display the absolute path of the current location at all
@@ -214,7 +232,15 @@ is populated with the new folder's absolute path and the project provisions succ
 - **FR-022**: This capability MUST be scoped to a core running locally on the owner's own
   machine, and MUST NOT be exposed by a hosted, multi-tenant deployment, where enumerating the
   server's filesystem would cross a tenant boundary. The constraint MUST be enforced by the
-  system, not left as a note for a future reader.
+  system, not left as a note for a future reader, using **two independent layers**:
+  - **FR-022a (registration gate — load-bearing)**: The capability MUST be registered only when
+    the core is running in its local/desktop mode. In a hosted deployment the route MUST NOT
+    exist at all, answering as an unknown route rather than as a refused one.
+  - **FR-022b (loopback refusal — defence in depth)**: Where the capability is registered, it
+    MUST additionally refuse any caller whose source address is not loopback.
+  - This MUST NOT be implemented as FR-022b alone. A hosted deployment behind a reverse proxy
+    presents loopback source addresses for internet-originated requests, so a loopback check
+    used on its own would admit every tenant while appearing to be a working control.
 - **FR-023**: The create-folder capability MUST create directories only. It MUST NOT be usable
   to write, move, rename, overwrite, or delete any file or existing directory.
 - **FR-024**: Directory names and paths returned by the host filesystem are data. They MUST be
@@ -257,8 +283,13 @@ is populated with the new folder's absolute path and the project provisions succ
   in every case.
 - **SC-007**: Both surfaces work correctly in light and dark themes and are fully operable from
   the keyboard alone, including opening the picker, navigating, and confirming.
-- **SC-008**: No surface exposes host directory enumeration to an unauthenticated caller, and
-  none is reachable from a hosted multi-tenant deployment.
+- **SC-008**: No surface exposes host directory enumeration to an unauthenticated caller.
+  Both containment layers are demonstrated independently: with the core not in local/desktop
+  mode the capability is absent rather than merely refused, and with the capability present a
+  non-loopback caller is refused.
+- **SC-009**: Story 1 is demonstrated on the packaged desktop application — built, installed,
+  and booted — not on a development launch of the desktop shell. Evidence from a dev-mode launch
+  does not close Story 1.
 
 ## Assumptions
 
@@ -268,8 +299,9 @@ is populated with the new folder's absolute path and the project provisions succ
   a core on `127.0.0.1`, so "the machine's filesystem" is unambiguous today. The interface
   therefore does not need to explain whose filesystem is being shown. This assumption is exactly
   what FR-022 protects, and it stops holding under a hosted deployment.
-- **The default opening location is the owner's home directory** when the field is empty or holds
-  a path that does not resolve. This needs no configuration.
+- **The default opening location is the home directory** of the account the core runs as, when
+  the field is empty or holds a path that does not resolve (FR-005). This needs no configuration
+  and no persisted state — the picker deliberately does not remember the last folder chosen.
 - **Hidden and system directories are not listed.** They are not plausible project roots, and
   listing them adds noise and permission failures. The owner can still reach one by typing its
   path, since the input stays editable (FR-002).
@@ -282,5 +314,10 @@ is populated with the new folder's absolute path and the project provisions succ
 - **No change to project provisioning.** This feature only fills the field. The three modes,
   their validation, and their failure messages are untouched (FR-025).
 - **No multi-select and no file selection.** Exactly one directory is chosen.
+- **Only the New project dialog gains the affordance.** The app has one other hand-typed
+  absolute-path field — the client-variant fork form on the project detail page. It is
+  deliberately out of scope, recorded at
+  `docs/deferred/2026-08-08-variant-fork-folder-picker.md`. The picker should be built so that
+  wiring it in later is small, but no second caller is added in this unit of work.
 - **Existing authentication covers the new capability.** The local core's interface already
   requires a bearer token; this feature relies on that rather than introducing its own scheme.

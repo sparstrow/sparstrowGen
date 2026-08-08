@@ -33,6 +33,25 @@
 
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`.
 
+### Re-validation after `/speckit.clarify` (2026-08-08)
+
+Four clarifications were integrated. All 16 items still pass — 16/16 → 16/16, no newly passing
+items and no regressions. What changed, and why none of it moved a checkbox:
+
+- **FR-022 split into FR-022a/FR-022b** with an explicit prohibition on implementing the loopback
+  check alone. This *strengthens* "requirements are testable and unambiguous" — the old wording
+  said enforcement must exist without saying what would count.
+- **SC-008 rewritten and SC-009 added.** Both remain outcome-shaped and free of mechanism, so
+  "success criteria are technology-agnostic" still holds. SC-009 names an artifact (the packaged
+  app), not a technology or an implementation.
+- **Scope narrowed explicitly**, with the excluded caller named and a deferral written to
+  `docs/deferred/`. "Scope is clearly bounded" was already checked; it is now bounded in writing
+  rather than by omission.
+- **FR-005/FR-009 and User Story 2** were made consistent about the opening location. Story 2's
+  acceptance scenario 2 previously said the browser opens at the drive list, which the
+  clarification contradicted; it was replaced rather than supplemented, so no stale alternative
+  remains in the document.
+
 ### Validation notes (iteration 1 — all items pass)
 
 - **"No implementation details"** — the spec names two *product surfaces*, "the packaged desktop
