@@ -24,7 +24,6 @@ coverage/
 !.claude/agent-memory/
 !.claude/settings.json
 .gstack/
-.ds-sync/
 ds-bundle/
 .design-sync/.cache/
 .design-sync/learnings/
