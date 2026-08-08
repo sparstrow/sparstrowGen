@@ -54,25 +54,32 @@ export function DirectoryPickerDialog({
   const listing = useHostDir(dirPath, open && !showVolumes);
   const createDir = useCreateHostDir();
 
+  const initial = initialPath?.trim() || undefined;
+
   // Reset on every open so the picker never resumes a previous session's
   // position — it opens at the field, or at home. Nothing is persisted.
   React.useEffect(() => {
     if (!open) return;
-    setDirPath(initialPath?.trim() || undefined);
+    setDirPath(initial);
     setShowVolumes(false);
     setCreating(false);
     setNewName("");
     setFellBackToHome(false);
-  }, [open, initialPath]);
+  }, [open, initial]);
 
   // FR-005: a field holding a path that no longer resolves must not strand the
-  // owner on an error — fall back to home once, then behave normally.
+  // owner on an error — fall back to home once.
+  //
+  // Scoped to the path we OPENED at, deliberately. An earlier version fired on
+  // any failed listing, which silently teleported the owner home when they
+  // clicked an unreadable folder instead of telling them what happened —
+  // FR-014 wants that reported, not papered over.
   React.useEffect(() => {
-    if (listing.isError && dirPath !== undefined && !fellBackToHome) {
+    if (listing.isError && dirPath !== undefined && dirPath === initial && !fellBackToHome) {
       setFellBackToHome(true);
       setDirPath(undefined);
     }
-  }, [listing.isError, dirPath, fellBackToHome]);
+  }, [listing.isError, dirPath, initial, fellBackToHome]);
 
   /** `undefined` means the core's home directory. */
   const goTo = (next?: string) => {
@@ -239,7 +246,11 @@ export function DirectoryPickerDialog({
             type="button"
             disabled={!canSelect}
             onClick={() => {
-              if (current) onSelect(current.path);
+              if (!current) return;
+              onSelect(current.path);
+              // Close through the same path as Cancel and Escape, so focus
+              // restoration lives in exactly one place.
+              onOpenChange(false);
             }}
           >
             Select this folder

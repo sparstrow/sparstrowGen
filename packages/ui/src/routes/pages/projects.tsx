@@ -85,6 +85,18 @@ export function ProjectsPage() {
   const [isSandbox, setIsSandbox] = React.useState(false);
   const [pickerError, setPickerError] = React.useState<string | null>(null);
   const [browserOpen, setBrowserOpen] = React.useState(false);
+  const browseRef = React.useRef<HTMLButtonElement>(null);
+
+  /**
+   * Nested dialogs do not restore focus on their own here: the outer New
+   * project dialog keeps its own focus scope, so closing the picker drops
+   * focus to <body> and a keyboard user loses their place. Put it back on the
+   * control they opened it from. Verified by driving it, not by reading Radix.
+   */
+  const closePickerAndRefocus = (next: boolean) => {
+    setBrowserOpen(next);
+    if (!next) requestAnimationFrame(() => browseRef.current?.focus());
+  };
 
   // 001 FR-007/FR-008: the desktop shell gets the real Explorer dialog. Resolved
   // once — the bridge is injected before the app loads and never appears later.
@@ -386,6 +398,7 @@ export function ProjectsPage() {
                   className="font-mono text-xs"
                 />
                 <Button
+                  ref={browseRef}
                   type="button"
                   variant="outline"
                   onClick={nativePicker ? browseNative : () => setBrowserOpen(true)}
@@ -399,13 +412,10 @@ export function ProjectsPage() {
               {!nativePicker && (
                 <DirectoryPickerDialog
                   open={browserOpen}
-                  onOpenChange={setBrowserOpen}
+                  onOpenChange={closePickerAndRefocus}
                   mode={mode}
                   initialPath={rootDir}
-                  onSelect={(picked) => {
-                    setRootDir(picked);
-                    setBrowserOpen(false);
-                  }}
+                  onSelect={setRootDir}
                 />
               )}
             </div>
