@@ -33,6 +33,31 @@
 
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`.
 
+### Re-validation after implementation (2026-08-08)
+
+All 16 items still pass — 16/16, no regressions. The spec was not amended during the
+build; every requirement was implementable as written.
+
+**Two defects were found by driving the real surface, and both are the kind this
+checklist cannot catch** — they are recorded here because "the spec was right" and "the
+code was right" are different claims:
+
+1. Closing the picker dropped focus to `<body>` instead of returning it to **Browse…**.
+   Fails SC-007 (keyboard operability). Typecheck and 565 tests were green throughout.
+2. A failed listing mid-navigation silently sent the owner to their home folder rather
+   than reporting it. Fails FR-014 and SC-006. Caused by a fallback intended only for a
+   stale path arriving from the field.
+
+Both fixed and re-verified in the browser. They are the concrete argument for
+Principle I: no automated gate in this repo would have surfaced either one.
+
+**One pre-existing behaviour was observed and deliberately not fixed**: malformed JSON
+on any `POST` returns `500 internal server error` rather than `400`, because
+`server.ts`'s error handler special-cases `ZodError` and `HttpError` but not the
+`SyntaxError` raised by the content-type parser. This affects every route, predates
+this feature, and fixing it here would be exactly the adjacent-code change Principle
+VII prohibits. Flagged to the owner instead.
+
 ### Re-validation after `/speckit.clarify` (2026-08-08)
 
 Four clarifications were integrated. All 16 items still pass — 16/16 → 16/16, no newly passing

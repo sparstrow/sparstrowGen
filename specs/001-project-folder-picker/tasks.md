@@ -91,7 +91,7 @@ the field holds its absolute path.
 - [X] T019 [US2] Extend `packages/ui/src/lib/directory-picker.ts` with `parentOf(path)` and the path-display helper, and extend `packages/ui/src/lib/directory-picker.test.ts` to cover them — same files as T003/T004, so this runs after them, not beside them
 - [X] T020 [US2] Create `packages/ui/src/components/directory-picker-dialog.tsx` as a nested Radix `Dialog` composing the vendored primitives confirmed in T001: current absolute path displayed (FR-011), scrollable directory list, up-navigation that offers the volume list at a root (FR-012), a one-action jump to volumes (FR-009), a `truncated` notice (FR-013), and **all four states** — `skeleton` loading, `empty` for no subdirectories (still selectable), `alert` for an unreadable directory (FR-014), populated. Semantic tokens only; lucide icons at `size-4`; filesystem names rendered as text (FR-024)
 - [X] T021 [US2] Wire the in-app picker into `packages/ui/src/routes/pages/projects.tsx` for the non-native case, opening at the field's directory when it resolves and at home otherwise (FR-005), filling the field on confirm and leaving it untouched on dismiss (FR-003, FR-004)
-- [ ] T022 [US2] **Verify in a real browser** per [quickstart.md](./quickstart.md) §3 and §5 — the nine navigation steps, all four states, and the nested-dialog behaviour research R9 flags as most likely to break: Escape closes only the picker, focus returns to Browse…, keyboard-only operation, light and dark themes, no sideways scroll. **Observe and record navigation timing against SC-005's 1-second budget** rather than assuming it — the design was chosen for that budget (research R2) and nothing else measures it
+- [X] T022 [US2] **Verify in a real browser** per [quickstart.md](./quickstart.md) §3 and §5 — the nine navigation steps, all four states, and the nested-dialog behaviour research R9 flags as most likely to break: Escape closes only the picker, focus returns to Browse…, keyboard-only operation, light and dark themes, no sideways scroll. **Observe and record navigation timing against SC-005's 1-second budget** rather than assuming it — the design was chosen for that budget (research R2) and nothing else measures it
 
 **Checkpoint**: US1 and US2 both work, independently, on their own surfaces.
 
@@ -112,7 +112,7 @@ it, and provision a project into it.
 - [X] T026 [US3] Extend `packages/ui/src/lib/directory-picker.ts` with `canCreateFolder(mode)` (true for `scratch` and `clone` only) and `isSingleSegment(name)`, and extend `packages/ui/src/lib/directory-picker.test.ts` to cover both — including the `bind` case returning false, which is the assertion most likely to be forgotten
 - [X] T027 [US3] Add the **New folder** affordance to `packages/ui/src/components/directory-picker-dialog.tsx`, rendered only when `canCreateFolder(mode)`, navigating into the created folder on success (FR-020) and surfacing conflict and OS-refusal messages inline without disturbing the dialog (FR-018, FR-019)
 - [X] T028 [US3] Pass the active creation `mode` from `packages/ui/src/routes/pages/projects.tsx` into the picker so the affordance is gated correctly (FR-016)
-- [ ] T029 [US3] **Verify in a real browser** per [quickstart.md](./quickstart.md) §4 — creation, conflict, `..` and `a\b` rejection, end-to-end provisioning into the new folder, **and the absence of New folder in "Use existing folder"**
+- [X] T029 [US3] **Verify in a real browser** per [quickstart.md](./quickstart.md) §4 — creation, conflict, `..` and `a\b` rejection, end-to-end provisioning into the new folder, **and the absence of New folder in "Use existing folder"**
 
 **Checkpoint**: All three stories independently functional.
 
@@ -120,11 +120,11 @@ it, and provision a project into it.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T030 [P] Update the Knowledge Center in `packages/ui/src/content/knowledge/` to document the folder picker in the project-creation flow — or record an explicit decision to skip it, since Definition of Done gate 6 requires the decision be stated rather than defaulted
-- [ ] T031 [P] Run `pnpm typecheck && pnpm test` from a clean tree with no core server running, and read the output
-- [ ] T032 Run the full [quickstart.md](./quickstart.md) end to end, including the §2 security checks that prove the hosted build returns **not found** rather than a refusal, and record the evidence
-- [ ] T033 **Verify FR-025 — the picker did not become a second place where directory rules live.** Drive the rejection paths that provisioning owns, using a path chosen via the picker rather than typed: "Start from scratch" onto an existing non-empty folder must still fail with its existing 409 message, and "Use existing folder" onto a non-existent path must still fail with its existing 400. The picker must not pre-empt, duplicate, or soften either
-- [ ] T034 [P] Confirm `git diff` shows **no changes** to `packages/core/src/projects/provision.ts` or `packages/core/src/projects/files.ts` — FR-025 and research R3 both depend on those two files being untouched, and a well-meaning edit to either is the most likely way this feature quietly breaks its own contract
+- [X] T030 [P] Update the Knowledge Center in `packages/ui/src/content/knowledge/` to document the folder picker in the project-creation flow — or record an explicit decision to skip it, since Definition of Done gate 6 requires the decision be stated rather than defaulted
+- [X] T031 [P] Run `pnpm typecheck && pnpm test` from a clean tree with no core server running, and read the output
+- [X] T032 Run the full [quickstart.md](./quickstart.md) end to end, including the §2 security checks that prove the hosted build returns **not found** rather than a refusal, and record the evidence
+- [X] T033 **Verify FR-025 — the picker did not become a second place where directory rules live.** Drive the rejection paths that provisioning owns, using a path chosen via the picker rather than typed: "Start from scratch" onto an existing non-empty folder must still fail with its existing 409 message, and "Use existing folder" onto a non-existent path must still fail with its existing 400. The picker must not pre-empt, duplicate, or soften either
+- [X] T034 [P] Confirm `git diff` shows **no changes** to `packages/core/src/projects/provision.ts` or `packages/core/src/projects/files.ts` — FR-025 and research R3 both depend on those two files being untouched, and a well-meaning edit to either is the most likely way this feature quietly breaks its own contract
 - [ ] T035 Confirm Definition of Done gates 3–8: `checklists/requirements.md` complete, real-artifact verification done for all three stories, design bar met, Knowledge Center current, architecture and security contract held, and every completion claim backed by output actually read
 
 ---
