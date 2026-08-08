@@ -65,7 +65,7 @@ absolute path lands in the field and a project provisions against it.
 - [X] T007 [US1] Register the `sparstrow:pick-directory` `ipcMain.handle` in `packages/desktop/src/main.ts`, passing `mainWindow` so the dialog is window-modal, following the handler shape already used in `packages/desktop/src/updater.ts`
 - [X] T008 [US1] Expose `dialogs.pickDirectory` on the `contextBridge` surface in `packages/desktop/src/preload.ts`, keeping it invoke-only and extending the existing comment to record this as the second deliberate exception to "HTTP/WS only" and why
 - [X] T009 [US1] Wire the Browse… button in `packages/ui/src/routes/pages/projects.tsx` to the native picker when `nativePickerAvailable()`, writing the resolved path into the field and leaving it untouched on `null` (FR-003, FR-004), passing the field's current value as `defaultPath` (FR-005), and **handling a rejected promise** by surfacing the failure and leaving the field editable — the spec's "the packaged app fails to open the native dialog" edge case, which is the one path here with no automated coverage behind it
-- [ ] T010 [US1] **Verify on the packaged app** per [quickstart.md](./quickstart.md) §6 — build the distributable, install, boot, and drive all seven steps. A dev-mode Electron launch does not satisfy this (SC-009)
+- [X] T010 [US1] **Verify on the packaged app** per [quickstart.md](./quickstart.md) §6 — build the distributable, install, boot, and drive all seven steps. A dev-mode Electron launch does not satisfy this (SC-009)
 
 **Checkpoint**: US1 fully functional in the real artifact. Shippable alone.
 
@@ -125,7 +125,7 @@ it, and provision a project into it.
 - [X] T032 Run the full [quickstart.md](./quickstart.md) end to end, including the §2 security checks that prove the hosted build returns **not found** rather than a refusal, and record the evidence
 - [X] T033 **Verify FR-025 — the picker did not become a second place where directory rules live.** Drive the rejection paths that provisioning owns, using a path chosen via the picker rather than typed: "Start from scratch" onto an existing non-empty folder must still fail with its existing 409 message, and "Use existing folder" onto a non-existent path must still fail with its existing 400. The picker must not pre-empt, duplicate, or soften either
 - [X] T034 [P] Confirm `git diff` shows **no changes** to `packages/core/src/projects/provision.ts` or `packages/core/src/projects/files.ts` — FR-025 and research R3 both depend on those two files being untouched, and a well-meaning edit to either is the most likely way this feature quietly breaks its own contract
-- [ ] T035 Confirm Definition of Done gates 3–8: `checklists/requirements.md` complete, real-artifact verification done for all three stories, design bar met, Knowledge Center current, architecture and security contract held, and every completion claim backed by output actually read
+- [X] T035 Confirm Definition of Done gates 3–8: `checklists/requirements.md` complete, real-artifact verification done for all three stories, design bar met, Knowledge Center current, architecture and security contract held, and every completion claim backed by output actually read
 
 ---
 

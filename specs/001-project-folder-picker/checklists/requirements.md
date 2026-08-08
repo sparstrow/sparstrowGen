@@ -77,6 +77,40 @@ items and no regressions. What changed, and why none of it moved a checkbox:
   clarification contradicted; it was replaced rather than supplemented, so no stale alternative
   remains in the document.
 
+### Definition of Done — final sign-off (2026-08-08)
+
+1. **Typecheck clean** — `pnpm typecheck`, all 6 packages, after repairing a stale
+   `node_modules` state left by the packaging step (`pnpm install`, unrelated to this
+   feature's code).
+2. **Tests green** — `pnpm test` from a clean tree with no core server running: 565
+   tests across core (479+4 skipped), shared (59), ui (19), desktop (8).
+3. **Checklists complete** — this file, 16/16, no incomplete items.
+4. **Real-artifact verification** — all three stories driven live. US1 on the packaged
+   desktop app (`electron-builder` distributable, installed build, real Windows folder
+   dialog, path landed in the field, provisioned successfully) — required per this
+   feature's own clarification (SC-009), since a dev-mode Electron launch does not
+   count. US2/US3 driven in a real browser against the local core, including the two
+   defects above, found and fixed there.
+5. **Design and UI bar** — vendored shadcn primitives only (T001); all four states
+   shipped (loading skeleton, empty, error/alert, populated); light and dark both
+   verified with screenshots; keyboard operability verified (Escape, Enter-to-submit,
+   focus restoration) as part of finding and fixing defect 1 above.
+6. **Knowledge Center currency** — `projects-and-workspaces.md` updated in the same
+   change, including the explicit note that the variant-fork field is not yet covered.
+7. **Architecture and security contract** — `host-fs` schemas live in `shared`
+   (Principle IV); FR-022a/FR-022b both implemented and both independently tested
+   against the real `buildServer`, not a copy of the gate's condition (Principle VI).
+8. **Evidence** — every claim above is backed by a command run and its output read in
+   this session: typecheck/test output, live `curl` against the running core, and
+   browser/computer-use screenshots of the actual behavior.
+
+A third, pre-existing defect was found and deliberately **not** fixed here: the packaged
+desktop app occasionally shows a fully blank window on first launch (empty DOM, Quirks
+Mode, a single reload fixes it). It reproduces independently of this feature's changes —
+confirmed by inspecting `main.ts`'s window-open sequence — and fixing an Electron
+first-paint race is not what this feature's plan lists. Flagged as a separate task rather
+than folded in here or left as a silent TODO.
+
 ### Validation notes (iteration 1 — all items pass)
 
 - **"No implementation details"** — the spec names two *product surfaces*, "the packaged desktop
