@@ -91,9 +91,9 @@ We enforce a strict 3-tier Git & deployment pipeline:
    - If feature B depends on feature A, build feature A completely first (exposing the minimal clean interface required), then build feature B completely.
 10. **End-to-End Visual & Runtime App Testing**:
     - For verification and testing, explicitly launch/open the application and inspect, run, and test the workflows end-to-end directly before claiming completion.
-11. **Design System & Component Consistency**:
-    - ALWAYS use `@sparstrow/ui` Shadcn UI components (`Card`, `Button`, `Input`, `Label`, `Separator`, `Badge`, etc.), design tokens (`bg-background`, `bg-card`, `border-border`, `text-foreground`, `text-muted-foreground`), and existing typography.
-    - NEVER introduce hardcoded tailwind colors (like `bg-slate-950`, `bg-cyan-500`, `text-cyan-400`, `border-slate-800`) or custom component primitives that clash with the app's established theme.
+11. **Shadcn UI & MCP Server Integration (Impeccable Workflow)**:
+    - ALL design work and Impeccable commands (`craft`, `shape`, `polish`, `audit`, `bolder`, `quieter`, `distill`, `harden`, etc.) MUST use `@sparstrow/ui` Shadcn UI components and design tokens (`bg-background`, `bg-card`, `border-border`, `text-foreground`, `text-muted-foreground`).
+    - ALWAYS leverage the `shadcn` MCP server tools (`search_items_in_registries`, `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`) to discover, inspect, and audit Shadcn UI component patterns.
 
 ---
 

@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-09T10:52:20Z",
+  "title": "Design System: Sparstrowgen UI",
+  "extensions": {
+    "colorMeta": {
+      "background": { "role": "neutral", "displayName": "Canvas Background", "canonical": "oklch(0.145 0 0)" },
+      "foreground": { "role": "neutral", "displayName": "Primary Foreground", "canonical": "oklch(0.985 0 0)" },
+      "card": { "role": "surface", "displayName": "Card Surface", "canonical": "oklch(0.205 0 0)" },
+      "primary": { "role": "primary", "displayName": "Primary Action", "canonical": "oklch(0.922 0 0)" },
+      "border": { "role": "border", "displayName": "Structural Border", "canonical": "oklch(1 0 0 / 10%)" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero and major section titles." },
+      "body": { "displayName": "Body", "purpose": "Standard content and transcript text." }
+    },
+    "shadows": [
+      { "name": "ambient-low", "value": "0 1px 2px 0 rgb(0 0 0 / 0.05)", "purpose": "Dropdowns and floating popovers." }
+    ],
+    "motion": [
+      { "name": "spg-turn", "value": "0.18s cubic-bezier(0.165, 0.84, 0.44, 1)", "purpose": "Chat message turn entrance." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary action trigger",
+      "html": "<button class=\"ds-btn-primary\">Sign In</button>",
+      "css": ".ds-btn-primary { background: #f4f4f5; color: #18181b; padding: 8px 16px; font-weight: 500; font-size: 0.875rem; border-radius: 8px; border: none; cursor: pointer; transition: background 0.15s; } .ds-btn-primary:hover { background: #e4e4e7; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Developer Control Plane",
+    "overview": "Sparstrowgen's UI is designed as a quiet, hyper-focused, and technically precise environment for software engineers and AI developers. The visual language prioritizes high information density, crystal-clear typography, and fast keyboard-first navigation.",
+    "keyCharacteristics": [
+      "Quiet Elevation: Flat-by-default cards with 1px border contrast.",
+      "Typography-Driven Hierarchy: Scale and weight contrast.",
+      "Restrained Accent Strategy: Purposeful accent highlights."
+    ],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "Accent colors appear on <=10% of any given screen.", "section": "colors" },
+      { "name": "The Line-Length Rule", "body": "Body text capped at 65-75ch per line.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Surfaces rely on 1px border contrast instead of heavy drop shadows.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use @sparstrow/ui Shadcn UI primitives across all routes.",
+      "Do use OKLCH semantic tokens (bg-background, bg-card, border-border)."
+    ],
+    "donts": [
+      "Don't use hardcoded Tailwind slate/cyan colors.",
+      "Don't use colored side-stripe borders as decorative card accents.",
+      "Don't use gradient text or glassmorphism blurs."
+    ]
+  }
+}
