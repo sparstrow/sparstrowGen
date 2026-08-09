@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, isoDateSchema, slugSchema } from "./common.js";
+import { idSchema, isoDateSchema, slugSchema } from "./common";
 
 export const memoryScopeKindSchema = z.enum(["global", "project", "agent"]);
 export type MemoryScopeKind = z.infer<typeof memoryScopeKindSchema>;

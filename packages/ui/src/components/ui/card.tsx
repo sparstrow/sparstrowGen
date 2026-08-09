@@ -25,7 +25,7 @@ CardHeader.displayName = "CardHeader";
 // previous <div>. Pass `as` to fit a page's heading hierarchy (e.g. "h3").
 const CardTitle = React.forwardRef<
   HTMLHeadingElement,
-  React.HTMLAttributes<HTMLHeadingElement> & { as?: "h2" | "h3" | "h4" }
+  React.HTMLAttributes<HTMLHeadingElement> & { as?: "h1" | "h2" | "h3" | "h4" }
 >(({ className, as: Tag = "h2", ...props }, ref) => (
   <Tag
     ref={ref}

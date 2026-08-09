@@ -1,8 +1,8 @@
-import type { Run, RunEvent } from "./schemas/run.js";
-import type { Message, Task } from "./schemas/task.js";
-import type { PipelineRun } from "./schemas/pipeline.js";
-import type { MemoryContradiction, MemoryNote } from "./schemas/memory.js";
-import type { Goal } from "./schemas/goal.js";
+import type { Run, RunEvent } from "./schemas/run";
+import type { Message, Task } from "./schemas/task";
+import type { PipelineRun } from "./schemas/pipeline";
+import type { MemoryContradiction, MemoryNote } from "./schemas/memory";
+import type { Goal } from "./schemas/goal";
 
 /** Events broadcast over /ws. Discriminated on `type`. */
 export type WsServerEvent =

@@ -30,6 +30,7 @@ interface DesktopUpdates {
 }
 
 function desktopUpdates(): DesktopUpdates | null {
+  if (typeof window === "undefined") return null;
   const w = window as unknown as { sparstrowDesktop?: { updates?: DesktopUpdates } };
   return w.sparstrowDesktop?.updates ?? null;
 }

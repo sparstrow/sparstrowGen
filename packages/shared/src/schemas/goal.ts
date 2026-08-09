@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, isoDateSchema } from "./common.js";
+import { idSchema, isoDateSchema } from "./common";
 
 /**
  * P6 goal domain (engine decided by P6-Q0 head-to-head: LLM-planned-DAG — see

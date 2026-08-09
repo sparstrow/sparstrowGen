@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { idSchema, isoDateSchema } from "./common.js";
-import { runStatusSchema } from "./run.js";
+import { idSchema, isoDateSchema } from "./common";
+import { runStatusSchema } from "./run";
 
 export const pipelineStepSchema = z.object({
   id: idSchema,

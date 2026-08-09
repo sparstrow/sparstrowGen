@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, isoDateSchema } from "./common.js";
+import { idSchema, isoDateSchema } from "./common";
 
 /**
  * P3 agent instances (locked D5): an agent template deployed into a project.

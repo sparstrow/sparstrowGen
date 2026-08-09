@@ -8,8 +8,8 @@ import {
   moveDraftStep,
   type DraftPipeline,
   type DraftPipelineStep,
-} from "./pipeline-draft.js";
-import { pipelineCreateSchema } from "./pipeline.js";
+} from "./pipeline-draft";
+import { pipelineCreateSchema } from "./pipeline";
 
 const roster = [
   { id: "agt_1", name: "Researcher" },

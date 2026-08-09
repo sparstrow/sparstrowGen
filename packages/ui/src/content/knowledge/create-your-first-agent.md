@@ -22,6 +22,8 @@ provider + model, and a tool policy. You'll build one with the guided creator.
 Prefer full manual control? The plain **New agent** form exposes every field directly.
 There's also **Duplicate** on any existing agent — the fastest way to make a variant.
 
+[Try in App — Create an Agent](/agents/create)
+
 ## What the creator checks for you
 
 Before creating, the factory runs a **pre-flight**:
@@ -40,7 +42,7 @@ Before creating, the factory runs a **pre-flight**:
 | **Tools** | What it's allowed to do. Empty = inherit defaults; see [Tool permissions](/knowledge/tool-permissions). |
 | **Skills** | Attached skill documents the agent can lean on (view any skill with the built-in Skill Viewer). |
 
-## Notes & limitations
+## Known Limitations & Boundaries
 
 - Agents imported from external skill packs go through **quarantine** first and cannot
   run until you promote them — see [Agents & Imports](/knowledge/agents-and-imports).
