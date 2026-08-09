@@ -105,9 +105,14 @@ export default function LoginPage() {
         router.refresh();
       }
     } catch (err: any) {
+      const rawErr = err?.message || "";
+      let friendlyText = rawErr || "Authentication failed. Please verify credentials.";
+      if (rawErr.toLowerCase().includes("rate limit")) {
+        friendlyText = "Staging email rate limit exceeded. Please wait 2–5 minutes before requesting another email, or sign in directly with GitHub / Google OAuth above.";
+      }
       setMessage({
         type: "error",
-        text: err?.message || "Authentication failed. Please verify credentials.",
+        text: friendlyText,
       });
     } finally {
       setLoading(false);
