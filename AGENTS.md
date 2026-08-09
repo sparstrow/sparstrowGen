@@ -25,9 +25,9 @@ Sparstrowgen is a multi-node, cloud-synced agent platform built 100% in **TypeSc
 We enforce a strict 3-tier Git & deployment pipeline:
 
 ```
-[Agent Worktree: feature/*] ──► PR into ──► [development branch]
-                                                 │ (Milestone complete)
-                                                 ▼
+[Agent Worktree: feature/*] ──► PR into (Squash) ──► [development branch]
+                                                         │ (Milestone complete)
+                                                         ▼
 [main branch (Production)] ◄── PR into ◄── [staging branch (User Review Gate)]
 ```
 
@@ -35,8 +35,9 @@ We enforce a strict 3-tier Git & deployment pipeline:
 1. **Isolated Worktrees ONLY**:
    - You MUST create an isolated Git branch/worktree for your task: `feature/<task-name>`, `fix/<bug-name>`, or `task/<task-id>`.
    - **NEVER** edit files directly on `development`, `staging`, or `main`.
-2. **PR Target**:
+2. **PR Target & Merge Strategy**:
    - All agent pull requests MUST target `development`.
+   - PRs into `development` use **Squash and Merge** to maintain a clean history.
    - **NEVER** push directly to `staging` or `main`.
 3. **Verification Before PR**:
    - You MUST run and pass all typechecks and unit tests locally before submitting a PR:
@@ -59,6 +60,8 @@ We enforce a strict 3-tier Git & deployment pipeline:
    - Do NOT mask errors by returning dummy fallbacks, catching and swallowing exceptions silently, or commenting out failing tests. Fix the underlying root cause.
 5. **Never Declare Success Without Running Verification**:
    - You MUST execute test commands (`pnpm typecheck`, `pnpm test`, or specific test files) to prove your code works before claiming task completion.
+6. **Human-in-the-Loop (HITL) Gates**:
+   - Destructive operations (dropping database tables, deleting protected files, releasing to production) REQUIRE explicit user confirmation.
 
 ---
 
