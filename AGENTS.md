@@ -45,6 +45,14 @@ We enforce a strict 3-tier Git & deployment pipeline:
      pnpm typecheck
      pnpm test
      ```
+4. **Worktree & Branch Cleanup Post-Merge**:
+   - Once a PR is merged into `development` (and GitHub auto-deletes the remote feature branch), agents MUST prune and clean up local worktrees and branches:
+     ```bash
+     git checkout development
+     git pull origin development
+     git worktree remove <worktree-path> || git branch -d <feature-branch>
+     git fetch --prune
+     ```
 
 ---
 
