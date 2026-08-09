@@ -19,12 +19,15 @@ export const SECTION_ORDER = [
 ] as const;
 
 function getKnowledgeDir() {
-  // Check relative path from apps/web or workspace root
-  const primaryPath = path.resolve(process.cwd(), "../packages/ui/src/content/knowledge");
-  if (fs.existsSync(primaryPath)) {
-    return primaryPath;
+  const candidates = [
+    path.resolve(process.cwd(), "packages/ui/src/content/knowledge"),
+    path.resolve(process.cwd(), "../../packages/ui/src/content/knowledge"),
+    path.resolve(process.cwd(), "../packages/ui/src/content/knowledge"),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
   }
-  return path.resolve(process.cwd(), "packages/ui/src/content/knowledge");
+  return candidates[0]!;
 }
 
 function parseFrontmatter(source: string): {
@@ -92,7 +95,8 @@ export function getAllArticles(): KnowledgeArticle[] {
 }
 
 export function getArticleBySlug(slug: string): KnowledgeArticle | undefined {
-  return getAllArticles().find((a) => a.slug === slug);
+  const target = decodeURIComponent(slug).toLowerCase();
+  return getAllArticles().find((a) => a.slug.toLowerCase() === target);
 }
 
 export function groupBySectionServer(

@@ -20,16 +20,24 @@ export async function generateStaticParams() {
 export default async function ArticlePage({
   params,
 }: {
-  params: Promise<{ articleId: string }>;
+  params: Promise<{ articleId: string }> | { articleId: string };
 }) {
-  const { articleId } = await params;
+  const resolvedParams = await Promise.resolve(params);
+  const articleId = resolvedParams.articleId;
+  const articles = getAllArticles();
   const article = getArticleBySlug(articleId);
+
+  console.log("[Knowledge Debug]", {
+    cwd: process.cwd(),
+    articleId,
+    articlesCount: articles.length,
+    found: !!article,
+  });
 
   if (!article) {
     notFound();
   }
 
-  const articles = getAllArticles();
   const index = articles.findIndex((a) => a.slug === article.slug);
   const prev = index > 0 ? articles[index - 1] : undefined;
   const next = index < articles.length - 1 ? articles[index + 1] : undefined;

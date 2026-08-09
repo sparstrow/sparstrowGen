@@ -24,3 +24,4 @@ export * from "./schemas/goal.js";
 export * from "./schemas/pipeline-draft.js";
 export * from "./schemas/chat.js";
 export * from "./schemas/system-update.js";
+export * from "./db/schema.js";
