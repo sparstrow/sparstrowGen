@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, isoDateSchema } from "./common.js";
+import { idSchema, isoDateSchema } from "./common";
 
 export const runStatusSchema = z.enum([
   "queued",

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { agentCreateSchema } from "./agent.js";
+import { agentCreateSchema } from "./agent";
 
 /**
  * The Agent Creator works with a PARTIAL agent draft that fills in over the

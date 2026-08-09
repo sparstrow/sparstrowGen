@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, isoDateSchema } from "./common.js";
+import { idSchema, isoDateSchema } from "./common";
 
 /**
  * P4 project directives (§2 / P4-Q2): operator-authored, always-injected project

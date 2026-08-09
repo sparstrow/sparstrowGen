@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { providerIdSchema, type ExecutionMode } from "./agent.js";
+import { providerIdSchema, type ExecutionMode } from "./agent";
 
 /**
  * P8 multi-provider surfaces shared by core (producer) and the UI (consumer).

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, isoDateSchema, slugSchema } from "./common.js";
+import { idSchema, isoDateSchema, slugSchema } from "./common";
 
 // ── Teams ───────────────────────────────────────────────────────────────
 

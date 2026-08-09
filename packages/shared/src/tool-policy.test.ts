@@ -4,7 +4,7 @@ import {
   isToolPolicySubset,
   resolveEffectiveTools,
   type EffectiveTools,
-} from "./tool-policy.js";
+} from "./tool-policy";
 
 const P = (allowed: string[] = [], disallowed: string[] = []) => ({ allowed, disallowed });
 

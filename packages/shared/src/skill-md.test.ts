@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderSkillMd, type SkillMdSource } from "./skill-md.js";
+import { renderSkillMd, type SkillMdSource } from "./skill-md";
 
 const base: SkillMdSource = {
   name: "Researcher",
