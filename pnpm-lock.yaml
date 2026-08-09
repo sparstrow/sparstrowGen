@@ -10,7 +10,14 @@ overrides:
 importers:
 
   .:
+    dependencies:
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
     devDependencies:
+      drizzle-kit:
+        specifier: ^0.31.10
+        version: 0.31.10
       turbo:
         specifier: ^2.5.4
         version: 2.9.18
