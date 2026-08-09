@@ -30,6 +30,7 @@ import { wsRoutes } from "../ws/handler.js";
 import { mcpRoutes } from "../mcp/http-mcp.js";
 import { terminalRoutes, terminalWsRoutes } from "./routes/terminal.js";
 import { graphRoutes } from "./routes/graph.js";
+import { hostFsRoutes } from "./routes/host-fs.js";
 import { requireAuth } from "./auth.js";
 
 export async function buildServer() {
@@ -95,6 +96,11 @@ export async function buildServer() {
       await api.register(providerRoutes);
       await api.register(terminalRoutes);
       await api.register(graphRoutes);
+      // 001 FR-022a: host directory browsing exists ONLY on a local core. A
+      // hosted deployment must have no such route to refuse — enumerating the
+      // server's filesystem would cross a tenant boundary — so this is a
+      // registration gate, not a runtime check. Never turn it into one.
+      if (config.deployment === "local") await api.register(hostFsRoutes);
     },
     { prefix: API_BASE },
   );

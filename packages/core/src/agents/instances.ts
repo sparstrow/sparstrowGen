@@ -12,7 +12,7 @@ import type { MemoryNote, MemoryScopeKind } from "@sparstrow/shared";
  * on the first run of a template inside a project. The instance is the identity
  * `agent:self` memory resolves to (vault dir agents/<template>/<project>/) and the
  * key busy-tracking uses (P3-Q5). Everything else stays template-keyed — see
- * fable-handoff/P3-SEAM-TABLE.md for the full seam audit.
+ * docs/archive/fable-handoff/P3-SEAM-TABLE.md for the full seam audit.
  */
 
 /**

@@ -3,9 +3,10 @@ import { idSchema, isoDateSchema } from "./common.js";
 
 /**
  * P6 goal domain (engine decided by P6-Q0 head-to-head: LLM-planned-DAG — see
- * fable-handoff/P6-ENGINE-DECISION.md). The Planner LLM authors the plan as
- * nodes + dependency edges; deterministic validation replaces the A* solver;
- * edges are AUTHORITATIVE (recomputed only by plan writes, never hand-mutated).
+ * docs/archive/fable-handoff/P6-ENGINE-DECISION.md). The Planner LLM authors
+ * the plan as nodes + dependency edges; deterministic validation replaces the
+ * A* solver; edges are AUTHORITATIVE (recomputed only by plan writes, never
+ * hand-mutated).
  *
  * This file is the trust boundary between the Planner's free-text output and
  * everything the executor will spawn — it was P6's mandated first task.
