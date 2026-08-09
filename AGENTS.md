@@ -53,6 +53,8 @@ We enforce a strict 3-tier Git & deployment pipeline:
      git worktree remove <worktree-path> || git branch -d <feature-branch>
      git fetch --prune
      ```
+5. **Auto-Enqueuing PR Merges**:
+   - Immediately upon opening a PR, agents MUST execute `gh pr merge <pr_number> --auto --squash` so that GitHub automatically queues and merges the PR as soon as CI passes, without requiring manual button clicks in the GitHub UI.
 
 ---
 
