@@ -63,6 +63,7 @@ We enforce a strict 3-tier Git & deployment pipeline:
 2. **In-App Knowledge Center Synchronization**:
    - The app features a built-in user Knowledge Center (`src/content/knowledge/*.md`).
    - When adding a new feature or modifying user-facing functionality, agents MUST update or add the matching Knowledge Center markdown article in the **same PR** as the code changes.
+   - **Standard Section Requirement:** Every Knowledge Center article MUST include a dedicated `## Known Limitations & Boundaries` section explicitly stating performance limits, resource boundaries, and operational constraints.
 3. **Never Guess Code Logic or File Paths**:
    - Inspect authoritative files using code search or `view_file` before writing code.
 4. **Inspect Error Logs Before Diagnosing**:
