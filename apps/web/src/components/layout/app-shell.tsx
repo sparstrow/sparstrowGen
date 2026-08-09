@@ -90,6 +90,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const connected = useWsConnected();
   const pathname = usePathname() || "/";
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
+
+  // Standalone public routes bypass the app shell sidebar & header
+  if (pathname.startsWith("/login") || pathname.startsWith("/auth/")) {
+    return <div className="min-h-screen w-full bg-background text-foreground">{children}</div>;
+  }
   
   React.useEffect(() => setMobileNavOpen(false), [pathname]);
   

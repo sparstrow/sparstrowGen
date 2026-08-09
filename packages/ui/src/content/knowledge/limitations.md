@@ -37,6 +37,10 @@ marked otherwise.
   headless stdio MCP is unreliable on Windows — nothing to configure, but useful to
   know if you wire external MCP clients.
 
+## Known Limitations & Boundaries
+
+- **Supabase Staging Email Rate Limits:** Staging Supabase projects enforce rate limits on outgoing confirmation and magic link emails (typically 3–4 emails per hour). If you encounter `Email rate limit exceeded` errors when testing Magic Link or Email Sign Up, wait 2–5 minutes or sign in directly via GitHub/Google OAuth or Password Authentication.
+
 ## Where the list is maintained
 
 Deliberate scope deferrals live in the repo's `docs/deferred/` — one file per item,

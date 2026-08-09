@@ -4,19 +4,39 @@ Welcome agent! This file defines the mandatory workflow, safety rules, and engin
 
 ---
 
-## 1. Monorepo Architecture Overview
+## 1. Monorepo Architecture & Locked Stack
 
-Sparstrowgen is a multi-node, cloud-synced agent platform built 100% in **TypeScript**:
+**Sparstrowgen** is an autonomous AI agent platform and developer control plane built 100% in **TypeScript** for orchestrating multi-node agent runtimes, task pipelines, GOAP goal planning, and `pgvector` RAG memory.
 
+### Workspace Directory Layout
 ```
 .
-├── apps/web/           # Next.js 15 App Router Web App (Deployed on Vercel)
+├── apps/web/           # Next.js 16.3 App Router Web App (Deployed on Vercel)
 ├── packages/
+│   ├── core/           # @sparstrow/core (GOAP Engine, Agent Swarms, Runner, RAG Memory)
 │   ├── daemon/         # @sparstrow/daemon (Headless Node.js Agent Execution Engine)
 │   ├── desktop/        # @sparstrow/desktop (Electron 36 Desktop Shell App)
-│   └── shared/         # @sparstrow/shared (Shared Zod schemas, types, Drizzle models)
-└── scripts/            # Build and development scripts
+│   ├── shared/         # @sparstrow/shared (Zod schemas, types, Drizzle ORM models)
+│   └── ui/             # @sparstrow/ui (Shadcn UI component library & Knowledge Center)
+└── scripts/            # Monorepo build and development scripts
 ```
+
+### Locked Technology Stack
+- **Web App**: Next.js 16.3 App Router (`apps/web`) with Turbopack bundler.
+- **Router Adapter**: Custom Next.js navigation adapter (`apps/web/src/lib/react-router-mock.tsx`) intercepting TanStack Router calls.
+- **UI & Styling**: Tailwind CSS v4, Radix UI primitives, `@sparstrow/ui` Shadcn components, OKLCH design system tokens (`DESIGN.md`).
+- **Database & ORM**: Supabase PostgreSQL + Drizzle ORM (`@sparstrow/shared`), Drizzle Kit migrations.
+- **Authentication**: `@supabase/ssr` (Passwordless Magic Link, Email & Password, GitHub OAuth, Google OAuth) + Next.js Middleware Session Guard (`apps/web/src/middleware.ts`).
+- **Realtime Cloud Sync**: Supabase Realtime Postgres event channel streaming (`apps/web/src/components/providers.tsx`) bridging into live React Query cache invalidation.
+- **Vector Search**: Supabase `pgvector` semantic search for memory notes and RAG retrieval.
+- **Desktop Shell**: Electron 36 (`@sparstrow/desktop`).
+- **Package Manager & Monorepo**: `pnpm` v11.6.0 + Turbo 2.9.18 caching.
+
+### Connected MCP Servers & Skills
+- **`shadcn` MCP Server**: UI pattern discovery (`search_items_in_registries`, `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`).
+- **`impeccable` Skill**: Production-grade UI design commands (`audit`, `adapt`, `polish`, `craft`, `shape`, `distill`, `harden`).
+- **`supabase` MCP Server**: Database schema inspection, migration execution, and Edge Function deployment.
+- **Tool Integration MCPs**: `clockify`, `square`, and `blender` MCP servers for agent action execution.
 
 ---
 
@@ -89,8 +109,18 @@ We enforce a strict 3-tier Git & deployment pipeline:
    - Build features at a **micro-level**: complete the full long-term design (backend, frontend, UI/UX, and data layer) of one feature cleanly before moving to the next.
    - Avoid over-engineering or unnecessary abstractions. Choose minimal, effective implementations that solve the requirement.
    - If feature B depends on feature A, build feature A completely first (exposing the minimal clean interface required), then build feature B completely.
-10. **End-to-End Visual & Runtime App Testing**:
-    - For verification and testing, explicitly launch/open the application and inspect, run, and test the workflows end-to-end directly before claiming completion.
+10. **End-to-End Visual & Runtime App Testing (Automated Browser Agent Loop)**:
+    - At the end of ANY feature implementation or bug fix, a browser agent MUST be automatically invoked to launch/open the app, interact with the UI, and perform end-to-end testing and usability testing.
+    - The browser agent MUST report back with detailed feedback, console errors, and usability issues found.
+    - The main agent MUST then verify and fix any reported issues.
+    - Upon applying fixes, the browser agent MUST be invoked again to re-verify. This loop MUST continue until all issues are resolved and the goal is complete before claiming task completion.
+11. **Shadcn UI & MCP Server Integration (Impeccable Workflow)**:
+    - ALL design work and Impeccable commands (`craft`, `shape`, `polish`, `audit`, `bolder`, `quieter`, `distill`, `harden`, etc.) MUST use `@sparstrow/ui` Shadcn UI components and design tokens (`bg-background`, `bg-card`, `border-border`, `text-foreground`, `text-muted-foreground`).
+    - ALWAYS leverage the `shadcn` MCP server tools (`search_items_in_registries`, `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`) to discover, inspect, and audit Shadcn UI component patterns.
+    - **Mandatory Order of Work Before Writing a Component**:
+      1. Read `DESIGN.md` (tokens, motion, component vocabulary) and `PRODUCT.md`'s register.
+      2. Invoke the `/shadcn` skill and use the Shadcn UI MCP — `list_components` / `get_component` / `get_component_demo` for primitives, `list_blocks` / `get_block` for composite surfaces. Check for an existing block before composing a page from scratch.
+      3. Only then write code.
 
 ---
 
