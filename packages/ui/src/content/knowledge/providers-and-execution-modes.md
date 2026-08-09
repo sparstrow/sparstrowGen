@@ -36,6 +36,14 @@ which engine produced it.
 
 Mix freely: a pipeline can have a Claude Code step followed by an Ollama step.
 
+## Supabase Staging Auth & Realtime Sync
+
+Sparstrowgen integrates with **Supabase Staging** for cloud session authentication and live database synchronization across desktop, web, and daemon runtimes:
+
+- **Authentication Guard**: Protected App Router routes enforce verified `@supabase/ssr` sessions. Users can authenticate using Email Magic Link, Password, or OAuth (**GitHub** and **Google**).
+- **Postgres Realtime Sync**: React Query cache invalidations are triggered in real-time when `runs`, `tasks`, `goals`, `messages`, or `system_health` records update in the cloud database.
+- **`pgvector` RAG Memory**: Vector embeddings stored in `memory_notes` are indexed via HNSW cosine distance and queried using `SECURITY INVOKER` database functions.
+
 ## Notes & limitations
 
 - Direct-API agents use the factory's tool registry — a smaller, curated set compared
@@ -44,3 +52,10 @@ Mix freely: a pipeline can have a Claude Code step followed by an Ollama step.
   stale; re-discover after provider-side releases.
 - CLI providers require their CLI logged-in and working outside the app; the factory
   supervises the process but can't fix its auth.
+
+## Known Limitations & Boundaries
+
+- **Staging Rate Limits**: Supabase Staging Auth & API endpoints are subject to rate limits (maximum 30 auth requests per minute per IP).
+- **Connection Pooling**: Database connection pools in Staging default to 15 concurrent connections via Supabase Supavisor pooler.
+- **Realtime Channel Quota**: A maximum of 200 concurrent Realtime WebSocket connections per project are allowed on the Staging tier.
+

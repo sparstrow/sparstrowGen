@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./styles": "./src/styles/globals.css",
+    "./*": "./src/*"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",

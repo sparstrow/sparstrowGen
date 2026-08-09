@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { idSchema, isoDateSchema, slugSchema } from "./common.js";
-import { agentOriginSchema, agentStatusSchema, specterReportSchema } from "./specter.js";
+import { idSchema, isoDateSchema, slugSchema } from "./common";
+import { agentOriginSchema, agentStatusSchema, specterReportSchema } from "./specter";
 
 export const providerIdSchema = z.enum([
   "claude-code",

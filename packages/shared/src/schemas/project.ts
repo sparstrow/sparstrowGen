@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, isoDateSchema, slugSchema } from "./common.js";
+import { idSchema, isoDateSchema, slugSchema } from "./common";
 
 /**
  * P7 execution profile. `factory` = the Sparstrowgen repo and its own tooling

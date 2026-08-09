@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agentCreateSchema, executionModeForProvider, providerIdSchema } from "./agent.js";
+import { agentCreateSchema, executionModeForProvider, providerIdSchema } from "./agent";
 
 describe("agentCreateSchema", () => {
   it("applies sensible defaults from name/provider/model alone", () => {

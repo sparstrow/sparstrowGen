@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildChildrenWakePrompt, buildWakePrompt } from "./wake-prompt.js";
+import { buildChildrenWakePrompt, buildWakePrompt } from "./wake-prompt";
 
 describe("buildWakePrompt", () => {
   it("is fully self-contained: restates task, Q&A, and progress", () => {

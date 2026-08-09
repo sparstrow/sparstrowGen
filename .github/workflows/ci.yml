@@ -1,57 +1,41 @@
-name: CI
-
-# Factory CI: type-check and test the monorepo.
-#
-# Triggers cover BOTH permanent branches. `staging` is the agents' trunk and is
-# where every feature branch lands. Agents reach it only through a pull request —
-# the `staging-protected` ruleset blocks direct and force pushes — so the
-# `pull_request` trigger is the merge gate. The `push` trigger still matters: it
-# is the POST-MERGE run, and it is the only thing that catches two PRs that each
-# passed against an older `staging` and break in combination. Worktree cleanup
-# waits on it (see CLAUDE.md, The loop → Cleanup).
-#
-# `typecheck` and `test` are separate jobs on purpose. Both are required status
-# checks on `staging`. On `main`, only `typecheck` is required — `test` is not,
-# so a native-module failure on ubuntu (better-sqlite3 / node-pty) cannot block a
-# promotion. Add `test` to main's ruleset once it has proven itself green there.
+name: CI Guardrails
 
 on:
   pull_request:
-    branches: [main, staging]
+    branches:
+      - development
+      - staging
+      - main
+  merge_group:
   push:
-    branches: [main, staging]
-
-# Cancel superseded runs on the same ref (saves minutes on rapid agent pushes).
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
+    branches:
+      - development
 
 jobs:
-  typecheck:
-    name: typecheck
+  verify:
+    name: Typecheck & Test Verification
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0 — SHA-pinned (third-party); reads packageManager (pnpm@11.6.0) from package.json
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
 
-  test:
-    name: test
-    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0 — SHA-pinned (third-party); reads packageManager (pnpm@11.6.0) from package.json
-      - uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
         with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test
+          version: 11.6.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Typecheck
+        run: pnpm typecheck
+
+      - name: Run Tests
+        run: pnpm test

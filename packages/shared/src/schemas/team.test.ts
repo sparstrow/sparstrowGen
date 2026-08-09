@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { teamCreateSchema, teamMemberCreateSchema, teamUpdateSchema } from "./team.js";
+import { teamCreateSchema, teamMemberCreateSchema, teamUpdateSchema } from "./team";
 
 describe("team schemas", () => {
   describe("teamCreateSchema", () => {

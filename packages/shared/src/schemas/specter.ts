@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateSchema } from "./common.js";
+import { isoDateSchema } from "./common";
 
 /**
  * P9 — Skill Specter security review + external-skill ingestion contracts.

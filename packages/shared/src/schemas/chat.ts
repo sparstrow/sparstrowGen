@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { providerIdSchema, type ProviderId } from "./agent.js";
-import { agentDraftSchema } from "./agent-draft.js";
-import type { DraftTurn } from "./agent-draft.js";
-import { idSchema, isoDateSchema } from "./common.js";
+import { providerIdSchema, type ProviderId } from "./agent";
+import { agentDraftSchema } from "./agent-draft";
+import type { DraftTurn } from "./agent-draft";
+import { idSchema, isoDateSchema } from "./common";
 
 /**
  * Unified session-chat architecture (intake 0001 + 0002). One session model
