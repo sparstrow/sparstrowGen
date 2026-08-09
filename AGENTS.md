@@ -56,19 +56,22 @@ We enforce a strict 3-tier Git & deployment pipeline:
 
 ---
 
-## 3. Engineering Guidelines & Safety Rules
+## 3. Engineering Guidelines & Knowledge Center Rules
 
 1. **Obey Explicit Directives**:
    - Maintain documentation integrity. Do NOT delete comments or docstrings unrelated to your changes.
-2. **Never Guess Code Logic or File Paths**:
+2. **In-App Knowledge Center Synchronization**:
+   - The app features a built-in user Knowledge Center (`src/content/knowledge/*.md`).
+   - When adding a new feature or modifying user-facing functionality, agents MUST update or add the matching Knowledge Center markdown article in the **same PR** as the code changes.
+3. **Never Guess Code Logic or File Paths**:
    - Inspect authoritative files using code search or `view_file` before writing code.
-3. **Inspect Error Logs Before Diagnosing**:
+4. **Inspect Error Logs Before Diagnosing**:
    - Always read full, un-truncated error stack traces before proposing fixes. Base diagnoses strictly on log evidence.
-4. **No Superficial Symptom Patches**:
+5. **No Superficial Symptom Patches**:
    - Do NOT mask errors by returning dummy fallbacks, catching and swallowing exceptions silently, or commenting out failing tests. Fix the underlying root cause.
-5. **Never Declare Success Without Running Verification**:
+6. **Never Declare Success Without Running Verification**:
    - You MUST execute test commands (`pnpm typecheck`, `pnpm test`, or specific test files) to prove your code works before claiming task completion.
-6. **Human-in-the-Loop (HITL) Gates**:
+7. **Human-in-the-Loop (HITL) Gates**:
    - Destructive operations (dropping database tables, deleting protected files, releasing to production) REQUIRE explicit user confirmation.
 
 ---
