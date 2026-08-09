@@ -89,8 +89,11 @@ We enforce a strict 3-tier Git & deployment pipeline:
    - Build features at a **micro-level**: complete the full long-term design (backend, frontend, UI/UX, and data layer) of one feature cleanly before moving to the next.
    - Avoid over-engineering or unnecessary abstractions. Choose minimal, effective implementations that solve the requirement.
    - If feature B depends on feature A, build feature A completely first (exposing the minimal clean interface required), then build feature B completely.
-10. **End-to-End Visual & Runtime App Testing**:
-    - For verification and testing, explicitly launch/open the application and inspect, run, and test the workflows end-to-end directly before claiming completion.
+10. **End-to-End Visual & Runtime App Testing (Automated Browser Agent Loop)**:
+    - At the end of ANY feature implementation or bug fix, a browser agent MUST be automatically invoked to launch/open the app, interact with the UI, and perform end-to-end testing and usability testing.
+    - The browser agent MUST report back with detailed feedback, console errors, and usability issues found.
+    - The main agent MUST then verify and fix any reported issues.
+    - Upon applying fixes, the browser agent MUST be invoked again to re-verify. This loop MUST continue until all issues are resolved and the goal is complete before claiming task completion.
 11. **Shadcn UI & MCP Server Integration (Impeccable Workflow)**:
     - ALL design work and Impeccable commands (`craft`, `shape`, `polish`, `audit`, `bolder`, `quieter`, `distill`, `harden`, etc.) MUST use `@sparstrow/ui` Shadcn UI components and design tokens (`bg-background`, `bg-card`, `border-border`, `text-foreground`, `text-muted-foreground`).
     - ALWAYS leverage the `shadcn` MCP server tools (`search_items_in_registries`, `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`) to discover, inspect, and audit Shadcn UI component patterns.
