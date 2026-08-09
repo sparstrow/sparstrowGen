@@ -9,7 +9,7 @@ import { Label } from "@sparstrow/ui/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@sparstrow/ui/components/ui/card";
 import { Badge } from "@sparstrow/ui/components/ui/badge";
 import { Separator } from "@sparstrow/ui/components/ui/separator";
-import { Shield, Sparkles, ArrowRight, Loader2, KeyRound, Mail, CheckCircle2, AlertCircle } from "lucide-react";
+import { Shield, Sparkles, ArrowRight, Loader2, KeyRound, Mail, CheckCircle2, AlertCircle, UserPlus } from "lucide-react";
 
 function GithubIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -36,6 +36,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isMagicLink, setIsMagicLink] = useState(true);
+  const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -80,6 +81,19 @@ export default function LoginPage() {
         setMessage({
           type: "success",
           text: "Magic link dispatched! Check your email inbox to log in.",
+        });
+      } else if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
+        if (error) throw error;
+        setMessage({
+          type: "success",
+          text: "Account created! Check your email inbox to confirm your registration.",
         });
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -126,14 +140,22 @@ export default function LoginPage() {
           <CardHeader className="space-y-1 pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg font-semibold tracking-tight">
-                Welcome Back
+                {isMagicLink
+                  ? "Sign In via Magic Link"
+                  : isSignUp
+                  ? "Create Staging Account"
+                  : "Welcome Back"}
               </CardTitle>
               <Badge variant="outline" className="font-mono text-[10px] uppercase">
                 Staging
               </Badge>
             </div>
             <CardDescription className="text-xs text-muted-foreground">
-              Sign in with your GitHub, Google, or email account.
+              {isMagicLink
+                ? "Enter your email to receive a passwordless login link."
+                : isSignUp
+                ? "Create a new account with email and password."
+                : "Sign in with your GitHub, Google, or email account."}
             </CardDescription>
           </CardHeader>
 
@@ -155,7 +177,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* OAuth Provider Buttons with 44px (h-11) touch targets */}
+            {/* OAuth Provider Buttons */}
             <div className="grid grid-cols-2 gap-3">
               <Button
                 type="button"
@@ -225,7 +247,7 @@ export default function LoginPage() {
                       placeholder="••••••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      autoComplete="current-password"
+                      autoComplete={isSignUp ? "new-password" : "current-password"}
                       required
                       className="pl-9 bg-background border-input text-sm h-11"
                     />
@@ -245,34 +267,62 @@ export default function LoginPage() {
                   </>
                 ) : (
                   <>
-                    {isMagicLink ? "Send Magic Link" : "Sign In with Password"}
+                    {isMagicLink
+                      ? "Send Magic Link"
+                      : isSignUp
+                      ? "Create Account"
+                      : "Sign In with Password"}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}
               </Button>
             </form>
 
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setIsMagicLink(!isMagicLink);
-                setMessage(null);
-              }}
-              className="w-full text-xs h-9 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {isMagicLink ? (
-                <>
-                  <KeyRound className="mr-2 h-3.5 w-3.5" />
-                  Switch to Password Auth
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-3.5 w-3.5" />
-                  Switch to Magic Link
-                </>
+            <div className="space-y-1.5 pt-1">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setIsMagicLink(!isMagicLink);
+                  setIsSignUp(false);
+                  setMessage(null);
+                }}
+                className="w-full text-xs h-9 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isMagicLink ? (
+                  <>
+                    <KeyRound className="mr-2 h-3.5 w-3.5" />
+                    Switch to Password Auth
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-3.5 w-3.5" />
+                    Switch to Magic Link
+                  </>
+                )}
+              </Button>
+
+              {!isMagicLink && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setIsSignUp(!isSignUp);
+                    setMessage(null);
+                  }}
+                  className="w-full text-xs h-8 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {isSignUp ? (
+                    "Already have an account? Sign In"
+                  ) : (
+                    <>
+                      <UserPlus className="mr-2 h-3.5 w-3.5" />
+                      Don't have an account? Create One
+                    </>
+                  )}
+                </Button>
               )}
-            </Button>
+            </div>
           </CardContent>
 
           <CardFooter className="flex justify-center border-t border-border pt-3">
