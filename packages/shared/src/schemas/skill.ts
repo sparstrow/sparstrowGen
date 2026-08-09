@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema } from "./common.js";
+import { idSchema } from "./common";
 
 /** Where a skill came from — drives the detail page's Origin panel. */
 export const skillSourceTypeSchema = z.enum(["manual", "url", "runtime"]);

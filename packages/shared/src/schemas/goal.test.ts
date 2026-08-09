@@ -6,7 +6,7 @@ import {
   planNodeStatusSchema,
   plannerActionSchema,
   plannerPlanSchema,
-} from "./goal.js";
+} from "./goal";
 
 const action = (over: Record<string, unknown> = {}) => ({
   id: "write_schema",

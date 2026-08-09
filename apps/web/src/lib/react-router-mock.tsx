@@ -2,7 +2,47 @@
 
 import React from "react";
 import NextLink from "next/link";
-import { useRouter as useNextRouter, usePathname, useSearchParams } from "next/navigation";
+import {
+  useRouter as useNextRouter,
+  useParams as useNextParams,
+  usePathname,
+  useSearchParams,
+} from "next/navigation";
+
+/**
+ * TanStack Router accepts a route-scoping argument on most of its hooks
+ * (`{ from: "/runs/$runId" }`, `{ strict: false }`). Next resolves params and
+ * search from the live URL instead, so the option is accepted and ignored —
+ * it only exists to keep the @sparstrow/ui call sites type-compatible.
+ */
+interface RouteScopeOptions {
+  from?: string;
+  strict?: boolean;
+}
+
+/** TanStack allows search as either a literal object or an updater function. */
+type SearchInput = Record<string, unknown> | ((prev: Record<string, unknown>) => unknown);
+
+function toQueryString(search: SearchInput | undefined): string {
+  if (!search) return "";
+  const resolved = typeof search === "function" ? search({}) : search;
+  if (!resolved || typeof resolved !== "object") return "";
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(resolved as Record<string, unknown>)) {
+    if (value !== undefined && value !== null) params.set(key, String(value));
+  }
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+}
+
+function applyParams(to: string, params: Record<string, unknown> | undefined): string {
+  if (!params) return to;
+  let href = to;
+  for (const key of Object.keys(params)) {
+    href = href.replace(`$${key}`, String(params[key]));
+  }
+  return href;
+}
 
 export interface RouterState {
   location: {
@@ -36,22 +76,18 @@ export function useRouter() {
   };
 }
 
-export function useNavigate() {
+export function useNavigate(_opts?: RouteScopeOptions) {
   const router = useNextRouter();
-  return (options: { to?: string; params?: Record<string, any>; search?: (prev: any) => any; replace?: boolean }) => {
-    let href = options.to || "";
-    if (options.params) {
-      for (const key of Object.keys(options.params)) {
-        href = href.replace(`$${key}`, String(options.params[key]));
-      }
-    }
-    if (options.search) {
-       const s = options.search({});
-       if (s && typeof s === 'object') {
-           const qs = new URLSearchParams(s as any).toString();
-           if(qs) href += `?${qs}`;
-       }
-    }
+  const pathname = usePathname() || "/";
+  return (options: {
+    to?: string;
+    params?: Record<string, unknown>;
+    search?: SearchInput;
+    replace?: boolean;
+  }) => {
+    // TanStack treats a missing `to` as "stay on the current route and only
+    // change search params". Falling back to "" would push an empty URL.
+    const href = applyParams(options.to || pathname, options.params) + toQueryString(options.search);
     if (options.replace) {
       router.replace(href);
     } else {
@@ -60,7 +96,7 @@ export function useNavigate() {
   };
 }
 
-export function useSearch() {
+export function useSearch(_opts?: RouteScopeOptions) {
   const obj: Record<string, string> = {};
   try {
     const params = useSearchParams();
@@ -75,39 +111,49 @@ export function useSearch() {
   return obj;
 }
 
-export function useParams() {
-  try {
-    const nextParams = require("next/navigation").useParams();
-    return nextParams || {};
-  } catch (_e) {
-    return {};
-  }
+export function useParams<T extends Record<string, any> = Record<string, any>>(
+  _opts?: RouteScopeOptions,
+): T {
+  // Static `import` rather than `require` — this module is bundled as ESM for
+  // the client, where `require` is not defined at runtime.
+  return (useNextParams() ?? {}) as T;
 }
 
-export const Link = React.forwardRef<HTMLAnchorElement, any>((props, ref) => {
-  const { to, params, search, className, activeProps, ...rest } = props;
+export interface LinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
+  to?: string;
+  params?: Record<string, unknown>;
+  search?: SearchInput;
+  activeProps?: { className?: string };
+  /** `{ exact: true }` opts out of prefix matching for the active state. */
+  activeOptions?: { exact?: boolean };
+}
+// NB: no `[key: string]: any` escape hatch here. `forwardRef` runs props
+// through `Omit`, which collapses a type with a string index signature down to
+// just that signature — erasing `onClick` & co. and silently reintroducing
+// implicit-any callback params at every call site.
+
+export const Link = React.forwardRef<HTMLAnchorElement, LinkProps>((props, ref) => {
+  // `activeProps`/`activeOptions` must be destructured out, not left in `rest` —
+  // otherwise they are spread onto the underlying <a> as unknown DOM attributes.
+  const { to, params, search, className, activeProps, activeOptions, ...rest } = props;
   const pathname = usePathname();
 
-  let href = to || "";
-  if (params) {
-    for (const key of Object.keys(params)) {
-      href = href.replace(`$${key}`, String(params[key]));
-    }
-  }
-  if (search) {
-    const s = typeof search === 'function' ? search({}) : search;
-    if (s && typeof s === 'object') {
-      const qs = new URLSearchParams(s as any).toString();
-      if (qs) href += `?${qs}`;
-    }
-  }
+  const href = applyParams(to || "", params) + toQueryString(search);
 
-  const isActive = pathname === href || (href !== "/" && pathname?.startsWith(href));
+  const isActive = activeOptions?.exact
+    ? pathname === href
+    : pathname === href || (href !== "/" && !!pathname?.startsWith(href));
   const finalClassName =
     isActive && activeProps ? `${className || ""} ${activeProps.className || ""}` : className;
 
   return (
-    <NextLink ref={ref} href={href} className={finalClassName} {...rest} />
+    <NextLink
+      ref={ref}
+      href={href}
+      className={finalClassName}
+      aria-current={isActive ? "page" : undefined}
+      {...rest}
+    />
   );
 });
 Link.displayName = "Link";

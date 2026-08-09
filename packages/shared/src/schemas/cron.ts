@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, isoDateSchema } from "./common.js";
+import { idSchema, isoDateSchema } from "./common";
 
 /**
  * `dream` (P5): targetId is the PROJECT id; the scheduler fires the project's

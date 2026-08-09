@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { slugify, slugSchema } from "./common.js";
+import { slugify, slugSchema } from "./common";
 
 describe("slugify", () => {
   it("lowercases and hyphenates words", () => {

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { executionProfileSchema } from "./project.js";
+import { executionProfileSchema } from "./project";
 
 /**
  * P7 git-automation API shapes, shared by core (producer) and the UI (consumer).

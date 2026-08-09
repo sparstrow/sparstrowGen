@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pipelineStepSchema, pipelineCreateSchema, type PipelineCreate } from "./pipeline.js";
+import { pipelineStepSchema, pipelineCreateSchema, type PipelineCreate } from "./pipeline";
 
 export const draftPipelineStepSchema = pipelineStepSchema
   .pick({ agentId: true, promptTemplate: true, onFailure: true })
