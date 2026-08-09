@@ -4,19 +4,39 @@ Welcome agent! This file defines the mandatory workflow, safety rules, and engin
 
 ---
 
-## 1. Monorepo Architecture Overview
+## 1. Monorepo Architecture & Locked Stack
 
-Sparstrowgen is a multi-node, cloud-synced agent platform built 100% in **TypeScript**:
+**Sparstrowgen** is an autonomous AI agent platform and developer control plane built 100% in **TypeScript** for orchestrating multi-node agent runtimes, task pipelines, GOAP goal planning, and `pgvector` RAG memory.
 
+### Workspace Directory Layout
 ```
 .
-├── apps/web/           # Next.js 15 App Router Web App (Deployed on Vercel)
+├── apps/web/           # Next.js 16.3 App Router Web App (Deployed on Vercel)
 ├── packages/
+│   ├── core/           # @sparstrow/core (GOAP Engine, Agent Swarms, Runner, RAG Memory)
 │   ├── daemon/         # @sparstrow/daemon (Headless Node.js Agent Execution Engine)
 │   ├── desktop/        # @sparstrow/desktop (Electron 36 Desktop Shell App)
-│   └── shared/         # @sparstrow/shared (Shared Zod schemas, types, Drizzle models)
-└── scripts/            # Build and development scripts
+│   ├── shared/         # @sparstrow/shared (Zod schemas, types, Drizzle ORM models)
+│   └── ui/             # @sparstrow/ui (Shadcn UI component library & Knowledge Center)
+└── scripts/            # Monorepo build and development scripts
 ```
+
+### Locked Technology Stack
+- **Web App**: Next.js 16.3 App Router (`apps/web`) with Turbopack bundler.
+- **Router Adapter**: Custom Next.js navigation adapter (`apps/web/src/lib/react-router-mock.tsx`) intercepting TanStack Router calls.
+- **UI & Styling**: Tailwind CSS v4, Radix UI primitives, `@sparstrow/ui` Shadcn components, OKLCH design system tokens (`DESIGN.md`).
+- **Database & ORM**: Supabase PostgreSQL + Drizzle ORM (`@sparstrow/shared`), Drizzle Kit migrations.
+- **Authentication**: `@supabase/ssr` (Passwordless Magic Link, Email & Password, GitHub OAuth, Google OAuth) + Next.js Middleware Session Guard (`apps/web/src/middleware.ts`).
+- **Realtime Cloud Sync**: Supabase Realtime Postgres event channel streaming (`apps/web/src/components/providers.tsx`) bridging into live React Query cache invalidation.
+- **Vector Search**: Supabase `pgvector` semantic search for memory notes and RAG retrieval.
+- **Desktop Shell**: Electron 36 (`@sparstrow/desktop`).
+- **Package Manager & Monorepo**: `pnpm` v11.6.0 + Turbo 2.9.18 caching.
+
+### Connected MCP Servers & Skills
+- **`shadcn` MCP Server**: UI pattern discovery (`search_items_in_registries`, `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`).
+- **`impeccable` Skill**: Production-grade UI design commands (`audit`, `adapt`, `polish`, `craft`, `shape`, `distill`, `harden`).
+- **`supabase` MCP Server**: Database schema inspection, migration execution, and Edge Function deployment.
+- **Tool Integration MCPs**: `clockify`, `square`, and `blender` MCP servers for agent action execution.
 
 ---
 
