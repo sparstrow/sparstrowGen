@@ -140,7 +140,7 @@ export default function LoginPage() {
           <CardContent className="space-y-4">
             {message && (
               <div
-                className={`p-3 rounded-md text-xs flex items-start gap-2 border ${
+                className={`p-3 rounded-md text-xs flex items-start gap-2 border transition-all duration-200 ${
                   message.type === "success"
                     ? "bg-emerald-950/40 border-emerald-800 text-emerald-300"
                     : "bg-destructive/10 border-destructive/30 text-destructive"
@@ -155,16 +155,16 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* OAuth Provider Buttons */}
+            {/* OAuth Provider Buttons with 44px (h-11) touch targets */}
             <div className="grid grid-cols-2 gap-3">
               <Button
                 type="button"
                 variant="outline"
                 disabled={loading}
                 onClick={() => handleOAuthSignIn("github")}
-                className="w-full border-border bg-background hover:bg-accent text-xs h-10 font-medium"
+                className="w-full border-border bg-background hover:bg-accent text-xs h-11 font-medium transition-all duration-150 active:scale-[0.98]"
               >
-                <GithubIcon className="mr-2 h-4 w-4" />
+                <GithubIcon className="mr-2 h-4 w-4 shrink-0" />
                 GitHub
               </Button>
               <Button
@@ -172,9 +172,9 @@ export default function LoginPage() {
                 variant="outline"
                 disabled={loading}
                 onClick={() => handleOAuthSignIn("google")}
-                className="w-full border-border bg-background hover:bg-accent text-xs h-10 font-medium"
+                className="w-full border-border bg-background hover:bg-accent text-xs h-11 font-medium transition-all duration-150 active:scale-[0.98]"
               >
-                <GoogleIcon className="mr-2 h-4 w-4" />
+                <GoogleIcon className="mr-2 h-4 w-4 shrink-0" />
                 Google
               </Button>
             </div>
@@ -196,7 +196,7 @@ export default function LoginPage() {
                   Work Email
                 </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Mail className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
@@ -205,7 +205,7 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     autoComplete="email"
                     required
-                    className="pl-9 bg-background border-input text-sm"
+                    className="pl-9 bg-background border-input text-sm h-11"
                   />
                 </div>
               </div>
@@ -218,7 +218,7 @@ export default function LoginPage() {
                     </Label>
                   </div>
                   <div className="relative">
-                    <KeyRound className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <KeyRound className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="password"
                       type="password"
@@ -227,7 +227,7 @@ export default function LoginPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       autoComplete="current-password"
                       required
-                      className="pl-9 bg-background border-input text-sm"
+                      className="pl-9 bg-background border-input text-sm h-11"
                     />
                   </div>
                 </div>
@@ -236,7 +236,7 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-sm h-10"
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-sm h-11 transition-all duration-150 active:scale-[0.98]"
               >
                 {loading ? (
                   <>
@@ -259,7 +259,7 @@ export default function LoginPage() {
                 setIsMagicLink(!isMagicLink);
                 setMessage(null);
               }}
-              className="w-full text-xs h-8 text-muted-foreground hover:text-foreground"
+              className="w-full text-xs h-9 text-muted-foreground hover:text-foreground transition-colors"
             >
               {isMagicLink ? (
                 <>
