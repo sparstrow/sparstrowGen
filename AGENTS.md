@@ -91,6 +91,9 @@ We enforce a strict 3-tier Git & deployment pipeline:
    - If feature B depends on feature A, build feature A completely first (exposing the minimal clean interface required), then build feature B completely.
 10. **End-to-End Visual & Runtime App Testing**:
     - For verification and testing, explicitly launch/open the application and inspect, run, and test the workflows end-to-end directly before claiming completion.
+11. **Design System & Component Consistency**:
+    - ALWAYS use `@sparstrow/ui` Shadcn UI components (`Card`, `Button`, `Input`, `Label`, `Separator`, `Badge`, etc.), design tokens (`bg-background`, `bg-card`, `border-border`, `text-foreground`, `text-muted-foreground`), and existing typography.
+    - NEVER introduce hardcoded tailwind colors (like `bg-slate-950`, `bg-cyan-500`, `text-cyan-400`, `border-slate-800`) or custom component primitives that clash with the app's established theme.
 
 ---
 
