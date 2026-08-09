@@ -6,6 +6,7 @@ data-preview/
 *.log
 .env
 .env.*
+!.env.example
 *.tsbuildinfo
 release/
 coverage/

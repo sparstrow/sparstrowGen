@@ -1,5 +1,6 @@
 packages:
   - packages/*
+  - apps/*
   # The desktop packaging step deploys a copy of @sparstrow/core into
   # packages/desktop/resources-staging/core (and electron-builder writes to
   # release/). Exclude both so pnpm never discovers a duplicate workspace
