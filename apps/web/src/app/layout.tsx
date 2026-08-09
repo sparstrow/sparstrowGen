@@ -1,3 +1,4 @@
+import React, { Suspense } from "react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -13,6 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 import { AppShell } from "@web/components/layout/app-shell";
+import { Providers } from "@web/components/providers";
 
 export const metadata: Metadata = {
   title: "Sparstrowgen",
@@ -30,7 +32,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <AppShell>{children}</AppShell>
+        <Providers>
+          <Suspense fallback={null}>
+            <AppShell>{children}</AppShell>
+          </Suspense>
+        </Providers>
       </body>
     </html>
   );

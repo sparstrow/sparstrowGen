@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -99,10 +99,27 @@ export function Markdown({ content }: { content: string }) {
           ul: ({ children }) => <ul className="my-3 list-disc space-y-1 pl-6">{children}</ul>,
           ol: ({ children }) => <ol className="my-3 list-decimal space-y-1 pl-6">{children}</ol>,
           li: ({ children }) => <li className="[&>p]:my-1">{children}</li>,
-          a: ({ href, children }) =>
-            // In-app paths (e.g. Knowledge Center cross-links) navigate via the
-            // router; everything else opens externally in a new tab.
-            href?.startsWith("/") ? (
+          a: ({ href, children }) => {
+            const text = String(children);
+            const isTryInApp =
+              text.toLowerCase().includes("try in app") ||
+              text.toLowerCase().includes("try it out");
+
+            if (isTryInApp) {
+              return (
+                <span className="my-2 inline-block">
+                  <Link
+                    to={href || "/"}
+                    className="inline-flex items-center gap-2 rounded-md bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <Play className="size-3 fill-current" />
+                    {children}
+                  </Link>
+                </span>
+              );
+            }
+
+            return href?.startsWith("/") ? (
               <Link
                 to={href}
                 className="font-medium underline underline-offset-2 hover:text-muted-foreground"
@@ -118,7 +135,8 @@ export function Markdown({ content }: { content: string }) {
               >
                 {children}
               </a>
-            ),
+            );
+          },
           blockquote: ({ children }) => (
             <blockquote className="my-3 border-l border-border pl-4 text-muted-foreground [&>p]:my-1">
               {children}
