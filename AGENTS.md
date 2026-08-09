@@ -76,6 +76,21 @@ We enforce a strict 3-tier Git & deployment pipeline:
    - You MUST execute test commands (`pnpm typecheck`, `pnpm test`, or specific test files) to prove your code works before claiming task completion.
 7. **Human-in-the-Loop (HITL) Gates**:
    - Destructive operations (dropping database tables, deleting protected files, releasing to production) REQUIRE explicit user confirmation.
+8. **Open Question Protocol & Options Framework**:
+   - Do NOT proceed with building any feature, writing code, or modifying any file when you have open questions towards the user that remain unanswered.
+   - When presenting open questions to the user, always structure each question with full context, a simple user-side scenario, and concrete options.
+   - For every option presented, provide:
+     - Pros and Cons
+     - Score out of 10
+     - Blast radius if chosen wrong
+     - Overall caveats
+     - Agent's overall recommendation
+9. **Micro-Level & Complete Feature Delivery (No Over-Engineering)**:
+   - Build features at a **micro-level**: complete the full long-term design (backend, frontend, UI/UX, and data layer) of one feature cleanly before moving to the next.
+   - Avoid over-engineering or unnecessary abstractions. Choose minimal, effective implementations that solve the requirement.
+   - If feature B depends on feature A, build feature A completely first (exposing the minimal clean interface required), then build feature B completely.
+10. **End-to-End Visual & Runtime App Testing**:
+    - For verification and testing, explicitly launch/open the application and inspect, run, and test the workflows end-to-end directly before claiming completion.
 
 ---
 

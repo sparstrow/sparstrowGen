@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@sparstrow/ui/theme/theme-provider";
 import { Toaster } from "@sparstrow/ui/components/ui/sonner";
 import { wsHub } from "@sparstrow/ui/lib/ws";
+import { createClient } from "@web/utils/supabase/client";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -17,8 +18,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
-    // Bridge server push events into query invalidation
-    const unsubscribe = wsHub.subscribe((event) => {
+    // Bridge local websocket push events into query invalidation
+    const unsubscribeWs = wsHub.subscribe((event) => {
       switch (event.type) {
         case "run.created":
         case "run.updated":
@@ -78,7 +79,34 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => unsubscribe();
+    // Supabase Realtime Postgres channel subscription for cloud sync
+    const supabase = createClient();
+    const realtimeChannel = supabase
+      .channel("db-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public" },
+        (payload: { table: string }) => {
+          const table = payload.table;
+          if (table === "runs") {
+            void queryClient.invalidateQueries({ queryKey: ["runs"] });
+          } else if (table === "tasks") {
+            void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+          } else if (table === "goals") {
+            void queryClient.invalidateQueries({ queryKey: ["goals"] });
+          } else if (table === "messages") {
+            void queryClient.invalidateQueries({ queryKey: ["messages"] });
+          } else if (table === "system_health") {
+            void queryClient.invalidateQueries({ queryKey: ["health"] });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      unsubscribeWs();
+      void supabase.removeChannel(realtimeChannel);
+    };
   }, [queryClient]);
 
   return (
