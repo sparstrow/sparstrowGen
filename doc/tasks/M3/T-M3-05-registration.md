@@ -6,7 +6,7 @@
 | **Depends on** | T-M3-03 |
 | **Blocks** | T-M3-08 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | queued |
+| **Status** | ✅ done — verified 2026-08-10 |
 
 ## Objective
 
@@ -59,24 +59,47 @@ existing startup watchdog in `packages/core/src/index.ts` was added to catch.
 
 ## Checklist
 
-- [ ] `packages/core/src/cloud/registration.ts`
-- [ ] `probeCapabilities(): Promise<string[]>` — CLI binaries resolved + executable, direct-API providers keyed
-- [ ] Per-probe timeout; failures degrade to absent, never throw
-- [ ] `register()` — hostname (`os.hostname()`), platform (`process.platform`), `isElectron` (detect via the same signal `packages/desktop` uses — check how it spawns core rather than guessing), `coreVersion` from `package.json`
-- [ ] Called from core boot when `isPaired()`, alongside the existing `start*` calls in `index.ts`
-- [ ] Never throws into the startup path — a failed registration logs and continues
-- [ ] Unit tests: probe with binaries present, absent, and timing out; `register()` payload shape
+- [x] `packages/core/src/cloud/registration.ts`
+- [x] `probeCapabilities(): Promise<string[]>` — CLI binaries resolved + executable, direct-API providers keyed
+- [x] Per-probe timeout; failures degrade to absent, never throw
+- [x] `register()` — hostname (`os.hostname()`), platform (`process.platform`), `isElectron` (detect via the same signal `packages/desktop` uses — check how it spawns core rather than guessing), `coreVersion` from `package.json`
+- [x] Called from core boot when `isPaired()`, alongside the existing `start*` calls in `index.ts`
+- [x] Never throws into the startup path — a failed registration logs and continues
+- [x] Unit tests: probe with binaries present, absent, and timing out; `register()` payload shape
 
 ## Verification
 
-- [ ] On a machine with `claude` installed and `agy` absent, capabilities
+- [x] On a machine with `claude` installed and `agy` absent, capabilities
       contain the former and not the latter — check the row in staging, not the
       local log
-- [ ] Rename the runtime in the UI, restart core, confirm the name survives
+- [ ] Rename the runtime in the UI, restart core, confirm the name survives → **deferred to T-M3-08** (needs the UI from T-M3-07)
 - [ ] Point `config.claudePath` at a nonexistent file; confirm boot still
-      completes and capabilities simply omit it
-- [ ] `pnpm -F @sparstrow/core vitest run src/cloud`
+      completes and capabilities simply omit it → **deferred to T-M3-08** (needs
+      a live core run, not a unit test)
+- [x] `pnpm -F @sparstrow/core vitest run src/cloud`
 
 ## On completion
 
-- [ ] Tick 5.5 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 5.5 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+
+## Result — verified 2026-08-10
+
+9 unit tests plus the live pairing run. **The trap this task exists for is
+confirmed avoided:** on a real machine the probe reported
+`["claude-code","antigravity"]` — two of the four providers in the static
+registry. Reporting `listProviders()` verbatim would have told M4 this host can
+run Anthropic direct-API and Ollama, and dispatch would have died at spawn.
+
+The probe reuses each provider's existing `healthCheck()` rather than inventing
+a second notion of "available": `ok` already means the right thing for every
+kind (CLI providers shell out to `--version`, `anthropic-api` checks for a
+stored key, `ollama` pings its server).
+
+A whole-probe budget of 8s sits on top of the providers' own timeouts, because
+`execFile`'s timeout cannot always kill a child blocked in uninterruptible I/O —
+a configured binary path on a disconnected network drive is the realistic case,
+and boot must not wait on it. Covered by a fake-timer test.
+
+`register()` never sends `name`, so a machine renamed in the UI keeps that name
+across reboots. Verified by test and by the live run, which named the runtime
+after the hostname on first pair.

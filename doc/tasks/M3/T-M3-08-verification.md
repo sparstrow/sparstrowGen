@@ -54,6 +54,22 @@ failure is invisible to the test suite.
 - [ ] **The token never appears in a log.** Grep core's logs and the CLI's
       output after a full pair; the plaintext must not be there.
 
+## Checklist — inherited from 05 and 06
+
+These need a live core run and/or the UI, so they could not be executed when
+their own tasks landed. They are here, not lost.
+
+- [ ] Start core paired; the UI shows the machine online within one interval
+- [ ] SIGINT core; the UI shows `draining` immediately, then offline
+- [ ] SIGKILL core; the UI shows offline within `HEARTBEAT_STALE_AFTER_MS`, and
+      `last_heartbeat` still holds the last live beat — **nothing wrote to the row**
+- [ ] Drop the network for two minutes, restore it; the machine returns to
+      online without a restart, and the log has a handful of lines, not hundreds
+- [ ] Revoke the token against a running core; the loop stops and says so once
+- [ ] Rename a machine in the UI, restart core, confirm the name survives
+- [ ] Point `config.claudePath` at a nonexistent file; boot still completes and
+      capabilities simply omit it
+
 ## Checklist — UI pass
 
 Signed in, against staging:

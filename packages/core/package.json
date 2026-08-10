@@ -8,7 +8,8 @@
     "start": "tsx src/index.ts",
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:cli": "esbuild src/cli/pair.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/cli/pair.mjs --external:better-sqlite3 --external:node-pty --external:fastembed --external:sqlite-vec --external:pino --external:pino-pretty"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",
@@ -40,5 +41,8 @@
     "tsx": "^4.20.0",
     "typescript": "^5.8.3",
     "vitest": "^3.2.0"
+  },
+  "bin": {
+    "sparstrow": "./dist/cli/pair.mjs"
   }
 }

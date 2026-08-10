@@ -6,7 +6,7 @@
 | **Depends on** | T-M3-03 |
 | **Blocks** | T-M3-08 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | queued |
+| **Status** | ✅ done — verified 2026-08-10 |
 
 ## Objective
 
@@ -61,15 +61,15 @@ and honest, but the loop recovering on its own is strictly better than not.
 
 ## Checklist
 
-- [ ] `packages/core/src/cloud/heartbeat.ts` — `startHeartbeat()` / `stopHeartbeat()`
-- [ ] Wired into `packages/core/src/index.ts` next to the existing watchers, and into `shutdown()`
-- [ ] `draining` declared on graceful shutdown, short timeout, never blocking
-- [ ] Stops permanently on 403; retries with backoff on network/5xx
-- [ ] Re-reads the token on 401 before giving up
-- [ ] Transition-only logging, not per-attempt
-- [ ] `HEARTBEAT_INTERVAL_MS` / `HEARTBEAT_STALE_AFTER_MS` imported from `@sparstrow/shared` — not redeclared
-- [ ] Web side: `/api/v1/system/health` and the runtimes list derive online-ness from `last_heartbeat` age, not `status`
-- [ ] Unit tests with fake timers: beats on interval, backs off, stops on 403, recovers after a transient failure
+- [x] `packages/core/src/cloud/heartbeat.ts` — `startHeartbeat()` / `stopHeartbeat()`
+- [x] Wired into `packages/core/src/index.ts` next to the existing watchers, and into `shutdown()`
+- [x] `draining` declared on graceful shutdown, short timeout, never blocking
+- [x] Stops permanently on 403; retries with backoff on network/5xx
+- [x] Re-reads the token on 401 before giving up
+- [x] Transition-only logging, not per-attempt
+- [x] `HEARTBEAT_INTERVAL_MS` / `HEARTBEAT_STALE_AFTER_MS` imported from `@sparstrow/shared` — not redeclared
+- [x] Web side: `/api/v1/system/health` and the runtimes list derive online-ness from `last_heartbeat` age, not `status`
+- [x] Unit tests with fake timers: beats on interval, backs off, stops on 403, recovers after a transient failure
 
 ## Traps
 
@@ -85,15 +85,53 @@ line is exactly the wedge the startup watchdog exists to complain about.
 
 ## Verification
 
-- [ ] Start core paired; within one interval the UI shows the machine online
-- [ ] Stop core with SIGINT; the UI shows `draining` immediately, then offline
+- [ ] Start core paired; within one interval the UI shows the machine online → **deferred to T-M3-08**
+- [ ] Stop core with SIGINT; the UI shows `draining` immediately, then offline → **deferred to T-M3-08**
 - [ ] Kill core with SIGKILL (no graceful path); the UI shows offline within
       `HEARTBEAT_STALE_AFTER_MS`, and **nothing wrote to the row** — confirm
-      `last_heartbeat` is unchanged from the last live beat
+      `last_heartbeat` is unchanged from the last live beat → **deferred to T-M3-08**
 - [ ] Disconnect the network for two minutes and reconnect; the machine returns
       to online without a restart, and the log has a handful of lines, not hundreds
-- [ ] Revoke the token; the loop stops and says so once
+      → **deferred to T-M3-08**
+- [x] Revoke the token; the loop stops and says so once *(unit-tested with fake timers; live re-check in T-M3-08)*
 
 ## On completion
 
-- [ ] Tick 5.6 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 5.6 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+
+## Result — verified 2026-08-10
+
+9 unit tests with fake timers, plus the live pairing run.
+
+### Added a route that T-M3-02 did not have
+
+Graceful shutdown needs somewhere to declare `draining`, and the original four
+routes had nowhere. `POST /api/daemon/status` was added here, with an
+**allowlist** (`draining`, `online`): `status` is free text in the schema, so
+without one a daemon could write anything into a column the UI renders and M4
+will later route on.
+
+### The web side had drifted already
+
+`/system/health` and `/system/factory-health` each carried their own hardcoded
+`60_000 * 2` staleness threshold — exactly the drift `HEARTBEAT_STALE_AFTER_MS`
+exists to prevent, and already inconsistent with the 90s the daemon reports.
+Both now use the shared `isRuntimeOnline`.
+
+The same handler also expected `capabilities` to be `{ providers: [...] }`,
+while M3's probe writes a flat `string[]`. It would have rendered every
+machine as having no providers at all. Now reads the array, defensively.
+
+### Verified
+
+- Beats immediately, then on the interval; starting twice does not double the rate
+- **Stops permanently on 403** — retrying a revocation the owner performed
+  deliberately would turn it into a request loop, and that token is never
+  getting back in
+- Keeps retrying through network failure, logging the *transition* rather than
+  every attempt
+- `declareDraining()` stops the loop first, so no in-flight beat can resurrect a
+  machine that just declared it is going away
+- Never throws inside shutdown — a rejection there would be the last thing in
+  the log and would look like the cause of a failed exit
+- The interval is `unref()`'d, so it cannot hold the process open

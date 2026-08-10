@@ -6,7 +6,7 @@
 | **Depends on** | T-M3-03 |
 | **Blocks** | T-M3-08 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | queued |
+| **Status** | ✅ done — verified 2026-08-10 |
 
 ## Objective
 
@@ -44,26 +44,57 @@ code was already used" from "the network is down".
 
 ## Checklist
 
-- [ ] `packages/core/src/cli/pair.ts` + `bin` entry `sparstrow` in `packages/core/package.json`
-- [ ] Build target matching `memory-cli`'s esbuild setup — check that package's `build` script and mirror it rather than inventing a second bundling approach
-- [ ] `sparstrow pair <code>` — collects hostname, OS, `isElectron: false`, capabilities (T-M3-05's probe), core version
-- [ ] Refuses to overwrite an existing token without `--force`, naming the currently paired workspace
-- [ ] On success prints the runtime name and workspace, **never the token**, plus "restart core to connect"
-- [ ] Distinct messages for: code not found / already used / expired / cloud unreachable
-- [ ] `sparstrow pair --status` prints whether this machine is paired and to what
-- [ ] `--help` that reads like documentation, since this is the first thing a new machine's owner runs
+- [x] `packages/core/src/cli/pair.ts` + `bin` entry `sparstrow` in `packages/core/package.json`
+- [x] Build target matching `memory-cli`'s esbuild setup — check that package's `build` script and mirror it rather than inventing a second bundling approach
+- [x] `sparstrow pair <code>` — collects hostname, OS, `isElectron: false`, capabilities (T-M3-05's probe), core version
+- [x] Refuses to overwrite an existing token without `--force`, naming the currently paired workspace
+- [x] On success prints the runtime name and workspace, **never the token**, plus "restart core to connect"
+- [x] Distinct messages for: code not found / already used / expired / cloud unreachable
+- [x] `sparstrow pair --status` prints whether this machine is paired and to what
+- [x] `--help` that reads like documentation, since this is the first thing a new machine's owner runs
 
 ## Verification
 
-- [ ] Pair a machine against staging with a real code; confirm one `runtimes`
+- [x] Pair a machine against staging with a real code; confirm one `runtimes`
       row appears in the UI
-- [ ] Re-run the same code; assert exit `1` and a message saying it was consumed
-- [ ] Run with `SPARSTROW_CLOUD_URL` pointing somewhere dead; assert exit `2`
+- [x] Re-run the same code; assert exit `1` and a message saying it was consumed
+- [x] Run with `SPARSTROW_CLOUD_URL` pointing somewhere dead; assert exit `2`
       and a message about reachability, not a stack trace
-- [ ] Run `pair` again on the paired machine without `--force`; assert refusal
-- [ ] Confirm the token appears in the encrypted store and **not** in any log,
+- [x] Run `pair` again on the paired machine without `--force`; assert refusal
+- [x] Confirm the token appears in the encrypted store and **not** in any log,
       terminal output, or shell history artefact
 
 ## On completion
 
-- [ ] Tick 5.4 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 5.4 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+
+## Result — verified 2026-08-10
+
+31 assertions against the real binary, the running dev server and live staging
+(`scratchpad/pair-cli.mjs`), with `SPARSTROW_SECRETS_DIR` pointed at a throwaway
+directory so the developer's own pairing was never touched.
+
+Exit codes behave as specified: `0` paired, `1` code rejected (used / expired /
+typo, each with its own message), `2` control plane unreachable — and that last
+one carries no stack trace, just the URL and the cause.
+
+Also confirmed: the encrypted store contains the key name but no readable
+token, the token appears nowhere in CLI output, re-pairing without `--force` is
+refused *without burning the new code*, and `--unpair` says plainly that it does
+**not** revoke the token in the cloud.
+
+### Found while building
+
+**The CLI could not be bundled as CJS.** `config.ts` resolves `repoRoot` from
+`import.meta.url`, which esbuild cannot represent in a CJS bundle — it compiles
+to `undefined` and the binary dies inside `fileURLToPath` before `main()` runs.
+`memory-cli` gets away with `--format=cjs` only because it never touches
+`import.meta`. Built as ESM (`dist/cli/pair.mjs`) instead.
+
+Two follow-on traps in that same build line, both caught by running the binary
+rather than by the build succeeding:
+
+- `--packages=external` externalises the workspace packages too, and their TS
+  sources are not resolvable at runtime. Only the native addons may be external.
+- esbuild preserves a source shebang, so adding `--banner:js` produced two
+  shebang lines — and the second is a syntax error, not a comment.
