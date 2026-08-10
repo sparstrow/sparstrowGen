@@ -6,7 +6,7 @@
 | **Depends on** | T-M3-01 |
 | **Blocks** | T-M3-03, T-M3-05, T-M3-06 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | queued |
+| **Status** | ✅ done — verified against staging 2026-08-10 |
 
 ## Objective
 
@@ -68,16 +68,16 @@ returns the plaintext **once**. Nothing logs it.
 
 ## Checklist
 
-- [ ] `packages/shared/src/cloud.ts` — request/response types + `HEARTBEAT_INTERVAL_MS` (30_000) and `HEARTBEAT_STALE_AFTER_MS` (90_000), exported so core and web cannot drift
-- [ ] `apps/web/src/lib/daemon/auth.ts` — `authenticateDaemon`, with the containment comment
-- [ ] Service-role Supabase client used **only** inside `lib/daemon/`, never imported by a `/api/v1` handler
-- [ ] `POST /api/daemon/pair` — token generation, hashing, RPC call, single-shot response
-- [ ] `POST /api/daemon/register` — upsert metadata onto the authenticated runtime id
-- [ ] `POST /api/daemon/heartbeat` — `last_heartbeat = now()` server-side; returns `staleAfterMs`
-- [ ] `GET /api/daemon/me`
-- [ ] Map RPC errors: `22023` → 400 with the function's message, anything else → 500
-- [ ] Confirm `apps/web/src/middleware.ts` lets `/api/daemon/*` through as JSON, not a `/login` redirect — M2 fixed this for `/api/`, verify the prefix still matches
-- [ ] `SUPABASE_SERVICE_ROLE_KEY` read via a helper that throws a legible error when absent, matching `utils/supabase/env.ts`
+- [x] `packages/shared/src/cloud.ts` — request/response types + `HEARTBEAT_INTERVAL_MS` (30_000) and `HEARTBEAT_STALE_AFTER_MS` (90_000), exported so core and web cannot drift
+- [x] `apps/web/src/lib/daemon/auth.ts` — `authenticateDaemon`, with the containment comment
+- [x] Service-role Supabase client used **only** inside `lib/daemon/`, never imported by a `/api/v1` handler
+- [x] `POST /api/daemon/pair` — token generation, hashing, RPC call, single-shot response
+- [x] `POST /api/daemon/register` — upsert metadata onto the authenticated runtime id
+- [x] `POST /api/daemon/heartbeat` — `last_heartbeat = now()` server-side; returns `staleAfterMs`
+- [x] `GET /api/daemon/me`
+- [x] Map RPC errors: `22023` → 400 with the function's message, anything else → 500
+- [x] Confirm `apps/web/src/middleware.ts` lets `/api/daemon/*` through as JSON, not a `/login` redirect — M2 fixed this for `/api/`, verify the prefix still matches
+- [x] `SUPABASE_SERVICE_ROLE_KEY` read via a helper that throws a legible error when absent, matching `utils/supabase/env.ts`
 
 ## Verification
 
@@ -87,14 +87,54 @@ pnpm -F web typecheck && pnpm -F web vitest run
 
 Against a running dev server, with a real code minted through the RPC:
 
-- [ ] `POST /pair` with a valid code returns a token; the same code again returns 400
-- [ ] `POST /heartbeat` with that token returns 200 and moves `last_heartbeat`
-- [ ] `POST /heartbeat` with a garbage token returns **401**
-- [ ] Set `revoked_at`; the next `POST /heartbeat` returns **403**
-- [ ] `POST /register` naming a **different workspace's** runtime id in the body
+- [x] `POST /pair` with a valid code returns a token; the same code again returns 400
+- [x] `POST /heartbeat` with that token returns 200 and moves `last_heartbeat`
+- [x] `POST /heartbeat` with a garbage token returns **401**
+- [x] Set `revoked_at`; the next `POST /heartbeat` returns **403**
+- [x] `POST /register` naming a **different workspace's** runtime id in the body
       changes nothing — the body field must be ignored or absent by construction
-- [ ] `curl` an unauthenticated `/api/daemon/me`; assert JSON 401, no HTML
+- [x] `curl` an unauthenticated `/api/daemon/me`; assert JSON 401, no HTML
 
 ## On completion
 
-- [ ] Tick 5.2 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 5.2 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+
+## Result — verified 2026-08-10
+
+23 assertions green (`scratchpad/daemon-api.mjs`), run against the dev server
+and live staging with two disposable workspaces.
+
+**The isolation assertion.** A daemon paired to workspace A sent `register`
+naming B's runtime in five key shapes at once — `runtimeId`, `runtime_id`,
+`workspaceId`, `workspace_id`, `id` — plus a hostname of `HIJACKED`. The
+request returned 200, **B's runtime was untouched**, and A's own runtime took
+the update. That is the design working: the ids are not read from the body at
+all, so there is nothing to spoof. With the service role there is no RLS
+underneath, so this is the only place that property is proved.
+
+Also confirmed:
+
+- Pairing returns a token whose SHA-256 matches the stored `token_hash`, and
+  the plaintext is nowhere in the database
+- The three redemption failures surface as distinct HTTP statuses **and**
+  stable reason tokens: 409 `code_already_used`, 410 `code_expired`,
+  400 `unknown_code`
+- A garbage token is **401**, a revoked one **403** with `reason: "revoked"` —
+  and revocation takes effect on the very next request
+- Unauthenticated `/api/daemon/me` returns JSON 401, not an HTML login page
+- Nothing logged the token: server logs carry status lines only
+
+### Changed while implementing
+
+**Heartbeat does not write `status: "online"`.** It was the obvious thing to
+put there and it is wrong: `status` is for states a daemon *declares*
+(`draining` at shutdown) and liveness is derived from `last_heartbeat`. Writing
+it on every beat would also let a beat still in flight when shutdown declared
+`draining` land afterwards and resurrect the machine. `register` still sets it,
+because a booting daemon genuinely is declaring itself online.
+
+### Noted, not acted on
+
+Next 16 warns that the `middleware` file convention is deprecated in favour of
+`proxy`. Pre-existing and unrelated to this task — the routes are confirmed
+reachable as JSON — but it will need doing before a Next upgrade forces it.
