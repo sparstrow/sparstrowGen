@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Status** | Approved 2026-08-09 · M1 complete · M2 complete · auth hardening complete 2026-08-10 · M3 next |
+| **Status** | Approved 2026-08-09 · M1 complete · M2 complete · auth hardening complete 2026-08-10 · M3 complete 2026-08-10 · M4 next |
 | **Supersedes** | The "Phase 4: Multi-Agent Swarm Orchestrator & Live Transcripts" proposal |
 | **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–4 done · band 5 = M3, decomposed 2026-08-10) · `doc/tasks/M2/` · `doc/tasks/M3/` |
-| **Open questions** | OQ-1 (uncommitted work) — parked for M4; blocks nothing in M3 |
+| **Open questions** | OQ-1 (uncommitted work) — parked for M4, and **must be answered before M4's first dispatch task**. OQ-2 answered and closed 2026-08-10. |
 
 > **Why the original Phase 4 proposal was replaced.** It described three features
 > — live streaming transcripts, a GOAP/delegation visualizer, and a HITL
@@ -203,7 +203,7 @@ hooks keep their contract, and the same API surface serves web and desktop.
 Realtime subscriptions stay direct from the browser as they are today in
 `providers.tsx`.
 
-### M3 — Pairing, registration, heartbeat
+### M3 — Pairing, registration, heartbeat ✅ DONE (2026-08-10)
 `packages/core/src/cloud/` (new): `client.ts`, `pairing.ts`, `registration.ts`
 
 - `sparstrow pair <code>` exchanges a short-lived code for a daemon token; store

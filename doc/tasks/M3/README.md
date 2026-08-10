@@ -5,6 +5,7 @@
 | **Plan** | `doc/plans/2026-08-09-daemon-cloud-control-plane.md` (M3) |
 | **Depends on** | M2 (complete — `/api/v1` served from Next over Supabase) |
 | **Blocks** | M4 (command spine), M5, M6 |
+| **Status** | done - verified on staging 2026-08-10 |
 | **Open questions** | none — everything below is decided. OQ-1 is parked for M4 and touches nothing here. |
 
 ## Tasks

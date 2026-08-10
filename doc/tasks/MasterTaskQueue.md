@@ -81,7 +81,7 @@ Phase spec: [`M3/README.md`](M3/README.md). Decomposed 2026-08-10.
 | 5.5 | [T-M3-05 — registration + capability probe](M3/T-M3-05-registration.md) | `[P]` | 5.3 | ✅ done (2026-08-10) |
 | 5.6 | [T-M3-06 — heartbeat loop + status derivation](M3/T-M3-06-heartbeat.md) | `[C]` | 5.3 | ✅ done (2026-08-10) |
 | 5.7 | [T-M3-07 — Runtimes UI: pair, list, revoke](M3/T-M3-07-runtimes-ui.md) | `[P]` | 5.1 | done (2026-08-10) |
-| 5.8 | [T-M3-08 — verification](M3/T-M3-08-verification.md) | `[S]` | 5.1–5.7 | queued |
+| 5.8 | [T-M3-08 — verification](M3/T-M3-08-verification.md) | `[S]` | 5.1–5.7 | done (2026-08-10) |
 
 5.1 and 5.2 are `[S]` because they define the contract every other task is
 written against. 5.7 needs only the RPC, so the UI can be built in parallel with
@@ -96,7 +96,7 @@ written when the band is next.
 
 | # | Phase | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 6.x | M4 — command spine (claim/lease/ack) | `[S]` | M3 | not decomposed |
+| 6.x | M4 — command spine (claim/lease/ack) | `[S]` | M3 | **next** — not decomposed |
 | 7.x | M5 — transcripts (dual path) | `[P]` | M4 | not decomposed |
 | 7.y | M6 — memory sync | `[P]` | M4 | not decomposed |
 | 7.z | M7 — route parity + Electron hosted load | `[P]` | M2 | not decomposed |
