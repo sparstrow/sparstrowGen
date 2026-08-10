@@ -95,17 +95,19 @@ the OAuth buttons were decorative, and the login page was off-design.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 4.2 | Auth hardening, logout, account deletion, login redesign | `[S]` | 4.1 | done except provider enablement |
+| 4.2 | Auth hardening, logout, account deletion, login redesign | `[S]` | 4.1 | done |
 
-Provider enablement is the owner's to do — it means creating OAuth apps on
-GitHub and Google and pasting client secrets into the Supabase dashboard.
-Runbook: [`doc/runbooks/oauth-providers.md`](../runbooks/oauth-providers.md).
+Social sign-in is built but not switched on: enabling it needs OAuth apps
+registered under the owner's own GitHub and Google accounts. Parked as
+[D-8](../Deferred.md) on 2026-08-10 with the runbook ready
+([`doc/runbooks/oauth-providers.md`](../runbooks/oauth-providers.md)).
+Magic-link sign-in is parked alongside it as [D-9](../Deferred.md).
 
 ## Blocked items
 
 | Item | Blocked by | Effect |
 |---|---|---|
-| GitHub / Google sign-in | Owner action | Code is complete and verified; both providers report `enabled: false` in Supabase, so the buttons render disabled with an explanation. Follow the runbook and they light up with no code change. |
+| GitHub / Google sign-in | **Deferred → [D-8](../Deferred.md)** | Not blocked work — parked by the owner 2026-08-10. Code is complete and verified; the buttons render disabled and light up on their own once the providers are enabled. |
 | Leaked password protection | **Supabase plan** | Requires Pro; not available on the current plan (confirmed 2026-08-10). No SQL equivalent, so nothing in this repo can fix it. Verified off by signing up with `password123` and getting a session. Not an action item — the advisor will keep flagging it. |
 | `/runs/[runId]` render + Realtime refetch | M4 | Both need a run to exist. Nothing to open until dispatch creates one. |
 
