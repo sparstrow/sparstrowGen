@@ -10,7 +10,8 @@ doc/
 │   ├── MasterTaskQueue.md    global run order + concurrency tags
 │   └── <phase>/              phase spec + individual tasks
 ├── runbooks/                 manual steps only a human can do (external
-│                             dashboards, OAuth apps, anything an agent
+│   ├── README.md             ← start here: the owner's action-item checklist
+│   └── <topic>.md            dashboards, OAuth apps, anything an agent
 │                             shouldn't act on your behalf for). Not a
 │                             lifecycle stage — these don't graduate into
 │                             code, they just sit here as reference.

@@ -136,8 +136,9 @@ The login page reads `/auth/v1/settings` on load, so the buttons render disabled
 with "Social sign-in isn't set up yet — use email below" and **light up on their
 own** once the providers are enabled. No code change is needed to unpark this.
 
-Full steps, including the callback URL people get wrong (it is Supabase's, not
-the app's): [`runbooks/oauth-providers.md`](runbooks/oauth-providers.md).
+Tracked as an action item in [`runbooks/README.md`](runbooks/README.md). Full
+steps, including the callback URL people get wrong (it is Supabase's, not the
+app's): [`runbooks/oauth-providers.md`](runbooks/oauth-providers.md).
 
 **Unpark when:** the owner wants social sign-in, or a collaborator who would
 rather not manage another password is added to a workspace.

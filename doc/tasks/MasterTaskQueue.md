@@ -107,6 +107,10 @@ mechanism was explained. It is live and verified end to end.
 
 ## Blocked items
 
+> For a single checklist of everything that needs the owner specifically, see
+> [`../runbooks/README.md`](../runbooks/README.md) — the rows below explain
+> *why* each is in the queue; that file is where you go to actually act on one.
+
 | Item | Blocked by | Effect |
 |---|---|---|
 | GitHub / Google sign-in | **Deferred → [D-8](../Deferred.md)** | Not blocked work — parked by the owner 2026-08-10. Code is complete and verified; the buttons render disabled and light up on their own once the providers are enabled. |
