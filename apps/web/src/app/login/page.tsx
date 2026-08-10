@@ -9,7 +9,7 @@ import { Label } from "@sparstrow/ui/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@sparstrow/ui/components/ui/card";
 import { Badge } from "@sparstrow/ui/components/ui/badge";
 import { Separator } from "@sparstrow/ui/components/ui/separator";
-import { Shield, Sparkles, ArrowRight, Loader2, KeyRound, Mail, CheckCircle2, AlertCircle, UserPlus } from "lucide-react";
+import { Shield, ArrowRight, Loader2, KeyRound, Mail, CheckCircle2, AlertCircle, UserPlus } from "lucide-react";
 
 function GithubIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -35,7 +35,6 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isMagicLink, setIsMagicLink] = useState(true);
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -70,19 +69,7 @@ export default function LoginPage() {
     setMessage(null);
 
     try {
-      if (isMagicLink) {
-        const { error } = await supabase.auth.signInWithOtp({
-          email,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        });
-        if (error) throw error;
-        setMessage({
-          type: "success",
-          text: "Magic link dispatched! Check your email inbox to log in.",
-        });
-      } else if (isSignUp) {
+      if (isSignUp) {
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -145,20 +132,14 @@ export default function LoginPage() {
           <CardHeader className="space-y-1 pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg font-semibold tracking-tight">
-                {isMagicLink
-                  ? "Sign In via Magic Link"
-                  : isSignUp
-                  ? "Create Staging Account"
-                  : "Welcome Back"}
+                {isSignUp ? "Create Staging Account" : "Welcome Back"}
               </CardTitle>
               <Badge variant="outline" className="font-mono text-[10px] uppercase">
                 Staging
               </Badge>
             </div>
             <CardDescription className="text-xs text-muted-foreground">
-              {isMagicLink
-                ? "Enter your email to receive a passwordless login link."
-                : isSignUp
+              {isSignUp
                 ? "Create a new account with email and password."
                 : "Sign in with your GitHub, Google, or email account."}
             </CardDescription>
@@ -237,28 +218,26 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {!isMagicLink && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password" className="text-xs font-medium">
-                      Password
-                    </Label>
-                  </div>
-                  <div className="relative">
-                    <KeyRound className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="password"
-                      type="password"
-                      placeholder="••••••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      autoComplete={isSignUp ? "new-password" : "current-password"}
-                      required
-                      className="pl-9 bg-background border-input text-sm h-11"
-                    />
-                  </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-xs font-medium">
+                    Password
+                  </Label>
                 </div>
-              )}
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete={isSignUp ? "new-password" : "current-password"}
+                    required
+                    className="pl-9 bg-background border-input text-sm h-11"
+                  />
+                </div>
+              </div>
 
               <Button
                 type="submit"
@@ -272,11 +251,7 @@ export default function LoginPage() {
                   </>
                 ) : (
                   <>
-                    {isMagicLink
-                      ? "Send Magic Link"
-                      : isSignUp
-                      ? "Create Account"
-                      : "Sign In with Password"}
+                    {isSignUp ? "Create Account" : "Sign In"}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}
@@ -288,45 +263,20 @@ export default function LoginPage() {
                 type="button"
                 variant="ghost"
                 onClick={() => {
-                  setIsMagicLink(!isMagicLink);
-                  setIsSignUp(false);
+                  setIsSignUp(!isSignUp);
                   setMessage(null);
                 }}
                 className="w-full text-xs h-9 text-muted-foreground hover:text-foreground transition-colors"
               >
-                {isMagicLink ? (
-                  <>
-                    <KeyRound className="mr-2 h-3.5 w-3.5" />
-                    Switch to Password Auth
-                  </>
+                {isSignUp ? (
+                  "Already have an account? Sign In"
                 ) : (
                   <>
-                    <Sparkles className="mr-2 h-3.5 w-3.5" />
-                    Switch to Magic Link
+                    <UserPlus className="mr-2 h-3.5 w-3.5" />
+                    Don&apos;t have an account? Create One
                   </>
                 )}
               </Button>
-
-              {!isMagicLink && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    setIsSignUp(!isSignUp);
-                    setMessage(null);
-                  }}
-                  className="w-full text-xs h-8 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {isSignUp ? (
-                    "Already have an account? Sign In"
-                  ) : (
-                    <>
-                      <UserPlus className="mr-2 h-3.5 w-3.5" />
-                      Don't have an account? Create One
-                    </>
-                  )}
-                </Button>
-              )}
             </div>
           </CardContent>
 
