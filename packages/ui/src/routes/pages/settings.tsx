@@ -2,9 +2,12 @@ import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { LogOut, Trash2 } from "lucide-react";
+import { useAccount } from "@/lib/account";
 import {
   useClearGithubPat,
   useClearProviderKey,
@@ -437,22 +440,157 @@ function AdvancedCard() {
   );
 }
 
+const PROVIDER_LABELS: Record<string, string> = {
+  email: "Email & password",
+  github: "GitHub",
+  google: "Google",
+};
+
 function ProfileCard() {
+  const account = useAccount();
+
+  if (!account) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Profile</CardTitle>
+          <CardDescription>
+            This install is local and single-user — there is no hosted account. Your GitHub
+            identity below is what agents ship PRs with.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <InfoRow label="Workspace">Sparstrowgen · 127.0.0.1</InfoRow>
+          <InfoRow label="Mode">
+            <Badge variant="secondary">local single-user</Badge>
+          </InfoRow>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-sm">Profile</CardTitle>
-        <CardDescription>
-          Sparstrowgen is a local, single-user workspace — there is no hosted account. Your
-          GitHub identity below is what agents ship PRs with.
-        </CardDescription>
+        <CardDescription>The account this browser is signed in as.</CardDescription>
       </CardHeader>
       <CardContent>
-        <InfoRow label="Workspace">Sparstrowgen · 127.0.0.1</InfoRow>
-        <InfoRow label="Mode">
-          <Badge variant="secondary">local single-user</Badge>
+        <InfoRow label="Name">{account.name}</InfoRow>
+        <InfoRow label="Email">{account.email}</InfoRow>
+        <InfoRow label="Signed in with">
+          <Badge variant="secondary">
+            {PROVIDER_LABELS[account.provider] ?? account.provider}
+          </Badge>
         </InfoRow>
+        <InfoRow label="User ID">
+          <span className="font-mono text-xs text-muted-foreground">{account.id}</span>
+        </InfoRow>
+        <div className="flex justify-end pt-3">
+          <Button variant="outline" size="sm" onClick={() => void account.signOut()}>
+            <LogOut className="size-4" /> Sign out
+          </Button>
+        </div>
       </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Account deletion.
+ *
+ * Typing the address is the gate rather than a plain "are you sure?" — this
+ * destroys every agent, run, memory note and skill in any workspace the
+ * account is the only member of, and none of it is recoverable. The same
+ * string is re-checked server-side, so the confirmation is not merely
+ * decorative.
+ */
+function DangerZoneCard() {
+  const account = useAccount();
+  const [open, setOpen] = React.useState(false);
+  const [typed, setTyped] = React.useState("");
+  const [pending, setPending] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  if (!account) return null;
+
+  const matches = typed.trim().toLowerCase() === account.email.toLowerCase();
+
+  async function confirmDelete() {
+    if (!account || !matches) return;
+    setPending(true);
+    setError(null);
+    try {
+      await account.deleteAccount(typed.trim());
+      // On success the route navigates to /login, so nothing after this runs.
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete the account.");
+      setPending(false);
+    }
+  }
+
+  return (
+    <Card className="border-destructive/40">
+      <CardHeader>
+        <CardTitle className="text-sm text-destructive">Delete account</CardTitle>
+        <CardDescription>
+          Permanently deletes {account.email}, along with every workspace where you are the
+          only member — agents, runs, memory, skills and history. This cannot be undone.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end">
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              setTyped("");
+              setError(null);
+              setOpen(true);
+            }}
+          >
+            <Trash2 className="size-4" /> Delete account
+          </Button>
+        </div>
+      </CardContent>
+
+      <ConfirmDialog
+        open={open}
+        onOpenChange={(next) => {
+          if (!pending) setOpen(next);
+        }}
+        title="Delete this account permanently?"
+        description="Every workspace where you are the only member will be deleted with it. Agents, runs, memory notes, skills and message history all go. There is no undo and no backup."
+        confirmLabel="Delete my account"
+        pendingLabel="Deleting…"
+        pending={pending}
+        confirmDisabled={!matches}
+        onConfirm={() => void confirmDelete()}
+      >
+        <div className="space-y-2">
+          <label htmlFor="confirm-delete-email" className="block text-sm">
+            Type <span className="font-mono font-medium">{account.email}</span> to confirm.
+          </label>
+          <Input
+            id="confirm-delete-email"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            disabled={pending}
+          />
+          {error && (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
+      </ConfirmDialog>
     </Card>
   );
 }
@@ -479,6 +617,9 @@ export function SettingsPage() {
             <TabsContent value="profile" className="space-y-5 pt-3">
               <ProfileCard />
               <GitCard />
+              {/* Renders nothing when there is no hosted account, so the local
+                  desktop build sees the profile tab exactly as it did before. */}
+              <DangerZoneCard />
             </TabsContent>
             <TabsContent value="preferences" className="space-y-5 pt-3">
               <AppearanceCard />

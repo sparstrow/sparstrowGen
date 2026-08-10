@@ -118,22 +118,41 @@ policies/003_bootstrap_fix.sql  break the first-workspace RLS deadlock
 policies/004_bootstrap_rpc.sql  atomic, race-safe bootstrap_workspace()
 policies/005_harden_legacy_functions.sql
 policies/006_agent_skill_assignments_rpc.sql
+policies/007_delete_own_account.sql
 ```
 
-003–006 all exist for the same underlying reason: **PostgREST cannot span
+003–007 all exist for the same underlying reason: **PostgREST cannot span
 statements.** Any invariant that needs more than one statement to hold has to
 live in the database, or it will be violated the first time a request fails
-halfway or two requests race. 004 and 006 are that lesson applied twice.
+halfway or two requests race. 004, 006 and 007 are that lesson applied three
+times — and 007 is the sharpest case, because a half-deleted account leaves
+rows that no RLS policy can ever reach again.
 
 ### Accepted advisor findings
 
-`get_advisors(type: "security")` reports two items that are intentional:
+`get_advisors(type: "security")` reports these, and they are intentional:
 
 - **`bootstrap_workspace` is a SECURITY DEFINER function callable by
   `authenticated`.** That is what it is for. It must write the very
   `workspace_members` row that every RLS policy keys on, so it cannot run as
   the caller. It only ever acts on `auth.uid()`, so a caller cannot bootstrap
   on anyone else's behalf.
+- **`delete_own_account` is a SECURITY DEFINER function callable by
+  `authenticated`.** Same shape, same reasoning: it has to reach `auth.users`,
+  which no invoker-rights function can. It takes **no arguments** and resolves
+  its target from `auth.uid()`, so there is no parameter to point at another
+  account. A service-role variant taking a user id would have put "delete any
+  user" one missing check away from being reachable over HTTP.
+
+### Still open
+
 - **Leaked password protection is disabled.** A dashboard setting with no SQL
-  equivalent — Authentication → Policies. Worth enabling now that magic-link
-  auth is gone and passwords are the primary path.
+  equivalent. Verified empirically on 2026-08-10, not just read off the
+  advisor: `POST /auth/v1/signup` with the password `password123` succeeded and
+  returned a session. Enable it under **Authentication → Sign In / Providers →
+  Email → "Prevent use of leaked passwords"**, then re-run that signup and
+  confirm it is refused.
+- **`auto_confirm_user()` marks every new signup's email as confirmed** (see
+  005). Combined with the "Create one" button on the login page, anyone who can
+  reach the app can make a working account without controlling the address.
+  Acceptable on staging; it must not reach production.

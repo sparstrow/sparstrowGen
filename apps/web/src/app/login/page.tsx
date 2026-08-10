@@ -1,297 +1,430 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import * as React from "react";
+import { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Loader2,
+} from "lucide-react";
 import { createClient } from "@web/utils/supabase/client";
+import { safeRedirectPath } from "@web/lib/auth/redirect";
+import {
+  fetchProviderAvailability,
+  type ProviderAvailability,
+} from "@web/lib/auth/providers";
+import { supabaseAnonKey, supabaseUrl } from "@web/utils/supabase/env";
 import { Button } from "@sparstrow/ui/components/ui/button";
 import { Input } from "@sparstrow/ui/components/ui/input";
 import { Label } from "@sparstrow/ui/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@sparstrow/ui/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@sparstrow/ui/components/ui/card";
 import { Badge } from "@sparstrow/ui/components/ui/badge";
-import { Separator } from "@sparstrow/ui/components/ui/separator";
-import { Shield, ArrowRight, Loader2, KeyRound, Mail, CheckCircle2, AlertCircle, UserPlus } from "lucide-react";
+import { cn } from "@sparstrow/ui/lib/utils";
+import { GithubIcon, GoogleIcon } from "@web/components/auth/provider-icons";
 
-function GithubIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
-      <path d="M9 18c-4.51 2-5-2-7-2" />
-    </svg>
-  );
+type Mode = "sign-in" | "sign-up" | "forgot";
+type Notice = { tone: "error" | "success"; text: string };
+
+const COPY: Record<Mode, { title: string; description: string; submit: string }> = {
+  "sign-in": {
+    title: "Sign in",
+    description: "Use your Sparstrow account to reach this workspace.",
+    submit: "Sign in",
+  },
+  "sign-up": {
+    title: "Create an account",
+    description: "You'll get your own workspace, ready to pair a machine to.",
+    submit: "Create account",
+  },
+  forgot: {
+    title: "Reset your password",
+    description: "We'll email you a link to choose a new one.",
+    submit: "Send reset link",
+  },
+};
+
+/**
+ * Turn Supabase's auth errors into something a person can act on.
+ *
+ * Two of these matter enough to special-case. "Provider is not enabled" is
+ * what every OAuth button returns until the provider is configured in the
+ * dashboard, and the raw text gives no hint that the fix is a setting rather
+ * than a bug. "Invalid login credentials" is deliberately vague on Supabase's
+ * side -- it does not say whether the account exists, which is correct, and we
+ * keep it that way rather than helpfully confirming which emails are
+ * registered.
+ */
+function humanize(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("not enabled") || m.includes("unsupported provider")) {
+    return "That sign-in provider isn't enabled for this project yet. Use email and password, or ask an admin to finish the provider setup.";
+  }
+  if (m.includes("invalid login credentials")) {
+    return "That email and password combination didn't work.";
+  }
+  if (m.includes("rate limit") || m.includes("too many")) {
+    return "Too many attempts. Wait a couple of minutes and try again.";
+  }
+  if (m.includes("pwned") || m.includes("compromised") || m.includes("data breach")) {
+    return "That password has appeared in a known data breach. Please choose a different one.";
+  }
+  if (m.includes("password should be")) {
+    // Supabase's own text already names the exact requirement.
+    return message;
+  }
+  return message;
 }
 
-function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
+function LoginForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const supabase = React.useMemo(() => createClient(), []);
+
+  const next = safeRedirectPath(searchParams.get("next"));
+
+  const [mode, setMode] = React.useState<Mode>("sign-in");
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [pending, setPending] = React.useState<null | "email" | "github" | "google">(null);
+  const [notice, setNotice] = React.useState<Notice | null>(null);
+
+  // The callback and confirm routes report failures by bouncing back here with
+  // ?error=. Surface it once, then strip it from the URL so a refresh does not
+  // resurrect a message about something that already happened.
+  const urlError = searchParams.get("error");
+  React.useEffect(() => {
+    if (!urlError) return;
+    setNotice({ tone: "error", text: humanize(urlError) });
+    router.replace(next === "/" ? "/login" : `/login?next=${encodeURIComponent(next)}`);
+  }, [urlError, router, next]);
+
+  // null means "not known yet" -- the buttons stay enabled in that case, so a
+  // slow or blocked settings request never hides a provider that works.
+  const [providers, setProviders] = React.useState<ProviderAvailability | null>(null);
+  React.useEffect(() => {
+    const controller = new AbortController();
+    void fetchProviderAvailability(supabaseUrl(), supabaseAnonKey(), controller.signal).then(
+      (result) => {
+        if (result) setProviders(result);
+      },
+    );
+    return () => controller.abort();
+  }, []);
+
+  const busy = pending !== null;
+  const copy = COPY[mode];
+  const anyProviderOff = providers !== null && (!providers.github || !providers.google);
+
+  function switchTo(target: Mode) {
+    setMode(target);
+    setNotice(null);
+    if (target !== "sign-in") setShowPassword(false);
+  }
+
+  async function signInWithProvider(provider: "github" | "google") {
+    // Guard before navigating. Once the browser leaves for Supabase's
+    // /authorize endpoint there is no coming back to show a message here.
+    if (providers && !providers[provider]) {
+      setNotice({ tone: "error", text: humanize("provider is not enabled") });
+      return;
+    }
+
+    setPending(provider);
+    setNotice(null);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      },
+    });
+    // On success the browser is already navigating away, so only the failure
+    // path ever reaches this line.
+    if (error) {
+      setNotice({ tone: "error", text: humanize(error.message) });
+      setPending(null);
+    }
+  }
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setPending("email");
+    setNotice(null);
+
+    try {
+      if (mode === "forgot") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth/confirm?next=/auth/reset-password`,
+        });
+        if (error) throw error;
+        // Deliberately unconditional: saying "no account with that email"
+        // turns this form into a way to enumerate who has an account here.
+        setNotice({
+          tone: "success",
+          text: "If an account exists for that address, a reset link is on its way.",
+        });
+        return;
+      }
+
+      if (mode === "sign-up") {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`,
+          },
+        });
+        if (error) throw error;
+
+        // Whether a session comes back depends on the project's confirmation
+        // setting, so read the response instead of assuming. Telling someone
+        // to check their inbox when they are already signed in leaves them
+        // waiting for an email that will never arrive.
+        if (data.session) {
+          router.push(next);
+          router.refresh();
+        } else {
+          setNotice({
+            tone: "success",
+            text: "Account created. Check your inbox for a confirmation link to finish signing in.",
+          });
+        }
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      router.push(next);
+      router.refresh();
+    } catch (err) {
+      setNotice({
+        tone: "error",
+        text: humanize(err instanceof Error ? err.message : "Something went wrong. Try again."),
+      });
+    } finally {
+      setPending(null);
+    }
+  }
+
+  const envLabel = process.env.NEXT_PUBLIC_ENV_LABEL;
+
   return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" {...props}>
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05" />
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335" />
-    </svg>
+    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
+      <div className="w-full max-w-sm space-y-6">
+        <div className="space-y-2 text-center">
+          <h1 className="text-xl font-semibold tracking-tight">Sparstrowgen</h1>
+          <p className="text-sm text-muted-foreground">
+            Autonomous multi-agent runtime &amp; control plane
+          </p>
+          {envLabel ? (
+            <Badge variant="secondary" className="font-mono text-[10px] uppercase">
+              {envLabel}
+            </Badge>
+          ) : null}
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{copy.title}</CardTitle>
+            <CardDescription>{copy.description}</CardDescription>
+          </CardHeader>
+
+          <CardContent className="space-y-5">
+            {/* aria-live so a screen reader announces the result of a submit;
+                without it the only feedback is visual and the form looks
+                inert after a failed sign-in. */}
+            <div aria-live="polite">
+              {notice ? (
+                <div
+                  className={cn(
+                    "flex items-start gap-2 rounded-md border p-3 text-sm",
+                    notice.tone === "error"
+                      ? "border-destructive/30 text-destructive"
+                      : "border-border text-muted-foreground",
+                  )}
+                >
+                  {notice.tone === "error" ? (
+                    <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                  ) : (
+                    <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+                  )}
+                  <span>{notice.text}</span>
+                </div>
+              ) : null}
+            </div>
+
+            {mode !== "forgot" ? (
+              <>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={busy || providers?.github === false}
+                      title={
+                        providers?.github === false
+                          ? "GitHub sign-in is not configured for this project yet."
+                          : undefined
+                      }
+                      onClick={() => void signInWithProvider("github")}
+                    >
+                      {pending === "github" ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <GithubIcon className="size-4" />
+                      )}
+                      GitHub
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={busy || providers?.google === false}
+                      title={
+                        providers?.google === false
+                          ? "Google sign-in is not configured for this project yet."
+                          : undefined
+                      }
+                      onClick={() => void signInWithProvider("google")}
+                    >
+                      {pending === "google" ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <GoogleIcon className="size-4" />
+                      )}
+                      Google
+                    </Button>
+                  </div>
+                  {anyProviderOff ? (
+                    <p className="text-center text-xs text-muted-foreground">
+                      {providers && !providers.github && !providers.google
+                        ? "Social sign-in isn't set up yet — use email below."
+                        : `${providers?.github ? "Google" : "GitHub"} sign-in isn't set up yet.`}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="relative text-center text-xs after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
+                  <span className="relative z-10 bg-card px-2 text-muted-foreground">
+                    or continue with email
+                  </span>
+                </div>
+              </>
+            ) : null}
+
+            <form onSubmit={onSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  inputMode="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                  autoFocus
+                  required
+                  disabled={busy}
+                />
+              </div>
+
+              {mode !== "forgot" ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                    {mode === "sign-in" ? (
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                        onClick={() => switchTo("forgot")}
+                      >
+                        Forgot password?
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
+                      // Supabase's own minimum. Enforcing it here means the
+                      // browser catches it before a round trip.
+                      minLength={mode === "sign-up" ? 6 : undefined}
+                      required
+                      disabled={busy}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </button>
+                  </div>
+                  {mode === "sign-up" ? (
+                    <p className="text-xs text-muted-foreground">
+                      At least 6 characters. Passwords found in known breaches are rejected.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <Button type="submit" className="w-full" disabled={busy}>
+                {pending === "email" ? <Loader2 className="size-4 animate-spin" /> : null}
+                {copy.submit}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <div className="text-center text-sm text-muted-foreground">
+          {mode === "sign-in" ? (
+            <>
+              Don&apos;t have an account?{" "}
+              <button
+                type="button"
+                className="text-foreground underline underline-offset-4"
+                onClick={() => switchTo("sign-up")}
+              >
+                Create one
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 underline-offset-4 hover:text-foreground hover:underline"
+              onClick={() => switchTo("sign-in")}
+            >
+              <ArrowLeft className="size-3.5" />
+              Back to sign in
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  const supabase = createClient();
-
-  const handleOAuthSignIn = async (provider: "github" | "google") => {
-    setLoading(true);
-    setMessage(null);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-      if (error) throw error;
-    } catch (err: any) {
-      setMessage({
-        type: "error",
-        text: err?.message || `Failed to initiate ${provider} authentication.`,
-      });
-      setLoading(false);
-    }
-  };
-
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return;
-
-    setLoading(true);
-    setMessage(null);
-
-    try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        });
-        if (error) throw error;
-        setMessage({
-          type: "success",
-          text: "Account created! Check your email inbox to confirm your registration.",
-        });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-        router.push("/");
-        router.refresh();
-      }
-    } catch (err: any) {
-      const rawErr = err?.message || "";
-      let friendlyText = rawErr || "Authentication failed. Please verify credentials.";
-      if (rawErr.toLowerCase().includes("rate limit")) {
-        friendlyText = "Staging email rate limit exceeded. Please wait 2–5 minutes before requesting another email, or sign in directly with GitHub / Google OAuth above.";
-      }
-      setMessage({
-        type: "error",
-        text: friendlyText,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // useSearchParams needs a Suspense boundary of its own, or the whole route
+  // opts out of static rendering and Next fails the production build.
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background text-foreground relative overflow-hidden px-4">
-      {/* Background Decorative Grid */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#27272a_1px,transparent_1px),linear-gradient(to_bottom,#27272a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-20 pointer-events-none" />
-
-      {/* Main Login Card Container */}
-      <div className="w-full max-w-md space-y-6 relative z-10">
-        {/* Brand Header */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary text-secondary-foreground text-xs font-mono tracking-wider border border-border">
-            <Shield className="w-3.5 h-3.5 text-muted-foreground" />
-            <span>SPARSTROW OS / STAGING AUTH</span>
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground font-mono">
-            Sparstrowgen
-          </h1>
-          <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-            Autonomous multi-agent runtime & control plane
-          </p>
-        </div>
-
-        {/* Auth Form Card */}
-        <Card className="border-border bg-card shadow-2xl">
-          <CardHeader className="space-y-1 pb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-semibold tracking-tight">
-                {isSignUp ? "Create Staging Account" : "Welcome Back"}
-              </CardTitle>
-              <Badge variant="outline" className="font-mono text-[10px] uppercase">
-                Staging
-              </Badge>
-            </div>
-            <CardDescription className="text-xs text-muted-foreground">
-              {isSignUp
-                ? "Create a new account with email and password."
-                : "Sign in with your GitHub, Google, or email account."}
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="space-y-4">
-            {message && (
-              <div
-                className={`p-3 rounded-md text-xs flex items-start gap-2 border transition-all duration-200 ${
-                  message.type === "success"
-                    ? "bg-emerald-950/40 border-emerald-800 text-emerald-300"
-                    : "bg-destructive/10 border-destructive/30 text-destructive"
-                }`}
-              >
-                {message.type === "success" ? (
-                  <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                )}
-                <span>{message.text}</span>
-              </div>
-            )}
-
-            {/* OAuth Provider Buttons */}
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={loading}
-                onClick={() => handleOAuthSignIn("github")}
-                className="w-full border-border bg-background hover:bg-accent text-xs h-11 font-medium transition-all duration-150 active:scale-[0.98]"
-              >
-                <GithubIcon className="mr-2 h-4 w-4 shrink-0" />
-                GitHub
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={loading}
-                onClick={() => handleOAuthSignIn("google")}
-                className="w-full border-border bg-background hover:bg-accent text-xs h-11 font-medium transition-all duration-150 active:scale-[0.98]"
-              >
-                <GoogleIcon className="mr-2 h-4 w-4 shrink-0" />
-                Google
-              </Button>
-            </div>
-
-            <div className="relative py-2">
-              <div className="absolute inset-0 flex items-center">
-                <Separator />
-              </div>
-              <div className="relative flex justify-center text-[10px] uppercase">
-                <span className="bg-card px-2 text-muted-foreground font-mono">
-                  Or Continue With Email
-                </span>
-              </div>
-            </div>
-
-            <form onSubmit={handleAuth} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-xs font-medium">
-                  Work Email
-                </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="developer@sparstrow.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    autoComplete="email"
-                    required
-                    className="pl-9 bg-background border-input text-sm h-11"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-xs font-medium">
-                    Password
-                  </Label>
-                </div>
-                <div className="relative">
-                  <KeyRound className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete={isSignUp ? "new-password" : "current-password"}
-                    required
-                    className="pl-9 bg-background border-input text-sm h-11"
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-sm h-11 transition-all duration-150 active:scale-[0.98]"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Authenticating...
-                  </>
-                ) : (
-                  <>
-                    {isSignUp ? "Create Account" : "Sign In"}
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            </form>
-
-            <div className="space-y-1.5 pt-1">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  setIsSignUp(!isSignUp);
-                  setMessage(null);
-                }}
-                className="w-full text-xs h-9 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {isSignUp ? (
-                  "Already have an account? Sign In"
-                ) : (
-                  <>
-                    <UserPlus className="mr-2 h-3.5 w-3.5" />
-                    Don&apos;t have an account? Create One
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardContent>
-
-          <CardFooter className="flex justify-center border-t border-border pt-3">
-            <p className="text-[11px] text-muted-foreground text-center font-mono">
-              Protected by Staging Supabase Auth & Session Guard
-            </p>
-          </CardFooter>
-        </Card>
-
-        {/* Footer info */}
-        <p className="text-center text-xs text-muted-foreground">
-          Need access? Request staging credentials from your workspace admin.
-        </p>
-      </div>
-    </div>
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

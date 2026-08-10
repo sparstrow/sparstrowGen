@@ -1,3 +1,25 @@
 @import "@sparstrow/ui/styles";
 
+/*
+ * Tell Tailwind that @sparstrow/ui is part of this app's source.
+ *
+ * Tailwind v4 discovers classes by scanning the filesystem around the
+ * stylesheet, and it skips node_modules. This app reaches the shared UI
+ * package through a workspace symlink under node_modules, so every utility
+ * used ONLY inside packages/ui was silently dropped from the build: no rule
+ * was generated, the class did nothing, and there was no error anywhere to
+ * say so.
+ *
+ * The damage was invisible precisely because the common utilities survived --
+ * bg-card, bg-background and bg-muted also appear in apps/web files, so they
+ * kept working. What broke was the set used exclusively by the shared
+ * components: `bg-popover` (every dropdown, tooltip, select and the command
+ * palette rendered with a transparent background), `bg-accent` (hover states
+ * did nothing) and `bg-destructive` (delete buttons lost their red).
+ *
+ * The Vite entry in packages/ui does not need this -- there the stylesheet
+ * sits inside the package it is scanning.
+ */
+@source "../../../../packages/ui/src";
+
 /* Any web-specific overrides can go below */

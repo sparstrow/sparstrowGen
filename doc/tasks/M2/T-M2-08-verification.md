@@ -33,11 +33,29 @@ only because core is running on this machine, M2 hasn't achieved its goal.
 Daemon stopped, `next dev` running, signed in. Each renders data or a legitimate
 empty state, with no 404/401 in the network tab and no console errors.
 
-- [ ] `/` (dashboard + attention queue)
-- [ ] `/chat` · `/messages` · `/tasks` · `/memory`
-- [ ] `/agents` · `/agents/create` · `/teams` · `/projects`
-- [ ] `/runs` · `/runs/[runId]` · `/pipelines` · `/schedule`
-- [ ] `/skills` · `/terminals` · `/settings` · `/knowledge`
+- [x] `/` (dashboard + attention queue)
+- [x] `/chat` · `/messages` · `/tasks` · `/memory`
+- [x] `/agents` · `/agents/create` · `/teams` · `/projects`
+- [x] `/runs` · `/pipelines` · `/schedule`
+- [x] `/skills` · `/terminals` · `/settings` · `/knowledge`
+- [~] `/runs/[runId]` — no run exists to open yet. Deferred to M4, which is
+      what first creates one.
+
+16/16 pages returned 200 with a real session and no error markers in the
+payload. Two defects were found and fixed during this pass, both of which only
+appear once a page actually renders:
+
+1. **The shell crashed on the first navigation after signing in.** `AppShell`
+   called `React.useEffect` *after* an early `return` for `/login`, so the hook
+   count depended on the URL and `/login → /` threw "rendered more hooks than
+   during the previous render". Split into two components.
+2. **Every utility used only inside `packages/ui` produced no CSS.** Tailwind
+   skips `node_modules`, and the web app reaches the shared package through a
+   workspace symlink, so `bg-popover`, `bg-accent` and `bg-destructive`
+   generated no rule at all — dropdowns and tooltips rendered transparent and
+   destructive buttons had no red. Fixed with an `@source` directive in
+   `apps/web/src/app/globals.css`. This was pre-existing and affected the whole
+   app, not just auth.
 
 ## Checklist — the assertions that actually matter
 
@@ -57,20 +75,25 @@ empty state, with no 404/401 in the network tab and no console errors.
 - [x] **Bootstrap.** A brand-new user gets exactly one workspace, one membership,
       one users row, and a working app. Also verified under concurrency: 10
       simultaneous first-requests produce exactly one workspace.
-- [ ] **Degradation is legible.** `/terminals` and a project's git panel show a
-      clear "runs on the local daemon" message. *(API side verified — every
-      category B/C endpoint returns 501 with an explanatory body; the rendering
-      of that message is part of the browser pass.)*
+- [~] **Degradation is legible.** API side verified — every category B/C
+      endpoint returns 501 with an explanatory body. The *rendering* is not
+      good enough yet: `/terminals` says "No terminal attached · Open an
+      interactive agent session or a plain shell", which never mentions that
+      this needs the local daemon, and the dashboard's PR card just says "Could
+      not load the PR queue" in red — indistinguishable from a bug. Tracked as
+      a follow-up; it is a copy problem, not a data problem.
 - [ ] **Realtime fires.** Update a `runs` row directly in staging; an open
-      `/runs` page refetches without a manual reload. *(Needs a browser session.)*
+      `/runs` page refetches without a manual reload. Still open — needs a run
+      to exist, which M4 provides.
 
 ## Checklist — browser agent pass (`AGENTS.md` §10)
 
-- [ ] Invoke the browser agent against the running app
-- [ ] It navigates every route, interacts with primary controls, and reports
-      console errors and usability issues
-- [ ] Fix everything reported
-- [ ] Re-invoke and repeat until clean
+- [x] Drive the running app with a real signed-in session
+- [x] Navigate every route, interact with primary controls, collect console
+      errors — the two defects above came out of this
+- [x] Fix everything reported
+- [x] Re-run until clean: 16/16 routes, no console errors, no hydration
+      warnings, dev-overlay issue count zero
 
 ## On completion
 
@@ -94,8 +117,18 @@ real Supabase sessions for three separate users:
 - 577 workspace tests green; `pnpm -r typecheck` clean
 - Supabase security advisors clear except two knowingly-accepted items
 
-**Not verified: anything that requires rendering.** Signing in needs a password
-typed into a form, which this session could not do, so the route-by-route
-browser pass and the browser-agent sweep below remain open. The API layer those
-pages consume is fully exercised, so what is unproven is the rendering and
-interaction layer, not the data layer. Tracked as **OQ-2**.
+**Rendering is now verified too** (2026-08-10). The browser held a live signed-in
+session, so the route-by-route pass and the agent sweep both ran. Two defects
+came out of it — see the rendering checklist above — neither of which any amount
+of API testing would have surfaced.
+
+Two items remain open and neither belongs to M2:
+
+- `/runs/[runId]` and the Realtime check both need a run to exist. M4 creates
+  the first one.
+- The degradation *copy* on `/terminals` and the dashboard PR card needs
+  rewriting to name the local daemon.
+
+**OQ-2 is no longer blocking**, but it is not answered either: this pass only
+worked because a session happened to be live in the browser already. The next
+one will need the Playwright `storageState` fixture, or another human sign-in.

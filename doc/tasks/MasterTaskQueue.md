@@ -66,7 +66,7 @@ dispatch table, which 3.1–3.3 also register into.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 4.1 | [T-M2-08 — verification & browser pass](M2/T-M2-08-verification.md) | `[S]` | 3.1–3.4 | done except OQ-2 |
+| 4.1 | [T-M2-08 — verification & browser pass](M2/T-M2-08-verification.md) | `[S]` | 3.1–3.4 | done |
 
 ### Band 5+ — not yet decomposed
 
@@ -88,16 +88,31 @@ their prerequisites land. M7 needs only M2, so it can start early if M3/M4 stall
 
 ---
 
+### Band 4b — auth completeness (2026-08-10)
+
+Raised by the owner after M2 closed: logout and account deletion did not exist,
+the OAuth buttons were decorative, and the login page was off-design.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 4.2 | Auth hardening, logout, account deletion, login redesign | `[S]` | 4.1 | done except provider enablement |
+
+Provider enablement is the owner's to do — it means creating OAuth apps on
+GitHub and Google and pasting client secrets into the Supabase dashboard.
+Runbook: [`doc/runbooks/oauth-providers.md`](../runbooks/oauth-providers.md).
+
 ## Blocked items
 
 | Item | Blocked by | Effect |
 |---|---|---|
-| `T-M2-08` route-rendering items | OQ-2 | Browser pass needs a signed-in session; an agent cannot type a password. API layer beneath those pages is fully verified, so M2 is *done except OQ-2*. |
+| GitHub / Google sign-in | Owner action | Code is complete and verified; both providers report `enabled: false` in Supabase, so the buttons render disabled with an explanation. Follow the runbook and they light up with no code change. |
+| Leaked password protection | Owner action | Dashboard setting, no SQL equivalent. Verified still **off** on 2026-08-10 by signing up with `password123` and getting a session. |
+| `/runs/[runId]` render + Realtime refetch | M4 | Both need a run to exist. Nothing to open until dispatch creates one. |
 
 `OQ-1` (protecting uncommitted agent work) is open but blocks nothing in the
 current queue — it becomes relevant during M4, when agents start running
 unattended from cloud dispatch.
 
-`OQ-2` (how an agent completes a browser pass) blocks only the rendering checks
-in `T-M2-08`. It will recur in every later phase that needs the UI exercised,
-so it is worth settling before M5.
+`OQ-2` (how an agent completes a browser pass) no longer blocks anything: the
+M2 pass ran on 2026-08-10 using a session that was already live in the browser.
+It is still unanswered as a *method*, and will bite again in M5.

@@ -86,14 +86,17 @@ makes review easier regardless.
 ## OQ-2 — How should an agent complete the browser verification pass?
 
 **Raised:** 2026-08-10, closing out M2.
-**Blocks:** `T-M2-08` route-rendering items only. Nothing else in M2 — the API
-layer beneath those pages is fully verified.
+**Blocks:** nothing right now. `T-M2-08`'s rendering pass was completed on
+2026-08-10 — but only because a signed-in session happened to still be live in
+the preview browser. That was luck, not a method.
 
-Sign-in is email + password (magic link was removed at the owner's request).
-An agent cannot type a password into a form field, so it cannot reach any
-signed-in page, and the route-by-route pass and browser-agent sweep in
-`T-M2-08` stay open. This will recur on every future phase that needs the UI
-exercised, so it is worth settling once.
+Sign-in is email + password. An agent cannot type a password into a form field,
+so once that session expires there is no way back into a signed-in page without
+a human. This recurs on every future phase that needs the UI exercised, and the
+M2 pass showed the cost of not having it: two defects (a hook-order crash on
+the first navigation after sign-in, and an entire class of Tailwind utilities
+missing from the build) were invisible to the API-level tests and only appeared
+once pages actually rendered.
 
 ### Options
 
@@ -127,10 +130,11 @@ exercised, so it is worth settling once.
 
 ### Recommendation
 
-**C**, with **A** as the stopgap for M2. Playwright's `storageState` is what
-this problem is for, and the fixture pays for itself once M5 needs live
-transcript streaming verified. Until it exists, the owner signing in once and
-handing over the session unblocks the remaining `T-M2-08` items immediately.
+**C**. Playwright's `storageState` is what this problem is for, and the fixture
+pays for itself once M5 needs live transcript streaming verified. **A** served
+as the M2 stopgap by accident and should not be relied on again — a session
+that survives in a browser between agent sessions is not something to plan
+around.
 
 ---
 

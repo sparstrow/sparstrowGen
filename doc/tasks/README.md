@@ -93,7 +93,7 @@ questions` header line is empty or points only to non-blocking entries.
 | Phase | Tasks | State |
 |---|---|---|
 | M1 — cloud schema, RLS, indexes | — | ✅ done, applied to staging 2026-08-09 |
-| M2 — `/api/v1` from Next over Supabase | 8 (`M2/`) | ✅ done except OQ-2, verified on staging 2026-08-10 |
+| M2 — `/api/v1` from Next over Supabase | 8 (`M2/`) | ✅ done, verified on staging 2026-08-10 (incl. browser pass) |
 | M3 — pairing, registration, heartbeat | — | not decomposed |
 | M4 — command spine | — | not decomposed |
 | M5 — transcripts · M6 — memory sync · M7 — routes + Electron | — | not decomposed |

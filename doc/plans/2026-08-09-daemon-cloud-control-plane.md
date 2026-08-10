@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Approved 2026-08-09 · M1 complete · M2 complete (except OQ-2) · M3 next |
+| **Status** | Approved 2026-08-09 · M1 complete · M2 complete · auth hardening complete 2026-08-10 · M3 next |
 | **Supersedes** | The "Phase 4: Multi-Agent Swarm Orchestrator & Live Transcripts" proposal |
 | **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–4, all done) · `doc/tasks/M2/` |
 | **Open questions** | OQ-1 (uncommitted work) — does not block M2 |
@@ -145,7 +145,7 @@ first, then safe columns granted back.
   the boundary is a bug farm.
 - RLS policies on every table, scoped by `workspace_id`.
 
-### M2 — Web app actually reads the cloud ✅ DONE except OQ-2 (2026-08-10)
+### M2 — Web app actually reads the cloud ✅ DONE (2026-08-10)
 
 **Shipped:** one catch-all route dispatching to 16 handler modules over
 supabase-js with the caller's session, jsonb-aware case conversion, server-side
