@@ -122,11 +122,48 @@ Against live staging, with real sessions:
 - ~~Enable leaked password protection~~ — **not possible on this plan.** It is
   a Supabase Pro feature (confirmed 2026-08-10) with no SQL equivalent.
   Confirmed off by signing up with `password123` and receiving a session.
-  Accepted as a known gap; see the policies README for the residual risk.
+  Accepted as a known gap, now partly mitigated by magic-link sign-in below;
+  see the policies README for the residual risk.
 - **Decide what happens to `auto_confirm_user()` before production.** It marks
   every signup's email as confirmed; with the "Create one" button live, anyone
   who can reach the app can make a working account without controlling the
   address.
+
+## Addendum — magic-link sign-in restored (2026-08-10)
+
+Added at the owner's request after the mechanism was explained. It had been
+removed on 2026-08-09 before it was understood; the removal had only ever
+touched the login page, so the email provider and the token-exchange route were
+still in place.
+
+**A bug came out of adding it back.** `/auth/confirm` validated the link type
+against a hardcoded list that did not include `magiclink`, so every emailed
+sign-in link would have bounced to "that link is not valid" — the flow would
+have been dead on arrival, with nothing failing at build or type-check time.
+The list now lives in `lib/auth/otp-types.ts` with a test that asserts every
+live flow's type is present, because an omission there breaks a whole flow
+silently.
+
+Two decisions worth keeping:
+
+- **`shouldCreateUser: false`.** By default `signInWithOtp` creates an account
+  for any address typed into it, which would have quietly turned the sign-in
+  form into an open signup form. Account creation stays on the sign-up tab.
+- **The "no account" error is swallowed.** With creation disabled, Supabase
+  answers "signups not allowed for otp" for an unknown address — which would
+  make the box a way to test whether any given person has an account here. The
+  message is identical either way; only the arrival of an email differs.
+
+Verified with real minted tokens rather than by waiting for mail:
+`generateLink` produces exactly the `token_hash` Supabase would have emailed,
+so the route is exercised for real. A valid link signs in and reaches the API;
+replaying it is refused (single-use); unknown types, missing and malformed
+tokens all land on `/login` with a message; and a recovery link still goes to
+the password form rather than the dashboard.
+
+The practical constraint is delivery, not code: Supabase's built-in SMTP is
+rate-limited to a handful of messages an hour on the free tier. Moving to a
+real SMTP provider is the fix if this becomes the primary sign-in path.
 
 ## Follow-ups (not blocking)
 

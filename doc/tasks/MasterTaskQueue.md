@@ -101,7 +101,9 @@ Social sign-in is built but not switched on: enabling it needs OAuth apps
 registered under the owner's own GitHub and Google accounts. Parked as
 [D-8](../Deferred.md) on 2026-08-10 with the runbook ready
 ([`doc/runbooks/oauth-providers.md`](../runbooks/oauth-providers.md)).
-Magic-link sign-in is parked alongside it as [D-9](../Deferred.md).
+
+Magic-link sign-in was added on 2026-08-10 at the owner's request, after the
+mechanism was explained. It is live and verified end to end.
 
 ## Blocked items
 

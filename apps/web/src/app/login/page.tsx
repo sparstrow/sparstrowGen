@@ -9,7 +9,9 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  KeyRound,
   Loader2,
+  Wand2,
 } from "lucide-react";
 import { createClient } from "@web/utils/supabase/client";
 import { safeRedirectPath } from "@web/lib/auth/redirect";
@@ -32,8 +34,11 @@ import { Badge } from "@sparstrow/ui/components/ui/badge";
 import { cn } from "@sparstrow/ui/lib/utils";
 import { GithubIcon, GoogleIcon } from "@web/components/auth/provider-icons";
 
-type Mode = "sign-in" | "sign-up" | "forgot";
+type Mode = "sign-in" | "sign-up" | "forgot" | "magic-link";
 type Notice = { tone: "error" | "success"; text: string };
+
+/** Modes that ask only for an email address -- no password field. */
+const EMAIL_ONLY: ReadonlySet<Mode> = new Set<Mode>(["forgot", "magic-link"]);
 
 const COPY: Record<Mode, { title: string; description: string; submit: string }> = {
   "sign-in": {
@@ -50,6 +55,11 @@ const COPY: Record<Mode, { title: string; description: string; submit: string }>
     title: "Reset your password",
     description: "We'll email you a link to choose a new one.",
     submit: "Send reset link",
+  },
+  "magic-link": {
+    title: "Sign in with a link",
+    description: "We'll email you a link that signs you in. No password needed.",
+    submit: "Email me a link",
   },
 };
 
@@ -162,6 +172,30 @@ function LoginForm() {
     setNotice(null);
 
     try {
+      if (mode === "magic-link") {
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`,
+            // Without this, signInWithOtp CREATES an account for any address
+            // typed here -- so the sign-in form would quietly become an open
+            // signup form. Explicit account creation stays on the sign-up tab.
+            shouldCreateUser: false,
+          },
+        });
+        // Swallow the error deliberately. With shouldCreateUser false,
+        // Supabase answers "signups not allowed for otp" for an address that
+        // has no account -- which would turn this box into a way to test
+        // whether any given person has one. Same generic answer either way;
+        // the only thing that distinguishes them is whether an email arrives.
+        if (error && !/signup|not allowed|not found/i.test(error.message)) throw error;
+        setNotice({
+          tone: "success",
+          text: `If an account exists for ${email}, a sign-in link is on its way. It works once and expires in an hour.`,
+        });
+        return;
+      }
+
       if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth/confirm?next=/auth/reset-password`,
@@ -263,7 +297,7 @@ function LoginForm() {
               ) : null}
             </div>
 
-            {mode !== "forgot" ? (
+            {!EMAIL_ONLY.has(mode) ? (
               <>
                 <div className="space-y-2">
                   <div className="grid grid-cols-2 gap-3">
@@ -338,7 +372,7 @@ function LoginForm() {
                 />
               </div>
 
-              {mode !== "forgot" ? (
+              {!EMAIL_ONLY.has(mode) ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password">Password</Label>
@@ -387,6 +421,32 @@ function LoginForm() {
                 {pending === "email" ? <Loader2 className="size-4 animate-spin" /> : null}
                 {copy.submit}
               </Button>
+
+              {mode === "sign-in" ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full text-muted-foreground"
+                  disabled={busy}
+                  onClick={() => switchTo("magic-link")}
+                >
+                  <Wand2 className="size-4" />
+                  Email me a sign-in link instead
+                </Button>
+              ) : null}
+
+              {mode === "magic-link" ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full text-muted-foreground"
+                  disabled={busy}
+                  onClick={() => switchTo("sign-in")}
+                >
+                  <KeyRound className="size-4" />
+                  Use a password instead
+                </Button>
+              ) : null}
             </form>
           </CardContent>
         </Card>
@@ -403,6 +463,11 @@ function LoginForm() {
                 Create one
               </button>
             </>
+          ) : mode === "magic-link" ? (
+            // "Use a password instead" already sits in the form and says the
+            // same thing more usefully. Two ways back reads as two different
+            // destinations.
+            null
           ) : (
             <button
               type="button"

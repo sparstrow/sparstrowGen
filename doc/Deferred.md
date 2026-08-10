@@ -141,26 +141,3 @@ the app's): [`runbooks/oauth-providers.md`](runbooks/oauth-providers.md).
 
 **Unpark when:** the owner wants social sign-in, or a collaborator who would
 rather not manage another password is added to a workspace.
-
----
-
-## D-9 — Magic-link sign-in
-
-**Parked:** 2026-08-10 — removed at the owner's request on 2026-08-09 before it
-was understood, and left out after it was explained.
-
-Only the button was ever removed (commit `9882b27`, one file). The email
-provider is still enabled in Supabase and the token-exchange route,
-`/auth/confirm`, is live and tested — password reset uses exactly the same
-mechanism, differing only in where it lands afterwards. Re-adding sign-in by
-link is a UI change of roughly 30 lines with no server-side configuration.
-
-Worth remembering that this interacts with the leaked-password gap: a user who
-signs in by link has no password to appear in a breach corpus, which is the one
-mitigation available while the project is off Pro.
-
-Against it: delivery depends on email arriving, and Supabase's built-in SMTP is
-rate-limited on the free tier; and inbox access becomes account access.
-
-**Unpark when:** the owner wants passwordless sign-in, mobile sign-in becomes
-routine, or SMTP is moved to a real provider.
