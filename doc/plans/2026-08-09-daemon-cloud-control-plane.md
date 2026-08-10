@@ -5,7 +5,7 @@
 | **Status** | Approved 2026-08-09 · M1 complete · M2 complete · auth hardening complete 2026-08-10 · M3 complete 2026-08-10 · M4 next |
 | **Supersedes** | The "Phase 4: Multi-Agent Swarm Orchestrator & Live Transcripts" proposal |
 | **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–4 done · band 5 = M3, decomposed 2026-08-10) · `doc/tasks/M2/` · `doc/tasks/M3/` |
-| **Open questions** | OQ-1 (uncommitted work) — parked for M4, and **must be answered before M4's first dispatch task**. OQ-2 answered and closed 2026-08-10. |
+| **Open questions** | None. OQ-1 (uncommitted work) answered **and built** 2026-08-10 — see settled decision 5. OQ-2 answered and closed 2026-08-10. |
 
 > **Why the original Phase 4 proposal was replaced.** It described three features
 > — live streaming transcripts, a GOAP/delegation visualizer, and a HITL
@@ -95,6 +95,43 @@ one runtime**, revocable from the UI, stored in the existing encrypted
 `~/.sparstrow` (`secretsDir`) — built precisely for this class of secret. Electron
 loads the **hosted** Next app (no version skew against a migrating schema) and
 renders a native offline screen when unreachable.
+
+**5 — Uncommitted agent work is snapshotted, not left to chance.** *(answers
+OQ-1, decided 2026-08-10; option B, narrowed.)* When a run ends, core records the
+project's working tree under `refs/sparstrow/wip/<run-id>` on that machine.
+
+The narrowing that matters: OQ-1 proposed a **branch**, and a branch is the wrong
+object. It appears in `git branch`, tab-completes, and matches the default `push`
+refspec — a backup that can escape to a remote is not a backup, it is a leak with
+good intentions. A ref outside `refs/heads/` is inert until someone looks for it.
+
+Nor does it run `git commit`. The snapshot is written with plumbing
+(`read-tree` → `add -A` → `write-tree` → `commit-tree` → `update-ref`) against a
+**throwaway index**, so HEAD does not move, the developer's staged/unstaged split
+survives byte-for-byte, and `git status` reads identically before and after.
+`add -A` honours `.gitignore`, which is what keeps `.env` and `node_modules` out
+— OQ-1 named that as the whole problem with option C, and git had already solved
+it.
+
+**No second worktree is created.** The tree to protect is the one the agent
+edited, and core already knows it: it is the `cwd` it passed to the child. A
+fresh checkout would faithfully back up the wrong bytes.
+
+Default **on**, with a toggle and a retention count in Settings. On, because the
+setting only pays out after something has already gone wrong and the person who
+needs it most is the one who never thought to enable it. Retention exists because
+each ref pins its objects, so unbounded snapshots mean `git gc` can never
+reclaim the space.
+
+Implementation: `packages/core/src/projects/wip-snapshot.ts`, called from
+`RunManager.finalize()` **before** handoff — handoff's job is to spawn the
+follow-up run, which edits this same tree.
+
+> The Settings card renders in the **local** UI only. The switch is a row in that
+> machine's SQLite and the snapshot happens on that machine's disk; the hosted
+> app has no `/system/settings` route to write to. A per-runtime control belongs
+> in the Machines card once M4's command spine can carry a setting to a specific
+> daemon. Absent beats a switch that flips and silently changes nothing.
 
 > ⚠️ **Security consequence, accepted knowingly.** Once dispatch is
 > cloud-canonical, anyone who can write a task row targeting your runtime can

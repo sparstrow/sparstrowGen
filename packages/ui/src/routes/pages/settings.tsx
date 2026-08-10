@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LogOut, Trash2 } from "lucide-react";
 import { useAccount } from "@/lib/account";
@@ -25,7 +26,14 @@ import {
   useSettings,
   useUpdateSettings,
 } from "@/api/hooks";
-import type { ProviderInfo, ProviderId } from "@sparstrow/shared";
+import {
+  DEFAULT_WIP_SNAPSHOT_KEEP,
+  SETTING_WIP_SNAPSHOT,
+  SETTING_WIP_SNAPSHOT_KEEP,
+  isWipSnapshotEnabled,
+  type ProviderInfo,
+  type ProviderId,
+} from "@sparstrow/shared";
 import { useTheme, type Theme } from "@/theme/theme-provider";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -222,6 +230,116 @@ function GitCard() {
     </Card>
   );
 }
+
+/**
+ * OQ-1 — WIP snapshots. Defaults on; the toggle exists because a developer who
+ * wants their repo left strictly alone is entitled to that, and because a
+ * feature that writes into someone's git objects should be visibly switchable
+ * rather than a background behaviour they discover by accident.
+ *
+ * **Local UI only.** The snapshot is taken by core, on that machine's disk, and
+ * the switch is a row in that machine's SQLite. The hosted app has no
+ * `/system/settings` route at all, so rendering this there would give a control
+ * that flips and then silently fails to reach the daemon it claims to configure.
+ * A per-runtime version belongs in the Machines card once M4's command spine can
+ * carry a setting to a specific daemon; until then, absent beats fake.
+ */
+function WipSnapshotCard() {
+  const account = useAccount();
+  const settings = useSettings();
+  const update = useUpdateSettings();
+  const [keep, setKeep] = React.useState("");
+  if (account) return null;
+
+  const enabled = isWipSnapshotEnabled(settings.data?.[SETTING_WIP_SNAPSHOT]);
+  const storedKeep = settings.data?.[SETTING_WIP_SNAPSHOT_KEEP] ?? String(DEFAULT_WIP_SNAPSHOT_KEEP);
+  const keepValue = keep === "" ? storedKeep : keep;
+  const keepDirty = keep !== "" && keep !== storedKeep;
+  const keepValid = /^\d+$/.test(keepValue) && Number.parseInt(keepValue, 10) > 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Work-in-progress snapshots</CardTitle>
+        <CardDescription>
+          When a run ends, back up whatever the agent left uncommitted so a crash, a cancel, or
+          the next run cannot lose it.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Snapshot uncommitted work</p>
+            <p className="text-xs text-muted-foreground">
+              Records the project&apos;s working tree as a git object under{" "}
+              <code className="font-mono">refs/sparstrow/wip/&lt;run-id&gt;</code>. It is not a
+              branch and is never pushed — your current branch, staged changes and{" "}
+              <code className="font-mono">git status</code> are untouched. Files matched by{" "}
+              <code className="font-mono">.gitignore</code> are excluded.
+            </p>
+          </div>
+          {settings.isLoading ? (
+            <Skeleton className="h-5 w-9" />
+          ) : (
+            <Switch
+              checked={enabled}
+              disabled={update.isPending}
+              onCheckedChange={(next) =>
+                update.mutate({ [SETTING_WIP_SNAPSHOT]: next ? "on" : "off" })
+              }
+              aria-label="Snapshot uncommitted work when a run ends"
+            />
+          )}
+        </div>
+
+        <div className="flex items-end justify-between gap-4 border-t pt-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Snapshots kept per project</p>
+            <p className="text-xs text-muted-foreground">
+              Older ones are deleted. Each snapshot pins its objects, so keeping them forever
+              means <code className="font-mono">git gc</code> can never reclaim the space.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Input
+              className="w-20 font-mono text-xs"
+              inputMode="numeric"
+              value={keepValue}
+              disabled={!enabled}
+              onChange={(e) => setKeep(e.target.value)}
+            />
+            <Button
+              size="sm"
+              disabled={!enabled || !keepDirty || !keepValid || update.isPending}
+              onClick={() =>
+                update.mutate(
+                  { [SETTING_WIP_SNAPSHOT_KEEP]: keepValue },
+                  { onSuccess: () => setKeep("") },
+                )
+              }
+            >
+              Save
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-1 rounded-md border bg-muted/40 p-3">
+          <p className="text-xs font-medium">Recovering work</p>
+          <pre className="overflow-x-auto font-mono text-[11px] leading-relaxed text-muted-foreground">
+            {RECOVERY_COMMANDS}
+          </pre>
+        </div>
+        {update.isError && <p className="text-xs text-destructive">{update.error.message}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
+const RECOVERY_COMMANDS = [
+  "git for-each-ref refs/sparstrow/wip/          # list snapshots",
+  "git show --stat refs/sparstrow/wip/<run-id>   # see what one contains",
+  "git restore --source=refs/sparstrow/wip/<run-id> -- <path>",
+].join("\n");
 
 /** P8 — a direct-API provider's key input (stored in the encrypted secret store). */
 function ProviderKeyInput({ providerId, keyPresent }: { providerId: string; keyPresent: boolean }) {
@@ -637,6 +755,7 @@ export function SettingsPage() {
             <TabsContent value="general" className="space-y-5 pt-3">
               <FactoryHealthCard />
               <RuntimesCard />
+              <WipSnapshotCard />
               <SystemCard />
               <AdvancedCard />
             </TabsContent>

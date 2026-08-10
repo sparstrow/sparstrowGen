@@ -136,10 +136,14 @@ mechanism was explained. It is live and verified end to end.
 | Leaked password protection | **Supabase plan** | Requires Pro; not available on the current plan (confirmed 2026-08-10). No SQL equivalent, so nothing in this repo can fix it. Verified off by signing up with `password123` and getting a session. Not an action item — the advisor will keep flagging it. |
 | `/runs/[runId]` render + Realtime refetch | M4 | Both need a run to exist. Nothing to open until dispatch creates one. |
 
-`OQ-1` (protecting uncommitted agent work) was **parked for M4** by the owner on
-2026-08-10. M3 pairs and registers machines but never starts work on them, so
-nothing in Band 5 can produce a dirty working tree. It must be answered before
-M4's first dispatch task is written — `T-M3-08` carries that reminder.
+`OQ-1` (protecting uncommitted agent work) was **answered and built** on
+2026-08-10, ahead of M4 rather than inside it — the owner approved the
+recommendation, and the feature is small and self-contained enough that shipping
+it beat writing a task for it. When a run ends, core snapshots the project's
+working tree to `refs/sparstrow/wip/<run-id>` on that machine: not a branch, not
+a commit on any branch, never pushed, `.gitignore` respected, and switchable from
+Settings. Rationale and the two narrowings from the original option B are settled
+decision 5 in the plan. **M4 is no longer gated on anything.**
 
 `OQ-2` (how an agent completes a browser pass) was **answered and closed** on
 2026-08-10 during M3, and removed from `OpenQuestions.md`. Restoring magic-link

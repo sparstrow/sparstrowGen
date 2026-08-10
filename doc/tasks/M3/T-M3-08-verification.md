@@ -92,7 +92,9 @@ Signed in, against staging:
 - [x] Flip the M3 row in [`../README.md`](../README.md)'s status table
 - [x] Update the plan header: `M3 complete · M4 next`
 - [x] **Answer OQ-1 before M4's first dispatch task is written** — it was parked
-      for M4 on 2026-08-10 and M4 is the phase that makes it real
+      for M4 on 2026-08-10 and M4 is the phase that makes it real.
+      **Done 2026-08-10: answered *and* built** (WIP snapshots — plan decision 5,
+      `packages/core/src/projects/wip-snapshot.ts`). M4 is ungated.
 
 ## Result - M3 complete, 2026-08-10
 

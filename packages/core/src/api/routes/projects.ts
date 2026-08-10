@@ -15,6 +15,7 @@ import { getDb } from "../../db/connection.js";
 import { projects } from "../../db/schema.js";
 import { HttpError } from "../../orchestrator/run-manager.js";
 import { getProjectGitState } from "../../projects/git-status.js";
+import { listSnapshots } from "../../projects/wip-snapshot.js";
 import {
   createDirective,
   deleteDirective,
@@ -81,6 +82,18 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const row = getDb().select().from(projects).where(eq(projects.id, id)).get();
     if (!row) throw new HttpError(404, `project not found: ${id}`);
     return getProjectGitState(row.rootDir);
+  });
+
+  /**
+   * OQ-1: the WIP snapshots taken for this project, newest first. Read-only —
+   * restoring is a deliberate git command the developer runs themselves, not a
+   * button that overwrites their working tree.
+   */
+  app.get("/projects/:id/wip-snapshots", async (request) => {
+    const { id } = request.params as { id: string };
+    const row = getDb().select().from(projects).where(eq(projects.id, id)).get();
+    if (!row) throw new HttpError(404, `project not found: ${id}`);
+    return listSnapshots(row.rootDir);
   });
 
   /** P4 §4: read-only file tree — one directory level under rootDir (P4-Q4). */

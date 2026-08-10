@@ -13,7 +13,34 @@ When one is answered, record the answer in the plan or task that consumes it and
 
 ---
 
-## OQ-1 — Protecting uncommitted agent work
+**Nothing is currently open.** M4 task planning is unblocked.
+
+---
+
+<details>
+<summary>OQ-1 — Protecting uncommitted agent work (answered and built 2026-08-10)</summary>
+
+**Answer: option B, narrowed.** Recorded as settled decision 5 in
+[`plans/2026-08-09-daemon-cloud-control-plane.md`](plans/2026-08-09-daemon-cloud-control-plane.md),
+shipped in `packages/core/src/projects/wip-snapshot.ts`, toggle in Settings.
+
+Two things changed from the recommendation below, both while building it:
+
+- **Not a branch.** `refs/sparstrow/wip/<run-id>` sits outside `refs/heads/`, so
+  it does not show in `git branch`, does not tab-complete, and does not match the
+  default `push` refspec. The recommendation's "never pushed" was a rule someone
+  would eventually break; this makes it structural.
+- **Not `git commit`.** Plumbing against a throwaway index, so HEAD, the real
+  index, and `git status` are provably untouched — the option's stated cost
+  ("writes to the developer's repo without being asked") mostly evaporates once
+  the write cannot be seen from any command they normally run.
+
+The full original entry is kept below, because the options it rejected are the
+reason the shipped design looks the way it does.
+
+---
+
+## OQ-1 — Protecting uncommitted agent work *(closed)*
 
 **Raised:** 2026-08-09, during the local-tier data audit.
 **Parked for M4** by the owner on 2026-08-10, when M3 was decomposed. M3 pairs
@@ -83,6 +110,8 @@ survives?
 respecting `.gitignore`, never pushed, garbage-collected after N days. It reuses
 machinery that already exists in every project and produces a per-run diff that
 makes review easier regardless.
+
+</details>
 
 ---
 
