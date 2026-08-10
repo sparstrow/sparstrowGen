@@ -68,15 +68,34 @@ dispatch table, which 3.1–3.3 also register into.
 |---|---|---|---|---|
 | 4.1 | [T-M2-08 — verification & browser pass](M2/T-M2-08-verification.md) | `[S]` | 3.1–3.4 | done |
 
-### Band 5+ — not yet decomposed
+### Band 5 — M3 pairing, registration, heartbeat
+
+Phase spec: [`M3/README.md`](M3/README.md). Decomposed 2026-08-10.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 5.1 | [T-M3-01 — pairing redemption RPC](M3/T-M3-01-redeem-rpc.md) | `[S]` | — | queued |
+| 5.2 | [T-M3-02 — daemon API surface in Next](M3/T-M3-02-daemon-api.md) | `[S]` | 5.1 | queued |
+| 5.3 | [T-M3-03 — cloud client + token storage](M3/T-M3-03-cloud-client.md) | `[P]` | 5.2 | queued |
+| 5.4 | [T-M3-04 — `sparstrow pair` CLI](M3/T-M3-04-pair-cli.md) | `[P]` | 5.3 | queued |
+| 5.5 | [T-M3-05 — registration + capability probe](M3/T-M3-05-registration.md) | `[P]` | 5.3 | queued |
+| 5.6 | [T-M3-06 — heartbeat loop + status derivation](M3/T-M3-06-heartbeat.md) | `[C]` | 5.3 | queued |
+| 5.7 | [T-M3-07 — Runtimes UI: pair, list, revoke](M3/T-M3-07-runtimes-ui.md) | `[P]` | 5.1 | queued |
+| 5.8 | [T-M3-08 — verification](M3/T-M3-08-verification.md) | `[S]` | 5.1–5.7 | queued |
+
+5.1 and 5.2 are `[S]` because they define the contract every other task is
+written against. 5.7 needs only the RPC, so the UI can be built in parallel with
+all of the core work. 5.6 is `[C]` rather than `[P]` because it edits
+`packages/core/src/index.ts` and the web health handler, which 5.5 and 5.7 also
+touch.
+
+### Band 6+ — not yet decomposed
 
 Scoped in `doc/plans/2026-08-09-daemon-cloud-control-plane.md`; task files are
-written when the band is next. M4's spec depends on what M3's pairing flow
-actually looks like, so writing it now would be fiction.
+written when the band is next.
 
 | # | Phase | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 5.x | M3 — pairing, registration, heartbeat | `[S]` | M2 | not decomposed |
 | 6.x | M4 — command spine (claim/lease/ack) | `[S]` | M3 | not decomposed |
 | 7.x | M5 — transcripts (dual path) | `[P]` | M4 | not decomposed |
 | 7.y | M6 — memory sync | `[P]` | M4 | not decomposed |
@@ -117,9 +136,10 @@ mechanism was explained. It is live and verified end to end.
 | Leaked password protection | **Supabase plan** | Requires Pro; not available on the current plan (confirmed 2026-08-10). No SQL equivalent, so nothing in this repo can fix it. Verified off by signing up with `password123` and getting a session. Not an action item — the advisor will keep flagging it. |
 | `/runs/[runId]` render + Realtime refetch | M4 | Both need a run to exist. Nothing to open until dispatch creates one. |
 
-`OQ-1` (protecting uncommitted agent work) is open but blocks nothing in the
-current queue — it becomes relevant during M4, when agents start running
-unattended from cloud dispatch.
+`OQ-1` (protecting uncommitted agent work) was **parked for M4** by the owner on
+2026-08-10. M3 pairs and registers machines but never starts work on them, so
+nothing in Band 5 can produce a dirty working tree. It must be answered before
+M4's first dispatch task is written — `T-M3-08` carries that reminder.
 
 `OQ-2` (how an agent completes a browser pass) no longer blocks anything: the
 M2 pass ran on 2026-08-10 using a session that was already live in the browser.

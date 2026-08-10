@@ -16,8 +16,11 @@ When one is answered, record the answer in the plan or task that consumes it and
 ## OQ-1 — Protecting uncommitted agent work
 
 **Raised:** 2026-08-09, during the local-tier data audit.
-**Blocks:** nothing yet. Becomes urgent once agents run unattended on more than
-one machine.
+**Parked for M4** by the owner on 2026-08-10, when M3 was decomposed. M3 pairs
+and registers machines but never starts work on them, so nothing it builds can
+produce a dirty working tree. The exposure begins with the M4 command spine —
+the first moment cloud dispatch can make an agent edit files unattended.
+**Blocks:** nothing in M3. Decide before M4's first dispatch task is written.
 
 ### Context
 

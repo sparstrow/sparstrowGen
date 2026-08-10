@@ -4,8 +4,8 @@
 |---|---|
 | **Status** | Approved 2026-08-09 · M1 complete · M2 complete · auth hardening complete 2026-08-10 · M3 next |
 | **Supersedes** | The "Phase 4: Multi-Agent Swarm Orchestrator & Live Transcripts" proposal |
-| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–4, all done) · `doc/tasks/M2/` |
-| **Open questions** | OQ-1 (uncommitted work) — does not block M2 |
+| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–4 done · band 5 = M3, decomposed 2026-08-10) · `doc/tasks/M2/` · `doc/tasks/M3/` |
+| **Open questions** | OQ-1 (uncommitted work) — parked for M4; blocks nothing in M3 |
 
 > **Why the original Phase 4 proposal was replaced.** It described three features
 > — live streaming transcripts, a GOAP/delegation visualizer, and a HITL
