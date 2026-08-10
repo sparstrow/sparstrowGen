@@ -27,20 +27,20 @@ app.
 
 ## Checklist
 
-- [ ] Create `apps/web/src/lib/workspace.ts`
-- [ ] `getActiveWorkspaceId(supabase, searchParams)` returning
+- [x] Create `apps/web/src/lib/workspace.ts`
+- [x] `getActiveWorkspaceId(supabase, searchParams)` returning
       `{ workspaceId }` or `{ error, status }`
-- [ ] Query `workspace_members` for the current user
-- [ ] **0 rows** → bootstrap (below), return the new id
-- [ ] **1 row** → return it
-- [ ] **>1 rows** → if `?workspaceId=` present and the user is a member, use it;
+- [x] Query `workspace_members` for the current user
+- [x] **0 rows** → bootstrap (below), return the new id
+- [x] **1 row** → return it
+- [x] **>1 rows** → if `?workspaceId=` present and the user is a member, use it;
       otherwise return 400 with `{ error, workspaces: [{id, name}] }`
-- [ ] `bootstrapWorkspace(supabase, user)` — insert `users`, `workspaces`
+- [x] `bootstrapWorkspace(supabase, user)` — insert `users`, `workspaces`
       (`owner_id` = user), `workspace_members` (`role: 'owner'`), in that order
-- [ ] Bootstrap is idempotent: a concurrent duplicate request must not create two
+- [x] Bootstrap is idempotent: a concurrent duplicate request must not create two
       workspaces — rely on the `uq_workspace_members` unique index and treat a
       conflict as "already bootstrapped, re-read"
-- [ ] Unit tests for all four branches
+- [x] Unit tests for all four branches
 
 ## Notes
 
@@ -55,7 +55,7 @@ nothing.
 
 ## Verification
 
-- [ ] `pnpm --filter web test` passes
+- [x] `pnpm --filter web test` passes
 - [ ] Signing in as a brand-new user creates exactly one `workspaces`, one
       `workspace_members`, and one `users` row — verified by querying staging
 - [ ] Running the same bootstrap twice concurrently still yields one workspace

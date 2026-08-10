@@ -48,19 +48,19 @@ here — they need a paired runtime and land in M4. T-M2-07 stubs them 501.
 
 ## Checklist
 
-- [ ] `apps/web/src/lib/api/handlers/tasks.ts`
-- [ ] `apps/web/src/lib/api/handlers/goals.ts`
-- [ ] `apps/web/src/lib/api/handlers/messages.ts`
-- [ ] Register all three in `handlers/index.ts`
-- [ ] `GET /tasks` honours the `status`, `assignedAgentId`, `teamId`, `projectId`
+- [x] `apps/web/src/lib/api/handlers/tasks.ts`
+- [x] `apps/web/src/lib/api/handlers/goals.ts`
+- [x] `apps/web/src/lib/api/handlers/messages.ts`
+- [x] Register all three in `handlers/index.ts`
+- [x] `GET /tasks` honours the `status`, `assignedAgentId`, `teamId`, `projectId`
       query filters the hooks already send
-- [ ] `/tasks/:id/approve` and `/deny` move `pending_approval` → `todo` /
+- [x] `/tasks/:id/approve` and `/deny` move `pending_approval` → `todo` /
       `failed` respectively
-- [ ] `GET /goals/:id` returns `GoalDetail`: the goal, its `plan_nodes` and
+- [x] `GET /goals/:id` returns `GoalDetail`: the goal, its `plan_nodes` and
       `plan_edges` **at the current `plan_version` only**, and each node's linked
       task. Node status is derived from that task — `plan_nodes` has no status
       column by design (EM4).
-- [ ] `/messages/:id/mark-read` sets `status = 'read'`
+- [x] `/messages/:id/mark-read` sets `status = 'read'`
 
 ## The attention queue
 
@@ -68,13 +68,13 @@ here — they need a paired runtime and land in M4. T-M2-07 stubs them 501.
 `AttentionRow[]` shape `packages/ui/src/components/attention-queue.tsx` already
 consumes — four row kinds:
 
-- [ ] **question** — tasks with unanswered `task_questions`, each row carrying
+- [x] **question** — tasks with unanswered `task_questions`, each row carrying
       the task, its open questions, and `ageMs`
-- [ ] **approval** — tasks in `pending_approval`
-- [ ] **review** — tasks in `review`
-- [ ] **contradiction** — unresolved `memory_contradictions` (the `task: null`
+- [x] **approval** — tasks in `pending_approval`
+- [x] **review** — tasks in `review`
+- [x] **contradiction** — unresolved `memory_contradictions` (the `task: null`
       variant; the component already branches on this)
-- [ ] Sorted oldest-first; `ageMs` computed server-side so the client does no
+- [x] Sorted oldest-first; `ageMs` computed server-side so the client does no
       clock maths
 
 ## Verification

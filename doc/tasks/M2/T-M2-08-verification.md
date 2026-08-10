@@ -18,9 +18,9 @@ only because core is running on this machine, M2 hasn't achieved its goal.
 
 ## Checklist — automated
 
-- [ ] `pnpm -r typecheck` — all 7 packages clean
-- [ ] `pnpm -r test` — 565+ tests green, no regressions
-- [ ] `curl -i localhost:3000/api/v1/runs` signed out → 401 JSON, no `Location:`
+- [x] `pnpm -r typecheck` — all 7 packages clean
+- [x] `pnpm -r test` — 565+ tests green, no regressions
+- [x] `curl -i localhost:3000/api/v1/runs` signed out → 401 JSON, no `Location:`
 - [ ] `curl -i localhost:3000/api/v1/nonsense` signed in → 404 JSON
 
 ## Checklist — every route loads

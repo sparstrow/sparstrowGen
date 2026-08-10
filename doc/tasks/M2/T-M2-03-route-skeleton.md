@@ -29,24 +29,24 @@ in Band 3 and can then be built in parallel.
 
 ## Checklist
 
-- [ ] `apps/web/src/app/api/v1/[...path]/route.ts` exporting `GET`, `POST`,
+- [x] `apps/web/src/app/api/v1/[...path]/route.ts` exporting `GET`, `POST`,
       `PATCH`, `PUT`, `DELETE`
-- [ ] Each export resolves the Supabase server client from
+- [x] Each export resolves the Supabase server client from
       `apps/web/src/utils/supabase/server.ts`
-- [ ] Return `401 { error: "not authenticated" }` when there is no session
-- [ ] Resolve the workspace via `getActiveWorkspaceId`; propagate its 400 as-is
-- [ ] `apps/web/src/lib/api/router.ts` — ordered route table of
+- [x] Return `401 { error: "not authenticated" }` when there is no session
+- [x] Resolve the workspace via `getActiveWorkspaceId`; propagate its 400 as-is
+- [x] `apps/web/src/lib/api/router.ts` — ordered route table of
       `{ method, pattern, handler }`, matching `:param` segments
-- [ ] Handler context type: `{ supabase, workspaceId, params, searchParams, body }`
-- [ ] Response helpers: `ok(data)`, `noContent()` (204), `fail(status, message)`
-- [ ] Apply `toCamel` on the way out and `toSnake` on the way in, using
+- [x] Handler context type: `{ supabase, workspaceId, params, searchParams, body }`
+- [x] Response helpers: `ok(data)`, `noContent()` (204), `fail(status, message)`
+- [x] Apply `toCamel` on the way out and `toSnake` on the way in, using
       `OPAQUE_COLUMNS` for the table being touched
-- [ ] Central error boundary: unhandled throw → `500 { error }`, logged server-side
-- [ ] Postgres error mapping: RLS denial / `42501` → 403, unique violation
+- [x] Central error boundary: unhandled throw → `500 { error }`, logged server-side
+- [x] Postgres error mapping: RLS denial / `42501` → 403, unique violation
       `23505` → 409, FK violation `23503` → 400
-- [ ] Edit `apps/web/src/middleware.ts` so paths under `/api/` skip the
+- [x] Edit `apps/web/src/middleware.ts` so paths under `/api/` skip the
       `/login` redirect and fall through to the route handler
-- [ ] `apps/web/src/lib/api/handlers/index.ts` — empty registry with a comment
+- [x] `apps/web/src/lib/api/handlers/index.ts` — empty registry with a comment
       pointing at Band 3
 
 ## Why the middleware change matters
@@ -58,7 +58,7 @@ the UI can distinguish "signed out" from "broken".
 
 ## Verification
 
-- [ ] `pnpm --filter web typecheck` passes
+- [x] `pnpm --filter web typecheck` passes
 - [ ] `curl -i localhost:3000/api/v1/runs` while signed out → HTTP 401, JSON
       body, **no** `Location:` header
 - [ ] `curl -i localhost:3000/api/v1/nonsense` while signed in → HTTP 404 JSON

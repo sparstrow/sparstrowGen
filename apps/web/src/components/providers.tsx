@@ -96,8 +96,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
             void queryClient.invalidateQueries({ queryKey: ["goals"] });
           } else if (table === "messages") {
             void queryClient.invalidateQueries({ queryKey: ["messages"] });
-          } else if (table === "system_health") {
+          } else if (table === "runtimes") {
             void queryClient.invalidateQueries({ queryKey: ["health"] });
+          } else if (table === "chat_messages") {
+            void queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
+          } else if (table === "task_questions") {
+            void queryClient.invalidateQueries({ queryKey: ["attention-queue"] });
+          } else if (table === "runtime_projects") {
+            void queryClient.invalidateQueries({ queryKey: ["projects"] });
           }
         }
       )

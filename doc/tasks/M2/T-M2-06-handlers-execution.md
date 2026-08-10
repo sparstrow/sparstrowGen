@@ -50,25 +50,25 @@ Deliberately excluded — 501 via T-M2-07: `POST /runs`, `/runs/:id/cancel`,
 
 ## Checklist
 
-- [ ] `apps/web/src/lib/api/handlers/runs.ts`
-- [ ] `apps/web/src/lib/api/handlers/chat.ts`
-- [ ] `apps/web/src/lib/api/handlers/pipelines.ts`
-- [ ] `apps/web/src/lib/api/handlers/cron.ts`
-- [ ] `apps/web/src/lib/api/handlers/memory.ts`
-- [ ] Register all five in `handlers/index.ts`
-- [ ] `GET /runs` honours `agentId`, `projectId`, `status`, `limit` (max 500)
-- [ ] `GET /runs/:id/events` honours `afterSeq` (default −1) and `limit`
+- [x] `apps/web/src/lib/api/handlers/runs.ts`
+- [x] `apps/web/src/lib/api/handlers/chat.ts`
+- [x] `apps/web/src/lib/api/handlers/pipelines.ts`
+- [x] `apps/web/src/lib/api/handlers/cron.ts`
+- [x] `apps/web/src/lib/api/handlers/memory.ts`
+- [x] Register all five in `handlers/index.ts`
+- [x] `GET /runs` honours `agentId`, `projectId`, `status`, `limit` (max 500)
+- [x] `GET /runs/:id/events` honours `afterSeq` (default −1) and `limit`
       (default 500, max 2000), ordered by `seq` ascending — this is exactly the
       contract `useRunEvents` and the seq-merge in `run-detail.tsx` expect
-- [ ] **`run_events.payload` is passed through untouched.** Confirm the handler
+- [x] **`run_events.payload` is passed through untouched.** Confirm the handler
       uses `OPAQUE_COLUMNS.run_events` — camel-casing it breaks the transcript
-- [ ] `GET /chat/sessions/:id` returns `ChatSessionDetail`: the session plus its
+- [x] `GET /chat/sessions/:id` returns `ChatSessionDetail`: the session plus its
       messages ordered by `created_at`
-- [ ] `POST /memory/notes` writes `content` and `content_hash`; sets
+- [x] `POST /memory/notes` writes `content` and `content_hash`; sets
       `last_writer_runtime_id` to null (a browser write has no runtime)
-- [ ] `/memory/notes/:id/approve` clears `quarantined`; `/archive` sets
+- [x] `/memory/notes/:id/approve` clears `quarantined`; `/archive` sets
       `archived_at` — neither deletes (P5 soft-archive)
-- [ ] `/memory/contradictions/:id/resolve` sets `resolved_at` and `resolution`
+- [x] `/memory/contradictions/:id/resolve` sets `resolved_at` and `resolution`
 
 ## Verification
 

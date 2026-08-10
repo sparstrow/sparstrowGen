@@ -1,0 +1,226 @@
+import { registerRoute, ok, fail, noContent, HandlerContext } from "../router";
+
+function generateId(prefix: string) {
+  return `${prefix}${crypto.randomUUID().replace(/-/g, "")}`;
+}
+
+registerRoute({
+  method: "GET",
+  pattern: "/teams",
+  handler: async ({ supabase, workspaceId }: HandlerContext) => {
+    const { data, error } = await supabase
+      .from("teams")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return ok(data);
+  }
+});
+
+registerRoute({
+  method: "POST",
+  pattern: "/teams",
+  handler: async ({ supabase, workspaceId, body }: HandlerContext) => {
+    const payload = {
+      ...body,
+      workspace_id: workspaceId,
+      id: body.id || generateId("tem_")
+    };
+    const { data, error } = await supabase
+      .from("teams")
+      .insert(payload)
+      .select()
+      .single();
+    if (error) throw error;
+    return ok(data);
+  }
+});
+
+registerRoute({
+  method: "GET",
+  pattern: "/teams/:id",
+  handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
+    const { data, error } = await supabase
+      .from("teams")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .eq("id", params.id)
+      .single();
+    if (error) return fail(404, "Not Found");
+    return ok(data);
+  }
+});
+
+registerRoute({
+  method: "PUT",
+  pattern: "/teams/:id", // hooks.ts uses PUT instead of PATCH often
+  handler: async ({ supabase, workspaceId, params, body }: HandlerContext) => {
+    const { data, error } = await supabase
+      .from("teams")
+      .update(body)
+      .eq("workspace_id", workspaceId)
+      .eq("id", params.id)
+      .select()
+      .single();
+    if (error) throw error;
+    return ok(data);
+  }
+});
+
+registerRoute({
+  method: "PATCH",
+  pattern: "/teams/:id",
+  handler: async ({ supabase, workspaceId, params, body }: HandlerContext) => {
+    const { data, error } = await supabase
+      .from("teams")
+      .update(body)
+      .eq("workspace_id", workspaceId)
+      .eq("id", params.id)
+      .select()
+      .single();
+    if (error) throw error;
+    return ok(data);
+  }
+});
+
+registerRoute({
+  method: "DELETE",
+  pattern: "/teams/:id",
+  handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
+    const { error } = await supabase
+      .from("teams")
+      .delete()
+      .eq("workspace_id", workspaceId)
+      .eq("id", params.id);
+    if (error) throw error;
+    return noContent();
+  }
+});
+
+registerRoute({
+  method: "GET",
+  pattern: "/teams/:id/members",
+  handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
+    const { data, error } = await supabase
+      .from("team_members")
+      .select("*, agents(*)") // assuming team_members joins agents
+      .eq("workspace_id", workspaceId)
+      .eq("team_id", params.id)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return ok(data);
+  }
+});
+
+registerRoute({
+  method: "POST",
+  pattern: "/teams/:id/members",
+  handler: async ({ supabase, workspaceId, params, body }: HandlerContext) => {
+    const payload = {
+      ...body,
+      workspace_id: workspaceId,
+      team_id: params.id,
+      id: body.id || generateId("tmb_")
+    };
+    const { data, error } = await supabase
+      .from("team_members")
+      .insert(payload)
+      .select()
+      .single();
+    if (error) throw error;
+    return ok(data);
+  }
+});
+
+registerRoute({
+  method: "PUT",
+  pattern: "/teams/:id/members/:memberId",
+  handler: async ({ supabase, workspaceId, params, body }: HandlerContext) => {
+    const { data, error } = await supabase
+      .from("team_members")
+      .update(body)
+      .eq("workspace_id", workspaceId)
+      .eq("team_id", params.id)
+      .eq("id", params.memberId)
+      .select()
+      .single();
+    if (error) throw error;
+    return ok(data);
+  }
+});
+
+registerRoute({
+  method: "PATCH",
+  pattern: "/teams/:id/members/:memberId",
+  handler: async ({ supabase, workspaceId, params, body }: HandlerContext) => {
+    const { data, error } = await supabase
+      .from("team_members")
+      .update(body)
+      .eq("workspace_id", workspaceId)
+      .eq("team_id", params.id)
+      .eq("id", params.memberId)
+      .select()
+      .single();
+    if (error) throw error;
+    return ok(data);
+  }
+});
+
+registerRoute({
+  method: "DELETE",
+  pattern: "/teams/:id/members/:memberId",
+  handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
+    const { error } = await supabase
+      .from("team_members")
+      .delete()
+      .eq("workspace_id", workspaceId)
+      .eq("team_id", params.id)
+      .eq("id", params.memberId);
+    if (error) throw error;
+    return noContent();
+  }
+});
+
+registerRoute({
+  method: "GET",
+  pattern: "/teams/:id/projects",
+  handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
+    const { data, error } = await supabase
+      .from("team_projects")
+      .select("*, projects(*)")
+      .eq("workspace_id", workspaceId)
+      .eq("team_id", params.id);
+    if (error) throw error;
+    return ok(data);
+  }
+});
+
+registerRoute({
+  method: "PUT",
+  pattern: "/teams/:id/projects",
+  handler: async ({ supabase, workspaceId, params, body }: HandlerContext) => {
+    // Expected { projectIds: string[] }
+    const projectIds: string[] = body.projectIds || body.project_ids || [];
+    const { error: delError } = await supabase
+      .from("team_projects")
+      .delete()
+      .eq("workspace_id", workspaceId)
+      .eq("team_id", params.id);
+    if (delError) throw delError;
+
+    if (projectIds.length > 0) {
+      const inserts = projectIds.map(id => ({
+        workspace_id: workspaceId,
+        team_id: params.id,
+        project_id: id
+      }));
+      const { error: insError } = await supabase
+        .from("team_projects")
+        .insert(inserts);
+      if (insError) throw insError;
+    }
+    
+    return ok({ success: true });
+  }
+});

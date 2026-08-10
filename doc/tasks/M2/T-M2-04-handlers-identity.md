@@ -46,22 +46,22 @@ PATCH/DEL       /projects/:id/directives/:id
 
 ## Checklist
 
-- [ ] `apps/web/src/lib/api/handlers/agents.ts`
-- [ ] `apps/web/src/lib/api/handlers/skills.ts`
-- [ ] `apps/web/src/lib/api/handlers/teams.ts`
-- [ ] `apps/web/src/lib/api/handlers/projects.ts`
-- [ ] Register all four in `handlers/index.ts`
-- [ ] Every insert stamps `workspace_id` server-side
-- [ ] Every insert generates its own `id` when the client didn't send one, using
+- [x] `apps/web/src/lib/api/handlers/agents.ts`
+- [x] `apps/web/src/lib/api/handlers/skills.ts`
+- [x] `apps/web/src/lib/api/handlers/teams.ts`
+- [x] `apps/web/src/lib/api/handlers/projects.ts`
+- [x] Register all four in `handlers/index.ts`
+- [x] Every insert stamps `workspace_id` server-side
+- [x] Every insert generates its own `id` when the client didn't send one, using
       the same prefix convention as core (`agt_`, `prj_`, …)
-- [ ] `/agents/:id/skills` and `/skills/assignments` write `agent_skills` as a
+- [x] `/agents/:id/skills` and `/skills/assignments` write `agent_skills` as a
       set operation — delete-then-insert inside one request, not per-row diffing
-- [ ] `/projects/provision` creates the project row only. **It does not touch a
+- [x] `/projects/provision` creates the project row only. **It does not touch a
       filesystem** — binding a project to a machine is `runtime_projects`, which
       arrives in M4. Return the created row.
-- [ ] `/agents/:id/promote` and `/discard` set `status` (`active` /
+- [x] `/agents/:id/promote` and `/discard` set `status` (`active` /
       `discarded`) per the P9 quarantine lifecycle; they do not delete rows
-- [ ] Response shapes match the zod types in `@sparstrow/shared` that the hooks
+- [x] Response shapes match the zod types in `@sparstrow/shared` that the hooks
       already expect (`Agent`, `Skill`, `Team`, `TeamDetail`, `Project`, …)
 
 ## Note on `projects.root_dir`

@@ -28,14 +28,14 @@ already correct.
 
 ## Checklist
 
-- [ ] Create `apps/web/src/lib/case.ts`
-- [ ] `toCamel(row, opaqueKeys)` — converts top-level and nested **object** keys
-- [ ] `toSnake(obj, opaqueKeys)` — inverse
-- [ ] Both skip any key listed in `opaqueKeys`, passing its value through by reference
-- [ ] Arrays of primitives pass through unchanged
-- [ ] `null` / `undefined` / `Date` values pass through unchanged
-- [ ] Export `OPAQUE_COLUMNS: Record<string, string[]>` — the per-table map below
-- [ ] Unit tests in `apps/web/src/lib/case.test.ts`
+- [x] Create `apps/web/src/lib/case.ts`
+- [x] `toCamel(row, opaqueKeys)` — converts top-level and nested **object** keys
+- [x] `toSnake(obj, opaqueKeys)` — inverse
+- [x] Both skip any key listed in `opaqueKeys`, passing its value through by reference
+- [x] Arrays of primitives pass through unchanged
+- [x] `null` / `undefined` / `Date` values pass through unchanged
+- [x] Export `OPAQUE_COLUMNS: Record<string, string[]>` — the per-table map below
+- [x] Unit tests in `apps/web/src/lib/case.test.ts`
 
 ## Opaque columns
 
@@ -60,10 +60,10 @@ jsonb value.**
 
 ## Verification
 
-- [ ] `pnpm --filter web test` passes
-- [ ] Test asserts `toCamel({ created_at: 1 })` → `{ createdAt: 1 }`
-- [ ] Test asserts a `run_events` row with
+- [x] `pnpm --filter web test` passes
+- [x] Test asserts `toCamel({ created_at: 1 })` → `{ createdAt: 1 }`
+- [x] Test asserts a `run_events` row with
       `payload: { message: { content: [{ type: "tool_use", name: "x" }] } }`
       survives a `toCamel` → `toSnake` round trip **byte-identical**
-- [ ] Test asserts `runs.injected_memory.notes[0].projectSlug` is still
+- [x] Test asserts `runs.injected_memory.notes[0].projectSlug` is still
       `projectSlug` after `toSnake`
