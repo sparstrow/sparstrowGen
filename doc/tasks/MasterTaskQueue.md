@@ -106,7 +106,7 @@ Runbook: [`doc/runbooks/oauth-providers.md`](../runbooks/oauth-providers.md).
 | Item | Blocked by | Effect |
 |---|---|---|
 | GitHub / Google sign-in | Owner action | Code is complete and verified; both providers report `enabled: false` in Supabase, so the buttons render disabled with an explanation. Follow the runbook and they light up with no code change. |
-| Leaked password protection | Owner action | Dashboard setting, no SQL equivalent. Verified still **off** on 2026-08-10 by signing up with `password123` and getting a session. |
+| Leaked password protection | **Supabase plan** | Requires Pro; not available on the current plan (confirmed 2026-08-10). No SQL equivalent, so nothing in this repo can fix it. Verified off by signing up with `password123` and getting a session. Not an action item — the advisor will keep flagging it. |
 | `/runs/[runId]` render + Realtime refetch | M4 | Both need a run to exist. Nothing to open until dispatch creates one. |
 
 `OQ-1` (protecting uncommitted agent work) is open but blocks nothing in the

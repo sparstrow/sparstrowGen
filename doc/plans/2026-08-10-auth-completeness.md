@@ -119,9 +119,10 @@ Against live staging, with real sessions:
 - **Enable GitHub and Google** — [`doc/runbooks/oauth-providers.md`](../runbooks/oauth-providers.md).
   Requires creating OAuth apps under your own accounts and pasting client
   secrets into the dashboard.
-- **Enable leaked password protection** — Authentication → Sign In / Providers
-  → Email. Confirmed still off on 2026-08-10 by signing up with `password123`
-  and receiving a session.
+- ~~Enable leaked password protection~~ — **not possible on this plan.** It is
+  a Supabase Pro feature (confirmed 2026-08-10) with no SQL equivalent.
+  Confirmed off by signing up with `password123` and receiving a session.
+  Accepted as a known gap; see the policies README for the residual risk.
 - **Decide what happens to `auto_confirm_user()` before production.** It marks
   every signup's email as confirmed; with the "Create one" button live, anyone
   who can reach the app can make a working account without controlling the

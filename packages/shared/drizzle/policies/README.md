@@ -146,12 +146,19 @@ rows that no RLS policy can ever reach again.
 
 ### Still open
 
-- **Leaked password protection is disabled.** A dashboard setting with no SQL
-  equivalent. Verified empirically on 2026-08-10, not just read off the
-  advisor: `POST /auth/v1/signup` with the password `password123` succeeded and
-  returned a session. Enable it under **Authentication → Sign In / Providers →
-  Email → "Prevent use of leaked passwords"**, then re-run that signup and
-  confirm it is refused.
+- **Leaked password protection is disabled, and cannot be enabled on this
+  plan.** The advisor will keep reporting it; treat it as a known gap rather
+  than an action item. It is a **Supabase Pro** feature (confirmed on the
+  dashboard, 2026-08-10) with no SQL equivalent — there is no way to turn it on
+  from a migration.
+
+  Verified empirically rather than read off the advisor: `POST /auth/v1/signup`
+  with the password `password123` succeeded and returned a session.
+
+  This matters more than it would elsewhere, because magic-link auth was
+  removed and passwords are now the only email path. Until the project is on
+  Pro, the residual risk is that a user can choose a password already published
+  in a breach corpus. Re-check with that same signup after any plan change.
 - **`auto_confirm_user()` marks every new signup's email as confirmed** (see
   005). Combined with the "Create one" button on the login page, anyone who can
   reach the app can make a working account without controlling the address.
