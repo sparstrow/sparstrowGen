@@ -13,6 +13,7 @@ import "./pipelines";
 import "./cron";
 import "./memory";
 import "./system";
+import "./runtimes";
 
 // Stubs must be registered last to act as fallbacks for wildcard routes
 import "./stubs";

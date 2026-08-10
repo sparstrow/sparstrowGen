@@ -80,7 +80,7 @@ Phase spec: [`M3/README.md`](M3/README.md). Decomposed 2026-08-10.
 | 5.4 | [T-M3-04 — `sparstrow pair` CLI](M3/T-M3-04-pair-cli.md) | `[P]` | 5.3 | ✅ done (2026-08-10) |
 | 5.5 | [T-M3-05 — registration + capability probe](M3/T-M3-05-registration.md) | `[P]` | 5.3 | ✅ done (2026-08-10) |
 | 5.6 | [T-M3-06 — heartbeat loop + status derivation](M3/T-M3-06-heartbeat.md) | `[C]` | 5.3 | ✅ done (2026-08-10) |
-| 5.7 | [T-M3-07 — Runtimes UI: pair, list, revoke](M3/T-M3-07-runtimes-ui.md) | `[P]` | 5.1 | queued |
+| 5.7 | [T-M3-07 — Runtimes UI: pair, list, revoke](M3/T-M3-07-runtimes-ui.md) | `[P]` | 5.1 | done (2026-08-10) |
 | 5.8 | [T-M3-08 — verification](M3/T-M3-08-verification.md) | `[S]` | 5.1–5.7 | queued |
 
 5.1 and 5.2 are `[S]` because they define the contract every other task is
@@ -141,6 +141,9 @@ mechanism was explained. It is live and verified end to end.
 nothing in Band 5 can produce a dirty working tree. It must be answered before
 M4's first dispatch task is written — `T-M3-08` carries that reminder.
 
-`OQ-2` (how an agent completes a browser pass) no longer blocks anything: the
-M2 pass ran on 2026-08-10 using a session that was already live in the browser.
-It is still unanswered as a *method*, and will bite again in M5.
+`OQ-2` (how an agent completes a browser pass) was **answered and closed** on
+2026-08-10 during M3, and removed from `OpenQuestions.md`. Restoring magic-link
+sign-in made it solvable: an agent mints a one-time token with the Supabase
+admin API and navigates to `/auth/confirm` — the product's own sign-in path, no
+password typed and no bypass. Procedure:
+[`../runbooks/agent-browser-session.md`](../runbooks/agent-browser-session.md).

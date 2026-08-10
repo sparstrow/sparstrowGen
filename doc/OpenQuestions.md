@@ -86,60 +86,13 @@ makes review easier regardless.
 
 ---
 
-## OQ-2 — How should an agent complete the browser verification pass?
-
-**Raised:** 2026-08-10, closing out M2.
-**Blocks:** nothing right now. `T-M2-08`'s rendering pass was completed on
-2026-08-10 — but only because a signed-in session happened to still be live in
-the preview browser. That was luck, not a method.
-
-Sign-in is email + password. An agent cannot type a password into a form field,
-so once that session expires there is no way back into a signed-in page without
-a human. This recurs on every future phase that needs the UI exercised, and the
-M2 pass showed the cost of not having it: two defects (a hook-order crash on
-the first navigation after sign-in, and an entire class of Tailwind utilities
-missing from the build) were invisible to the API-level tests and only appeared
-once pages actually rendered.
-
-### Options
-
-**A — The owner signs in, then hands the live session to the agent**
-- **Pros:** Zero new surface area. Works today. The session is real, so what
-  the agent sees is exactly what a user sees.
-- **Cons:** Needs a human at the start of every verification pass, and sessions
-  expire after an hour, so long passes need re-authing mid-flight.
-- **Score: 7/10**
-- **Blast radius if wrong:** None. Worst case is a wasted pass.
-- **Caveats:** Fine for occasional verification; annoying if it is every run.
-
-**B — A dev-only sign-in route that mints a session from a signed token**
-- **Pros:** Fully unattended. Bounded and auditable — one route, enabled only
-  when an env var is set. No password ever handled.
-- **Cons:** It is an auth bypass. If it ever shipped enabled to production it
-  would be a total compromise, and "dev-only" flags have shipped before.
-- **Score: 5/10**
-- **Blast radius if wrong:** Catastrophic — complete authentication bypass.
-- **Caveats:** Would need a build-time guard, not just a runtime check.
-
-**C — Playwright with `storageState`, seeded once per machine**
-- **Pros:** The standard answer to this problem. The credential lives in the
-  test runner's own store, not in the agent's context. Reusable for real E2E
-  tests later, which M5 and M7 will want anyway.
-- **Cons:** New dependency and a fixture to maintain. Still needs one human
-  sign-in to seed the state file, though only once per machine.
-- **Score: 8/10**
-- **Blast radius if wrong:** Low. A stale `storageState` fails loudly.
-- **Caveats:** The state file holds a real session and must be gitignored.
-
-### Recommendation
-
-**C**. Playwright's `storageState` is what this problem is for, and the fixture
-pays for itself once M5 needs live transcript streaming verified. **A** served
-as the M2 stopgap by accident and should not be relied on again — a session
-that survives in a browser between agent sessions is not something to plan
-around.
-
----
+*OQ-2 (how an agent completes a browser pass) was **answered on 2026-08-10**
+during M3 and deleted from this file, per the rule at the top. The method is
+recorded in [`runbooks/agent-browser-session.md`](runbooks/agent-browser-session.md):
+mint a one-time magic-link token with the Supabase admin API and navigate to
+`/auth/confirm`. No password is typed, and it is no kind of bypass — it is the
+product's own sign-in path, which only became usable this way once magic-link
+sign-in was restored.*
 
 *Decisions 1–4 of the daemon/cloud plan (data placement, transport,
 degradation, auth & shell) are all settled — see

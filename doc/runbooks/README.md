@@ -13,6 +13,12 @@ Rows without one have nothing to click yet — the note explains why.
 | 🔲 pending | Register OAuth apps for GitHub and Google, paste the client secrets into Supabase | Social sign-in is built and verified; both providers are currently disabled at the provider level, so the buttons render disabled | [oauth-providers.md](oauth-providers.md) |
 | ⛔ blocked | Enable leaked-password protection | Requires Supabase's Pro plan — confirmed 2026-08-10 there is nothing to enable on the current plan. Nothing to do until you upgrade; re-check the box below then. | — |
 
+## Not an owner action
+
+[`agent-browser-session.md`](agent-browser-session.md) also lives in this
+folder, but it is a procedure an **agent** follows, not something you do. It is
+here because it is operational reference that never graduates into code.
+
 **Status legend:** 🔲 pending — do it whenever you're ready · ⛔ blocked — can't
 be done yet, the reason is the whole action item · ✅ done — leave completed
 rows here for a while rather than deleting; they're proof of what you already
