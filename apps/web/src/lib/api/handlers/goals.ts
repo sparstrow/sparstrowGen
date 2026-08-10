@@ -19,24 +19,13 @@ registerRoute({
   }
 });
 
-registerRoute({
-  method: "POST",
-  pattern: "/goals",
-  handler: async ({ supabase, workspaceId, body }: HandlerContext) => {
-    const payload = {
-      ...body,
-      workspace_id: workspaceId,
-      id: body.id || generateId("gol_")
-    };
-    const { data, error } = await supabase
-      .from("goals")
-      .insert(payload)
-      .select()
-      .single();
-    if (error) throw error;
-    return ok(data);
-  }
-});
+// POST /goals is deliberately NOT implemented here. Creating a goal means
+// running the planner, which needs a paired runtime -- it is category C in
+// M2/README.md and is registered as a 501 stub in stubs.ts. Inserting a bare
+// goals row instead would produce a goal with no plan_nodes and no
+// plan_edges, which the goal detail page cannot render and no planner will
+// ever pick up. It also used to shadow the stub, since both registered the
+// same method+pattern.
 
 registerRoute({
   method: "GET",
@@ -105,12 +94,19 @@ registerRoute({
   method: "DELETE",
   pattern: "/goals/:id",
   handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
-    const { error } = await supabase
+    // .select() makes PostgREST return the deleted rows. Without it a
+    // delete that matched nothing -- because the id is unknown OR because
+    // RLS hid another workspace's row -- still resolves without error, and
+    // this would answer 204. The client then optimistically drops a row it
+    // never actually deleted.
+    const { data: deleted, error } = await supabase
       .from("goals")
       .delete()
       .eq("workspace_id", workspaceId)
-      .eq("id", params.id);
+      .eq("id", params.id)
+      .select("id");
     if (error) throw error;
+    if (!deleted || deleted.length === 0) return fail(404, "Not Found");
     return noContent();
   }
 });

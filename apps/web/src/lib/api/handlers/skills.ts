@@ -89,12 +89,19 @@ registerRoute({
   method: "DELETE",
   pattern: "/skills/:id",
   handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
-    const { error } = await supabase
+    // .select() makes PostgREST return the deleted rows. Without it a
+    // delete that matched nothing -- because the id is unknown OR because
+    // RLS hid another workspace's row -- still resolves without error, and
+    // this would answer 204. The client then optimistically drops a row it
+    // never actually deleted.
+    const { data: deleted, error } = await supabase
       .from("skills")
       .delete()
       .eq("workspace_id", workspaceId)
-      .eq("id", params.id);
+      .eq("id", params.id)
+      .select("id");
     if (error) throw error;
+    if (!deleted || deleted.length === 0) return fail(404, "Not Found");
     return noContent();
   }
 });
@@ -116,36 +123,28 @@ registerRoute({
   method: "PUT",
   pattern: "/skills/assignments",
   handler: async ({ supabase, workspaceId, body }: HandlerContext) => {
-    // Expected body: { assignments: { agent_id, skill_id }[] }
-    const assignments = body.assignments || [];
-    
-    // Delete all for workspace, then insert? 
-    // Wait, deleting all for workspace might be dangerous if multiple clients exist.
-    // T-M2-04 says: "/skills/assignments write agent_skills as a set operation — delete-then-insert inside one request"
-    // I will delete all assignments for this workspace, then insert the new ones.
-    const { error: delError } = await supabase
-      .from("agent_skills")
-      .delete()
-      .eq("workspace_id", workspaceId);
-    if (delError) throw delError;
+    // Expected body: { assignments: { agentId, skillId }[] }
+    //
+    // T-M2-04 calls for a set operation "inside one request", and the delete
+    // and insert genuinely must be one transaction: as two PostgREST calls, an
+    // insert that fails after the delete committed wipes every assignment in
+    // the workspace. PostgREST cannot span statements, so this goes through an
+    // RPC (policies/006_agent_skill_assignments_rpc.sql). It is SECURITY
+    // INVOKER, so RLS still applies to both halves.
+    const assignments = (body.assignments || []).map((a: any) => ({
+      agent_id: a.agent_id || a.agentId,
+      skill_id: a.skill_id || a.skillId,
+    }));
 
-    if (assignments.length > 0) {
-      const inserts = assignments.map((a: any) => ({
-        workspace_id: workspaceId,
-        agent_id: a.agent_id || a.agentId,
-        skill_id: a.skill_id || a.skillId
-      }));
-      const { error: insError } = await supabase
-        .from("agent_skills")
-        .insert(inserts);
-      if (insError) throw insError;
+    if (assignments.some((a: any) => !a.agent_id || !a.skill_id)) {
+      return fail(400, "each assignment requires agentId and skillId");
     }
-    
-    const { data, error } = await supabase
-      .from("agent_skills")
-      .select("*")
-      .eq("workspace_id", workspaceId);
+
+    const { data, error } = await supabase.rpc("set_agent_skill_assignments", {
+      p_workspace_id: workspaceId,
+      p_assignments: assignments,
+    });
     if (error) throw error;
-    return ok(data);
+    return ok(data ?? []);
   }
 });

@@ -88,12 +88,19 @@ registerRoute({
   method: "DELETE",
   pattern: "/teams/:id",
   handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
-    const { error } = await supabase
+    // .select() makes PostgREST return the deleted rows. Without it a
+    // delete that matched nothing -- because the id is unknown OR because
+    // RLS hid another workspace's row -- still resolves without error, and
+    // this would answer 204. The client then optimistically drops a row it
+    // never actually deleted.
+    const { data: deleted, error } = await supabase
       .from("teams")
       .delete()
       .eq("workspace_id", workspaceId)
-      .eq("id", params.id);
+      .eq("id", params.id)
+      .select("id");
     if (error) throw error;
+    if (!deleted || deleted.length === 0) return fail(404, "Not Found");
     return noContent();
   }
 });
@@ -171,13 +178,20 @@ registerRoute({
   method: "DELETE",
   pattern: "/teams/:id/members/:memberId",
   handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
-    const { error } = await supabase
+    // .select() makes PostgREST return the deleted rows. Without it a
+    // delete that matched nothing -- because the id is unknown OR because
+    // RLS hid another workspace's row -- still resolves without error, and
+    // this would answer 204. The client then optimistically drops a row it
+    // never actually deleted.
+    const { data: deleted, error } = await supabase
       .from("team_members")
       .delete()
       .eq("workspace_id", workspaceId)
       .eq("team_id", params.id)
-      .eq("id", params.memberId);
+      .eq("id", params.memberId)
+      .select("id");
     if (error) throw error;
+    if (!deleted || deleted.length === 0) return fail(404, "Not Found");
     return noContent();
   }
 });

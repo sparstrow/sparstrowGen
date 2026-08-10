@@ -56,7 +56,7 @@ nothing.
 ## Verification
 
 - [x] `pnpm --filter web test` passes
-- [ ] Signing in as a brand-new user creates exactly one `workspaces`, one
+- [x] Signing in as a brand-new user creates exactly one `workspaces`, one
       `workspace_members`, and one `users` row — verified by querying staging
-- [ ] Running the same bootstrap twice concurrently still yields one workspace
-- [ ] A user in two workspaces without `?workspaceId=` gets 400 listing both
+- [x] Running the same bootstrap twice concurrently still yields one workspace
+- [x] A user in two workspaces without `?workspaceId=` gets 400 listing both

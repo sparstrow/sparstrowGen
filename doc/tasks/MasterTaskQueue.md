@@ -41,23 +41,23 @@ as *done except OQ-n*.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 1.1 | [T-M2-01 — case converter](M2/T-M2-01-case-converter.md) | `[P]` | — | queued |
-| 1.2 | [T-M2-02 — workspace resolver + bootstrap](M2/T-M2-02-workspace-resolver.md) | `[P]` | — | queued |
+| 1.1 | [T-M2-01 — case converter](M2/T-M2-01-case-converter.md) | `[P]` | — | done |
+| 1.2 | [T-M2-02 — workspace resolver + bootstrap](M2/T-M2-02-workspace-resolver.md) | `[P]` | — | done |
 
 ### Band 2 — M2 spine · gates every handler
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 2.1 | [T-M2-03 — route skeleton + middleware](M2/T-M2-03-route-skeleton.md) | `[S]` | 1.1, 1.2 | queued |
+| 2.1 | [T-M2-03 — route skeleton + middleware](M2/T-M2-03-route-skeleton.md) | `[S]` | 1.1, 1.2 | done |
 
 ### Band 3 — M2 handlers · parallel across groups
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 3.1 | [T-M2-04 — identity & config handlers](M2/T-M2-04-handlers-identity.md) | `[P]` | 2.1 | queued |
-| 3.2 | [T-M2-05 — work handlers](M2/T-M2-05-handlers-work.md) | `[P]` | 2.1 | queued |
-| 3.3 | [T-M2-06 — execution handlers](M2/T-M2-06-handlers-execution.md) | `[P]` | 2.1 | queued |
-| 3.4 | [T-M2-07 — health, providers rewire, 501 stubs](M2/T-M2-07-health-and-stubs.md) | `[C]` | 2.1 | queued |
+| 3.1 | [T-M2-04 — identity & config handlers](M2/T-M2-04-handlers-identity.md) | `[P]` | 2.1 | done |
+| 3.2 | [T-M2-05 — work handlers](M2/T-M2-05-handlers-work.md) | `[P]` | 2.1 | done |
+| 3.3 | [T-M2-06 — execution handlers](M2/T-M2-06-handlers-execution.md) | `[P]` | 2.1 | done |
+| 3.4 | [T-M2-07 — health, providers rewire, 501 stubs](M2/T-M2-07-health-and-stubs.md) | `[C]` | 2.1 | done |
 
 3.4 is `[C]` rather than `[P]` because it edits `providers.tsx` and the shared
 dispatch table, which 3.1–3.3 also register into.
@@ -66,7 +66,7 @@ dispatch table, which 3.1–3.3 also register into.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 4.1 | [T-M2-08 — verification & browser pass](M2/T-M2-08-verification.md) | `[S]` | 3.1–3.4 | queued |
+| 4.1 | [T-M2-08 — verification & browser pass](M2/T-M2-08-verification.md) | `[S]` | 3.1–3.4 | done except OQ-2 |
 
 ### Band 5+ — not yet decomposed
 
@@ -92,8 +92,12 @@ their prerequisites land. M7 needs only M2, so it can start early if M3/M4 stall
 
 | Item | Blocked by | Effect |
 |---|---|---|
-| *(none)* | | |
+| `T-M2-08` route-rendering items | OQ-2 | Browser pass needs a signed-in session; an agent cannot type a password. API layer beneath those pages is fully verified, so M2 is *done except OQ-2*. |
 
 `OQ-1` (protecting uncommitted agent work) is open but blocks nothing in the
 current queue — it becomes relevant during M4, when agents start running
 unattended from cloud dispatch.
+
+`OQ-2` (how an agent completes a browser pass) blocks only the rendering checks
+in `T-M2-08`. It will recur in every later phase that needs the UI exercised,
+so it is worth settling before M5.

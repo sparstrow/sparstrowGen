@@ -37,10 +37,49 @@ registerRoute({
     // "POST /memory/notes writes content and content_hash; sets last_writer_runtime_id to null"
     const content = body.content || "";
     const hash = await generateHash(content);
-    
+
+    // memory_notes.path is NOT NULL, but MemoryNoteCreate never carries one --
+    // in the daemon the path is derived when the markdown file is written
+    // (packages/core/src/memory/vault.ts). Without deriving it here every note
+    // created from the web 500s on the not-null constraint.
+    //
+    // This must match scopeDir()/writeNote() exactly, because M6 syncs notes
+    // back down into the local vault: a path that disagrees with the daemon's
+    // convention would land the file in the wrong directory, and the scope
+    // encoded in the path would no longer match the scope in the row.
+    let path = body.path;
+    if (!path) {
+      const scope = body.scope;
+      const projectSlug = body.project_slug;
+      const agentSlug = body.agent_slug;
+
+      let dir: string;
+      if (scope === "project") {
+        if (!projectSlug) return fail(400, "projectSlug required for project-scoped notes");
+        dir = `projects/${projectSlug}`;
+      } else if (scope === "agent") {
+        if (!agentSlug) return fail(400, "agentSlug required for agent-scoped notes");
+        // An agent-scoped note WITH a project is an instance note, so
+        // per-project self-memory never bleeds across projects.
+        dir = projectSlug ? `agents/${agentSlug}/${projectSlug}` : `agents/${agentSlug}`;
+      } else {
+        dir = "global";
+      }
+
+      const slug =
+        String(body.title || "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 60) || "note";
+      const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 6);
+      path = `${dir}/${slug}-${suffix}.md`;
+    }
+
     const payload = {
       ...body,
       workspace_id: workspaceId,
+      path,
       content,
       content_hash: hash,
       last_writer_runtime_id: null,
@@ -98,12 +137,19 @@ registerRoute({
   method: "DELETE",
   pattern: "/memory/notes/:id",
   handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
-    const { error } = await supabase
+    // .select() makes PostgREST return the deleted rows. Without it a
+    // delete that matched nothing -- because the id is unknown OR because
+    // RLS hid another workspace's row -- still resolves without error, and
+    // this would answer 204. The client then optimistically drops a row it
+    // never actually deleted.
+    const { data: deleted, error } = await supabase
       .from("memory_notes")
       .delete()
       .eq("workspace_id", workspaceId)
-      .eq("id", params.id);
+      .eq("id", params.id)
+      .select("id");
     if (error) throw error;
+    if (!deleted || deleted.length === 0) return fail(404, "Not Found");
     return noContent();
   }
 });

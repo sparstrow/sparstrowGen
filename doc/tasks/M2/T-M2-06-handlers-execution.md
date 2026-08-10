@@ -72,9 +72,9 @@ Deliberately excluded — 501 via T-M2-07: `POST /runs`, `/runs/:id/cancel`,
 
 ## Verification
 
-- [ ] `pnpm --filter web typecheck` passes
+- [x] `pnpm --filter web typecheck` passes
 - [ ] `/runs` lists runs; `/runs/[runId]` renders prompt, metadata and transcript
-- [ ] Seed a `run_events` row whose payload contains a `tool_use` block, fetch it
+- [x] Seed a `run_events` row whose payload contains a `tool_use` block, fetch it
       through the API, and confirm the key is still `tool_use` — this is the
       single most important assertion in this task
 - [ ] `/memory` page lists notes and search returns hits

@@ -104,12 +104,19 @@ registerRoute({
   method: "DELETE",
   pattern: "/tasks/:id",
   handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
-    const { error } = await supabase
+    // .select() makes PostgREST return the deleted rows. Without it a
+    // delete that matched nothing -- because the id is unknown OR because
+    // RLS hid another workspace's row -- still resolves without error, and
+    // this would answer 204. The client then optimistically drops a row it
+    // never actually deleted.
+    const { data: deleted, error } = await supabase
       .from("tasks")
       .delete()
       .eq("workspace_id", workspaceId)
-      .eq("id", params.id);
+      .eq("id", params.id)
+      .select("id");
     if (error) throw error;
+    if (!deleted || deleted.length === 0) return fail(404, "Not Found");
     return noContent();
   }
 });
@@ -187,19 +194,22 @@ registerRoute({
     
     const now = Date.now();
 
+    // task_questions timestamps the ask as `asked_at`; there is no created_at
+    // column on this table. Reading created_at yields undefined -> NaN ageMs,
+    // which sorts unpredictably and shows the queue in the wrong order.
     const tasksWithQuestions = new Map();
     for (const q of (qData || [])) {
+      const qAge = now - new Date(q.asked_at).getTime();
       if (!tasksWithQuestions.has(q.task_id)) {
         tasksWithQuestions.set(q.task_id, {
           kind: "question",
           task: q.tasks,
           questions: [],
-          ageMs: now - new Date(q.created_at).getTime()
+          ageMs: qAge
         });
       }
       const item = tasksWithQuestions.get(q.task_id);
       item.questions.push(q);
-      const qAge = now - new Date(q.created_at).getTime();
       if (qAge > item.ageMs) item.ageMs = qAge;
     }
     for (const item of tasksWithQuestions.values()) {
@@ -237,11 +247,14 @@ registerRoute({
     }
 
     // 4. contradiction
+    // memory_contradictions has no task_id column -- contradictions are raised
+    // against note pairs (note_a / note_b), not tasks -- and no created_at;
+    // the detection timestamp is `detected_at`. Filtering on task_id made
+    // PostgREST reject the query outright, so this whole endpoint 500'd.
     const { data: contraData, error: contraErr } = await supabase
       .from("memory_contradictions")
       .select("*")
       .eq("workspace_id", workspaceId)
-      .is("task_id", null)
       .is("resolved_at", null);
     if (contraErr) throw contraErr;
     for (const c of (contraData || [])) {
@@ -249,7 +262,7 @@ registerRoute({
         kind: "contradiction",
         task: null, // "task: null variant"
         contradiction: c,
-        ageMs: now - new Date(c.created_at).getTime()
+        ageMs: now - new Date(c.detected_at).getTime()
       });
     }
 

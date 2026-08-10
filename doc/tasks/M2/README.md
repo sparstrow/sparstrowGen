@@ -1,5 +1,10 @@
 # M2 — Serve `/api/v1` from Next, backed by Supabase
 
+**Status: ✅ done except OQ-2 — 2026-08-10.** Applied and verified against live
+staging. The only outstanding items are the route-rendering checks in
+`T-M2-08`, which need a signed-in browser session (OQ-2); the API layer beneath
+those pages is fully exercised.
+
 | | |
 |---|---|
 | **Plan** | `doc/plans/2026-08-09-daemon-cloud-control-plane.md` |

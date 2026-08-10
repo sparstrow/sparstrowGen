@@ -79,10 +79,10 @@ consumes — four row kinds:
 
 ## Verification
 
-- [ ] `pnpm --filter web typecheck` passes
+- [x] `pnpm --filter web typecheck` passes
 - [ ] `/tasks` renders the board with real or empty columns
 - [ ] `/messages` renders the inbox; mark-read persists across reload
-- [ ] The dashboard attention queue renders all four row kinds without a client
+- [x] The dashboard attention queue renders all four row kinds without a client
       exception — seed one of each in staging to prove it
 - [ ] Answering a blocked task's question stores the answer and surfaces the
       "answer saved, run still active" state rather than appearing to fail

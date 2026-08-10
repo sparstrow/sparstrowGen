@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Approved 2026-08-09 · M1 complete · M2 next |
+| **Status** | Approved 2026-08-09 · M1 complete · M2 complete (except OQ-2) · M3 next |
 | **Supersedes** | The "Phase 4: Multi-Agent Swarm Orchestrator & Live Transcripts" proposal |
-| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–4) · `doc/tasks/M2/` |
+| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–4, all done) · `doc/tasks/M2/` |
 | **Open questions** | OQ-1 (uncommitted work) — does not block M2 |
 
 > **Why the original Phase 4 proposal was replaced.** It described three features
@@ -145,8 +145,56 @@ first, then safe columns granted back.
   the boundary is a bug farm.
 - RLS policies on every table, scoped by `workspace_id`.
 
-### M2 — Web app actually reads the cloud
-`apps/web/src/app/api/v1/[...path]/route.ts` (new), `apps/web/src/middleware.ts`
+### M2 — Web app actually reads the cloud ✅ DONE except OQ-2 (2026-08-10)
+
+**Shipped:** one catch-all route dispatching to 16 handler modules over
+supabase-js with the caller's session, jsonb-aware case conversion, server-side
+workspace resolution, health derived from `runtimes`, and honest 501s for
+host-local and runtime-dependent endpoints. `packages/ui` untouched, as planned.
+
+**Verified against live staging** with real sessions for three users: 40/40
+endpoints land in their specified A/B/C category, 24/24 functional round-trips
+persist and read back, cross-workspace read *and* write are denied in both
+directions, jsonb payloads survive unmutated, and 577 workspace tests are green.
+
+**Nine defects found and fixed during verification**, none of which typechecking
+or the unit tests would have caught:
+
+1. **Bootstrap was impossible.** M1's RLS deadlocked a new user's first write
+   two separate ways. Fixed in `003_bootstrap_fix.sql` — which existed but had
+   never been applied to staging, so every authenticated request 500'd.
+2. **Bootstrap was not atomic.** Three PostgREST inserts with no transaction:
+   partial failure orphaned a workspace, and two concurrent first-requests gave
+   a user two workspaces and a permanent 400 with no picker to escape through.
+   Moved into `bootstrap_workspace()` with an advisory lock (`004`).
+3. **Co-members counted as your own memberships.** `getActiveWorkspaceId` read
+   `workspace_members` without filtering by `user_id`. RLS deliberately exposes
+   your co-members' rows, so any workspace with two people locked *everyone* in
+   it out of every endpoint. The single worst bug of the phase, and invisible
+   until a workspace had more than one member.
+4. **Static routes lost to `:id`.** First-match-wins ordering meant
+   `/agents/imports` resolved as an agent named "imports". Router now orders by
+   specificity.
+5. **`POST /goals` was registered twice**, and the real insert shadowed its own
+   501 stub — creating goals with no plan nodes.
+6. **`/agents/imports` queried a table that does not exist** (`agent_imports`;
+   the real one is `skill_imports`).
+7. **The attention queue 500'd** on a `task_id` filter against a table with no
+   such column, and computed `NaN` ages from a `created_at` that does not exist.
+8. **`POST /messages` was missing entirely** although the UI calls it.
+9. **Skill assignments could wipe the workspace.** Delete-all-then-insert across
+   two round trips: a failed insert left every assignment deleted. Moved into
+   `set_agent_skill_assignments()` (`006`).
+
+Also: cross-workspace writes reported success while doing nothing (delete now
+verifies rows were affected), and unknown-column bodies returned 500 rather
+than 400.
+
+**Not verified:** anything requiring a rendered page. Sign-in needs a password
+typed into a form, which an agent cannot do — see **OQ-2**. The API layer those
+pages consume is fully exercised, so what is unproven is rendering, not data.
+
+*(original scope below)*
 
 Implement the `/api/v1` surface as Next route handlers backed by Supabase, using
 the user's session server-side. **This leaves `packages/ui/src/api/hooks.ts` and

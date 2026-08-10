@@ -1,37 +1,53 @@
-import { expect, test, vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import { getActiveWorkspaceId } from "./workspace";
 import { SupabaseClient } from "@supabase/supabase-js";
 
-function createMockSupabase(user: any, members: any[], overrides: any = {}) {
+// Bootstrap is a single Postgres RPC (see policies/004_bootstrap_rpc.sql), not
+// three client-side inserts, so the mock exposes `rpc` rather than per-table
+// insert builders. The three-insert version could not be made atomic from the
+// client and is what orphaned workspaces / duplicated them under a race.
+function createMockSupabase(
+  user: any,
+  members: any[],
+  overrides: { rpcResult?: any; rpcError?: any } = {}
+) {
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user } }),
     },
+    rpc: vi.fn().mockResolvedValue({
+      // `in` rather than `??` so an explicitly-null rpcResult stays null
+      // instead of falling through to the default.
+      data: overrides.rpcError
+        ? null
+        : "rpcResult" in overrides
+          ? overrides.rpcResult
+          : "new-ws-id",
+      error: overrides.rpcError ?? null,
+    }),
     from: vi.fn().mockImplementation((table) => {
       if (table === "workspace_members") {
         return {
-          select: vi.fn().mockResolvedValue({ data: members, error: null }),
-          insert: vi.fn().mockResolvedValue({ error: overrides.wmError || null }),
-          limit: vi.fn().mockReturnValue({ data: members }),
+          // select(...).eq("user_id", id) -- the eq is recorded on `eqCalls`
+          // so a test can assert the caller actually scopes to itself.
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockImplementation((col: string, val: any) => {
+              eqCalls.push([col, val]);
+              return Promise.resolve({ data: members, error: null });
+            }),
+          }),
         };
       }
-      if (table === "users") {
-        return {
-          insert: vi.fn().mockResolvedValue({ error: overrides.userError || null }),
-        };
-      }
-      if (table === "workspaces") {
-        return {
-          insert: vi.fn().mockReturnValue({
-            select: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({ data: { id: "new-ws-id" }, error: overrides.wsError || null })
-            })
-          })
-        };
-      }
-    })
+      return {};
+    }),
   } as unknown as SupabaseClient;
 }
+
+// Populated by the mock above; asserted by the co-member regression test.
+let eqCalls: [string, any][] = [];
+beforeEach(() => {
+  eqCalls = [];
+});
 
 test("returns 401 if not authenticated", async () => {
   const supabase = createMockSupabase(null, []);
@@ -66,8 +82,42 @@ test("returns 400 if >1 memberships and invalid/missing request", async () => {
   expect(res.workspaces).toHaveLength(2);
 });
 
-test("bootstraps workspace if 0 memberships", async () => {
+test("bootstraps via RPC if 0 memberships", async () => {
   const supabase = createMockSupabase({ id: "1", email: "a@b.com" }, []);
   const res = await getActiveWorkspaceId(supabase);
+  expect(supabase.rpc).toHaveBeenCalledWith("bootstrap_workspace");
   expect(res).toEqual({ workspaceId: "new-ws-id" });
+});
+
+test("does not call the bootstrap RPC when a membership already exists", async () => {
+  const supabase = createMockSupabase({ id: "1" }, [{ workspace_id: "ws-1" }]);
+  await getActiveWorkspaceId(supabase);
+  expect(supabase.rpc).not.toHaveBeenCalled();
+});
+
+test("returns 500 if the bootstrap RPC fails", async () => {
+  const supabase = createMockSupabase({ id: "1" }, [], {
+    rpcError: { message: "boom" },
+  });
+  const res = await getActiveWorkspaceId(supabase);
+  expect(res).toEqual({ error: "Failed to bootstrap workspace", status: 500 });
+});
+
+test("returns 500 if the bootstrap RPC returns no workspace id", async () => {
+  const supabase = createMockSupabase({ id: "1" }, [], { rpcResult: null });
+  const res = await getActiveWorkspaceId(supabase);
+  expect(res).toEqual({ error: "Failed to bootstrap workspace", status: 500 });
+});
+
+// Regression: RLS lets you read your CO-MEMBERS' workspace_members rows, which
+// is intended. Without an explicit user_id filter those rows counted as the
+// caller's own memberships, so any workspace with two people pushed every
+// member into the "Multiple workspaces found" 400 and locked them out of the
+// whole API.
+test("scopes the membership query to the calling user", async () => {
+  const supabase = createMockSupabase({ id: "user-1" }, [
+    { workspace_id: "ws-1" },
+  ]);
+  await getActiveWorkspaceId(supabase);
+  expect(eqCalls).toContainEqual(["user_id", "user-1"]);
 });

@@ -106,3 +106,34 @@ surface should be a handful of audited functions, not broad table access.
   with the bundled 384-dim model, so vectors never cross the wire and semantic
   search stays a sub-15ms local read. See the memory section of the schema for
   the full rationale.
+
+## Apply order (updated 2026-08-10)
+
+```
+0000_special_romulus.sql        36 tables
+0001_flat_justin_hammer.sql     25 FK indexes
+policies/001_rls.sql            RLS + private.* helpers
+policies/002_realtime.sql       realtime publication (11 tables)
+policies/003_bootstrap_fix.sql  break the first-workspace RLS deadlock
+policies/004_bootstrap_rpc.sql  atomic, race-safe bootstrap_workspace()
+policies/005_harden_legacy_functions.sql
+policies/006_agent_skill_assignments_rpc.sql
+```
+
+003–006 all exist for the same underlying reason: **PostgREST cannot span
+statements.** Any invariant that needs more than one statement to hold has to
+live in the database, or it will be violated the first time a request fails
+halfway or two requests race. 004 and 006 are that lesson applied twice.
+
+### Accepted advisor findings
+
+`get_advisors(type: "security")` reports two items that are intentional:
+
+- **`bootstrap_workspace` is a SECURITY DEFINER function callable by
+  `authenticated`.** That is what it is for. It must write the very
+  `workspace_members` row that every RLS policy keys on, so it cannot run as
+  the caller. It only ever acts on `auth.uid()`, so a caller cannot bootstrap
+  on anyone else's behalf.
+- **Leaked password protection is disabled.** A dashboard setting with no SQL
+  equivalent — Authentication → Policies. Worth enabling now that magic-link
+  auth is gone and passwords are the primary path.

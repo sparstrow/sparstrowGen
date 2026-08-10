@@ -75,12 +75,19 @@ registerRoute({
   method: "DELETE",
   pattern: "/agents/:id",
   handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
-    const { error } = await supabase
+    // .select() makes PostgREST return the deleted rows. Without it a
+    // delete that matched nothing -- because the id is unknown OR because
+    // RLS hid another workspace's row -- still resolves without error, and
+    // this would answer 204. The client then optimistically drops a row it
+    // never actually deleted.
+    const { data: deleted, error } = await supabase
       .from("agents")
       .delete()
       .eq("workspace_id", workspaceId)
-      .eq("id", params.id);
+      .eq("id", params.id)
+      .select("id");
     if (error) throw error;
+    if (!deleted || deleted.length === 0) return fail(404, "Not Found");
     return noContent();
   }
 });
@@ -160,10 +167,13 @@ registerRoute({
 
 registerRoute({
   method: "GET",
+  // The endpoint is /agents/imports for historical reasons, but the table is
+  // `skill_imports` -- there is no agent_imports table in the schema. The UI
+  // types this as SkillImport[] (packages/ui/src/api/hooks.ts).
   pattern: "/agents/imports",
   handler: async ({ supabase, workspaceId }: HandlerContext) => {
     const { data, error } = await supabase
-      .from("agent_imports")
+      .from("skill_imports")
       .select("*")
       .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: false });
@@ -177,7 +187,7 @@ registerRoute({
   pattern: "/agents/imports/:id",
   handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
     const { data, error } = await supabase
-      .from("agent_imports")
+      .from("skill_imports")
       .select("*")
       .eq("workspace_id", workspaceId)
       .eq("id", params.id)

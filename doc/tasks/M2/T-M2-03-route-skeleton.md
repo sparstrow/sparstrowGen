@@ -59,8 +59,8 @@ the UI can distinguish "signed out" from "broken".
 ## Verification
 
 - [x] `pnpm --filter web typecheck` passes
-- [ ] `curl -i localhost:3000/api/v1/runs` while signed out → HTTP 401, JSON
+- [x] `curl -i localhost:3000/api/v1/runs` while signed out → HTTP 401, JSON
       body, **no** `Location:` header
-- [ ] `curl -i localhost:3000/api/v1/nonsense` while signed in → HTTP 404 JSON
-- [ ] Signing in and hitting a registered-but-empty path returns 501 JSON, not a
+- [x] `curl -i localhost:3000/api/v1/nonsense` while signed in → HTTP 404 JSON
+- [x] Signing in and hitting a registered-but-empty path returns 501 JSON, not a
       stack trace

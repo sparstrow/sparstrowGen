@@ -83,6 +83,57 @@ makes review easier regardless.
 
 ---
 
-*No other questions are currently open. Decisions 1–4 of the daemon/cloud plan
-(data placement, transport, degradation, auth & shell) are all settled — see
+## OQ-2 — How should an agent complete the browser verification pass?
+
+**Raised:** 2026-08-10, closing out M2.
+**Blocks:** `T-M2-08` route-rendering items only. Nothing else in M2 — the API
+layer beneath those pages is fully verified.
+
+Sign-in is email + password (magic link was removed at the owner's request).
+An agent cannot type a password into a form field, so it cannot reach any
+signed-in page, and the route-by-route pass and browser-agent sweep in
+`T-M2-08` stay open. This will recur on every future phase that needs the UI
+exercised, so it is worth settling once.
+
+### Options
+
+**A — The owner signs in, then hands the live session to the agent**
+- **Pros:** Zero new surface area. Works today. The session is real, so what
+  the agent sees is exactly what a user sees.
+- **Cons:** Needs a human at the start of every verification pass, and sessions
+  expire after an hour, so long passes need re-authing mid-flight.
+- **Score: 7/10**
+- **Blast radius if wrong:** None. Worst case is a wasted pass.
+- **Caveats:** Fine for occasional verification; annoying if it is every run.
+
+**B — A dev-only sign-in route that mints a session from a signed token**
+- **Pros:** Fully unattended. Bounded and auditable — one route, enabled only
+  when an env var is set. No password ever handled.
+- **Cons:** It is an auth bypass. If it ever shipped enabled to production it
+  would be a total compromise, and "dev-only" flags have shipped before.
+- **Score: 5/10**
+- **Blast radius if wrong:** Catastrophic — complete authentication bypass.
+- **Caveats:** Would need a build-time guard, not just a runtime check.
+
+**C — Playwright with `storageState`, seeded once per machine**
+- **Pros:** The standard answer to this problem. The credential lives in the
+  test runner's own store, not in the agent's context. Reusable for real E2E
+  tests later, which M5 and M7 will want anyway.
+- **Cons:** New dependency and a fixture to maintain. Still needs one human
+  sign-in to seed the state file, though only once per machine.
+- **Score: 8/10**
+- **Blast radius if wrong:** Low. A stale `storageState` fails loudly.
+- **Caveats:** The state file holds a real session and must be gitignored.
+
+### Recommendation
+
+**C**, with **A** as the stopgap for M2. Playwright's `storageState` is what
+this problem is for, and the fixture pays for itself once M5 needs live
+transcript streaming verified. Until it exists, the owner signing in once and
+handing over the session unblocks the remaining `T-M2-08` items immediately.
+
+---
+
+*Decisions 1–4 of the daemon/cloud plan (data placement, transport,
+degradation, auth & shell) are all settled — see
 `doc/plans/2026-08-09-daemon-cloud-control-plane.md`.*

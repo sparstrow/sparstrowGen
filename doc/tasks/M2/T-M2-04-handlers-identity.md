@@ -72,8 +72,8 @@ If a hook expects `rootDir` on a project, return `null` — M7 updates the UI.
 
 ## Verification
 
-- [ ] `pnpm --filter web typecheck` passes
+- [x] `pnpm --filter web typecheck` passes
 - [ ] `/agents`, `/skills`, `/teams`, `/projects` pages load with real or empty data
-- [ ] Creating an agent through the UI persists and reappears after reload
-- [ ] Assigning a skill to an agent round-trips correctly
-- [ ] A row created by user A in workspace A is invisible to user B in workspace B
+- [x] Creating an agent through the UI persists and reappears after reload
+- [x] Assigning a skill to an agent round-trips correctly
+- [x] A row created by user A in workspace A is invisible to user B in workspace B
