@@ -6,7 +6,7 @@
 | **Depends on** | — |
 | **Blocks** | T-M3-02, T-M3-07 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | queued |
+| **Status** | ✅ done — applied and verified on staging 2026-08-10 |
 
 ## Objective
 
@@ -49,6 +49,21 @@ not in a column.
 at the same time have no reason to block each other; two callers racing on the
 *same* code are exactly what needs serialising.
 
+> **Changed during implementation → `select … for update`.** 004 and 007 use an
+> advisory lock because they serialise on a user id where the contended thing is
+> the *absence* of rows — there is nothing to lock. Here the contended thing is
+> one existing row with a primary key, so a row lock is the precise tool: no
+> hash, no collision surface. The row is fetched **without** filtering on
+> `consumed_at`, which matters: filtering would make the loser of a race see
+> zero rows and report "unknown code", sending someone hunting for a typo in a
+> code that was simply already used. Verified — all nine losers got SPG02.
+
+> **Changed during implementation → `returns jsonb`.** `returns table
+> (runtime_id …)` creates OUT parameters that shadow the identically-named
+> columns inside the body, making every unqualified reference to
+> `daemon_tokens.runtime_id` an ambiguity error. jsonb also hands PostgREST a
+> single object rather than a one-element array, which is what this returns.
+
 **The runtime id is supplied by the caller.** Next generates it so it can put it
 in the token row and the response without a round trip. The function trusts it
 only in the sense that it inserts it — the code is what authorises the whole
@@ -56,20 +71,20 @@ operation.
 
 ## Checklist
 
-- [ ] Write `packages/shared/drizzle/policies/008_redeem_pairing_code.sql`
-- [ ] Signature: `redeem_pairing_code(p_code text, p_runtime_id text, p_token_hash text, p_name text, p_hostname text, p_os text, p_is_electron boolean, p_capabilities jsonb, p_core_version text) returns table (runtime_id text, workspace_id text)`
-- [ ] `security definer`, `set search_path = ''`, everything schema-qualified
-- [ ] `pg_advisory_xact_lock(hashtextextended('sparstrow.pair:' || p_code, 0))` before reading the code
-- [ ] Re-read the code **inside** the lock — checking before taking it is the race
-- [ ] Reject with distinct error codes: absent/consumed → `22023`, expired → `22023` with a distinguishable message
-- [ ] Expiry compared against `now()`, the database clock — never a passed-in timestamp
-- [ ] Insert `runtimes` with `status = 'online'` and `last_heartbeat = now()`
-- [ ] Insert `daemon_tokens` with `label` defaulting to the hostname
-- [ ] `update pairing_codes set consumed_at = now(), consumed_by_runtime_id = p_runtime_id`
-- [ ] `revoke execute` from `public`, `anon`, `authenticated`
-- [ ] `comment on function` explaining the single-use guarantee
-- [ ] Apply to staging via the Supabase MCP `apply_migration`
-- [ ] Update `packages/shared/drizzle/policies/README.md` — apply order + why this one is service-role-only
+- [x] Write `packages/shared/drizzle/policies/008_redeem_pairing_code.sql`
+- [x] Signature: `redeem_pairing_code(p_code, p_runtime_id, p_token_hash, p_name, p_hostname, p_os, p_is_electron, p_capabilities, p_core_version) returns jsonb` — see the deviation note above
+- [x] `security definer`, `set search_path = ''`, everything schema-qualified
+- [x] `select … for update` on the code row before judging its state — see the deviation note above
+- [x] Re-read the code **inside** the lock — checking before taking it is the race
+- [x] Distinct SQLSTATEs so a daemon can tell the cases apart without string-matching: `SPG01` invalid · `SPG02` already used · `SPG03` expired. Confirmed these surface through supabase-js as `error.code`.
+- [x] Expiry compared against `now()`, the database clock — never a passed-in timestamp
+- [x] Insert `runtimes` with `status = 'online'` and `last_heartbeat = now()`
+- [x] Insert `daemon_tokens` with `label` defaulting to the hostname
+- [x] `update pairing_codes set consumed_at = now(), consumed_by_runtime_id = p_runtime_id`
+- [x] `revoke execute` from `public`, `anon`, `authenticated`
+- [x] `comment on function` explaining the single-use guarantee
+- [x] Apply to staging via the Supabase MCP `apply_migration`
+- [x] Update `packages/shared/drizzle/policies/README.md` — apply order + why this one is service-role-only
 
 ## Verification
 
@@ -89,4 +104,30 @@ The 10-concurrent shape is the same harness that caught the non-atomic
 
 ## On completion
 
-- [ ] Tick 5.1 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 5.1 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+
+## Result — verified on staging 2026-08-10
+
+17 assertions, all passing. The ones worth naming:
+
+- **10 concurrent redemptions of one code → exactly 1 winner, 9 refused**, and
+  all nine got `SPG02` ("already used") rather than "unknown code". Exactly one
+  `runtimes` row and one `daemon_tokens` row exist, and the token belongs to the
+  runtime that won.
+- **A consumed code stays dead**; an **expired** code is refused by the database
+  clock; an **unknown** code is refused distinguishably.
+- **`authenticated` and `anon` are both denied** — `permission denied for
+  function redeem_pairing_code` — and the code they attempted is still unused.
+- **There is no workspace parameter to pass.** The workspace comes from the
+  code's own row, so a valid code cannot be aimed at another workspace.
+
+Staging left clean: 0 runtimes, 0 daemon tokens, 0 pairing codes, and the
+pre-existing 3 workspaces / 4 users untouched.
+
+Security advisors re-run: only the three known items
+(`bootstrap_workspace`, `delete_own_account`, leaked-password plan limit).
+`redeem_pairing_code` does **not** appear, because the advisor only flags
+`SECURITY DEFINER` functions reachable by `authenticated`. Its absence is the
+signal that the grant is right.
+
+Harness: `scratchpad/redeem-pairing.mjs`.

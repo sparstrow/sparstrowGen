@@ -21,9 +21,12 @@ failure is invisible to the test suite.
 
 - [ ] `pnpm -r typecheck` — all packages clean
 - [ ] `pnpm -r test` — green, no regressions against M2's count
-- [ ] Supabase security advisors re-run; `redeem_pairing_code` appears as a
-      knowingly-accepted `SECURITY DEFINER` finding alongside
-      `bootstrap_workspace` and `delete_own_account`, and nothing else is new
+- [ ] Supabase security advisors re-run; nothing new beyond the three known
+      items (`bootstrap_workspace`, `delete_own_account`, leaked-password plan
+      limit). **`redeem_pairing_code` must NOT appear** — the advisor only flags
+      `SECURITY DEFINER` functions reachable by `authenticated`, and that one is
+      service-role only, so its absence is the signal that the grant is still
+      right. If it shows up, someone widened it and the pairing flow is exposed.
 
 ## Checklist — the assertions that matter
 

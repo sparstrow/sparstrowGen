@@ -119,14 +119,38 @@ policies/004_bootstrap_rpc.sql  atomic, race-safe bootstrap_workspace()
 policies/005_harden_legacy_functions.sql
 policies/006_agent_skill_assignments_rpc.sql
 policies/007_delete_own_account.sql
+policies/008_redeem_pairing_code.sql   M3 — pairing code → runtime + token
 ```
 
-003–007 all exist for the same underlying reason: **PostgREST cannot span
+003–008 all exist for the same underlying reason: **PostgREST cannot span
 statements.** Any invariant that needs more than one statement to hold has to
 live in the database, or it will be violated the first time a request fails
-halfway or two requests race. 004, 006 and 007 are that lesson applied three
-times — and 007 is the sharpest case, because a half-deleted account leaves
-rows that no RLS policy can ever reach again.
+halfway or two requests race. 004, 006, 007 and 008 are that lesson applied
+four times — 007 is the sharpest case, because a half-deleted account leaves
+rows that no RLS policy can ever reach again, and 008 is the one where the
+failure is a *security* failure: a pairing code redeemed twice is a credential
+that paired a machine nobody authorised.
+
+**008 is the first function here that `authenticated` must NOT hold.** The
+others act on `auth.uid()` and are safe to expose as RPCs. This one's authority
+comes from the pairing code it is handed, so anyone able to call it could mint
+a daemon token; and reachable from `anon` it would be brute-forceable at
+PostgREST's rate rather than the app's. It is `service_role` only, called
+exclusively by `/api/daemon/pair`. Verified after applying:
+
+```sql
+select has_function_privilege('anon', oid, 'EXECUTE'),
+       has_function_privilege('authenticated', oid, 'EXECUTE')
+from pg_proc where proname = 'redeem_pairing_code';   -- must be f, f
+```
+
+It also uses `select … for update` rather than the advisory lock 004 and 007
+take. Those serialise on a user id where the contended thing is the *absence*
+of rows — there is nothing to lock. Here the contended thing is one existing
+row with a primary key, so a row lock is the precise tool. The code row is
+fetched **without** filtering on `consumed_at`, deliberately: filtering would
+make the loser of a race see zero rows and report "unknown code", sending
+someone hunting for a typo in a code that was simply already used.
 
 ### Accepted advisor findings
 
@@ -143,6 +167,11 @@ rows that no RLS policy can ever reach again.
   its target from `auth.uid()`, so there is no parameter to point at another
   account. A service-role variant taking a user id would have put "delete any
   user" one missing check away from being reachable over HTTP.
+
+`redeem_pairing_code` (008) is **not** on this list and should never appear on
+it. The advisor only flags `SECURITY DEFINER` functions reachable by
+`authenticated`, and that one is service-role only — if it ever shows up here,
+a grant has been widened and the pairing flow is exposed.
 
 ### Still open
 
