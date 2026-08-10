@@ -1,6 +1,6 @@
 {
-  "id": "0719675e-fe2b-4917-b66a-da7552a06ee2",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "eb264063-a4eb-4894-af9c-2342c7a2dc17",
+  "prevId": "0719675e-fe2b-4917-b66a-da7552a06ee2",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -58,6 +58,36 @@
             }
           ],
           "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_agent_instances_workspace": {
+          "name": "idx_agent_instances_workspace",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_agent_instances_project": {
+          "name": "idx_agent_instances_project",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -133,7 +163,38 @@
           "notNull": true
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_agent_skills_workspace": {
+          "name": "idx_agent_skills_workspace",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_agent_skills_skill": {
+          "name": "idx_agent_skills_skill",
+          "columns": [
+            {
+              "expression": "skill_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "agent_skills_workspace_id_workspaces_id_fk": {
           "name": "agent_skills_workspace_id_workspaces_id_fk",
@@ -513,6 +574,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "idx_chat_messages_workspace": {
+          "name": "idx_chat_messages_workspace",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -839,6 +915,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "idx_cron_jobs_runtime": {
+          "name": "idx_cron_jobs_runtime",
+          "columns": [
+            {
+              "expression": "target_runtime_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -942,6 +1033,21 @@
             },
             {
               "expression": "revoked_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_daemon_tokens_workspace": {
+          "name": "idx_daemon_tokens_workspace",
+          "columns": [
+            {
+              "expression": "workspace_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1870,6 +1976,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "idx_pipeline_runs_workspace": {
+          "name": "idx_pipeline_runs_workspace",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1966,6 +2087,21 @@
             },
             {
               "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_pipeline_steps_workspace": {
+          "name": "idx_pipeline_steps_workspace",
+          "columns": [
+            {
+              "expression": "workspace_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2186,6 +2322,36 @@
           "columns": [
             {
               "expression": "to_node_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_plan_edges_from": {
+          "name": "idx_plan_edges_from",
+          "columns": [
+            {
+              "expression": "from_node_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_plan_edges_workspace": {
+          "name": "idx_plan_edges_workspace",
+          "columns": [
+            {
+              "expression": "workspace_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2443,6 +2609,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "idx_plan_nodes_workspace": {
+          "name": "idx_plan_nodes_workspace",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -2548,6 +2729,21 @@
             },
             {
               "expression": "sort",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_project_directives_workspace": {
+          "name": "idx_project_directives_workspace",
+          "columns": [
+            {
+              "expression": "workspace_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2789,7 +2985,23 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_run_events_workspace": {
+          "name": "idx_run_events_workspace",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "run_events_workspace_id_workspaces_id_fk": {
           "name": "run_events_workspace_id_workspaces_id_fk",
@@ -3073,6 +3285,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "idx_runs_runtime": {
+          "name": "idx_runs_runtime",
+          "columns": [
+            {
+              "expression": "target_runtime_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -3238,6 +3465,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "idx_runtime_commands_workspace": {
+          "name": "idx_runtime_commands_workspace",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -3348,6 +3590,21 @@
             },
             {
               "expression": "state",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_runtime_projects_workspace": {
+          "name": "idx_runtime_projects_workspace",
+          "columns": [
+            {
+              "expression": "workspace_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -3563,7 +3820,23 @@
           "notNull": true
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_skill_files_workspace": {
+          "name": "idx_skill_files_workspace",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "skill_files_workspace_id_workspaces_id_fk": {
           "name": "skill_files_workspace_id_workspaces_id_fk",
@@ -4245,6 +4518,51 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "idx_tasks_project": {
+          "name": "idx_tasks_project",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_tasks_team": {
+          "name": "idx_tasks_team",
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_tasks_assignee_user": {
+          "name": "idx_tasks_assignee_user",
+          "columns": [
+            {
+              "expression": "assignee_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -4383,6 +4701,36 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "idx_team_members_agent": {
+          "name": "idx_team_members_agent",
+          "columns": [
+            {
+              "expression": "agent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_team_members_workspace": {
+          "name": "idx_team_members_workspace",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -4455,7 +4803,38 @@
           "notNull": true
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_team_projects_project": {
+          "name": "idx_team_projects_project",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_team_projects_workspace": {
+          "name": "idx_team_projects_workspace",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "team_projects_workspace_id_workspaces_id_fk": {
           "name": "team_projects_workspace_id_workspaces_id_fk",

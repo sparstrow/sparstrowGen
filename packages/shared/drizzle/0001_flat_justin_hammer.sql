@@ -1,0 +1,25 @@
+CREATE INDEX "idx_agent_instances_workspace" ON "agent_instances" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "idx_agent_instances_project" ON "agent_instances" USING btree ("project_id");--> statement-breakpoint
+CREATE INDEX "idx_agent_skills_workspace" ON "agent_skills" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "idx_agent_skills_skill" ON "agent_skills" USING btree ("skill_id");--> statement-breakpoint
+CREATE INDEX "idx_chat_messages_workspace" ON "chat_messages" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "idx_cron_jobs_runtime" ON "cron_jobs" USING btree ("target_runtime_id");--> statement-breakpoint
+CREATE INDEX "idx_daemon_tokens_workspace" ON "daemon_tokens" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "idx_pipeline_runs_workspace" ON "pipeline_runs" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "idx_pipeline_steps_workspace" ON "pipeline_steps" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "idx_plan_edges_from" ON "plan_edges" USING btree ("from_node_id");--> statement-breakpoint
+CREATE INDEX "idx_plan_edges_workspace" ON "plan_edges" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "idx_plan_nodes_workspace" ON "plan_nodes" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "idx_project_directives_workspace" ON "project_directives" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "idx_run_events_workspace" ON "run_events" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "idx_runs_runtime" ON "runs" USING btree ("target_runtime_id");--> statement-breakpoint
+CREATE INDEX "idx_runtime_commands_workspace" ON "runtime_commands" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "idx_runtime_projects_workspace" ON "runtime_projects" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "idx_skill_files_workspace" ON "skill_files" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "idx_tasks_project" ON "tasks" USING btree ("project_id");--> statement-breakpoint
+CREATE INDEX "idx_tasks_team" ON "tasks" USING btree ("team_id");--> statement-breakpoint
+CREATE INDEX "idx_tasks_assignee_user" ON "tasks" USING btree ("assignee_user_id");--> statement-breakpoint
+CREATE INDEX "idx_team_members_agent" ON "team_members" USING btree ("agent_id");--> statement-breakpoint
+CREATE INDEX "idx_team_members_workspace" ON "team_members" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "idx_team_projects_project" ON "team_projects" USING btree ("project_id");--> statement-breakpoint
+CREATE INDEX "idx_team_projects_workspace" ON "team_projects" USING btree ("workspace_id");
