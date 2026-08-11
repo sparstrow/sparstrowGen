@@ -17,6 +17,7 @@ doc/
 │                             code, they just sit here as reference.
 ├── OpenQuestions.md          decisions waiting on the owner
 ├── Deferred.md               agreed to build, explicitly parked
+├── KnownGaps.md              built, but not verified — or verified to be limited
 └── Ideas.md                  unscoped — might never be built
 ```
 
@@ -35,6 +36,7 @@ task ──────────────► doc/tasks/<milestone>-<slug>.
   │                  MUST contain zero open questions
   ▼
 code ──────────────► anything parked mid-flight goes to Deferred.md
+                     anything shipped-but-unproved goes to KnownGaps.md
 ```
 
 ## The rule that matters
@@ -64,12 +66,33 @@ One missing piece must not stop the plate being served.
 When the question is answered: unblock the item, finish it, and delete the entry
 from `OpenQuestions.md`.
 
+### Shipping without proof is allowed. Shipping without *saying so* is not
+
+Verification sometimes cannot be completed — a platform won't deliver the signal,
+the surface that exercises the code doesn't exist yet, the harness can't reach it.
+That is a normal outcome, and it is not a reason to hold a change back.
+
+It **is** a reason to write it down. Whenever a checklist item is ticked on
+weaker evidence than it asked for:
+
+1. Say so in the task's Result section, naming what was actually run.
+2. Open an entry in [`KnownGaps.md`](KnownGaps.md) **in the same change**.
+3. Name the phase or task that should close it, if one is obvious.
+
+The rule this protects: *"done" must mean the same thing every time it is
+written.* A ticked box that quietly means "looked right to me" devalues every
+other ticked box in the repo, and the next agent has no way to tell which is
+which. A caveat that lives only in a chat message does not exist — chat is not
+read by the agent who picks this up in three weeks.
+
 ## Which file does this go in?
 
 | Situation | File |
 |---|---|
 | "Let's do that later" | `Deferred.md` |
 | "I'm not answering that right now" | `OpenQuestions.md` |
+| "It's built, but I couldn't prove it works" | `KnownGaps.md` |
+| "It works, but only within these limits" | `KnownGaps.md` |
 | "Might be nice one day" | `Ideas.md` |
 | "Here's what we're building and why" | `plans/` |
 | "Here's exactly how, step by step" | `tasks/` |

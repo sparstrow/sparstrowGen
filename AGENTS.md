@@ -192,14 +192,31 @@ All non-code project memory lives in `doc/`. Read `doc/README.md` first.
   `README.md`, the queue rows, and the status table done in place; update the
   plan header's `Status` line to the next phase or, if that was the last one, to
   `✅ Completed`. Anything the phase spawned into `OpenQuestions.md`,
-  `Deferred.md`, or `Ideas.md` keeps its own lifecycle — completion doesn't
-  resolve it. Full protocol: `doc/tasks/README.md`.
+  `Deferred.md`, `KnownGaps.md`, or `Ideas.md` keeps its own lifecycle —
+  completion doesn't resolve it. Full protocol: `doc/tasks/README.md`.
 * **`doc/OpenQuestions.md`** — decisions waiting on the owner. Every entry needs
   the full options framework from §8 above. When one is answered, record the
   answer where it's consumed and **delete the entry**.
 * **`doc/Deferred.md`** — agreed to build, explicitly parked. Each entry records
   what triggers unparking it.
+* **`doc/KnownGaps.md`** — **built, but not proved**, plus limitations accepted
+  knowingly. **Read it before relying on something, and before claiming it
+  works.** An entry is a statement about the strength of the evidence, not a bug
+  report. Each records what would break if the assumption is wrong and the
+  concrete thing that closes it; when you close one, **delete the entry** and say
+  where the proof lives.
 * **`doc/Ideas.md`** — unscoped, no commitment, may never be built.
 
 When the owner says "park it", "later", or "just an idea", write it to the right
 file in the same turn rather than relying on the conversation to be re-read.
+
+**Shipping without proof is allowed; shipping without saying so is not.**
+Verification sometimes can't be completed — the platform won't deliver the
+signal, the surface that exercises the code doesn't exist yet, the harness can't
+reach it. That's a normal outcome and not a reason to hold a change back. It *is*
+a reason to write it down: name what you actually ran in the task's Result
+section, and open a `KnownGaps.md` entry **in the same change**. Never tick a box
+on weaker evidence than it asked for and stay silent about it — a ticked box that
+quietly means "looked right to me" devalues every other ticked box in the repo,
+and the next agent has no way to tell which is which. Caveats raised only in chat
+do not exist.

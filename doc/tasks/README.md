@@ -24,6 +24,10 @@ A task is ready when someone can work it **without asking the owner anything**:
 - Traps and failure modes are called out before they're hit
 - Verification is concrete enough to run, with unambiguous pass/fail
 
+And before starting one, read [`../KnownGaps.md`](../KnownGaps.md). It lists what
+is built but **unproved** — so a task does not inherit an assumption as a fact,
+and so a phase that can finally close a gap knows to do it.
+
 Decisions made *inside* a task, rather than inherited from its plan, go under a
 **Decisions already made** heading so a reader can tell what was settled where.
 
@@ -81,10 +85,15 @@ where the open item is explicitly non-blocking for the plan, as M2's OQ-1 is):
 4. **The plan header** — update its `Status` row. If phases remain, name the next
    one (`M1 complete · M2 next`, the current pattern). If that was the last
    phase, the plan's status becomes `✅ Completed <date>`.
-5. **Anything the phase spawned into `OpenQuestions.md`, `Deferred.md`, or
-   `Ideas.md` stays exactly where it is.** Finishing a plan does not resolve its
-   open questions or un-defer its deferrals — those have their own lifecycle and
-   may outlive the plan that raised them, or spawn a new plan later.
+5. **Anything the phase spawned into `OpenQuestions.md`, `Deferred.md`,
+   `KnownGaps.md`, or `Ideas.md` stays exactly where it is.** Finishing a plan
+   does not resolve its open questions, un-defer its deferrals, or close its
+   gaps — those have their own lifecycle and may outlive the plan that raised
+   them, or spawn a new plan later.
+6. **Every item ticked on weaker evidence than it asked for has an entry in
+   [`../KnownGaps.md`](../KnownGaps.md).** A phase cannot be reported done while
+   an unproved claim inside it exists only in someone's memory. Writing the gap
+   down is what makes "done" mean the same thing across phases.
 
 A plan is genuinely closed only when every phase reads done and its `Open
 questions` header line is empty or points only to non-blocking entries.

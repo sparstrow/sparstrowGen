@@ -128,6 +128,10 @@ the same function, and the HTTP route is what the desktop shell actually calls
 to stop core on Windows. Ctrl+C in an interactive console remains unverified on
 this platform.
 
+Tracked as **`G-1`** in [`../../KnownGaps.md`](../../KnownGaps.md) so it outlives
+this document — a caveat recorded only in a completed task's Result section is
+one nobody reads again.
+
 ### Advisors
 
 Only the three known items: `bootstrap_workspace`, `delete_own_account`, and

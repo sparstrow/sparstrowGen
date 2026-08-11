@@ -127,6 +127,14 @@ Implementation: `packages/core/src/projects/wip-snapshot.ts`, called from
 `RunManager.finalize()` **before** handoff — handoff's job is to spawn the
 follow-up run, which edits this same tree.
 
+> ⚠️ **The call site is unproved.** `snapshotWorkingTree()` is tested directly
+> and against a real SQLite settings read, but nothing has yet exercised
+> `finalize()` end-to-end with a real agent editing a real project — that needs
+> dispatched work, which is M4. Tracked as **`G-3`** in
+> [`../KnownGaps.md`](../KnownGaps.md); **M4's verification must assert a
+> `refs/sparstrow/wip/<run-id>` ref actually appears.** A backup that silently
+> never fires is the one failure this feature cannot survive.
+
 > The Settings card renders in the **local** UI only. The switch is a row in that
 > machine's SQLite and the snapshot happens on that machine's disk; the hosted
 > app has no `/system/settings` route to write to. A per-runtime control belongs

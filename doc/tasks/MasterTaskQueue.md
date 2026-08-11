@@ -105,6 +105,20 @@ M5, M6 and M7 are `[P]` against each other: transcripts, memory sync, and the
 Electron shell touch disjoint files and can be built by different workers once
 their prerequisites land. M7 needs only M2, so it can start early if M3/M4 stall.
 
+> **When M4 is decomposed, it inherits three entries from
+> [`../KnownGaps.md`](../KnownGaps.md).** They are not extra scope — M4 is simply
+> the first phase in a position to close them:
+>
+> - **`G-3`** — the WIP snapshot has never been fired by a real run, because
+>   until M4 there is no dispatched work to fire it. **M4's verification task
+>   must assert a `refs/sparstrow/wip/<run-id>` ref appears**, rather than leave
+>   it incidental. A backup that silently never runs is the one failure mode this
+>   feature cannot survive.
+> - **`G-4`** — the snapshot/scheduler race becomes cheap to close once the lease
+>   model exists. Revisit then; do not add locking for it before.
+> - **`G-6`** — the per-runtime snapshot toggle needs a command spine to reach a
+>   specific daemon. It belongs in the Machines card, not in workspace settings.
+
 ---
 
 ### Band 4b — auth completeness (2026-08-10)
