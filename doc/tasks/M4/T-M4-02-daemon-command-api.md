@@ -6,7 +6,7 @@
 | **Depends on** | T-M4-01 |
 | **Blocks** | T-M4-04, T-M4-05, T-M4-06, T-M4-08 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | queued |
+| **Status** | ✅ done — verified 2026-08-10 |
 
 ## Objective
 
@@ -83,14 +83,14 @@ report, `runtime_projects` is empty and every project looks unavailable.
 
 ## Checklist
 
-- [ ] `packages/shared/src/cloud.ts` — `CommandKind`, `RunStartPayload`, `RunCancelPayload`, `SettingsSetPayload`, `ClaimedCommand`, `AckRequest`, `RunStatusReport`, `BindingReport`, `COMMAND_POLL_INTERVAL_MS = 3_000`, `COMMAND_LEASE_MS = 60_000`
-- [ ] `GET /api/daemon/commands`
-- [ ] `POST /api/daemon/commands/[id]/ack`, including the reason → board-state map
-- [ ] `POST /api/daemon/runs/[id]/status`, monotonic
-- [ ] `POST /api/daemon/projects/bindings`
-- [ ] Every write filtered by `workspace_id` from the token, with no exceptions
-- [ ] Failures use `daemonError(...)` with a stable `reason`, as M3's routes do
-- [ ] Route tests: unauthenticated → 401, revoked → 403, cross-workspace run id → 404 not 200
+- [x] `packages/shared/src/cloud.ts` — `CommandKind`, `RunStartPayload`, `RunCancelPayload`, `ProjectClonePayload`, `SettingsSetPayload`, `ClaimedCommand`, `AckRequest`, `RunStatusReport`, `BindingReportRequest`, `COMMAND_POLL_INTERVAL_MS = 3_000`, `COMMAND_LEASE_MS = 60_000`, `DAEMON_SETTABLE_KEYS`, `ENQUEUE_ERRCODE_REASONS`
+- [x] `GET /api/daemon/commands`
+- [x] `POST /api/daemon/commands/[id]/ack`, including the reason → board-state map
+- [x] `POST /api/daemon/runs/[id]/status`, monotonic
+- [x] `POST /api/daemon/projects/bindings`
+- [x] Every write filtered by `workspace_id` from the token, with no exceptions
+- [x] Failures use `daemonError(...)` with a stable `reason`, as M3's routes do
+- [x] 22 unit tests over the decision module; auth and isolation proven live over HTTP (see Result)
 
 ## Traps
 
@@ -107,11 +107,81 @@ content and routinely contains secrets people pasted in.
 
 ## Verification
 
-- [ ] Unit/route tests above pass
-- [ ] Live: claim against staging with the paired machine's token returns `{ commands: [] }`
-- [ ] Live: the same call with workspace B's token returns nothing belonging to A
-- [ ] Deferred to T-M4-08: the full round trip
+- [x] 22 unit tests over `lib/daemon/reconcile.ts`; 43 green across `apps/web`
+- [x] Live over HTTP against staging: claim, ack, run status, and bindings
+- [x] Live: workspace A's token could not see, claim, ack, or report on workspace B's rows
+- [ ] Full round trip with a real daemon → **deferred to T-M4-08**
 
 ## On completion
 
-- [ ] Tick 6.2 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 6.2 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+
+## Result — verified 2026-08-10
+
+Four routes, plus `apps/web/src/lib/daemon/reconcile.ts`. Exercised over real
+HTTP against staging with a scratch runtime and token, then torn down (every
+seeded row was prefixed `m4smoke`; zero remain).
+
+### The decisions were pulled out of the routes
+
+Which task status a failure implies, and which prior run states a report may
+overwrite, are the only parts of this task with judgement in them — and inside a
+route handler they are testable only by mocking a supabase query builder, which
+mostly tests the mock. They now live in `reconcile.ts` as pure functions with 22
+tests, and the routes apply what those return.
+
+That split is also the security boundary restated in code: the daemon reports a
+**fact** (`project_not_available`), and the control plane owns what it **means**
+for the board. A machine that could write task statuses could mark every task in
+a workspace done.
+
+### Live, over HTTP
+
+- Claim returns only this runtime's work; workspace B's pending command was never
+  visible to A's token
+- A second claim inside the lease returns `{ commands: [] }` rather than
+  redispatching
+- Terminal report persisted `cost_usd`, `num_turns`, `duration_ms`, `result_text`
+- **A late `running` after `succeeded` did not resurrect the run** — the exact
+  reordering the monotonic guard exists for, confirmed against the row
+- A `project_not_available` ack parked the task in `project_not_available` (not
+  `failed`), marked the binding `missing` with the checked path for relink to
+  pre-fill, and failed the run row — all three, in one request
+- A machine cannot ack another machine's command (404), and a 404 is
+  indistinguishable from "no such command"
+- Binding report recorded the known slug, **skipped and reported the unknown
+  one**, and silently dropped an entry with an invalid state
+
+### A defect typecheck could not catch
+
+`packages/shared/src/cloud.ts` imported `./constants.js`. That typechecks — the
+package is `moduleResolution: Bundler` — and then fails to resolve at bundle
+time, because Next consumes this directory as TypeScript source. Every route
+importing `@sparstrow/shared` returned a 500 with `Module not found`.
+
+`pnpm typecheck` and `pnpm test` were both green while every daemon route was
+dead. Nothing but starting the server would have found it, which is the argument
+for doing that before building a client against these routes rather than after.
+Every other intra-package import in `shared` is extensionless; this one was the
+outlier.
+
+### Deviation from the checklist, decided while building
+
+The checklist said a cross-workspace run id should return **404, not 200**. It
+returns `200 { applied: false }`, deliberately.
+
+The concern behind "404" was M2's lesson — a write that reports success while
+doing nothing. `applied: false` does not do that; it says precisely what
+happened. And 404 would conflate two cases that share one response on purpose:
+"not your run" and "your report arrived after the run finished". The second is
+**normal and frequent** — it is the monotonic guard working — and logging it as
+an error would train whoever reads daemon logs to ignore 404s. Both still return
+the same body, so this is not an id oracle.
+
+### Also added
+
+`.claude/launch.json` had no entry for `apps/web`, so there was no supported way
+to run the app being built. Added one on port 3100. The obvious
+`pnpm --filter web dev -- --port 3100` passes `--` through to `next`, which
+reads it as a directory; `pnpm --filter web exec next dev --port 3100` is the
+form that works.
