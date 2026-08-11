@@ -15,6 +15,13 @@
       "when": 1786326423851,
       "tag": "0001_flat_justin_hammer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786446168408,
+      "tag": "0002_vengeful_norrin_radd",
+      "breakpoints": true
     }
   ]
 }

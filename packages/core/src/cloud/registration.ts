@@ -1,5 +1,8 @@
 import os from "node:os";
-import type { RuntimeIdentity } from "@sparstrow/shared";
+import { inArray } from "drizzle-orm";
+import { DAEMON_SETTABLE_KEYS, type RuntimeIdentity } from "@sparstrow/shared";
+import { getDb, isDbOpen } from "../db/connection.js";
+import { settings } from "../db/schema.js";
 import { logger } from "../logger.js";
 import { listProviders } from "../providers/index.js";
 import { cloudFetch, isPaired } from "./client.js";
@@ -93,7 +96,57 @@ export async function describeMachine(name?: string | null): Promise<RuntimeIden
     isElectron: process.env.SPARSTROW_PACKAGED === "1",
     capabilities: await probeCapabilities(),
     coreVersion: CORE_VERSION,
+    settings: readReportableSettings(),
   };
+}
+
+/**
+ * This machine's current values for the remotely-settable keys.
+ *
+ * Only the allowlisted keys, and deliberately so: the settings table holds
+ * machine-local configuration that is nobody else's business, and a report
+ * that shipped all of it would be a slow leak of exactly the kind of detail
+ * the secret store exists to keep off the wire.
+ *
+ * Absent keys are omitted rather than defaulted here — `isWipSnapshotEnabled`
+ * owns what an unset value means, and duplicating that default would give the
+ * browser a second opinion about it.
+ */
+export function readReportableSettings(): Record<string, string> {
+  // Registration can run before the database is open, and during shutdown
+  // after it has closed. Neither is a reason to fail a report.
+  if (!isDbOpen()) return {};
+  try {
+    const rows = getDb()
+      .select()
+      .from(settings)
+      .where(inArray(settings.key, [...DAEMON_SETTABLE_KEYS]))
+      .all();
+    return Object.fromEntries(rows.map((row) => [row.key, row.value]));
+  } catch (err) {
+    logger.debug({ err }, "could not read reportable settings");
+    return {};
+  }
+}
+
+/**
+ * Push just the settings, without re-registering.
+ *
+ * Deliberately not `register()`. That runs the capability probe — up to
+ * `PROBE_BUDGET_MS` of spawning provider binaries — which is absurd for
+ * confirming a boolean, and sending an identity with an unprobed
+ * `capabilities: []` would wipe the field the cloud dispatches on. A separate
+ * one-column route is cheaper and cannot cause that.
+ *
+ * Never throws. A failed report self-corrects at the next boot.
+ */
+export async function reportSettings(): Promise<void> {
+  if (!isPaired()) return;
+  try {
+    await cloudFetch("/settings", { body: { settings: readReportableSettings() }, retries: 1 });
+  } catch (err) {
+    logger.debug({ err }, "could not report settings to the control plane");
+  }
 }
 
 /**

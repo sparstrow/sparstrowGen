@@ -18,8 +18,8 @@ them answer this one:
 
 **Before relying on something, check whether it is listed here.** A gap entry is
 not a bug report; it is a statement about the *strength of the evidence* behind a
-piece of working code. `G-3` does not mean the snapshot hook is broken — it means
-nobody has watched it fire.
+piece of working code. `G-12` does not mean the Machines card is broken — it
+means nobody has looked at it.
 
 **When you clear one, delete the entry** and say where the proof lives, exactly
 like `OpenQuestions.md`. The length of this file is a real signal; a gap that
@@ -73,25 +73,52 @@ Its one piece of logic (`isWipSnapshotEnabled`) is unit-tested in `shared`.
 - **Clears when:** core plus the local UI are booted and someone flips the switch
   and sees it persist.
 
-### G-3 — The snapshot has never been triggered by a real agent run
+*`G-3` — the WIP snapshot never having fired from a real run — was **closed
+2026-08-11** by M4 (`T-M4-08` §B). A run dispatched from the cloud to this
+Windows machine, against a project with a deliberately dirty tree, produced
+`refs/sparstrow/wip/run_154b6cc1cbef424a`. The assertions that make it a proof
+rather than a sighting: `git status` read identically before and after, HEAD did
+not move, the staged/unstaged split survived, the uncommitted modification was
+captured, and `.env` and `node_modules/` were **absent** from the tree — the
+`.gitignore` guarantee OQ-1 rested on.
 
-**Raised:** 2026-08-10 (WIP snapshots / OQ-1). **The most load-bearing gap here.**
+Two further things fell out of it. The ref is named with the **cloud's** run id
+on local disk, which is decision 4 proved end to end and the thing M5's
+transcripts depend on. And turning the snapshot off from the browser genuinely
+stops it: a run with the switch off produced no ref and logged nothing.*
 
-`snapshotWorkingTree()` is heavily tested directly, and the settings read is
-verified against a real SQLite database. The **call site** is not: nothing has
-exercised `RunManager.finalize()` end-to-end with a real agent editing a real
-project, because that needs a provider binary, an agent, and a project row.
+### G-12 — Five M4 assertions were proved in SQL or unit tests, not live
 
-So what is proved is "the snapshot function works". What is assumed is "finalize
-calls it with the right `rootDir`, on every terminal status".
+**Raised:** 2026-08-11 (M4, `T-M4-08`). The phase is otherwise verified live on
+staging; these are the corners that pass could not reach.
 
-- **If wrong:** the feature silently never fires, and the first anyone learns of
-  it is when work is lost — precisely the scenario it was built to prevent. This
-  is a failure that hides successfully.
-- **Clears when:** a real run against a project with a dirty tree produces a
-  `refs/sparstrow/wip/<run-id>` ref. **M4 is the natural place** — it is the
-  first phase that dispatches real work, and its verification task should assert
-  this rather than treat it as incidental.
+- **The browser click-through pass never happened.** The Browser pane did not
+  composite frames in this environment, so screenshots and the accessibility
+  tree were both unavailable and nothing could be clicked. Every M4 endpoint
+  *was* exercised through a real signed-in session from the page's own `fetch`,
+  which is what found two of the phase's defects — but no rendered component was
+  seen or interacted with. The blocked-task affordance and the Machines-card
+  switch have never been looked at.
+- **Lease recovery after a mid-claim kill**, two polls racing one row, and the
+  five-attempt poison ceiling. All three are proved deterministically against a
+  throwaway Postgres by
+  `packages/shared/drizzle/policies/verify-command-spine.mjs`; none was
+  reproduced live, because each needs a timing window.
+- **Reassign** needs a second paired machine, and **clone end-to-end** needs a
+  real remote. The routes exist and every clone guard is unit-tested, including
+  the non-empty-directory refusal.
+- **The unpaired local UI starting a run** was not re-proved. Core served its own
+  API throughout this pass, so the surface is not cold — but the specific claim
+  "an unpaired machine still works" rests on it being unchanged, not on a test.
+
+- **If wrong:** the most likely failure is cosmetic — a control that renders
+  wrong or an affordance that does not appear — because the data paths beneath
+  all of them are exercised. The exception is the UI, where M2's browser pass
+  found a hook-order crash and a whole class of missing Tailwind utilities that
+  no API-level test could see. That precedent is why this entry exists rather
+  than a shrug.
+- **Clears when:** someone runs the click-through pass in an environment where
+  the browser pane renders, and pairs a second machine for reassign.
 
 ### G-11 — Supabase has never been observed delivering an email
 
@@ -116,23 +143,16 @@ Magic-link sign-in and password reset both depend on this entirely.
   is configured. Procedure and the "Confirm email" interaction:
   [`runbooks/email-delivery.md`](runbooks/email-delivery.md).
 
-### G-4 — A concurrent run can start while a snapshot is being taken
-
-**Raised:** 2026-08-10 (WIP snapshots / OQ-1). Documented at the call site.
-
-`finalize()` releases the busy key before the snapshot runs. Handoff is
-explicitly chained *after* the snapshot, so the deterministic same-project
-successor is safe — but an unrelated scheduler tick could still start a run on
-that project mid-snapshot.
-
-Closing it means holding the busy key across a git operation, which stalls the
-queue for a backup. That trade was declined deliberately.
-
-- **If wrong:** a snapshot captures a tree that is half-way into being modified
-  by the next run. It is still strictly more than nothing was captured, which is
-  why this was accepted rather than solved.
-- **Clears when:** M4's lease model makes a cheap project-level guard available.
-  Revisit then; do not add locking for this alone.
+*`G-4` — a concurrent run starting while a snapshot is being taken — was **closed
+2026-08-10** by M4 (`T-M4-06`). `finalize()` now holds the busy key across the
+snapshot and releases it on every path, including the snapshot throwing. The
+trade the gap recorded as declined was re-made rather than ignored: dispatch
+makes concurrent same-project runs materially more likely, and the hold costs
+one agent+project identity plus one concurrency slot for the duration of bounded
+git plumbing. Proof:
+`packages/core/src/orchestrator/run-manager-finalize.test.ts` — five cases,
+including that a throwing snapshot still releases the key and still hands off,
+and that the snapshot precedes handoff.*
 
 ---
 
@@ -156,18 +176,25 @@ known at spawn and could be clamped there.
   at spawn. The third can never gate its own run; the quarantine is the mitigation
   for it, by design.
 
-### G-6 — The WIP snapshot toggle exists only in the local UI
+*`G-6` — the WIP snapshot toggle existing only in the local UI — was **closed
+2026-08-10** by M4 (`T-M4-07`). The Machines card now carries a per-runtime
+switch, driven by an allowlisted `settings.set` command; per-runtime rather than
+workspace-wide because a laptop with a small disk and a workstation with a large
+one have different right answers.
 
-**Raised:** 2026-08-10 (WIP snapshots / OQ-1).
+The part worth recording is what stopped it reopening the same gap in a new
+place. The switch renders `runtimes.reported_settings`, which **only the daemon
+writes** — at boot and again after it applies a `settings.set`. An optimistic
+switch showing what you clicked rather than what happened would have had exactly
+the defect G-6 named, wearing a better hat. An offline machine's switch is
+disabled and says why, instead of queueing a change against a computer that is
+switched off. Because the value is read from the machine's own settings table, a
+switch flipped in the local Settings card also shows correctly in the hosted UI.
 
-The switch is a row in one machine's SQLite and the snapshot happens on that
-machine's disk. `apps/web` has no `/system/settings` route at all, so a card
-rendered there would flip and then silently fail to reach the daemon it claims
-to configure. It is hidden in the hosted app rather than shown broken.
-
-- **Clears when:** M4's command spine can carry a setting to a specific daemon.
-  Then this becomes a per-runtime control in the Machines card — not a
-  workspace-wide setting, because the machines can legitimately disagree.
+Proof: `apps/web/src/lib/api/runtime-routes.test.ts` for dispatch and the
+allowlist, `packages/core/src/cloud/commands.test.ts` for the daemon-side
+allowlist, migration `0002_vengeful_norrin_radd.sql` for the column. The live
+flip is `T-M4-08`.*
 
 ### G-7 — Leaked-password protection is unavailable on the current Supabase plan
 

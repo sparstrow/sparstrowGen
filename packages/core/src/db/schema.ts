@@ -662,3 +662,34 @@ export const planEdges = sqliteTable(
     index("idx_plan_edges_user").on(t.userId),
   ],
 );
+
+/**
+ * M4 — cloud id ↔ local id, for rows that already existed on both sides.
+ *
+ * The control plane is the board and this database is what the runner reads.
+ * Agents and projects exist in both, with independent ids and no definition
+ * sync (D-9), so a `run.start` command naming a cloud agent has to be resolved
+ * to a local one before anything can spawn.
+ *
+ * Resolution is by SLUG the first time and by this table every time after.
+ * Adopting the cloud id instead would mean rewriting a live primary key that
+ * `runs.agent_id` and `tasks.assigned_agent_id` point at, or inserting a second
+ * row that violates the UNIQUE on slug.
+ *
+ * Runs deliberately do NOT appear here: a dispatched run is created with the
+ * cloud's id directly, because it is a new row with nothing to collide with.
+ */
+export const cloudLinks = sqliteTable(
+  "cloud_links",
+  {
+    /** `agent` | `project`. */
+    kind: text("kind").notNull(),
+    cloudId: text("cloud_id").notNull(),
+    localId: text("local_id").notNull(),
+    linkedAt: text("linked_at").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.kind, t.cloudId] }),
+    uniqueIndex("uq_cloud_links_local").on(t.kind, t.localId),
+  ],
+);

@@ -3,7 +3,7 @@ title: What is Sparstrowgen?
 section: Getting started
 description: The mental model — an agent factory where the board is in the cloud and the work runs on your machines.
 order: 1
-updated: 2026-08-10
+updated: 2026-08-11
 ---
 
 Sparstrowgen is your **agent factory**: an app for creating, organizing, and running AI
@@ -64,7 +64,9 @@ needs your judgment lands in the **attention queue** on the Dashboard and waits 
 - **Work happens only on a paired, running machine.** With none online, you can still
   read and plan on the board, but nothing executes.
 - **Your project files never sync.** They stay on the machine they're on — which is the
-  point, but it means a project is reachable only from the machine it lives on.
+  point. If you queue work for a machine that doesn't have the project, the task waits
+  and offers you a way through: run it where the project already is, point Sparstrowgen
+  at a copy on that machine, or clone it there from the project's git remote.
 - **One workspace per person, for now.** There's no workspace switcher yet.
 
 ## Where to go next

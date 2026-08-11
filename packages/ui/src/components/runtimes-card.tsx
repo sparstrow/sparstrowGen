@@ -18,8 +18,16 @@ import {
   useRenameRuntime,
   useRevokeRuntimeToken,
   useRuntimes,
+  useSetRuntimeSetting,
   type Runtime,
 } from "@/api/hooks";
+import { Switch } from "@/components/ui/switch";
+import {
+  DEFAULT_WIP_SNAPSHOT_KEEP,
+  SETTING_WIP_SNAPSHOT,
+  SETTING_WIP_SNAPSHOT_KEEP,
+  isWipSnapshotEnabled,
+} from "@sparstrow/shared";
 import { cn } from "@/lib/utils";
 
 /**
@@ -206,6 +214,8 @@ function RuntimeRow({ runtime }: { runtime: Runtime }) {
         </Button>
       </div>
 
+      <SnapshotControl runtime={runtime} />
+
       <ConfirmDialog
         open={confirming === "revoke"}
         onOpenChange={(open) => setConfirming(open ? "revoke" : null)}
@@ -242,6 +252,69 @@ function RuntimeRow({ runtime }: { runtime: Runtime }) {
           remove.mutate(runtime.id, { onSettled: () => setConfirming(null) })
         }
       />
+    </div>
+  );
+}
+
+/**
+ * The per-runtime WIP snapshot control (`G-6`).
+ *
+ * Renders `runtime.reportedSettings` — what the machine last CONFIRMED — and
+ * never an optimistic local value. That is the entire reason this closes the
+ * gap rather than reopening it in a new place: `G-6` was raised because a
+ * switch in workspace settings would flip and silently fail to reach the daemon
+ * it claimed to configure, and a switch that shows what you clicked rather than
+ * what happened has the same defect wearing a better hat.
+ *
+ * Offline machines get a disabled control with the reason spelled out. Queuing
+ * the command instead would leave someone believing they had changed a setting
+ * on a computer that is switched off.
+ */
+function SnapshotControl({ runtime }: { runtime: Runtime }) {
+  const setSetting = useSetRuntimeSetting();
+  const [pendingKey, setPendingKey] = React.useState<string | null>(null);
+
+  const reported = runtime.reportedSettings ?? {};
+  const enabled = isWipSnapshotEnabled(reported[SETTING_WIP_SNAPSHOT]);
+  const keep = reported[SETTING_WIP_SNAPSHOT_KEEP] ?? String(DEFAULT_WIP_SNAPSHOT_KEEP);
+
+  // The machines can legitimately disagree — a laptop with a small disk and a
+  // workstation with a large one have different right answers — which is why
+  // this is here per machine and not one switch in workspace settings.
+  const send = (key: string, value: string) => {
+    setPendingKey(key);
+    setSetting.mutate(
+      { runtimeId: runtime.id, key, value },
+      { onSettled: () => setPendingKey(null) },
+    );
+  };
+
+  return (
+    <div className="mt-2 w-full rounded-md border border-dashed px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs font-medium">Snapshot uncommitted work</p>
+          <p className="text-xs text-muted-foreground">
+            {runtime.online
+              ? `Keeps the last ${keep} runs' working trees on this machine, under a private git ref.`
+              : "This machine is offline — its settings can be changed when it reconnects."}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {pendingKey ? <Loader2 className="size-3.5 animate-spin text-muted-foreground" /> : null}
+          <Switch
+            checked={enabled}
+            disabled={!runtime.online || pendingKey !== null}
+            onCheckedChange={(next) => send(SETTING_WIP_SNAPSHOT, next ? "on" : "off")}
+            aria-label={`Snapshot uncommitted work on ${runtime.name}`}
+          />
+        </div>
+      </div>
+
+      {setSetting.isError ? (
+        <p className="mt-1 text-xs text-destructive">{setSetting.error.message}</p>
+      ) : null}
     </div>
   );
 }

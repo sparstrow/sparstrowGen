@@ -13,6 +13,7 @@ import type { Task, TaskStatus } from "@sparstrow/shared";
 import { BoardCard } from "@/components/board/board-card";
 import { BoardColumn } from "@/components/board/board-column";
 import { Badge } from "@/components/ui/badge";
+import { BlockedProjectActions } from "@/components/blocked-project-actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -206,11 +207,19 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
   // waiting_children (a suspended lead) and blocked_answered (wake in flight) are
   // working states, not workflow stages — they render inside "In progress" with
   // their own whisper rather than growing the board (design contract: 6 columns).
+  //
+  // project_not_available (M4) follows the same rule, in "To do": the work still
+  // needs doing, it just cannot start on that machine yet. A seventh column
+  // would break the contract, and leaving it out of all six — which is what
+  // happened before this line — made a parked task invisible, which is the
+  // worst of the three options.
   const byStatus = (status: TaskStatus) =>
     (tasks.data ?? []).filter((t) =>
       status === "in_progress"
         ? (["in_progress", "waiting_children", "blocked_answered"] as TaskStatus[]).includes(t.status)
-        : t.status === status,
+        : status === "todo"
+          ? (["todo", "project_not_available"] as TaskStatus[]).includes(t.status)
+          : t.status === status,
     );
 
   const childrenOf = (taskId: string) => (tasks.data ?? []).filter((t) => t.parentTaskId === taskId);
@@ -374,6 +383,17 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
                             </Badge>
                           )}
                         </div>
+                        {/*
+                          M4: the four recovery actions, on the card rather than
+                          behind the detail panel. This state is not information
+                          — it is a decision waiting to be made, and burying it
+                          one click deeper is how a blocked task stays blocked.
+                        */}
+                        {task.status === "project_not_available" && (
+                          <div onClick={(event) => event.stopPropagation()}>
+                            <BlockedProjectActions task={task} />
+                          </div>
+                        )}
                       </BoardCard>
                     );
                   })}

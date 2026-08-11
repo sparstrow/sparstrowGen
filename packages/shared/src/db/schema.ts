@@ -103,6 +103,22 @@ export const runtimes = pgTable(
     capabilities: jsonb("capabilities").$type<string[]>().notNull().default([]),
     status: text("status").notNull().default("offline"), // online | busy | offline
     coreVersion: text("core_version"),
+    /**
+     * What this machine last REPORTED about its own allowlisted settings — the
+     * per-runtime WIP snapshot toggle and its retention count (M4, closing G-6).
+     *
+     * The machine is the source of truth: the switch is a row in its SQLite and
+     * the snapshot happens on its disk. This column is a cache of what it
+     * confirmed, written at registration and again after it applies a
+     * `settings.set` command, so the Machines card can render the acked value
+     * rather than an optimistic one. A switch that flips and silently changes
+     * nothing is the exact failure G-6 was opened about, and showing a value
+     * nobody acked is how you build one.
+     */
+    reportedSettings: jsonb("reported_settings")
+      .$type<Record<string, string>>()
+      .notNull()
+      .default({}),
     lastHeartbeat: timestamp("last_heartbeat", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -230,6 +246,13 @@ export const runtimeCommands = pgTable(
     uniqueIndex("uq_runtime_commands_idem").on(t.idempotencyKey),
     index("idx_runtime_commands_claim").on(t.runtimeId, t.status, t.createdAt),
     index("idx_runtime_commands_workspace").on(t.workspaceId),
+    // A fourth index, `idx_runtime_commands_open`, is created by
+    // drizzle/policies/009_command_spine.sql. It is partial — `where status in
+    // ('pending','claimed')` — so it stays proportional to the work in flight
+    // rather than to every command ever dispatched, which is what the claim
+    // query actually needs. It lives there rather than here because the M1
+    // index above still exists and retiring it is a deliberate drizzle
+    // migration, not a side effect of adding the better one.
   ],
 );
 

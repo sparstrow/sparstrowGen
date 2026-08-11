@@ -138,6 +138,13 @@ export const runLaneSchema = z.enum(["foreground", "background"]);
 export type RunLane = z.infer<typeof runLaneSchema>;
 
 export const runCreateSchema = z.object({
+  /**
+   * M4: a cloud-dispatched run adopts the id the control plane generated, so
+   * one id identifies it end to end — which is what lets M5's run_events attach
+   * to the run the browser is already watching, with no translation on the hot
+   * path. Omitted for locally-created runs, which generate their own.
+   */
+  id: idSchema.optional(),
   agentId: idSchema,
   projectId: idSchema.nullable().optional(),
   prompt: z.string().min(1),

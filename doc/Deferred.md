@@ -142,3 +142,30 @@ app's): [`runbooks/oauth-providers.md`](runbooks/oauth-providers.md).
 
 **Unpark when:** the owner wants social sign-in, or a collaborator who would
 rather not manage another password is added to a workspace.
+
+---
+
+## D-9 — Agent and project definition sync
+
+**Parked:** 2026-08-10, while decomposing M4.
+
+The board is in Postgres and the runner reads local SQLite. Both sides have
+agents and projects, with **independent ids and no sync between them** — nothing
+in M1–M3 needed to cross, and M4 crosses by *linking*, not syncing: a cloud agent
+resolves to a local one **by slug**, recorded in a `cloud_links` table, and a
+miss becomes a legible `agent_not_available` block rather than an invented agent.
+
+What that leaves open, stated plainly: **the web UI can name an agent no machine
+has**, and an agent edited in the browser does not change what runs. The user
+creates the agent in both places, or dispatch blocks.
+
+Pulling the definition on claim looks like three lines and is not. It opens who
+wins when both sides edit, what happens to `mcpServers` paths and `cwd` values
+that exist on exactly one machine, what a locally-disabled but cloud-enabled
+agent means, and whether a machine may create board objects (M4 says no — the
+binding report skips unknown slugs for the same reason). That is a feature with
+its own conflict model, not a helper inside a dispatcher.
+
+**Unpark when:** creating an agent twice becomes routine friction rather than a
+one-time setup step — or before anyone who is not the owner uses the web UI to
+queue work, since they have no way to create the local half.

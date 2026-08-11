@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import type {
-  DaemonErrorReason,
-  DaemonErrorResponse,
-  RuntimeIdentity,
+import {
+  DAEMON_SETTABLE_KEYS,
+  type DaemonErrorReason,
+  type DaemonErrorResponse,
+  type RuntimeIdentity,
 } from "@sparstrow/shared";
 import type { DaemonAuthFailure } from "@web/lib/daemon/auth";
 
@@ -59,7 +60,22 @@ export function parseIdentity(body: unknown): RuntimeIdentity | null {
       : [],
     coreVersion:
       typeof b.coreVersion === "string" && b.coreVersion.trim() ? b.coreVersion.trim() : null,
+    // Allowlisted, like `POST /api/daemon/settings` does it. A machine may only
+    // report values for the keys it is allowed to be told to change; anything
+    // else is dropped rather than stored, because this column is rendered.
+    settings: pickSettableSettings(b.settings),
   };
+}
+
+function pickSettableSettings(raw: unknown): Record<string, string> | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const source = raw as Record<string, unknown>;
+  const picked: Record<string, string> = {};
+  for (const key of DAEMON_SETTABLE_KEYS) {
+    const value = source[key];
+    if (typeof value === "string") picked[key] = value;
+  }
+  return picked;
 }
 
 export async function readJson(request: Request): Promise<unknown> {
