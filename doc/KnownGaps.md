@@ -117,26 +117,16 @@ Magic-link sign-in and password reset both depend on this entirely.
   is configured. Procedure and the "Confirm email" interaction:
   [`runbooks/email-delivery.md`](runbooks/email-delivery.md).
 
-### G-4 — A concurrent run can start while a snapshot is being taken
-
-**Raised:** 2026-08-10 (WIP snapshots / OQ-1). Documented at the call site.
-
-`finalize()` releases the busy key before the snapshot runs. Handoff is
-explicitly chained *after* the snapshot, so the deterministic same-project
-successor is safe — but an unrelated scheduler tick could still start a run on
-that project mid-snapshot.
-
-Closing it means holding the busy key across a git operation, which stalls the
-queue for a backup. That trade was declined deliberately.
-
-- **If wrong:** a snapshot captures a tree that is half-way into being modified
-  by the next run. It is still strictly more than nothing was captured, which is
-  why this was accepted rather than solved.
-- **Clears when:** the busy key is held across the snapshot. **Owned by
-  [`tasks/M4/T-M4-06-run-status.md`](tasks/M4/T-M4-06-run-status.md)**, which
-  re-made the trade: dispatch makes concurrent same-project runs materially more
-  likely, and the hold costs one identity plus one concurrency slot for the
-  duration of bounded git plumbing.
+*`G-4` — a concurrent run starting while a snapshot is being taken — was **closed
+2026-08-10** by M4 (`T-M4-06`). `finalize()` now holds the busy key across the
+snapshot and releases it on every path, including the snapshot throwing. The
+trade the gap recorded as declined was re-made rather than ignored: dispatch
+makes concurrent same-project runs materially more likely, and the hold costs
+one agent+project identity plus one concurrency slot for the duration of bounded
+git plumbing. Proof:
+`packages/core/src/orchestrator/run-manager-finalize.test.ts` — five cases,
+including that a throwing snapshot still releases the key and still hands off,
+and that the snapshot precedes handoff.*
 
 ---
 

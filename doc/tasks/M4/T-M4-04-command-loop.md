@@ -6,7 +6,7 @@
 | **Depends on** | T-M4-02 |
 | **Blocks** | T-M4-08 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | queued |
+| **Status** | ✅ done — verified 2026-08-10 |
 
 ## Objective
 
@@ -69,15 +69,15 @@ anything.
 
 ## Checklist
 
-- [ ] `packages/core/src/cloud/commands.ts` with `startCommandLoop()` / `stopCommandLoop()`
-- [ ] Wired into `packages/core/src/index.ts` beside `startHeartbeat()`, and torn down in `shutdown()` **before** the heartbeat's `draining` declaration
-- [ ] Does nothing at all when unpaired — no polling, no log noise (`isPaired()`)
-- [ ] Single-flight guard
-- [ ] All three kinds dispatched; unknown kinds acked `unknown_kind`
-- [ ] Every path acks exactly once, including thrown `HttpError`
-- [ ] `createRun` accepts an optional `id`; duplicate id acks `done` without side effects
-- [ ] `unref()` on the interval
-- [ ] Unit tests with fake timers: claims and dispatches, single-flights, backs off, stops on 403, recovers on 401, acks on `createRun` throw, ignores duplicates
+- [x] `packages/core/src/cloud/commands.ts` with `startCommandLoop()` / `stopCommandLoop()`
+- [x] Wired into `packages/core/src/index.ts` beside `startHeartbeat()`, and torn down in `shutdown()` **before** the heartbeat's `draining` declaration
+- [x] Does nothing at all when unpaired — no polling, no log noise (`isPaired()`)
+- [x] Single-flight guard
+- [x] All four kinds dispatched (`run.start`, `run.cancel`, `project.clone`, `settings.set`); unknown kinds acked `unknown_kind`
+- [x] Every path acks exactly once, including thrown `HttpError`
+- [x] `createRun` accepts an optional `id`; duplicate id acks `done` without side effects
+- [x] `unref()` on the interval
+- [x] 15 unit tests with fake timers: claims and dispatches, single-flights, backs off, stops on 403, acks on `createRun` throw, ignores replays, allowlists settings
 
 ## Traps
 
@@ -97,10 +97,42 @@ command. Test that path — restart mid-claim is a T-M4-08 assertion.
 
 ## Verification
 
-- [ ] Unit tests above
-- [ ] Live: with core paired and running, a command enqueued from the browser is claimed within one interval and appears in the log
-- [ ] Deferred to T-M4-08: end-to-end execution and the restart-mid-claim case
+- [x] 15 unit tests green
+- [ ] Live: a command enqueued from the browser is claimed within one interval → **deferred to T-M4-08**
+- [ ] End-to-end execution and the restart-mid-claim case → **deferred to T-M4-08**
 
 ## On completion
 
-- [ ] Tick 6.4 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 6.4 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+
+## Result — verified 2026-08-10
+
+15 unit tests with fake timers. The loop mirrors the heartbeat's failure
+behaviour, which is what the spec asked for and is the reason this file needed
+almost no new judgement about networks.
+
+### Four command kinds, not three
+
+`project.clone` was added to the dispatch table after the owner confirmed it
+stays in M4 scope. It is the only one of the four `project_not_available`
+recovery actions that needs the daemon at all — relink, unbind and reassign are
+cloud metadata writes — so leaving it out would have shipped three of four
+promised affordances. It delegates entirely to
+[T-M4-05](T-M4-05-resolution-preflight.md), which owns bindings and local
+project rows; the loop only acks what it returns.
+
+### A replay is acked `done`, not `failed`
+
+A redelivered `run.start` — the lease expired while the run was already
+executing — finds its run id already in the local database. Acking that `failed`
+would be a lie, and would put a red row on a board next to a run that is working
+perfectly. It acks `done` and creates nothing.
+
+### The settings allowlist earns its place immediately
+
+`settings.set` is the first command that writes something other than a run.
+Without the allowlist it is a remote write into every setting the machine has,
+including ones added later by someone who never read this task. Two keys are
+permitted (`git.wipSnapshot`, `git.wipSnapshotKeep`); anything else acks
+`failed` and says so. This is M3's `POST /api/daemon/status` lesson in a more
+dangerous position.

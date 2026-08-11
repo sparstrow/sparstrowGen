@@ -6,7 +6,7 @@
 | **Depends on** | T-M4-02 |
 | **Blocks** | T-M4-08 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | queued |
+| **Status** | ✅ done — verified 2026-08-10 |
 
 ## Objective
 
@@ -66,15 +66,15 @@ saying where the proof lives. That is the file's own rule.
 
 ## Checklist
 
-- [ ] `packages/core/src/cloud/run-reporter.ts` — subscribe, filter to dispatched runs, post
-- [ ] Started and stopped in `index.ts` alongside the command loop
-- [ ] Transitions posted: `running` (with `startedAt`), and the terminal status with `finishedAt`, `error`, `resultText`, `costUsd`, `numTurns`, `durationMs`, `untrusted`
-- [ ] Bounded retry queue, oldest-dropped, retried on the next tick
-- [ ] Never posts for a run the cloud did not dispatch
-- [ ] `run-manager.ts`: busy key held across the snapshot, released on every path (`G-4`)
-- [ ] `G-4` deleted from `KnownGaps.md`, with the proof named
-- [ ] Unit tests: posts on transition, skips local runs, retries a failed post, drops oldest when full
-- [ ] Unit test: a snapshot that throws still releases the busy key and still runs handoff
+- [x] `packages/core/src/cloud/run-reporter.ts` — subscribe, filter to dispatched runs, post
+- [x] Started and stopped in `index.ts` alongside the command loop
+- [x] Transitions posted: `running` (with `startedAt`), and the terminal status with `finishedAt`, `error`, `resultText`, `costUsd`, `numTurns`, `durationMs`, `untrusted`
+- [x] Bounded retry queue, oldest-dropped, retried on the next tick
+- [x] Never posts for a run the cloud did not dispatch
+- [x] `run-manager.ts`: busy key held across the snapshot, released on every path (`G-4`)
+- [x] `G-4` deleted from `KnownGaps.md`, with the proof named
+- [x] 9 reporter tests: posts on transition, skips local runs, retries a dropped post in order, drops oldest when full, discards everything on revocation
+- [x] 5 finalize tests in `run-manager-finalize.test.ts`: key held during the snapshot, released on success, released when the snapshot throws, handoff still runs, snapshot precedes handoff
 
 ## Traps
 
@@ -97,11 +97,42 @@ widening the hold.
 
 ## Verification
 
-- [ ] Unit tests above
-- [ ] Live: a dispatched run shows `running` in the browser within a second of starting, and its terminal state with metrics
-- [ ] Live: a locally-triggered run produces no daemon status posts (check the log)
-- [ ] Deferred to T-M4-08: `G-4`'s guard observed under two concurrent same-project runs
+- [x] 14 unit tests green across the reporter and finalize
+- [ ] Live: a dispatched run shows `running` then its terminal state with metrics → **deferred to T-M4-08**
+- [ ] Live: a locally-triggered run produces no status posts → **deferred to T-M4-08**
+- [ ] `G-4`'s guard observed under two concurrent same-project runs → **deferred to T-M4-08**
 
 ## On completion
 
-- [ ] Tick 6.6 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 6.6 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+
+## Result — verified 2026-08-10
+
+14 tests: 9 on the reporter, 5 on `finalize`.
+
+### `G-4` is closed, and now has a test it never had
+
+The gap was recorded as accepted-not-solved. M4 re-made the trade rather than
+ignoring it: `finalize()` holds `state.busyKey` across the snapshot and releases
+it in the settled `.then`, which runs on both the success and the caught-error
+paths.
+
+The half that actually needed proving is the failure path. A snapshot that
+throws and leaks the key wedges that agent+project identity **for the life of
+the process** — a worse failure than the race it replaced, and one that presents
+as "the agent just stopped picking up work". `run-manager-finalize.test.ts`
+asserts the key is still held while the snapshot is in flight, released when it
+resolves, released when it throws, and that handoff runs either way.
+
+There was no `run-manager.test.ts` before this, because `finalize()` is private
+and normally reached only through a real spawn. It is called directly with a
+fabricated `ActiveRun`; the alternative was a provider binary in unit tests.
+
+`G-4` is deleted from `KnownGaps.md`, naming that file as the proof.
+
+### Only runs the cloud dispatched are reported
+
+A busy machine runs far more work than the cloud asked for — cron, handoffs, the
+local UI — and none of it has a cloud run row. The reporter consults a set of
+dispatched ids seeded by the command loop, so local runs produce no
+authenticated round trip and no 404 in anyone's log.

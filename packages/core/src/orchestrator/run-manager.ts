@@ -124,7 +124,9 @@ export class RunManager {
       const project = db.select().from(projects).where(eq(projects.id, input.projectId)).get();
       if (!project) throw new HttpError(404, `project not found: ${input.projectId}`);
     }
-    const id = `run_${nanoid(12)}`;
+    // M4: a dispatched run carries the id the control plane already gave the
+    // browser. Locally-created runs mint their own, as they always have.
+    const id = input.id ?? `run_${nanoid(12)}`;
     const row: typeof runs.$inferInsert = {
       id,
       agentId: input.agentId,
@@ -611,7 +613,6 @@ export class RunManager {
       .run();
 
     this.active.delete(runId);
-    this.busyAgents.delete(state.busyKey);
 
     const run = this.getRun(runId)!;
     bus.publish({ type: "run.completed", run });
@@ -622,10 +623,20 @@ export class RunManager {
     // alongside, because handoff's whole job is to spawn the follow-up run —
     // which edits this same working tree. Snapshot first, then hand off.
     //
-    // Residual, and deliberately not solved here: the busy key is already
-    // released above, so an unrelated scheduler tick could still start a run on
-    // this project during the snapshot. Closing that means holding the key
-    // across a git operation, which would stall the queue for a backup.
+    // G-4, closed in M4: the busy key is held ACROSS the snapshot rather than
+    // released above with `active`. Previously an unrelated scheduler tick
+    // could start a run on this project mid-snapshot, and that was accepted
+    // because holding the key "stalls the queue for a backup". M4 changed both
+    // sides of that trade — dispatch makes concurrent same-project runs
+    // materially more likely, since the board can now queue several at once
+    // from a browser, and the cost is smaller than it looked: the key is
+    // busyKey(agentId, projectId), so this blocks that one identity plus one
+    // global slot, for bounded git plumbing on a tree already in the page
+    // cache.
+    //
+    // Released in the final `.then`, which runs on both the success and the
+    // caught-error paths — a snapshot that throws must not leak the key and
+    // wedge that identity for the life of the process.
     void import("../projects/wip-snapshot.js")
       .then(({ snapshotWorkingTree }) =>
         snapshotWorkingTree({
@@ -636,11 +647,20 @@ export class RunManager {
         }),
       )
       .catch((err) => logger.warn({ err, runId }, "wip snapshot errored"))
+      .then(() => {
+        this.busyAgents.delete(state.busyKey);
+        queueMicrotask(() => this.tick());
+      })
       // Handoff must run whether or not the snapshot did — a failed backup is
       // not a reason to strand a task.
       .then(() => import("./handoff.js"))
       .then(({ processRunCompletion }) => processRunCompletion(run))
-      .catch((err) => logger.warn({ err, runId }, "run completion processing failed"));
+      .catch((err) => {
+        // Belt and braces: if anything above threw before the release, the key
+        // would otherwise be held forever.
+        this.busyAgents.delete(state.busyKey);
+        logger.warn({ err, runId }, "run completion processing failed");
+      });
 
     // Pick up any memory notes the agent wrote directly into the vault.
     try {

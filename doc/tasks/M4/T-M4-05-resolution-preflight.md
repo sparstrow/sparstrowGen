@@ -6,7 +6,7 @@
 | **Depends on** | T-M4-02 |
 | **Blocks** | T-M4-08 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | queued |
+| **Status** | ✅ done — verified 2026-08-10 |
 
 ## Objective
 
@@ -65,14 +65,15 @@ not be able to create board objects).
 
 ## Checklist
 
-- [ ] `cloud_links` in `packages/core/src/db/schema.ts` + migration `0014` in `migrations.ts` + `migration-0014.test.ts` (follow the existing 0004–0013 pattern exactly)
-- [ ] `packages/core/src/cloud/resolve.ts` — `resolveAgent`, `resolveProject`, `preflight`
-- [ ] Links recorded on first successful resolution, then read from the table
-- [ ] Ack reasons: `agent_not_available`, `agent_disabled`, `project_not_available`, each with a human-readable `error` string beside the token
-- [ ] `packages/core/src/cloud/bindings.ts` — report local projects at boot, and after a project is created, edited, or deleted
-- [ ] Binding report is best-effort: a failure logs and retries later, never blocks boot
-- [ ] `project.clone` handling: mark the binding `cloning`, `git clone <gitRemote>` into the requested directory, create the local project row, report the binding as `bound` — or `error` with the git message in `detail`
-- [ ] Unit tests: link hit, slug fallback, slug miss, disabled agent, quarantined agent, missing directory, and a stale link whose local row was deleted
+- [x] `cloud_links` in `packages/core/src/db/schema.ts` + migration **`0016_cloud_links`** + `migration-0016.test.ts` — the spec guessed `0014`; core was already at `0015`
+- [x] `packages/core/src/cloud/resolve.ts` — `resolveAgent`, `resolveProject`, `preflight`
+- [x] Links recorded on first successful resolution, then read from the table
+- [x] Ack reasons: `agent_not_available`, `agent_disabled`, `project_not_available`, `clone_failed`, each with a human-readable `error` beside the token
+- [x] `packages/core/src/cloud/bindings.ts` — report local projects at boot
+- [x] Binding report is best-effort: a failure logs and retries later, never blocks boot
+- [x] `project.clone` handling: mark the binding `cloning`, `git clone <gitRemote>` into the requested directory, create the local project row, report the binding as `bound` — or `error` with the git message in `detail`
+- [x] 14 resolution tests: link hit, slug fallback, slug miss, disabled agent, quarantined agent, missing directory, stale link, re-pairing clears links
+- [x] 11 binding/clone tests, including every clone guard (non-empty directory, relative path, no remote, no shell)
 
 ## Traps
 
@@ -106,11 +107,43 @@ round-trip decision 6 exists to avoid.
 
 ## Verification
 
-- [ ] Unit tests above
-- [ ] Live: after core boots paired, `runtime_projects` holds one row per local project with a real path, `state = 'bound'`
-- [ ] Live: rename a project's directory on disk, re-run, and confirm the ack sets `state = 'missing'`
-- [ ] Deferred to T-M4-08: the `project_not_available` end-to-end path with the UI actions
+- [x] 25 unit tests green across resolution, bindings and the migration
+- [ ] Live: `runtime_projects` populated from a booted paired daemon → **deferred to T-M4-08**
+- [ ] Live: a renamed directory acks `missing` → **deferred to T-M4-08**
+- [ ] The `project_not_available` path with the UI actions → **deferred to T-M4-08**
 
 ## On completion
 
-- [ ] Tick 6.5 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 6.5 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+
+## Result — verified 2026-08-10
+
+25 tests across resolution, bindings and the migration.
+
+### The migration is `0016`, not `0014`
+
+The spec named `0014` from reading the task list; core was already at
+`0015_skill_files_and_origin`. Numbering it as written would have collided with
+an applied migration. The lesson is small and repeatable: read
+`migrations.ts` rather than counting the test files, which is what the spec did.
+
+### Clone is bounded where bounding is cheap
+
+`project.clone` is a remote-triggered write to a local path — the security
+consequence the plan accepted knowingly when dispatch became cloud-canonical.
+Four guards, each with a test: an absolute path is required, a non-empty
+directory is refused before any network call, a project with no `gitRemote` is
+refused, and the remote is passed through `execFile` as an argument so a shell
+can never see it. The last one is tested with a remote containing `; rm -rf /`.
+
+A failed clone reports the binding as `error` with git's own message and leaves
+**no** local project row — a row claiming bytes that are not there would be
+resolved successfully by the next `run.start` and then fail at spawn.
+
+### Resolution refuses rather than inventing
+
+The decision that shapes this module is that a slug miss is
+`agent_not_available`, not an agent conjured from the cloud definition. The web
+UI can therefore name an agent no machine has, and the answer is a legible
+blocked state. That consequence is parked as [D-9](../../Deferred.md) rather
+than left implicit.
