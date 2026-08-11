@@ -172,24 +172,27 @@ works today and carries the session-refresh and API-401 behaviour that M2 fixed.
 
 ## Documentation drift
 
-### G-9 — The in-app limitations page predates the cloud control plane
+*`G-9` — the in-app knowledge center predating the cloud control plane — was **closed
+2026-08-10**. Seven articles were corrected against post-M3 reality and `AGENTS.md`
+§3.2 was strengthened, because the rule requiring a Knowledge Center update already
+existed and was followed; what it did not cover was a change **falsifying pages it
+never opened**. That check is now explicit, and phase completion asserts it.*
 
-**Found:** 2026-08-10, while writing this file.
+### G-10 — Platform quota figures were published without a source
 
-`packages/ui/src/content/knowledge/limitations.md` is **user-facing** and was last
-updated 2026-07-13, before M1–M3. At least three statements are now wrong:
+**Raised:** 2026-08-10, while closing `G-9`.
 
-- "**One user, one machine.** The core binds to `127.0.0.1` only. No accounts, no
-  remote access, no multi-user story" — the app now has accounts, a login screen,
-  workspaces, and machine pairing.
-- It points readers to `docs/deferred/`, "one file per item". The real path is
-  `doc/Deferred.md`, a single file.
-- It suggests GitHub/Google OAuth as a workaround for email rate limits. Both
-  providers are disabled and deferred (`D-8`), so that advice cannot be followed.
+`providers-and-execution-modes.md` carried three precise-sounding limits — 30 auth
+requests/minute/IP, 15 pooled connections, 200 concurrent Realtime sockets — with
+nothing behind them. They may well be correct; there is no evidence either way, and
+they were written as fact.
 
-- **If wrong:** users are told the product cannot do things it now does, in the
-  page whose stated purpose is to be "the honest list". That is worse than having
-  no page.
-- **Clears when:** the page is rewritten against the post-M3 reality. Deliberately
-  **not** done as a side-effect of the snapshot work — it is user-facing copy and
-  deserves its own change, not a drive-by edit buried in a feature commit.
+They have been replaced with "these come from the hosting plan, read them from the
+dashboard", which is true and useful. That is a correct answer, not a complete one.
+
+- **If wrong:** someone plans capacity against an invented number. Low harm, but it
+  is the same class of error as the `pgvector` claim removed alongside it — a
+  confident sentence nobody checked.
+- **Clears when:** the real quotas are read off the Supabase dashboard for the
+  current plan and written down with that provenance. Cheap; worth doing next time
+  the dashboard is open anyway.

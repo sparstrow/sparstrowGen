@@ -83,8 +83,16 @@ We enforce a strict 3-tier Git & deployment pipeline:
 1. **Obey Explicit Directives**:
    - Maintain documentation integrity. Do NOT delete comments or docstrings unrelated to your changes.
 2. **In-App Knowledge Center Synchronization**:
-   - The app features a built-in user Knowledge Center (`src/content/knowledge/*.md`).
+   - The app features a built-in user Knowledge Center (`packages/ui/src/content/knowledge/*.md`). It is **user-facing product surface**, not internal notes — treat a wrong article as a user-visible defect, because that is what it is.
    - When adding a new feature or modifying user-facing functionality, agents MUST update or add the matching Knowledge Center markdown article in the **same PR** as the code changes.
+   - **Also check the articles you did NOT touch.** This is the rule that actually gets missed. A feature can make a page false without going near it — M1–M3 shipped accounts, sign-in, and machine pairing while `what-is-sparstrowgen.md`, `first-run-setup.md`, and `limitations.md` all still told users "one user, one machine, no accounts, no remote access". Four pages carry **global claims** and must be re-read whenever the product's shape changes:
+     - `what-is-sparstrowgen.md` — the mental model and architecture diagram
+     - `first-run-setup.md` — what a new user is told the app is
+     - `limitations.md` — the honest list of what it deliberately does not do
+     - `providers-and-execution-modes.md` — auth, sync, and provider reality
+   - **Never document what is not built or not enabled.** A deferred or disabled feature is described as unavailable, or not at all. Documenting an intended state as a current one is worse than silence: it sends users to a button that fails. Check `doc/Deferred.md` and `doc/KnownGaps.md` before writing a capability sentence.
+   - **Drift runs in both directions.** Understating (the app can do more than the page says) frustrates; **overstating is the dangerous one** — a page once claimed `pgvector` HNSW semantic search over `memory_notes`, a column that had been deliberately removed. Verify a capability in the code or schema before describing it, exactly as rule 3 requires for code.
+   - Bump each edited article's `updated:` frontmatter date when its content meaningfully changes; that date is shown to users as a freshness signal, so leaving it stale is its own small lie.
    - **Standard Section Requirement:** Every Knowledge Center article MUST include a dedicated `## Known Limitations & Boundaries` section explicitly stating performance limits, resource boundaries, and operational constraints.
 3. **Never Guess Code Logic or File Paths**:
    - Inspect authoritative files using code search or `view_file` before writing code.

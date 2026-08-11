@@ -94,6 +94,10 @@ where the open item is explicitly non-blocking for the plan, as M2's OQ-1 is):
    [`../KnownGaps.md`](../KnownGaps.md).** A phase cannot be reported done while
    an unproved claim inside it exists only in someone's memory. Writing the gap
    down is what makes "done" mean the same thing across phases.
+7. **The in-app Knowledge Center matches the product the phase just shipped.**
+   Re-read the four global-claim pages named in `AGENTS.md` §3.2 — a phase can
+   falsify a page it never opened. M1–M3 each passed their own verification while
+   leaving users told the app had no accounts and no remote access.
 
 A plan is genuinely closed only when every phase reads done and its `Open
 questions` header line is empty or points only to non-blocking entries.
