@@ -18,6 +18,21 @@ export const taskStatusSchema = z.enum([
   "blocked_answered",
   "pending_approval",
   "waiting_children",
+  /**
+   * M4, cloud-only: the machine this work was aimed at has no `runtime_projects`
+   * binding for the task's project, or the directory it named is gone.
+   *
+   * NOT a failure — the task still needs doing and nothing about it is wrong.
+   * The UI offers relink, clone from `gitRemote`, unbind, or reassign to a
+   * machine that has it. A local SQLite task never carries this: a daemon
+   * running its own work has the project by definition.
+   *
+   * The cloud schema documented this vocabulary from M1 and the enum was never
+   * widened to match, so T-M4-03 was writing a status the type system did not
+   * admit and the board had no column for — the task became invisible rather
+   * than actionable.
+   */
+  "project_not_available",
 ]);
 export type TaskStatus = z.infer<typeof taskStatusSchema>;
 
@@ -55,6 +70,16 @@ export const taskSchema = z.object({
   priority: z.number().int().min(0).max(3).default(1),
   runId: idSchema.nullable().default(null),
   result: z.string().nullable().default(null),
+  /**
+   * M4 — which machine should execute this. Null means any capable online
+   * runtime; a set value is obeyed exactly and never substituted, because a
+   * user who pinned work to their desktop did so for a reason.
+   *
+   * Cloud-only in practice: the column lives on the control-plane `tasks`
+   * table, and a local SQLite task has nowhere to target. It is optional here
+   * so a local row parses unchanged.
+   */
+  targetRuntimeId: idSchema.nullable().default(null).optional(),
   /**
    * The self-contained wake note assembled for the next run when a blocked task
    * is answered (buildWakePrompt output). Distinct from runs.injected_context

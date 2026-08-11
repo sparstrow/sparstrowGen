@@ -3,7 +3,7 @@ title: Settings
 section: Surfaces
 description: Providers and keys, factory health, paired machines, snapshots, GitHub PAT, the code-graph engine, and app configuration.
 order: 13
-updated: 2026-08-10
+updated: 2026-08-11
 ---
 
 Settings is the factory's engine room. The cards that matter:
@@ -93,6 +93,9 @@ extraction — also live here.
 - **Revoking a machine is immediate but not retroactive** — it stops the next request,
   it doesn't undo work already done.
 - **Snapshot settings are per machine.** Changing them on one computer does not change
-  them on another, and they aren't editable from the browser.
+  them on another. They are editable from the browser in Settings → Machines, one
+  machine at a time — and only while that machine is online, since the change is
+  carried to it rather than stored centrally. The switch shows what the machine last
+  confirmed, so it never reports a change that did not land.
 - **Snapshots only cover git repositories.** A project folder that isn't a repo has
   nothing to snapshot into, and is skipped silently.

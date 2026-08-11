@@ -1,0 +1,1 @@
+ALTER TABLE "runtimes" ADD COLUMN "reported_settings" jsonb DEFAULT '{}'::jsonb NOT NULL;

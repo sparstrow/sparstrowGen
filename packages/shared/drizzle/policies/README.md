@@ -120,9 +120,44 @@ policies/005_harden_legacy_functions.sql
 policies/006_agent_skill_assignments_rpc.sql
 policies/007_delete_own_account.sql
 policies/008_redeem_pairing_code.sql   M3 — pairing code → runtime + token
+policies/009_command_spine.sql         M4 — start/cancel a run, claim/ack commands
 ```
 
-003–008 all exist for the same underlying reason: **PostgREST cannot span
+**No `psql` on Windows.** The commands at the top of this file assume it is
+installed; on the factory box it is not. `scripts/apply-sql.mjs` applies any one
+of these files over `DATABASE_URL` using the `postgres` package that is already
+a dependency:
+
+```bash
+node scripts/apply-sql.mjs packages/shared/drizzle/policies/009_command_spine.sql
+```
+
+**009 splits along who may call it**, and that line matters more than anything
+else in the file. `start_run` and `cancel_run` run with the *user's* session and
+check membership internally, so they are granted to `authenticated` exactly like
+004 and 007. `claim_runtime_commands` and `ack_runtime_command` take a **runtime
+id as an argument** and therefore trust their caller completely — the thing
+establishing that the caller *is* that machine is the bearer-token check in
+`/api/daemon/*`, which happens outside the database. Granted to `authenticated`,
+either one would let any signed-in user drain or close another machine's queue
+by naming its id. Verified after applying, the same way 008 is:
+
+```sql
+select proname,
+       has_function_privilege('anon', oid, 'EXECUTE') as anon,
+       has_function_privilege('authenticated', oid, 'EXECUTE') as auth
+from pg_proc
+where proname in ('claim_runtime_commands', 'ack_runtime_command');  -- must be f, f
+```
+
+`bash`-free verification for the whole file lives in
+`verify-command-spine.mjs`, which stands up a throwaway container exactly as
+`verify-rls.sh` does — never your Supabase project — and proves the parts that
+only misbehave under concurrency: that two claimers get disjoint rows, that an
+expired lease is reclaimed exactly once, and that a poison command stops being
+dispatched.
+
+003–009 all exist for the same underlying reason: **PostgREST cannot span
 statements.** Any invariant that needs more than one statement to hold has to
 live in the database, or it will be violated the first time a request fails
 halfway or two requests race. 004, 006, 007 and 008 are that lesson applied

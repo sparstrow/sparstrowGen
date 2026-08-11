@@ -638,4 +638,37 @@ CREATE TABLE skill_files (
 );
 `,
   },
+  {
+    // M4 — the bridge between cloud ids and local ones.
+    //
+    // The board is Postgres and the runner reads this database. Both sides have
+    // agents and projects, with independent ids and no sync between them, and
+    // nothing before M4 needed to cross.
+    //
+    // A link table rather than adopting the cloud's ids: rewriting a local
+    // agent's primary key would break runs.agent_id and tasks.assigned_agent_id,
+    // and inserting a second agent row carrying the cloud id violates the UNIQUE
+    // on slug. Runs are the opposite case and DO adopt the cloud id — they are
+    // new rows with nothing to collide with, which is what lets M5 attach events
+    // to the same id the browser is already watching.
+    //
+    // No workspace column, deliberately. A daemon token is scoped to exactly one
+    // workspace, and re-pairing to a different one clears these links rather
+    // than accumulating two sets that look interchangeable.
+    id: "0016_cloud_links",
+    sql: `
+CREATE TABLE cloud_links (
+  kind TEXT NOT NULL,
+  cloud_id TEXT NOT NULL,
+  local_id TEXT NOT NULL,
+  linked_at TEXT NOT NULL,
+  PRIMARY KEY (kind, cloud_id)
+);
+
+-- One local row cannot be two cloud rows: without this, two cloud agents whose
+-- slugs both resolved to the same local agent would each look correctly linked
+-- while dispatch silently ran the wrong one.
+CREATE UNIQUE INDEX uq_cloud_links_local ON cloud_links(kind, local_id);
+`,
+  },
 ];

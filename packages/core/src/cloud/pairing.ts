@@ -1,6 +1,8 @@
 import type { PairResponse } from "@sparstrow/shared";
-import { cloudFetch, savePairing } from "./client.js";
+import { logger } from "../logger.js";
+import { cloudFetch, getWorkspaceId, savePairing } from "./client.js";
 import { describeMachine } from "./registration.js";
+import { clearCloudLinks } from "./resolve.js";
 
 /**
  * M3 — exchange a pairing code for a daemon token and persist it.
@@ -64,6 +66,26 @@ export async function pairWithCode(code: string, name?: string | null): Promise<
 
   if (!response?.token || !response.runtimeId || !response.workspaceId) {
     throw new PairError("server_error", MESSAGES.server_error);
+  }
+
+  // M4: cloud ids only mean anything within one workspace. Pairing to a
+  // different one makes every existing link a statement about ids that no
+  // longer exist here, and a stale link resolves silently to the wrong local
+  // agent — dispatch would run something nobody asked for. Cleared before the
+  // new pairing is saved, so a crash in between leaves no links rather than
+  // wrong ones.
+  //
+  // Best-effort: pairing must work on a machine whose database has never been
+  // opened (`sparstrow pair` runs with core stopped, which is the normal
+  // first-run state), and failing to clear an empty table must not fail pairing.
+  const previousWorkspaceId = getWorkspaceId();
+  if (previousWorkspaceId && previousWorkspaceId !== response.workspaceId) {
+    try {
+      clearCloudLinks();
+      logger.info("paired to a different workspace — cleared cloud id links");
+    } catch (err) {
+      logger.debug({ err }, "could not clear cloud links while re-pairing");
+    }
   }
 
   savePairing({

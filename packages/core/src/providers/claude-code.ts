@@ -123,6 +123,20 @@ export class ClaudeCodeProvider implements CliProvider {
     }
   }
 
+  /**
+   * The message a person should see for a failed run.
+   *
+   * NOT `subtype`. That field describes the SHAPE of the final turn —
+   * "success", "error_max_turns", "error_during_execution" — and the CLI
+   * routinely sets `is_error: true` alongside `subtype: "success"` when the
+   * turn completed normally but its content is an error. Reading it as the
+   * error produced the memorable nonsense of a failed run whose error column
+   * said "success", found during M4 verification against an expired token.
+   *
+   * `result` carries the actual text ("Failed to authenticate. API Error:
+   * 401 …"), so prefer it, and fall back to `subtype` only when it says
+   * something a reader can use.
+   */
   extractResult(events: NormalizedEvent[]): RunResult {
     let resultEvent: Record<string, unknown> | null = null;
     for (let i = events.length - 1; i >= 0; i--) {
@@ -143,11 +157,7 @@ export class ClaudeCodeProvider implements CliProvider {
         numTurns: typeof resultEvent.num_turns === "number" ? resultEvent.num_turns : null,
         sessionId: typeof resultEvent.session_id === "string" ? resultEvent.session_id : null,
         isError,
-        errorMessage: isError
-          ? typeof resultEvent.subtype === "string"
-            ? resultEvent.subtype
-            : "unknown error"
-          : undefined,
+        errorMessage: isError ? errorMessageFrom(resultEvent) : undefined,
       };
     }
     return {
@@ -188,6 +198,19 @@ export class ClaudeCodeProvider implements CliProvider {
       );
     });
   }
+}
+
+/** See the note on `extractResult`. Exported for its test. */
+export function errorMessageFrom(resultEvent: Record<string, unknown>): string {
+  const result = typeof resultEvent.result === "string" ? resultEvent.result.trim() : "";
+  if (result) return result;
+
+  const subtype = typeof resultEvent.subtype === "string" ? resultEvent.subtype.trim() : "";
+  // "success" as an error message is worse than saying nothing specific: it
+  // sends the reader looking for a run that worked.
+  if (subtype && subtype !== "success") return subtype;
+
+  return "unknown error";
 }
 
 function lastAssistantText(events: NormalizedEvent[]): string | null {

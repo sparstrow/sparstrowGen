@@ -1,9 +1,29 @@
 import { registerRoute, ok, fail, noContent, HandlerContext } from "../router";
 import { OPAQUE_COLUMNS } from "../../case";
+import { enqueueFailureFrom } from "../enqueue";
+import type { EnqueueFailureReason } from "@sparstrow/shared";
 
 function generateId(prefix: string) {
   return `${prefix}${crypto.randomUUID().replace(/-/g, "")}`;
 }
+
+/**
+ * Which dispatch failures park a task rather than erroring, and where.
+ *
+ * Only the ones a user can act on from the board. `project_not_available` is
+ * the status the four recovery actions hang off; `no_runtime_available` goes
+ * back to `todo`, because "every machine is off right now" is a statement about
+ * this moment, not about the task — parking it under a project-shaped status
+ * would send the user hunting for a project problem that does not exist.
+ *
+ * Anything absent from this map is returned as an HTTP error: a disabled agent
+ * or a missing one is a configuration mistake, and quietly parking it would
+ * hide the mistake behind a status that blames the machines.
+ */
+const TASK_PARK_STATUS: Partial<Record<EnqueueFailureReason, string>> = {
+  project_not_available: "project_not_available",
+  no_runtime_available: "todo",
+};
 
 registerRoute({
   method: "GET",
@@ -270,5 +290,84 @@ registerRoute({
     queue.sort((a, b) => b.ageMs - a.ageMs);
 
     return ok(queue);
+  }
+});
+
+/**
+ * M4. (Re)spawn a task's assignee on the machine that can run it.
+ *
+ * Where this deliberately differs from `POST /runs`: a run is an ACTION, and a
+ * failed action is an error the user sees immediately. A task is a durable
+ * board object, and refusing to place it right now says nothing about whether
+ * it still needs doing. So a task that cannot be dispatched is PARKED, with the
+ * reason on the row, and the response is 200 with the updated task.
+ *
+ * That is the plan's rule stated exactly: work targeted at a machine that does
+ * not have the project must land in `project_not_available` with relink /
+ * clone / unbind / reassign offered — not fail.
+ */
+registerRoute({
+  method: "POST",
+  pattern: "/tasks/:id/run",
+  opaqueKeys: OPAQUE_COLUMNS.tasks as string[],
+  handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
+    const { data: task, error: readError } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .eq("id", params.id)
+      .single();
+
+    if (readError || !task) return fail(404, "Not Found");
+
+    if (!task.assigned_agent_id) {
+      // Not parked: this one is genuinely the caller's mistake, and parking it
+      // would hide an unassigned task behind a status that suggests a machine
+      // problem.
+      return fail(400, "This task has no assigned agent.", "no_agent_assigned");
+    }
+
+    const { data, error } = await supabase.rpc("start_run", {
+      p_agent_id: task.assigned_agent_id,
+      p_prompt: task.description?.trim() || task.title,
+      p_project_id: task.project_id ?? null,
+      p_task_id: task.id,
+      p_target_runtime_id: task.target_runtime_id ?? null,
+      p_trigger: "task",
+      p_trigger_ref: task.id,
+      p_lane: "foreground",
+    });
+
+    if (error) {
+      const failure = enqueueFailureFrom(error);
+      if (!failure) throw error;
+
+      const parkedStatus = TASK_PARK_STATUS[failure.reason];
+      if (!parkedStatus) return fail(failure.status, failure.message, failure.reason);
+
+      const { data: parked, error: parkError } = await supabase
+        .from("tasks")
+        .update({ status: parkedStatus, result: failure.message })
+        .eq("workspace_id", workspaceId)
+        .eq("id", task.id)
+        .select()
+        .single();
+      if (parkError) throw parkError;
+
+      return ok(parked, OPAQUE_COLUMNS.tasks as string[]);
+    }
+
+    // start_run already moved the task to in_progress and stamped run_id, in
+    // the same transaction as the run and the command. Re-read rather than
+    // returning the stale copy this handler started with.
+    const { data: updated } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .eq("id", task.id)
+      .single();
+
+    return ok(updated ?? { ...task, run_id: (data as { id?: string } | null)?.id ?? null },
+      OPAQUE_COLUMNS.tasks as string[]);
   }
 });
