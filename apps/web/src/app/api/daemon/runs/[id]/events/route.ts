@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { RunEventBatchResponse } from "@sparstrow/shared";
 import { authenticateDaemon, daemonDb } from "@web/lib/daemon/auth";
+import { broadcastRunEvents } from "@web/lib/daemon/broadcast";
 import { authFailureResponse, daemonError, readJson } from "@web/lib/daemon/respond";
 import {
   MAX_BATCH_BYTES,
@@ -120,6 +121,18 @@ export async function POST(request: Request, { params }: RouteContext) {
   }
 
   const stored = data?.length ?? 0;
+
+  // Live delta, AFTER the durable write and never before. If this half fails
+  // the request still succeeds: the rows are committed, and the client's `seq`
+  // merge plus its refetch cover a missed message. Failing here would make the
+  // daemon resend a batch it has already stored.
+  //
+  // The topic is built from the token's workspace, so a runtime cannot
+  // broadcast into another workspace's channel even in principle.
+  //
+  // Awaited rather than fire-and-forget: this is a serverless function, and
+  // work left running after the response is not guaranteed to finish.
+  await broadcastRunEvents(auth.scope.workspaceId, id, parsed.events);
 
   // Everything in the batch is durable now — the ones this request inserted and
   // the ones a previous attempt already had. `storedThroughSeq` is therefore the

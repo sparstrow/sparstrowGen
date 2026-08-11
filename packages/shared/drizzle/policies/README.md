@@ -121,7 +121,21 @@ policies/006_agent_skill_assignments_rpc.sql
 policies/007_delete_own_account.sql
 policies/008_redeem_pairing_code.sql   M3 — pairing code → runtime + token
 policies/009_command_spine.sql         M4 — start/cancel a run, claim/ack commands
+policies/010_transcript_broadcast.sql  M5 — who may subscribe to a run's transcript
 ```
+
+**010 is the first policy on a table this project does not own.**
+`realtime.messages` belongs to `supabase_realtime_admin`, and `postgres` is not
+a member of it. `create policy` works anyway; `alter table … enable row level
+security` does not, which is why 010 *asserts* RLS is on rather than turning it
+on. Supabase enables it by default — if that assertion ever fires, every private
+channel is world-readable and the policy is decoration, so it raises rather than
+proceeding.
+
+It also has no `insert` policy, deliberately. Only the service role sends on
+these topics, and a client able to write to a transcript channel could forge
+agent output that the browser merges indistinguishably with real events. An
+INSERT policy on `realtime.messages` is a finding, not a feature.
 
 **No `psql` on Windows.** The commands at the top of this file assume it is
 installed; on the factory box it is not. `scripts/apply-sql.mjs` applies any one
