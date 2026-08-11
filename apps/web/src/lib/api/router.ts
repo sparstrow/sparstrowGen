@@ -107,8 +107,15 @@ export function noContent() {
   return new NextResponse(null, { status: 204 });
 }
 
-export function fail(status: number, message: string) {
-  return NextResponse.json({ error: message }, { status });
+/**
+ * `reason` is a stable token the UI switches on; `message` is prose for a
+ * human. M4 needs the distinction: "no machine is online" and "this machine
+ * doesn't have that project" lead to completely different offers in the UI, and
+ * matching on message text breaks the first time someone improves the wording.
+ * This is the same rule /api/daemon/* has had since M3.
+ */
+export function fail(status: number, message: string, reason?: string) {
+  return NextResponse.json(reason ? { error: message, reason } : { error: message }, { status });
 }
 
 export function parseBody(rawBody: any, opaqueKeys?: string[]) {

@@ -59,6 +59,7 @@ expected — the daemon's next binding report corrects it, and the row reads
 
 ## Checklist
 
+- [ ] `packages/ui/src/lib/api.ts` — `ApiError` carries `reason` from the response body. T-M4-03 made every enqueue failure send one; nothing can read it yet, and without this the UI has to match on prose to decide which action to offer
 - [ ] Blocked-task affordance: reassign / relink / clone / unbind, in that order, naming the runtime
 - [ ] Reassign hidden when no other runtime is bound to that project; clone hidden when `projects.gitRemote` is null
 - [ ] The five routes above, with reason tokens shared from `@sparstrow/shared`
