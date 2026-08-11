@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Approved 2026-08-09 · M1 complete · M2 complete · auth hardening complete 2026-08-10 · M3 complete 2026-08-10 · M4 next |
 | **Supersedes** | The "Phase 4: Multi-Agent Swarm Orchestrator & Live Transcripts" proposal |
-| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–4 done · band 5 = M3, decomposed 2026-08-10) · `doc/tasks/M2/` · `doc/tasks/M3/` |
+| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–5 done · band 6 = M4, decomposed 2026-08-10) · `doc/tasks/M2/` · `doc/tasks/M3/` · `doc/tasks/M4/` |
 | **Open questions** | None. OQ-1 (uncommitted work) answered **and built** 2026-08-10 — see settled decision 5. OQ-2 answered and closed 2026-08-10. |
 
 > **Why the original Phase 4 proposal was replaced.** It described three features
@@ -259,6 +259,20 @@ Realtime subscriptions stay direct from the browser as they are today in
 
 ### M4 — Command spine
 `packages/core/src/cloud/commands.ts`, `packages/core/src/orchestrator/run-manager.ts`
+
+> **Decomposed 2026-08-10 into 8 tasks — `doc/tasks/M4/`.** Three things the
+> original bullets did not anticipate, each argued in that phase spec:
+>
+> - **The doorbell is deferred to M5.** M4 ships the 3s poll only. The daemon
+>   still cannot authenticate to Realtime (M3 decision 6), the poll is mandatory
+>   regardless because the doorbell is at-most-once, and M5 has to solve daemon
+>   Realtime auth anyway to broadcast transcript deltas.
+> - **Cloud and local ids do not match, and nothing bridged them.** Runs adopt
+>   the cloud id; agents and projects are *linked* by slug in a local table.
+>   Syncing definitions is a separate feature, parked as `D-9`.
+> - **Run status reporting is in scope.** Not in the bullets, but without the run
+>   row transitioning in the cloud there is nothing to verify against, and
+>   transcripts (M5) are explicitly not the proof.
 
 - Realtime subscribe + 3s poll fallback; claim by row with lease and ack.
 - Dispatch to the existing `runManager.createRun()` — the runner itself does not

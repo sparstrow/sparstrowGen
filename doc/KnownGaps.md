@@ -89,9 +89,10 @@ calls it with the right `rootDir`, on every terminal status".
   it is when work is lost — precisely the scenario it was built to prevent. This
   is a failure that hides successfully.
 - **Clears when:** a real run against a project with a dirty tree produces a
-  `refs/sparstrow/wip/<run-id>` ref. **M4 is the natural place** — it is the
-  first phase that dispatches real work, and its verification task should assert
-  this rather than treat it as incidental.
+  `refs/sparstrow/wip/<run-id>` ref. **Owned by
+  [`tasks/M4/T-M4-08-verification.md`](tasks/M4/T-M4-08-verification.md) §B**,
+  where it is an assertion with a dirty tree as a setup precondition — not an
+  observation made in passing.
 
 ### G-11 — Supabase has never been observed delivering an email
 
@@ -131,8 +132,11 @@ queue for a backup. That trade was declined deliberately.
 - **If wrong:** a snapshot captures a tree that is half-way into being modified
   by the next run. It is still strictly more than nothing was captured, which is
   why this was accepted rather than solved.
-- **Clears when:** M4's lease model makes a cheap project-level guard available.
-  Revisit then; do not add locking for this alone.
+- **Clears when:** the busy key is held across the snapshot. **Owned by
+  [`tasks/M4/T-M4-06-run-status.md`](tasks/M4/T-M4-06-run-status.md)**, which
+  re-made the trade: dispatch makes concurrent same-project runs materially more
+  likely, and the hold costs one identity plus one concurrency slot for the
+  duration of bounded git plumbing.
 
 ---
 
@@ -165,9 +169,12 @@ machine's disk. `apps/web` has no `/system/settings` route at all, so a card
 rendered there would flip and then silently fail to reach the daemon it claims
 to configure. It is hidden in the hosted app rather than shown broken.
 
-- **Clears when:** M4's command spine can carry a setting to a specific daemon.
-  Then this becomes a per-runtime control in the Machines card — not a
-  workspace-wide setting, because the machines can legitimately disagree.
+- **Clears when:** M4's command spine carries the setting to a specific daemon.
+  **Owned by
+  [`tasks/M4/T-M4-07-ui-blocked-and-toggle.md`](tasks/M4/T-M4-07-ui-blocked-and-toggle.md)**,
+  via an allowlisted `settings.set` command — a per-runtime control in the
+  Machines card, not a workspace-wide setting, because the machines can
+  legitimately disagree.
 
 ### G-7 — Leaked-password protection is unavailable on the current Supabase plan
 

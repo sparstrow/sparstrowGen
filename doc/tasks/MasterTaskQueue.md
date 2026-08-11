@@ -89,35 +89,59 @@ all of the core work. 5.6 is `[C]` rather than `[P]` because it edits
 `packages/core/src/index.ts` and the web health handler, which 5.5 and 5.7 also
 touch.
 
-### Band 6+ — not yet decomposed
+### Band 6 — M4 command spine
+
+Phase spec: [`M4/README.md`](M4/README.md). Decomposed 2026-08-10.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 6.1 | [T-M4-01 — command RPCs: enqueue, claim, ack](M4/T-M4-01-command-rpcs.md) | `[S]` | — | **next** |
+| 6.2 | [T-M4-02 — daemon command API in Next](M4/T-M4-02-daemon-command-api.md) | `[S]` | 6.1 | queued |
+| 6.3 | [T-M4-03 — enqueue path: retire the M4 stubs](M4/T-M4-03-enqueue-path.md) | `[P]` | 6.1 | queued |
+| 6.4 | [T-M4-04 — core command loop](M4/T-M4-04-command-loop.md) | `[P]` | 6.2 | queued |
+| 6.5 | [T-M4-05 — resolution + project preflight](M4/T-M4-05-resolution-preflight.md) | `[P]` | 6.2 | queued |
+| 6.6 | [T-M4-06 — run status reporting + `G-4`](M4/T-M4-06-run-status.md) | `[C]` | 6.2 | queued |
+| 6.7 | [T-M4-07 — UI: blocked actions + snapshot toggle](M4/T-M4-07-ui-blocked-and-toggle.md) | `[P]` | 6.1 | queued |
+| 6.8 | [T-M4-08 — verification](M4/T-M4-08-verification.md) | `[S]` | 6.1–6.7 | queued |
+
+6.1 and 6.2 are `[S]` for the same reason M3's first two were: they define the
+SQL and HTTP contracts every other task is written against. 6.3 and 6.7 need only
+the RPCs, so the whole web/UI half can be built in parallel with the daemon half.
+6.6 is `[C]` rather than `[P]` because it edits `run-manager.ts` and
+`packages/core/src/index.ts`, which 6.4 also touches.
+
+**M4 closes three [`../KnownGaps.md`](../KnownGaps.md) entries.** Not extra
+scope — M4 is simply the first phase in a position to close them, and each has an
+owning task:
+
+- **`G-3`** — the WIP snapshot has never been fired by a real run, because until
+  M4 there is no dispatched work to fire it. Asserted in **6.8 §B**, not left
+  incidental. A backup that silently never runs is the one failure mode this
+  feature cannot survive.
+- **`G-4`** — the snapshot/scheduler race. Closed in **6.6** by holding the busy
+  key across the snapshot; M4's dispatch makes concurrent same-project runs
+  materially more likely, which is what changed the trade.
+- **`G-6`** — the per-runtime snapshot toggle. Closed in **6.7** via the
+  `settings.set` command, in the Machines card rather than workspace settings.
+
+### Band 7+ — not yet decomposed
 
 Scoped in `doc/plans/2026-08-09-daemon-cloud-control-plane.md`; task files are
 written when the band is next.
 
 | # | Phase | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 6.x | M4 — command spine (claim/lease/ack) | `[S]` | M3 | **next** — not decomposed |
 | 7.x | M5 — transcripts (dual path) | `[P]` | M4 | not decomposed |
 | 7.y | M6 — memory sync | `[P]` | M4 | not decomposed |
 | 7.z | M7 — route parity + Electron hosted load | `[P]` | M2 | not decomposed |
 
 M5, M6 and M7 are `[P]` against each other: transcripts, memory sync, and the
 Electron shell touch disjoint files and can be built by different workers once
-their prerequisites land. M7 needs only M2, so it can start early if M3/M4 stall.
+their prerequisites land. M7 needs only M2, so it can start early if M4 stalls.
 
-> **When M4 is decomposed, it inherits three entries from
-> [`../KnownGaps.md`](../KnownGaps.md).** They are not extra scope — M4 is simply
-> the first phase in a position to close them:
->
-> - **`G-3`** — the WIP snapshot has never been fired by a real run, because
->   until M4 there is no dispatched work to fire it. **M4's verification task
->   must assert a `refs/sparstrow/wip/<run-id>` ref appears**, rather than leave
->   it incidental. A backup that silently never runs is the one failure mode this
->   feature cannot survive.
-> - **`G-4`** — the snapshot/scheduler race becomes cheap to close once the lease
->   model exists. Revisit then; do not add locking for it before.
-> - **`G-6`** — the per-runtime snapshot toggle needs a command spine to reach a
->   specific daemon. It belongs in the Machines card, not in workspace settings.
+**M5 inherits one decision from M4**: the Realtime doorbell. M4 ships the 3s poll
+only, because the daemon still cannot authenticate to Realtime and M5 has to
+solve that anyway to broadcast transcript deltas. See `M4/README.md` decision 1.
 
 ---
 
@@ -148,7 +172,8 @@ mechanism was explained. It is live and verified end to end.
 |---|---|---|
 | GitHub / Google sign-in | **Deferred → [D-8](../Deferred.md)** | Not blocked work — parked by the owner 2026-08-10. Code is complete and verified; the buttons render disabled and light up on their own once the providers are enabled. |
 | Leaked password protection | **Supabase plan** | Requires Pro; not available on the current plan (confirmed 2026-08-10). No SQL equivalent, so nothing in this repo can fix it. Verified off by signing up with `password123` and getting a session. Not an action item — the advisor will keep flagging it. |
-| `/runs/[runId]` render + Realtime refetch | M4 | Both need a run to exist. Nothing to open until dispatch creates one. |
+| `/runs/[runId]` render + Realtime refetch | M4 (6.8) | Both need a run to exist. M4's dispatch creates one, so the page becomes openable — but it shows the run *row* only; the transcript inside it is M5. |
+| Agent definitions differ between cloud and machine | **Deferred → [D-9](../Deferred.md)** | Not blocked work. M4 resolves a cloud agent to a local one by slug and blocks legibly on a miss; syncing definitions is a separate feature with its own conflict model. |
 
 `OQ-1` (protecting uncommitted agent work) was **answered and built** on
 2026-08-10, ahead of M4 rather than inside it — the owner approved the
