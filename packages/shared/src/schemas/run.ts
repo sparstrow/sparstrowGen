@@ -44,7 +44,18 @@ export const runEventTypeSchema = z.enum([
 export type RunEventType = z.infer<typeof runEventTypeSchema>;
 
 export const runEventSchema = z.object({
-  id: z.number().int(),
+  /**
+   * Local only. Cloud `run_events` is keyed on `(run_id, seq)` and has no `id`
+   * column at all — the composite PK is what makes a replayed batch idempotent,
+   * and an autoincrement would defeat it.
+   *
+   * So `GET /runs/:id/events` has always returned rows without this field. It
+   * was declared required anyway, which was simply a false statement about data
+   * that already flowed; nothing crashed only because `run-transcript.tsx` keys
+   * on `seq`. Optional here so the type matches both sources, and so nothing new
+   * starts depending on it.
+   */
+  id: z.number().int().optional(),
   runId: idSchema,
   seq: z.number().int(),
   ts: isoDateSchema,

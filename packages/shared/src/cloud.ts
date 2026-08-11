@@ -16,6 +16,7 @@
 // source — a `./constants.js` specifier typechecks fine and then fails to
 // resolve at bundle time, which is a runtime 500 no typecheck will ever catch.
 import { SETTING_WIP_SNAPSHOT, SETTING_WIP_SNAPSHOT_KEEP } from "./constants";
+import type { RunEventType } from "./schemas/run";
 
 /** How often a paired daemon posts a heartbeat. */
 export const HEARTBEAT_INTERVAL_MS = 30_000;
@@ -334,3 +335,111 @@ export const ENQUEUE_ERRCODE_REASONS: Record<string, EnqueueFailureReason> = {
   SPG14: "project_not_found",
   SPG15: "run_not_found",
 };
+
+// ─── M5 — transcripts ──────────────────────────────────────────────────────────
+
+/**
+ * The dual path, and why the daemon never touches Realtime.
+ *
+ * A batch goes to `POST /api/daemon/runs/:id/events`, which writes it durably
+ * and then fans the SAME batch out as a Realtime broadcast. The route already
+ * holds the service role and has already resolved the workspace from the bearer
+ * token, so broadcasting from there costs one request; broadcasting from the
+ * daemon would cost a second authentication model for it — a custom
+ * `runtime_id` JWT, a minting endpoint, a refresh timer, and
+ * `realtime.messages` policies for a principal with no `auth.uid()`.
+ *
+ * See doc/tasks/M5/README.md decision 1, and D-10 for the doorbell that
+ * decision leaves parked.
+ */
+
+/** Events per batch before the pusher flushes. */
+export const TRANSCRIPT_BATCH_MAX_EVENTS = 25;
+
+/** Longest a partial batch waits for company. */
+export const TRANSCRIPT_BATCH_INTERVAL_MS = 1_000;
+
+/**
+ * Byte ceiling on a batch — the limit the other two do not imply.
+ *
+ * The plan measured `tool_result` payloads at 4.9 KB average and 16.9 KB max and
+ * concluded they sit under the 256 KB Realtime cap. True per event, false per
+ * batch: sixteen large results is a 276 KB broadcast that Realtime rejects, and
+ * the natural way to write a batching loop counts events.
+ *
+ * Half the cap rather than all of it, because the envelope, the JSON escaping of
+ * payloads that are already JSON, and base64 inside tool results all inflate the
+ * wire size above the sum of what was measured locally.
+ */
+export const TRANSCRIPT_BATCH_MAX_BYTES = 128 * 1024;
+
+/** One transcript event, as the daemon sends it. */
+export interface RunEventPush {
+  seq: number;
+  /** ISO 8601. Passed through verbatim — see the route's note on timezones. */
+  ts: string;
+  type: RunEventType;
+  payload: unknown;
+}
+
+export interface RunEventBatch {
+  events: RunEventPush[];
+}
+
+export interface RunEventBatchResponse {
+  /**
+   * Highest `seq` now durable in the cloud for this run, decided by the SERVER.
+   *
+   * The daemon advances its cursor to this and never to what it sent. A request
+   * that times out after the server committed is indistinguishable from one
+   * that never arrived, and a cursor advanced on send is how a transcript
+   * acquires a permanent hole.
+   */
+  storedThroughSeq: number;
+  /** Rows this request inserted. A pure replay stores 0 and is not an error. */
+  stored: number;
+  duplicates: number;
+}
+
+/** Why a batch was refused, as a stable token. */
+export type TranscriptRejection =
+  | "empty_batch"
+  | "batch_too_large"
+  | "invalid_seq"
+  | "duplicate_seq"
+  | "invalid_type"
+  | "invalid_ts"
+  | "malformed";
+
+/**
+ * The Realtime topic a run's live deltas are broadcast on.
+ *
+ * The workspace id is in the topic so the subscribe policy is a membership check
+ * with no join — the same shape as every M1 policy, which is why it is easy to
+ * be sure it is right. A run id alone would force the policy to join `runs`, and
+ * a workspace-wide topic would deliver every run's transcript to every open tab.
+ *
+ * The id in the topic is not what grants access. The RLS policy on
+ * `realtime.messages` is (`010_transcript_broadcast.sql`); a non-member who
+ * guesses the topic is refused at subscribe.
+ */
+export function runTranscriptTopic(workspaceId: string, runId: string): string {
+  return `run:${workspaceId}:${runId}`;
+}
+
+/** The broadcast event name carried inside that topic. */
+export const TRANSCRIPT_BROADCAST_EVENT = "events";
+
+/**
+ * What a subscriber receives.
+ *
+ * `oversized` names events too large to broadcast — they ARE stored, and the
+ * client refetches them rather than concluding the transcript ended. A gap the
+ * client knows about is recoverable; one it does not is a transcript that
+ * silently stops.
+ */
+export interface TranscriptBroadcast {
+  runId: string;
+  events: RunEventPush[];
+  oversized?: number[];
+}
