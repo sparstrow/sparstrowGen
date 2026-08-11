@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Approved 2026-08-09 · M1–M3 complete · auth hardening complete 2026-08-10 · **M4 complete 2026-08-11** · M5 next |
 | **Supersedes** | The "Phase 4: Multi-Agent Swarm Orchestrator & Live Transcripts" proposal |
-| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–6 done) · `doc/tasks/M2/` · `doc/tasks/M3/` · `doc/tasks/M4/` |
+| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–6 done · band 7 = M5, decomposed 2026-08-11) · `doc/tasks/M2/` · `doc/tasks/M3/` · `doc/tasks/M4/` · `doc/tasks/M5/` |
 | **Open questions** | None. OQ-1 (uncommitted work) answered **and built** 2026-08-10 — see settled decision 5. OQ-2 answered and closed 2026-08-10. |
 
 > **Why the original Phase 4 proposal was replaced.** It described three features
@@ -310,6 +310,31 @@ against.
 
 ### M5 — Transcripts (Phase 4's headline)
 `packages/core/src/cloud/transcripts.ts`, `packages/core/src/events/bus.ts`
+
+> **Decomposed 2026-08-11 into 6 tasks — `doc/tasks/M5/`.** Four things the
+> original bullets did not anticipate, each argued in that phase spec:
+>
+> - **The daemon does not connect to Realtime; the server broadcasts.** The
+>   ingest route already holds the service role and has already resolved the
+>   workspace from the bearer token, so fanning the batch out from there costs
+>   one `fetch` — against a custom `runtime_id` JWT, a minting endpoint, a
+>   refresh timer, and `realtime.messages` policies for a principal with no
+>   `auth.uid()`. Consequence: the doorbell M4 handed forward is parked as
+>   `D-10` rather than built.
+> - **The offline buffer already exists.** Core writes every event to local
+>   SQLite before publishing to the bus, so M5 builds a *cursor*
+>   (`cloud_event_cursors`, migration `0017`) instead of a second buffer with a
+>   spill file. Blip, crash and week-offline recovery become the same query.
+> - **Batching needs a byte budget, not just a count.** This plan's own
+>   measurement — `tool_result` averaging 4.9 KB and reaching 16.9 KB — is
+>   under the 256 KB Realtime cap *per event* and not per batch. Sixteen large
+>   results is a rejected broadcast.
+> - **`/runs/[runId]` does not light up on its own.** The `seq` merge is indeed
+>   already there, but its transport is `wsHub`, which dials `wss://<host>/ws` —
+>   a route the hosted app has never had and cannot have on Vercel. Two further
+>   defects sit next to it: `runEventSchema` requires an `id` cloud rows do not
+>   have, and `useRunEvents` caps at 500 events without paginating, which
+>   truncates exactly the long runs this feature is for.
 
 - Subscribe to the existing event bus; batch `run_events` to Postgres every N
   events or ~1s; broadcast live deltas over Realtime.

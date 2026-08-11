@@ -169,3 +169,36 @@ its own conflict model, not a helper inside a dispatcher.
 **Unpark when:** creating an agent twice becomes routine friction rather than a
 one-time setup step — or before anyone who is not the owner uses the web UI to
 queue work, since they have no way to create the local half.
+
+---
+
+## D-10 — Realtime doorbell for command dispatch
+
+**Parked:** 2026-08-11, while decomposing M5.
+
+The plan's decision 2 gives each runtime a Realtime channel as a **doorbell** for
+dispatch — at-most-once, never trusted for delivery, with the 3s poll as the
+always-on fallback. M4 built the poll only and deferred the doorbell to M5, on
+the stated grounds that M5 would have to authenticate the daemon to Realtime
+anyway in order to broadcast transcript deltas.
+
+**M5 declined to.** Its decision 1 sends transcript broadcasts from the ingest
+route, which already holds the service role and has already resolved the
+workspace from the daemon's bearer token. So the premise that made the doorbell
+nearly free — "we are building daemon Realtime auth regardless" — is no longer
+true, and the doorbell would have to justify that auth model on its own.
+
+What it would cost alone: a custom JWT carrying a `runtime_id` claim, signed with
+the Supabase JWT secret, minted by a new endpoint, refreshed on a timer in core,
+and `realtime.messages` policies that understand a principal with no
+`auth.uid()`. A second authentication model for the daemon, for latency.
+
+What is actually lost by not having it: the delay between pressing **Run** and
+the run starting is bounded by the 3s poll instead of being near-instant. A run
+takes minutes. The poll costs one indexed `UPDATE … RETURNING` per runtime per
+3s, returning an empty array almost every time.
+
+**Unpark when:** the daemon needs to *receive* anything push-shaped rather than
+merely react faster — live HITL approvals, interactive chat turns, or a cancel
+that must land inside 100 ms. At that point the JWT is load-bearing rather than
+an optimisation, and the doorbell comes along with it for nearly nothing.

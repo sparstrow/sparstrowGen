@@ -10,7 +10,8 @@ doc/tasks/
 │   ├── T-M2-01-….md        individual tasks, each with a checklist
 │   └── …
 ├── M3/                     same shape, one folder per phase
-└── M4/
+├── M4/
+└── M5/
 ```
 
 The phase `README.md` holds what all its tasks share, so a decision is written
@@ -111,13 +112,17 @@ questions` header line is empty or points only to non-blocking entries.
 | M2 — `/api/v1` from Next over Supabase | 8 (`M2/`) | ✅ done, verified on staging 2026-08-10 (incl. browser pass) |
 | M3 — pairing, registration, heartbeat | 8 (`M3/`) | ✅ done, verified on staging 2026-08-10 |
 | M4 — command spine | 8 (`M4/`) | ✅ done, verified live on staging 2026-08-11 |
-| M5 — transcripts · M6 — memory sync · M7 — routes + Electron | — | not decomposed (M5 next) |
+| M5 — transcripts (dual path) | 6 (`M5/`) | decomposed 2026-08-11 — not started |
+| M6 — memory sync · M7 — routes + Electron | — | not decomposed |
 
-M5–M7 are scoped in the plan but have no task files yet. They get written when
-their band is next: M5's spec depends on what M4's dispatch actually turned out
-to look like, and inventing that early would have been fiction in a confident
+M6 and M7 are scoped in the plan but have no task files yet. They get written
+when their band is next: M5's spec depended on what M4's dispatch actually turned
+out to look like, and inventing that early would have been fiction in a confident
 tone. M4 bore that out — three of its load-bearing decisions (the cloud/local id
 bridge, poll-over-doorbell, and run-status reporting) were not visible from the
-plan's bullet list at all.
+plan's bullet list at all. M5 bore it out again in the other direction: the
+doorbell M4 handed forward turned out to be the wrong thing to build, and two of
+M5's tasks exist only because reading the code found a dead WebSocket and an
+unpaginated transcript nobody had reason to notice yet.
 
 See `MasterTaskQueue.md` for the run order.

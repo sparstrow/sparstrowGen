@@ -124,24 +124,43 @@ owning task:
 - **`G-6`** — the per-runtime snapshot toggle. Closed in **6.7** via the
   `settings.set` command, in the Machines card rather than workspace settings.
 
-### Band 7+ — not yet decomposed
+### Band 7 — M5 transcripts (dual path)
+
+Phase spec: [`M5/README.md`](M5/README.md). Decomposed 2026-08-11.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 7.1 | [T-M5-01 — event ingest route + batch contract](M5/T-M5-01-event-ingest-route.md) | `[S]` | — | **next** |
+| 7.2 | [T-M5-02 — broadcast fan-out + `realtime.messages` RLS](M5/T-M5-02-broadcast-and-rls.md) | `[S]` | 7.1 | queued |
+| 7.3 | [T-M5-03 — core transcript pusher](M5/T-M5-03-transcript-pusher.md) | `[P]` | 7.1 | queued |
+| 7.4 | [T-M5-04 — durable replay: cursor, backfill, ceiling](M5/T-M5-04-durable-replay.md) | `[C]` | 7.3 | queued |
+| 7.5 | [T-M5-05 — UI: live transcript over the right transport](M5/T-M5-05-ui-live-transcript.md) | `[P]` | 7.2 | queued |
+| 7.6 | [T-M5-06 — verification](M5/T-M5-06-verification.md) | `[S]` | 7.1–7.5 | queued |
+
+7.1 and 7.2 are `[S]` for the third phase running: they define the HTTP and SQL
+contracts the other tasks compile against. 7.3 needs only the contract, so the
+whole daemon half runs in parallel with the web half. 7.4 is `[C]` rather than
+`[P]` because it shares `transcripts.ts` with 7.3.
+
+**M5 does not inherit the Realtime doorbell after all.** M4 deferred it here on
+the grounds that M5 must authenticate the daemon to Realtime anyway — and M5's
+decision 1 declines to, because the server can broadcast from a route that
+already holds the service role and already knows the workspace. The doorbell is
+parked as [D-10](../Deferred.md) with what would unpark it.
+
+### Band 8+ — not yet decomposed
 
 Scoped in `doc/plans/2026-08-09-daemon-cloud-control-plane.md`; task files are
 written when the band is next.
 
 | # | Phase | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 7.x | M5 — transcripts (dual path) | `[P]` | M4 | **next** — not decomposed |
-| 7.y | M6 — memory sync | `[P]` | M4 | not decomposed |
-| 7.z | M7 — route parity + Electron hosted load | `[P]` | M2 | not decomposed |
+| 8.x | M6 — memory sync | `[P]` | M4 | not decomposed |
+| 8.y | M7 — route parity + Electron hosted load | `[P]` | M2 | not decomposed |
 
 M5, M6 and M7 are `[P]` against each other: transcripts, memory sync, and the
 Electron shell touch disjoint files and can be built by different workers once
-their prerequisites land. M7 needs only M2, so it can start early if M4 stalls.
-
-**M5 inherits one decision from M4**: the Realtime doorbell. M4 ships the 3s poll
-only, because the daemon still cannot authenticate to Realtime and M5 has to
-solve that anyway to broadcast transcript deltas. See `M4/README.md` decision 1.
+their prerequisites land. M7 needs only M2, so it can start at any time.
 
 ---
 
@@ -172,7 +191,8 @@ mechanism was explained. It is live and verified end to end.
 |---|---|---|
 | GitHub / Google sign-in | **Deferred → [D-8](../Deferred.md)** | Not blocked work — parked by the owner 2026-08-10. Code is complete and verified; the buttons render disabled and light up on their own once the providers are enabled. |
 | Leaked password protection | **Supabase plan** | Requires Pro; not available on the current plan (confirmed 2026-08-10). No SQL equivalent, so nothing in this repo can fix it. Verified off by signing up with `password123` and getting a session. Not an action item — the advisor will keep flagging it. |
-| `/runs/[runId]` render + Realtime refetch | M4 (6.8) | Both need a run to exist. M4's dispatch creates one, so the page becomes openable — but it shows the run *row* only; the transcript inside it is M5. |
+| `/runs/[runId]` transcript | M5 (7.6) | M4 made the page openable and the run row live; the transcript inside it is empty until M5 writes `run_events` to the cloud. |
+| Realtime doorbell for dispatch | **Deferred → [D-10](../Deferred.md)** | Not blocked work. The 3s poll is correct and always-on; the doorbell is a latency improvement that M5's decision 1 declined to buy with a second daemon auth model. |
 | Agent definitions differ between cloud and machine | **Deferred → [D-9](../Deferred.md)** | Not blocked work. M4 resolves a cloud agent to a local one by slug and blocks legibly on a miss; syncing definitions is a separate feature with its own conflict model. |
 
 `OQ-1` (protecting uncommitted agent work) was **answered and built** on
