@@ -86,18 +86,32 @@ function useWsConnected(): boolean {
   return connected;
 }
 
+/**
+ * Auth routes render bare -- no sidebar, no header, no attention-queue polling.
+ *
+ * This split exists as two components rather than an early `return` inside one
+ * because the shell below calls hooks. Bailing out mid-component made the hook
+ * count depend on the URL, so the very first navigation after signing in
+ * ("/login" -> "/") crashed with "rendered more hooks than during the previous
+ * render" -- the one transition every single user makes.
+ */
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname() || "/";
+
+  if (pathname === "/login" || pathname.startsWith("/auth/")) {
+    return <div className="min-h-screen w-full bg-background text-foreground">{children}</div>;
+  }
+
+  return <AuthenticatedShell>{children}</AuthenticatedShell>;
+}
+
+function AuthenticatedShell({ children }: { children: React.ReactNode }) {
   const connected = useWsConnected();
   const pathname = usePathname() || "/";
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
 
-  // Standalone public routes bypass the app shell sidebar & header
-  if (pathname.startsWith("/login") || pathname.startsWith("/auth/")) {
-    return <div className="min-h-screen w-full bg-background text-foreground">{children}</div>;
-  }
-  
   React.useEffect(() => setMobileNavOpen(false), [pathname]);
-  
+
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const collapsed = useWorkspaceTabs((s) => s.sidebarCollapsed);
   const attention = useAttentionQueue();

@@ -14,6 +14,8 @@ import { registerTaskboardTools } from "./taskboard/agent-tools.js";
 import { registerCapabilities } from "./agents/capability-registry.js";
 import { ensureSystemAgents } from "./agents/system-agents.js";
 import { startScheduler, stopScheduler } from "./scheduler/service.js";
+import { register } from "./cloud/registration.js";
+import { declareDraining, startHeartbeat } from "./cloud/heartbeat.js";
 import { initDelegationWatcher, sweepWaitingParents } from "./taskboard/delegation.js";
 import { sweepOrphanedPipelineRuns } from "./orchestrator/pipeline-executor.js";
 import { initGoalWatcher, reconcileGoals } from "./goap/service.js";
@@ -109,9 +111,21 @@ async function main(): Promise<void> {
   });
   startVaultWatcher();
 
+  // M3: announce this machine to the cloud and keep it visibly alive. Both are
+  // no-ops on an unpaired machine and neither can reject — core runs agents
+  // locally whether or not a control plane exists, so the cloud is a
+  // capability this daemon gained, not a dependency it acquired.
+  void register();
+  startHeartbeat();
+
   const shutdown = async (signal: string) => {
     logger.info({ signal }, "shutting down");
     try {
+      // First, so the UI says "shutting down" instead of waiting out the
+      // staleness window. Best-effort with a 2s timeout — it must not delay
+      // the rest of shutdown, and a missed declaration just means the machine
+      // goes stale the ordinary way.
+      await declareDraining();
       stopScheduler();
       stopDelegationWatcher();
       stopGoalWatcher();

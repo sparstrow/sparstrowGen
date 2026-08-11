@@ -6,8 +6,16 @@ import { ThemeProvider } from "@sparstrow/ui/theme/theme-provider";
 import { Toaster } from "@sparstrow/ui/components/ui/sonner";
 import { wsHub } from "@sparstrow/ui/lib/ws";
 import { createClient } from "@web/utils/supabase/client";
+import { WebAccountProvider } from "@web/components/auth/account-provider";
+import type { AccountSnapshot } from "@web/lib/auth/account-snapshot";
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({
+  account,
+  children,
+}: {
+  account: AccountSnapshot | null;
+  children: React.ReactNode;
+}) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -79,8 +87,22 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }
     });
 
-    // Supabase Realtime Postgres channel subscription for cloud sync
     const supabase = createClient();
+
+    /**
+     * Wipe every cached query when the session ends.
+     *
+     * React Query's cache is per-tab, not per-user. Without this, signing out
+     * and signing in as someone else on the same tab repaints the previous
+     * account's agents, messages and memory notes from cache while the new
+     * user's fetches are still in flight. RLS never sees those reads -- they
+     * never leave the browser -- so the server-side boundary cannot help.
+     */
+    const { data: authSub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") queryClient.clear();
+    });
+
+    // Supabase Realtime Postgres channel subscription for cloud sync
     const realtimeChannel = supabase
       .channel("db-changes")
       .on(
@@ -96,8 +118,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
             void queryClient.invalidateQueries({ queryKey: ["goals"] });
           } else if (table === "messages") {
             void queryClient.invalidateQueries({ queryKey: ["messages"] });
-          } else if (table === "system_health") {
+          } else if (table === "runtimes") {
             void queryClient.invalidateQueries({ queryKey: ["health"] });
+          } else if (table === "chat_messages") {
+            void queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
+          } else if (table === "task_questions") {
+            void queryClient.invalidateQueries({ queryKey: ["attention-queue"] });
+          } else if (table === "runtime_projects") {
+            void queryClient.invalidateQueries({ queryKey: ["projects"] });
           }
         }
       )
@@ -105,6 +133,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
     return () => {
       unsubscribeWs();
+      authSub.subscription.unsubscribe();
       void supabase.removeChannel(realtimeChannel);
     };
   }, [queryClient]);
@@ -112,7 +141,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        {children}
+        <WebAccountProvider initial={account}>{children}</WebAccountProvider>
         <Toaster />
       </QueryClientProvider>
     </ThemeProvider>

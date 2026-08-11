@@ -44,6 +44,12 @@ export interface AppConfig {
   /** P8 direct-API base URLs (overridable for tests / self-hosting / proxies). */
   anthropicApiBase: string;
   ollamaHost: string;
+  /**
+   * M3: the cloud control plane this daemon pairs to and heartbeats against.
+   * Override with SPARSTROW_CLOUD_URL. Unpaired is a normal state — core boots
+   * and runs agents locally whether or not this is reachable.
+   */
+  cloudUrl: string;
   /** Bundled stdio MCP server agents call for memory/task/message tools. */
   memoryMcpPath: string;
   /** Bundled CLI for agents without MCP support (antigravity). */
@@ -125,6 +131,11 @@ export function resolveConfig(): AppConfig {
     gitPath: process.env.SPARSTROW_GIT_PATH ?? "git",
     anthropicApiBase: (process.env.SPARSTROW_ANTHROPIC_API_BASE ?? "https://api.anthropic.com").replace(/\/+$/, ""),
     ollamaHost: (process.env.SPARSTROW_OLLAMA_HOST ?? "http://127.0.0.1:11434").replace(/\/+$/, ""),
+    // M3: the control plane this daemon pairs to. Defaults to a local dev
+    // server because there is no deployed web app yet — pointing the default at
+    // a URL that does not exist would make "cannot reach the cloud" the normal
+    // first experience. Set SPARSTROW_CLOUD_URL once the app is deployed.
+    cloudUrl: (process.env.SPARSTROW_CLOUD_URL ?? "http://localhost:3000").replace(/\/+$/, ""),
     memoryMcpPath:
       process.env.SPARSTROW_MEMORY_MCP ??
       path.join(repoRoot, "packages", "memory-mcp", "dist", "index.cjs"),
