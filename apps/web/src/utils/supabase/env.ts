@@ -13,11 +13,33 @@
  * mistake, and it should read like one.
  */
 
+/**
+ * A missing environment variable, distinguishable from any other failure.
+ *
+ * The middleware needs to tell "this deployment was never configured" apart
+ * from "something went wrong", because the first has a useful answer to show a
+ * human and the second must not be swallowed. Everything else keeps throwing
+ * and keeps crashing, which is correct.
+ */
+export class MissingConfigError extends Error {
+  readonly variable: string;
+  constructor(variable: string, message: string) {
+    super(message);
+    this.name = "MissingConfigError";
+    this.variable = variable;
+  }
+}
+
 function required(name: string, value: string | undefined): string {
   if (!value) {
-    throw new Error(
-      `${name} is not set. Copy apps/web/.env.example to apps/web/.env.local ` +
-        `and fill in the values from Supabase → Project Settings → API.`,
+    throw new MissingConfigError(
+      name,
+      `${name} is not set. In local development, copy apps/web/.env.example to ` +
+        `apps/web/.env.local and fill in the values from Supabase → Project ` +
+        `Settings → API. On Vercel, set it for the environment this deployment ` +
+        `belongs to — Preview and Production are configured separately, and a ` +
+        `variable set only for Production leaves every preview deployment ` +
+        `unable to start.`,
     );
   }
   return value;
