@@ -28,7 +28,8 @@ vi.mock("node:child_process", async (importOriginal) => ({
   ),
 }));
 
-const { cloneProject, reportBindings } = await import("./bindings.js");
+const { cloneProject, reportBindings, startBindingReporter, stopBindingReporter } =
+  await import("./bindings.js");
 
 /** Bodies posted to /projects/bindings, oldest first. */
 function reportedBindings(fetchMock: { mock: { calls: unknown[][] } }) {
@@ -228,6 +229,44 @@ describe("project bindings", () => {
       const [file, args] = execFileMock.mock.calls[0]! as [string, string[]];
       expect(file).toBe("git");
       expect(args[1]).toBe("https://example.com/app.git; rm -rf /");
+    });
+  });
+  describe("the re-report timer", () => {
+    afterEach(() => stopBindingReporter());
+
+    it("reports once immediately, so a restored directory heals without a restart", async () => {
+      // The hole this closes, found in M4 verification: preflight marks a
+      // binding `missing`, the developer puts the folder back, and nothing
+      // tells the cloud until core restarts.
+      addProject("app", dir);
+      const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(okResponse());
+
+      startBindingReporter();
+      await vi.waitFor(() => expect(reportedBindings(fetchMock).length).toBeGreaterThan(0));
+    });
+
+    it("does not hold the process open", () => {
+      const unrefs: unknown[] = [];
+      const realSetInterval = globalThis.setInterval;
+      vi.spyOn(globalThis, "setInterval").mockImplementation(((...args: Parameters<typeof setInterval>) => {
+        const timer = realSetInterval(...args);
+        unrefs.push(vi.spyOn(timer, "unref"));
+        return timer;
+      }) as typeof setInterval);
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(okResponse());
+
+      startBindingReporter();
+
+      expect(unrefs).toHaveLength(1);
+      expect(unrefs[0]).toHaveBeenCalled();
+    });
+
+    it("starting twice does not double the rate", () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(okResponse());
+      const spy = vi.spyOn(globalThis, "setInterval");
+      startBindingReporter();
+      startBindingReporter();
+      expect(spy).toHaveBeenCalledTimes(1);
     });
   });
 });

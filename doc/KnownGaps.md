@@ -18,8 +18,8 @@ them answer this one:
 
 **Before relying on something, check whether it is listed here.** A gap entry is
 not a bug report; it is a statement about the *strength of the evidence* behind a
-piece of working code. `G-3` does not mean the snapshot hook is broken — it means
-nobody has watched it fire.
+piece of working code. `G-12` does not mean the Machines card is broken — it
+means nobody has looked at it.
 
 **When you clear one, delete the entry** and say where the proof lives, exactly
 like `OpenQuestions.md`. The length of this file is a real signal; a gap that
@@ -73,26 +73,52 @@ Its one piece of logic (`isWipSnapshotEnabled`) is unit-tested in `shared`.
 - **Clears when:** core plus the local UI are booted and someone flips the switch
   and sees it persist.
 
-### G-3 — The snapshot has never been triggered by a real agent run
+*`G-3` — the WIP snapshot never having fired from a real run — was **closed
+2026-08-11** by M4 (`T-M4-08` §B). A run dispatched from the cloud to this
+Windows machine, against a project with a deliberately dirty tree, produced
+`refs/sparstrow/wip/run_154b6cc1cbef424a`. The assertions that make it a proof
+rather than a sighting: `git status` read identically before and after, HEAD did
+not move, the staged/unstaged split survived, the uncommitted modification was
+captured, and `.env` and `node_modules/` were **absent** from the tree — the
+`.gitignore` guarantee OQ-1 rested on.
 
-**Raised:** 2026-08-10 (WIP snapshots / OQ-1). **The most load-bearing gap here.**
+Two further things fell out of it. The ref is named with the **cloud's** run id
+on local disk, which is decision 4 proved end to end and the thing M5's
+transcripts depend on. And turning the snapshot off from the browser genuinely
+stops it: a run with the switch off produced no ref and logged nothing.*
 
-`snapshotWorkingTree()` is heavily tested directly, and the settings read is
-verified against a real SQLite database. The **call site** is not: nothing has
-exercised `RunManager.finalize()` end-to-end with a real agent editing a real
-project, because that needs a provider binary, an agent, and a project row.
+### G-12 — Five M4 assertions were proved in SQL or unit tests, not live
 
-So what is proved is "the snapshot function works". What is assumed is "finalize
-calls it with the right `rootDir`, on every terminal status".
+**Raised:** 2026-08-11 (M4, `T-M4-08`). The phase is otherwise verified live on
+staging; these are the corners that pass could not reach.
 
-- **If wrong:** the feature silently never fires, and the first anyone learns of
-  it is when work is lost — precisely the scenario it was built to prevent. This
-  is a failure that hides successfully.
-- **Clears when:** a real run against a project with a dirty tree produces a
-  `refs/sparstrow/wip/<run-id>` ref. **Owned by
-  [`tasks/M4/T-M4-08-verification.md`](tasks/M4/T-M4-08-verification.md) §B**,
-  where it is an assertion with a dirty tree as a setup precondition — not an
-  observation made in passing.
+- **The browser click-through pass never happened.** The Browser pane did not
+  composite frames in this environment, so screenshots and the accessibility
+  tree were both unavailable and nothing could be clicked. Every M4 endpoint
+  *was* exercised through a real signed-in session from the page's own `fetch`,
+  which is what found two of the phase's defects — but no rendered component was
+  seen or interacted with. The blocked-task affordance and the Machines-card
+  switch have never been looked at.
+- **Lease recovery after a mid-claim kill**, two polls racing one row, and the
+  five-attempt poison ceiling. All three are proved deterministically against a
+  throwaway Postgres by
+  `packages/shared/drizzle/policies/verify-command-spine.mjs`; none was
+  reproduced live, because each needs a timing window.
+- **Reassign** needs a second paired machine, and **clone end-to-end** needs a
+  real remote. The routes exist and every clone guard is unit-tested, including
+  the non-empty-directory refusal.
+- **The unpaired local UI starting a run** was not re-proved. Core served its own
+  API throughout this pass, so the surface is not cold — but the specific claim
+  "an unpaired machine still works" rests on it being unchanged, not on a test.
+
+- **If wrong:** the most likely failure is cosmetic — a control that renders
+  wrong or an affordance that does not appear — because the data paths beneath
+  all of them are exercised. The exception is the UI, where M2's browser pass
+  found a hook-order crash and a whole class of missing Tailwind utilities that
+  no API-level test could see. That precedent is why this entry exists rather
+  than a shrug.
+- **Clears when:** someone runs the click-through pass in an environment where
+  the browser pane renders, and pairs a second machine for reassign.
 
 ### G-11 — Supabase has never been observed delivering an email
 

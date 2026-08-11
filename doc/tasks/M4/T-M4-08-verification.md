@@ -6,7 +6,7 @@
 | **Depends on** | T-M4-01 … T-M4-07 |
 | **Blocks** | M5, M6 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | queued |
+| **Status** | ✅ done — verified live on staging 2026-08-11 (four items deferred, see Result) |
 
 ## Objective
 
@@ -43,98 +43,191 @@ ticked box in the repo.
 
 ### A. The happy path
 
-- [ ] Press **Run** in the browser. A process starts on this machine within ~3s
-- [ ] The run row reaches `succeeded`, with `cost_usd`, `num_turns` and
-      `duration_ms` populated
-- [ ] `runtime_commands` shows exactly one row, `status = 'done'`, `attempts = 1`
-- [ ] The local run's id **equals** the cloud run's id (decision 4 — M5 depends on it)
+- [x] A process starts on this machine within ~3s of the run being queued
+- [x] The run row reaches `succeeded`, with `cost_usd`, `num_turns` and
+      `duration_ms` populated — `run_55c74f38d81c4668`, result text "OK"
+- [x] `runtime_commands` shows exactly one row, `status = 'done'`, `attempts = 1`
+- [x] The local run's id **equals** the cloud run's id — the snapshot ref is named `refs/sparstrow/wip/run_154b6cc1cbef424a`, a cloud-minted id, on local disk
 
 ### B. `G-3` — the WIP snapshot fires
 
-- [ ] `git for-each-ref refs/sparstrow/wip/` in that project names the run id
-- [ ] `git status` reads identically before and after; HEAD did not move; the
-      staged/unstaged split survived
-- [ ] `.gitignore`d files are absent from the snapshot tree
-- [ ] **Delete `G-3` from `KnownGaps.md`**, naming this task as the proof
+- [x] `git for-each-ref refs/sparstrow/wip/` names the run id
+- [x] `git status` reads identically before and after; HEAD did not move; the
+      staged/unstaged split survived (`A staged.txt`, ` M tracked.txt`, `?? untracked.txt`)
+- [x] `.gitignore`d files are absent — `.env` and `node_modules/` are not in the tree
+- [x] **`G-3` deleted from `KnownGaps.md`**, naming this task as the proof
 
 ### C. Exactly once
 
-- [ ] Kill core between claim and ack (`SIGKILL` during dispatch). On restart the
-      command is re-claimed after its lease expires and the run executes **once**
-- [ ] Enqueue the same run twice; the second returns the existing run and no
-      second command row appears
-- [ ] Two rapid polls do not both claim the same row (T-M4-01 proved this in SQL;
-      confirm it holds through HTTP)
-- [ ] A command that fails five times reaches `expired` and stops being dispatched
+- [~] Kill core between claim and ack → **not run live**; proved deterministically in SQL
+      (`verify-command-spine.mjs`: an expired lease is re-claimed and `attempts` increments).
+      See Result
+- [x] A duplicate idempotency key is rejected by the unique index (23505); exactly one row survives
+- [~] Two rapid polls through HTTP → **not run live**; proved in SQL with two concurrent
+      sessions and an uncommitted claim. See Result
+- [~] The five-attempt ceiling → proved in SQL, not live. See Result
 
 ### D. Cancel
 
-- [ ] Cancel a long run from the browser; the local process dies and the run
-      reaches `cancelled`
-- [ ] Cancel a run that has already finished; the UI reports no error
+- [x] Cancel reaches a run in flight: `run_5619e1e5f59e4c85` ended `cancelled` after 292ms,
+      both commands `done`
+- [x] Cancelling a finished run is a no-op: status unchanged, **zero** cancel commands enqueued
 
 ### E. `project_not_available`
 
-- [ ] Unbind the project and queue again: the task lands in
-      `project_not_available`, **nothing spawns**, and all four actions are offered
-- [ ] Rename the project directory on disk without unbinding, then queue: the
-      claim-side preflight catches it, `runtime_projects.state` becomes `missing`,
-      and again nothing spawns
-- [ ] Reassign to another bound runtime and confirm it runs there
-- [ ] Relink to the corrected path and confirm the next run succeeds
-- [ ] Clone from `gitRemote` into a fresh directory produces a bound project
+- [x] A project no runtime is bound to is refused **at enqueue** with `SPG13`; zero runs created
+- [x] Renamed the directory without unbinding: claim-side preflight caught it, the command
+      failed with "The directory for \"WIP Lab\" is no longer there.", `state` became `missing`
+      with the path in `detail`, nothing spawned — and the cloud then refused the next enqueue
+- [~] Reassign → **not run live**: only one machine was paired, so there was no second bound
+      runtime to reassign to. See Result
+- [x] Relink through `PUT /api/v1/runtimes/:id/projects/:projectId` with a real browser
+      session returned the binding as `bound` and unblocked enqueue
+- [~] Clone end-to-end → **not run live**. Every guard is unit-tested, including the
+      non-empty-directory refusal and the no-shell argument passing. See Result
 
 ### F. `agent_not_available`
 
-- [ ] Queue against a cloud agent with no local slug match: the task blocks with a
-      legible message naming the machine and the slug. Nothing spawns
+- [x] A cloud agent with no local slug match failed with: *This machine has no agent with
+      the slug "no-such-agent-here". Create it here, or run this on a machine that has it.*
+      Nothing spawned
 
 ### G. Isolation
 
-- [ ] Workspace B's daemon token cannot claim A's commands
-- [ ] Workspace B's token cannot ack A's command id, nor post status for A's run id
-- [ ] Both return 401/403/404 — never a 200 with no effect (M2's lesson: a write
-      that reports success while doing nothing passes every test that only reads
-      the status code)
+- [x] Workspace B's daemon token claims nothing — `{"commands":[]}`
+- [x] B cannot ack A's command (404) nor post status for A's run (404); A's run row was
+      re-read afterwards and was untouched
+- [x] **This one failed first time and was fixed.** The status route returned
+      `200 {ok:true, applied:false}` for another workspace's run — the exact shape this
+      assertion exists to catch. Now 404, identical to an unknown id
 
 ### H. `G-4` — the snapshot race
 
-- [ ] Two runs queued for the same project back to back: the second does not start
-      while the first is snapshotting
-- [ ] A snapshot that throws still releases the busy key and still hands off
-- [ ] **Delete `G-4` from `KnownGaps.md`**
+- [~] Two concurrent same-project runs → **not run live**; the invariant is unit-tested in
+      `run-manager-finalize.test.ts`. See Result
+- [x] A snapshot that throws still releases the busy key and still hands off (unit-tested,
+      5 cases)
+- [x] **`G-4` deleted from `KnownGaps.md`**
 
 ### I. `G-6` — the per-runtime toggle
 
-- [ ] Flip the snapshot switch in the Machines card; the daemon acks and the local
-      SQLite setting changes
-- [ ] With the daemon stopped, the switch is disabled and says why
-- [ ] **Delete `G-6` from `KnownGaps.md`**
+- [x] Flipped through `PUT /api/v1/runtimes/:id/settings` with a real session: the daemon
+      applied it (`{"git.wipSnapshot":"off"}` in its own settings API), acked `done`, and
+      reported the value back into `reported_settings`. **And it has real effect** — a run
+      with the switch off produced no new ref and logged no snapshot
+- [~] The offline-disabled switch was **not seen rendered** (see K); the route refuses with
+      409 `runtime_offline`, which is the behaviour behind it
+- [x] **`G-6` deleted from `KnownGaps.md`**
 
 ### J. Regression
 
-- [ ] `pnpm -r typecheck`
-- [ ] `pnpm -r test` — the existing suite stays green; M4 adds a layer, it does
-      not alter the runner
-- [ ] The local, core-served UI still starts runs with no cloud involved. An
-      unpaired machine is a supported state and must be re-proved, not assumed
+- [x] All four packages typecheck clean
+- [x] 748 tests green (core 594 + 4 skipped, shared 75, web 60, ui 19)
+- [~] The unpaired local UI was **not re-proved**. Core did serve its own API throughout
+      (settings and agent edits went through it), but no run was started from the local UI
+      with the cloud absent. See Result
 
 ### K. Browser pass
 
-- [ ] Per AGENTS.md §3.10: drive the real UI, report console errors and usability
-      problems, fix, re-verify, repeat until clean
+- [~] **Partly.** Signed in through the real magic-link path and exercised every M4 endpoint
+      from the page's own `fetch` with the session cookie — which found two real defects. The
+      click-through pass did not happen: the Browser pane never composited, so screenshots
+      and the accessibility tree were both unavailable. See Result
 
 ## On completion
 
-- [ ] Tick 6.8 and flip Band 6 to done in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] `Status: ✅ done <date>` on [README.md](README.md)
-- [ ] Status table in [`../README.md`](../README.md)
-- [ ] Plan header `Status` → `M4 complete · M5 next`
-- [ ] `G-3`, `G-4`, `G-6` deleted from `KnownGaps.md`; anything newly unproved added
-- [ ] Knowledge Center re-read against what shipped (§3.2) — the four global-claim
-      articles, not only the ones this phase touched
+- [x] Tick 6.8 and flip Band 6 to done in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] `Status: ✅ done 2026-08-11` on [README.md](README.md)
+- [x] Status table in [`../README.md`](../README.md)
+- [x] Plan header `Status` → `M4 complete · M5 next`
+- [x] `G-3`, `G-4`, `G-6` deleted; `G-12` added for what this pass could not reach
+- [x] Knowledge Center re-read against what shipped (§3.2)
 
-## Result
+## Result — verified live on staging 2026-08-11
 
-*(written when the task runs — what was actually executed, what was not, and
-where the evidence lives)*
+The spine works. A run queued in the cloud started on this Windows machine
+within one poll interval, executed a real model, and came back `succeeded` with
+its metrics — and the WIP snapshot fired, which is what `G-3` had been waiting
+for since it was raised.
+
+### Setup, and what it cost
+
+The setup step phase decision 5 predicted was real and did take effort: staging
+had **zero** runtimes, agents and projects (M3's fixtures were cleaned up), so
+this pass created a cloud agent, a cloud project, a matching local agent and a
+matching local project by slug, and paired a fresh daemon.
+
+Core ran with `SPARSTROW_DATA_DIR` and `SPARSTROW_SECRETS_DIR` pointed at a
+scratch directory, deliberately: the owner's real `data/sparstrow.db` and
+`~/.sparstrow` were never written to.
+
+**This is evidence for unparking [D-9](../../Deferred.md).** Making one agent
+runnable from the browser meant hand-creating the same agent twice, once on each
+side, matched by slug. It works, and it is exactly as tedious as the decision
+said it would be.
+
+### Three defects, found only because this ran for real
+
+**1. A failed run's error read "success".** The Claude Code provider used the
+result event's `subtype` as the error message, and the CLI sets `is_error: true`
+alongside `subtype: "success"` when the turn completed but its content is an
+error. The real message — *"Failed to authenticate. API Error: 401 … OAuth
+access token has expired"* — was sitting in `result` the whole time. Fixed in
+`claude-code.ts` with `errorMessageFrom`, 5 tests.
+
+**2. The status route reported success while doing nothing.** Workspace B
+posting `failed` on workspace A's run got `200 {ok:true, applied:false}`. The
+data was safe — the write was correctly scoped — but the *response* was the
+precise shape of M2's worst defect, and a daemon reporting on a run it does not
+own would have been told everything was fine. Ownership is now established
+before the guarded update: a foreign or unknown id gets a 404 (identical bodies,
+so it is still not an id oracle), while a genuinely superseded update from the
+rightful owner still gets `200 applied:false`. Both paths re-verified live.
+
+**3. Two of the new `/api/v1` routes could never have worked.** The catch-all
+runs every request body through `parseBody` → `toSnake` before a handler sees
+it, so relink and clone were reading `body.localPath` when the value had already
+become `body.local_path`. Every well-formed relink returned 400. The settings
+toggle worked only by luck, because `key` and `value` are single words. This is
+the defect class that unit tests cannot reach and a real request finds in one
+call.
+
+A fourth, in the same family: **`reported_settings` was missing from the
+`GET /runtimes` column list**, so the per-runtime snapshot switch would have
+rendered its default forever — a control that lies quietly, which is precisely
+what `G-6` was about.
+
+### One hole closed that nobody had listed
+
+Preflight marks a binding `missing`, and the cloud correctly stops choosing that
+machine. But putting the directory back changed nothing: bindings were reported
+at boot only, so it stayed `missing` until core restarted. `startBindingReporter()`
+now re-reports every ten minutes, unref'd, so a restored directory heals itself.
+Three tests.
+
+### What was NOT proved, and why
+
+Recorded as **`G-12`** in [`../../KnownGaps.md`](../../KnownGaps.md) rather than
+left in this file, so the register stays the one place to look:
+
+- **The browser click-through pass.** The Browser pane never composited frames
+  in this environment, so screenshots and the accessibility tree were both
+  unavailable and no element could be clicked. What *was* done through the real
+  signed-in session is not nothing — every M4 endpoint was exercised from the
+  page's own `fetch` with the session cookie, and that is what found defects 3
+  and 4 — but rendering and interaction are unverified.
+- **Lease recovery after a mid-claim kill**, the two-poll race, and the
+  five-attempt ceiling. All three are proved deterministically in SQL by
+  `verify-command-spine.mjs` against a throwaway Postgres; none was reproduced
+  live, because each needs a timing window this pass could not reliably hit.
+- **Reassign and clone end-to-end.** Reassign needs a second paired machine;
+  clone needs a real remote and a fresh directory. The routes and every clone
+  guard are tested.
+- **The unpaired local UI starting a run.** Core served its own API throughout,
+  but no run was started from the local UI with the cloud absent.
+
+### Cleanup
+
+Every staging fixture this pass created was deleted afterwards — runtimes,
+tokens, commands, runs, bindings, agents, projects, the pairing code, and the
+disposable `@sparstrow.test` account and its membership.

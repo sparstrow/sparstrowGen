@@ -22,6 +22,41 @@ const run = promisify(execFile);
  * looks like a dispatch bug rather than a missing report.
  */
 
+/**
+ * Re-report on a slow timer, so a binding heals itself.
+ *
+ * Found in M4 verification: the daemon marks a binding `missing` when preflight
+ * fails, and the cloud then stops choosing this machine for that project —
+ * correctly. But if the developer simply puts the directory back, nothing
+ * re-reports, so it stays `missing` until core restarts. "I moved the folder
+ * back and it still says the machine doesn't have it" is a bad place to leave
+ * someone, and the fix that existed (relink from the UI, or restart) requires
+ * knowing that either is necessary.
+ *
+ * Ten minutes, not the 30-second heartbeat: this reads the filesystem for every
+ * project and nothing about it is urgent. A machine that regains a directory
+ * becomes usable for it within one interval, which is far better than never.
+ */
+const BINDING_REPORT_INTERVAL_MS = 10 * 60_000;
+let bindingTimer: NodeJS.Timeout | null = null;
+
+export function startBindingReporter(): void {
+  if (bindingTimer) return;
+  void reportBindings().catch(() => undefined);
+  bindingTimer = setInterval(() => {
+    void reportBindings().catch(() => undefined);
+  }, BINDING_REPORT_INTERVAL_MS);
+  // Same rule as the heartbeat: a timer that keeps Node alive turns a clean
+  // exit into a hang.
+  bindingTimer.unref();
+}
+
+export function stopBindingReporter(): void {
+  if (!bindingTimer) return;
+  clearInterval(bindingTimer);
+  bindingTimer = null;
+}
+
 /** Report every local project that has a directory. Best-effort, never fatal. */
 export async function reportBindings(): Promise<void> {
   if (!isPaired()) return;

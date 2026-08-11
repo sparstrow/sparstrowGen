@@ -110,11 +110,14 @@ questions` header line is empty or points only to non-blocking entries.
 | M1 — cloud schema, RLS, indexes | — | ✅ done, applied to staging 2026-08-09 |
 | M2 — `/api/v1` from Next over Supabase | 8 (`M2/`) | ✅ done, verified on staging 2026-08-10 (incl. browser pass) |
 | M3 — pairing, registration, heartbeat | 8 (`M3/`) | ✅ done, verified on staging 2026-08-10 |
-| M4 — command spine | 8 (`M4/`) | decomposed 2026-08-10 — not started |
-| M5 — transcripts · M6 — memory sync · M7 — routes + Electron | — | not decomposed |
+| M4 — command spine | 8 (`M4/`) | ✅ done, verified live on staging 2026-08-11 |
+| M5 — transcripts · M6 — memory sync · M7 — routes + Electron | — | not decomposed (M5 next) |
 
 M5–M7 are scoped in the plan but have no task files yet. They get written when
-their band is next: M5's spec depends on what M4's dispatch actually turns out to
-look like, and inventing that now would be fiction in a confident tone.
+their band is next: M5's spec depends on what M4's dispatch actually turned out
+to look like, and inventing that early would have been fiction in a confident
+tone. M4 bore that out — three of its load-bearing decisions (the cloud/local id
+bridge, poll-over-doorbell, and run-status reporting) were not visible from the
+plan's bullet list at all.
 
 See `MasterTaskQueue.md` for the run order.

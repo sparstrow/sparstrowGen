@@ -89,7 +89,7 @@ all of the core work. 5.6 is `[C]` rather than `[P]` because it edits
 `packages/core/src/index.ts` and the web health handler, which 5.5 and 5.7 also
 touch.
 
-### Band 6 — M4 command spine
+### Band 6 — M4 command spine ✅ complete
 
 Phase spec: [`M4/README.md`](M4/README.md). Decomposed 2026-08-10.
 
@@ -102,7 +102,7 @@ Phase spec: [`M4/README.md`](M4/README.md). Decomposed 2026-08-10.
 | 6.5 | [T-M4-05 — resolution + project preflight](M4/T-M4-05-resolution-preflight.md) | `[P]` | 6.2 | ✅ done (2026-08-10) |
 | 6.6 | [T-M4-06 — run status reporting + `G-4`](M4/T-M4-06-run-status.md) | `[C]` | 6.2 | ✅ done (2026-08-10) |
 | 6.7 | [T-M4-07 — UI: blocked actions + snapshot toggle](M4/T-M4-07-ui-blocked-and-toggle.md) | `[P]` | 6.1 | ✅ done (2026-08-11) |
-| 6.8 | [T-M4-08 — verification](M4/T-M4-08-verification.md) | `[S]` | 6.1–6.7 | **next** |
+| 6.8 | [T-M4-08 — verification](M4/T-M4-08-verification.md) | `[S]` | 6.1–6.7 | ✅ done (staging, 2026-08-11) |
 
 6.1 and 6.2 are `[S]` for the same reason M3's first two were: they define the
 SQL and HTTP contracts every other task is written against. 6.3 and 6.7 need only
@@ -131,7 +131,7 @@ written when the band is next.
 
 | # | Phase | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 7.x | M5 — transcripts (dual path) | `[P]` | M4 | not decomposed |
+| 7.x | M5 — transcripts (dual path) | `[P]` | M4 | **next** — not decomposed |
 | 7.y | M6 — memory sync | `[P]` | M4 | not decomposed |
 | 7.z | M7 — route parity + Electron hosted load | `[P]` | M2 | not decomposed |
 

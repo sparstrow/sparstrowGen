@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Approved 2026-08-09 · M1 complete · M2 complete · auth hardening complete 2026-08-10 · M3 complete 2026-08-10 · M4 next |
+| **Status** | Approved 2026-08-09 · M1–M3 complete · auth hardening complete 2026-08-10 · **M4 complete 2026-08-11** · M5 next |
 | **Supersedes** | The "Phase 4: Multi-Agent Swarm Orchestrator & Live Transcripts" proposal |
-| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–5 done · band 6 = M4, decomposed 2026-08-10) · `doc/tasks/M2/` · `doc/tasks/M3/` · `doc/tasks/M4/` |
+| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–6 done) · `doc/tasks/M2/` · `doc/tasks/M3/` · `doc/tasks/M4/` |
 | **Open questions** | None. OQ-1 (uncommitted work) answered **and built** 2026-08-10 — see settled decision 5. OQ-2 answered and closed 2026-08-10. |
 
 > **Why the original Phase 4 proposal was replaced.** It described three features
@@ -257,7 +257,35 @@ Realtime subscriptions stay direct from the browser as they are today in
   from `listProviders()` in `packages/core/src/providers/index.ts`.
 - Heartbeat + `runtimes.status` transitions.
 
-### M4 — Command spine
+### M4 — Command spine ✅ DONE (verified live on staging 2026-08-11)
+
+**Shipped:** four SQL functions (`start_run`, `cancel_run`, `claim_runtime_commands`,
+`ack_runtime_command`), five daemon routes, four `/api/v1` routes, a 3s poll loop
+with claim/lease/ack, slug-based resolution over a local `cloud_links` table,
+binding reports, run-status reporting, the four `project_not_available` actions,
+and a per-runtime WIP snapshot switch. 748 tests green.
+
+**Verified live:** a run queued in the cloud started on this Windows machine
+within one poll interval and reached `succeeded` with its metrics; the WIP
+snapshot fired (closing `G-3`); cancel killed a run in flight; a missing project
+parked without spawning, both at enqueue and at claim; a cross-workspace token
+claimed, acked and reported nothing.
+
+**Four defects found by running it for real**, none of which the unit tests could
+reach: a failed run whose error read "success"; a status route that reported
+success while doing nothing for another workspace; two routes reading camelCase
+keys the router had already snake-cased; and a column missing from a select list
+that would have made the new switch lie forever.
+
+**Three decisions the plan did not anticipate**, all settled in the phase spec:
+the Realtime doorbell is deferred to M5 (the daemon still cannot authenticate to
+Realtime, and M5 must solve that anyway); cloud and local ids are *linked* by
+slug rather than adopted, because adopting would rewrite a live primary key; and
+run-status reporting is in M4, because without it there is nothing to verify
+against.
+
+*(original scope below)*
+
 `packages/core/src/cloud/commands.ts`, `packages/core/src/orchestrator/run-manager.ts`
 
 > **Decomposed 2026-08-10 into 8 tasks — `doc/tasks/M4/`.** Three things the

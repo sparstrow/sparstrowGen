@@ -55,6 +55,34 @@ export async function POST(request: Request, { params }: RouteContext) {
   const db = daemonDb();
   const update = runUpdateFor(body, new Date().toISOString());
 
+  // Ownership is established BEFORE the guarded update, and separately from it.
+  //
+  // Folding the two into one statement — which is what this route did until M4
+  // verification — makes "this run is not yours" and "your update was
+  // superseded" the same `200 {ok:true, applied:false}`. The first is the exact
+  // shape of M2's worst defect: a write that reports success while doing
+  // nothing. Workspace B reporting `failed` on workspace A's run got a cheerful
+  // ok:true, and only reading the row afterwards showed nothing had happened.
+  //
+  // The reason the two were conflated is still respected: a run in another
+  // workspace and a run that does not exist return the SAME 404 with the same
+  // body, so this cannot be used to discover ids.
+  const { data: owned, error: lookupError } = await db
+    .from("runs")
+    .select("id")
+    .eq("id", id)
+    .eq("workspace_id", auth.scope.workspaceId)
+    .eq("target_runtime_id", auth.scope.runtimeId)
+    .maybeSingle();
+
+  if (lookupError) {
+    console.error("run status lookup failed", { runId: id, message: lookupError.message });
+    return daemonError(500, "server_error", "Could not record the run status.");
+  }
+  if (!owned) {
+    return daemonError(404, "invalid_request", "No such run for this machine.");
+  }
+
   // `target_runtime_id` is in the filter as well as the workspace: a machine may
   // only report on runs the control plane actually gave it. Without it, any
   // paired machine in a workspace could drive any run in that workspace to
@@ -73,11 +101,10 @@ export async function POST(request: Request, { params }: RouteContext) {
     return daemonError(500, "server_error", "Could not record the run status.");
   }
 
-  // Zero rows is a legitimate outcome, not an error: it means the guard did its
-  // job (a late `running` after a terminal state) or the run is not this
-  // machine's. `applied: false` lets the daemon stop retrying without treating
-  // it as a failure. It deliberately does not say WHICH — the run existing in
-  // another workspace must not be distinguishable from it not existing.
+  // Now that ownership is settled above, zero rows means one thing only: the
+  // monotonic guard did its job — a late `running` arriving after a terminal
+  // state. That is a legitimate no-op for the run's rightful owner, so it stays
+  // a 200 and `applied: false` lets the daemon stop retrying.
   const applied = (data?.length ?? 0) > 0;
 
   if (applied && isTerminalRunStatus(status)) {

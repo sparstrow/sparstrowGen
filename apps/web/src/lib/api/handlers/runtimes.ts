@@ -72,7 +72,14 @@ registerRoute({
   handler: async ({ supabase, workspaceId }: HandlerContext) => {
     const { data, error } = await supabase
       .from("runtimes")
-      .select("id, name, os, hostname, is_electron, capabilities, status, core_version, last_heartbeat, created_at")
+      // `reported_settings` is what the Machines card's per-runtime snapshot
+      // switch renders (M4 / G-6). Left out of this explicit list, the column
+      // exists, the daemon writes it, and the switch silently shows its default
+      // forever — a control that lies quietly, which is the exact failure G-6
+      // was opened about. Found in the M4 browser pass.
+      .select(
+        "id, name, os, hostname, is_electron, capabilities, status, core_version, last_heartbeat, created_at, reported_settings",
+      )
       .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: true });
     if (error) throw error;
@@ -200,7 +207,12 @@ registerRoute({
   method: "PUT",
   pattern: "/runtimes/:id/projects/:projectId",
   handler: async ({ supabase, workspaceId, params, body }: HandlerContext) => {
-    const localPath = typeof body?.localPath === "string" ? body.localPath.trim() : "";
+    // `local_path`, not `localPath`: the catch-all route runs every incoming
+    // body through `parseBody` -> `toSnake` before a handler sees it, so the
+    // browser's camelCase key has already been converted. Reading the camelCase
+    // name here makes every well-formed relink a 400 — which is exactly what it
+    // did until the M4 browser pass sent a real request.
+    const localPath = typeof body?.local_path === "string" ? body.local_path.trim() : "";
     if (!localPath) return fail(400, "A path on that machine is required.", "invalid_request");
 
     // The browser cannot check that this path exists — it is on someone else's
@@ -254,7 +266,8 @@ registerRoute({
   method: "POST",
   pattern: "/runtimes/:id/projects/:projectId/clone",
   handler: async ({ supabase, workspaceId, params, body }: HandlerContext) => {
-    const localPath = typeof body?.localPath === "string" ? body.localPath.trim() : "";
+    // Snake-cased by `parseBody` before it reaches here — see the relink route.
+    const localPath = typeof body?.local_path === "string" ? body.local_path.trim() : "";
     if (!localPath) {
       return fail(400, "A destination path on that machine is required.", "invalid_request");
     }

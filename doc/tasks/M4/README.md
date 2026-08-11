@@ -5,7 +5,7 @@
 | **Plan** | `doc/plans/2026-08-09-daemon-cloud-control-plane.md` (M4) |
 | **Depends on** | M3 (complete — a machine is paired, registered, and visibly online) |
 | **Blocks** | M5 (transcripts), M6 (memory sync) |
-| **Status** | decomposed 2026-08-10 — not started |
+| **Status** | ✅ done — verified live on staging 2026-08-11 |
 | **Open questions** | none — everything below is decided |
 
 ## Tasks
@@ -22,6 +22,10 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | [T-M4-06 — run status reporting + G-4](T-M4-06-run-status.md) | `[C]` | 02 |
 | [T-M4-07 — UI: blocked actions + per-runtime snapshot toggle](T-M4-07-ui-blocked-and-toggle.md) | `[P]` | 01 |
 | [T-M4-08 — verification](T-M4-08-verification.md) | `[S]` | 01–07 |
+
+All eight are done. Four verification items could not be reached live and are
+recorded as `G-12` in [`../../KnownGaps.md`](../../KnownGaps.md) rather than
+quietly ticked.
 
 This file holds what they share. Individual tasks reference it rather than
 restating it.

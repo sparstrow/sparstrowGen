@@ -18,7 +18,7 @@ import { register } from "./cloud/registration.js";
 import { declareDraining, startHeartbeat } from "./cloud/heartbeat.js";
 import { startCommandLoop, stopCommandLoop } from "./cloud/commands.js";
 import { startRunReporter, stopRunReporter } from "./cloud/run-reporter.js";
-import { reportBindings } from "./cloud/bindings.js";
+import { startBindingReporter, stopBindingReporter } from "./cloud/bindings.js";
 import { initDelegationWatcher, sweepWaitingParents } from "./taskboard/delegation.js";
 import { sweepOrphanedPipelineRuns } from "./orchestrator/pipeline-executor.js";
 import { initGoalWatcher, reconcileGoals } from "./goap/service.js";
@@ -131,7 +131,7 @@ async function main(): Promise<void> {
   // Until this lands, `runtime_projects` is empty and every project looks
   // unavailable to the enqueue-time check — a failure that reads like a
   // dispatch bug rather than a missing report.
-  void reportBindings().catch(() => undefined);
+  startBindingReporter();
 
   const shutdown = async (signal: string) => {
     logger.info({ signal }, "shutting down");
@@ -141,6 +141,7 @@ async function main(): Promise<void> {
       // that is about to be gone, and the run looks stuck until it expires.
       stopCommandLoop();
       stopRunReporter();
+      stopBindingReporter();
       // Then, so the UI says "shutting down" instead of waiting out the
       // staleness window. Best-effort with a 2s timeout — it must not delay
       // the rest of shutdown, and a missed declaration just means the machine
