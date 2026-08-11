@@ -28,9 +28,15 @@ marked otherwise.
 
 ## Sign-in
 
+- **Creating an account needs no email.** Email confirmation is currently off, so
+  signing up puts you straight into the app. If you're waiting on a confirmation
+  message, it isn't coming — you're already in.
+- **A sign-in link only works if you already have an account.** For security the form
+  gives the same answer either way, so if no link arrives, the likeliest reason is that
+  no account exists for that address yet. Create one instead.
 - **GitHub and Google sign-in are switched off.** The buttons show on the login page but
-  are disabled until OAuth apps are registered. Use email and password, or have a
-  one-time **sign-in link emailed** to you.
+  are disabled until OAuth apps are registered. Use email and password, or a one-time
+  sign-in link.
 - **Sign-in emails are rate-limited** to a handful per hour on the current plan. Hitting
   `Email rate limit exceeded` means waiting a few minutes; password sign-in is
   unaffected.

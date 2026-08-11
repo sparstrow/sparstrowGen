@@ -10,8 +10,17 @@ Rows without one have nothing to click yet — the note explains why.
 
 | Status | Action | Why it needs you | Guide |
 |---|---|---|---|
+| 🔲 pending | **Confirm whether Supabase is actually delivering email** — then configure custom SMTP if not | Supabase's built-in mailer only delivers to **members of the project's Supabase org** and is capped at a few messages an hour. Nothing in this repo can see whether a message landed; only you can read the inbox. Sign-**up** does not need email today (see below), but magic links and password resets do. | [email-delivery.md](email-delivery.md) |
 | 🔲 pending | Register OAuth apps for GitHub and Google, paste the client secrets into Supabase | Social sign-in is built and verified; both providers are currently disabled at the provider level, so the buttons render disabled | [oauth-providers.md](oauth-providers.md) |
 | ⛔ blocked | Enable leaked-password protection | Requires Supabase's Pro plan — confirmed 2026-08-10 there is nothing to enable on the current plan. Nothing to do until you upgrade; re-check the box below then. | — |
+
+> ℹ️ **Current auth configuration, verified live 2026-08-10.** "Confirm email" is
+> **OFF** in the Supabase dashboard. Creating an account therefore signs you in
+> immediately and sends **no** email at all — a new user row comes back with
+> `email_confirmed_at` already set and `confirmation_sent_at` null. This is why
+> sign-up works while "email me a link" appears to do nothing. If you switch
+> "Confirm email" back on, sign-up starts depending on delivery, so do the SMTP
+> row above first.
 
 ## Not an owner action
 

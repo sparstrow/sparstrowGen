@@ -93,6 +93,29 @@ calls it with the right `rootDir`, on every terminal status".
   first phase that dispatches real work, and its verification task should assert
   this rather than treat it as incidental.
 
+### G-11 — Supabase has never been observed delivering an email
+
+**Raised:** 2026-08-10, investigating "I can't create an account, no link arrives".
+
+Every magic link used across M2 and M3 verification was minted with the **admin
+API** (`generateLink`), which returns a token and sends no mail. That was the right
+tool for an unattended browser pass, and it means the SMTP path was never once
+exercised — while both milestones reported their auth verification as passing.
+
+A live `signInWithOtp` to a real inbox was accepted by Supabase (no error), but
+acceptance is not delivery, and nothing in this repo can read an inbox.
+
+Sign-**up** is unaffected: "Confirm email" is off, so it needs no mail at all.
+Magic-link sign-in and password reset both depend on this entirely.
+
+- **If wrong:** two of the three sign-in routes are dead for everyone, and the
+  built-in mailer's rule — deliver **only** to members of the project's Supabase
+  org — means it can work for the owner and fail for every invited user, which is
+  the worst shape of failure to debug later.
+- **Clears when:** an email is confirmed arriving in a real inbox, or custom SMTP
+  is configured. Procedure and the "Confirm email" interaction:
+  [`runbooks/email-delivery.md`](runbooks/email-delivery.md).
+
 ### G-4 — A concurrent run can start while a snapshot is being taken
 
 **Raised:** 2026-08-10 (WIP snapshots / OQ-1). Documented at the call site.

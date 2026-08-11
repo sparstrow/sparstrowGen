@@ -189,9 +189,14 @@ function LoginForm() {
         // whether any given person has one. Same generic answer either way;
         // the only thing that distinguishes them is whether an email arrives.
         if (error && !/signup|not allowed|not found/i.test(error.message)) throw error;
+        // The second sentence is the whole point. The generic answer above is
+        // correct security but it is indistinguishable from a successful send,
+        // so someone with no account waits for an email that was never sent --
+        // which is exactly how this failed in practice. Saying it generically
+        // helps that person without revealing anything about THIS address.
         setNotice({
           tone: "success",
-          text: `If an account exists for ${email}, a sign-in link is on its way. It works once and expires in an hour.`,
+          text: `If an account exists for ${email}, a sign-in link is on its way. It works once and expires in an hour. No account yet? Nothing is sent until you create one — use "Create an account" below.`,
         });
         return;
       }
@@ -205,7 +210,7 @@ function LoginForm() {
         // turns this form into a way to enumerate who has an account here.
         setNotice({
           tone: "success",
-          text: "If an account exists for that address, a reset link is on its way.",
+          text: "If an account exists for that address, a reset link is on its way. No account yet? Nothing is sent until you create one.",
         });
         return;
       }
@@ -410,8 +415,11 @@ function LoginForm() {
                     </button>
                   </div>
                   {mode === "sign-up" ? (
+                    // Do NOT promise breach screening here. It needs a paid
+                    // Supabase plan and is off, so the old copy told people
+                    // their password had been checked when nothing checked it.
                     <p className="text-xs text-muted-foreground">
-                      At least 6 characters. Passwords found in known breaches are rejected.
+                      At least 6 characters. Choose one you don&apos;t reuse elsewhere.
                     </p>
                   ) : null}
                 </div>
@@ -464,10 +472,20 @@ function LoginForm() {
               </button>
             </>
           ) : mode === "magic-link" ? (
-            // "Use a password instead" already sits in the form and says the
-            // same thing more usefully. Two ways back reads as two different
-            // destinations.
-            null
+            // Getting BACK to sign-in is already covered by "Use a password
+            // instead" in the form. Getting to sign-UP was not covered at all,
+            // which left the one person who needs it most -- no account, so no
+            // link will ever arrive -- with no way out of this mode.
+            <>
+              Don&apos;t have an account?{" "}
+              <button
+                type="button"
+                className="text-foreground underline underline-offset-4"
+                onClick={() => switchTo("sign-up")}
+              >
+                Create an account
+              </button>
+            </>
           ) : (
             <button
               type="button"
