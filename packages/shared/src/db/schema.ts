@@ -230,6 +230,13 @@ export const runtimeCommands = pgTable(
     uniqueIndex("uq_runtime_commands_idem").on(t.idempotencyKey),
     index("idx_runtime_commands_claim").on(t.runtimeId, t.status, t.createdAt),
     index("idx_runtime_commands_workspace").on(t.workspaceId),
+    // A fourth index, `idx_runtime_commands_open`, is created by
+    // drizzle/policies/009_command_spine.sql. It is partial — `where status in
+    // ('pending','claimed')` — so it stays proportional to the work in flight
+    // rather than to every command ever dispatched, which is what the claim
+    // query actually needs. It lives there rather than here because the M1
+    // index above still exists and retiring it is a deliberate drizzle
+    // migration, not a side effect of adding the better one.
   ],
 );
 

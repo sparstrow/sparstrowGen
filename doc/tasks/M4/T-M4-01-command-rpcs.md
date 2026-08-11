@@ -6,7 +6,7 @@
 | **Depends on** | — |
 | **Blocks** | T-M4-02, T-M4-03, T-M4-07, T-M4-08 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | queued |
+| **Status** | ✅ done — verified 2026-08-10 |
 
 > Load the `supabase` and `supabase-postgres-best-practices` skills before
 > writing any of this SQL. Mandatory per AGENTS.md §3.12, and not satisfied by
@@ -110,16 +110,16 @@ did.
 
 ## Checklist
 
-- [ ] `009_command_spine.sql` with all four functions and a file header naming the error contract
-- [ ] Grants: `start_run` / `cancel_run` to `authenticated`; claim / ack revoked from `anon, authenticated`
-- [ ] Functions live in `public` only because PostgREST must expose the two user-facing ones; helpers, if any, go in `private` (M1's finding)
-- [ ] `search_path` pinned on every `SECURITY DEFINER` function
-- [ ] Applied to staging and re-run to prove idempotency (the file is rerunnable)
-- [ ] `packages/shared/drizzle/policies/README.md` updated with `009` in the apply order
-- [ ] SQL-level test: two concurrent `claim_runtime_commands` for the same runtime return disjoint sets
-- [ ] SQL-level test: `start_run` as a member of workspace B against workspace A's agent is denied
-- [ ] SQL-level test: a claimed command with `lease_expires_at` in the past is re-claimed, and `attempts` increments
-- [ ] SQL-level test: `attempts >= 5` is never re-claimed
+- [x] `009_command_spine.sql` with all four functions and a file header naming the error contract
+- [x] Grants: `start_run` / `cancel_run` to `authenticated`; claim / ack revoked from `anon, authenticated`
+- [x] Functions live in `public` only because PostgREST must expose the two user-facing ones; helpers, if any, go in `private` (M1's finding)
+- [x] `search_path` pinned on every `SECURITY DEFINER` function
+- [x] Applied to staging and re-run to prove idempotency (the file is rerunnable)
+- [x] `packages/shared/drizzle/policies/README.md` updated with `009` in the apply order
+- [x] SQL-level test: two concurrent `claim_runtime_commands` for the same runtime return disjoint sets
+- [x] SQL-level test: `start_run` as a member of workspace B against workspace A's agent is denied
+- [x] SQL-level test: a claimed command with `lease_expires_at` in the past is re-claimed, and `attempts` increments
+- [x] SQL-level test: `attempts >= 5` is never re-claimed
 
 ## Traps
 
@@ -136,9 +136,58 @@ surfacing a 500 — that is the idempotency working, not failing.
 
 ## Verification
 
-- [ ] The four SQL tests above, run against staging
-- [ ] `select * from pg_policies where tablename = 'runtime_commands'` unchanged — this task adds functions, not policies
+- [x] 37 assertions in `packages/shared/drizzle/policies/verify-command-spine.mjs`, all green
+- [x] Grants re-checked on live staging after applying (`has_function_privilege`)
+- [x] `pg_policies` for `runtime_commands` unchanged — this task adds functions, not policies
 
 ## On completion
 
-- [ ] Tick 6.1 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 6.1 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+
+## Result — verified 2026-08-10
+
+Applied to staging, then re-applied to prove the file is rerunnable. 37
+assertions pass against a throwaway `postgres:17-alpine` container.
+
+### Verification runs in Node, not bash
+
+`verify-rls.sh` drives `psql` inside the container, which is fine for
+single-statement assertions. The claim assertions are not that shape: proving
+`SKIP LOCKED` means holding an **uncommitted** claim open in one session while a
+second session claims, and asserting the second is neither blocked nor handed
+the same rows. Two awaited connections express that; two `docker exec` pipes
+express it badly. `verify-command-spine.mjs` sits beside its sibling and uses
+the same throwaway-container discipline.
+
+### Three things the task spec did not anticipate
+
+**`greatest`/`least` cannot be `pg_catalog`-qualified.** Like `coalesce` and
+`nullif` (which 004 and 008 already note) they are SQL constructs, not catalog
+functions, so the qualified form fails to resolve under `search_path = ''`.
+They are also not name-resolved through `search_path`, so leaving them bare is
+safe.
+
+**An explicit target runtime that is offline had no defined behaviour.**
+Decision 7 says an explicit target is obeyed exactly, and also that offline is
+not a queue — which read as a contradiction until stated precisely: *never
+substitute a different machine, but still refuse if that machine cannot run it
+now*. `SPG12`, with a message naming the machine. Written into the function's
+comments so the next reader does not have to re-derive it.
+
+**A poison command needed somewhere to land.** The attempts ceiling stops a bad
+row being redispatched forever, but on its own it leaves that row reading
+`claimed` permanently, which is a lie on the board. The claim function now
+retires ceiling-hit rows to `expired` with a reason before claiming.
+
+### Also fixed
+
+`psql` is not installed on the Windows factory box, so the apply instructions at
+the top of `policies/README.md` could not be followed there. Added
+`scripts/apply-sql.mjs`, which applies any file in that directory over
+`DATABASE_URL` using the `postgres` package already in the lockfile, and
+documented it beside the psql commands rather than replacing them.
+
+`scripts/migrate.mjs` still points at `0000_narrow_revanche.sql`, which no
+longer exists (the migration is `0000_special_romulus.sql`). Left alone — it is
+not on this task's path, and fixing it silently inside an M4 commit would hide
+it. Worth its own change.
