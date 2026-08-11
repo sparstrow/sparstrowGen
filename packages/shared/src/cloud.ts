@@ -67,6 +67,18 @@ export interface RuntimeIdentity {
    */
   capabilities: string[];
   coreVersion?: string | null;
+  /**
+   * The machine's CURRENT values for the settings it accepts remotely
+   * (`DAEMON_SETTABLE_KEYS`). Reported at boot and again whenever a
+   * `settings.set` is applied, so the Machines card renders what the daemon
+   * confirmed rather than what the browser hoped.
+   *
+   * This is also what makes a locally-flipped switch visible in the hosted UI:
+   * the value is read from the machine's own settings table, so it does not
+   * matter whether it was last changed from here or from the local Settings
+   * card. M4, closing G-6.
+   */
+  settings?: Record<string, string>;
 }
 
 export interface PairRequest extends RuntimeIdentity {

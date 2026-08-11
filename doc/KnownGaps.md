@@ -150,21 +150,25 @@ known at spawn and could be clamped there.
   at spawn. The third can never gate its own run; the quarantine is the mitigation
   for it, by design.
 
-### G-6 — The WIP snapshot toggle exists only in the local UI
+*`G-6` — the WIP snapshot toggle existing only in the local UI — was **closed
+2026-08-10** by M4 (`T-M4-07`). The Machines card now carries a per-runtime
+switch, driven by an allowlisted `settings.set` command; per-runtime rather than
+workspace-wide because a laptop with a small disk and a workstation with a large
+one have different right answers.
 
-**Raised:** 2026-08-10 (WIP snapshots / OQ-1).
+The part worth recording is what stopped it reopening the same gap in a new
+place. The switch renders `runtimes.reported_settings`, which **only the daemon
+writes** — at boot and again after it applies a `settings.set`. An optimistic
+switch showing what you clicked rather than what happened would have had exactly
+the defect G-6 named, wearing a better hat. An offline machine's switch is
+disabled and says why, instead of queueing a change against a computer that is
+switched off. Because the value is read from the machine's own settings table, a
+switch flipped in the local Settings card also shows correctly in the hosted UI.
 
-The switch is a row in one machine's SQLite and the snapshot happens on that
-machine's disk. `apps/web` has no `/system/settings` route at all, so a card
-rendered there would flip and then silently fail to reach the daemon it claims
-to configure. It is hidden in the hosted app rather than shown broken.
-
-- **Clears when:** M4's command spine carries the setting to a specific daemon.
-  **Owned by
-  [`tasks/M4/T-M4-07-ui-blocked-and-toggle.md`](tasks/M4/T-M4-07-ui-blocked-and-toggle.md)**,
-  via an allowlisted `settings.set` command — a per-runtime control in the
-  Machines card, not a workspace-wide setting, because the machines can
-  legitimately disagree.
+Proof: `apps/web/src/lib/api/runtime-routes.test.ts` for dispatch and the
+allowlist, `packages/core/src/cloud/commands.test.ts` for the daemon-side
+allowlist, migration `0002_vengeful_norrin_radd.sql` for the column. The live
+flip is `T-M4-08`.*
 
 ### G-7 — Leaked-password protection is unavailable on the current Supabase plan
 

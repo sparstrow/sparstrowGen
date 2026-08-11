@@ -875,6 +875,8 @@ export interface TaskUpdateInput {
   assignedAgentId?: string | null;
   priority?: number;
   result?: string | null;
+  /** M4 — reassign to a specific machine, or clear the pin with null. */
+  targetRuntimeId?: string | null;
 }
 
 export function useUpdateTask(): UseMutationResult<
@@ -1907,6 +1909,24 @@ export interface Runtime {
   lastHeartbeat: string | null;
   createdAt: string;
   online: boolean;
+  /**
+   * What the machine last CONFIRMED about its remotely-settable settings.
+   * Written only by the daemon, so a switch rendered from this is showing an
+   * acked value rather than a hopeful one — including when it was flipped in
+   * that machine's own local Settings card. M4 / `G-6`.
+   */
+  reportedSettings: Record<string, string>;
+}
+
+/** A project as this machine reports having it. */
+export interface RuntimeProject {
+  runtimeId: string;
+  projectId: string;
+  localPath: string | null;
+  /** bound | missing | cloning | error */
+  state: string;
+  detail: string | null;
+  lastSeen: string | null;
 }
 
 export interface PairingCode {
@@ -1968,6 +1988,104 @@ export function useRemoveRuntime(): UseMutationResult<{ deleted: number }, ApiEr
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
       void queryClient.invalidateQueries({ queryKey: ["health"] });
+    },
+  });
+}
+
+/**
+ * ─── M4: per-runtime bindings and settings ──────────────────────────────────
+ *
+ * The four things offered when a task is blocked on a project a machine does
+ * not have, plus the per-runtime WIP snapshot switch.
+ */
+
+/** Which machines hold which projects, and in what state. */
+export function useRuntimeProjects(): UseQueryResult<RuntimeProject[], ApiError> {
+  return useQuery({
+    queryKey: ["runtime-projects"],
+    queryFn: () => api<RuntimeProject[]>("/runtime-projects"),
+  });
+}
+
+/** Relink — the project is on that machine, just not where the binding says. */
+export function useRelinkProject(): UseMutationResult<
+  RuntimeProject,
+  ApiError,
+  { runtimeId: string; projectId: string; localPath: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ runtimeId, projectId, localPath }) =>
+      api<RuntimeProject>(`/runtimes/${runtimeId}/projects/${projectId}`, {
+        method: "PUT",
+        body: { localPath },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["runtime-projects"] });
+      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+}
+
+/** Unbind — stop considering this machine for this project. */
+export function useUnbindProject(): UseMutationResult<
+  { unbound: number },
+  ApiError,
+  { runtimeId: string; projectId: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ runtimeId, projectId }) =>
+      api<{ unbound: number }>(`/runtimes/${runtimeId}/projects/${projectId}`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["runtime-projects"] });
+      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+}
+
+/** Clone — fetch the project onto that machine from its git remote. */
+export function useCloneProject(): UseMutationResult<
+  { queued: boolean },
+  ApiError,
+  { runtimeId: string; projectId: string; localPath: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ runtimeId, projectId, localPath }) =>
+      api<{ queued: boolean }>(`/runtimes/${runtimeId}/projects/${projectId}/clone`, {
+        method: "POST",
+        body: { localPath },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["runtime-projects"] });
+    },
+  });
+}
+
+/**
+ * Set one allowlisted setting on one machine.
+ *
+ * Returns `{ queued }`, deliberately — not the new value. The command has been
+ * enqueued, not applied; the switch keeps rendering `reportedSettings` until
+ * the daemon says otherwise, which is the whole point of `G-6`.
+ */
+export function useSetRuntimeSetting(): UseMutationResult<
+  { queued: boolean },
+  ApiError,
+  { runtimeId: string; key: string; value: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ runtimeId, key, value }) =>
+      api<{ queued: boolean }>(`/runtimes/${runtimeId}/settings`, {
+        method: "PUT",
+        body: { key, value },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
     },
   });
 }

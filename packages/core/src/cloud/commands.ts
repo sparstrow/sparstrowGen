@@ -16,6 +16,7 @@ import { logger } from "../logger.js";
 import { runManager } from "../orchestrator/run-manager.js";
 import { CloudAuthError, cloudFetch, invalidatePairingCache, isPaired } from "./client.js";
 import { cloneProject } from "./bindings.js";
+import { reportSettings } from "./registration.js";
 import { resolveAgent } from "./resolve.js";
 import { markDispatched } from "./run-reporter.js";
 
@@ -236,6 +237,14 @@ function applySetting(payload: SettingsSetPayload): Outcome {
     .run();
 
   logger.info({ key: payload.key, value }, "setting changed from the control plane");
+
+  // Report the new value back, so the Machines card shows what this machine
+  // confirmed rather than what the browser sent. Fire-and-forget: the setting
+  // is already applied locally, and a failed report is corrected by the next
+  // boot's registration. Awaiting it would make a network hiccup look like a
+  // setting that did not take.
+  void reportSettings();
+
   return { ok: true };
 }
 

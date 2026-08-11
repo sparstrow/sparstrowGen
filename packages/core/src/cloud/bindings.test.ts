@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { closeDb, getDb, openDb } from "../db/connection.js";
 import { projects } from "../db/schema.js";
 import { config } from "../config.js";
+import type { ProjectClonePayload } from "@sparstrow/shared";
 import { invalidatePairingCache, savePairing } from "./client.js";
 
 /**
@@ -139,19 +140,22 @@ describe("project bindings", () => {
 
   describe("cloneProject", () => {
     const target = () => path.join(dir, "cloned");
+    const clonePayload = (over: Partial<ProjectClonePayload> = {}): ProjectClonePayload => ({
+      projectId: "prj_cloud_1",
+      projectSlug: "app",
+      localPath: target(),
+      gitRemote: "https://example.com/app.git",
+      ...over,
+    });
 
     it("clones, creates the local project row, and reports the binding", async () => {
       execFileMock.mockResolvedValue({ stdout: "", stderr: "" });
       const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(okResponse());
 
-      const result = await cloneProject({
-        projectSlug: "app",
-        localPath: target(),
-        gitRemote: "https://example.com/app.git",
-      });
+      const result = await cloneProject(clonePayload());
 
       expect(result.ok).toBe(true);
-      const [, args] = execFileMock.mock.calls[0];
+      const args = execFileMock.mock.calls[0]![1] as string[];
       expect(args).toEqual(["clone", "https://example.com/app.git", target()]);
 
       const row = getDb().select().from(projects).all()[0];
@@ -170,11 +174,7 @@ describe("project bindings", () => {
       fs.writeFileSync(path.join(target(), "already-here.txt"), "mine");
       vi.spyOn(globalThis, "fetch").mockResolvedValue(okResponse());
 
-      const result = await cloneProject({
-        projectSlug: "app",
-        localPath: target(),
-        gitRemote: "https://example.com/app.git",
-      });
+      const result = await cloneProject(clonePayload());
 
       expect(result.ok).toBe(false);
       expect(execFileMock).not.toHaveBeenCalled();
@@ -182,22 +182,17 @@ describe("project bindings", () => {
     });
 
     it("refuses a relative path", async () => {
-      const result = await cloneProject({
-        projectSlug: "app",
-        localPath: "../../somewhere",
-        gitRemote: "https://example.com/app.git",
-      });
+      const result = await cloneProject(clonePayload({ localPath: "../../somewhere" }));
 
       expect(result.ok).toBe(false);
       expect(execFileMock).not.toHaveBeenCalled();
     });
 
     it("refuses a project with no remote to clone from", async () => {
-      const result = await cloneProject({
-        projectSlug: "app",
-        localPath: target(),
-        gitRemote: null,
-      });
+      // `gitRemote` is typed as string, but a payload arrives as JSON off the
+      // network — the type is a claim about the sender, not a guarantee. The
+      // guard is real and so is this test of it.
+      const result = await cloneProject(clonePayload({ gitRemote: null as unknown as string }));
 
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.failure.error).toMatch(/no git remote/i);
@@ -208,11 +203,7 @@ describe("project bindings", () => {
       execFileMock.mockRejectedValue(new Error("fatal: Authentication failed"));
       const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(okResponse());
 
-      const result = await cloneProject({
-        projectSlug: "app",
-        localPath: target(),
-        gitRemote: "https://example.com/app.git",
-      });
+      const result = await cloneProject(clonePayload());
 
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.failure.reason).toBe("clone_failed");
@@ -232,13 +223,9 @@ describe("project bindings", () => {
       execFileMock.mockResolvedValue({ stdout: "", stderr: "" });
       vi.spyOn(globalThis, "fetch").mockResolvedValue(okResponse());
 
-      await cloneProject({
-        projectSlug: "app",
-        localPath: target(),
-        gitRemote: "https://example.com/app.git; rm -rf /",
-      });
+      await cloneProject(clonePayload({ gitRemote: "https://example.com/app.git; rm -rf /" }));
 
-      const [file, args] = execFileMock.mock.calls[0];
+      const [file, args] = execFileMock.mock.calls[0]! as [string, string[]];
       expect(file).toBe("git");
       expect(args[1]).toBe("https://example.com/app.git; rm -rf /");
     });

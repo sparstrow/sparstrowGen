@@ -36,6 +36,11 @@ export async function POST(request: Request) {
       core_version: identity.coreVersion,
       status: "online",
       last_heartbeat: new Date().toISOString(),
+      // Boot is the other half of the settings report (`POST /api/daemon/
+      // settings` handles changes). Sending it here means a machine whose
+      // switch was flipped in its own local Settings card shows the right
+      // value in the Machines card without anyone touching the cloud.
+      ...(identity.settings ? { reported_settings: identity.settings } : {}),
     })
     .eq("id", auth.scope.runtimeId)
     .eq("workspace_id", auth.scope.workspaceId);
