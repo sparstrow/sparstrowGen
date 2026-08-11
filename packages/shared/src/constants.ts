@@ -66,3 +66,49 @@ export const DEFAULT_GOAL_REPLAN_LIMIT = 3;
 export const SETTING_GOAL_PLANNER_RETRY_LIMIT = "goal.plannerRetryLimit";
 export const DEFAULT_GOAL_PLANNER_RETRY_LIMIT = 2;
 export const GOAL_MAX_PLAN_NODES = 30;
+
+/**
+ * OQ-1 — WIP snapshots. When a run ends, core records the project's working
+ * tree as a git object under `refs/sparstrow/wip/<runId>` so an agent's
+ * uncommitted edits survive a crash, a cancel, or a careless `git checkout`.
+ *
+ * The snapshot is written with plumbing (write-tree + commit-tree + update-ref)
+ * against a THROWAWAY index, so it never moves HEAD, never touches the real
+ * index, never creates a branch, and is never pushed. `git status` reads
+ * identically before and after.
+ *
+ * Default ON: the setting only pays out when something has already gone wrong,
+ * and the person who most needs it is the one who never thought to enable it.
+ * Off is one toggle away, and turning it off leaves existing snapshots intact.
+ */
+export const SETTING_WIP_SNAPSHOT = "git.wipSnapshot";
+export const DEFAULT_WIP_SNAPSHOT = true;
+/** Snapshots retained per repository; the oldest refs are pruned past this. */
+export const SETTING_WIP_SNAPSHOT_KEEP = "git.wipSnapshotKeep";
+export const DEFAULT_WIP_SNAPSHOT_KEEP = 50;
+/**
+ * Deliberately NOT under `refs/heads/` — a ref there is a branch: it shows in
+ * `git branch`, tab-completes, and matches the default `push` refspec. Under a
+ * private hierarchy it is inert unless someone goes looking for it.
+ */
+export const WIP_SNAPSHOT_REF_PREFIX = "refs/sparstrow/wip/";
+
+/**
+ * Both readers of the setting live here so they cannot drift. Core decides
+ * whether to take a snapshot; the settings UI decides where to draw the switch.
+ * If those two disagreed, the toggle would misreport its own state — the single
+ * worst failure mode for a control whose whole job is to be trusted.
+ */
+const WIP_SNAPSHOT_OFF_WORDS = ["off", "false", "0", "no"];
+
+export function isWipSnapshotEnabled(raw: string | null | undefined): boolean {
+  if (raw == null) return DEFAULT_WIP_SNAPSHOT;
+  // Only an explicit falsey word disables it: a malformed value must not
+  // silently switch off a data-protection feature.
+  return !WIP_SNAPSHOT_OFF_WORDS.includes(raw.trim().toLowerCase());
+}
+
+export function resolveWipSnapshotKeep(raw: string | null | undefined): number {
+  const n = Number.parseInt(raw ?? "", 10);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_WIP_SNAPSHOT_KEEP;
+}

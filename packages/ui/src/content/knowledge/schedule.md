@@ -36,7 +36,8 @@ The nightly **dream cycle** (memory consolidation) also rides this scheduler —
 
 ## Notes & limitations
 
-- The scheduler runs inside the local core service — **jobs only fire while the app is
-  running** on your machine. This is a local-first tool, not a cloud scheduler.
+- The schedule lives on the board, but **firing happens on your machine**: the
+  scheduler runs inside the core service, so jobs only fire while that machine is
+  running. This is not a cloud scheduler — nothing fires when every machine is off.
 - Missed fire times (machine asleep, app closed) are skipped, not back-filled.
 - Team-scoped jobs appear in the team workspace's Schedules tab; global jobs here.

@@ -1888,3 +1888,86 @@ export function useTeamManagerChat(teamId: string): UseMutationResult<
       api<PipelineDraftTurn | { reply: string }>(`/teams/${teamId}/manager/chat`, { method: "POST", body }),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Runtimes & pairing (M3)
+// ---------------------------------------------------------------------------
+
+/** A machine paired to this workspace. `online` is derived server-side from
+ *  `lastHeartbeat` age — never read `status` for liveness. */
+export interface Runtime {
+  id: string;
+  name: string;
+  os: string;
+  hostname: string;
+  isElectron: boolean;
+  capabilities: string[];
+  status: string;
+  coreVersion: string | null;
+  lastHeartbeat: string | null;
+  createdAt: string;
+  online: boolean;
+}
+
+export interface PairingCode {
+  code: string;
+  expiresAt: string;
+}
+
+export function useRuntimes(): UseQueryResult<Runtime[], ApiError> {
+  return useQuery({
+    queryKey: ["runtimes"],
+    queryFn: () => api<Runtime[]>("/runtimes"),
+    // A machine crossing the staleness threshold changes nothing in the
+    // database, so nothing pushes. Poll, or the list silently goes stale.
+    refetchInterval: 15_000,
+  });
+}
+
+export function useCreatePairingCode(): UseMutationResult<PairingCode, ApiError, void> {
+  return useMutation({
+    mutationFn: () => api<PairingCode>("/pairing-codes", { method: "POST" }),
+  });
+}
+
+export function useRenameRuntime(): UseMutationResult<
+  Runtime,
+  ApiError,
+  { id: string; name: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }) =>
+      api<Runtime>(`/runtimes/${id}`, { method: "PATCH", body: { name } }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
+    },
+  });
+}
+
+export function useRevokeRuntimeToken(): UseMutationResult<
+  { revoked: number },
+  ApiError,
+  string
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<{ revoked: number }>(`/runtimes/${id}/token`, { method: "DELETE" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
+      void queryClient.invalidateQueries({ queryKey: ["health"] });
+    },
+  });
+}
+
+export function useRemoveRuntime(): UseMutationResult<{ deleted: number }, ApiError, string> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<{ deleted: number }>(`/runtimes/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
+      void queryClient.invalidateQueries({ queryKey: ["health"] });
+    },
+  });
+}

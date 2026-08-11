@@ -57,6 +57,15 @@ interface ActiveRun {
   // use at finalize to stamp runs.untrusted.
   isSandbox: boolean;
   delegated: boolean;
+  /**
+   * OQ-1: the working tree the agent edits, captured at spawn so finalize can
+   * snapshot it. Read here rather than re-queried at finalize because the
+   * project row can be edited or deleted while the run is in flight, and the
+   * tree that needs protecting is the one the run actually used.
+   */
+  rootDir: string | null;
+  /** For the snapshot's commit message — the run row only carries the id. */
+  agentName: string;
 }
 
 function rowToRun(row: typeof runs.$inferSelect): Run {
@@ -363,6 +372,8 @@ export class RunManager {
         stderrLines: [],
         isSandbox,
         delegated: taskRow?.parentTaskId != null,
+        rootDir: projectRootDir ?? null,
+        agentName: agent.name,
       };
       this.active.set(row.id, state);
       db.update(runs)
@@ -469,6 +480,8 @@ export class RunManager {
       stderrLines: [],
       isSandbox,
       delegated: taskRow?.parentTaskId != null,
+      rootDir: projectRootDir ?? null,
+      agentName: agent.name,
     };
     this.active.set(row.id, state);
 
@@ -604,9 +617,28 @@ export class RunManager {
     bus.publish({ type: "run.completed", run });
     logger.info({ runId, status, exitCode, durationMs: run.durationMs }, "run finished");
 
-    // Handoff directives + task reconciliation (dynamic import avoids an
-    // init-order cycle with the taskboard service, which spawns runs).
-    void import("./handoff.js")
+    // OQ-1: back up whatever the agent left uncommitted, before anything else
+    // can touch the tree. Handoff is chained AFTER it rather than started
+    // alongside, because handoff's whole job is to spawn the follow-up run —
+    // which edits this same working tree. Snapshot first, then hand off.
+    //
+    // Residual, and deliberately not solved here: the busy key is already
+    // released above, so an unrelated scheduler tick could still start a run on
+    // this project during the snapshot. Closing that means holding the key
+    // across a git operation, which would stall the queue for a backup.
+    void import("../projects/wip-snapshot.js")
+      .then(({ snapshotWorkingTree }) =>
+        snapshotWorkingTree({
+          rootDir: state.rootDir,
+          runId,
+          agentName: state.agentName,
+          status,
+        }),
+      )
+      .catch((err) => logger.warn({ err, runId }, "wip snapshot errored"))
+      // Handoff must run whether or not the snapshot did — a failed backup is
+      // not a reason to strand a task.
+      .then(() => import("./handoff.js"))
       .then(({ processRunCompletion }) => processRunCompletion(run))
       .catch((err) => logger.warn({ err, runId }, "run completion processing failed"));
 
