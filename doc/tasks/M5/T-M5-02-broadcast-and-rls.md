@@ -6,7 +6,7 @@
 | **Depends on** | T-M5-01 |
 | **Blocks** | T-M5-05, T-M5-06 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done — 010 applied to staging 2026-08-11 |
 
 ## Objective
 
@@ -95,16 +95,18 @@ delta should stream nothing rather than 500 every batch — and per
 
 ## Checklist
 
-- [ ] `runTranscriptTopic()` and `TRANSCRIPT_BROADCAST_EVENT` in `packages/shared/src/cloud.ts`
-- [ ] `apps/web/src/lib/daemon/broadcast.ts` — HTTP send, service role, `private: true`
-- [ ] Byte-aware chunking; oversized single event sent as a marker, never dropped silently
-- [ ] Wired into the T-M5-01 route **after** the durable write, never before
-- [ ] A throwing broadcast leaves the response 200 and logs at `warn` with no payload
-- [ ] `packages/shared/drizzle/policies/010_transcript_broadcast.sql` — select policy, no insert policy
-- [ ] `010` is rerunnable (guarded `create policy`, same style as `002`)
-- [ ] Applied to staging with `scripts/apply-sql.mjs`
-- [ ] Unit tests: chunk boundaries, oversized event, send failure does not throw out of the route
-- [ ] Isolation assertion added to `packages/shared/drizzle/policies/` verification: a member of B cannot select `realtime.messages` for an A topic
+- [x] `runTranscriptTopic()` and `TRANSCRIPT_BROADCAST_EVENT` in `packages/shared/src/cloud.ts`
+- [x] `apps/web/src/lib/daemon/broadcast.ts` — HTTP send, service role, `private: true`
+- [x] Byte-aware chunking; oversized single event sent as a marker, never dropped silently
+- [x] Wired into the T-M5-01 route **after** the durable write, never before
+- [x] A throwing broadcast leaves the response 200 and logs at `warn` with no payload
+- [x] `packages/shared/drizzle/policies/010_transcript_broadcast.sql` — select policy, no insert policy
+- [x] `010` is rerunnable (guarded `create policy`, same style as `002`)
+- [x] Applied to staging with `scripts/apply-sql.mjs`
+- [x] Unit tests: chunk boundaries, oversized event, send failure does not throw out of the route
+- [~] Isolation assertion — **deferred to [T-M5-06](T-M5-06-verification.md) §E**.
+      It needs two real signed-in sessions subscribing; a SQL-level assertion
+      would only re-state the policy text back to itself.
 
 ## Traps
 
@@ -133,11 +135,73 @@ topic is unguessable.
 
 ## Verification
 
-- [ ] Unit tests green
-- [ ] `010` applied to staging and rerunnable without error
+- [x] 19 unit tests green
+- [x] `010` applied to staging and rerunnable without error
 - [ ] Cross-workspace subscribe denial proved against staging → **T-M5-06**
 - [ ] Live streaming to a second device → **T-M5-06**
 
 ## On completion
 
-- [ ] Tick 7.2 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 7.2 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+
+## Result — 2026-08-11
+
+`broadcast.ts`, `010_transcript_broadcast.sql` applied to staging, and 19 tests.
+Also `apps/web/vitest.config.ts` — see below.
+
+### 010 is the first policy on a table this project does not own
+
+`realtime.messages` belongs to `supabase_realtime_admin`, and `postgres` is not
+a member of it. `create policy` works as `postgres`; `alter table … enable row
+level security` returns *must be owner of table messages*.
+
+So the task's `alter table` line could not ship. Rather than dropping it
+silently — which would leave the file quietly depending on a setting it never
+checks — 010 now **asserts** RLS is enabled and raises if it is not, with the
+consequence spelled out in the exception: every private channel would be
+world-readable and the policy would be decoration.
+
+Verified on staging before applying: RLS already on (Supabase's default), and
+**zero** existing policies on the table. So this change only grants, and could
+not have broken anything that worked. After applying and re-applying: exactly
+one policy, `SELECT`, `{authenticated}`, no `INSERT` policy.
+
+### The env-check clause was replaced by something simpler
+
+The task specified a startup env check that would log once and no-op if the
+broadcast key or URL were missing. That turned out to be a second mechanism for
+a case the first one already covers: `broadcastRunEvents` swallows *every*
+failure — Realtime down, key absent, payload rejected — because the transcript
+is already durable and propagating would make the daemon resend rows it has
+already stored. Missing config throws, is caught, and is logged like any other
+failure.
+
+It is also very nearly unreachable: this needs the same
+`SUPABASE_SERVICE_ROLE_KEY` and `NEXT_PUBLIC_SUPABASE_URL` that
+`authenticateDaemon()` already required to get this far.
+
+### Awaited, not fire-and-forget
+
+The obvious shape for "must not block the response" is `void broadcast(...)`.
+That is wrong on Vercel: a function may be frozen once the response is sent, so
+the send would sometimes silently never happen and would be undebuggable when it
+did not. Awaited, with every failure swallowed, costs one round trip and is
+deterministic.
+
+### An oversized event is named, not dropped
+
+A single event too large for any message is stored durably and its `seq` is sent
+as an `oversized` marker on the first chunk, so the client refetches the gap
+instead of rendering a transcript that appears to end. When *every* event was
+oversized there is no chunk to attach it to, so a marker-only message is sent —
+the case a chunking loop naturally forgets.
+
+### `apps/web` had no vitest config
+
+There was none, so tests ran on vitest's defaults and resolved nothing from
+`tsconfig.json`. Every existing web test happened to exercise a module whose own
+imports were relative or into `@sparstrow/shared`; `broadcast.ts` imports
+`@web/utils/supabase/env`, which is how the rest of the app is written, and
+failed at collection. Added with the alias mirroring `tsconfig`'s `paths`,
+because a module that typechecks and then cannot be imported by a test is a
+silent disincentive to writing the test.

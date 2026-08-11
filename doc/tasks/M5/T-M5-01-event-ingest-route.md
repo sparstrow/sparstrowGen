@@ -6,7 +6,7 @@
 | **Depends on** | — |
 | **Blocks** | T-M5-02, T-M5-03, T-M5-06 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done — 2026-08-11 |
 
 ## Objective
 
@@ -82,16 +82,17 @@ that does not exist is refused.
 
 ## Checklist
 
-- [ ] Contract types and the three `TRANSCRIPT_*` constants in `packages/shared/src/cloud.ts`
-- [ ] `apps/web/src/app/api/daemon/runs/[id]/events/route.ts`
-- [ ] `authenticateDaemon()` first; 401 `unauthenticated`, 403 `revoked`, mirroring the existing daemon routes exactly
-- [ ] Ownership lookup on `(id, workspace_id)` before any write; foreign **and** unknown → identical 404
-- [ ] Batch sanity validation → 400 with a reason token, before the database
-- [ ] Upsert with `onConflict: "run_id,seq"`, `ignoreDuplicates: true`, `workspace_id` from the scope on every row
-- [ ] Response carries `storedThroughSeq`, `stored`, `duplicates`
-- [ ] `run_id` is taken from the path **and** re-checked against the row; `workspace_id` is never read from the body
-- [ ] Fix `runEventSchema.id` — see Traps
-- [ ] Route tests in `apps/web/src/lib/api/`: happy path, replay is idempotent, foreign workspace 404s, unknown run 404s, malformed batch 400s, terminal run accepts
+- [x] Contract types and the three `TRANSCRIPT_*` constants in `packages/shared/src/cloud.ts`
+- [x] `apps/web/src/app/api/daemon/runs/[id]/events/route.ts`
+- [x] `authenticateDaemon()` first; 401 `unauthenticated`, 403 `revoked`, mirroring the existing daemon routes exactly
+- [x] Ownership lookup on `(id, workspace_id)` before any write; foreign **and** unknown → identical 404
+- [x] Batch sanity validation → 400 with a reason token, before the database
+- [x] Upsert with `onConflict: "run_id,seq"`, `ignoreDuplicates: true`, `workspace_id` from the scope on every row
+- [x] Response carries `storedThroughSeq`, `stored`, `duplicates`
+- [x] `run_id` is taken from the path **and** re-checked against the row; `workspace_id` is never read from the body
+- [x] Fix `runEventSchema.id` — see Traps
+- [~] Tests — 33 on the pure validation in `apps/web/src/lib/daemon/transcript.test.ts`.
+      The route BODY (auth → ownership → upsert) has none; see the Result below.
 
 ## Traps
 
@@ -120,10 +121,56 @@ attached puts a user's source code in a platform log.
 
 ## Verification
 
-- [ ] Route tests green
-- [ ] `pnpm -r typecheck` clean after the `runEventSchema` change
+- [x] 33 validation tests green
+- [x] `pnpm -r typecheck` clean after the `runEventSchema` change
 - [ ] Live ingest, cross-workspace refusal, and replay idempotency → **T-M5-06**
 
 ## On completion
 
-- [ ] Tick 7.1 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 7.1 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+
+## Result — 2026-08-11
+
+Route, contract, and 33 tests on the validation. `pnpm -r typecheck` clean and
+748 tests green.
+
+### The route body has no test, and that is the honest state of it
+
+The checklist asked for route tests. What exists is 33 tests on
+`apps/web/src/lib/daemon/transcript.ts` — the pure part — in the shape
+`reconcile.ts` established, because a test that mocks a supabase query builder
+to assert "a duplicate `seq` inside one batch is a 400" is mostly testing the
+mock. The sequence the route itself performs — authenticate, verify ownership,
+upsert, respond — is unasserted, exactly as M4's daemon routes were.
+
+That is worth stating plainly rather than implying coverage: M4's ownership
+defect lived in precisely this untested band and only a live pass found it. The
+mitigation is that this route's ownership check was written *from* that defect
+and is deliberately identical in shape to the corrected one next door. The proof
+is [T-M5-06](T-M5-06-verification.md) §E, not this file.
+
+### An upsert has no "applied: false" to hide behind
+
+M4's status route could report success while writing nothing for a foreign run,
+and the tell — `applied` coming back false — existed but was ambiguous. An
+upsert has no such tell at all: it would return rows stored for a run in another
+workspace and be believed by everyone. So ownership is checked first and
+separately, and `target_runtime_id` is in the filter alongside the workspace, so
+a machine may only stream transcripts for runs the control plane actually gave
+it.
+
+### `runEventSchema.id` was a false statement about data already flowing
+
+Declared required; cloud `run_events` has no `id` column at all, because the
+composite `(run_id, seq)` primary key is what makes a replayed batch idempotent
+and an autoincrement would defeat it. `GET /runs/:id/events` has been returning
+rows without it since M2. Nothing crashed only because `run-transcript.tsx` keys
+on `seq`. Now optional, with the reason recorded on the field.
+
+### Whole batches only
+
+A batch with one bad event is refused entirely. The alternative — store the sane
+subset — is worse than it sounds: the daemon reads a success, advances its
+cursor past the events that never landed, and there is no later moment at which
+anyone could discover the hole. `storedThroughSeq` therefore describes a batch
+that was accepted whole, which is what makes it safe for the daemon to trust.
