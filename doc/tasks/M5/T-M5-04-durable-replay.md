@@ -6,7 +6,7 @@
 | **Depends on** | T-M5-03 |
 | **Blocks** | T-M5-06 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done — 2026-08-11 |
 
 ## Objective
 
@@ -74,17 +74,17 @@ if the cloud row still exists. A visible gap beats an invisible one.
 
 ## Checklist
 
-- [ ] `cloud_event_cursors` in `packages/core/src/db/schema.ts`, migration `0017` in `migrations.ts`
-- [ ] `packages/core/src/db/migration-0017.test.ts`, matching the shape of `migration-0016.test.ts`
-- [ ] Cursor read/write helpers, advanced only from `storedThroughSeq`
-- [ ] Backfill query: `seq > pushed_through_seq`, ordered by `seq`, chunked to the batch constants
-- [ ] Runs ordered by oldest unpushed event; one run replayed at a time
-- [ ] Triggers: startup, failing→reachable transition, 60 s sweep
-- [ ] Cursor deleted when the run is terminal **and** fully pushed
-- [ ] `TRANSCRIPT_BACKLOG_MAX_RUNS` / `TRANSCRIPT_BACKLOG_MAX_AGE_DAYS` enforced, each drop logged once
-- [ ] A discarded backlog leaves a `system` marker event when the cloud row still exists
-- [ ] Backfill is `unref()`-safe and stops before `draining`
-- [ ] Unit tests: replays after a simulated outage with no gaps and no duplicates; resumes from the cursor after a restart; ceiling drops the oldest and logs; a fully-pushed terminal run's cursor is removed; sweep is a no-op with an empty backlog
+- [x] `cloud_event_cursors` in `packages/core/src/db/schema.ts`, migration `0017` in `migrations.ts`
+- [x] `packages/core/src/db/migration-0017.test.ts`, matching the shape of `migration-0016.test.ts`
+- [x] Cursor read/write helpers, advanced only from `storedThroughSeq`
+- [x] Backfill query: `seq > pushed_through_seq`, ordered by `seq`, chunked to the batch constants
+- [x] Runs ordered by oldest unpushed event; one run replayed at a time
+- [x] Triggers: startup, failing→reachable transition, 60 s sweep
+- [x] Cursor deleted when the run is terminal **and** fully pushed
+- [x] `TRANSCRIPT_BACKLOG_MAX_RUNS` / `TRANSCRIPT_BACKLOG_MAX_AGE_DAYS` enforced, each drop logged once
+- [x] A discarded backlog leaves a `system` marker event when the cloud row still exists
+- [x] Backfill is `unref()`-safe and stops before `draining`
+- [x] 14 unit tests: 4 in `migration-0017.test.ts`, 10 in `transcript-backfill.test.ts` — restart resume with no gaps/no duplicates, cursor removed once terminal+caught-up, cursor left alone for a non-terminal run, empty-backlog no-op, periodic (not just startup) sweep, oldest-unpushed-event ordering, skip a run with an active in-memory queue, age ceiling drop + marker + one aggregate log line, count ceiling drop + one aggregate log line, a caught-up cursor is cleaned up with no marker.
 
 ## Traps
 
@@ -118,11 +118,76 @@ there**, because the failure mode is one enormous replay on first boot.
 
 ## Verification
 
-- [ ] Unit tests green
-- [ ] Migration test green against a fresh and a populated database
+- [x] 14 unit tests green (753 total, up from 748)
+- [x] Migration test green against a fresh and a populated database
 - [ ] The 60-second outage assertion, the count comparison, and restart recovery
       → **T-M5-06**
 
 ## On completion
 
-- [ ] Tick 7.4 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 7.4 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+
+## Result — 2026-08-11
+
+`cloud_event_cursors` (migration `0017`), cursor persistence wired into
+`flush()`/`retire()`, the backfill sweep, the staleness ceiling, and 14 tests.
+`pnpm -r typecheck` clean, 753 tests green (up from 748).
+
+### Backfill and live push share one code path, not two coordinated ones
+
+The trap this task's own doc names — "backfill is just another producer for
+the same serialised queue, not a second path around it" — is implemented
+literally: `enqueueBacklog()` reads a run's local backlog and pushes it into
+the SAME `RunQueue.pending` array the live `run.event` handler uses, then calls
+the SAME `flush()`. Nothing in `flush()`, `takeBatch()`, or the error handling
+needed to change to accept a second producer — it already didn't know or care
+where an event in its queue came from.
+
+The sweep loop awaits one request per candidate (`await flush(runId)`) rather
+than each candidate's full drain, which is deliberately not the same as
+"replay one run fully before starting the next." `flush()`'s own continuation
+for "there's more" is `void flush(runId)` — fire-and-forget, unchanged from
+T-M5-03 — so awaiting one call resolves once that run's FIRST round trip
+settles, throttling the burst of brand-new connections a large backlog would
+otherwise open all at once on reconnect, without the alternative's risk: an
+unreachable candidate would hang an "await full drain" loop forever, since its
+own retry/backoff timer never resolves on its own.
+
+### A design gap the tests found before it shipped: the staleness ceiling didn't exempt caught-up cursors from ITS scan, and that's correct
+
+Writing "does not drop a run whose backlog is already caught up" assumed the
+ceiling should skip caught-up rows entirely. It doesn't, and shouldn't: adding
+that exemption would mean a SECOND correlated subquery in the ceiling's own
+query, duplicating the one `backfillCandidates()` already runs, to protect
+against a case `dropBacklogEntry()` already handles correctly — a caught-up
+cursor computes zero lost events, so `dropBacklogEntry` sends no marker for it.
+The row still gets swept, which is correct cleanup (equivalent to what
+`retire()` would eventually do if the run ever reported terminal), and nothing
+is silently lost because there was nothing left to lose. Fixed the TEST, not
+the implementation, once this was worked through — recorded here because the
+first version shipped with the wrong expectation, not the wrong code.
+
+### `flush()`'s cursor advance had to land on the SAME line the splice already trusts
+
+`queue.pending.splice(0, batch.length)` — trusting the local batch size,
+because the route accepts a batch whole or not at all. `advanceCursor()` sits
+immediately after it but reads from `response.storedThroughSeq`, not
+`batch.length` or `lastSent` — per phase decision 2, on purpose: the in-memory
+splice and the durable cursor are allowed to disagree about *why* they moved
+(one trusts the request, one trusts the response), but only one of them may
+ever decide where the cursor sits.
+
+### Every new test needed a real, unmocked clock — and the first version didn't have one
+
+Several tests seed a cursor's `updated_at` with a fixed calendar string, meant
+to read simply as "not now." `enforceBacklogCeiling()` compares against the
+REAL `Date.now()` (`vi.useFakeTimers()`'s clock, itself initialized to the
+actual wall-clock time unless explicitly set), and a hardcoded date some seven
+months old is unconditionally more than fourteen days old to whatever "today"
+actually is when the suite runs — every one of those tests tripped the age
+ceiling before reaching the behavior it meant to exercise, including the
+count-ceiling test, whose 205 fixture rows were ALL "ancient" and got caught by
+the age check first rather than the count check. Fixed with a `recentTimestamp()`
+helper reading the (fake) clock at call time, and ascending offsets from it
+for ordering-sensitive fixtures — deliberately not a frozen constant, so the
+suite stays correct regardless of which day it happens to run on.

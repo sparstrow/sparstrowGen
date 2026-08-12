@@ -373,6 +373,38 @@ export const TRANSCRIPT_BATCH_INTERVAL_MS = 1_000;
  */
 export const TRANSCRIPT_BATCH_MAX_BYTES = 128 * 1024;
 
+/**
+ * How often the daemon sweeps `cloud_event_cursors` for backlog, independent of
+ * any live event arriving.
+ *
+ * This is the trigger that makes recovery reliable rather than merely
+ * plausible: startup and the failing→reachable transition catch the common
+ * cases, but this is the one with no precondition to miss — it costs one
+ * indexed query against a table bounded to `TRANSCRIPT_BACKLOG_MAX_RUNS` rows.
+ */
+export const TRANSCRIPT_BACKFILL_SWEEP_MS = 60_000;
+
+/**
+ * How many runs' worth of unconfirmed transcript may sit in the backlog at
+ * once, oldest evicted first.
+ *
+ * A cursor row is not deleted when a run ends — only when it is BOTH terminal
+ * and fully pushed — so an offline machine, or one whose network stays down,
+ * accumulates one row per run that produced events. Unbounded, that backlog
+ * never shrinks; this is the ceiling, not a target to run near.
+ */
+export const TRANSCRIPT_BACKLOG_MAX_RUNS = 200;
+
+/**
+ * How long a run may sit unconfirmed before its backlog is discarded outright.
+ *
+ * Two weeks: past this, the cloud `runs` row this backlog was destined for has
+ * almost certainly already been swept or is no longer meaningfully actionable,
+ * and holding the events any longer only delays admitting the transcript is
+ * incomplete.
+ */
+export const TRANSCRIPT_BACKLOG_MAX_AGE_DAYS = 14;
+
 /** One transcript event, as the daemon sends it. */
 export interface RunEventPush {
   seq: number;

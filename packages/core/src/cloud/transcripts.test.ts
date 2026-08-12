@@ -8,6 +8,7 @@ import {
   TRANSCRIPT_BATCH_MAX_EVENTS,
 } from "@sparstrow/shared";
 import { config } from "../config.js";
+import { closeDb, getSqlite, openDb } from "../db/connection.js";
 import { bus } from "../events/bus.js";
 import { invalidatePairingCache, savePairing } from "./client.js";
 import { isDispatched, markDispatched, resetDispatched } from "./dispatched.js";
@@ -76,6 +77,9 @@ describe("transcript pusher", () => {
     invalidatePairingCache();
     resetDispatched();
     resetTranscriptPusher();
+    // T-M5-04: every successful push now writes cloud_event_cursors.
+    closeDb();
+    openDb(":memory:");
   });
 
   afterEach(() => {
@@ -87,6 +91,7 @@ describe("transcript pusher", () => {
     fs.rmSync(dir, { recursive: true, force: true });
     invalidatePairingCache();
     resetDispatched();
+    closeDb();
   });
 
   it("does nothing on an unpaired machine", async () => {
