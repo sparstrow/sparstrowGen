@@ -91,6 +91,15 @@ export type InjectedMemoryManifest = z.infer<typeof injectedMemoryManifestSchema
 
 export const runSchema = z.object({
   id: idSchema,
+  /**
+   * Cloud-only. `select("*")` on the cloud `runs` table has always returned
+   * this column — nothing stripped it, the type simply never named it. M5
+   * needs it client-side to build a run's transcript broadcast topic
+   * (`run:<workspaceId>:<runId>`), so it is declared rather than read off an
+   * untyped response. Optional: local core's SQLite `runs` table has no
+   * workspace concept at all, and never will.
+   */
+  workspaceId: idSchema.optional(),
   agentId: idSchema,
   projectId: idSchema.nullable().default(null),
   pipelineRunId: idSchema.nullable().default(null),

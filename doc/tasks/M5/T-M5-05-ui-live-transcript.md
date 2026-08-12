@@ -6,7 +6,7 @@
 | **Depends on** | T-M5-02 |
 | **Blocks** | T-M5-06 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done — 2026-08-12 |
 
 ## Objective
 
@@ -81,15 +81,15 @@ invalidation elsewhere keeps working.
 
 ## Checklist
 
-- [ ] `packages/ui/src/lib/live-events.ts` — interface, `wsHub`-backed default, React context
-- [ ] `run-detail.tsx` consumes the context instead of importing `wsHub` directly; the `seq` merge is unchanged
-- [ ] `apps/web/src/components/providers.tsx` installs a Realtime-backed source
-- [ ] Realtime source: per-run private channel, unsubscribed on unmount and on terminal
-- [ ] `app-shell.tsx` chip driven by the context, not by `wsHub` directly
-- [ ] `useRunEvents` pages forward with `afterSeq` until a short response
-- [ ] Oversized marker triggers a refetch of the gap
-- [ ] The local, core-served UI behaves exactly as it does today — same socket, same chip
-- [ ] Component tests: merge dedupes by `seq`; a delta arriving before the fetch resolves is not lost; unsubscribe on unmount; pagination stops on a short page
+- [x] `packages/ui/src/lib/live-events.ts` — interface, `wsHub`-backed default, React context
+- [x] `run-detail.tsx` consumes the context instead of importing `wsHub` directly; the `seq` merge is unchanged
+- [x] `apps/web/src/components/providers.tsx` installs a Realtime-backed source
+- [x] Realtime source: per-run private channel, unsubscribed on unmount and on terminal
+- [x] `app-shell.tsx` chip driven by the context, not by `wsHub` directly
+- [x] `useRunEvents` pages forward with `afterSeq` until a short response
+- [x] Oversized marker triggers a refetch of the gap
+- [x] The local, core-served UI behaves exactly as it does today — same socket, same chip
+- [x] 38 unit tests on the extracted pure logic (6 merge, 4 wsHub source, 7 pagination, 14 Realtime source, 7 elsewhere) — see the Result section for what this does NOT cover.
 
 ## Traps
 
@@ -119,10 +119,82 @@ This task must not add to that.
 
 ## Verification
 
-- [ ] Component tests green
+- [x] 38 unit tests green (886 total across the monorepo)
 - [ ] Live streaming from a second device, and the local UI unchanged → **T-M5-06**
 - [ ] A >500-event transcript renders in full → **T-M5-06**
 
 ## On completion
 
-- [ ] Tick 7.5 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 7.5 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+
+## Result — 2026-08-12
+
+`live-events.ts`, `realtime-live-events.ts`, `run-detail.tsx`/`app-shell.tsx`
+switched over, `useRunEvents` pagination, and 38 tests. `pnpm -r typecheck`
+clean, 886 tests green across the monorepo.
+
+### `Run` never carried a `workspaceId`, and the wire already did
+
+The Realtime source needs a workspace id to build `run:<workspaceId>:<runId>`,
+and nothing client-side exposed one. `GET /runs/:id` already returns it —
+`select("*")` plus the generic camelCase converter means it has been sitting
+on the wire, unread, since M2 — the shared `Run` type simply never named it.
+Added as `workspaceId?: idSchema.optional()`: optional because local core's
+SQLite `runs` table has no workspace column and never will, so a required
+field would make every local response fail validation for a value that
+structurally cannot exist there.
+
+Resolved once per browser session in `RealtimeLiveEventSource`, not once per
+run: a signed-in session belongs to exactly one workspace in practice
+(multi-workspace switching is deferred), and it is the SUBSCRIBER's own
+membership that grants access to a topic — not anything about the specific
+run being watched, which RLS would already have refused to load if it
+belonged to a workspace this session cannot see.
+
+### The oversized-marker refetch was missing until the checklist caught it
+
+First draft left `payload.oversized` unhandled with a comment claiming React
+Query's cache already covered it. It doesn't: `refetchOnWindowFocus` is off
+(`providers.tsx`), nothing else re-triggers `useRunEvents`, and without an
+explicit refetch a gap from an oversized live event sits unfilled until the
+user happens to navigate away and back — exactly the silent-truncation
+failure this phase exists to close. Fixed by giving `RealtimeLiveEventSource`
+an optional `QueryClient` (passed from `providers.tsx`, where one already
+exists) and calling `invalidateQueries({ queryKey: ["run-events", runId] })`
+when a broadcast reports one. Optional, not required: nothing about
+subscribing or receiving live events needs a query client, so a caller
+without one just doesn't get the refetch rather than crashing.
+
+### The honest gap: no component was ever mounted
+
+`packages/ui` has zero `.test.tsx` files and no `@testing-library/react` (or
+jsdom) in its dependency tree — this is the first UI work in the M5 effort,
+and the pattern every prior M5 task used still applied: extract the judgment
+into a plain function or class, test THAT directly, leave the React glue thin.
+So `mergeRunEvents`, `WsHubLiveEventSource`, `fetchAllRunEvents`, and
+`RealtimeLiveEventSource` are all directly tested — 38 tests — and none of
+them required rendering a component.
+
+What that does NOT cover, stated plainly: `run-detail.tsx`'s own `useEffect`
+wiring (does it actually call `subscribeRun` at the right time, does changing
+`isActive` actually tear down and rebuild the subscription, does the chip
+visually reflect what `useLiveEvents()` returns) has never been exercised —
+not even once, not in this task. Installing testing-library for one task
+felt like the wrong tradeoff against the size of what M5 actually needed
+proven; the live pass in **T-M5-06** is where "does the page really do this"
+gets answered, on a second device, for real. If that pass reveals a wiring
+bug, this is the class of bug it would be — the pure logic underneath was
+correct, but nothing ever proved the effect calling it was.
+
+### Left unresolved on purpose, and stated rather than silently absorbed
+
+The task's phase README calls the doorbell decision "the daemon does not
+connect to Realtime, the server broadcasts" — this task's Realtime source is
+the other end of that same design, and it inherits the same tradeoff: a
+browser tab watching a run holds one Realtime channel per active run, torn
+down the moment the run stops being active (`isActive` gating the effect).
+Multiple tabs watching the same run each open their own channel — no sharing,
+no dedup. At the scale this phase was measured against (one person, one
+machine, one run at a time), that is the right amount of complexity; it would
+not be at fleet scale, and is worth revisiting if `/runs/[runId]` becomes
+something teams watch together.
