@@ -155,15 +155,37 @@ network cut specifically withheld pending the owner's own say-so rather than
 done unilaterally. Recorded as [`G-13`](../KnownGaps.md). M6 and M7 depend on
 M4, not M5, and proceed regardless — see Band 8.
 
-### Band 8+ — not yet decomposed
+### Band 8 — M6 memory sync
+
+Phase spec: [`M6/README.md`](M6/README.md). Decomposed 2026-08-12.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 8.1 | [T-M6-01 — sync contract + daemon routes](M6/T-M6-01-sync-contract.md) | `[S]` | — | **next** |
+| 8.2 | [T-M6-02 — local schema: sync state + pull cursor](M6/T-M6-02-local-schema.md) | `[P]` | — | queued |
+| 8.3 | [T-M6-03 — push: hook + reconciliation sweep](M6/T-M6-03-push.md) | `[P]` | 8.1, 8.2 | queued |
+| 8.4 | [T-M6-04 — pull: command-triggered + full sweep](M6/T-M6-04-pull.md) | `[C]` | 8.1, 8.2 | queued |
+| 8.5 | [T-M6-05 — verification](M6/T-M6-05-verification.md) | `[S]` | 8.1–8.4 | queued |
+
+8.1 defines the HTTP contract 8.3 and 8.4 compile against; 8.2 is pure SQLite
+with no dependency on it, so the two run fully in parallel. 8.3 and 8.4 are
+`[C]` against each other rather than `[P]` because both live in
+`packages/core/src/cloud/memory-sync.ts` — the same file split M5's transcript
+pusher and its backfill sweep used.
+
+**M6 is mostly wiring over decisions M1 already made.** The cloud
+`memory_notes` table, its sync-shaped index, and even the anticipated
+`memory.sync` command kind were scaffolded in M1 and never connected to
+anything — confirmed by research before writing task 01, not assumed.
+
+### Band 9 — not yet decomposed
 
 Scoped in `doc/plans/2026-08-09-daemon-cloud-control-plane.md`; task files are
 written when the band is next.
 
 | # | Phase | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 8.x | M6 — memory sync | `[P]` | M4 | not decomposed |
-| 8.y | M7 — route parity + Electron hosted load | `[P]` | M2 | not decomposed |
+| 9.x | M7 — route parity + Electron hosted load | `[P]` | M2 | not decomposed |
 
 M5, M6 and M7 are `[P]` against each other: transcripts, memory sync, and the
 Electron shell touch disjoint files and can be built by different workers once

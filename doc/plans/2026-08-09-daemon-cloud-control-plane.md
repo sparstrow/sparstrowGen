@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Approved 2026-08-09 · M1–M3 complete · auth hardening complete 2026-08-10 · **M4 complete 2026-08-11** · M5 next |
+| **Status** | Approved 2026-08-09 · M1–M4 complete · auth hardening complete 2026-08-10 · **M5 code-complete 2026-08-12 (verification deferred to the owner — `G-13`)** · **M6 next** |
 | **Supersedes** | The "Phase 4: Multi-Agent Swarm Orchestrator & Live Transcripts" proposal |
-| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–6 done · band 7 = M5, decomposed 2026-08-11) · `doc/tasks/M2/` · `doc/tasks/M3/` · `doc/tasks/M4/` · `doc/tasks/M5/` |
+| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–6 done · band 7 = M5, 01–05 done · band 8 = M6, decomposed 2026-08-12) · `doc/tasks/M2/` · `doc/tasks/M3/` · `doc/tasks/M4/` · `doc/tasks/M5/` · `doc/tasks/M6/` |
 | **Open questions** | None. OQ-1 (uncommitted work) answered **and built** 2026-08-10 — see settled decision 5. OQ-2 answered and closed 2026-08-10. |
 
 > **Why the original Phase 4 proposal was replaced.** It described three features
@@ -343,6 +343,34 @@ against.
   `packages/ui/src/routes/pages/run-detail.tsx` already handles it.
 
 ### M6 — Memory sync
+
+> **Decomposed 2026-08-12 into 5 tasks — `doc/tasks/M6/`.** The headline
+> finding, worth stating before the tasks: this phase is mostly wiring, not
+> new design. M1 already scaffolded the cloud `memory_notes` table, an index
+> shaped exactly for an incremental pull
+> (`idx_memory_notes_sync (workspaceId, updatedAt)`), and even anticipated a
+> `memory.sync` command kind in a schema comment — none of it connected to
+> anything until this phase.
+>
+> - **Identity travels verbatim.** The pull path does not call `writeNote()`
+>   (which mints a fresh id and filename on every call) — a pulled note keeps
+>   the SAME `id` and `path` its origin machine gave it, written by a
+>   dedicated pulled-note writer instead.
+> - **Conflict resolution is hash-first, clock-second, and the clock-skew risk
+>   is accepted rather than solved** — consistent with "do not build a CRDT."
+>   Identical content resolves as a no-op regardless of either machine's
+>   clock; only a real content difference falls back to `updatedAt`.
+> - **Push and pull each get a fast path and a guaranteed path**, reusing
+>   patterns M5 already proved rather than inventing new ones: push is
+>   event-driven (debounced, off the two functions every note mutation
+>   already funnels through) with a periodic reconciliation sweep as the
+>   crash-safety net (`T-M5-04`'s cursor-and-sweep shape, applied per-note);
+>   pull is triggered by the now-real `memory.sync` command riding the
+>   existing 3-second command poll, backstopped by a periodic full sweep on
+>   the same three triggers `T-M5-04` established for transcript backfill.
+> - **Delete and contradiction sync are explicit non-goals**, parked as
+>   [D-11](../Deferred.md) rather than silently unhandled.
+
 `packages/core/src/cloud/memory-sync.ts`, reusing `packages/core/src/memory/`
 
 - Push local note content on write (after the existing `vault.ts` file write).

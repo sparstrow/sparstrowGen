@@ -202,3 +202,44 @@ takes minutes. The poll costs one indexed `UPDATE … RETURNING` per runtime per
 merely react faster — live HITL approvals, interactive chat turns, or a cancel
 that must land inside 100 ms. At that point the JWT is load-bearing rather than
 an optimisation, and the doorbell comes along with it for nearly nothing.
+
+---
+
+## D-11 — Memory sync: delete propagation and contradiction sync
+
+**Parked:** 2026-08-12, while decomposing M6.
+
+Two things M6's own plan text does not ask for, named explicitly rather than
+silently absorbed:
+
+**Delete does not propagate.** `deleteNote()` hard-deletes the vault file and
+the local `memory_notes` row with no tombstone, and the cloud schema has no
+`deletedAt`/`isDeleted` column. A note deleted on machine A stays alive
+forever on every machine that already pulled it, and a machine that pulls
+*after* the delete never learns it happened — the cloud row simply still
+exists. Building this needs a schema change M6 does not make: a tombstone
+column, a decision about how long a tombstone survives before real deletion
+(forever is a slow leak; too short risks a late-joining machine never seeing
+the delete at all), and a pull-side rule for applying a delete without racing
+an un-pushed local edit — the same class of race M6's own conflict handling
+already has to solve for edits, one layer deeper.
+
+**Contradictions do not sync**, even though `memoryContradictions` has a full
+cloud mirror already sitting in the schema from M1, structurally identical to
+`memory_notes`'s treatment. They are dream-cycle diagnostic output about one
+machine's local corpus — a contradiction flagged from notes that exist on
+that machine, evaluated against that machine's own embeddings. Syncing them
+raises a real question M6 was not scoped to answer: does a contradiction mean
+anything once the notes it references have been pulled onto a different
+machine with a different local index state? Parked rather than answered,
+because nothing today needs cross-machine contradiction review.
+
+- **If wrong:** delete — a user who deletes a note expecting it gone
+  everywhere finds it still live and still returned by `memory_search` on
+  every other paired machine, which reads as data the product failed to
+  respect a deletion of. Contradictions — nothing breaks; the feature simply
+  does not exist yet, and nothing currently expects it to.
+- **Clears when:** delete — someone designs the tombstone lifecycle and the
+  pull-side ordering rule. Contradictions — cross-machine contradiction
+  review becomes a real, requested feature rather than a table with an
+  existing shape it would be convenient to reuse.
