@@ -5,7 +5,7 @@
 | **Plan** | `doc/plans/2026-08-09-daemon-cloud-control-plane.md` (M5) |
 | **Depends on** | M4 (complete — a run dispatched from the browser executes here and reaches a terminal state) |
 | **Blocks** | nothing. M6 and M7 are `[P]` against this phase |
-| **Status** | in progress — 01 and 02 done 2026-08-11 |
+| **Status** | in progress — 01, 02, 03 done 2026-08-11 |
 | **Open questions** | none — everything below is decided |
 
 ## Tasks
@@ -16,7 +16,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 |---|---|---|
 | [T-M5-01 — event ingest route + batch contract](T-M5-01-event-ingest-route.md) ✅ | `[S]` | — |
 | [T-M5-02 — broadcast fan-out + `realtime.messages` RLS](T-M5-02-broadcast-and-rls.md) ✅ | `[S]` | 01 |
-| [T-M5-03 — core transcript pusher](T-M5-03-transcript-pusher.md) | `[P]` | 01 |
+| [T-M5-03 — core transcript pusher](T-M5-03-transcript-pusher.md) ✅ | `[P]` | 01 |
 | [T-M5-04 — durable replay: cursor, backfill, ceiling](T-M5-04-durable-replay.md) | `[C]` | 03 |
 | [T-M5-05 — UI: live transcript over the right transport](T-M5-05-ui-live-transcript.md) | `[P]` | 02 |
 | [T-M5-06 — verification](T-M5-06-verification.md) | `[S]` | 01–05 |
