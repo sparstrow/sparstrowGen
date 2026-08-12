@@ -6,7 +6,7 @@
 | **Depends on** | T-M5-01 … T-M5-05 |
 | **Blocks** | — |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ⏸ deferred to the owner, 2026-08-12 — see [`G-13`](../../KnownGaps.md) |
 
 ## Objective
 

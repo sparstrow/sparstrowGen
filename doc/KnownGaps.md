@@ -120,6 +120,44 @@ staging; these are the corners that pass could not reach.
 - **Clears when:** someone runs the click-through pass in an environment where
   the browser pane renders, and pairs a second machine for reassign.
 
+### G-13 — M5 (transcripts) is built and unit-tested, not verified live
+
+**Raised:** 2026-08-12, while decomposing and building M5. `T-M5-01`–`T-M5-05`
+are done — 886 tests green, `pnpm -r typecheck` clean — but `T-M5-06`
+(verification) was deferred to the owner rather than run, because most of what
+it checks needs things this environment does not have.
+
+- **Live streaming to a second device (T-M5-06 §A)** and **cross-workspace
+  isolation on the subscribe side (§E)** both need a second real signed-in
+  session — a browser session cannot be two independent workspace members at
+  once.
+- **The 60-second outage assertion (§B)** — the property M5 is actually judged
+  on — needs the daemon's network cut for a minute. That is an OS-level,
+  disruptive action on whatever machine runs core, correctly withheld pending
+  the owner's say-so rather than done unilaterally.
+- **Any rendered pixel.** As `G-12` recorded for M4, the Browser pane has not
+  composited frames in this environment; that has not changed. Every M5 UI
+  module (`live-events.ts`, `realtime-live-events.ts`, the pagination fix) is
+  unit-tested as extracted pure logic — 38 tests — but `run-detail.tsx`'s own
+  `useEffect` wiring has never been mounted, not once, in any environment.
+  `packages/ui` has no `@testing-library/react` or jsdom to mount it with even
+  if a browser did render.
+- Crash recovery (T-M5-06 §D) and the durable-count comparison (§C) **are**
+  solo-doable — this environment can start core, dispatch a real run, kill and
+  restart the process, and compare local SQLite against cloud Postgres counts
+  directly. Those were not run either, only because the owner asked to defer
+  the whole verification pass rather than a partial one.
+
+- **If wrong:** the shape of failure is the same class T-M5-05's own Result
+  section names — the pure logic underneath is right, but nothing has proved
+  the framework glue calling it. `M2`'s browser pass found exactly this kind of
+  bug once (a hook-order crash, missing Tailwind utilities) that no unit test
+  could see, which is why this is a register entry and not a shrug.
+- **Clears when:** `T-M5-06` runs for real — a second device or account, a
+  genuine network cut on the daemon's machine, and (ideally) a browser pane
+  that composites. Full procedure in
+  [`tasks/M5/T-M5-06-verification.md`](tasks/M5/T-M5-06-verification.md).
+
 ### G-11 — Supabase has never been observed delivering an email
 
 **Raised:** 2026-08-10, investigating "I can't create an account, no link arrives".
@@ -195,6 +233,28 @@ Proof: `apps/web/src/lib/api/runtime-routes.test.ts` for dispatch and the
 allowlist, `packages/core/src/cloud/commands.test.ts` for the daemon-side
 allowlist, migration `0002_vengeful_norrin_radd.sql` for the column. The live
 flip is `T-M4-08`.*
+
+### G-14 — A run watched from two open tabs opens two Realtime channels
+
+**Raised:** 2026-08-12 (M5, `T-M5-05`), noted while building the Realtime
+transcript source rather than discovered afterward.
+
+`RealtimeLiveEventSource.subscribeRun()` opens a fresh private channel per
+call, one per mounted `/runs/[runId]` page. Two tabs — or two browser
+windows — watching the *same* run each open their own channel to the same
+topic; nothing shares or dedupes them. This is a decision, not an unproved
+claim: at the scale this phase was measured against (one person, one machine,
+one run at a time), a shared-subscription registry would be complexity with
+no observed payoff.
+
+- **If wrong:** the cost is one extra Realtime connection per redundant tab,
+  not a correctness problem — both tabs still see the same events, since both
+  subscribe to the same topic and RLS grants both alike. This becomes worth
+  fixing only if `/runs/[runId]` becomes something a team watches together, at
+  which point N tabs means N channels for the same broadcast.
+- **Clears when:** a shared, refcounted subscription (one channel per
+  `runId` process-wide, closed once the last subscriber unmounts) replaces the
+  per-call one — worth building when multi-viewer usage is real, not before.
 
 ### G-7 — Leaked-password protection is unavailable on the current Supabase plan
 

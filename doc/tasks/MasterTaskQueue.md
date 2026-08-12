@@ -135,7 +135,7 @@ Phase spec: [`M5/README.md`](M5/README.md). Decomposed 2026-08-11.
 | 7.3 | [T-M5-03 — core transcript pusher](M5/T-M5-03-transcript-pusher.md) | `[P]` | 7.1 | ✅ done (2026-08-11) |
 | 7.4 | [T-M5-04 — durable replay: cursor, backfill, ceiling](M5/T-M5-04-durable-replay.md) | `[C]` | 7.3 | ✅ done (2026-08-11) |
 | 7.5 | [T-M5-05 — UI: live transcript over the right transport](M5/T-M5-05-ui-live-transcript.md) | `[P]` | 7.2 | ✅ done (2026-08-12) |
-| 7.6 | [T-M5-06 — verification](M5/T-M5-06-verification.md) | `[S]` | 7.1–7.5 | **next** |
+| 7.6 | [T-M5-06 — verification](M5/T-M5-06-verification.md) | `[S]` | 7.1–7.5 | ⏸ deferred to the owner (2026-08-12) |
 
 7.1 and 7.2 are `[S]` for the third phase running: they define the HTTP and SQL
 contracts the other tasks compile against. 7.3 needs only the contract, so the
@@ -147,6 +147,13 @@ the grounds that M5 must authenticate the daemon to Realtime anyway — and M5's
 decision 1 declines to, because the server can broadcast from a route that
 already holds the service role and already knows the workspace. The doorbell is
 parked as [D-10](../Deferred.md) with what would unpark it.
+
+**7.6 is deferred, not blocking.** Most of its checklist needs a second real
+device/account, a genuine 60-second network cut on the daemon's machine, or a
+browser pane that renders — none available to the agent building this, and the
+network cut specifically withheld pending the owner's own say-so rather than
+done unilaterally. Recorded as [`G-13`](../KnownGaps.md). M6 and M7 depend on
+M4, not M5, and proceed regardless — see Band 8.
 
 ### Band 8+ — not yet decomposed
 
