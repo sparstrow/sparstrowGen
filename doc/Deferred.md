@@ -169,3 +169,38 @@ its own conflict model, not a helper inside a dispatcher.
 **Unpark when:** creating an agent twice becomes routine friction rather than a
 one-time setup step — or before anyone who is not the owner uses the web UI to
 queue work, since they have no way to create the local half.
+
+---
+
+## D-10 — Headless (non-Electron) core distribution
+
+**Parked:** 2026-08-12, by the owner — "I would go with option A [standalone
+background service, private registry] ... but it can be deferred."
+
+Pairing a machine (`sparstrow pair <code>`) works today, but only from a dev
+checkout: clone this repo, `pnpm install`, `pnpm --filter @sparstrow/core
+start`, then pair. `sparstrow` is not published anywhere — `@sparstrow/core`
+is `"private": true` and confirmed 404 against the public npm registry.
+Electron (`packages/desktop`) is **not** the pairing mechanism; it only
+supervises and packages the same `core` service (see
+[`service-manager.ts`](../packages/desktop/src/service-manager.ts)) — pairing
+itself lives entirely inside `core`, independent of any GUI.
+
+Decision: build a standalone background-service distribution of `core` — a
+bundled-Node binary registered as a Windows Service / launchd / systemd job,
+no terminal or GUI required, survives reboots — published to a **private**
+registry (GitHub Packages under the org, not public npm) so nothing is
+publicly exposed before launch. An interim npm-only step (global install,
+manually kept running) was considered and rejected as not worth building
+separately from the real target.
+
+Known cost when this is unparked: native modules (`better-sqlite3`,
+`node-pty`, `onnxruntime`/`fastembed`) are compiled per OS/arch/Node-ABI — the
+same trap Electron's own packaging already had to route around (see
+[`service-manager.ts:90-92`](../packages/desktop/src/service-manager.ts)) —
+and service registration is separate work per platform, with no
+`electron-updater`-equivalent auto-update path for a non-Electron binary.
+
+**Unpark when:** a second or third real machine needs pairing that isn't the
+owner's own dev checkout, or before handing the app to anyone who isn't
+comfortable cloning a monorepo.
