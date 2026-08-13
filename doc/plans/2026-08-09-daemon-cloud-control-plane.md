@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Approved 2026-08-09 · M1–M4 complete · auth hardening complete 2026-08-10 · **M5 code-complete 2026-08-12 (verification deferred to the owner — `G-13`)** · **M6 code-complete 2026-08-12 (verification needs a second machine — `G-15`)** · **M7 next** |
+| **Status** | Approved 2026-08-09 · M1–M4 complete · auth hardening complete 2026-08-10 · **M5 code-complete 2026-08-12 (verification deferred to the owner — `G-13`)** · **M6 code-complete 2026-08-12 (verification needs a second machine — `G-15`)** · **M7 next (decomposed 2026-08-13)** |
 | **Supersedes** | The "Phase 4: Multi-Agent Swarm Orchestrator & Live Transcripts" proposal |
-| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–6 done · band 7 = M5, 01–05 done · band 8 = M6, 01–04 done · band 9 = M7, not decomposed) · `doc/tasks/M2/` · `doc/tasks/M3/` · `doc/tasks/M4/` · `doc/tasks/M5/` · `doc/tasks/M6/` |
+| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–6 done · band 7 = M5, 01–05 done · band 8 = M6, 01–04 done · band 9 = M7, decomposed 2026-08-13) · `doc/tasks/M2/` · `doc/tasks/M3/` · `doc/tasks/M4/` · `doc/tasks/M5/` · `doc/tasks/M6/` |
 | **Open questions** | None. OQ-1 (uncommitted work) answered **and built** 2026-08-10 — see settled decision 5. OQ-2 answered and closed 2026-08-10. |
 
 > **Why the original Phase 4 proposal was replaced.** It described three features
@@ -401,6 +401,26 @@ against.
 
 ### M7 — Route parity and Electron
 `apps/web/src/app/`, `packages/desktop/src/main.ts`
+
+> **Decomposed 2026-08-13 into 4 tasks — `doc/tasks/M7/`.** Two findings from
+> reading the code, both of which change what this section means:
+>
+> - **The routes half is smaller than these bullets imply.** Each missing page is
+>   a seven-line re-export. Route params, `Link` and `useNavigate` are already
+>   solved by the TanStack-shaped adapter aliased over `@tanstack/react-router`,
+>   and all four detail endpoints already exist in `/api/v1`. There is no adapter
+>   work and no API work in this phase.
+> - **The Electron half assumes a deployment that was never made.** "Point
+>   `loadURL` at the hosted app" has no host to point at: `config.cloudUrl` still
+>   defaults to `localhost:3000` and nothing in `doc/` records a deployed URL. The
+>   task ships the URL as configuration so the work lands regardless, but the
+>   desktop half cannot be *verified* until the owner deploys — the phase's one
+>   owner action.
+>
+> Also corrected: the bullet below says the goal route is `goals`. It is
+> **`/tasks/goals/$goalId`**, and building the bullet's version would produce a
+> page that renders correctly and is linked from nowhere.
+
 
 - Add the five missing routes whose UI pages already exist: `goals`/goal-detail,
   `imports`, `projects/[projectId]`, `skills/[skillId]`, `teams/[teamId]`.

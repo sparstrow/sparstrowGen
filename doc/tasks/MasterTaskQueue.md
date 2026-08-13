@@ -186,18 +186,35 @@ id guard the spec never named.
 `memory.sync` command kind were scaffolded in M1 and never connected to
 anything — confirmed by research before writing task 01, not assumed.
 
-### Band 9 — not yet decomposed
+### Band 9 — M7 route parity + Electron
 
-Scoped in `doc/plans/2026-08-09-daemon-cloud-control-plane.md`; task files are
-written when the band is next.
+Phase spec: [`M7/README.md`](M7/README.md). Decomposed 2026-08-13.
 
-| # | Phase | Tag | Depends on | Status |
+| # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 9.x | M7 — route parity + Electron hosted load | `[P]` | M2 | not decomposed |
+| 9.1 | [T-M7-01 — the five missing routes](M7/T-M7-01-routes.md) | `[P]` | — | **next** |
+| 9.2 | [T-M7-02 — Electron loads the hosted app](M7/T-M7-02-electron-hosted.md) | `[C]` | — | queued |
+| 9.3 | [T-M7-03 — Electron offline and failure screen](M7/T-M7-03-electron-offline.md) | `[C]` | — | queued |
+| 9.4 | [T-M7-04 — verification](M7/T-M7-04-verification.md) | `[S]` | 9.1–9.3 | queued |
 
 M5, M6 and M7 are `[P]` against each other: transcripts, memory sync, and the
-Electron shell touch disjoint files and can be built by different workers once
-their prerequisites land. M7 needs only M2, so it can start at any time.
+Electron shell touch disjoint files. M7 needs only M2, so it can start at any
+time. Inside the band, 9.1 is `[P]` against the other two — it lives entirely in
+`apps/web/src/app/` — while 9.2 and 9.3 are `[C]` because both edit
+`packages/desktop/src/main.ts`.
+
+**Two things decomposition found, both from reading the code rather than the
+plan's bullets.** The routes half is smaller than it looks: the TanStack-to-Next
+adapter already solves route params, and all four detail endpoints already exist
+in `/api/v1`, so each page is a seven-line re-export. The Electron half is
+**blocked on a premise that stopped being true** — "point `loadURL` at the hosted
+app" assumes a deployment, and there isn't one. 9.2 ships the URL as
+configuration so the work lands anyway, but section D of 9.4 cannot be verified
+until the owner deploys. That is the phase's one owner action.
+
+Also caught: the plan's bullet says the goal route is `goals`, while the router
+and the component both say `/tasks/goals/$goalId`. Building the plan's version
+would produce a page that renders correctly and is linked from nowhere.
 
 ---
 
