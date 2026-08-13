@@ -5,19 +5,19 @@
 | **Plan** | `doc/plans/2026-08-09-daemon-cloud-control-plane.md` (M7) |
 | **Depends on** | M2 (complete). Not M5 or M6 — all three are `[P]` |
 | **Blocks** | nothing. Last phase in the plan |
-| **Status** | decomposed 2026-08-13 — not started |
+| **Status** | 01–03 done 2026-08-13, 981 tests green · **04 (verification) not run — [`G-16`](../../KnownGaps.md)** |
 | **Open questions** | none blocking. One owner action: [OA below](#the-owner-action-this-phase-cannot-do-for-itself) |
 
 ## Tasks
 
 Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.md).
 
-| Task | Tag | Depends on |
-|---|---|---|
-| [T-M7-01 — the five missing routes](T-M7-01-routes.md) | `[P]` | — |
-| [T-M7-02 — Electron loads the hosted app](T-M7-02-electron-hosted.md) | `[C]` | — |
-| [T-M7-03 — Electron offline and failure screen](T-M7-03-electron-offline.md) | `[C]` | — |
-| [T-M7-04 — verification](T-M7-04-verification.md) | `[S]` | 01–03 |
+| Task | Tag | Depends on | Status |
+|---|---|---|---|
+| [T-M7-01 — the five missing routes](T-M7-01-routes.md) | `[P]` | — | ✅ done |
+| [T-M7-02 — Electron loads the hosted app](T-M7-02-electron-hosted.md) | `[C]` | — | ✅ done |
+| [T-M7-03 — Electron offline and failure screen](T-M7-03-electron-offline.md) | `[C]` | — | ✅ done |
+| [T-M7-04 — verification](T-M7-04-verification.md) | `[S]` | 01–03 | ⏸ not run — [`G-16`](../../KnownGaps.md) |
 
 This file holds what they share. Individual tasks reference it rather than
 restating it.

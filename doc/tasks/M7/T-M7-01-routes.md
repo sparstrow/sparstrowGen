@@ -6,7 +6,7 @@
 | **Depends on** | — |
 | **Blocks** | T-M7-04 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-13 |
 
 ## Objective
 
@@ -60,18 +60,18 @@ the intended experience, not a defect this task discovered.
 
 ## Checklist
 
-- [ ] `app/imports/page.tsx`
-- [ ] `app/teams/[teamId]/page.tsx`
-- [ ] `app/projects/[projectId]/page.tsx`
-- [ ] `app/tasks/goals/[goalId]/page.tsx`
-- [ ] `app/skills/[skillId]/page.tsx`
-- [ ] Each imports the component name the module actually exports — check
+- [x] `app/imports/page.tsx`
+- [x] `app/teams/[teamId]/page.tsx`
+- [x] `app/projects/[projectId]/page.tsx`
+- [x] `app/tasks/goals/[goalId]/page.tsx`
+- [x] `app/skills/[skillId]/page.tsx`
+- [x] Each imports the component name the module actually exports — check
       `project-detail.tsx` in particular
-- [ ] `pnpm --filter @sparstrow/web build` succeeds — a dynamic route that Next
+- [x] `pnpm --filter @sparstrow/web build` succeeds — a dynamic route that Next
       cannot render is a build failure, not a runtime one, and is the cheapest
       place to catch a bad page
-- [ ] No new route is added to `stubs.ts`, and no existing `501` is changed
-- [ ] Nothing in `packages/ui/` is edited — if a page needs a UI change to work
+- [x] No new route is added to `stubs.ts`, and no existing `501` is changed
+- [x] Nothing in `packages/ui/` is edited — if a page needs a UI change to work
       here, that is a finding for the Result section, not a fix to fold in
 
 ## Traps
@@ -89,10 +89,10 @@ without knowing the route exists. Worth checking first.
 
 ## Verification
 
-- [ ] `pnpm -r typecheck` clean and the web build succeeds
+- [x] `pnpm -r typecheck` clean and the web build succeeds
 - [ ] All five render with real data, reached by clicking, and each detail page
       shows the record that was clicked → **T-M7-04**
 
 ## On completion
 
-- [ ] Tick 9.1 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 9.1 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)

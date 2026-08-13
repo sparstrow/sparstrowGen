@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Approved 2026-08-09 · M1–M4 complete · auth hardening complete 2026-08-10 · **M5 code-complete 2026-08-12 (verification deferred to the owner — `G-13`)** · **M6 code-complete 2026-08-12 (verification needs a second machine — `G-15`)** · **M7 next (decomposed 2026-08-13)** |
+| **Status** | Approved 2026-08-09 · M1–M4 complete · auth hardening complete 2026-08-10 · **M5 code-complete 2026-08-12 (verification deferred to the owner — `G-13`)** · **M6 code-complete 2026-08-12 (verification needs a second machine — `G-15`)** · **M7 code-complete 2026-08-13 (verification not run — `G-16`)** · **All phases code-complete; plan NOT closed — three verification passes outstanding** |
 | **Supersedes** | The "Phase 4: Multi-Agent Swarm Orchestrator & Live Transcripts" proposal |
-| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–6 done · band 7 = M5, 01–05 done · band 8 = M6, 01–04 done · band 9 = M7, decomposed 2026-08-13) · `doc/tasks/M2/` · `doc/tasks/M3/` · `doc/tasks/M4/` · `doc/tasks/M5/` · `doc/tasks/M6/` |
+| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–6 done · band 7 = M5, 01–05 done · band 8 = M6, 01–04 done · band 9 = M7, 01–03 done) · `doc/tasks/M2/` · `doc/tasks/M3/` · `doc/tasks/M4/` · `doc/tasks/M5/` · `doc/tasks/M6/` |
 | **Open questions** | None. OQ-1 (uncommitted work) answered **and built** 2026-08-10 — see settled decision 5. OQ-2 answered and closed 2026-08-10. |
 
 > **Why the original Phase 4 proposal was replaced.** It described three features
@@ -420,6 +420,24 @@ against.
 > Also corrected: the bullet below says the goal route is `goals`. It is
 > **`/tasks/goals/$goalId`**, and building the bullet's version would produce a
 > page that renders correctly and is linked from nowhere.
+
+> **Shipped 2026-08-13 — tasks 01–03, 981 tests green. Verification (04) has not
+> been run; recorded as `G-16`.**
+>
+> The five routes are registered (`/imports`, `/teams/[teamId]`,
+> `/projects/[projectId]`, `/tasks/goals/[goalId]`, `/skills/[skillId]` all
+> appear in the build manifest) and the Electron shell now reads
+> `SPARSTROW_APP_URL`, falls back to the local core when unset, and renders a
+> native offline screen naming the URL and the real error. URL resolution moved
+> to a tested pure function so "unset behaves exactly as before" is proved rather
+> than asserted.
+>
+> What has NOT happened: nothing has been rendered. No page looked at, no
+> desktop window opened, no offline screen seen. A runtime route check was
+> attempted and blocked by the app's own "not configured" guard — this worktree
+> has no `.env.local`, and copying Supabase secrets into one was not worth a
+> routing check. Deployment remains the owner action:
+> [`runbooks/deploy-web-app.md`](../runbooks/deploy-web-app.md).
 
 
 - Add the five missing routes whose UI pages already exist: `goals`/goal-detail,

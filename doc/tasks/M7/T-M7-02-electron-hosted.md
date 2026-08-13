@@ -6,7 +6,7 @@
 | **Depends on** | — |
 | **Blocks** | T-M7-04 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-13 |
 
 ## Objective
 
@@ -53,17 +53,17 @@ let it. The window talks to the cloud; the cloud talks to this machine's daemon.
 
 ## Checklist
 
-- [ ] `SPARSTROW_APP_URL` read in `main.ts`, trailing slashes stripped, empty
+- [x] `SPARSTROW_APP_URL` read in `main.ts`, trailing slashes stripped, empty
       string treated as unset
-- [ ] Falls back to the existing local URL when unset — a build with no new env
+- [x] Falls back to the existing local URL when unset — a build with no new env
       var behaves exactly as it does today
-- [ ] `UI_URL` renamed to `LOCAL_UI_URL`, with every other reference checked
-- [ ] Tray and updater still resolve the LOCAL core, verified by reading
+- [x] `UI_URL` renamed to `LOCAL_UI_URL`, with every other reference checked
+- [x] Tray and updater still resolve the LOCAL core, verified by reading
       `core-client.ts` and `tray.ts` rather than assumed
-- [ ] The loaded URL is logged once at startup, so a support question is one log
+- [x] The loaded URL is logged once at startup, so a support question is one log
       line rather than a guess
-- [ ] `packages/desktop` typecheck and tests green
-- [ ] A runbook entry in `doc/runbooks/` — deploying the web app, which env vars
+- [x] `packages/desktop` typecheck and tests green
+- [x] A runbook entry in `doc/runbooks/` — deploying the web app, which env vars
       it needs, and setting `SPARSTROW_APP_URL` — and a row in
       [`../../runbooks/README.md`](../../runbooks/README.md)'s action list,
       because this is the phase's one owner-blocked item
@@ -82,11 +82,11 @@ the whole point of the fallback.
 
 ## Verification
 
-- [ ] Unit/typecheck green
+- [x] Unit/typecheck green
 - [ ] A build with the variable unset starts and loads the local core; a build
       pointed at a real host loads it → **T-M7-04** (the second half needs a
       deployment that does not exist yet — see the phase README)
 
 ## On completion
 
-- [ ] Tick 9.2 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 9.2 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)

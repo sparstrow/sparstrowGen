@@ -6,7 +6,7 @@
 | **Depends on** | — |
 | **Blocks** | T-M7-04 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-13 |
 
 ## Objective
 
@@ -54,17 +54,17 @@ guess is "my work stopped".
 
 ## Checklist
 
-- [ ] `packages/desktop/src/offline.ts` — builds the screen's HTML, no network,
+- [x] `packages/desktop/src/offline.ts` — builds the screen's HTML, no network,
       no external assets, styled to match the app's dark background
       (`#0a0a0a`, already the window's `backgroundColor`)
-- [ ] `did-fail-load` wired in `main.ts`, ignoring sub-frames and `ERR_ABORTED`
-- [ ] The screen names the failed URL and the error description
-- [ ] The screen states that the daemon keeps running and agents are unaffected
-- [ ] A retry control that re-loads the intended URL
-- [ ] The intended URL is held in `main.ts`, not recovered from window history
-- [ ] Retry that fails again returns to the screen rather than a blank window —
+- [x] `did-fail-load` wired in `main.ts`, ignoring sub-frames and `ERR_ABORTED`
+- [x] The screen names the failed URL and the error description
+- [x] The screen states that the daemon keeps running and agents are unaffected
+- [x] A retry control that re-loads the intended URL
+- [x] The intended URL is held in `main.ts`, not recovered from window history
+- [x] Retry that fails again returns to the screen rather than a blank window —
       the second failure is the one a naive implementation drops
-- [ ] `packages/desktop` typecheck and tests green
+- [x] `packages/desktop` typecheck and tests green
 
 ## Traps
 
@@ -83,11 +83,11 @@ naming a previous failure is worse than no detail at all.
 
 ## Verification
 
-- [ ] Unit/typecheck green
+- [x] Unit/typecheck green
 - [ ] Point a build at a dead port, confirm the screen, confirm retry recovers
       once the target is up → **T-M7-04**. This one is fully testable today: it
       needs an unreachable host, not a deployment.
 
 ## On completion
 
-- [ ] Tick 9.3 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 9.3 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)

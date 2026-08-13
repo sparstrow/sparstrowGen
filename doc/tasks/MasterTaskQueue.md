@@ -192,16 +192,24 @@ Phase spec: [`M7/README.md`](M7/README.md). Decomposed 2026-08-13.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 9.1 | [T-M7-01 — the five missing routes](M7/T-M7-01-routes.md) | `[P]` | — | **next** |
-| 9.2 | [T-M7-02 — Electron loads the hosted app](M7/T-M7-02-electron-hosted.md) | `[C]` | — | queued |
-| 9.3 | [T-M7-03 — Electron offline and failure screen](M7/T-M7-03-electron-offline.md) | `[C]` | — | queued |
-| 9.4 | [T-M7-04 — verification](M7/T-M7-04-verification.md) | `[S]` | 9.1–9.3 | queued |
+| 9.1 | [T-M7-01 — the five missing routes](M7/T-M7-01-routes.md) | `[P]` | — | done (2026-08-13) |
+| 9.2 | [T-M7-02 — Electron loads the hosted app](M7/T-M7-02-electron-hosted.md) | `[C]` | — | done (2026-08-13) |
+| 9.3 | [T-M7-03 — Electron offline and failure screen](M7/T-M7-03-electron-offline.md) | `[C]` | — | done (2026-08-13) |
+| 9.4 | [T-M7-04 — verification](M7/T-M7-04-verification.md) | `[S]` | 9.1–9.3 | ⏸ not run — [`G-16`](../KnownGaps.md) |
 
 M5, M6 and M7 are `[P]` against each other: transcripts, memory sync, and the
 Electron shell touch disjoint files. M7 needs only M2, so it can start at any
 time. Inside the band, 9.1 is `[P]` against the other two — it lives entirely in
 `apps/web/src/app/` — while 9.2 and 9.3 are `[C]` because both edit
 `packages/desktop/src/main.ts`.
+
+**9.1–9.3 landed 2026-08-13; 9.4 has not been run.** The routes are registered
+(the build lists all five) and the Electron half is tested as logic, but nothing
+has been *rendered* — no page looked at, no window opened, no offline screen
+seen. Recorded as [`G-16`](../KnownGaps.md). A runtime route check was attempted
+and blocked by the app's own "not configured" guard: this worktree has no
+`.env.local`, and copying Supabase secrets into one was not worth a routing
+check.
 
 **Two things decomposition found, both from reading the code rather than the
 plan's bullets.** The routes half is smaller than it looks: the TanStack-to-Next

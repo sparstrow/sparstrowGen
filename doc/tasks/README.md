@@ -116,7 +116,7 @@ questions` header line is empty or points only to non-blocking entries.
 | M4 — command spine | 8 (`M4/`) | ✅ done, verified live on staging 2026-08-11 |
 | M5 — transcripts (dual path) | 6 (`M5/`) | 01–05 done · 06 (verification) deferred to the owner — [`G-13`](../KnownGaps.md) |
 | M6 — memory sync | 5 (`M6/`) | 01–04 done 2026-08-12, 956 tests · 05 (verification) needs a second machine — [`G-15`](../KnownGaps.md) |
-| M7 — routes + Electron | 4 (`M7/`) | decomposed 2026-08-13 — not started |
+| M7 — routes + Electron | 4 (`M7/`) | 01–03 done 2026-08-13, 981 tests · 04 (verification) not run — [`G-16`](../KnownGaps.md) |
 
 M5's spec depended on what M4's dispatch actually turned out to look
 like, and inventing that early would have been fiction in a confident tone. M4

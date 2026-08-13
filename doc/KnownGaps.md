@@ -197,6 +197,44 @@ What is genuinely unproved, as opposed to merely untested-in-isolation:
   machines paired to one workspace. Sections A–D need the second machine;
   section E needs a second workspace account; section F can be run today.
 
+### G-16 — M7's five routes have never been rendered, and the desktop shell has never been run
+
+**Raised:** 2026-08-13, closing T-M7-01 … T-M7-03.
+
+981 tests pass and both halves are built. What has NOT happened:
+
+- **No one has looked at any of the five new pages.** They are registered —
+  `next build` lists `/imports`, `/teams/[teamId]`, `/projects/[projectId]`,
+  `/tasks/goals/[goalId]` and `/skills/[skillId]` as route handlers, which is
+  what decides 404 versus not — but registered is not rendered. The failure this
+  phase is most exposed to is a param that does not arrive: the page renders,
+  fetches `/teams/undefined`, and shows an empty state that reads like a data
+  problem. **Every one of the four detail pages is unproved against that.**
+- **A runtime check was attempted and could not be completed.** `next start` in
+  this worktree returns 503 for every path, including `/`, because there is no
+  `.env.local` here — the app's own "this deployment is not configured" guard,
+  working correctly. Getting past it means copying Supabase secrets into a
+  worktree, which is not worth doing for a routing check.
+- **The offline screen has never been seen.** Its content is asserted by 12
+  tests and the document parses (the browser pane reported the right `<title>`),
+  but the pane still cannot composite — the same limitation `G-12` and `G-13`
+  record. Nothing has confirmed it is legible rather than merely correct.
+- **The Electron shell has not been launched at all.** URL resolution is now a
+  tested pure function, so "unset behaves exactly as before" is proved as
+  logic — but no window has been opened, no `did-fail-load` has fired for real,
+  and retry has never been clicked.
+- **Everything behind a deployment.** There isn't one, so the hosted half of the
+  desktop app — sign-in in the window, the machine showing online from its own
+  desktop app, host-local features refusing as designed — is untestable by
+  construction. See [`runbooks/deploy-web-app.md`](runbooks/deploy-web-app.md).
+
+- **If wrong:** the routes half fails silently and looks like a data bug, which
+  is the worst shape for a user to report. The Electron half fails loudly and is
+  contained to the desktop shell — the web app is unaffected either way.
+- **Clears when:** [`T-M7-04`](tasks/M7/T-M7-04-verification.md) runs. Sections A
+  and C need a browser and a desktop build and can be done today; section D needs
+  the deployment.
+
 ### G-11 — Supabase has never been observed delivering an email
 
 **Raised:** 2026-08-10, investigating "I can't create an account, no link arrives".
