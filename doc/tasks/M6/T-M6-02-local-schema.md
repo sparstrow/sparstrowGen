@@ -6,7 +6,7 @@
 | **Depends on** | — |
 | **Blocks** | T-M6-03, T-M6-04, T-M6-05 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-12 |
 
 ## Objective
 
@@ -33,10 +33,10 @@ the pull sweep itself, never by an incoming command.
 
 ## Checklist
 
-- [ ] `synced_hash TEXT`, `synced_at TEXT` added to `memoryNotes` in `packages/core/src/db/schema.ts`
-- [ ] Migration `0018` in `packages/core/src/db/migrations.ts` — `ALTER TABLE memory_notes ADD COLUMN synced_hash TEXT; ALTER TABLE memory_notes ADD COLUMN synced_at TEXT;`
-- [ ] `packages/core/src/db/migration-0018.test.ts`, matching the shape of `migration-0017.test.ts`
-- [ ] Confirm SQLite's `ALTER TABLE ADD COLUMN` on an existing populated `memory_notes` table is additive and safe (it is — SQLite fills the new column with `NULL` for every existing row, which is the correct "never synced" state) — assert this against a populated table in the test, not just a fresh one
+- [x] `synced_hash TEXT`, `synced_at TEXT` added to `memoryNotes` in `packages/core/src/db/schema.ts`
+- [x] Migration `0018` in `packages/core/src/db/migrations.ts` — `ALTER TABLE memory_notes ADD COLUMN synced_hash TEXT; ALTER TABLE memory_notes ADD COLUMN synced_at TEXT;`
+- [x] `packages/core/src/db/migration-0018.test.ts`, matching the shape of `migration-0017.test.ts`
+- [x] Confirm SQLite's `ALTER TABLE ADD COLUMN` on an existing populated `memory_notes` table is additive and safe (it is — SQLite fills the new column with `NULL` for every existing row, which is the correct "never synced" state) — assert this against a populated table in the test, not just a fresh one
 
 ## Traps
 
@@ -54,9 +54,9 @@ consistency" would be adding dead columns.
 
 ## Verification
 
-- [ ] Migration test green against a fresh and a populated `memory_notes` table
-- [ ] `pnpm -r typecheck` clean
+- [x] Migration test green against a fresh and a populated `memory_notes` table
+- [x] `pnpm -r typecheck` clean
 
 ## On completion
 
-- [ ] Tick 8.2 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 8.2 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)

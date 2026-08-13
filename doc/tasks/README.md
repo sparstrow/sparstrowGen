@@ -113,8 +113,8 @@ questions` header line is empty or points only to non-blocking entries.
 | M2 — `/api/v1` from Next over Supabase | 8 (`M2/`) | ✅ done, verified on staging 2026-08-10 (incl. browser pass) |
 | M3 — pairing, registration, heartbeat | 8 (`M3/`) | ✅ done, verified on staging 2026-08-10 |
 | M4 — command spine | 8 (`M4/`) | ✅ done, verified live on staging 2026-08-11 |
-| M5 — transcripts (dual path) | 6 (`M5/`) | 01–05 done, 886 tests · 06 (verification) deferred to the owner — [`G-13`](../KnownGaps.md) |
-| M6 — memory sync | 5 (`M6/`) | decomposed 2026-08-12 — not started |
+| M5 — transcripts (dual path) | 6 (`M5/`) | 01–05 done · 06 (verification) deferred to the owner — [`G-13`](../KnownGaps.md) |
+| M6 — memory sync | 5 (`M6/`) | 01–04 done 2026-08-12, 956 tests · 05 (verification) needs a second machine — [`G-15`](../KnownGaps.md) |
 | M7 — routes + Electron | — | not decomposed |
 
 M7 is scoped in the plan but has no task files yet — written when its band is
@@ -128,6 +128,9 @@ M5's tasks exist only because reading the code found a dead WebSocket and an
 unpaginated transcript nobody had reason to notice yet. M6, by contrast, turned
 out to be mostly wiring — M1 had already scaffolded the cloud schema, the
 sync-shaped index, and even the command kind M6's push path enqueues; nothing
-about M6 needed a load-bearing decision M1 hadn't already made.
+about M6 needed a load-bearing decision M1 hadn't already made. Building it still found two:
+`content` had to carry the whole file rather than the note body, and the push
+route needed a cross-workspace id guard — both written up as corrections in
+M6's own phase spec rather than folded in silently.
 
 See `MasterTaskQueue.md` for the run order.

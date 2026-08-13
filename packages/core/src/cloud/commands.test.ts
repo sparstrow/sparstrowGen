@@ -10,6 +10,7 @@ import { agents, settings } from "../db/schema.js";
 import { runManager } from "../orchestrator/run-manager.js";
 import { invalidatePairingCache, savePairing } from "./client.js";
 import { startCommandLoop, stopCommandLoop } from "./commands.js";
+import { resetMemorySync, startMemorySync } from "./memory-sync.js";
 import { resetDispatched } from "./run-reporter.js";
 
 const now = "2026-08-10T00:00:00Z";
@@ -68,6 +69,7 @@ describe("command loop", () => {
     config.cloudUrl = "http://cloud.test";
     invalidatePairingCache();
     resetDispatched();
+    resetMemorySync();
 
     closeDb();
     openDb(":memory:");
@@ -87,6 +89,7 @@ describe("command loop", () => {
 
   afterEach(() => {
     stopCommandLoop();
+    resetMemorySync();
     vi.useRealTimers();
     vi.restoreAllMocks();
     config.secretsDir = originalSecretsDir;
@@ -303,6 +306,43 @@ describe("command loop", () => {
       status: "failed",
       reason: "setting_not_allowed",
     });
+  });
+
+  it("dispatches memory.sync to a pull and acks done", async () => {
+    // M6's doorbell. The command carries no payload: this machine already knows
+    // its own workspace from its own token, so the row is a wake-up rather than
+    // a delivery.
+    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+
+    let claimed = false;
+    let pulls = 0;
+    const fetchMock = routeFetch({
+      "/ack": () => jsonResponse(200, { ok: true }),
+      "/memory/pull": () => {
+        pulls++;
+        return jsonResponse(200, { notes: [], nextCursor: null });
+      },
+      "/commands": () => {
+        if (claimed) return jsonResponse(200, { commands: [] });
+        claimed = true;
+        return jsonResponse(200, { commands: [command({ kind: "memory.sync", payload: {} })] });
+      },
+    });
+
+    // Started and settled BEFORE the command arrives, so the pull this test
+    // counts is the one the command caused and not the startup sweep's.
+    startMemorySync();
+    await vi.advanceTimersByTimeAsync(10);
+    const afterStartup = pulls;
+
+    startCommandLoop();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(pulls).toBeGreaterThan(afterStartup);
+    // Finding nothing new is success. Acking `failed` here would put a red mark
+    // on the board for the command's most common outcome.
+    const ack = fetchMock.mock.calls.find(([url]) => String(url).includes("/ack"));
+    expect(JSON.parse(String((ack?.[1] as RequestInit).body))).toMatchObject({ status: "done" });
   });
 
   it("fails an unknown command kind explicitly, so the board says why", async () => {

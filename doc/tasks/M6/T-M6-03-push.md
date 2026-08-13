@@ -6,7 +6,7 @@
 | **Depends on** | T-M6-01, T-M6-02 |
 | **Blocks** | T-M6-05 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-12 |
 
 ## Objective
 
@@ -76,15 +76,15 @@ batching rules.
 
 ## Checklist
 
-- [ ] `markNoteDirty()`, called from `writeNote()` and `writeNoteRaw()` in `vault.ts`
-- [ ] Debounce timer, `MEMORY_SYNC_DEBOUNCE_MS`, coalesces the pending set into one batch
-- [ ] `startMemorySync()` / `stopMemorySync()`, wired into `packages/core/src/index.ts`
-- [ ] Does nothing when unpaired — no timers, no log noise
-- [ ] 403/401/network/5xx handled exactly as above; failed push does not drop `pending`
-- [ ] `applied: false` results write the winning cloud version locally and re-index
-- [ ] Reconciliation sweep on `MEMORY_SYNC_SWEEP_MS`, routes through `markNoteDirty()`, not a second push path
-- [ ] `unref()` on both the debounce timer and the sweep interval
-- [ ] Unit tests with fake timers: debounces a burst into one request; a failed push keeps the note dirty for the next attempt; an `applied:false` result writes the winning version and re-indexes; the sweep finds a hash-mismatched note and pushes it; stops on 403; a note whose `synced_hash` already matches is never pushed
+- [x] `markNoteDirty()`, called from `writeNote()` and `writeNoteRaw()` in `vault.ts`
+- [x] Debounce timer, `MEMORY_SYNC_DEBOUNCE_MS`, coalesces the pending set into one batch
+- [x] `startMemorySync()` / `stopMemorySync()`, wired into `packages/core/src/index.ts`
+- [x] Does nothing when unpaired — no timers, no log noise
+- [x] 403/401/network/5xx handled exactly as above; failed push does not drop `pending`
+- [x] `applied: false` results write the winning cloud version locally and re-index
+- [x] Reconciliation sweep on `MEMORY_SYNC_SWEEP_MS`, routes through `markNoteDirty()`, not a second push path
+- [x] `unref()` on both the debounce timer and the sweep interval
+- [x] Unit tests with fake timers: debounces a burst into one request; a failed push keeps the note dirty for the next attempt; an `applied:false` result writes the winning version and re-indexes; the sweep finds a hash-mismatched note and pushes it; stops on 403; a note whose `synced_hash` already matches is never pushed
 
 ## Traps
 
@@ -112,9 +112,9 @@ mark a NEWER, unpushed edit as synced.
 
 ## Verification
 
-- [ ] Unit tests green
+- [x] Unit tests green
 - [ ] Live push, crash-then-sweep recovery, and a real LWW loss → **T-M6-05**
 
 ## On completion
 
-- [ ] Tick 8.3 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 8.3 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)

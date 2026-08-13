@@ -19,6 +19,7 @@ import { declareDraining, startHeartbeat } from "./cloud/heartbeat.js";
 import { startCommandLoop, stopCommandLoop } from "./cloud/commands.js";
 import { startRunReporter, stopRunReporter } from "./cloud/run-reporter.js";
 import { startTranscriptPusher, stopTranscriptPusher } from "./cloud/transcripts.js";
+import { startMemorySync, stopMemorySync } from "./cloud/memory-sync.js";
 import { startBindingReporter, stopBindingReporter } from "./cloud/bindings.js";
 import { initDelegationWatcher, sweepWaitingParents } from "./taskboard/delegation.js";
 import { sweepOrphanedPipelineRuns } from "./orchestrator/pipeline-executor.js";
@@ -130,6 +131,11 @@ async function main(): Promise<void> {
   // very first tick already has somewhere to report its status and its events.
   startRunReporter();
   startTranscriptPusher();
+  // M6: memory notes both ways. Started BEFORE the command loop, because the
+  // loop can dispatch a `memory.sync` on its very first tick and that handler
+  // calls straight into this module — and because starting it is what registers
+  // the vault's write hook, so a note saved seconds after boot is not missed.
+  startMemorySync();
   startCommandLoop();
   // Until this lands, `runtime_projects` is empty and every project looks
   // unavailable to the enqueue-time check — a failure that reads like a
@@ -145,6 +151,7 @@ async function main(): Promise<void> {
       stopCommandLoop();
       stopRunReporter();
       stopTranscriptPusher();
+      stopMemorySync();
       stopBindingReporter();
       // Then, so the UI says "shutting down" instead of waiting out the
       // staleness window. Best-effort with a 2s timeout — it must not delay

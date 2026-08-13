@@ -6,7 +6,7 @@
 | **Depends on** | — |
 | **Blocks** | T-M6-03, T-M6-04, T-M6-05 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-12 |
 
 ## Objective
 
@@ -103,15 +103,30 @@ the last row's `(updatedAt, id)`, or `null` when the page came back short
 
 ## Checklist
 
-- [ ] Types and constants in `packages/shared/src/cloud.ts`
-- [ ] `apps/web/src/app/api/daemon/memory/push/route.ts`
-- [ ] `apps/web/src/app/api/daemon/memory/pull/route.ts`
-- [ ] `authenticateDaemon()` first on both; 401/403 mirroring every other daemon route
-- [ ] Push: per-note LWW exactly as decided above, one transaction per batch
-- [ ] Push: `workspace_id` and `last_writer_runtime_id` from the token scope on every write, never the body
-- [ ] Push: after a batch applies at least one write, enqueue a `memory.sync` command for every OTHER online runtime in the workspace (phase decision 6) — reuse `isRuntimeOnline`, not `runtimes.status`
-- [ ] Pull: `(updated_at, id)` tuple comparison, `MEMORY_PULL_PAGE_SIZE` cap, honest `nextCursor`
-- [ ] Route tests: push creates, push no-ops on identical hash, push rejects a stale write and returns `current`, pull pages correctly, pull cursor excludes already-seen rows, cross-workspace push/pull both refused
+- [x] Types and constants in `packages/shared/src/cloud.ts`
+- [x] `apps/web/src/app/api/daemon/memory/push/route.ts`
+- [x] `apps/web/src/app/api/daemon/memory/pull/route.ts`
+- [x] `authenticateDaemon()` first on both; 401/403 mirroring every other daemon route
+- [x] Push: per-note LWW exactly as decided above, one upsert per batch — with a
+      note-by-note fallback on a constraint violation, so a single unstorable
+      note cannot wedge every other note on that machine forever
+- [x] Push: a note id belonging to ANOTHER workspace is refused, never upserted
+      (the guard the spec did not name — see the phase README's correction B)
+- [x] Push: `workspace_id` and `last_writer_runtime_id` from the token scope on every write, never the body
+- [x] Push: after a batch applies at least one write, enqueue a `memory.sync` command for every OTHER online runtime in the workspace (phase decision 6) — reuse `isRuntimeOnline`, not `runtimes.status`
+- [x] Pull: `(updated_at, id)` tuple comparison, `MEMORY_PULL_PAGE_SIZE` cap, honest `nextCursor`
+- [x] Tests for the parts with judgement in them —
+      `apps/web/src/lib/daemon/memory-sync.test.ts`, 31 cases: LWW
+      insert/no-op/update/reject including the skew-proof hash-equal path and a
+      corrupt stored timestamp, batch validation, path traversal, tuple-cursor
+      expansion, `nextCursor` honesty
+- [~] **The routes themselves are not unit-tested.** Following this repo's own
+      pattern (`transcript.ts` and `reconcile.ts` are tested; their routes are
+      not), the judgement was extracted to a pure module and tested there — a
+      test that mocks a Supabase query builder to assert "a cross-workspace push
+      is refused" mostly tests the mock. So the cross-workspace guard and the
+      constraint-violation fallback are **unproved until T-M6-05**, whose
+      section E exists to prove the first against a real database
 
 ## Traps
 
@@ -138,10 +153,10 @@ save a mistake here.
 
 ## Verification
 
-- [ ] Route tests green
-- [ ] `pnpm -r typecheck` clean
+- [x] Route tests green
+- [x] `pnpm -r typecheck` clean
 - [ ] Live push/pull round-trip and cross-workspace refusal → **T-M6-05**
 
 ## On completion
 
-- [ ] Tick 8.1 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 8.1 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)

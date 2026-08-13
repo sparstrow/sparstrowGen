@@ -5,20 +5,20 @@
 | **Plan** | `doc/plans/2026-08-09-daemon-cloud-control-plane.md` (M6) |
 | **Depends on** | M4 (complete). Not M5 — the two are `[P]` against each other |
 | **Blocks** | nothing. M7 is `[P]` against this phase |
-| **Status** | decomposed 2026-08-12 — not started |
+| **Status** | 01–04 done 2026-08-12, 956 tests green · **05 (verification) needs a second machine** |
 | **Open questions** | none — everything below is decided |
 
 ## Tasks
 
 Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.md).
 
-| Task | Tag | Depends on |
-|---|---|---|
-| [T-M6-01 — sync contract + daemon routes](T-M6-01-sync-contract.md) | `[S]` | — |
-| [T-M6-02 — local schema: sync state + pull cursor](T-M6-02-local-schema.md) | `[P]` | — |
-| [T-M6-03 — push: hook + reconciliation sweep](T-M6-03-push.md) | `[P]` | 01, 02 |
-| [T-M6-04 — pull: command-triggered + full sweep](T-M6-04-pull.md) | `[C]` | 01, 02 |
-| [T-M6-05 — verification](T-M6-05-verification.md) | `[S]` | 01–04 |
+| Task | Tag | Depends on | Status |
+|---|---|---|---|
+| [T-M6-01 — sync contract + daemon routes](T-M6-01-sync-contract.md) | `[S]` | — | ✅ done |
+| [T-M6-02 — local schema: sync state + pull cursor](T-M6-02-local-schema.md) | `[P]` | — | ✅ done |
+| [T-M6-03 — push: hook + reconciliation sweep](T-M6-03-push.md) | `[P]` | 01, 02 | ✅ done |
+| [T-M6-04 — pull: command-triggered + full sweep](T-M6-04-pull.md) | `[C]` | 01, 02 | ✅ done |
+| [T-M6-05 — verification](T-M6-05-verification.md) | `[S]` | 01–04 | ⏸ needs a second machine |
 
 This file holds what they share. Individual tasks reference it rather than
 restating it.
@@ -224,6 +224,51 @@ endpoints M2 already answers with an honest 501 in the hosted app. M1's RLS
 already covers the table defensively (applied blanket-wide to all 36 tables),
 but nothing new needs writing there: every read and write in this phase goes
 through `/api/daemon/*` with the service role, exactly like M3–M5.
+
+---
+
+## Corrected while building, 2026-08-12
+
+Two things this spec got wrong before any of it ran. Recorded here rather than
+quietly fixed, because both were load-bearing.
+
+### A. `content` is the WHOLE FILE, not the body — decision 1 was incomplete
+
+`T-M6-04`'s sketch had the pull path reconstruct a file as
+`renderFrontmatter(remote) + remote.content`, with `content` carrying only the
+markdown body. That is a **ping-pong loop**, and the reason is `contentHash`.
+
+Locally, `contentHash` is `sha256` of the ENTIRE file as written to disk — both
+`writeNote()` and `writeNoteRaw()` compute it that way — and decision 2's
+conflict rule short-circuits on hash equality before it ever consults a clock.
+Re-rendering frontmatter on the receiving machine cannot reproduce the origin's
+bytes exactly (YAML key order, quoting, line endings), so the pulled note's
+recomputed hash would differ from the one it just pulled. The note would read as
+locally edited, get pushed back, differ again on the next machine, and the two
+would trade writes forever — each one "winning" a conflict that never existed.
+
+So the wire carries the exact file bytes and `contentHash = sha256(content)`
+means the same thing everywhere by construction. The structured fields still
+travel alongside — they are what makes the cloud row queryable and let a puller
+fill its row without re-parsing — but the file, not those fields, is what gets
+written. `applyPulledNote()` additionally re-hashes on arrival and refuses a
+payload whose hash does not match its own content, because every decision
+downstream assumes that invariant holds.
+
+### B. The push route needed a cross-workspace guard the spec never named
+
+Cloud `memory_notes.id` is the primary key GLOBALLY, and the route upserts on
+it. Scoping the "does this note already exist?" lookup to the token's workspace
+— the obvious reading of the containment rule, and what decision 4 implies —
+makes a note id from ANOTHER workspace come back absent, get judged `insert`,
+and then be overwritten by the upsert, `workspace_id` and all. One guessed id
+would let a daemon in workspace A rewrite workspace B's note.
+
+The fix inverts the lookup: read every matching id regardless of workspace, then
+refuse in code the ones that belong elsewhere (returning no `current`, since
+that row is another workspace's content and handing it back would turn a refusal
+into a read primitive). RLS does not help here — this route holds the service
+role, exactly as `auth.ts` warns.
 
 ---
 

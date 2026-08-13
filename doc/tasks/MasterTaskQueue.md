@@ -161,17 +161,25 @@ Phase spec: [`M6/README.md`](M6/README.md). Decomposed 2026-08-12.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 8.1 | [T-M6-01 — sync contract + daemon routes](M6/T-M6-01-sync-contract.md) | `[S]` | — | **next** |
-| 8.2 | [T-M6-02 — local schema: sync state + pull cursor](M6/T-M6-02-local-schema.md) | `[P]` | — | queued |
-| 8.3 | [T-M6-03 — push: hook + reconciliation sweep](M6/T-M6-03-push.md) | `[P]` | 8.1, 8.2 | queued |
-| 8.4 | [T-M6-04 — pull: command-triggered + full sweep](M6/T-M6-04-pull.md) | `[C]` | 8.1, 8.2 | queued |
-| 8.5 | [T-M6-05 — verification](M6/T-M6-05-verification.md) | `[S]` | 8.1–8.4 | queued |
+| 8.1 | [T-M6-01 — sync contract + daemon routes](M6/T-M6-01-sync-contract.md) | `[S]` | — | done (2026-08-12) |
+| 8.2 | [T-M6-02 — local schema: sync state + pull cursor](M6/T-M6-02-local-schema.md) | `[P]` | — | done (2026-08-12) |
+| 8.3 | [T-M6-03 — push: hook + reconciliation sweep](M6/T-M6-03-push.md) | `[P]` | 8.1, 8.2 | done (2026-08-12) |
+| 8.4 | [T-M6-04 — pull: command-triggered + full sweep](M6/T-M6-04-pull.md) | `[C]` | 8.1, 8.2 | done (2026-08-12) |
+| 8.5 | [T-M6-05 — verification](M6/T-M6-05-verification.md) | `[S]` | 8.1–8.4 | ⏸ needs a second machine |
 
 8.1 defines the HTTP contract 8.3 and 8.4 compile against; 8.2 is pure SQLite
 with no dependency on it, so the two run fully in parallel. 8.3 and 8.4 are
 `[C]` against each other rather than `[P]` because both live in
 `packages/core/src/cloud/memory-sync.ts` — the same file split M5's transcript
 pusher and its backfill sweep used.
+
+**8.1–8.4 landed 2026-08-12; 8.5 has not.** Every assertion in it that matters
+needs a second paired machine, which this repo does not have — recorded as
+[`G-15`](../KnownGaps.md) rather than reported as passing. Two corrections the
+spec got wrong, both caught before merge and written up in the phase README:
+`content` had to become the whole file rather than the body (the body-only shape
+was a permanent push/pull ping-pong), and the push route needed a cross-workspace
+id guard the spec never named.
 
 **M6 is mostly wiring over decisions M1 already made.** The cloud
 `memory_notes` table, its sync-shaped index, and even the anticipated

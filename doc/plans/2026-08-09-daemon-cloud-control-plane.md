@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Approved 2026-08-09 · M1–M4 complete · auth hardening complete 2026-08-10 · **M5 code-complete 2026-08-12 (verification deferred to the owner — `G-13`)** · **M6 next** |
+| **Status** | Approved 2026-08-09 · M1–M4 complete · auth hardening complete 2026-08-10 · **M5 code-complete 2026-08-12 (verification deferred to the owner — `G-13`)** · **M6 code-complete 2026-08-12 (verification needs a second machine — `G-15`)** · **M7 next** |
 | **Supersedes** | The "Phase 4: Multi-Agent Swarm Orchestrator & Live Transcripts" proposal |
-| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–6 done · band 7 = M5, 01–05 done · band 8 = M6, decomposed 2026-08-12) · `doc/tasks/M2/` · `doc/tasks/M3/` · `doc/tasks/M4/` · `doc/tasks/M5/` · `doc/tasks/M6/` |
+| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–6 done · band 7 = M5, 01–05 done · band 8 = M6, 01–04 done · band 9 = M7, not decomposed) · `doc/tasks/M2/` · `doc/tasks/M3/` · `doc/tasks/M4/` · `doc/tasks/M5/` · `doc/tasks/M6/` |
 | **Open questions** | None. OQ-1 (uncommitted work) answered **and built** 2026-08-10 — see settled decision 5. OQ-2 answered and closed 2026-08-10. |
 
 > **Why the original Phase 4 proposal was replaced.** It described three features
@@ -343,6 +343,27 @@ against.
   `packages/ui/src/routes/pages/run-detail.tsx` already handles it.
 
 ### M6 — Memory sync
+
+> **Shipped 2026-08-12 — tasks 01–04, 956 tests green. Verification (05) is
+> waiting on a second paired machine, recorded as `G-15`.**
+>
+> Two things the phase spec had wrong, both caught before merge and written up
+> in `doc/tasks/M6/README.md` under *Corrected while building*:
+>
+> - **`content` carries the whole file, not the note body.** The body-only
+>   shape the tasks described was a permanent ping-pong: `contentHash` is
+>   `sha256` of the entire file locally, and no receiving machine can
+>   re-render frontmatter to the origin's exact bytes, so every pulled note
+>   would read as locally edited and be pushed straight back.
+> - **The push route needed a cross-workspace id guard.** Cloud
+>   `memory_notes.id` is globally unique and the route upserts on it, so
+>   scoping the existence check to the token's workspace — the obvious reading
+>   — would let a daemon in one workspace overwrite another's note, service
+>   role and all.
+>
+> What is genuinely unproved is in `G-15`, not hidden here: no note has yet
+> travelled between two real machines, and the routes have never served a
+> request.
 
 > **Decomposed 2026-08-12 into 5 tasks — `doc/tasks/M6/`.** The headline
 > finding, worth stating before the tasks: this phase is mostly wiring, not

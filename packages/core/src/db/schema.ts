@@ -385,6 +385,22 @@ export const memoryNotes = sqliteTable(
     supersededBy: text("superseded_by"),
     contentHash: text("content_hash").notNull().default(""),
     indexedAt: text("indexed_at"),
+    /**
+     * M6: the `contentHash` this note was last CONFIRMED synced at, and when.
+     *
+     * `syncedHash != contentHash` (including NULL, which is every note
+     * predating M6) is the whole definition of "owes the cloud a push" — read
+     * by the reconciliation sweep, and by the pull path to detect a local edit
+     * still in flight before it overwrites one.
+     *
+     * NULL rather than `''`: it means "never pushed", which is the same thing
+     * `indexedAt` and `archivedAt` already say with NULL in this table. Set only
+     * from the hash that was actually SENT, never re-read from the row after a
+     * response arrives — the row may have been edited again in between, and
+     * re-reading would mark that newer, unpushed edit as synced.
+     */
+    syncedHash: text("synced_hash"),
+    syncedAt: text("synced_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },

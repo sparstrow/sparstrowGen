@@ -6,7 +6,7 @@
 | **Depends on** | T-M6-01, T-M6-02 |
 | **Blocks** | T-M6-05 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-12 |
 
 ## Objective
 
@@ -76,14 +76,14 @@ async function pullOnce(): Promise<void> {
 
 ## Checklist
 
-- [ ] `applyPulledNote()` — dedicated writer, id/path verbatim, hash-equal short-circuit, local-edit-in-flight guard
-- [ ] `CommandKind` gains `"memory.sync"` in `packages/shared/src/cloud.ts`
-- [ ] `commands.ts`'s dispatch switch handles it: pull once, ack `done`
-- [ ] `pullOnce()` pages via the cursor in `settings` (`T-M6-02`), advances only after each page's writes land
-- [ ] Sweep triggers: startup, failing→reachable, `MEMORY_SYNC_SWEEP_MS` interval
-- [ ] `unref()` on the sweep timer; nothing runs when unpaired
-- [ ] Every pulled note is indexed (`indexer.enqueue`), never left un-indexed
-- [ ] Unit tests: writes to the exact `path`/`id` from the cloud, not a new one; a hash-equal pull is a no-op; a genuine remote-newer conflict overwrites and re-indexes; a local-edit-in-flight is NOT clobbered by an older-or-equal pull; a crash mid-page (cursor not advanced) replays safely; `memory.sync` command dispatch calls pull and acks `done`; sweep triggers on all three events
+- [x] `applyPulledNote()` — dedicated writer, id/path verbatim, hash-equal short-circuit, local-edit-in-flight guard
+- [x] `CommandKind` gains `"memory.sync"` in `packages/shared/src/cloud.ts`
+- [x] `commands.ts`'s dispatch switch handles it: pull once, ack `done`
+- [x] `pullOnce()` pages via the cursor in `settings` (`T-M6-02`), advances only after each page's writes land
+- [x] Sweep triggers: startup, failing→reachable, `MEMORY_SYNC_SWEEP_MS` interval
+- [x] `unref()` on the sweep timer; nothing runs when unpaired
+- [x] Every pulled note is indexed (`indexer.enqueue`), never left un-indexed
+- [x] Unit tests: writes to the exact `path`/`id` from the cloud, not a new one; a hash-equal pull is a no-op; a genuine remote-newer conflict overwrites and re-indexes; a local-edit-in-flight is NOT clobbered by an older-or-equal pull; a crash mid-page (cursor not advanced) replays safely; `memory.sync` command dispatch calls pull and acks `done`; sweep triggers on all three events
 
 ## Traps
 
@@ -111,9 +111,9 @@ error (auth, network exhaustion) is a `failed` ack.
 
 ## Verification
 
-- [ ] Unit tests green
+- [x] Unit tests green
 - [ ] Live pull via command dispatch, live pull via the sweep on a previously-offline machine, and a genuine cross-machine conflict → **T-M6-05**
 
 ## On completion
 
-- [ ] Tick 8.4 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 8.4 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)

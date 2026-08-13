@@ -16,6 +16,7 @@ import { logger } from "../logger.js";
 import { runManager } from "../orchestrator/run-manager.js";
 import { CloudAuthError, cloudFetch, invalidatePairingCache, isPaired } from "./client.js";
 import { cloneProject } from "./bindings.js";
+import { pullOnce } from "./memory-sync.js";
 import { reportSettings } from "./registration.js";
 import { resolveAgent } from "./resolve.js";
 import { markDispatched } from "./run-reporter.js";
@@ -115,6 +116,22 @@ async function dispatch(command: ClaimedCommand): Promise<void> {
       }
       case "settings.set":
         await ackResult(command, applySetting(command.payload as unknown as SettingsSetPayload));
+        return;
+      case "memory.sync":
+        // M6's doorbell. The command carries no payload — this machine already
+        // knows its own workspace from its own token, so the row is a wake-up,
+        // not a delivery.
+        //
+        // Always acked `done`, deliberately, and that covers two cases people
+        // read as failures. Finding nothing new is the command's MOST common
+        // outcome (two pushes landing close together, or a sweep that caught up
+        // moments earlier) and is plainly success. A pull that could not reach
+        // the cloud is also acked done, because `pullOnce()` handles its own
+        // connectivity and the periodic sweep is what guarantees delivery —
+        // failing the command would put a red mark on the board for a network
+        // blip already covered, and earn a redelivery that adds nothing.
+        await pullOnce();
+        await ack(command, { status: "done" });
         return;
       default:
         // A newer control plane can enqueue a kind this build has never heard

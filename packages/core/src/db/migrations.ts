@@ -699,4 +699,31 @@ CREATE TABLE cloud_event_cursors (
 CREATE INDEX idx_cloud_event_cursors_updated ON cloud_event_cursors(updated_at);
 `,
   },
+  {
+    // M6. Which version of each note the cloud has confirmed, so a crash
+    // between a local write and its push is recoverable rather than merely
+    // unlikely. See the columns' own comment in schema.ts for what they mean.
+    //
+    // DELIBERATELY NOT BACKFILLED, and that is the whole safety argument:
+    // SQLite fills both columns with NULL for every existing row, which reads
+    // as "never synced" — exactly right, because this machine has in fact never
+    // synced them. Seeding `synced_hash = content_hash` would make the opposite
+    // claim, that the entire pre-existing vault is already in the cloud, and
+    // would silently exclude every note this machine had before pairing from
+    // ever being pushed at all.
+    //
+    // The first reconciliation sweep after this migration therefore finds the
+    // whole vault dirty and pushes it in debounced batches. That is the
+    // intended one-time cost of a machine joining the sync, not a bug to
+    // optimise away — and on an UNPAIRED machine it costs nothing, because the
+    // sweep does not run.
+    //
+    // ALTER TABLE ADD COLUMN is additive in SQLite and rewrites no rows: no
+    // table copy, no index rebuild, safe against a populated table.
+    id: "0018_memory_sync_state",
+    sql: `
+ALTER TABLE memory_notes ADD COLUMN synced_hash TEXT;
+ALTER TABLE memory_notes ADD COLUMN synced_at TEXT;
+`,
+  },
 ];

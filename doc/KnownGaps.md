@@ -158,6 +158,45 @@ it checks needs things this environment does not have.
   that composites. Full procedure in
   [`tasks/M5/T-M5-06-verification.md`](tasks/M5/T-M5-06-verification.md).
 
+### G-15 — M6 (memory sync) is built and unit-tested; nothing has synced between two real machines
+
+**Raised:** 2026-08-12, closing T-M6-01 … T-M6-04.
+
+The code is complete and 956 tests pass, including the conflict rule from both
+directions, the debounce, both sweeps, cursor paging, and the crash-replay path.
+**Not one note has travelled between two machines**, because verifying that needs
+a second paired machine and this repo has one.
+
+What is genuinely unproved, as opposed to merely untested-in-isolation:
+
+- **The daemon routes themselves.** Both were written; neither has served a
+  request. The judgement inside them is extracted and tested
+  (`apps/web/src/lib/daemon/memory-sync.test.ts`), but the query-builder calls
+  around it — the `.or()` tuple-cursor filter in particular, whose PostgREST
+  syntax is asserted only as a STRING — have never touched Postgres.
+- **The cross-workspace guard.** The push route reads note ids across workspaces
+  precisely so it can refuse foreign ones (phase README, correction B). That
+  refusal has never been exercised against a real database, and it is the one
+  piece of this phase where being wrong means a cross-tenant write rather than a
+  failed sync.
+- **The constraint-violation fallback.** Its trigger is a path collision between
+  two machines, which cannot be produced with one.
+- **Real conflict resolution.** Every last-write-wins test drives the decision
+  function directly with constructed timestamps. Two machines actually editing
+  the same note while split is a different thing from asserting what
+  `decidePush` returns.
+- **That another machine ends up able to search a pulled note.** The indexer is
+  stubbed in tests; what is proved is that a pulled note is HANDED to it, not
+  that the local index comes out usable at the other end.
+
+- **If wrong:** the shape of failure is the one M4 and M5 both hit — the pure
+  logic is right and the glue is not. M4 shipped four defects a live pass found;
+  M5 shipped two design corrections. There is no reason to expect this phase to
+  be the exception, and its blast radius is a user's own writing.
+- **Clears when:** [`T-M6-05`](tasks/M6/T-M6-05-verification.md) runs with two
+  machines paired to one workspace. Sections A–D need the second machine;
+  section E needs a second workspace account; section F can be run today.
+
 ### G-11 — Supabase has never been observed delivering an email
 
 **Raised:** 2026-08-10, investigating "I can't create an account, no link arrives".
