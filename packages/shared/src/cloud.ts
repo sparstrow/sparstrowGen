@@ -1,0 +1,629 @@
+/**
+ * M3 — the contract between a daemon and the cloud control plane.
+ *
+ * This file exists so `packages/core` and `apps/web` cannot disagree. The
+ * heartbeat constants are the sharp case: if the daemon beats every 30s and the
+ * web app decides "stale" means 20s, every machine in the fleet flickers
+ * offline between beats and nothing in either codebase looks wrong on its own.
+ *
+ * A daemon is NOT a Supabase user. It has no `auth.uid()`, so every RLS policy
+ * denies it, and it never talks to PostgREST — it calls `/api/daemon/*` on the
+ * Next app with a bearer token. See doc/tasks/M3/README.md decision 1.
+ */
+
+// Extensionless, like every other intra-package import here. The package is
+// `moduleResolution: Bundler`, and Next consumes this directory as TypeScript
+// source — a `./constants.js` specifier typechecks fine and then fails to
+// resolve at bundle time, which is a runtime 500 no typecheck will ever catch.
+import { SETTING_WIP_SNAPSHOT, SETTING_WIP_SNAPSHOT_KEEP } from "./constants";
+import type { RunEventType } from "./schemas/run";
+
+/** How often a paired daemon posts a heartbeat. */
+export const HEARTBEAT_INTERVAL_MS = 30_000;
+
+/**
+ * How long since the last heartbeat before a runtime reads as offline.
+ *
+ * Three intervals. Two would flap a machine offline on a single dropped
+ * request, which on a laptop happens routinely; three tolerates one loss plus
+ * scheduling jitter and still notices a dead machine inside two minutes.
+ *
+ * Liveness is ALWAYS derived from this, never read from `runtimes.status` — a
+ * machine that dies writes nothing, so a stored `online` stays `online`
+ * forever. See doc/tasks/M3/README.md decision 4.
+ */
+export const HEARTBEAT_STALE_AFTER_MS = 90_000;
+
+/** Path prefix for the daemon surface, distinct from the browser's `/api/v1`. */
+export const DAEMON_API_BASE = "/api/daemon";
+
+/** True when a runtime's last heartbeat is recent enough to call it online. */
+export function isRuntimeOnline(
+  lastHeartbeat: string | Date | null | undefined,
+  now: number = Date.now(),
+): boolean {
+  if (!lastHeartbeat) return false;
+  const beat = lastHeartbeat instanceof Date ? lastHeartbeat : new Date(lastHeartbeat);
+  const age = now - beat.getTime();
+  // NaN from an unparseable timestamp must read as offline, not online.
+  // `!(age < X)` rather than `age >= X` because every comparison with NaN is
+  // false -- the naive form would silently report a machine with a corrupt
+  // timestamp as online.
+  return !Number.isNaN(age) && !(age >= HEARTBEAT_STALE_AFTER_MS);
+}
+
+/** What a machine reports about itself. Sent at pairing and on every boot. */
+export interface RuntimeIdentity {
+  /** Owner-facing label. Defaults to the hostname; never overwritten once set. */
+  name?: string | null;
+  hostname: string;
+  /** `process.platform` — win32 / darwin / linux. */
+  os: string;
+  isElectron: boolean;
+  /**
+   * Providers this machine can ACTUALLY run, not the ones the build knows
+   * about. `listProviders()` returns the static registry and will happily
+   * claim Claude Code on a host with no binary; M4 dispatches on this field,
+   * so a false claim becomes a run that dies at spawn. See T-M3-05.
+   */
+  capabilities: string[];
+  coreVersion?: string | null;
+  /**
+   * The machine's CURRENT values for the settings it accepts remotely
+   * (`DAEMON_SETTABLE_KEYS`). Reported at boot and again whenever a
+   * `settings.set` is applied, so the Machines card renders what the daemon
+   * confirmed rather than what the browser hoped.
+   *
+   * This is also what makes a locally-flipped switch visible in the hosted UI:
+   * the value is read from the machine's own settings table, so it does not
+   * matter whether it was last changed from here or from the local Settings
+   * card. M4, closing G-6.
+   */
+  settings?: Record<string, string>;
+}
+
+export interface PairRequest extends RuntimeIdentity {
+  code: string;
+}
+
+/** The token is returned exactly once, here. It is never stored in plaintext. */
+export interface PairResponse {
+  token: string;
+  runtimeId: string;
+  workspaceId: string;
+}
+
+export type RegisterRequest = RuntimeIdentity;
+
+export interface HeartbeatResponse {
+  /** The DATABASE's clock, not the daemon's. */
+  serverTime: string;
+  staleAfterMs: number;
+}
+
+export interface DaemonIdentity {
+  runtimeId: string;
+  workspaceId: string;
+  name: string;
+  status: string;
+  lastHeartbeat: string | null;
+  online: boolean;
+}
+
+/**
+ * Why a daemon request failed, as a stable token rather than prose.
+ *
+ * The CLI branches on these (T-M3-04 needs distinct messages for a typo, a
+ * reused code and an expired one), and matching on message text breaks the
+ * first time someone improves the wording.
+ *
+ * `unknown_code` / `code_already_used` / `code_expired` map 1:1 to the
+ * SQLSTATEs `redeem_pairing_code` raises: SPG01 / SPG02 / SPG03.
+ */
+export type DaemonErrorReason =
+  | "unknown_code"
+  | "code_already_used"
+  | "code_expired"
+  | "invalid_request"
+  | "unauthenticated"
+  | "revoked"
+  | "server_error";
+
+export interface DaemonErrorResponse {
+  reason: DaemonErrorReason;
+  /** Human-readable, safe to print. Never contains the token. */
+  error: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// M4 — the command spine.
+//
+// A command is a durable Postgres row with claim/lease/ack, not a message. The
+// daemon polls for its own; the cloud never pushes. Everything below is the
+// contract `packages/core` and `apps/web` share so they cannot disagree about
+// a field name at 3am.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * How often a paired daemon asks for work.
+ *
+ * M4 has no Realtime doorbell — the daemon still cannot authenticate to
+ * Realtime, and the poll would be mandatory even if it could, because a
+ * doorbell is at-most-once by construction and must never be trusted for
+ * delivery. See doc/tasks/M4/README.md decision 1.
+ *
+ * The cost of 3s is one user-visible delay between pressing Run and seeing the
+ * run start. The cost of the poll itself is one indexed lookup that returns
+ * nothing almost every time.
+ */
+export const COMMAND_POLL_INTERVAL_MS = 3_000;
+
+/**
+ * How long a claim is held before another poll may take it back.
+ *
+ * This covers the HANDOFF — claim, create the local row, ack — and nothing
+ * more. It is emphatically not the length of a run: a command is acked when the
+ * work is accepted, not when it finishes, so a 40-minute run holds no lease.
+ * Ack-on-completion would force lease renewal, and a missed renewal would
+ * redispatch a run that is still executing.
+ */
+export const COMMAND_LEASE_MS = 60_000;
+
+/**
+ * Commands the daemon claims and executes.
+ *
+ * `memory.sync` is M6's doorbell and carries NO payload — the pulling daemon
+ * already knows its own workspace from its own token, so the command is a
+ * wake-up, not a delivery. See the M6 block at the bottom of this file.
+ */
+export type CommandKind =
+  | "run.start"
+  | "run.cancel"
+  | "project.clone"
+  | "settings.set"
+  | "memory.sync";
+
+/**
+ * Ids AND slugs travel together, deliberately.
+ *
+ * The daemon resolves a cloud agent to a local one by SLUG, because the two
+ * sides have independent ids and no definition sync (D-9); the id is what it
+ * then links against so the next dispatch is one indexed lookup. Sending only
+ * the id would cost a second round trip on the dispatch path for data the
+ * enqueuer already had in hand.
+ */
+export interface RunStartPayload {
+  /** Generated by the cloud. The daemon's local run adopts this id verbatim. */
+  runId: string;
+  agentId: string;
+  agentSlug: string;
+  projectId: string | null;
+  projectSlug: string | null;
+  taskId: string | null;
+  prompt: string;
+  trigger: string;
+  lane: string;
+}
+
+export interface RunCancelPayload {
+  runId: string;
+}
+
+export interface ProjectClonePayload {
+  projectId: string;
+  projectSlug: string;
+  /** From `projects.gitRemote`. The daemon refuses the command without it. */
+  gitRemote: string;
+  /** Absolute path on the target machine, chosen by the user in the browser. */
+  localPath: string;
+}
+
+export interface SettingsSetPayload {
+  key: string;
+  value: string;
+}
+
+/**
+ * Settings the control plane may write on a machine.
+ *
+ * An allowlist, not a filter list. `settings.set` is a remote write into a
+ * daemon's local database, and the M3 lesson that produced the `status`
+ * allowlist applies here in a far more dangerous position: without this, a
+ * command could set ANY setting a machine has, including ones added later by
+ * someone who never read this comment.
+ *
+ * Enforced in three places, on purpose — the route, the daemon, and the UI's
+ * rendering. The daemon's copy is the one that matters; the others are for a
+ * better error and a correct control.
+ */
+export const DAEMON_SETTABLE_KEYS: readonly string[] = [
+  SETTING_WIP_SNAPSHOT,
+  SETTING_WIP_SNAPSHOT_KEEP,
+];
+
+/** A command as handed to the daemon by the claim endpoint. */
+export interface ClaimedCommand {
+  id: string;
+  kind: CommandKind;
+  payload: Record<string, unknown>;
+  attempts: number;
+  leaseExpiresAt: string | null;
+  createdAt: string;
+}
+
+export interface ClaimResponse {
+  /** Always an array. Empty is the common case and is not an error. */
+  commands: ClaimedCommand[];
+}
+
+/**
+ * Why a command could not be executed, as a stable token.
+ *
+ * The daemon reports the reason; the ROUTE decides what it means for the board.
+ * That split is deliberate — a daemon able to set task statuses directly could
+ * mark every task in a workspace done.
+ */
+export type CommandFailureReason =
+  | "project_not_available"
+  | "agent_not_available"
+  | "agent_disabled"
+  | "spawn_failed"
+  | "clone_failed"
+  | "setting_not_allowed"
+  | "unknown_kind";
+
+export interface AckRequest {
+  status: "done" | "failed";
+  reason?: CommandFailureReason;
+  /** Human-readable detail. Never the run's prompt, which is user content. */
+  error?: string;
+  /**
+   * For `project_not_available`: the path that was checked, so the UI's relink
+   * action can pre-fill it instead of asking the user to remember.
+   */
+  detail?: string;
+}
+
+/**
+ * A run row transition, reported by the machine executing it.
+ *
+ * M4 reports the run ROW only. Transcript events are M5, and keeping them apart
+ * is what makes this phase falsifiable: if a run reaches `succeeded` in the
+ * cloud, the spine works.
+ *
+ * Applied monotonically server-side — the daemon retries after a network
+ * failure, so the same `running` can arrive twice, and a delayed `running` must
+ * never overwrite a `succeeded` that already landed.
+ */
+export interface RunStatusReport {
+  status: "running" | "succeeded" | "failed" | "cancelled" | "timeout";
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  error?: string | null;
+  resultText?: string | null;
+  costUsd?: number | null;
+  numTurns?: number | null;
+  durationMs?: number | null;
+  untrusted?: boolean;
+}
+
+/** One project as it exists on this machine's disk. */
+export interface ProjectBinding {
+  projectSlug: string;
+  localPath: string;
+  state: "bound" | "missing" | "cloning" | "error";
+  detail?: string | null;
+}
+
+export interface BindingReportRequest {
+  bindings: ProjectBinding[];
+}
+
+/**
+ * Why an enqueue was refused, surfaced to the BROWSER by `/api/v1`.
+ *
+ * Distinct from `DaemonErrorReason`, which is the daemon's. These map 1:1 to
+ * the SQLSTATEs `start_run` raises, and the UI switches on them to offer the
+ * right action: "no machine is online" and "this machine doesn't have that
+ * project" lead to completely different next steps, and one error for both
+ * would be useless.
+ */
+export type EnqueueFailureReason =
+  | "agent_not_found"
+  | "agent_disabled"
+  | "no_runtime_available"
+  | "project_not_available"
+  | "project_not_found"
+  | "run_not_found"
+  | "no_agent_assigned";
+
+/** SQLSTATE → reason token. The contract is defined in 009_command_spine.sql. */
+export const ENQUEUE_ERRCODE_REASONS: Record<string, EnqueueFailureReason> = {
+  SPG10: "agent_not_found",
+  SPG11: "agent_disabled",
+  SPG12: "no_runtime_available",
+  SPG13: "project_not_available",
+  SPG14: "project_not_found",
+  SPG15: "run_not_found",
+};
+
+// ─── M5 — transcripts ──────────────────────────────────────────────────────────
+
+/**
+ * The dual path, and why the daemon never touches Realtime.
+ *
+ * A batch goes to `POST /api/daemon/runs/:id/events`, which writes it durably
+ * and then fans the SAME batch out as a Realtime broadcast. The route already
+ * holds the service role and has already resolved the workspace from the bearer
+ * token, so broadcasting from there costs one request; broadcasting from the
+ * daemon would cost a second authentication model for it — a custom
+ * `runtime_id` JWT, a minting endpoint, a refresh timer, and
+ * `realtime.messages` policies for a principal with no `auth.uid()`.
+ *
+ * See doc/tasks/M5/README.md decision 1, and D-10 for the doorbell that
+ * decision leaves parked.
+ */
+
+/** Events per batch before the pusher flushes. */
+export const TRANSCRIPT_BATCH_MAX_EVENTS = 25;
+
+/** Longest a partial batch waits for company. */
+export const TRANSCRIPT_BATCH_INTERVAL_MS = 1_000;
+
+/**
+ * Byte ceiling on a batch — the limit the other two do not imply.
+ *
+ * The plan measured `tool_result` payloads at 4.9 KB average and 16.9 KB max and
+ * concluded they sit under the 256 KB Realtime cap. True per event, false per
+ * batch: sixteen large results is a 276 KB broadcast that Realtime rejects, and
+ * the natural way to write a batching loop counts events.
+ *
+ * Half the cap rather than all of it, because the envelope, the JSON escaping of
+ * payloads that are already JSON, and base64 inside tool results all inflate the
+ * wire size above the sum of what was measured locally.
+ */
+export const TRANSCRIPT_BATCH_MAX_BYTES = 128 * 1024;
+
+/**
+ * How often the daemon sweeps `cloud_event_cursors` for backlog, independent of
+ * any live event arriving.
+ *
+ * This is the trigger that makes recovery reliable rather than merely
+ * plausible: startup and the failing→reachable transition catch the common
+ * cases, but this is the one with no precondition to miss — it costs one
+ * indexed query against a table bounded to `TRANSCRIPT_BACKLOG_MAX_RUNS` rows.
+ */
+export const TRANSCRIPT_BACKFILL_SWEEP_MS = 60_000;
+
+/**
+ * How many runs' worth of unconfirmed transcript may sit in the backlog at
+ * once, oldest evicted first.
+ *
+ * A cursor row is not deleted when a run ends — only when it is BOTH terminal
+ * and fully pushed — so an offline machine, or one whose network stays down,
+ * accumulates one row per run that produced events. Unbounded, that backlog
+ * never shrinks; this is the ceiling, not a target to run near.
+ */
+export const TRANSCRIPT_BACKLOG_MAX_RUNS = 200;
+
+/**
+ * How long a run may sit unconfirmed before its backlog is discarded outright.
+ *
+ * Two weeks: past this, the cloud `runs` row this backlog was destined for has
+ * almost certainly already been swept or is no longer meaningfully actionable,
+ * and holding the events any longer only delays admitting the transcript is
+ * incomplete.
+ */
+export const TRANSCRIPT_BACKLOG_MAX_AGE_DAYS = 14;
+
+/** One transcript event, as the daemon sends it. */
+export interface RunEventPush {
+  seq: number;
+  /** ISO 8601. Passed through verbatim — see the route's note on timezones. */
+  ts: string;
+  type: RunEventType;
+  payload: unknown;
+}
+
+export interface RunEventBatch {
+  events: RunEventPush[];
+}
+
+export interface RunEventBatchResponse {
+  /**
+   * Highest `seq` now durable in the cloud for this run, decided by the SERVER.
+   *
+   * The daemon advances its cursor to this and never to what it sent. A request
+   * that times out after the server committed is indistinguishable from one
+   * that never arrived, and a cursor advanced on send is how a transcript
+   * acquires a permanent hole.
+   */
+  storedThroughSeq: number;
+  /** Rows this request inserted. A pure replay stores 0 and is not an error. */
+  stored: number;
+  duplicates: number;
+}
+
+/** Why a batch was refused, as a stable token. */
+export type TranscriptRejection =
+  | "empty_batch"
+  | "batch_too_large"
+  | "invalid_seq"
+  | "duplicate_seq"
+  | "invalid_type"
+  | "invalid_ts"
+  | "malformed";
+
+/**
+ * The Realtime topic a run's live deltas are broadcast on.
+ *
+ * The workspace id is in the topic so the subscribe policy is a membership check
+ * with no join — the same shape as every M1 policy, which is why it is easy to
+ * be sure it is right. A run id alone would force the policy to join `runs`, and
+ * a workspace-wide topic would deliver every run's transcript to every open tab.
+ *
+ * The id in the topic is not what grants access. The RLS policy on
+ * `realtime.messages` is (`010_transcript_broadcast.sql`); a non-member who
+ * guesses the topic is refused at subscribe.
+ */
+export function runTranscriptTopic(workspaceId: string, runId: string): string {
+  return `run:${workspaceId}:${runId}`;
+}
+
+/** The broadcast event name carried inside that topic. */
+export const TRANSCRIPT_BROADCAST_EVENT = "events";
+
+/**
+ * What a subscriber receives.
+ *
+ * `oversized` names events too large to broadcast — they ARE stored, and the
+ * client refetches them rather than concluding the transcript ended. A gap the
+ * client knows about is recoverable; one it does not is a transcript that
+ * silently stops.
+ */
+export interface TranscriptBroadcast {
+  runId: string;
+  events: RunEventPush[];
+  oversized?: number[];
+}
+
+// ─── M6 — memory sync ──────────────────────────────────────────────────────────
+//
+// A note written on one paired machine appears, as ordinary markdown in the
+// vault, on every other machine in the workspace. Postgres is the hub notes
+// pass THROUGH; every daemon still reads its own local index at query time.
+//
+// No vector ever crosses this wire. Cloud `memory_notes` has no vector column
+// at all — each machine embeds the pulled markdown itself with its own bundled
+// 384-dim model. See doc/tasks/M6/README.md decision 3.
+
+/**
+ * How long a burst of local note writes is coalesced before one push.
+ *
+ * An autosaving raw editor fires `writeNoteRaw` repeatedly against the same
+ * note; without this every keystroke-adjacent save is its own request carrying
+ * content that is obsolete by the time it lands.
+ */
+export const MEMORY_SYNC_DEBOUNCE_MS = 2_000;
+
+/**
+ * How often BOTH memory sweeps run — push's reconciliation and pull's
+ * incremental catch-up.
+ *
+ * One constant for both on purpose. They are the same guarantee pointed in
+ * opposite directions ("the debounce/doorbell is the fast path, the sweep is
+ * the correctness path"), and two numbers here would drift into two different
+ * answers to "how stale can a machine be?"
+ */
+export const MEMORY_SYNC_SWEEP_MS = 5 * 60_000;
+
+/** Notes per pull page. The cursor makes more pages free; this bounds one response. */
+export const MEMORY_PULL_PAGE_SIZE = 200;
+
+/**
+ * Notes per push request.
+ *
+ * Below the pull page size deliberately: a push carries full note bodies from
+ * a machine that may have just come back from a week offline, while a pull page
+ * is read from an index built for exactly that scan.
+ */
+export const MEMORY_PUSH_MAX_NOTES = 50;
+
+/**
+ * One note, as it travels between machines.
+ *
+ * ─── `content` is the WHOLE FILE, frontmatter included ───────────────────────
+ *
+ * Not the body. This is the single most consequential field decision in M6,
+ * and the reason is `contentHash`: locally it is `sha256` of the entire file as
+ * written to disk (`vault.ts`, both `writeNote` and `writeNoteRaw`), and the
+ * conflict rule short-circuits on hash equality BEFORE it ever looks at a
+ * clock.
+ *
+ * Send the body alone and the receiving machine has to re-render frontmatter to
+ * reconstruct a file. Its YAML key order, quoting and line endings will not
+ * match the origin machine's byte for byte, so its recomputed `contentHash`
+ * differs from the one it just pulled — the note reads as locally edited, gets
+ * pushed back, and the two machines trade writes forever. Shipping the exact
+ * bytes makes the hash mean the same thing on every machine by construction.
+ *
+ * The structured fields below travel ALONGSIDE those bytes rather than instead
+ * of them: they are what makes the cloud row queryable, and they let a pulling
+ * machine fill its `memory_notes` row without re-parsing what the origin
+ * already parsed. The file remains the source of truth; if the two ever
+ * disagree, `scanVault()` re-derives from the file and wins.
+ */
+export interface MemoryNoteSyncPayload {
+  /** Minted once, by the machine that created the note. Verbatim everywhere after. */
+  id: string;
+  /** Vault-relative, forward slashes. Also verbatim — never re-slugified on pull. */
+  path: string;
+  scope: "global" | "project" | "agent";
+  projectSlug: string | null;
+  agentSlug: string | null;
+  title: string;
+  tags: string[];
+  source: string;
+  type: string;
+  /** The complete `.md` file, frontmatter and all. See the note above. */
+  content: string;
+  /** EH6. Travels so a note quarantined on one machine stays quarantined on all. */
+  quarantined: boolean;
+  archivedAt: string | null;
+  supersededBy: string | null;
+  /** `sha256(content)`. The same value on every machine holding this note. */
+  contentHash: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MemoryPushRequest {
+  notes: MemoryNoteSyncPayload[];
+}
+
+export interface MemoryPushResult {
+  id: string;
+  /**
+   * True when the cloud now holds THIS machine's version — including the
+   * hash-equal case, where nothing was written because nothing differed. False
+   * means only one thing: last-write-wins went the other way.
+   */
+  applied: boolean;
+  /**
+   * Present when `applied` is false — the cloud's winning row, so the daemon
+   * reconciles on the spot instead of waiting out a pull sweep to discover it
+   * lost.
+   */
+  current?: MemoryNoteSyncPayload;
+}
+
+export interface MemoryPushResponse {
+  results: MemoryPushResult[];
+}
+
+export interface MemoryPullResponse {
+  notes: MemoryNoteSyncPayload[];
+  /**
+   * Where to resume, decided by the SERVER from the last row it actually
+   * returned — never computed by the caller from what it thinks it received.
+   * Same rule as `storedThroughSeq` above, for the same reason: a cursor
+   * advanced past a row that never arrived is a permanent hole.
+   *
+   * `null` means caught up.
+   */
+  nextCursor: MemoryPullCursor | null;
+}
+
+/**
+ * A tuple, not a bare timestamp.
+ *
+ * `updatedAt` alone is not unique — two notes written in the same millisecond
+ * share it, and a `> updatedAt` cursor would skip whichever of them sorted
+ * second. `(updatedAt, id)` is total, and matches
+ * `idx_memory_notes_sync (workspace_id, updated_at)` closely enough that the
+ * scan stays indexed.
+ */
+export interface MemoryPullCursor {
+  updatedAt: string;
+  id: string;
+}

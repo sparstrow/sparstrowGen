@@ -2,9 +2,14 @@ import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { LogOut, Trash2 } from "lucide-react";
+import { useAccount } from "@/lib/account";
 import {
   useClearGithubPat,
   useClearProviderKey,
@@ -22,10 +27,18 @@ import {
   useSettings,
   useUpdateSettings,
 } from "@/api/hooks";
-import type { ProviderInfo, ProviderId } from "@sparstrow/shared";
+import {
+  DEFAULT_WIP_SNAPSHOT_KEEP,
+  SETTING_WIP_SNAPSHOT,
+  SETTING_WIP_SNAPSHOT_KEEP,
+  isWipSnapshotEnabled,
+  type ProviderInfo,
+  type ProviderId,
+} from "@sparstrow/shared";
 import { useTheme, type Theme } from "@/theme/theme-provider";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { RuntimesCard } from "@/components/runtimes-card";
 
 /**
  * P5 (design F4): ONE engine-level row — per-project index state lives on each
@@ -88,7 +101,7 @@ function GraphEngineRow() {
           </>
         )}
         {indexAll.isSuccess && (
-          <span className="text-xs text-emerald-600 dark:text-emerald-400">
+          <span className="text-xs text-success-foreground">
             {indexAll.data.queued} queued{indexAll.data.skipped > 0 ? `, ${indexAll.data.skipped} skipped` : ""}
           </span>
         )}
@@ -100,8 +113,8 @@ function GraphEngineRow() {
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 py-1.5">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-right text-sm">{children}</span>
+      <span className="shrink-0 text-sm text-muted-foreground">{label}</span>
+      <span className="min-w-0 text-right text-sm">{children}</span>
     </div>
   );
 }
@@ -188,7 +201,11 @@ function GitCard() {
           )}
         </InfoRow>
         <div className="flex items-center gap-2">
+          <Label htmlFor="github-pat-input" className="sr-only">
+            GitHub PAT
+          </Label>
           <Input
+            id="github-pat-input"
             type="password"
             className="font-mono text-xs"
             placeholder={present ? "Enter a new token to replace…" : "github_pat_…"}
@@ -219,6 +236,119 @@ function GitCard() {
   );
 }
 
+/**
+ * OQ-1 — WIP snapshots. Defaults on; the toggle exists because a developer who
+ * wants their repo left strictly alone is entitled to that, and because a
+ * feature that writes into someone's git objects should be visibly switchable
+ * rather than a background behaviour they discover by accident.
+ *
+ * **Local UI only.** The snapshot is taken by core, on that machine's disk, and
+ * the switch is a row in that machine's SQLite. The hosted app has no
+ * `/system/settings` route at all, so rendering this there would give a control
+ * that flips and then silently fails to reach the daemon it claims to configure.
+ * A per-runtime version belongs in the Machines card once M4's command spine can
+ * carry a setting to a specific daemon; until then, absent beats fake.
+ */
+function WipSnapshotCard() {
+  const account = useAccount();
+  const settings = useSettings();
+  const update = useUpdateSettings();
+  const [keep, setKeep] = React.useState("");
+  if (account) return null;
+
+  const enabled = isWipSnapshotEnabled(settings.data?.[SETTING_WIP_SNAPSHOT]);
+  const storedKeep = settings.data?.[SETTING_WIP_SNAPSHOT_KEEP] ?? String(DEFAULT_WIP_SNAPSHOT_KEEP);
+  const keepValue = keep === "" ? storedKeep : keep;
+  const keepDirty = keep !== "" && keep !== storedKeep;
+  const keepValid = /^\d+$/.test(keepValue) && Number.parseInt(keepValue, 10) > 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Work-in-progress snapshots</CardTitle>
+        <CardDescription>
+          When a run ends, back up whatever the agent left uncommitted so a crash, a cancel, or
+          the next run cannot lose it.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Snapshot uncommitted work</p>
+            <p className="text-xs text-muted-foreground">
+              Records the project&apos;s working tree as a git object under{" "}
+              <code className="font-mono">refs/sparstrow/wip/&lt;run-id&gt;</code>. It is not a
+              branch and is never pushed — your current branch, staged changes and{" "}
+              <code className="font-mono">git status</code> are untouched. Files matched by{" "}
+              <code className="font-mono">.gitignore</code> are excluded.
+            </p>
+          </div>
+          {settings.isLoading ? (
+            <Skeleton className="h-5 w-9" />
+          ) : (
+            <Switch
+              checked={enabled}
+              disabled={update.isPending}
+              onCheckedChange={(next) =>
+                update.mutate({ [SETTING_WIP_SNAPSHOT]: next ? "on" : "off" })
+              }
+              aria-label="Snapshot uncommitted work when a run ends"
+            />
+          )}
+        </div>
+
+        <div className="flex items-end justify-between gap-4 border-t pt-4">
+          <div className="space-y-1">
+            <Label htmlFor="wip-snapshot-keep" className="text-sm font-medium">
+              Snapshots kept per project
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Older ones are deleted. Each snapshot pins its objects, so keeping them forever
+              means <code className="font-mono">git gc</code> can never reclaim the space.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Input
+              id="wip-snapshot-keep"
+              className="w-20 font-mono text-xs"
+              inputMode="numeric"
+              value={keepValue}
+              disabled={!enabled}
+              onChange={(e) => setKeep(e.target.value)}
+            />
+            <Button
+              size="sm"
+              disabled={!enabled || !keepDirty || !keepValid || update.isPending}
+              onClick={() =>
+                update.mutate(
+                  { [SETTING_WIP_SNAPSHOT_KEEP]: keepValue },
+                  { onSuccess: () => setKeep("") },
+                )
+              }
+            >
+              Save
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-1 rounded-md border bg-muted/40 p-3">
+          <p className="text-xs font-medium">Recovering work</p>
+          <pre className="overflow-x-auto font-mono text-[11px] leading-relaxed text-muted-foreground">
+            {RECOVERY_COMMANDS}
+          </pre>
+        </div>
+        {update.isError && <p className="text-xs text-destructive">{update.error.message}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
+const RECOVERY_COMMANDS = [
+  "git for-each-ref refs/sparstrow/wip/          # list snapshots",
+  "git show --stat refs/sparstrow/wip/<run-id>   # see what one contains",
+  "git restore --source=refs/sparstrow/wip/<run-id> -- <path>",
+].join("\n");
+
 /** P8 — a direct-API provider's key input (stored in the encrypted secret store). */
 function ProviderKeyInput({ providerId, keyPresent }: { providerId: string; keyPresent: boolean }) {
   const setKey = useSetProviderKey();
@@ -226,7 +356,11 @@ function ProviderKeyInput({ providerId, keyPresent }: { providerId: string; keyP
   const [value, setValue] = React.useState("");
   return (
     <div className="mt-2 flex items-center gap-2">
+      <Label htmlFor={`provider-key-${providerId}`} className="sr-only">
+        {providerId} API key
+      </Label>
       <Input
+        id={`provider-key-${providerId}`}
         type="password"
         className="h-8 font-mono text-xs"
         placeholder={keyPresent ? "Enter a new key to replace…" : "API key…"}
@@ -329,10 +463,14 @@ function SystemCard() {
             <InfoRow label="Version">v{health.data.version}</InfoRow>
             <InfoRow label="Uptime">{formatDuration(health.data.uptimeMs)}</InfoRow>
             <InfoRow label="Database">
-              <span className="font-mono text-xs">{health.data.db.path}</span>
+              <span className="block truncate font-mono text-xs" title={health.data.db.path}>
+                {health.data.db.path}
+              </span>
             </InfoRow>
             <InfoRow label="Memory vault">
-              <span className="font-mono text-xs">{health.data.vault.path}</span>
+              <span className="block truncate font-mono text-xs" title={health.data.vault.path}>
+                {health.data.vault.path}
+              </span>
             </InfoRow>
             <InfoRow label="Search">
               <span className="flex gap-1.5">
@@ -375,6 +513,7 @@ function AppearanceCard() {
     <Card>
       <CardHeader>
         <CardTitle className="text-sm">Appearance</CardTitle>
+        <CardDescription>How Sparstrowgen looks on this browser.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex gap-2">
@@ -384,7 +523,7 @@ function AppearanceCard() {
               type="button"
               onClick={() => setTheme(t.value)}
               className={cn(
-                "flex-1 rounded-md border px-4 py-3 text-sm font-medium transition-colors hover:bg-accent",
+                "flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors hover:bg-accent",
                 theme === t.value && "border-primary bg-accent",
               )}
             >
@@ -413,8 +552,11 @@ function AdvancedCard() {
         )}
         {Object.entries(settings.data ?? {}).map(([key, value]) => (
           <div key={key} className="flex items-center gap-2">
-            <span className="w-48 shrink-0 font-mono text-xs">{key}</span>
+            <Label htmlFor={`advanced-setting-${key}`} className="w-48 shrink-0 font-mono text-xs">
+              {key}
+            </Label>
             <Input
+              id={`advanced-setting-${key}`}
               className="font-mono text-xs"
               value={draft[key] ?? value}
               onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
@@ -437,22 +579,157 @@ function AdvancedCard() {
   );
 }
 
+const PROVIDER_LABELS: Record<string, string> = {
+  email: "Email & password",
+  github: "GitHub",
+  google: "Google",
+};
+
 function ProfileCard() {
+  const account = useAccount();
+
+  if (!account) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Profile</CardTitle>
+          <CardDescription>
+            This install is local and single-user — there is no hosted account. Your GitHub
+            identity below is what agents ship PRs with.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <InfoRow label="Workspace">Sparstrowgen · 127.0.0.1</InfoRow>
+          <InfoRow label="Mode">
+            <Badge variant="secondary">local single-user</Badge>
+          </InfoRow>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-sm">Profile</CardTitle>
-        <CardDescription>
-          Sparstrowgen is a local, single-user workspace — there is no hosted account. Your
-          GitHub identity below is what agents ship PRs with.
-        </CardDescription>
+        <CardDescription>The account this browser is signed in as.</CardDescription>
       </CardHeader>
       <CardContent>
-        <InfoRow label="Workspace">Sparstrowgen · 127.0.0.1</InfoRow>
-        <InfoRow label="Mode">
-          <Badge variant="secondary">local single-user</Badge>
+        <InfoRow label="Name">{account.name}</InfoRow>
+        <InfoRow label="Email">{account.email}</InfoRow>
+        <InfoRow label="Signed in with">
+          <Badge variant="secondary">
+            {PROVIDER_LABELS[account.provider] ?? account.provider}
+          </Badge>
         </InfoRow>
+        <InfoRow label="User ID">
+          <span className="font-mono text-xs text-muted-foreground">{account.id}</span>
+        </InfoRow>
+        <div className="flex justify-end pt-3">
+          <Button variant="outline" size="sm" onClick={() => void account.signOut()}>
+            <LogOut className="size-4" /> Sign out
+          </Button>
+        </div>
       </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Account deletion.
+ *
+ * Typing the address is the gate rather than a plain "are you sure?" — this
+ * destroys every agent, run, memory note and skill in any workspace the
+ * account is the only member of, and none of it is recoverable. The same
+ * string is re-checked server-side, so the confirmation is not merely
+ * decorative.
+ */
+function DangerZoneCard() {
+  const account = useAccount();
+  const [open, setOpen] = React.useState(false);
+  const [typed, setTyped] = React.useState("");
+  const [pending, setPending] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  if (!account) return null;
+
+  const matches = typed.trim().toLowerCase() === account.email.toLowerCase();
+
+  async function confirmDelete() {
+    if (!account || !matches) return;
+    setPending(true);
+    setError(null);
+    try {
+      await account.deleteAccount(typed.trim());
+      // On success the route navigates to /login, so nothing after this runs.
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete the account.");
+      setPending(false);
+    }
+  }
+
+  return (
+    <Card className="border-destructive/40">
+      <CardHeader>
+        <CardTitle className="text-sm text-destructive">Delete account</CardTitle>
+        <CardDescription>
+          Permanently deletes {account.email}, along with every workspace where you are the
+          only member — agents, runs, memory, skills and history. This cannot be undone.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end">
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              setTyped("");
+              setError(null);
+              setOpen(true);
+            }}
+          >
+            <Trash2 className="size-4" /> Delete account
+          </Button>
+        </div>
+      </CardContent>
+
+      <ConfirmDialog
+        open={open}
+        onOpenChange={(next) => {
+          if (!pending) setOpen(next);
+        }}
+        title="Delete this account permanently?"
+        description="Every workspace where you are the only member will be deleted with it. Agents, runs, memory notes, skills and message history all go. There is no undo and no backup."
+        confirmLabel="Delete my account"
+        pendingLabel="Deleting…"
+        pending={pending}
+        confirmDisabled={!matches}
+        onConfirm={() => void confirmDelete()}
+      >
+        <div className="space-y-2">
+          <label htmlFor="confirm-delete-email" className="block text-sm">
+            Type <span className="font-mono font-medium">{account.email}</span> to confirm.
+          </label>
+          <Input
+            id="confirm-delete-email"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            disabled={pending}
+          />
+          {error && (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
+      </ConfirmDialog>
     </Card>
   );
 }
@@ -465,39 +742,50 @@ export function SettingsPage() {
   return (
     <div className="max-w-3xl">
       <Tabs defaultValue="account">
-        <TabsList>
-          <TabsTrigger value="account">Account</TabsTrigger>
-          <TabsTrigger value="workspace">Workspace</TabsTrigger>
-        </TabsList>
+        <div className="sticky -top-5 z-20 -mt-5 bg-background pt-5 pb-3">
+          <TabsList>
+            <TabsTrigger value="account">Account</TabsTrigger>
+            <TabsTrigger value="workspace">Workspace</TabsTrigger>
+          </TabsList>
+        </div>
 
-        <TabsContent value="account" className="pt-3">
+        <TabsContent value="account" className="pt-0">
           <Tabs defaultValue="profile">
-            <TabsList>
-              <TabsTrigger value="profile">Profile</TabsTrigger>
-              <TabsTrigger value="preferences">Preferences</TabsTrigger>
-            </TabsList>
-            <TabsContent value="profile" className="space-y-5 pt-3">
+            <div className="sticky top-12 z-10 bg-background pb-3">
+              <TabsList>
+                <TabsTrigger value="profile">Profile</TabsTrigger>
+                <TabsTrigger value="preferences">Preferences</TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent value="profile" className="space-y-5 pt-0">
               <ProfileCard />
               <GitCard />
+              {/* Renders nothing when there is no hosted account, so the local
+                  desktop build sees the profile tab exactly as it did before. */}
+              <DangerZoneCard />
             </TabsContent>
-            <TabsContent value="preferences" className="space-y-5 pt-3">
+            <TabsContent value="preferences" className="space-y-5 pt-0">
               <AppearanceCard />
             </TabsContent>
           </Tabs>
         </TabsContent>
 
-        <TabsContent value="workspace" className="pt-3">
+        <TabsContent value="workspace" className="pt-0">
           <Tabs defaultValue="general">
-            <TabsList>
-              <TabsTrigger value="general">General</TabsTrigger>
-              <TabsTrigger value="integrations">Integrations</TabsTrigger>
-            </TabsList>
-            <TabsContent value="general" className="space-y-5 pt-3">
+            <div className="sticky top-12 z-10 bg-background pb-3">
+              <TabsList>
+                <TabsTrigger value="general">General</TabsTrigger>
+                <TabsTrigger value="integrations">Integrations</TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent value="general" className="space-y-5 pt-0">
               <FactoryHealthCard />
+              <RuntimesCard />
+              <WipSnapshotCard />
               <SystemCard />
               <AdvancedCard />
             </TabsContent>
-            <TabsContent value="integrations" className="space-y-5 pt-3">
+            <TabsContent value="integrations" className="space-y-5 pt-0">
               <ProvidersCard />
             </TabsContent>
           </Tabs>

@@ -638,4 +638,92 @@ CREATE TABLE skill_files (
 );
 `,
   },
+  {
+    // M4 — the bridge between cloud ids and local ones.
+    //
+    // The board is Postgres and the runner reads this database. Both sides have
+    // agents and projects, with independent ids and no sync between them, and
+    // nothing before M4 needed to cross.
+    //
+    // A link table rather than adopting the cloud's ids: rewriting a local
+    // agent's primary key would break runs.agent_id and tasks.assigned_agent_id,
+    // and inserting a second agent row carrying the cloud id violates the UNIQUE
+    // on slug. Runs are the opposite case and DO adopt the cloud id — they are
+    // new rows with nothing to collide with, which is what lets M5 attach events
+    // to the same id the browser is already watching.
+    //
+    // No workspace column, deliberately. A daemon token is scoped to exactly one
+    // workspace, and re-pairing to a different one clears these links rather
+    // than accumulating two sets that look interchangeable.
+    id: "0016_cloud_links",
+    sql: `
+CREATE TABLE cloud_links (
+  kind TEXT NOT NULL,
+  cloud_id TEXT NOT NULL,
+  local_id TEXT NOT NULL,
+  linked_at TEXT NOT NULL,
+  PRIMARY KEY (kind, cloud_id)
+);
+
+-- One local row cannot be two cloud rows: without this, two cloud agents whose
+-- slugs both resolved to the same local agent would each look correctly linked
+-- while dispatch silently ran the wrong one.
+CREATE UNIQUE INDEX uq_cloud_links_local ON cloud_links(kind, local_id);
+`,
+  },
+  {
+    // M5. How far a run's transcript has actually landed in the cloud — a
+    // cursor into the ALREADY-durable run_events table, not a second buffer.
+    // See the long comment on `cloudEventCursors` in schema.ts for what the
+    // column means and why it exists at all.
+    //
+    // SAFE ON A POPULATED DATABASE, and worth spelling out why: this table
+    // starts EMPTY, and the backfill sweep's candidate query only ever reads
+    // FROM this table (a join against run_events for a run this table already
+    // names) — it never scans run_events broadly for "every run that might
+    // need backfilling". A pre-existing run has no row here and is therefore
+    // invisible to backfill, full stop; there is nothing to seed. Rows appear
+    // here going forward, one at a time, only when the live pusher (or a later
+    // backfill) actually confirms a batch for a run. Measured before this
+    // migration: 613 events across 27 local runs, none with a cloud row —
+    // the failure mode this note exists to rule out is a boot that replays all
+    // of them.
+    id: "0017_cloud_event_cursors",
+    sql: `
+CREATE TABLE cloud_event_cursors (
+  run_id TEXT PRIMARY KEY,
+  pushed_through_seq INTEGER NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX idx_cloud_event_cursors_updated ON cloud_event_cursors(updated_at);
+`,
+  },
+  {
+    // M6. Which version of each note the cloud has confirmed, so a crash
+    // between a local write and its push is recoverable rather than merely
+    // unlikely. See the columns' own comment in schema.ts for what they mean.
+    //
+    // DELIBERATELY NOT BACKFILLED, and that is the whole safety argument:
+    // SQLite fills both columns with NULL for every existing row, which reads
+    // as "never synced" — exactly right, because this machine has in fact never
+    // synced them. Seeding `synced_hash = content_hash` would make the opposite
+    // claim, that the entire pre-existing vault is already in the cloud, and
+    // would silently exclude every note this machine had before pairing from
+    // ever being pushed at all.
+    //
+    // The first reconciliation sweep after this migration therefore finds the
+    // whole vault dirty and pushes it in debounced batches. That is the
+    // intended one-time cost of a machine joining the sync, not a bug to
+    // optimise away — and on an UNPAIRED machine it costs nothing, because the
+    // sweep does not run.
+    //
+    // ALTER TABLE ADD COLUMN is additive in SQLite and rewrites no rows: no
+    // table copy, no index rebuild, safe against a populated table.
+    id: "0018_memory_sync_state",
+    sql: `
+ALTER TABLE memory_notes ADD COLUMN synced_hash TEXT;
+ALTER TABLE memory_notes ADD COLUMN synced_at TEXT;
+`,
+  },
 ];

@@ -1,9 +1,9 @@
 ---
 title: Settings
 section: Surfaces
-description: Providers and keys, factory health, GitHub PAT, the code-graph engine, and app configuration.
+description: Providers and keys, factory health, paired machines, snapshots, GitHub PAT, the code-graph engine, and app configuration.
 order: 13
-updated: 2026-07-13
+updated: 2026-08-11
 ---
 
 Settings is the factory's engine room. The cards that matter:
@@ -23,6 +23,41 @@ are never exposed to agents — only a masked hint is ever displayed again.
 The "am I armed?" self-check: database, memory vault, providers (required) plus
 code-graph engine, embedder, GitHub PAT (optional — features degrade without them).
 Check it whenever something feels off; it's faster than guessing.
+
+## Machines
+
+The computers running Sparstrowgen that this workspace can reach. **Agents run on
+these, not in the browser** — an empty list means nothing can execute.
+
+**Pair a machine** generates a short, single-use code; run `sparstrow pair <code>` on
+that computer and it appears here. Each machine reports which providers it actually has
+installed, so the board knows what it can be asked to do. A machine shows **online**
+while it's running and drops to offline roughly 90 seconds after it stops.
+
+**Revoke** cuts a machine off immediately — it stops reaching the workspace on its very
+next request. Use it for a computer you no longer control; pair again to restore it.
+
+## Work-in-progress snapshots
+
+When a run finishes, the files the agent left uncommitted are backed up on that machine
+so a crash, a cancel, or the next run can't lose them. It's **on by default**.
+
+The backup is a git object under `refs/sparstrow/wip/<run-id>` — deliberately **not** a
+branch. Your current branch, your staged changes, and `git status` are all untouched,
+nothing is ever pushed, and anything matched by `.gitignore` is left out. To get work
+back:
+
+```
+git for-each-ref refs/sparstrow/wip/          # list snapshots
+git show --stat refs/sparstrow/wip/<run-id>   # see what one contains
+git restore --source=refs/sparstrow/wip/<run-id> -- <path>
+```
+
+**Snapshots kept per project** sets how many are retained before the oldest are
+deleted; keeping them forever would stop git from ever reclaiming the space.
+
+This card appears in the **desktop app**, not the browser — the setting belongs to one
+machine's disk, and machines can legitimately be configured differently.
 
 ## Git — GitHub PAT
 
@@ -50,3 +85,17 @@ extraction — also live here.
   lose one, issue a new one at its source.
 - Concurrency always reserves a slot for foreground work, so background swarms can't
   starve your interactive runs.
+
+## Known Limitations & Boundaries
+
+- **Pairing codes are single-use and expire.** A code that has been redeemed won't work
+  on a second machine; generate another.
+- **Revoking a machine is immediate but not retroactive** — it stops the next request,
+  it doesn't undo work already done.
+- **Snapshot settings are per machine.** Changing them on one computer does not change
+  them on another. They are editable from the browser in Settings → Machines, one
+  machine at a time — and only while that machine is online, since the change is
+  carried to it rather than stored centrally. The switch shows what the machine last
+  confirmed, so it never reports a change that did not land.
+- **Snapshots only cover git repositories.** A project folder that isn't a repo has
+  nothing to snapshot into, and is skipped silently.

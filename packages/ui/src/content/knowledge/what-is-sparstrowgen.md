@@ -1,30 +1,40 @@
 ---
 title: What is Sparstrowgen?
 section: Getting started
-description: The mental model — a local-first agent factory that builds and runs AI workers for you.
+description: The mental model — an agent factory where the board is in the cloud and the work runs on your machines.
 order: 1
-updated: 2026-07-13
+updated: 2026-08-11
 ---
 
-Sparstrowgen is your **agent factory**: a local, single-user app for creating, organizing,
-and running AI agents that do real work — writing code, researching, maintaining projects,
-running scheduled jobs — while you stay in control of every important decision.
+Sparstrowgen is your **agent factory**: an app for creating, organizing, and running AI
+agents that do real work — writing code, researching, maintaining projects, running
+scheduled jobs — while you stay in control of every important decision.
 
-Everything runs on your machine:
+**Agents always run on a machine you own.** What lives in the cloud is the *board* —
+your workspace, agents, tasks, and history — so you can open it from a laptop or a
+phone and see what's happening. Nothing runs in the cloud, and your code never leaves
+the machine it's on.
 
 ```
-┌─────────────────────────── your machine ───────────────────────────┐
-│                                                                     │
-│   This UI  ◀───────▶  Core service (127.0.0.1:48750)                │
-│   (what you're        · spawns and supervises agent runs            │
-│    reading now)       · stores everything in a local SQLite DB      │
-│                       · manages memory, tasks, pipelines, cron      │
-│                                                                     │
-│   Agents run through providers you configure:                       │
-│   · CLI models (Claude Code, Antigravity)                           │
-│   · Direct APIs (Anthropic API, Ollama — local and key-less)        │
-└─────────────────────────────────────────────────────────────────────┘
+┌── the cloud ──────────────────┐      ┌── your machine(s) ─────────────────┐
+│                               │      │                                     │
+│  Your workspace and the board │      │  Core service                       │
+│  · agents, tasks, goals       │◀────▶│  · spawns and supervises agent runs │
+│  · runs and their history     │      │  · your project files, never synced │
+│  · memory note text           │      │  · local search index and memory    │
+│  · which machines are paired  │      │                                     │
+│                               │      │  Agents run through providers you   │
+│  Sign in from any browser to  │      │  configure:                         │
+│  watch and steer.             │      │  · CLI models (Claude Code,         │
+│                               │      │    Antigravity)                     │
+│                               │      │  · Direct APIs (Anthropic API,      │
+│                               │      │    Ollama — local and key-less)     │
+└───────────────────────────────┘      └─────────────────────────────────────┘
 ```
+
+You **pair** a machine once, from Settings → Machines, and it shows up as online
+whenever it's running. A machine that's switched off simply has no agents available on
+it; the board is still there.
 
 ## The core ideas
 
@@ -40,12 +50,24 @@ Everything runs on your machine:
   reaches the right agent — searchable by meaning, not just keywords.
 - **Pipelines, Schedules, and Goals** turn single runs into automation: multi-step chains,
   cron jobs, and LLM-planned task graphs.
+- **Machines** are the computers you've paired. Agents run on these, not in the browser,
+  so a machine has to be switched on for work to happen there.
 
 ## Where you stay in the loop
 
 The factory is built around **human gates**. Agents can propose, draft, and build — but
 merges to protected branches, delegation approvals, quarantined imports, and anything that
 needs your judgment lands in the **attention queue** on the Dashboard and waits for you.
+
+## Known Limitations & Boundaries
+
+- **Work happens only on a paired, running machine.** With none online, you can still
+  read and plan on the board, but nothing executes.
+- **Your project files never sync.** They stay on the machine they're on — which is the
+  point. If you queue work for a machine that doesn't have the project, the task waits
+  and offers you a way through: run it where the project already is, point Sparstrowgen
+  at a copy on that machine, or clone it there from the project's git remote.
+- **One workspace per person, for now.** There's no workspace switcher yet.
 
 ## Where to go next
 

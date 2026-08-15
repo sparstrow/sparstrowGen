@@ -44,7 +44,18 @@ export const runEventTypeSchema = z.enum([
 export type RunEventType = z.infer<typeof runEventTypeSchema>;
 
 export const runEventSchema = z.object({
-  id: z.number().int(),
+  /**
+   * Local only. Cloud `run_events` is keyed on `(run_id, seq)` and has no `id`
+   * column at all — the composite PK is what makes a replayed batch idempotent,
+   * and an autoincrement would defeat it.
+   *
+   * So `GET /runs/:id/events` has always returned rows without this field. It
+   * was declared required anyway, which was simply a false statement about data
+   * that already flowed; nothing crashed only because `run-transcript.tsx` keys
+   * on `seq`. Optional here so the type matches both sources, and so nothing new
+   * starts depending on it.
+   */
+  id: z.number().int().optional(),
   runId: idSchema,
   seq: z.number().int(),
   ts: isoDateSchema,
@@ -80,6 +91,15 @@ export type InjectedMemoryManifest = z.infer<typeof injectedMemoryManifestSchema
 
 export const runSchema = z.object({
   id: idSchema,
+  /**
+   * Cloud-only. `select("*")` on the cloud `runs` table has always returned
+   * this column — nothing stripped it, the type simply never named it. M5
+   * needs it client-side to build a run's transcript broadcast topic
+   * (`run:<workspaceId>:<runId>`), so it is declared rather than read off an
+   * untyped response. Optional: local core's SQLite `runs` table has no
+   * workspace concept at all, and never will.
+   */
+  workspaceId: idSchema.optional(),
   agentId: idSchema,
   projectId: idSchema.nullable().default(null),
   pipelineRunId: idSchema.nullable().default(null),
@@ -138,6 +158,13 @@ export const runLaneSchema = z.enum(["foreground", "background"]);
 export type RunLane = z.infer<typeof runLaneSchema>;
 
 export const runCreateSchema = z.object({
+  /**
+   * M4: a cloud-dispatched run adopts the id the control plane generated, so
+   * one id identifies it end to end — which is what lets M5's run_events attach
+   * to the run the browser is already watching, with no translation on the hot
+   * path. Omitted for locally-created runs, which generate their own.
+   */
+  id: idSchema.optional(),
   agentId: idSchema,
   projectId: idSchema.nullable().optional(),
   prompt: z.string().min(1),

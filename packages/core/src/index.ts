@@ -14,6 +14,13 @@ import { registerTaskboardTools } from "./taskboard/agent-tools.js";
 import { registerCapabilities } from "./agents/capability-registry.js";
 import { ensureSystemAgents } from "./agents/system-agents.js";
 import { startScheduler, stopScheduler } from "./scheduler/service.js";
+import { register } from "./cloud/registration.js";
+import { declareDraining, startHeartbeat } from "./cloud/heartbeat.js";
+import { startCommandLoop, stopCommandLoop } from "./cloud/commands.js";
+import { startRunReporter, stopRunReporter } from "./cloud/run-reporter.js";
+import { startTranscriptPusher, stopTranscriptPusher } from "./cloud/transcripts.js";
+import { startMemorySync, stopMemorySync } from "./cloud/memory-sync.js";
+import { startBindingReporter, stopBindingReporter } from "./cloud/bindings.js";
 import { initDelegationWatcher, sweepWaitingParents } from "./taskboard/delegation.js";
 import { sweepOrphanedPipelineRuns } from "./orchestrator/pipeline-executor.js";
 import { initGoalWatcher, reconcileGoals } from "./goap/service.js";
@@ -109,9 +116,48 @@ async function main(): Promise<void> {
   });
   startVaultWatcher();
 
+  // M3: announce this machine to the cloud and keep it visibly alive. Both are
+  // no-ops on an unpaired machine and neither can reject — core runs agents
+  // locally whether or not a control plane exists, so the cloud is a
+  // capability this daemon gained, not a dependency it acquired.
+  void register();
+  startHeartbeat();
+
+  // M4/M5: accept dispatched work, and report on it — the run row and its
+  // transcript. Same contract as the two above — no-ops while unpaired, and
+  // none of the three can reject into startup.
+  //
+  // Both subscribers start before the loop polls, so a command claimed on the
+  // very first tick already has somewhere to report its status and its events.
+  startRunReporter();
+  startTranscriptPusher();
+  // M6: memory notes both ways. Started BEFORE the command loop, because the
+  // loop can dispatch a `memory.sync` on its very first tick and that handler
+  // calls straight into this module — and because starting it is what registers
+  // the vault's write hook, so a note saved seconds after boot is not missed.
+  startMemorySync();
+  startCommandLoop();
+  // Until this lands, `runtime_projects` is empty and every project looks
+  // unavailable to the enqueue-time check — a failure that reads like a
+  // dispatch bug rather than a missing report.
+  startBindingReporter();
+
   const shutdown = async (signal: string) => {
     logger.info({ signal }, "shutting down");
     try {
+      // Before anything else, including the draining declaration: a command
+      // claimed after this process decided to exit is a lease held by something
+      // that is about to be gone, and the run looks stuck until it expires.
+      stopCommandLoop();
+      stopRunReporter();
+      stopTranscriptPusher();
+      stopMemorySync();
+      stopBindingReporter();
+      // Then, so the UI says "shutting down" instead of waiting out the
+      // staleness window. Best-effort with a 2s timeout — it must not delay
+      // the rest of shutdown, and a missed declaration just means the machine
+      // goes stale the ordinary way.
+      await declareDraining();
       stopScheduler();
       stopDelegationWatcher();
       stopGoalWatcher();

@@ -1,0 +1,502 @@
+# Sparstrowgen — Daemon + Cloud Control Plane
+
+| | |
+|---|---|
+| **Status** | Approved 2026-08-09 · M1–M4 complete · auth hardening complete 2026-08-10 · **M5 code-complete 2026-08-12 (verification deferred to the owner — `G-13`)** · **M6 code-complete 2026-08-12 (verification needs a second machine — `G-15`)** · **M7 code-complete 2026-08-13 (verification not run — `G-16`)** · **All phases code-complete; plan NOT closed — three verification passes outstanding** |
+| **Supersedes** | The "Phase 4: Multi-Agent Swarm Orchestrator & Live Transcripts" proposal |
+| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–6 done · band 7 = M5, 01–05 done · band 8 = M6, 01–04 done · band 9 = M7, 01–03 done) · `doc/tasks/M2/` · `doc/tasks/M3/` · `doc/tasks/M4/` · `doc/tasks/M5/` · `doc/tasks/M6/` |
+| **Open questions** | None. OQ-1 (uncommitted work) answered **and built** 2026-08-10 — see settled decision 5. OQ-2 answered and closed 2026-08-10. |
+
+> **Why the original Phase 4 proposal was replaced.** It described three features
+> — live streaming transcripts, a GOAP/delegation visualizer, and a HITL
+> attention queue — that were already built in `@sparstrow/ui` and
+> `@sparstrow/core`. `run-detail.tsx` already merges live WebSocket frames with
+> fetched events by `seq`; `goal-graph.tsx` is already a React Flow canvas over
+> plan nodes; `attention-queue.tsx` already renders question/approval/review rows
+> with working mutations. What was actually missing — and what this plan builds —
+> is the transport underneath all three.
+
+## Context
+
+Sparstrowgen today is a single-machine, local-first agent runtime. `@sparstrow/core`
+is a Fastify daemon on `127.0.0.1:48750` backed by SQLite, serving a Vite SPA
+same-origin with a per-install bearer token.
+
+The goal is a **daemon-per-machine runtime** (Windows, macOS, …) driving the agent
+CLIs and models already installed and authenticated on each box — the Multica
+model — with a Next.js frontend served both on the web (`app.sparstrow.com`) and
+inside the Electron shell.
+
+**What blocks it today:** `apps/web` has no connection to core at all. It fetches
+relative `/api/v1` URLs and dials a relative `/ws`, which only resolve under the
+Vite dev proxy or the packaged same-origin build. `next.config.ts` has no
+rewrites, there are no route handlers under `app/api/`, and nothing injects the
+token. There are zero Supabase/Postgres references in `packages/core/src`. Phase 3
+wired Supabase Realtime to React Query invalidations for queries that cannot
+currently resolve. A Vercel-hosted app can never reach `127.0.0.1:48750`, so the
+missing piece is the **daemon ↔ control-plane spine**.
+
+**Already scaffolded:** `packages/shared/src/db/schema.ts` is a Postgres
+control-plane schema (`runtimes`, `targetRuntimeId` on tasks and runs,
+`paused_hitl`, pgvector notes) with migration `0000_narrow_revanche` generated.
+Nothing imports it.
+
+**Measured evidence** (read-only query against `data/sparstrow.db`): 27 runs /
+613 run_events / 1.33 MB = **~50 KB per run**, heaviest run 615 KB. 500 MB free
+tier ≈ 10,200 runs; 8 GB Pro ≈ 167,000. `tool_result` payloads are 62% of bytes
+(avg 4.9 KB, max 16.9 KB — under the 256 KB Realtime cap). Transcript storage is
+not a near-term constraint, which is why transcripts go to cloud unarchived.
+
+---
+
+## Settled decisions
+
+**1 — Data placement.** Cloud is the board and durable store; local keeps only
+what is latency-critical or machine-bound.
+
+- **☁️ Postgres:** workspaces/users/members, `runtimes`, `runtime_projects`,
+  agents, agent_instances, projects, project_directives, teams+members+projects,
+  tasks, task_questions, goals, plan_nodes, plan_edges, messages, runs,
+  **run_events**, chat_sessions, chat_messages, pipelines(+steps,+runs),
+  cron_jobs, skills(+files,+agent_skills), skill_imports, memory note content,
+  dispatch queue, daemon tokens.
+- **💾 Local SQLite:** `memory_chunks` / `memory_fts` / `memory_vec` (`float[384]`,
+  derived — `reindexAll()` rebuilds), local mirror of memory notes, machine-scoped
+  `settings`, offline event buffer.
+- **📁 Local files, never synced:** `vaultPath` markdown (memory source of truth),
+  `~/.sparstrow` secrets, `.api-token`, `dataDir/agents`, `dataDir/models`, graph
+  store, tmp/logs, project working trees.
+- **📦 Drive:** memory vault mirror. Transcript/chat archiving deferred.
+- **Memory model:** cloud is durable + the cross-machine sync hub; each daemon
+  reads its **local** index (sub-15ms, offline-tolerant). Writes local-first then
+  push. Only note *content* syncs — every machine embeds with the same local
+  384-dim model, so embeddings never cross the wire and the cloud needs **no
+  vector column**. Last-write-wins; notes are append-mostly, one topic each. Do
+  not build a CRDT.
+- **Projects:** identity in cloud, bytes wherever the developer wants (local or
+  GitHub). `project_not_available` gets four actions: **relink**, **clone from
+  `gitRemote`**, **unbind/delete**, **reassign**.
+
+**2 — Transport.** Outbound WS wake over durable command rows. Commands are
+Postgres rows with claim/lease/ack and an idempotency key; the per-runtime
+Realtime channel is the **doorbell only** (at-most-once — never trust it for
+delivery); ~3s polling is the always-on fallback. The WS connection doubles as
+the liveness signal for `runtimes.status`. Transcripts take a **dual path**: live
+deltas broadcast over Realtime, events batched to Postgres every N events or ~1s.
+The UI dedupes by `seq` — `run-detail.tsx:37` already does this; reuse it.
+
+**3 — Degradation.** Buffer and resync. In-flight runs survive network blips;
+events buffer locally and replay oldest-`seq`-first on reconnect. New work isn't
+accepted while offline. This is nearly free — correct batching already requires a
+retry buffer.
+
+**4 — Auth and shell.** Pairing code → daemon token scoped to **one workspace and
+one runtime**, revocable from the UI, stored in the existing encrypted
+`~/.sparstrow` (`secretsDir`) — built precisely for this class of secret. Electron
+loads the **hosted** Next app (no version skew against a migrating schema) and
+renders a native offline screen when unreachable.
+
+**5 — Uncommitted agent work is snapshotted, not left to chance.** *(answers
+OQ-1, decided 2026-08-10; option B, narrowed.)* When a run ends, core records the
+project's working tree under `refs/sparstrow/wip/<run-id>` on that machine.
+
+The narrowing that matters: OQ-1 proposed a **branch**, and a branch is the wrong
+object. It appears in `git branch`, tab-completes, and matches the default `push`
+refspec — a backup that can escape to a remote is not a backup, it is a leak with
+good intentions. A ref outside `refs/heads/` is inert until someone looks for it.
+
+Nor does it run `git commit`. The snapshot is written with plumbing
+(`read-tree` → `add -A` → `write-tree` → `commit-tree` → `update-ref`) against a
+**throwaway index**, so HEAD does not move, the developer's staged/unstaged split
+survives byte-for-byte, and `git status` reads identically before and after.
+`add -A` honours `.gitignore`, which is what keeps `.env` and `node_modules` out
+— OQ-1 named that as the whole problem with option C, and git had already solved
+it.
+
+**No second worktree is created.** The tree to protect is the one the agent
+edited, and core already knows it: it is the `cwd` it passed to the child. A
+fresh checkout would faithfully back up the wrong bytes.
+
+Default **on**, with a toggle and a retention count in Settings. On, because the
+setting only pays out after something has already gone wrong and the person who
+needs it most is the one who never thought to enable it. Retention exists because
+each ref pins its objects, so unbounded snapshots mean `git gc` can never
+reclaim the space.
+
+Implementation: `packages/core/src/projects/wip-snapshot.ts`, called from
+`RunManager.finalize()` **before** handoff — handoff's job is to spawn the
+follow-up run, which edits this same tree.
+
+> ⚠️ **The call site is unproved.** `snapshotWorkingTree()` is tested directly
+> and against a real SQLite settings read, but nothing has yet exercised
+> `finalize()` end-to-end with a real agent editing a real project — that needs
+> dispatched work, which is M4. Tracked as **`G-3`** in
+> [`../KnownGaps.md`](../KnownGaps.md); **M4's verification must assert a
+> `refs/sparstrow/wip/<run-id>` ref actually appears.** A backup that silently
+> never fires is the one failure this feature cannot survive.
+
+> The Settings card renders in the **local** UI only. The switch is a row in that
+> machine's SQLite and the snapshot happens on that machine's disk; the hosted
+> app has no `/system/settings` route to write to. A per-runtime control belongs
+> in the Machines card once M4's command spine can carry a setting to a specific
+> daemon. Absent beats a switch that flips and silently changes nothing.
+
+> ⚠️ **Security consequence, accepted knowingly.** Once dispatch is
+> cloud-canonical, anyone who can write a task row targeting your runtime can
+> cause code to run on your machine. Postgres **RLS becomes the security
+> boundary** — workspace-scoped policies are mandatory new work, not optional.
+> Core's existing `effectiveTools` resolution and the P3 delegation subset check
+> still clamp capability at spawn.
+
+---
+
+## Milestones
+
+### M1 — Cloud schema, RLS, pairing ✅ DONE (applied to staging 2026-08-09)
+
+**Shipped:** 36 tables (`0000_special_romulus`), 25 FK indexes (`0001_flat_justin_hammer`),
+RLS on all 36 with 45 policies, 11 tables in the realtime publication. Verified
+live on `db.pnymngoqseltgigcfevq`: 0 tables without RLS, 0 tables with RLS but no
+policy, 0 missing FK indexes, and a 10-assertion cross-workspace isolation test
+passing (reads, writes, and the `daemon_tokens.token_hash` column all denied).
+565 workspace tests still green.
+
+**Applied `supabase-postgres-best-practices` and changed three things:**
+- Policies use `workspace_id in (select private.current_workspace_ids())` — a
+  zero-arg set-returning helper that Postgres hoists into a single InitPlan.
+  The obvious `is_workspace_member(workspace_id)` form takes the row's column
+  as an argument and runs per row.
+- Helpers moved to a `private` schema so PostgREST cannot expose them as RPC.
+- 25 unindexed FKs found and fixed (Postgres does not create them automatically).
+
+**Also found:** a column-level `REVOKE` on `token_hash` is silently ineffective
+while the role holds table-level `SELECT` — the table grant must be revoked
+first, then safe columns granted back.
+
+*(original scope below)*
+
+`packages/shared/src/db/schema.ts`, `packages/shared/drizzle/`
+
+- Drop `memory_notes.embedding`; delete `projects.rootDir`.
+- Add `runtime_projects(runtime_id, project_id, local_path, state, last_seen)`.
+- Add the board tables missing from the cloud schema: `run_events`,
+  `chat_sessions`, `chat_messages`, `task_questions`, `goals`, `plan_nodes`,
+  `plan_edges`, `pipelines`, `pipeline_steps`, `pipeline_runs`, `cron_jobs`,
+  `skills`, `skill_files`, `agent_skills`, `skill_imports`, `teams`,
+  `team_members`, `team_projects`, `agent_instances`, `messages`.
+- Add `runtime_commands` (claim/lease/ack + idempotency key) and `daemon_tokens`.
+- **Reconcile task status vocabulary** — local `inbox`/`waiting_children`/… vs
+  cloud `backlog`/`todo`/`in_progress`/`review`/`done`. Pick one; translation at
+  the boundary is a bug farm.
+- RLS policies on every table, scoped by `workspace_id`.
+
+### M2 — Web app actually reads the cloud ✅ DONE (2026-08-10)
+
+**Shipped:** one catch-all route dispatching to 16 handler modules over
+supabase-js with the caller's session, jsonb-aware case conversion, server-side
+workspace resolution, health derived from `runtimes`, and honest 501s for
+host-local and runtime-dependent endpoints. `packages/ui` untouched, as planned.
+
+**Verified against live staging** with real sessions for three users: 40/40
+endpoints land in their specified A/B/C category, 24/24 functional round-trips
+persist and read back, cross-workspace read *and* write are denied in both
+directions, jsonb payloads survive unmutated, and 577 workspace tests are green.
+
+**Nine defects found and fixed during verification**, none of which typechecking
+or the unit tests would have caught:
+
+1. **Bootstrap was impossible.** M1's RLS deadlocked a new user's first write
+   two separate ways. Fixed in `003_bootstrap_fix.sql` — which existed but had
+   never been applied to staging, so every authenticated request 500'd.
+2. **Bootstrap was not atomic.** Three PostgREST inserts with no transaction:
+   partial failure orphaned a workspace, and two concurrent first-requests gave
+   a user two workspaces and a permanent 400 with no picker to escape through.
+   Moved into `bootstrap_workspace()` with an advisory lock (`004`).
+3. **Co-members counted as your own memberships.** `getActiveWorkspaceId` read
+   `workspace_members` without filtering by `user_id`. RLS deliberately exposes
+   your co-members' rows, so any workspace with two people locked *everyone* in
+   it out of every endpoint. The single worst bug of the phase, and invisible
+   until a workspace had more than one member.
+4. **Static routes lost to `:id`.** First-match-wins ordering meant
+   `/agents/imports` resolved as an agent named "imports". Router now orders by
+   specificity.
+5. **`POST /goals` was registered twice**, and the real insert shadowed its own
+   501 stub — creating goals with no plan nodes.
+6. **`/agents/imports` queried a table that does not exist** (`agent_imports`;
+   the real one is `skill_imports`).
+7. **The attention queue 500'd** on a `task_id` filter against a table with no
+   such column, and computed `NaN` ages from a `created_at` that does not exist.
+8. **`POST /messages` was missing entirely** although the UI calls it.
+9. **Skill assignments could wipe the workspace.** Delete-all-then-insert across
+   two round trips: a failed insert left every assignment deleted. Moved into
+   `set_agent_skill_assignments()` (`006`).
+
+Also: cross-workspace writes reported success while doing nothing (delete now
+verifies rows were affected), and unknown-column bodies returned 500 rather
+than 400.
+
+**Not verified:** anything requiring a rendered page. Sign-in needs a password
+typed into a form, which an agent cannot do — see **OQ-2**. The API layer those
+pages consume is fully exercised, so what is unproven is rendering, not data.
+
+*(original scope below)*
+
+Implement the `/api/v1` surface as Next route handlers backed by Supabase, using
+the user's session server-side. **This leaves `packages/ui/src/api/hooks.ts` and
+`packages/ui/src/lib/api.ts` untouched** — ~1400 lines of working react-query
+hooks keep their contract, and the same API surface serves web and desktop.
+Realtime subscriptions stay direct from the browser as they are today in
+`providers.tsx`.
+
+### M3 — Pairing, registration, heartbeat ✅ DONE (2026-08-10)
+`packages/core/src/cloud/` (new): `client.ts`, `pairing.ts`, `registration.ts`
+
+- `sparstrow pair <code>` exchanges a short-lived code for a daemon token; store
+  via the existing encrypted secrets path in `config.secretsDir`.
+- Register the runtime with hostname, OS, `isElectron`, and capabilities probed
+  from `listProviders()` in `packages/core/src/providers/index.ts`.
+- Heartbeat + `runtimes.status` transitions.
+
+### M4 — Command spine ✅ DONE (verified live on staging 2026-08-11)
+
+**Shipped:** four SQL functions (`start_run`, `cancel_run`, `claim_runtime_commands`,
+`ack_runtime_command`), five daemon routes, four `/api/v1` routes, a 3s poll loop
+with claim/lease/ack, slug-based resolution over a local `cloud_links` table,
+binding reports, run-status reporting, the four `project_not_available` actions,
+and a per-runtime WIP snapshot switch. 748 tests green.
+
+**Verified live:** a run queued in the cloud started on this Windows machine
+within one poll interval and reached `succeeded` with its metrics; the WIP
+snapshot fired (closing `G-3`); cancel killed a run in flight; a missing project
+parked without spawning, both at enqueue and at claim; a cross-workspace token
+claimed, acked and reported nothing.
+
+**Four defects found by running it for real**, none of which the unit tests could
+reach: a failed run whose error read "success"; a status route that reported
+success while doing nothing for another workspace; two routes reading camelCase
+keys the router had already snake-cased; and a column missing from a select list
+that would have made the new switch lie forever.
+
+**Three decisions the plan did not anticipate**, all settled in the phase spec:
+the Realtime doorbell is deferred to M5 (the daemon still cannot authenticate to
+Realtime, and M5 must solve that anyway); cloud and local ids are *linked* by
+slug rather than adopted, because adopting would rewrite a live primary key; and
+run-status reporting is in M4, because without it there is nothing to verify
+against.
+
+*(original scope below)*
+
+`packages/core/src/cloud/commands.ts`, `packages/core/src/orchestrator/run-manager.ts`
+
+> **Decomposed 2026-08-10 into 8 tasks — `doc/tasks/M4/`.** Three things the
+> original bullets did not anticipate, each argued in that phase spec:
+>
+> - **The doorbell is deferred to M5.** M4 ships the 3s poll only. The daemon
+>   still cannot authenticate to Realtime (M3 decision 6), the poll is mandatory
+>   regardless because the doorbell is at-most-once, and M5 has to solve daemon
+>   Realtime auth anyway to broadcast transcript deltas.
+> - **Cloud and local ids do not match, and nothing bridged them.** Runs adopt
+>   the cloud id; agents and projects are *linked* by slug in a local table.
+>   Syncing definitions is a separate feature, parked as `D-9`.
+> - **Run status reporting is in scope.** Not in the bullets, but without the run
+>   row transitioning in the cloud there is nothing to verify against, and
+>   transcripts (M5) are explicitly not the proof.
+
+- Realtime subscribe + 3s poll fallback; claim by row with lease and ack.
+- Dispatch to the existing `runManager.createRun()` — the runner itself does not
+  change.
+- **Project preflight on claim:** verify the `runtime_projects` binding; on miss,
+  set `blocked: project_not_available` rather than failing the task.
+
+### M5 — Transcripts (Phase 4's headline)
+`packages/core/src/cloud/transcripts.ts`, `packages/core/src/events/bus.ts`
+
+> **Decomposed 2026-08-11 into 6 tasks — `doc/tasks/M5/`.** Four things the
+> original bullets did not anticipate, each argued in that phase spec:
+>
+> - **The daemon does not connect to Realtime; the server broadcasts.** The
+>   ingest route already holds the service role and has already resolved the
+>   workspace from the bearer token, so fanning the batch out from there costs
+>   one `fetch` — against a custom `runtime_id` JWT, a minting endpoint, a
+>   refresh timer, and `realtime.messages` policies for a principal with no
+>   `auth.uid()`. Consequence: the doorbell M4 handed forward is parked as
+>   `D-12` rather than built.
+> - **The offline buffer already exists.** Core writes every event to local
+>   SQLite before publishing to the bus, so M5 builds a *cursor*
+>   (`cloud_event_cursors`, migration `0017`) instead of a second buffer with a
+>   spill file. Blip, crash and week-offline recovery become the same query.
+> - **Batching needs a byte budget, not just a count.** This plan's own
+>   measurement — `tool_result` averaging 4.9 KB and reaching 16.9 KB — is
+>   under the 256 KB Realtime cap *per event* and not per batch. Sixteen large
+>   results is a rejected broadcast.
+> - **`/runs/[runId]` does not light up on its own.** The `seq` merge is indeed
+>   already there, but its transport is `wsHub`, which dials `wss://<host>/ws` —
+>   a route the hosted app has never had and cannot have on Vercel. Two further
+>   defects sit next to it: `runEventSchema` requires an `id` cloud rows do not
+>   have, and `useRunEvents` caps at 500 events without paginating, which
+>   truncates exactly the long runs this feature is for.
+
+- Subscribe to the existing event bus; batch `run_events` to Postgres every N
+  events or ~1s; broadcast live deltas over Realtime.
+- Offline buffer with a spill ceiling; replay oldest-`seq` first on reconnect.
+- `/runs/[runId]` should light up with no UI rewrite — the seq-merge in
+  `packages/ui/src/routes/pages/run-detail.tsx` already handles it.
+
+### M6 — Memory sync
+
+> **Shipped 2026-08-12 — tasks 01–04, 956 tests green. Verification (05) is
+> waiting on a second paired machine, recorded as `G-15`.**
+>
+> Two things the phase spec had wrong, both caught before merge and written up
+> in `doc/tasks/M6/README.md` under *Corrected while building*:
+>
+> - **`content` carries the whole file, not the note body.** The body-only
+>   shape the tasks described was a permanent ping-pong: `contentHash` is
+>   `sha256` of the entire file locally, and no receiving machine can
+>   re-render frontmatter to the origin's exact bytes, so every pulled note
+>   would read as locally edited and be pushed straight back.
+> - **The push route needed a cross-workspace id guard.** Cloud
+>   `memory_notes.id` is globally unique and the route upserts on it, so
+>   scoping the existence check to the token's workspace — the obvious reading
+>   — would let a daemon in one workspace overwrite another's note, service
+>   role and all.
+>
+> What is genuinely unproved is in `G-15`, not hidden here: no note has yet
+> travelled between two real machines, and the routes have never served a
+> request.
+
+> **Decomposed 2026-08-12 into 5 tasks — `doc/tasks/M6/`.** The headline
+> finding, worth stating before the tasks: this phase is mostly wiring, not
+> new design. M1 already scaffolded the cloud `memory_notes` table, an index
+> shaped exactly for an incremental pull
+> (`idx_memory_notes_sync (workspaceId, updatedAt)`), and even anticipated a
+> `memory.sync` command kind in a schema comment — none of it connected to
+> anything until this phase.
+>
+> - **Identity travels verbatim.** The pull path does not call `writeNote()`
+>   (which mints a fresh id and filename on every call) — a pulled note keeps
+>   the SAME `id` and `path` its origin machine gave it, written by a
+>   dedicated pulled-note writer instead.
+> - **Conflict resolution is hash-first, clock-second, and the clock-skew risk
+>   is accepted rather than solved** — consistent with "do not build a CRDT."
+>   Identical content resolves as a no-op regardless of either machine's
+>   clock; only a real content difference falls back to `updatedAt`.
+> - **Push and pull each get a fast path and a guaranteed path**, reusing
+>   patterns M5 already proved rather than inventing new ones: push is
+>   event-driven (debounced, off the two functions every note mutation
+>   already funnels through) with a periodic reconciliation sweep as the
+>   crash-safety net (`T-M5-04`'s cursor-and-sweep shape, applied per-note);
+>   pull is triggered by the now-real `memory.sync` command riding the
+>   existing 3-second command poll, backstopped by a periodic full sweep on
+>   the same three triggers `T-M5-04` established for transcript backfill.
+> - **Delete and contradiction sync are explicit non-goals**, parked as
+>   [D-13](../Deferred.md) rather than silently unhandled.
+
+`packages/core/src/cloud/memory-sync.ts`, reusing `packages/core/src/memory/`
+
+- Push local note content on write (after the existing `vault.ts` file write).
+- Pull foreign notes → write markdown into the local vault → index through the
+  existing `indexer.indexNote()` / `reindexAll()`. Embeddings computed locally.
+- Last-write-wins on `contentHash` / `updatedAt`.
+
+### M7 — Route parity and Electron
+`apps/web/src/app/`, `packages/desktop/src/main.ts`
+
+> **Decomposed 2026-08-13 into 4 tasks — `doc/tasks/M7/`.** Two findings from
+> reading the code, both of which change what this section means:
+>
+> - **The routes half is smaller than these bullets imply.** Each missing page is
+>   a seven-line re-export. Route params, `Link` and `useNavigate` are already
+>   solved by the TanStack-shaped adapter aliased over `@tanstack/react-router`,
+>   and all four detail endpoints already exist in `/api/v1`. There is no adapter
+>   work and no API work in this phase.
+> - **The Electron half assumes a deployment that was never made.** "Point
+>   `loadURL` at the hosted app" has no host to point at: `config.cloudUrl` still
+>   defaults to `localhost:3000` and nothing in `doc/` records a deployed URL. The
+>   task ships the URL as configuration so the work lands regardless, but the
+>   desktop half cannot be *verified* until the owner deploys — the phase's one
+>   owner action.
+>
+> Also corrected: the bullet below says the goal route is `goals`. It is
+> **`/tasks/goals/$goalId`**, and building the bullet's version would produce a
+> page that renders correctly and is linked from nowhere.
+
+> **Shipped 2026-08-13 — tasks 01–03, 981 tests green. Verification (04) has not
+> been run; recorded as `G-16`.**
+>
+> The five routes are registered (`/imports`, `/teams/[teamId]`,
+> `/projects/[projectId]`, `/tasks/goals/[goalId]`, `/skills/[skillId]` all
+> appear in the build manifest) and the Electron shell now reads
+> `SPARSTROW_APP_URL`, falls back to the local core when unset, and renders a
+> native offline screen naming the URL and the real error. URL resolution moved
+> to a tested pure function so "unset behaves exactly as before" is proved rather
+> than asserted.
+>
+> What has NOT happened: nothing has been rendered. No page looked at, no
+> desktop window opened, no offline screen seen. A runtime route check was
+> attempted and blocked by the app's own "not configured" guard — this worktree
+> has no `.env.local`, and copying Supabase secrets into one was not worth a
+> routing check. Deployment remains the owner action:
+> [`runbooks/deploy-web-app.md`](../runbooks/deploy-web-app.md).
+
+
+- Add the five missing routes whose UI pages already exist: `goals`/goal-detail,
+  `imports`, `projects/[projectId]`, `skills/[skillId]`, `teams/[teamId]`.
+  `/imports` is in the sidebar (`app-shell.tsx:69`) and 404s today.
+- Point `mainWindow.loadURL` (`main.ts:100`) at the hosted app; add a native
+  offline screen.
+
+---
+
+## Scope boundaries and deferred work
+
+- **Host-local features cannot move to cloud.** Terminal PTY, `host-fs` browsing,
+  git ops, and provider discovery are inherently daemon-local. In the hosted web
+  app they are unavailable; in Electron they go over the IPC bridge — which is
+  already **Phase 6** in the existing roadmap. Do not attempt them in M1–M7.
+- **HITL gate redesign — deferred at your request.** `tasks.hitlApproved` and
+  `runs.status: paused_hitl` exist in the cloud schema; build the spine so they
+  remain available, but do not build UI against the current shape.
+- Transcript archiving to Drive, chat archiving, and vault→Drive mirroring are
+  deferred until real usage numbers justify them. ⚠️ If transcript archiving is
+  ever enabled it **must** be gated on dream-cycle signal extraction having
+  completed for that run — otherwise the factory silently stops learning from its
+  own work, with no error.
+- Semantic memory search from mobile would require re-adding a 384-dim vector
+  column and pushing embeddings. Postgres full-text is likely enough for browsing.
+
+---
+
+## Verification
+
+**M1** — `drizzle-kit generate` produces a clean migration; apply to a scratch
+Supabase project. Write RLS tests: a member of workspace A cannot select, insert,
+or update any row in workspace B.
+
+**M2** — With the daemon stopped, load each route in `apps/web`. Every page
+renders real data or a legitimate empty state; no request 404s or 401s. This is
+the pass/fail for "the web app is connected", which is false today.
+
+**M3** — Run pairing on this Windows machine; confirm a `runtimes` row appears
+with `os: win32` and capabilities including `claude-code` and `ollama`. Kill the
+daemon; confirm status flips to `offline` within the heartbeat window.
+
+**M4** — Queue a run from the web UI; confirm it executes locally and reaches
+`succeeded`. Then unbind the project and queue again: the task must land in
+`project_not_available` with relink/clone/unbind/reassign offered — not fail.
+
+**M5** — Start a long run; watch `/runs/[runId]` from a second device and confirm
+live streaming. Mid-run, disconnect the daemon's network for 60s; on reconnect the
+transcript must be complete and correctly ordered with no gaps or duplicate `seq`.
+Compare the final cloud `run_events` count against the local buffer count.
+
+**M6** — Save a note on machine A; confirm it appears in machine B's vault as
+markdown and is returned by `memory_search` on B. Verify B computed its own
+embedding (no vector crossed the wire).
+
+**M7** — Every sidebar entry in `app-shell.tsx` resolves; `/imports` no longer
+404s. Launch Electron with networking disabled and confirm the offline screen
+renders instead of a blank window.
+
+**Regression** — `pnpm test` across the workspace; the existing 346+ core tests
+must stay green, since M1–M7 add a cloud layer rather than altering the runner.

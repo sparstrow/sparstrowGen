@@ -385,6 +385,22 @@ export const memoryNotes = sqliteTable(
     supersededBy: text("superseded_by"),
     contentHash: text("content_hash").notNull().default(""),
     indexedAt: text("indexed_at"),
+    /**
+     * M6: the `contentHash` this note was last CONFIRMED synced at, and when.
+     *
+     * `syncedHash != contentHash` (including NULL, which is every note
+     * predating M6) is the whole definition of "owes the cloud a push" — read
+     * by the reconciliation sweep, and by the pull path to detect a local edit
+     * still in flight before it overwrites one.
+     *
+     * NULL rather than `''`: it means "never pushed", which is the same thing
+     * `indexedAt` and `archivedAt` already say with NULL in this table. Set only
+     * from the hash that was actually SENT, never re-read from the row after a
+     * response arrives — the row may have been edited again in between, and
+     * re-reading would mark that newer, unpushed edit as synced.
+     */
+    syncedHash: text("synced_hash"),
+    syncedAt: text("synced_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -661,4 +677,69 @@ export const planEdges = sqliteTable(
     index("idx_plan_edges_to").on(t.toNodeId),
     index("idx_plan_edges_user").on(t.userId),
   ],
+);
+
+/**
+ * M4 — cloud id ↔ local id, for rows that already existed on both sides.
+ *
+ * The control plane is the board and this database is what the runner reads.
+ * Agents and projects exist in both, with independent ids and no definition
+ * sync (D-9), so a `run.start` command naming a cloud agent has to be resolved
+ * to a local one before anything can spawn.
+ *
+ * Resolution is by SLUG the first time and by this table every time after.
+ * Adopting the cloud id instead would mean rewriting a live primary key that
+ * `runs.agent_id` and `tasks.assigned_agent_id` point at, or inserting a second
+ * row that violates the UNIQUE on slug.
+ *
+ * Runs deliberately do NOT appear here: a dispatched run is created with the
+ * cloud's id directly, because it is a new row with nothing to collide with.
+ */
+export const cloudLinks = sqliteTable(
+  "cloud_links",
+  {
+    /** `agent` | `project`. */
+    kind: text("kind").notNull(),
+    cloudId: text("cloud_id").notNull(),
+    localId: text("local_id").notNull(),
+    linkedAt: text("linked_at").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.kind, t.cloudId] }),
+    uniqueIndex("uq_cloud_links_local").on(t.kind, t.localId),
+  ],
+);
+
+/**
+ * M5 — how far a run's transcript has actually landed in the cloud.
+ *
+ * Not a buffer: `run_events` already IS the durable copy, written before the
+ * bus ever publishes (`recordEvent`, `run-manager.ts`). This is a cursor into
+ * that table — "everything with `seq > pushedThroughSeq` for this run has not
+ * been confirmed durable in Postgres yet" — which is what turns a 60-second
+ * network blip, a process crash, and a laptop that was shut for a week into the
+ * SAME query: `select … from run_events where run_id = ? and seq > ? order by
+ * seq`.
+ *
+ * `pushedThroughSeq` only ever advances from the SERVER's `storedThroughSeq` in
+ * an ingest response — never from what the daemon believes it sent. Advancing
+ * optimistically is how a transcript acquires a permanent hole.
+ *
+ * A row here does not mean "this run is in trouble". It means "this run has
+ * something outstanding" — every run gets one the instant its first event is
+ * confirmed, and it disappears once the run is BOTH terminal AND fully pushed.
+ * What survives past that is the backlog `T-M5-04`'s staleness ceiling bounds.
+ */
+export const cloudEventCursors = sqliteTable(
+  "cloud_event_cursors",
+  {
+    runId: text("run_id").primaryKey(),
+    pushedThroughSeq: integer("pushed_through_seq").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  // The backfill sweep orders and range-queries on this column (oldest first
+  // for both the age and count ceilings) — bounded to ~200 rows by
+  // TRANSCRIPT_BACKLOG_MAX_RUNS, so this is cheap insurance more than a
+  // measured necessity.
+  (t) => [index("idx_cloud_event_cursors_updated").on(t.updatedAt)],
 );

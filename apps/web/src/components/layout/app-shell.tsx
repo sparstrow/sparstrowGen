@@ -27,7 +27,7 @@ import {
 import { cn } from "@sparstrow/ui/lib/utils";
 import { Badge } from "@sparstrow/ui/components/ui/badge";
 import { UpdateBanner } from "@sparstrow/ui/components/update-banner";
-import { wsHub } from "@sparstrow/ui/lib/ws";
+import { useLiveEvents } from "@sparstrow/ui/lib/live-events";
 import { useAttentionQueue } from "@sparstrow/ui/api/hooks";
 import { ThemeToggle } from "@sparstrow/ui/theme/theme-toggle";
 import { Breadcrumbs } from "@sparstrow/ui/components/layout/breadcrumbs";
@@ -80,24 +80,49 @@ const NAV_GROUPS: { heading: string | null; items: NavItem[] }[] = [
   },
 ];
 
+/**
+ * M5: reports whichever transport this host actually installed — Realtime
+ * here, `wsHub` in the local UI — via the same injected source `run-detail.tsx`
+ * subscribes to. A chip claiming "live" while the real channel is dead is
+ * worse than today's permanent-offline reading, because permanent-offline is
+ * at least conservative; getting this wrong in the new direction is the trap.
+ */
 function useWsConnected(): boolean {
-  const [connected, setConnected] = React.useState(wsHub.isConnected);
-  React.useEffect(() => wsHub.onStatusChange(setConnected), []);
+  const source = useLiveEvents();
+  const [connected, setConnected] = React.useState(source.isConnected);
+  React.useEffect(() => {
+    setConnected(source.isConnected);
+    return source.onStatusChange(setConnected);
+  }, [source]);
   return connected;
 }
 
+/**
+ * Auth routes render bare -- no sidebar, no header, no attention-queue polling.
+ *
+ * This split exists as two components rather than an early `return` inside one
+ * because the shell below calls hooks. Bailing out mid-component made the hook
+ * count depend on the URL, so the very first navigation after signing in
+ * ("/login" -> "/") crashed with "rendered more hooks than during the previous
+ * render" -- the one transition every single user makes.
+ */
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname() || "/";
+
+  if (pathname === "/login" || pathname.startsWith("/auth/")) {
+    return <div className="min-h-screen w-full bg-background text-foreground">{children}</div>;
+  }
+
+  return <AuthenticatedShell>{children}</AuthenticatedShell>;
+}
+
+function AuthenticatedShell({ children }: { children: React.ReactNode }) {
   const connected = useWsConnected();
   const pathname = usePathname() || "/";
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
 
-  // Standalone public routes bypass the app shell sidebar & header
-  if (pathname.startsWith("/login") || pathname.startsWith("/auth/")) {
-    return <div className="min-h-screen w-full bg-background text-foreground">{children}</div>;
-  }
-  
   React.useEffect(() => setMobileNavOpen(false), [pathname]);
-  
+
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const collapsed = useWorkspaceTabs((s) => s.sidebarCollapsed);
   const attention = useAttentionQueue();

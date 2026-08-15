@@ -3,7 +3,7 @@ title: Providers & execution modes
 section: Concepts
 description: CLI vs direct-API execution — what's different, what's identical, and how to choose.
 order: 1
-updated: 2026-07-13
+updated: 2026-08-10
 ---
 
 Every agent names a **provider**, and the provider determines its **execution mode**.
@@ -36,13 +36,29 @@ which engine produced it.
 
 Mix freely: a pipeline can have a Claude Code step followed by an Ollama step.
 
-## Supabase Staging Auth & Realtime Sync
+## Cloud sign-in and live sync
 
-Sparstrowgen integrates with **Supabase Staging** for cloud session authentication and live database synchronization across desktop, web, and daemon runtimes:
+The web app authenticates against Supabase and keeps its views fresh from the cloud
+database:
 
-- **Authentication Guard**: Protected App Router routes enforce verified `@supabase/ssr` sessions. Users can authenticate using Email Magic Link, Password, or OAuth (**GitHub** and **Google**).
-- **Postgres Realtime Sync**: React Query cache invalidations are triggered in real-time when `runs`, `tasks`, `goals`, `messages`, or `system_health` records update in the cloud database.
-- **`pgvector` RAG Memory**: Vector embeddings stored in `memory_notes` are indexed via HNSW cosine distance and queried using `SECURITY INVOKER` database functions.
+- **Sign-in**: protected routes require a verified session. You can sign in with
+  **email and password**, or have a **one-time sign-in link emailed** to you — useful
+  when you'd rather not type a password. GitHub and Google buttons appear on the login
+  page but are **currently switched off**; they need OAuth apps registered under the
+  owner's accounts, and they light up on their own once that's done.
+- **Live updates**: the browser subscribes to changes in the cloud database and
+  refreshes the affected views automatically — runs, tasks, task questions, goals,
+  plan nodes, messages, chat sessions and messages, machines, project links, and memory
+  contradictions. You don't need to reload a page to see an agent's progress.
+- **Live run transcripts are not on this path yet.** Run events deliberately don't
+  ride the database change feed: at ~23 events per run it would spend the entire
+  message budget on transcripts and deliver each one twice. Streaming transcripts get
+  their own channel in a later phase; today a run's transcript fills in as it's saved.
+
+> Memory search is **not** a cloud vector search. Every machine embeds locally with a
+> bundled model and searches its own index, which is why semantic search stays fast and
+> works offline — and why the cloud stores note *text* but no embeddings at all.
+> See [Memory](/knowledge/memory).
 
 ## Notes & limitations
 
@@ -55,7 +71,17 @@ Sparstrowgen integrates with **Supabase Staging** for cloud session authenticati
 
 ## Known Limitations & Boundaries
 
-- **Staging Rate Limits**: Supabase Staging Auth & API endpoints are subject to rate limits (maximum 30 auth requests per minute per IP).
-- **Connection Pooling**: Database connection pools in Staging default to 15 concurrent connections via Supabase Supavisor pooler.
-- **Realtime Channel Quota**: A maximum of 200 concurrent Realtime WebSocket connections per project are allowed on the Staging tier.
+- **GitHub and Google sign-in are switched off.** The buttons render disabled with an
+  explanation. Email and password, or an emailed sign-in link, both work today.
+- **Sign-in emails are rate-limited** — roughly a handful per hour on the current
+  plan. If you hit `Email rate limit exceeded` while testing sign-up or sign-in links,
+  wait a few minutes; signing in with a password is unaffected.
+- **Live transcript streaming isn't on the cloud path yet** (see above). Run events
+  appear as they're written, not as a live stream.
+- **Auth, connection, and Realtime quotas are set by the hosting plan**, not by
+  Sparstrowgen, and change when the plan does. Check the Supabase dashboard for the
+  current numbers rather than trusting a figure written here.
+- **Password-breach checking is unavailable on the current plan.** Passwords are not
+  screened against known-leaked lists, so choose one you don't reuse — or use the
+  emailed sign-in link and skip passwords entirely.
 

@@ -1,10 +1,21 @@
 export class ApiError extends Error {
   readonly status: number;
+  /**
+   * Stable machine-readable failure token from the response body, when the
+   * server sent one (`no_runtime_available`, `project_not_available`, …).
+   *
+   * M4 needs this: the four recovery actions offered for a blocked project are
+   * different from the one offered for "no machine is online", and choosing
+   * between them by matching on the prose would break the first time someone
+   * improves a message. The tokens are the contract; the prose is for people.
+   */
+  readonly reason: string | null;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, reason: string | null = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.reason = reason;
   }
 }
 
@@ -38,15 +49,19 @@ export async function api<T>(path: string, init?: ApiInit): Promise<T> {
 
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
+    let reason: string | null = null;
     try {
-      const data = (await res.json()) as { error?: unknown };
+      const data = (await res.json()) as { error?: unknown; reason?: unknown };
       if (typeof data?.error === "string" && data.error.length > 0) {
         message = data.error;
+      }
+      if (typeof data?.reason === "string" && data.reason.length > 0) {
+        reason = data.reason;
       }
     } catch {
       // Non-JSON error body; keep the generic message.
     }
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, message, reason);
   }
 
   if (res.status === 204) {

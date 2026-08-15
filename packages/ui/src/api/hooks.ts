@@ -782,6 +782,45 @@ export function useRun(id: string): UseQueryResult<Run, ApiError> {
   });
 }
 
+/** Hard ceiling on pages fetched per call — see the note on `fetchAllRunEvents`. */
+export const RUN_EVENTS_MAX_PAGES = 50;
+
+/**
+ * Pages a single-run-events fetcher forward until a short page ends it.
+ *
+ * `GET /runs/:id/events` caps a single request at 2000
+ * (`apps/web/src/lib/api/handlers/runs.ts`), and `useRunEvents` used to
+ * request once with `limit: 500` and stop — a transcript longer than that was
+ * silently truncated, with no indication anything was missing. Until M5 no
+ * cloud transcript reached that length, so it was unreachable; now it is
+ * reachable, and it fails in exactly the case someone opens this page to
+ * watch: a long run.
+ *
+ * Extracted from `useRunEvents` so the loop is testable without React Query or
+ * a network mock — `fetchPage` is any `(afterSeq, limit) => Promise<events>`.
+ *
+ * `limit` here is the PAGE size, not a total cap — every page is fetched
+ * until the server returns fewer than a full page. `RUN_EVENTS_MAX_PAGES` is a
+ * defensive ceiling against a pathological response that never shrinks
+ * (25,000 events at the default page size), not a limit anyone should expect
+ * to hit.
+ */
+export async function fetchAllRunEvents(
+  fetchPage: (afterSeq: number, limit: number) => Promise<RunEvent[]>,
+  afterSeq: number,
+  limit: number,
+): Promise<RunEvent[]> {
+  const all: RunEvent[] = [];
+  let cursor = afterSeq;
+  for (let page = 0; page < RUN_EVENTS_MAX_PAGES; page++) {
+    const batch = await fetchPage(cursor, limit);
+    all.push(...batch);
+    if (batch.length < limit) break; // short page: nothing more to fetch
+    cursor = batch[batch.length - 1]!.seq;
+  }
+  return all;
+}
+
 export function useRunEvents(
   id: string,
   options: { afterSeq?: number; limit?: number } = {},
@@ -790,7 +829,12 @@ export function useRunEvents(
   const limit = options.limit ?? 500;
   return useQuery({
     queryKey: ["run-events", id],
-    queryFn: () => api<RunEvent[]>(`/runs/${id}/events${qs({ afterSeq, limit })}`),
+    queryFn: () =>
+      fetchAllRunEvents(
+        (cursor, pageLimit) => api<RunEvent[]>(`/runs/${id}/events${qs({ afterSeq: cursor, limit: pageLimit })}`),
+        afterSeq,
+        limit,
+      ),
     enabled: Boolean(id),
   });
 }
@@ -875,6 +919,8 @@ export interface TaskUpdateInput {
   assignedAgentId?: string | null;
   priority?: number;
   result?: string | null;
+  /** M4 — reassign to a specific machine, or clear the pin with null. */
+  targetRuntimeId?: string | null;
 }
 
 export function useUpdateTask(): UseMutationResult<
@@ -1886,5 +1932,204 @@ export function useTeamManagerChat(teamId: string): UseMutationResult<
   return useMutation({
     mutationFn: (body: TeamManagerChatRequest) =>
       api<PipelineDraftTurn | { reply: string }>(`/teams/${teamId}/manager/chat`, { method: "POST", body }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Runtimes & pairing (M3)
+// ---------------------------------------------------------------------------
+
+/** A machine paired to this workspace. `online` is derived server-side from
+ *  `lastHeartbeat` age — never read `status` for liveness. */
+export interface Runtime {
+  id: string;
+  name: string;
+  os: string;
+  hostname: string;
+  isElectron: boolean;
+  capabilities: string[];
+  status: string;
+  coreVersion: string | null;
+  lastHeartbeat: string | null;
+  createdAt: string;
+  online: boolean;
+  /**
+   * What the machine last CONFIRMED about its remotely-settable settings.
+   * Written only by the daemon, so a switch rendered from this is showing an
+   * acked value rather than a hopeful one — including when it was flipped in
+   * that machine's own local Settings card. M4 / `G-6`.
+   */
+  reportedSettings: Record<string, string>;
+}
+
+/** A project as this machine reports having it. */
+export interface RuntimeProject {
+  runtimeId: string;
+  projectId: string;
+  localPath: string | null;
+  /** bound | missing | cloning | error */
+  state: string;
+  detail: string | null;
+  lastSeen: string | null;
+}
+
+export interface PairingCode {
+  code: string;
+  expiresAt: string;
+}
+
+export function useRuntimes(): UseQueryResult<Runtime[], ApiError> {
+  return useQuery({
+    queryKey: ["runtimes"],
+    queryFn: () => api<Runtime[]>("/runtimes"),
+    // A machine crossing the staleness threshold changes nothing in the
+    // database, so nothing pushes. Poll, or the list silently goes stale.
+    refetchInterval: 15_000,
+  });
+}
+
+export function useCreatePairingCode(): UseMutationResult<PairingCode, ApiError, void> {
+  return useMutation({
+    mutationFn: () => api<PairingCode>("/pairing-codes", { method: "POST" }),
+  });
+}
+
+export function useRenameRuntime(): UseMutationResult<
+  Runtime,
+  ApiError,
+  { id: string; name: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }) =>
+      api<Runtime>(`/runtimes/${id}`, { method: "PATCH", body: { name } }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
+    },
+  });
+}
+
+export function useRevokeRuntimeToken(): UseMutationResult<
+  { revoked: number },
+  ApiError,
+  string
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<{ revoked: number }>(`/runtimes/${id}/token`, { method: "DELETE" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
+      void queryClient.invalidateQueries({ queryKey: ["health"] });
+    },
+  });
+}
+
+export function useRemoveRuntime(): UseMutationResult<{ deleted: number }, ApiError, string> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<{ deleted: number }>(`/runtimes/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
+      void queryClient.invalidateQueries({ queryKey: ["health"] });
+    },
+  });
+}
+
+/**
+ * ─── M4: per-runtime bindings and settings ──────────────────────────────────
+ *
+ * The four things offered when a task is blocked on a project a machine does
+ * not have, plus the per-runtime WIP snapshot switch.
+ */
+
+/** Which machines hold which projects, and in what state. */
+export function useRuntimeProjects(): UseQueryResult<RuntimeProject[], ApiError> {
+  return useQuery({
+    queryKey: ["runtime-projects"],
+    queryFn: () => api<RuntimeProject[]>("/runtime-projects"),
+  });
+}
+
+/** Relink — the project is on that machine, just not where the binding says. */
+export function useRelinkProject(): UseMutationResult<
+  RuntimeProject,
+  ApiError,
+  { runtimeId: string; projectId: string; localPath: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ runtimeId, projectId, localPath }) =>
+      api<RuntimeProject>(`/runtimes/${runtimeId}/projects/${projectId}`, {
+        method: "PUT",
+        body: { localPath },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["runtime-projects"] });
+      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+}
+
+/** Unbind — stop considering this machine for this project. */
+export function useUnbindProject(): UseMutationResult<
+  { unbound: number },
+  ApiError,
+  { runtimeId: string; projectId: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ runtimeId, projectId }) =>
+      api<{ unbound: number }>(`/runtimes/${runtimeId}/projects/${projectId}`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["runtime-projects"] });
+      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+}
+
+/** Clone — fetch the project onto that machine from its git remote. */
+export function useCloneProject(): UseMutationResult<
+  { queued: boolean },
+  ApiError,
+  { runtimeId: string; projectId: string; localPath: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ runtimeId, projectId, localPath }) =>
+      api<{ queued: boolean }>(`/runtimes/${runtimeId}/projects/${projectId}/clone`, {
+        method: "POST",
+        body: { localPath },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["runtime-projects"] });
+    },
+  });
+}
+
+/**
+ * Set one allowlisted setting on one machine.
+ *
+ * Returns `{ queued }`, deliberately — not the new value. The command has been
+ * enqueued, not applied; the switch keeps rendering `reportedSettings` until
+ * the daemon says otherwise, which is the whole point of `G-6`.
+ */
+export function useSetRuntimeSetting(): UseMutationResult<
+  { queued: boolean },
+  ApiError,
+  { runtimeId: string; key: string; value: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ runtimeId, key, value }) =>
+      api<{ queued: boolean }>(`/runtimes/${runtimeId}/settings`, {
+        method: "PUT",
+        body: { key, value },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
+    },
   });
 }

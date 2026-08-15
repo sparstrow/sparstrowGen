@@ -29,6 +29,18 @@ export const SECRET_GITHUB_PAT = "github.pat";
 /** P8: direct-API provider keys, kept out of the DB / agent env like the PAT. */
 export const SECRET_ANTHROPIC_API_KEY = "anthropic.apiKey";
 export const SECRET_GEMINI_API_KEY = "gemini.apiKey";
+/**
+ * M3: the daemon token this machine authenticates to the cloud with, plus the
+ * identity it was issued for. The token belongs here for the same reason the
+ * PAT does — it is a bearer credential that must not sit in the agent-readable
+ * dataDir. The runtime/workspace ids are not secret, but they live alongside it
+ * so that pairing state is written and cleared in ONE place: a token without
+ * its runtime id, or an id without its token, is a half-paired machine that
+ * neither reconnects nor reports itself unpaired.
+ */
+export const SECRET_CLOUD_DAEMON_TOKEN = "cloud.daemonToken";
+export const SECRET_CLOUD_RUNTIME_ID = "cloud.runtimeId";
+export const SECRET_CLOUD_WORKSPACE_ID = "cloud.workspaceId";
 
 interface Entry {
   iv: string; // base64
