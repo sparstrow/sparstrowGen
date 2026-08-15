@@ -320,7 +320,7 @@ against.
 >   one `fetch` — against a custom `runtime_id` JWT, a minting endpoint, a
 >   refresh timer, and `realtime.messages` policies for a principal with no
 >   `auth.uid()`. Consequence: the doorbell M4 handed forward is parked as
->   `D-10` rather than built.
+>   `D-12` rather than built.
 > - **The offline buffer already exists.** Core writes every event to local
 >   SQLite before publishing to the bus, so M5 builds a *cursor*
 >   (`cloud_event_cursors`, migration `0017`) instead of a second buffer with a
@@ -390,7 +390,7 @@ against.
 >   existing 3-second command poll, backstopped by a periodic full sweep on
 >   the same three triggers `T-M5-04` established for transcript backfill.
 > - **Delete and contradiction sync are explicit non-goals**, parked as
->   [D-11](../Deferred.md) rather than silently unhandled.
+>   [D-13](../Deferred.md) rather than silently unhandled.
 
 `packages/core/src/cloud/memory-sync.ts`, reusing `packages/core/src/memory/`
 

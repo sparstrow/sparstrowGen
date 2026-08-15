@@ -146,7 +146,7 @@ whole daemon half runs in parallel with the web half. 7.4 is `[C]` rather than
 the grounds that M5 must authenticate the daemon to Realtime anyway — and M5's
 decision 1 declines to, because the server can broadcast from a route that
 already holds the service role and already knows the workspace. The doorbell is
-parked as [D-10](../Deferred.md) with what would unpark it.
+parked as [D-12](../Deferred.md) with what would unpark it.
 
 **7.6 is deferred, not blocking.** Most of its checklist needs a second real
 device/account, a genuine 60-second network cut on the daemon's machine, or a
@@ -254,7 +254,7 @@ mechanism was explained. It is live and verified end to end.
 | GitHub / Google sign-in | **Deferred → [D-8](../Deferred.md)** | Not blocked work — parked by the owner 2026-08-10. Code is complete and verified; the buttons render disabled and light up on their own once the providers are enabled. |
 | Leaked password protection | **Supabase plan** | Requires Pro; not available on the current plan (confirmed 2026-08-10). No SQL equivalent, so nothing in this repo can fix it. Verified off by signing up with `password123` and getting a session. Not an action item — the advisor will keep flagging it. |
 | `/runs/[runId]` transcript | M5 (7.6) | M4 made the page openable and the run row live; the transcript inside it is empty until M5 writes `run_events` to the cloud. |
-| Realtime doorbell for dispatch | **Deferred → [D-10](../Deferred.md)** | Not blocked work. The 3s poll is correct and always-on; the doorbell is a latency improvement that M5's decision 1 declined to buy with a second daemon auth model. |
+| Realtime doorbell for dispatch | **Deferred → [D-12](../Deferred.md)** | Not blocked work. The 3s poll is correct and always-on; the doorbell is a latency improvement that M5's decision 1 declined to buy with a second daemon auth model. |
 | Agent definitions differ between cloud and machine | **Deferred → [D-9](../Deferred.md)** | Not blocked work. M4 resolves a cloud agent to a local one by slug and blocks legibly on a miss; syncing definitions is a separate feature with its own conflict model. |
 
 `OQ-1` (protecting uncommitted agent work) was **answered and built** on

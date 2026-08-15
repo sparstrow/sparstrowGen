@@ -140,7 +140,7 @@ function RuntimeRow({ runtime }: { runtime: Runtime }) {
       <span
         className={cn(
           "size-2 shrink-0 rounded-full",
-          runtime.online ? "bg-emerald-500" : "bg-muted-foreground/40",
+          runtime.online ? "bg-success-foreground" : "bg-muted-foreground/40",
         )}
         aria-hidden="true"
       />
@@ -392,7 +392,7 @@ export function RuntimesCard() {
 
         {justPaired ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Check className="size-4 text-emerald-500" />
+            <Check className="size-4 text-success-foreground" />
             {justPaired} is paired. Restart core on that machine if it is already running.
           </p>
         ) : null}

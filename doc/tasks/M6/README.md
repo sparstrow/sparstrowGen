@@ -64,14 +64,14 @@ reader does not go looking for them:
 
 - **Delete does not propagate.** `deleteNote()` hard-deletes locally with no
   tombstone, and the cloud schema has no `deletedAt`. A note deleted on A
-  stays alive forever on B. Parked as [D-11](../../Deferred.md) — building it
+  stays alive forever on B. Parked as [D-13](../../Deferred.md) — building it
   needs a schema change this phase does not make, and the plan's own scope
   ("push local note content on write... pull foreign notes") does not ask for
   it.
 - **Contradictions do not sync**, even though `memoryContradictions` has a
   full cloud mirror already sitting unused in the same schema M1 scaffolded.
   They are dream-cycle diagnostic output about ONE machine's local corpus, not
-  shared content — parked alongside D-11 rather than pulled in because the
+  shared content — parked alongside D-13 rather than pulled in because the
   table happened to already exist.
 
 ---

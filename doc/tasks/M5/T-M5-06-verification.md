@@ -140,4 +140,4 @@ Neither is scope. Both are two minutes once the environment is already standing.
       falsifies pages that say runs are local-only, including ones this phase
       never opened
 - [ ] Every unreached assertion above written into `KnownGaps.md` with its cost
-- [ ] `D-10` (the Realtime doorbell) re-checked: still deferred, or now cheap?
+- [ ] `D-12` (the Realtime doorbell) re-checked: still deferred, or now cheap?

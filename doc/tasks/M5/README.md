@@ -93,7 +93,7 @@ observable.
 
 **What this defers:** the Realtime doorbell for command dispatch, again. The
 daemon still has no Realtime connection, so dispatch latency stays bounded by
-the 3s poll. Parked as [D-10](../../Deferred.md) rather than silently carried
+the 3s poll. Parked as [D-12](../../Deferred.md) rather than silently carried
 into M6, with the honest note that the poll works and the doorbell is a latency
 improvement.
 
