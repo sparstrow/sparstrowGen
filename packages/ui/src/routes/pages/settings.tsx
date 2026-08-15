@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -100,7 +101,7 @@ function GraphEngineRow() {
           </>
         )}
         {indexAll.isSuccess && (
-          <span className="text-xs text-emerald-600 dark:text-emerald-400">
+          <span className="text-xs text-success-foreground">
             {indexAll.data.queued} queued{indexAll.data.skipped > 0 ? `, ${indexAll.data.skipped} skipped` : ""}
           </span>
         )}
@@ -112,8 +113,8 @@ function GraphEngineRow() {
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 py-1.5">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-right text-sm">{children}</span>
+      <span className="shrink-0 text-sm text-muted-foreground">{label}</span>
+      <span className="min-w-0 text-right text-sm">{children}</span>
     </div>
   );
 }
@@ -200,7 +201,11 @@ function GitCard() {
           )}
         </InfoRow>
         <div className="flex items-center gap-2">
+          <Label htmlFor="github-pat-input" className="sr-only">
+            GitHub PAT
+          </Label>
           <Input
+            id="github-pat-input"
             type="password"
             className="font-mono text-xs"
             placeholder={present ? "Enter a new token to replace…" : "github_pat_…"}
@@ -294,7 +299,9 @@ function WipSnapshotCard() {
 
         <div className="flex items-end justify-between gap-4 border-t pt-4">
           <div className="space-y-1">
-            <p className="text-sm font-medium">Snapshots kept per project</p>
+            <Label htmlFor="wip-snapshot-keep" className="text-sm font-medium">
+              Snapshots kept per project
+            </Label>
             <p className="text-xs text-muted-foreground">
               Older ones are deleted. Each snapshot pins its objects, so keeping them forever
               means <code className="font-mono">git gc</code> can never reclaim the space.
@@ -302,6 +309,7 @@ function WipSnapshotCard() {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Input
+              id="wip-snapshot-keep"
               className="w-20 font-mono text-xs"
               inputMode="numeric"
               value={keepValue}
@@ -348,7 +356,11 @@ function ProviderKeyInput({ providerId, keyPresent }: { providerId: string; keyP
   const [value, setValue] = React.useState("");
   return (
     <div className="mt-2 flex items-center gap-2">
+      <Label htmlFor={`provider-key-${providerId}`} className="sr-only">
+        {providerId} API key
+      </Label>
       <Input
+        id={`provider-key-${providerId}`}
         type="password"
         className="h-8 font-mono text-xs"
         placeholder={keyPresent ? "Enter a new key to replace…" : "API key…"}
@@ -451,10 +463,14 @@ function SystemCard() {
             <InfoRow label="Version">v{health.data.version}</InfoRow>
             <InfoRow label="Uptime">{formatDuration(health.data.uptimeMs)}</InfoRow>
             <InfoRow label="Database">
-              <span className="font-mono text-xs">{health.data.db.path}</span>
+              <span className="block truncate font-mono text-xs" title={health.data.db.path}>
+                {health.data.db.path}
+              </span>
             </InfoRow>
             <InfoRow label="Memory vault">
-              <span className="font-mono text-xs">{health.data.vault.path}</span>
+              <span className="block truncate font-mono text-xs" title={health.data.vault.path}>
+                {health.data.vault.path}
+              </span>
             </InfoRow>
             <InfoRow label="Search">
               <span className="flex gap-1.5">
@@ -497,6 +513,7 @@ function AppearanceCard() {
     <Card>
       <CardHeader>
         <CardTitle className="text-sm">Appearance</CardTitle>
+        <CardDescription>How Sparstrowgen looks on this browser.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex gap-2">
@@ -506,7 +523,7 @@ function AppearanceCard() {
               type="button"
               onClick={() => setTheme(t.value)}
               className={cn(
-                "flex-1 rounded-md border px-4 py-3 text-sm font-medium transition-colors hover:bg-accent",
+                "flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors hover:bg-accent",
                 theme === t.value && "border-primary bg-accent",
               )}
             >
@@ -535,8 +552,11 @@ function AdvancedCard() {
         )}
         {Object.entries(settings.data ?? {}).map(([key, value]) => (
           <div key={key} className="flex items-center gap-2">
-            <span className="w-48 shrink-0 font-mono text-xs">{key}</span>
+            <Label htmlFor={`advanced-setting-${key}`} className="w-48 shrink-0 font-mono text-xs">
+              {key}
+            </Label>
             <Input
+              id={`advanced-setting-${key}`}
               className="font-mono text-xs"
               value={draft[key] ?? value}
               onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
@@ -722,44 +742,50 @@ export function SettingsPage() {
   return (
     <div className="max-w-3xl">
       <Tabs defaultValue="account">
-        <TabsList>
-          <TabsTrigger value="account">Account</TabsTrigger>
-          <TabsTrigger value="workspace">Workspace</TabsTrigger>
-        </TabsList>
+        <div className="sticky -top-5 z-20 -mt-5 bg-background pt-5 pb-3">
+          <TabsList>
+            <TabsTrigger value="account">Account</TabsTrigger>
+            <TabsTrigger value="workspace">Workspace</TabsTrigger>
+          </TabsList>
+        </div>
 
-        <TabsContent value="account" className="pt-3">
+        <TabsContent value="account" className="pt-0">
           <Tabs defaultValue="profile">
-            <TabsList>
-              <TabsTrigger value="profile">Profile</TabsTrigger>
-              <TabsTrigger value="preferences">Preferences</TabsTrigger>
-            </TabsList>
-            <TabsContent value="profile" className="space-y-5 pt-3">
+            <div className="sticky top-12 z-10 bg-background pb-3">
+              <TabsList>
+                <TabsTrigger value="profile">Profile</TabsTrigger>
+                <TabsTrigger value="preferences">Preferences</TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent value="profile" className="space-y-5 pt-0">
               <ProfileCard />
               <GitCard />
               {/* Renders nothing when there is no hosted account, so the local
                   desktop build sees the profile tab exactly as it did before. */}
               <DangerZoneCard />
             </TabsContent>
-            <TabsContent value="preferences" className="space-y-5 pt-3">
+            <TabsContent value="preferences" className="space-y-5 pt-0">
               <AppearanceCard />
             </TabsContent>
           </Tabs>
         </TabsContent>
 
-        <TabsContent value="workspace" className="pt-3">
+        <TabsContent value="workspace" className="pt-0">
           <Tabs defaultValue="general">
-            <TabsList>
-              <TabsTrigger value="general">General</TabsTrigger>
-              <TabsTrigger value="integrations">Integrations</TabsTrigger>
-            </TabsList>
-            <TabsContent value="general" className="space-y-5 pt-3">
+            <div className="sticky top-12 z-10 bg-background pb-3">
+              <TabsList>
+                <TabsTrigger value="general">General</TabsTrigger>
+                <TabsTrigger value="integrations">Integrations</TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent value="general" className="space-y-5 pt-0">
               <FactoryHealthCard />
               <RuntimesCard />
               <WipSnapshotCard />
               <SystemCard />
               <AdvancedCard />
             </TabsContent>
-            <TabsContent value="integrations" className="space-y-5 pt-3">
+            <TabsContent value="integrations" className="space-y-5 pt-0">
               <ProvidersCard />
             </TabsContent>
           </Tabs>

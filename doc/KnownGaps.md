@@ -120,6 +120,121 @@ staging; these are the corners that pass could not reach.
 - **Clears when:** someone runs the click-through pass in an environment where
   the browser pane renders, and pairs a second machine for reassign.
 
+### G-13 — M5 (transcripts) is built and unit-tested, not verified live
+
+**Raised:** 2026-08-12, while decomposing and building M5. `T-M5-01`–`T-M5-05`
+are done — 886 tests green, `pnpm -r typecheck` clean — but `T-M5-06`
+(verification) was deferred to the owner rather than run, because most of what
+it checks needs things this environment does not have.
+
+- **Live streaming to a second device (T-M5-06 §A)** and **cross-workspace
+  isolation on the subscribe side (§E)** both need a second real signed-in
+  session — a browser session cannot be two independent workspace members at
+  once.
+- **The 60-second outage assertion (§B)** — the property M5 is actually judged
+  on — needs the daemon's network cut for a minute. That is an OS-level,
+  disruptive action on whatever machine runs core, correctly withheld pending
+  the owner's say-so rather than done unilaterally.
+- **Any rendered pixel.** As `G-12` recorded for M4, the Browser pane has not
+  composited frames in this environment; that has not changed. Every M5 UI
+  module (`live-events.ts`, `realtime-live-events.ts`, the pagination fix) is
+  unit-tested as extracted pure logic — 38 tests — but `run-detail.tsx`'s own
+  `useEffect` wiring has never been mounted, not once, in any environment.
+  `packages/ui` has no `@testing-library/react` or jsdom to mount it with even
+  if a browser did render.
+- Crash recovery (T-M5-06 §D) and the durable-count comparison (§C) **are**
+  solo-doable — this environment can start core, dispatch a real run, kill and
+  restart the process, and compare local SQLite against cloud Postgres counts
+  directly. Those were not run either, only because the owner asked to defer
+  the whole verification pass rather than a partial one.
+
+- **If wrong:** the shape of failure is the same class T-M5-05's own Result
+  section names — the pure logic underneath is right, but nothing has proved
+  the framework glue calling it. `M2`'s browser pass found exactly this kind of
+  bug once (a hook-order crash, missing Tailwind utilities) that no unit test
+  could see, which is why this is a register entry and not a shrug.
+- **Clears when:** `T-M5-06` runs for real — a second device or account, a
+  genuine network cut on the daemon's machine, and (ideally) a browser pane
+  that composites. Full procedure in
+  [`tasks/M5/T-M5-06-verification.md`](tasks/M5/T-M5-06-verification.md).
+
+### G-15 — M6 (memory sync) is built and unit-tested; nothing has synced between two real machines
+
+**Raised:** 2026-08-12, closing T-M6-01 … T-M6-04.
+
+The code is complete and 956 tests pass, including the conflict rule from both
+directions, the debounce, both sweeps, cursor paging, and the crash-replay path.
+**Not one note has travelled between two machines**, because verifying that needs
+a second paired machine and this repo has one.
+
+What is genuinely unproved, as opposed to merely untested-in-isolation:
+
+- **The daemon routes themselves.** Both were written; neither has served a
+  request. The judgement inside them is extracted and tested
+  (`apps/web/src/lib/daemon/memory-sync.test.ts`), but the query-builder calls
+  around it — the `.or()` tuple-cursor filter in particular, whose PostgREST
+  syntax is asserted only as a STRING — have never touched Postgres.
+- **The cross-workspace guard.** The push route reads note ids across workspaces
+  precisely so it can refuse foreign ones (phase README, correction B). That
+  refusal has never been exercised against a real database, and it is the one
+  piece of this phase where being wrong means a cross-tenant write rather than a
+  failed sync.
+- **The constraint-violation fallback.** Its trigger is a path collision between
+  two machines, which cannot be produced with one.
+- **Real conflict resolution.** Every last-write-wins test drives the decision
+  function directly with constructed timestamps. Two machines actually editing
+  the same note while split is a different thing from asserting what
+  `decidePush` returns.
+- **That another machine ends up able to search a pulled note.** The indexer is
+  stubbed in tests; what is proved is that a pulled note is HANDED to it, not
+  that the local index comes out usable at the other end.
+
+- **If wrong:** the shape of failure is the one M4 and M5 both hit — the pure
+  logic is right and the glue is not. M4 shipped four defects a live pass found;
+  M5 shipped two design corrections. There is no reason to expect this phase to
+  be the exception, and its blast radius is a user's own writing.
+- **Clears when:** [`T-M6-05`](tasks/M6/T-M6-05-verification.md) runs with two
+  machines paired to one workspace. Sections A–D need the second machine;
+  section E needs a second workspace account; section F can be run today.
+
+### G-16 — M7's five routes have never been rendered, and the desktop shell has never been run
+
+**Raised:** 2026-08-13, closing T-M7-01 … T-M7-03.
+
+981 tests pass and both halves are built. What has NOT happened:
+
+- **No one has looked at any of the five new pages.** They are registered —
+  `next build` lists `/imports`, `/teams/[teamId]`, `/projects/[projectId]`,
+  `/tasks/goals/[goalId]` and `/skills/[skillId]` as route handlers, which is
+  what decides 404 versus not — but registered is not rendered. The failure this
+  phase is most exposed to is a param that does not arrive: the page renders,
+  fetches `/teams/undefined`, and shows an empty state that reads like a data
+  problem. **Every one of the four detail pages is unproved against that.**
+- **A runtime check was attempted and could not be completed.** `next start` in
+  this worktree returns 503 for every path, including `/`, because there is no
+  `.env.local` here — the app's own "this deployment is not configured" guard,
+  working correctly. Getting past it means copying Supabase secrets into a
+  worktree, which is not worth doing for a routing check.
+- **The offline screen has never been seen.** Its content is asserted by 12
+  tests and the document parses (the browser pane reported the right `<title>`),
+  but the pane still cannot composite — the same limitation `G-12` and `G-13`
+  record. Nothing has confirmed it is legible rather than merely correct.
+- **The Electron shell has not been launched at all.** URL resolution is now a
+  tested pure function, so "unset behaves exactly as before" is proved as
+  logic — but no window has been opened, no `did-fail-load` has fired for real,
+  and retry has never been clicked.
+- **Everything behind a deployment.** There isn't one, so the hosted half of the
+  desktop app — sign-in in the window, the machine showing online from its own
+  desktop app, host-local features refusing as designed — is untestable by
+  construction. See [`runbooks/deploy-web-app.md`](runbooks/deploy-web-app.md).
+
+- **If wrong:** the routes half fails silently and looks like a data bug, which
+  is the worst shape for a user to report. The Electron half fails loudly and is
+  contained to the desktop shell — the web app is unaffected either way.
+- **Clears when:** [`T-M7-04`](tasks/M7/T-M7-04-verification.md) runs. Sections A
+  and C need a browser and a desktop build and can be done today; section D needs
+  the deployment.
+
 ### G-11 — Supabase has never been observed delivering an email
 
 **Raised:** 2026-08-10, investigating "I can't create an account, no link arrives".
@@ -195,6 +310,28 @@ Proof: `apps/web/src/lib/api/runtime-routes.test.ts` for dispatch and the
 allowlist, `packages/core/src/cloud/commands.test.ts` for the daemon-side
 allowlist, migration `0002_vengeful_norrin_radd.sql` for the column. The live
 flip is `T-M4-08`.*
+
+### G-14 — A run watched from two open tabs opens two Realtime channels
+
+**Raised:** 2026-08-12 (M5, `T-M5-05`), noted while building the Realtime
+transcript source rather than discovered afterward.
+
+`RealtimeLiveEventSource.subscribeRun()` opens a fresh private channel per
+call, one per mounted `/runs/[runId]` page. Two tabs — or two browser
+windows — watching the *same* run each open their own channel to the same
+topic; nothing shares or dedupes them. This is a decision, not an unproved
+claim: at the scale this phase was measured against (one person, one machine,
+one run at a time), a shared-subscription registry would be complexity with
+no observed payoff.
+
+- **If wrong:** the cost is one extra Realtime connection per redundant tab,
+  not a correctness problem — both tabs still see the same events, since both
+  subscribe to the same topic and RLS grants both alike. This becomes worth
+  fixing only if `/runs/[runId]` becomes something a team watches together, at
+  which point N tabs means N channels for the same broadcast.
+- **Clears when:** a shared, refcounted subscription (one channel per
+  `runId` process-wide, closed once the last subscriber unmounts) replaces the
+  per-call one — worth building when multi-viewer usage is real, not before.
 
 ### G-7 — Leaked-password protection is unavailable on the current Supabase plan
 

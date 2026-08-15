@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Approved 2026-08-09 · M1–M3 complete · auth hardening complete 2026-08-10 · **M4 complete 2026-08-11** · M5 next |
+| **Status** | Approved 2026-08-09 · M1–M4 complete · auth hardening complete 2026-08-10 · **M5 code-complete 2026-08-12 (verification deferred to the owner — `G-13`)** · **M6 code-complete 2026-08-12 (verification needs a second machine — `G-15`)** · **M7 code-complete 2026-08-13 (verification not run — `G-16`)** · **All phases code-complete; plan NOT closed — three verification passes outstanding** |
 | **Supersedes** | The "Phase 4: Multi-Agent Swarm Orchestrator & Live Transcripts" proposal |
-| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–6 done) · `doc/tasks/M2/` · `doc/tasks/M3/` · `doc/tasks/M4/` |
+| **Tasks** | `doc/tasks/MasterTaskQueue.md` (bands 1–6 done · band 7 = M5, 01–05 done · band 8 = M6, 01–04 done · band 9 = M7, 01–03 done) · `doc/tasks/M2/` · `doc/tasks/M3/` · `doc/tasks/M4/` · `doc/tasks/M5/` · `doc/tasks/M6/` |
 | **Open questions** | None. OQ-1 (uncommitted work) answered **and built** 2026-08-10 — see settled decision 5. OQ-2 answered and closed 2026-08-10. |
 
 > **Why the original Phase 4 proposal was replaced.** It described three features
@@ -311,6 +311,31 @@ against.
 ### M5 — Transcripts (Phase 4's headline)
 `packages/core/src/cloud/transcripts.ts`, `packages/core/src/events/bus.ts`
 
+> **Decomposed 2026-08-11 into 6 tasks — `doc/tasks/M5/`.** Four things the
+> original bullets did not anticipate, each argued in that phase spec:
+>
+> - **The daemon does not connect to Realtime; the server broadcasts.** The
+>   ingest route already holds the service role and has already resolved the
+>   workspace from the bearer token, so fanning the batch out from there costs
+>   one `fetch` — against a custom `runtime_id` JWT, a minting endpoint, a
+>   refresh timer, and `realtime.messages` policies for a principal with no
+>   `auth.uid()`. Consequence: the doorbell M4 handed forward is parked as
+>   `D-12` rather than built.
+> - **The offline buffer already exists.** Core writes every event to local
+>   SQLite before publishing to the bus, so M5 builds a *cursor*
+>   (`cloud_event_cursors`, migration `0017`) instead of a second buffer with a
+>   spill file. Blip, crash and week-offline recovery become the same query.
+> - **Batching needs a byte budget, not just a count.** This plan's own
+>   measurement — `tool_result` averaging 4.9 KB and reaching 16.9 KB — is
+>   under the 256 KB Realtime cap *per event* and not per batch. Sixteen large
+>   results is a rejected broadcast.
+> - **`/runs/[runId]` does not light up on its own.** The `seq` merge is indeed
+>   already there, but its transport is `wsHub`, which dials `wss://<host>/ws` —
+>   a route the hosted app has never had and cannot have on Vercel. Two further
+>   defects sit next to it: `runEventSchema` requires an `id` cloud rows do not
+>   have, and `useRunEvents` caps at 500 events without paginating, which
+>   truncates exactly the long runs this feature is for.
+
 - Subscribe to the existing event bus; batch `run_events` to Postgres every N
   events or ~1s; broadcast live deltas over Realtime.
 - Offline buffer with a spill ceiling; replay oldest-`seq` first on reconnect.
@@ -318,6 +343,55 @@ against.
   `packages/ui/src/routes/pages/run-detail.tsx` already handles it.
 
 ### M6 — Memory sync
+
+> **Shipped 2026-08-12 — tasks 01–04, 956 tests green. Verification (05) is
+> waiting on a second paired machine, recorded as `G-15`.**
+>
+> Two things the phase spec had wrong, both caught before merge and written up
+> in `doc/tasks/M6/README.md` under *Corrected while building*:
+>
+> - **`content` carries the whole file, not the note body.** The body-only
+>   shape the tasks described was a permanent ping-pong: `contentHash` is
+>   `sha256` of the entire file locally, and no receiving machine can
+>   re-render frontmatter to the origin's exact bytes, so every pulled note
+>   would read as locally edited and be pushed straight back.
+> - **The push route needed a cross-workspace id guard.** Cloud
+>   `memory_notes.id` is globally unique and the route upserts on it, so
+>   scoping the existence check to the token's workspace — the obvious reading
+>   — would let a daemon in one workspace overwrite another's note, service
+>   role and all.
+>
+> What is genuinely unproved is in `G-15`, not hidden here: no note has yet
+> travelled between two real machines, and the routes have never served a
+> request.
+
+> **Decomposed 2026-08-12 into 5 tasks — `doc/tasks/M6/`.** The headline
+> finding, worth stating before the tasks: this phase is mostly wiring, not
+> new design. M1 already scaffolded the cloud `memory_notes` table, an index
+> shaped exactly for an incremental pull
+> (`idx_memory_notes_sync (workspaceId, updatedAt)`), and even anticipated a
+> `memory.sync` command kind in a schema comment — none of it connected to
+> anything until this phase.
+>
+> - **Identity travels verbatim.** The pull path does not call `writeNote()`
+>   (which mints a fresh id and filename on every call) — a pulled note keeps
+>   the SAME `id` and `path` its origin machine gave it, written by a
+>   dedicated pulled-note writer instead.
+> - **Conflict resolution is hash-first, clock-second, and the clock-skew risk
+>   is accepted rather than solved** — consistent with "do not build a CRDT."
+>   Identical content resolves as a no-op regardless of either machine's
+>   clock; only a real content difference falls back to `updatedAt`.
+> - **Push and pull each get a fast path and a guaranteed path**, reusing
+>   patterns M5 already proved rather than inventing new ones: push is
+>   event-driven (debounced, off the two functions every note mutation
+>   already funnels through) with a periodic reconciliation sweep as the
+>   crash-safety net (`T-M5-04`'s cursor-and-sweep shape, applied per-note);
+>   pull is triggered by the now-real `memory.sync` command riding the
+>   existing 3-second command poll, backstopped by a periodic full sweep on
+>   the same three triggers `T-M5-04` established for transcript backfill.
+> - **Delete and contradiction sync are explicit non-goals**, parked as
+>   [D-13](../Deferred.md) rather than silently unhandled.
+
 `packages/core/src/cloud/memory-sync.ts`, reusing `packages/core/src/memory/`
 
 - Push local note content on write (after the existing `vault.ts` file write).
@@ -327,6 +401,44 @@ against.
 
 ### M7 — Route parity and Electron
 `apps/web/src/app/`, `packages/desktop/src/main.ts`
+
+> **Decomposed 2026-08-13 into 4 tasks — `doc/tasks/M7/`.** Two findings from
+> reading the code, both of which change what this section means:
+>
+> - **The routes half is smaller than these bullets imply.** Each missing page is
+>   a seven-line re-export. Route params, `Link` and `useNavigate` are already
+>   solved by the TanStack-shaped adapter aliased over `@tanstack/react-router`,
+>   and all four detail endpoints already exist in `/api/v1`. There is no adapter
+>   work and no API work in this phase.
+> - **The Electron half assumes a deployment that was never made.** "Point
+>   `loadURL` at the hosted app" has no host to point at: `config.cloudUrl` still
+>   defaults to `localhost:3000` and nothing in `doc/` records a deployed URL. The
+>   task ships the URL as configuration so the work lands regardless, but the
+>   desktop half cannot be *verified* until the owner deploys — the phase's one
+>   owner action.
+>
+> Also corrected: the bullet below says the goal route is `goals`. It is
+> **`/tasks/goals/$goalId`**, and building the bullet's version would produce a
+> page that renders correctly and is linked from nowhere.
+
+> **Shipped 2026-08-13 — tasks 01–03, 981 tests green. Verification (04) has not
+> been run; recorded as `G-16`.**
+>
+> The five routes are registered (`/imports`, `/teams/[teamId]`,
+> `/projects/[projectId]`, `/tasks/goals/[goalId]`, `/skills/[skillId]` all
+> appear in the build manifest) and the Electron shell now reads
+> `SPARSTROW_APP_URL`, falls back to the local core when unset, and renders a
+> native offline screen naming the URL and the real error. URL resolution moved
+> to a tested pure function so "unset behaves exactly as before" is proved rather
+> than asserted.
+>
+> What has NOT happened: nothing has been rendered. No page looked at, no
+> desktop window opened, no offline screen seen. A runtime route check was
+> attempted and blocked by the app's own "not configured" guard — this worktree
+> has no `.env.local`, and copying Supabase secrets into one was not worth a
+> routing check. Deployment remains the owner action:
+> [`runbooks/deploy-web-app.md`](../runbooks/deploy-web-app.md).
+
 
 - Add the five missing routes whose UI pages already exist: `goals`/goal-detail,
   `imports`, `projects/[projectId]`, `skills/[skillId]`, `teams/[teamId]`.

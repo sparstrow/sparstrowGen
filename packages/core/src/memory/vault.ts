@@ -114,6 +114,31 @@ export function coerceNoteType(value: unknown): MemoryNoteType {
 
 const sha256 = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
 
+/**
+ * M6 — notified after any local note write, so the cloud sync can pick it up.
+ *
+ * REGISTERED, not imported. `cloud/memory-sync.ts` needs `toAbsPath` and
+ * `noteSelfWrite` from this file, so importing its hook here would close an
+ * import cycle between the vault (a low-level module with no cloud awareness at
+ * all) and a subsystem that is optional by design. A machine that never pairs
+ * never registers anything and the calls below are no-ops.
+ */
+type NoteWriteHook = (noteId: string) => void;
+let noteWriteHook: NoteWriteHook | null = null;
+
+export function setNoteWriteHook(hook: NoteWriteHook | null): void {
+  noteWriteHook = hook;
+}
+
+/** Never allowed to throw into a write path — a sync problem must not fail a save. */
+function markNoteDirty(noteId: string): void {
+  try {
+    noteWriteHook?.(noteId);
+  } catch (err) {
+    logger.warn({ err, noteId }, "memory sync hook failed for a note write");
+  }
+}
+
 export function writeNote(input: MemoryNoteCreateInput): MemoryNote {
   const db = getDb();
   const id = `mem_${nanoid(10)}`;
@@ -163,6 +188,11 @@ export function writeNote(input: MemoryNoteCreateInput): MemoryNote {
     updatedAt: ts,
   };
   db.insert(memoryNotes).values(row).run();
+  // M6. The hook lives HERE rather than at each of this function's six callers,
+  // which is what makes a seventh caller sync for free. Fire-and-forget: this
+  // function is on the hot path of API request handlers, and a synchronous
+  // network call would make an unrelated response wait on cloud reachability.
+  markNoteDirty(id);
   return rowToNote(row as typeof memoryNotes.$inferSelect);
 }
 
@@ -259,6 +289,7 @@ export function writeNoteRaw(id: string, content: string): MemoryNote {
     .set({ contentHash: hash, updatedAt: ts, indexedAt: null })
     .where(eq(memoryNotes.id, id))
     .run();
+  markNoteDirty(id); // M6 — see the note in writeNote()
   return { ...note, contentHash: hash, updatedAt: ts, indexedAt: null };
 }
 
