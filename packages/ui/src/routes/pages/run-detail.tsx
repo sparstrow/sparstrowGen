@@ -8,7 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RunStatusBadge } from "@/components/run-status-badge";
 import { RunTranscript } from "@/components/run-transcript";
 import { useAgents, useCancelRun, useRun, useRunEvents } from "@/api/hooks";
-import { wsHub } from "@/lib/ws";
+import { useLiveEvents } from "@/lib/live-events";
+import { mergeRunEvents } from "@/lib/merge-run-events";
 import { cn } from "@/lib/utils";
 import { formatCost, formatDate, formatDuration } from "@/lib/format";
 
@@ -18,6 +19,7 @@ export function RunDetailPage() {
   const agents = useAgents();
   const fetchedEvents = useRunEvents(runId);
   const cancelRun = useCancelRun();
+  const liveSource = useLiveEvents();
   const [liveEvents, setLiveEvents] = React.useState<RunEvent[]>([]);
   const [memoryOpen, setMemoryOpen] = React.useState(false);
 
@@ -25,21 +27,15 @@ export function RunDetailPage() {
 
   React.useEffect(() => {
     if (!isActive) return;
-    return wsHub.subscribe((event) => {
-      if (event.type === "run.event" && event.runId === runId) {
-        setLiveEvents((prev) =>
-          prev.some((e) => e.seq === event.event.seq) ? prev : [...prev, event.event],
-        );
-      }
+    return liveSource.subscribeRun(runId, (event) => {
+      setLiveEvents((prev) => (prev.some((e) => e.seq === event.seq) ? prev : [...prev, event]));
     });
-  }, [runId, isActive]);
+  }, [runId, isActive, liveSource]);
 
-  const events = React.useMemo(() => {
-    const merged = new Map<number, RunEvent>();
-    for (const e of fetchedEvents.data ?? []) merged.set(e.seq, e);
-    for (const e of liveEvents) merged.set(e.seq, e);
-    return [...merged.values()].sort((a, b) => a.seq - b.seq);
-  }, [fetchedEvents.data, liveEvents]);
+  const events = React.useMemo(
+    () => mergeRunEvents(fetchedEvents.data ?? [], liveEvents),
+    [fetchedEvents.data, liveEvents],
+  );
 
   const agent = agents.data?.find((a) => a.id === run.data?.agentId);
 

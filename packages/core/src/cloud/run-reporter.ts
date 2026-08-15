@@ -3,6 +3,35 @@ import type { RunStatusReport } from "@sparstrow/shared";
 import { bus } from "../events/bus.js";
 import { logger } from "../logger.js";
 import { CloudAuthError, cloudFetch, isPaired } from "./client.js";
+import { isDispatched, markDispatched, releaseWhenFlushed, resetDispatched as resetDispatchState } from "./dispatched.js";
+
+// Re-exported unchanged: `commands.ts` and both cloud test suites import these
+// from this module today, and moving the ownership of dispatch state to
+// `dispatched.ts` (T-M5-03) is not a reason to touch every call site.
+export { isDispatched, markDispatched };
+export function resetDispatched(): void {
+  resetDispatchState();
+  queue.length = 0;
+  reportedTerminal.clear();
+}
+
+/**
+ * This module's OWN idempotency guard against reporting a run twice — not the
+ * same question `dispatched.ts`'s `isDispatched()` answers.
+ *
+ * Before `T-M5-03`, `isDispatched(runId)` flipping to `false` right after a
+ * terminal report served double duty: it also happened to stop THIS listener
+ * from acting on any further event for that run. `dispatched.ts` now
+ * deliberately keeps `isDispatched()` true past terminal, because the
+ * transcript pusher may still have events queued to send — reusing that same
+ * flag here would mean a stray post-terminal `run.updated` (there should not
+ * be one, but the reporter should not depend on that) gets reported again for
+ * as long as the pusher is still draining.
+ *
+ * So: reporting "have I said everything there is to say about this run" is
+ * this module's own concern, tracked independently.
+ */
+const reportedTerminal = new Set<string>();
 
 /**
  * M4 — telling the control plane how a dispatched run is going.
@@ -17,34 +46,6 @@ import { CloudAuthError, cloudFetch, isPaired } from "./client.js";
  * reporter reaching into the run manager would have to be unpicked to get
  * there.
  */
-
-/**
- * Runs the control plane dispatched, and therefore has a row for.
- *
- * A busy machine runs far more work than the cloud asked for — cron, handoffs,
- * the local UI — and none of it has a cloud run row. Posting for those would be
- * an authenticated round trip per event, answered with a 404 every time.
- *
- * Process-lifetime only, deliberately. After a restart, in-flight dispatched
- * runs were already swept to `failed` by `sweepOrphans()`, so there is nothing
- * left to report on; persisting this set would create the opposite problem of
- * reporting for runs whose commands were long since redelivered.
- */
-const dispatched = new Set<string>();
-
-export function markDispatched(runId: string): void {
-  dispatched.add(runId);
-}
-
-export function isDispatched(runId: string): boolean {
-  return dispatched.has(runId);
-}
-
-/** Test seam. */
-export function resetDispatched(): void {
-  dispatched.clear();
-  queue.length = 0;
-}
 
 interface PendingReport {
   runId: string;
@@ -141,6 +142,7 @@ export function startRunReporter(): void {
   unsubscribe = bus.subscribe((event) => {
     if (event.type !== "run.updated" && event.type !== "run.completed") return;
     const run = event.run;
+    if (reportedTerminal.has(run.id)) return;
     if (!isDispatched(run.id)) return;
 
     const terminal = event.type === "run.completed";
@@ -155,9 +157,14 @@ export function startRunReporter(): void {
     enqueue(run.id, report);
 
     if (terminal) {
-      // The run is over and its history is settled; nothing further will be
-      // reported for it.
-      dispatched.delete(run.id);
+      reportedTerminal.add(run.id);
+      // NOT a delete of the dispatch state. The run's STATUS history is
+      // settled, but its transcript may still have unpushed events sitting in
+      // the transcript pusher's batch — see dispatched.ts's header for why
+      // deleting there used to truncate the last events of every transcript.
+      // This hands the run to "draining", where isDispatched() still reports
+      // true until the pusher confirms its queue for it is empty.
+      releaseWhenFlushed(run.id);
     }
   });
 }

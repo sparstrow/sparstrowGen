@@ -5,9 +5,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@sparstrow/ui/theme/theme-provider";
 import { Toaster } from "@sparstrow/ui/components/ui/sonner";
 import { wsHub } from "@sparstrow/ui/lib/ws";
+import { LiveEventsContext } from "@sparstrow/ui/lib/live-events";
 import { createClient } from "@web/utils/supabase/client";
 import { WebAccountProvider } from "@web/components/auth/account-provider";
 import type { AccountSnapshot } from "@web/lib/auth/account-snapshot";
+import { RealtimeLiveEventSource } from "@web/lib/realtime-live-events";
 
 export function Providers({
   account,
@@ -24,6 +26,12 @@ export function Providers({
         },
       }),
   );
+  // One instance for the tab's lifetime, matching `wsHub`'s own singleton
+  // shape: "connected" means at least one open transcript channel is
+  // currently subscribed, not a single persistent socket like `wsHub`'s.
+  // Given `queryClient` so an oversized-event marker can invalidate the
+  // affected run's `useRunEvents` query directly.
+  const [liveEvents] = useState(() => new RealtimeLiveEventSource(queryClient));
 
   useEffect(() => {
     // Bridge local websocket push events into query invalidation
@@ -141,8 +149,10 @@ export function Providers({
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <WebAccountProvider initial={account}>{children}</WebAccountProvider>
-        <Toaster />
+        <LiveEventsContext.Provider value={liveEvents}>
+          <WebAccountProvider initial={account}>{children}</WebAccountProvider>
+          <Toaster />
+        </LiveEventsContext.Provider>
       </QueryClientProvider>
     </ThemeProvider>
   );

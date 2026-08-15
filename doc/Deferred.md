@@ -204,3 +204,77 @@ and service registration is separate work per platform, with no
 **Unpark when:** a second or third real machine needs pairing that isn't the
 owner's own dev checkout, or before handing the app to anyone who isn't
 comfortable cloning a monorepo.
+
+---
+
+## D-12 — Realtime doorbell for command dispatch
+
+**Parked:** 2026-08-11, while decomposing M5.
+
+The plan's decision 2 gives each runtime a Realtime channel as a **doorbell** for
+dispatch — at-most-once, never trusted for delivery, with the 3s poll as the
+always-on fallback. M4 built the poll only and deferred the doorbell to M5, on
+the stated grounds that M5 would have to authenticate the daemon to Realtime
+anyway in order to broadcast transcript deltas.
+
+**M5 declined to.** Its decision 1 sends transcript broadcasts from the ingest
+route, which already holds the service role and has already resolved the
+workspace from the daemon's bearer token. So the premise that made the doorbell
+nearly free — "we are building daemon Realtime auth regardless" — is no longer
+true, and the doorbell would have to justify that auth model on its own.
+
+What it would cost alone: a custom JWT carrying a `runtime_id` claim, signed with
+the Supabase JWT secret, minted by a new endpoint, refreshed on a timer in core,
+and `realtime.messages` policies that understand a principal with no
+`auth.uid()`. A second authentication model for the daemon, for latency.
+
+What is actually lost by not having it: the delay between pressing **Run** and
+the run starting is bounded by the 3s poll instead of being near-instant. A run
+takes minutes. The poll costs one indexed `UPDATE … RETURNING` per runtime per
+3s, returning an empty array almost every time.
+
+**Unpark when:** the daemon needs to *receive* anything push-shaped rather than
+merely react faster — live HITL approvals, interactive chat turns, or a cancel
+that must land inside 100 ms. At that point the JWT is load-bearing rather than
+an optimisation, and the doorbell comes along with it for nearly nothing.
+
+---
+
+## D-13 — Memory sync: delete propagation and contradiction sync
+
+**Parked:** 2026-08-12, while decomposing M6.
+
+Two things M6's own plan text does not ask for, named explicitly rather than
+silently absorbed:
+
+**Delete does not propagate.** `deleteNote()` hard-deletes the vault file and
+the local `memory_notes` row with no tombstone, and the cloud schema has no
+`deletedAt`/`isDeleted` column. A note deleted on machine A stays alive
+forever on every machine that already pulled it, and a machine that pulls
+*after* the delete never learns it happened — the cloud row simply still
+exists. Building this needs a schema change M6 does not make: a tombstone
+column, a decision about how long a tombstone survives before real deletion
+(forever is a slow leak; too short risks a late-joining machine never seeing
+the delete at all), and a pull-side rule for applying a delete without racing
+an un-pushed local edit — the same class of race M6's own conflict handling
+already has to solve for edits, one layer deeper.
+
+**Contradictions do not sync**, even though `memoryContradictions` has a full
+cloud mirror already sitting in the schema from M1, structurally identical to
+`memory_notes`'s treatment. They are dream-cycle diagnostic output about one
+machine's local corpus — a contradiction flagged from notes that exist on
+that machine, evaluated against that machine's own embeddings. Syncing them
+raises a real question M6 was not scoped to answer: does a contradiction mean
+anything once the notes it references have been pulled onto a different
+machine with a different local index state? Parked rather than answered,
+because nothing today needs cross-machine contradiction review.
+
+- **If wrong:** delete — a user who deletes a note expecting it gone
+  everywhere finds it still live and still returned by `memory_search` on
+  every other paired machine, which reads as data the product failed to
+  respect a deletion of. Contradictions — nothing breaks; the feature simply
+  does not exist yet, and nothing currently expects it to.
+- **Clears when:** delete — someone designs the tombstone lifecycle and the
+  pull-side ordering rule. Contradictions — cross-machine contradiction
+  review becomes a real, requested feature rather than a table with an
+  existing shape it would be convenient to reuse.

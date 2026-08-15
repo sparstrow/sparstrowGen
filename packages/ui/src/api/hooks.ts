@@ -782,6 +782,45 @@ export function useRun(id: string): UseQueryResult<Run, ApiError> {
   });
 }
 
+/** Hard ceiling on pages fetched per call — see the note on `fetchAllRunEvents`. */
+export const RUN_EVENTS_MAX_PAGES = 50;
+
+/**
+ * Pages a single-run-events fetcher forward until a short page ends it.
+ *
+ * `GET /runs/:id/events` caps a single request at 2000
+ * (`apps/web/src/lib/api/handlers/runs.ts`), and `useRunEvents` used to
+ * request once with `limit: 500` and stop — a transcript longer than that was
+ * silently truncated, with no indication anything was missing. Until M5 no
+ * cloud transcript reached that length, so it was unreachable; now it is
+ * reachable, and it fails in exactly the case someone opens this page to
+ * watch: a long run.
+ *
+ * Extracted from `useRunEvents` so the loop is testable without React Query or
+ * a network mock — `fetchPage` is any `(afterSeq, limit) => Promise<events>`.
+ *
+ * `limit` here is the PAGE size, not a total cap — every page is fetched
+ * until the server returns fewer than a full page. `RUN_EVENTS_MAX_PAGES` is a
+ * defensive ceiling against a pathological response that never shrinks
+ * (25,000 events at the default page size), not a limit anyone should expect
+ * to hit.
+ */
+export async function fetchAllRunEvents(
+  fetchPage: (afterSeq: number, limit: number) => Promise<RunEvent[]>,
+  afterSeq: number,
+  limit: number,
+): Promise<RunEvent[]> {
+  const all: RunEvent[] = [];
+  let cursor = afterSeq;
+  for (let page = 0; page < RUN_EVENTS_MAX_PAGES; page++) {
+    const batch = await fetchPage(cursor, limit);
+    all.push(...batch);
+    if (batch.length < limit) break; // short page: nothing more to fetch
+    cursor = batch[batch.length - 1]!.seq;
+  }
+  return all;
+}
+
 export function useRunEvents(
   id: string,
   options: { afterSeq?: number; limit?: number } = {},
@@ -790,7 +829,12 @@ export function useRunEvents(
   const limit = options.limit ?? 500;
   return useQuery({
     queryKey: ["run-events", id],
-    queryFn: () => api<RunEvent[]>(`/runs/${id}/events${qs({ afterSeq, limit })}`),
+    queryFn: () =>
+      fetchAllRunEvents(
+        (cursor, pageLimit) => api<RunEvent[]>(`/runs/${id}/events${qs({ afterSeq: cursor, limit: pageLimit })}`),
+        afterSeq,
+        limit,
+      ),
     enabled: Boolean(id),
   });
 }

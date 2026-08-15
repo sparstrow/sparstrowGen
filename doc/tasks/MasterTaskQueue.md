@@ -124,24 +124,105 @@ owning task:
 - **`G-6`** — the per-runtime snapshot toggle. Closed in **6.7** via the
   `settings.set` command, in the Machines card rather than workspace settings.
 
-### Band 7+ — not yet decomposed
+### Band 7 — M5 transcripts (dual path)
 
-Scoped in `doc/plans/2026-08-09-daemon-cloud-control-plane.md`; task files are
-written when the band is next.
+Phase spec: [`M5/README.md`](M5/README.md). Decomposed 2026-08-11.
 
-| # | Phase | Tag | Depends on | Status |
+| # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 7.x | M5 — transcripts (dual path) | `[P]` | M4 | **next** — not decomposed |
-| 7.y | M6 — memory sync | `[P]` | M4 | not decomposed |
-| 7.z | M7 — route parity + Electron hosted load | `[P]` | M2 | not decomposed |
+| 7.1 | [T-M5-01 — event ingest route + batch contract](M5/T-M5-01-event-ingest-route.md) | `[S]` | — | ✅ done (2026-08-11) |
+| 7.2 | [T-M5-02 — broadcast fan-out + `realtime.messages` RLS](M5/T-M5-02-broadcast-and-rls.md) | `[S]` | 7.1 | ✅ done (staging, 2026-08-11) |
+| 7.3 | [T-M5-03 — core transcript pusher](M5/T-M5-03-transcript-pusher.md) | `[P]` | 7.1 | ✅ done (2026-08-11) |
+| 7.4 | [T-M5-04 — durable replay: cursor, backfill, ceiling](M5/T-M5-04-durable-replay.md) | `[C]` | 7.3 | ✅ done (2026-08-11) |
+| 7.5 | [T-M5-05 — UI: live transcript over the right transport](M5/T-M5-05-ui-live-transcript.md) | `[P]` | 7.2 | ✅ done (2026-08-12) |
+| 7.6 | [T-M5-06 — verification](M5/T-M5-06-verification.md) | `[S]` | 7.1–7.5 | ⏸ deferred to the owner (2026-08-12) |
+
+7.1 and 7.2 are `[S]` for the third phase running: they define the HTTP and SQL
+contracts the other tasks compile against. 7.3 needs only the contract, so the
+whole daemon half runs in parallel with the web half. 7.4 is `[C]` rather than
+`[P]` because it shares `transcripts.ts` with 7.3.
+
+**M5 does not inherit the Realtime doorbell after all.** M4 deferred it here on
+the grounds that M5 must authenticate the daemon to Realtime anyway — and M5's
+decision 1 declines to, because the server can broadcast from a route that
+already holds the service role and already knows the workspace. The doorbell is
+parked as [D-12](../Deferred.md) with what would unpark it.
+
+**7.6 is deferred, not blocking.** Most of its checklist needs a second real
+device/account, a genuine 60-second network cut on the daemon's machine, or a
+browser pane that renders — none available to the agent building this, and the
+network cut specifically withheld pending the owner's own say-so rather than
+done unilaterally. Recorded as [`G-13`](../KnownGaps.md). M6 and M7 depend on
+M4, not M5, and proceed regardless — see Band 8.
+
+### Band 8 — M6 memory sync
+
+Phase spec: [`M6/README.md`](M6/README.md). Decomposed 2026-08-12.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 8.1 | [T-M6-01 — sync contract + daemon routes](M6/T-M6-01-sync-contract.md) | `[S]` | — | done (2026-08-12) |
+| 8.2 | [T-M6-02 — local schema: sync state + pull cursor](M6/T-M6-02-local-schema.md) | `[P]` | — | done (2026-08-12) |
+| 8.3 | [T-M6-03 — push: hook + reconciliation sweep](M6/T-M6-03-push.md) | `[P]` | 8.1, 8.2 | done (2026-08-12) |
+| 8.4 | [T-M6-04 — pull: command-triggered + full sweep](M6/T-M6-04-pull.md) | `[C]` | 8.1, 8.2 | done (2026-08-12) |
+| 8.5 | [T-M6-05 — verification](M6/T-M6-05-verification.md) | `[S]` | 8.1–8.4 | ⏸ needs a second machine |
+
+8.1 defines the HTTP contract 8.3 and 8.4 compile against; 8.2 is pure SQLite
+with no dependency on it, so the two run fully in parallel. 8.3 and 8.4 are
+`[C]` against each other rather than `[P]` because both live in
+`packages/core/src/cloud/memory-sync.ts` — the same file split M5's transcript
+pusher and its backfill sweep used.
+
+**8.1–8.4 landed 2026-08-12; 8.5 has not.** Every assertion in it that matters
+needs a second paired machine, which this repo does not have — recorded as
+[`G-15`](../KnownGaps.md) rather than reported as passing. Two corrections the
+spec got wrong, both caught before merge and written up in the phase README:
+`content` had to become the whole file rather than the body (the body-only shape
+was a permanent push/pull ping-pong), and the push route needed a cross-workspace
+id guard the spec never named.
+
+**M6 is mostly wiring over decisions M1 already made.** The cloud
+`memory_notes` table, its sync-shaped index, and even the anticipated
+`memory.sync` command kind were scaffolded in M1 and never connected to
+anything — confirmed by research before writing task 01, not assumed.
+
+### Band 9 — M7 route parity + Electron
+
+Phase spec: [`M7/README.md`](M7/README.md). Decomposed 2026-08-13.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 9.1 | [T-M7-01 — the five missing routes](M7/T-M7-01-routes.md) | `[P]` | — | done (2026-08-13) |
+| 9.2 | [T-M7-02 — Electron loads the hosted app](M7/T-M7-02-electron-hosted.md) | `[C]` | — | done (2026-08-13) |
+| 9.3 | [T-M7-03 — Electron offline and failure screen](M7/T-M7-03-electron-offline.md) | `[C]` | — | done (2026-08-13) |
+| 9.4 | [T-M7-04 — verification](M7/T-M7-04-verification.md) | `[S]` | 9.1–9.3 | ⏸ not run — [`G-16`](../KnownGaps.md) |
 
 M5, M6 and M7 are `[P]` against each other: transcripts, memory sync, and the
-Electron shell touch disjoint files and can be built by different workers once
-their prerequisites land. M7 needs only M2, so it can start early if M4 stalls.
+Electron shell touch disjoint files. M7 needs only M2, so it can start at any
+time. Inside the band, 9.1 is `[P]` against the other two — it lives entirely in
+`apps/web/src/app/` — while 9.2 and 9.3 are `[C]` because both edit
+`packages/desktop/src/main.ts`.
 
-**M5 inherits one decision from M4**: the Realtime doorbell. M4 ships the 3s poll
-only, because the daemon still cannot authenticate to Realtime and M5 has to
-solve that anyway to broadcast transcript deltas. See `M4/README.md` decision 1.
+**9.1–9.3 landed 2026-08-13; 9.4 has not been run.** The routes are registered
+(the build lists all five) and the Electron half is tested as logic, but nothing
+has been *rendered* — no page looked at, no window opened, no offline screen
+seen. Recorded as [`G-16`](../KnownGaps.md). A runtime route check was attempted
+and blocked by the app's own "not configured" guard: this worktree has no
+`.env.local`, and copying Supabase secrets into one was not worth a routing
+check.
+
+**Two things decomposition found, both from reading the code rather than the
+plan's bullets.** The routes half is smaller than it looks: the TanStack-to-Next
+adapter already solves route params, and all four detail endpoints already exist
+in `/api/v1`, so each page is a seven-line re-export. The Electron half is
+**blocked on a premise that stopped being true** — "point `loadURL` at the hosted
+app" assumes a deployment, and there isn't one. 9.2 ships the URL as
+configuration so the work lands anyway, but section D of 9.4 cannot be verified
+until the owner deploys. That is the phase's one owner action.
+
+Also caught: the plan's bullet says the goal route is `goals`, while the router
+and the component both say `/tasks/goals/$goalId`. Building the plan's version
+would produce a page that renders correctly and is linked from nowhere.
 
 ---
 
@@ -172,7 +253,8 @@ mechanism was explained. It is live and verified end to end.
 |---|---|---|
 | GitHub / Google sign-in | **Deferred → [D-8](../Deferred.md)** | Not blocked work — parked by the owner 2026-08-10. Code is complete and verified; the buttons render disabled and light up on their own once the providers are enabled. |
 | Leaked password protection | **Supabase plan** | Requires Pro; not available on the current plan (confirmed 2026-08-10). No SQL equivalent, so nothing in this repo can fix it. Verified off by signing up with `password123` and getting a session. Not an action item — the advisor will keep flagging it. |
-| `/runs/[runId]` render + Realtime refetch | M4 (6.8) | Both need a run to exist. M4's dispatch creates one, so the page becomes openable — but it shows the run *row* only; the transcript inside it is M5. |
+| `/runs/[runId]` transcript | M5 (7.6) | M4 made the page openable and the run row live; the transcript inside it is empty until M5 writes `run_events` to the cloud. |
+| Realtime doorbell for dispatch | **Deferred → [D-12](../Deferred.md)** | Not blocked work. The 3s poll is correct and always-on; the doorbell is a latency improvement that M5's decision 1 declined to buy with a second daemon auth model. |
 | Agent definitions differ between cloud and machine | **Deferred → [D-9](../Deferred.md)** | Not blocked work. M4 resolves a cloud agent to a local one by slug and blocks legibly on a miss; syncing definitions is a separate feature with its own conflict model. |
 
 `OQ-1` (protecting uncommitted agent work) was **answered and built** on

@@ -27,7 +27,7 @@ import {
 import { cn } from "@sparstrow/ui/lib/utils";
 import { Badge } from "@sparstrow/ui/components/ui/badge";
 import { UpdateBanner } from "@sparstrow/ui/components/update-banner";
-import { wsHub } from "@sparstrow/ui/lib/ws";
+import { useLiveEvents } from "@sparstrow/ui/lib/live-events";
 import { useAttentionQueue } from "@sparstrow/ui/api/hooks";
 import { ThemeToggle } from "@sparstrow/ui/theme/theme-toggle";
 import { Breadcrumbs } from "@sparstrow/ui/components/layout/breadcrumbs";
@@ -80,9 +80,20 @@ const NAV_GROUPS: { heading: string | null; items: NavItem[] }[] = [
   },
 ];
 
+/**
+ * M5: reports whichever transport this host actually installed — Realtime
+ * here, `wsHub` in the local UI — via the same injected source `run-detail.tsx`
+ * subscribes to. A chip claiming "live" while the real channel is dead is
+ * worse than today's permanent-offline reading, because permanent-offline is
+ * at least conservative; getting this wrong in the new direction is the trap.
+ */
 function useWsConnected(): boolean {
-  const [connected, setConnected] = React.useState(wsHub.isConnected);
-  React.useEffect(() => wsHub.onStatusChange(setConnected), []);
+  const source = useLiveEvents();
+  const [connected, setConnected] = React.useState(source.isConnected);
+  React.useEffect(() => {
+    setConnected(source.isConnected);
+    return source.onStatusChange(setConnected);
+  }, [source]);
   return connected;
 }
 
