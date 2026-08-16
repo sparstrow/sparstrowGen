@@ -5,7 +5,7 @@
 | **Status** | **Draft v3 — owner-reviewed 2026-08-16, all open questions resolved. Ready to plan** |
 | **Created** | 2026-08-16 |
 | **Trigger** | Owner, after deploying `staging.sparstrow.com`: a dedicated Machines menu with CRUD and live status, and an interactive step-by-step setup guide |
-| **Plan** | not written yet — this spec is ready for one |
+| **Plan** | [`../plans/2026-08-16-setup-and-machines.md`](../plans/2026-08-16-setup-and-machines.md) — written 2026-08-16, phases M8–M11 |
 | **Open questions** | none |
 
 > **Scope.** From a fresh account to a machine that runs work. Setup, machines,
