@@ -81,6 +81,18 @@ truth in its wording instead**; the next round makes the truth better.
 only home. Two implementations of the same controls is the duplication that
 drifts — one gets a fix and the other does not.
 
+**5. The "workspace" setup step gets a real action: naming it.** Every account
+already gets a workspace auto-created on first sign-in — hardcoded to
+`"Personal Workspace"` with a generated slug
+([`004_bootstrap_rpc.sql:92-98`](../../packages/shared/drizzle/policies/004_bootstrap_rpc.sql:92)) —
+and no rename surface exists anywhere in the codebase today. Without this
+decision, the guide's middle step would have nothing to do and nothing to
+show as incomplete. The owner chose to build workspace name/slug editing
+rather than drop the step or show it as always-done: a small, genuinely new
+surface, and the first thing a multi-workspace future would need anyway.
+**This is real new scope** the spec did not originally ask for — flagged here
+so the plan doesn't absorb it silently.
+
 ---
 
 ## What I expect instead
@@ -179,12 +191,18 @@ machine using only what the guide tells you.
    says so and why, rather than failing when I click.
 6. **Given** I want to skip ahead, **When** I try, **Then** I can — the guide
    is a guide, not a gate.
-7. **Given** I reach the machines step, **When** I read it, **Then** it tells
+7. **Given** I reach the workspace step, **When** I read it, **Then** I can
+   give my workspace a real name in place, and doing so is what marks the step
+   done (decision 5) — the default `"Personal Workspace"` name does not count
+   as complete.
+8. **Given** I reach the machines step, **When** I read it, **Then** it tells
    me plainly what connecting a machine currently requires, including the dev
    checkout, rather than implying a command that does not exist (decision 3).
-8. **Given** an account that existed before this guide shipped, **When** I open
-   it, **Then** the guide reflects what I have actually already done, not a
-   fresh start.
+9. **Given** an account that existed before this guide shipped, **When** I open
+   it, **Then** the guide reflects what I have actually already done — an
+   existing workspace still carrying its auto-generated name reads as
+   not-yet-done, exactly like a new one, since nothing about that account ever
+   asked the owner to name it either.
 
 ---
 
@@ -263,7 +281,8 @@ inside the window.
 |---|---|---|
 | **Machines** (sidebar destination) | **new** — promoted out of Settings | Pair, see status, rename, revoke, remove |
 | **Setup guide** | **new** | Follow steps: profile → workspace → machines |
-| Settings → Workspace → General | existing | **Loses the Machines card entirely** (decision 4) |
+| **Workspace naming** | **new** (decision 5) | Give the auto-created workspace a real name and slug |
+| Settings → Workspace → General | existing | **Loses the Machines card entirely** (decision 4); gains the workspace-naming control, or the guide links to it — plan's call |
 | Pairing command on the machine | existing CLI, never run against a deployment | Redeem a code; check status; understand failures |
 | Run detail (live transcript) | existing, live half unproved | Watch work execute on the paired machine |
 | Desktop window | existing, never launched | See the hosted product |
@@ -355,6 +374,12 @@ but is never started; a guide step completed elsewhere in the app.
 - **FR-016**: Instructions for connecting a machine MUST state plainly what is
   actually required today, including the dev checkout — the product must not
   imply a command that does not exist (decision 3).
+- **FR-017**: The owner MUST be able to give their workspace a real name (and
+  slug) from the app; today this is only ever set automatically, to
+  `"Personal Workspace"`, with no surface to change it (decision 5).
+- **FR-018**: The workspace setup step MUST read as done only once the
+  workspace's name differs from its auto-generated default — a workspace's
+  mere existence MUST NOT count, since every account has one automatically.
 
 ### Key entities
 
@@ -363,6 +388,8 @@ but is never started; a guide step completed elsewhere in the app.
   of capabilities.
 - **Pairing code**: short-lived, single-use secret joining one machine to one
   workspace.
+- **Workspace**: the account's namespace, auto-created on first sign-in with a
+  generated placeholder name. Has an owner-chosen name and slug once named.
 - **Setup step**: one thing that must be true for the account to be usable.
   Derived from real state, never stored as a tick.
 - **Run**: work started from the browser, executing on a machine, reporting
@@ -410,13 +437,18 @@ but is never started; a guide step completed elsewhere in the app.
 **Stories captured:** 2026-08-16 — US1 and US2 from the owner directly;
 US3–US5 carried forward as inferred.
 
-**Reviewed:** 2026-08-16 — **accepted, with four decisions** recorded above:
+**Reviewed:** 2026-08-16 — **accepted, with five decisions** recorded above:
 "unreachable" over "turned off", sleep detection deferred to `D-16`,
-distribution sequenced as its own round after this one, and the Settings
-Machines card removed outright.
+distribution sequenced as its own round after this one, the Settings Machines
+card removed outright, and — added in a follow-up pass, same day, while
+checking the plan was ready to start — the workspace setup step given a real
+action (naming) rather than left decorative.
 
 **What changed as a result:** the three-state status story was folded into US1
 and reduced to two states, dropping the story count from six to five. The
-setup guide gained two scenarios — honest wording about the dev checkout, and
-correct behaviour for accounts that predate it — both consequences of
-decisions 3 and 2 respectively.
+setup guide gained three scenarios — honest wording about the dev checkout,
+correct behaviour for accounts that predate it, and workspace naming as the
+step's actual completion signal — consequences of decisions 3, 2, and 5
+respectively. Decision 5 is genuinely new scope, flagged as such at decision 5
+itself: workspace name/slug editing did not exist in any form before this
+spec, in code or in the original ask.
