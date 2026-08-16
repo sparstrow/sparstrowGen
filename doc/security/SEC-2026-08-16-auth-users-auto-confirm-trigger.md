@@ -95,10 +95,10 @@ Worst case, once deployed: unverified account creation against arbitrary
 addresses, and any logic that trusts `email_confirmed_at` (access grants,
 invitations, notifications) is trusting a value that means nothing.
 
-Secondary: it masked [`G-11`](../KnownGaps.md). Email delivery has still never
-been observed working, and this trigger guaranteed sign-up would never exercise
-the SMTP path — so the delivery gap could not surface through sign-up even in
-principle.
+Secondary: it masked [`G-11`](../KnownGaps.md). The trigger guaranteed sign-up
+would never exercise the mail path, so the delivery gap could not surface through
+sign-up even in principle. Dropping this trigger is what finally allowed delivery
+to be tested — and it worked, closing `G-11` the same day.
 
 ## Resolution
 

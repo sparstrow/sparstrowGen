@@ -3,6 +3,28 @@
 **Owner action.** Nothing in this repo can tell whether a message was delivered;
 that needs someone to read an inbox.
 
+> ## ✅ Status, 2026-08-16 — delivery works; steps 1 and 3 are done
+>
+> The built-in mailer **is** delivering. A sign-up confirmation and a magic link
+> both arrived in a real inbox and both signed the owner in. `G-11` is closed.
+>
+> **Step 3 is settled too**: "Confirm email" is **ON** and now genuinely takes
+> effect. Until 2026-08-16 it did not — a `BEFORE INSERT` trigger on `auth.users`
+> confirmed every new row, so the setting was a no-op and sign-up never triggered
+> a send at all. Dropped by
+> [`policies/011_drop_auto_confirm.sql`](../../packages/shared/drizzle/policies/011_drop_auto_confirm.sql);
+> account in
+> [`../security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md`](../security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md).
+> **Note this reverses the warning in step 3 below** — that text says turn
+> "Confirm email" on only *after* SMTP works. It is already on, and safe, because
+> delivery is proven for the addresses currently in use.
+>
+> **Step 2 (custom SMTP) is deliberately parked** — [`../Deferred.md`](../Deferred.md)
+> **D-14**. Everything below about the built-in mailer's limits is still exactly
+> true and is the reason it will need doing: it serves org members only, silently
+> drops everyone else, and is rate-limited. Come back here when someone outside
+> the Supabase org needs mail, or the app deploys publicly.
+
 ## Why this exists
 
 On 2026-08-10 the owner reported: *"I can't create an account, I'm not getting a
@@ -79,8 +101,16 @@ and can never be confirmed.
 
 ## What to check when it's done
 
+This checklist now applies to **step 2 (custom SMTP) only** — steps 1 and 3 are
+already complete, see the status box at the top.
+
 - A brand-new address that is **not** in your Supabase org can sign up and
-  receive whatever mail its flow requires.
+  receive whatever mail its flow requires. This is the one that matters: an
+  org-member address proves nothing about it, which is exactly why `G-11` closing
+  did not close the SMTP work.
 - **Authentication → Logs** shows sends, not errors.
-- Update the row in [`README.md`](README.md) to ✅, and clear `G-11` from
-  [`../KnownGaps.md`](../KnownGaps.md).
+- Update the parked row in [`README.md`](README.md) to ✅ and delete **D-14** from
+  [`../Deferred.md`](../Deferred.md).
+
+`G-11` is already closed — see its closure note in
+[`../KnownGaps.md`](../KnownGaps.md); do not re-raise it.

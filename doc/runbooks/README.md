@@ -10,7 +10,8 @@ Rows without one have nothing to click yet — the note explains why.
 
 | Status | Action | Why it needs you | Guide |
 |---|---|---|---|
-| 🔲 pending | **Confirm whether Supabase is actually delivering email** — then configure custom SMTP if not | Supabase's built-in mailer only delivers to **members of the project's Supabase org** and is capped at a few messages an hour. Nothing in this repo can see whether a message landed; only you can read the inbox. Sign-**up** does not need email today (see below), but magic links and password resets do. | [email-delivery.md](email-delivery.md) |
+| ✅ done | ~~**Confirm whether Supabase is actually delivering email**~~ | **Confirmed 2026-08-16.** A sign-up confirmation and a magic link both arrived in a real inbox and both signed you in — the first time the built-in mailer had ever been exercised (every earlier link was minted with the admin API, which sends no mail). Closed `G-11`. Needed [`policies/011_drop_auto_confirm.sql`](../../packages/shared/drizzle/policies/011_drop_auto_confirm.sql) first, because a trigger was confirming every signup and so skipping the send entirely. | [email-delivery.md](email-delivery.md) |
+| ⏸️ parked | Configure **custom SMTP** | Deliberately deferred — see [`../Deferred.md`](../Deferred.md) **D-14**. The built-in mailer serves you today because both accounts are members of the project's Supabase org; it delivers to **nobody else**, silently, and is capped at a few messages an hour. Unparks when anyone outside the org needs mail, or the app deploys publicly — whichever comes first. | [email-delivery.md](email-delivery.md) |
 | 🔲 pending | **Deploy the web app and record its URL** — then set `SPARSTROW_CLOUD_URL` on each machine and `SPARSTROW_APP_URL` for the desktop shell | Needs a hosting account and the project’s secrets, including the service role key. The code is done: M7 shipped the configuration and a clean fallback, so there is nothing left to build — only somewhere to point it. Until then every daemon defaults to `localhost:3000` and the desktop window loads the local core’s own UI. | [deploy-web-app.md](deploy-web-app.md) |
 | 🔲 pending | Register OAuth apps for GitHub and Google, paste the client secrets into Supabase | Social sign-in is built and verified; both providers are currently disabled at the provider level, so the buttons render disabled | [oauth-providers.md](oauth-providers.md) |
 | ⛔ blocked | Enable leaked-password protection | Requires Supabase's Pro plan — confirmed 2026-08-10 there is nothing to enable on the current plan. Nothing to do until you upgrade; re-check the box below then. | — |
@@ -25,12 +26,13 @@ Rows without one have nothing to click yet — the note explains why.
 > verified gone. Account:
 > [`../security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md`](../security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md).
 >
-> **Signup therefore now depends on email actually arriving**, which has never
-> been proven (`G-11`, top row of this table). If a confirmation mail does not
-> turn up, the account exists but cannot be confirmed — recover by confirming it
-> by hand in **Authentication → Users**, or re-apply the trigger. Supabase's
-> built-in mailer only serves addresses that are members of the project's
-> Supabase org.
+> **Signup therefore now depends on email actually arriving** — which was
+> confirmed working the same day (top row of this table; `G-11` closed). That
+> holds for **members of the project's Supabase org only**: the built-in mailer
+> silently drops everyone else, which is what the parked custom-SMTP row is for.
+> If a confirmation mail ever fails to turn up, the account exists but cannot be
+> confirmed — recover by confirming it by hand in **Authentication → Users**. Do
+> **not** re-apply the dropped trigger.
 >
 > <details><summary>Superseded 2026-08-10 note (kept for history)</summary>
 >
@@ -50,9 +52,11 @@ folder, but it is a procedure an **agent** follows, not something you do. It is
 here because it is operational reference that never graduates into code.
 
 **Status legend:** 🔲 pending — do it whenever you're ready · ⛔ blocked — can't
-be done yet, the reason is the whole action item · ✅ done — leave completed
-rows here for a while rather than deleting; they're proof of what you already
-handled if the same question comes up again.
+be done yet, the reason is the whole action item · ⏸️ parked — deliberately
+deferred with a recorded trigger for picking it back up, tracked in
+[`../Deferred.md`](../Deferred.md) · ✅ done — leave completed rows here for a
+while rather than deleting; they're proof of what you already handled if the
+same question comes up again.
 
 ---
 
