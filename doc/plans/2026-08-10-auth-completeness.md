@@ -124,10 +124,14 @@ Against live staging, with real sessions:
   Confirmed off by signing up with `password123` and receiving a session.
   Accepted as a known gap, now partly mitigated by magic-link sign-in below;
   see the policies README for the residual risk.
-- **Decide what happens to `auto_confirm_user()` before production.** It marks
-  every signup's email as confirmed; with the "Create one" button live, anyone
-  who can reach the app can make a working account without controlling the
-  address.
+- ~~**Decide what happens to `auto_confirm_user()` before production.**~~
+  **Decided 2026-08-16: dropped.** It marked every signup's email as confirmed;
+  with the "Create one" button live, anyone who could reach the app could make a
+  working account without controlling the address. Removed by
+  [`policies/011_drop_auto_confirm.sql`](../../packages/shared/drizzle/policies/011_drop_auto_confirm.sql).
+  The decision surfaced only because the trigger was *also* silently overriding
+  the dashboard's "Confirm email" setting — see
+  [`doc/security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md`](../security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md).
 
 ## Addendum — magic-link sign-in restored (2026-08-10)
 

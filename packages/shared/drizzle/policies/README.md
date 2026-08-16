@@ -122,6 +122,7 @@ policies/007_delete_own_account.sql
 policies/008_redeem_pairing_code.sql   M3 — pairing code → runtime + token
 policies/009_command_spine.sql         M4 — start/cancel a run, claim/ack commands
 policies/010_transcript_broadcast.sql  M5 — who may subscribe to a run's transcript
+policies/011_drop_auto_confirm.sql     drop the auth.users auto-confirm trigger
 ```
 
 **010 is the first policy on a table this project does not own.**
@@ -239,7 +240,19 @@ a grant has been widened and the pairing flow is exposed.
   Partly mitigated since 2026-08-10: **magic-link sign-in is back**, and an
   account that signs in by emailed link has no password to be breached at all.
   It is opt-in per user, so this narrows the exposure rather than closing it.
-- **`auto_confirm_user()` marks every new signup's email as confirmed** (see
-  005). Combined with the "Create one" button on the login page, anyone who can
-  reach the app can make a working account without controlling the address.
-  Acceptable on staging; it must not reach production.
+- ~~**`auto_confirm_user()` marks every new signup's email as confirmed**~~ —
+  **closed 2026-08-16 by [`011_drop_auto_confirm.sql`](011_drop_auto_confirm.sql).**
+  The trigger and function are dropped; verified absent from `pg_trigger` /
+  `pg_proc` after applying.
+
+  Worth reading `011`'s header before assuming this was routine. The trigger
+  **silently overrode the dashboard's "Confirm email" setting**: both the
+  dashboard and GoTrue's `/auth/v1/settings` reported confirmation as enforced
+  (`mailer_autoconfirm: false`) while the database did the opposite, so toggling
+  the setting changed nothing and the contradiction was invisible to every check
+  an operator would normally run. That characteristic — a database object
+  overriding a platform setting, with both sources of truth still reporting the
+  setting's value — is the part worth remembering, not the trigger itself.
+  Full account: [`doc/security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md`](../../../../doc/security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md).
+
+  **Signup now depends on email delivery**, which is still unproven (`G-11`).

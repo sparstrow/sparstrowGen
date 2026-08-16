@@ -1,8 +1,18 @@
 # BUG-2026-08-16-signup-auto-confirms
 
-**Status:** 🟡 investigating
+**Status:** 🟡 investigating — root cause found, fix not yet applied
 **Reported by:** owner
 **Reported:** 2026-08-16
+
+> **Root cause: the `BEFORE INSERT` trigger `on_auth_user_created_auto_confirm`
+> on `auth.users` stamps `email_confirmed_at` on every new row, so GoTrue never
+> sends a confirmation and issues a session immediately.** It is a deliberate,
+> tracked pre-M1 legacy object (`policies/005_harden_legacy_functions.sql`), kept
+> for staging with an explicit "must not ship to production" note — and an owner
+> decision from 2026-08-10 that was never made. What nobody recorded is that it
+> makes the dashboard's "Confirm email" toggle a **no-op**, which is why toggling
+> it changed nothing. Full write-up:
+> [`../security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md`](../security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md).
 
 ## Symptom
 
@@ -36,17 +46,33 @@ Ruled out so far:
   `packages/shared/drizzle/**` and found no such trigger; `bootstrap_workspace()`
   only runs post-auth and requires `auth.uid()` to already exist.
 
-Current leading theory, not yet confirmed: **the app may be pointed at a
-different Supabase project than the one being edited in the dashboard.**
-`apps/web/.env.local` resolves to project ref `pnymngoqseltgigcfevq`
-(`https://pnymngoqseltgigcfevq.supabase.co`). The dashboard screenshot showed
-org `sparstrowgen` → project `sparstrowgen-staging` → branch `main
-PRODUCTION`. Waiting on the owner to confirm whether that project's **Project
-Settings → General → Reference ID** actually reads `pnymngoqseltgigcfevq`.
+Also ruled out during the second pass:
+- **Wrong Supabase project.** Owner confirmed the dashboard project ref matches
+  `.env.local`'s `pnymngoqseltgigcfevq`.
+- **Auth Hooks.** Owner confirmed none are configured (screenshot).
+- **`mailer_autoconfirm` actually being on.** `/auth/v1/settings` on the live
+  project returns `mailer_autoconfirm: false` — the dashboard toggle is real and
+  correctly applied at the GoTrue level.
 
-Relevant code path: `apps/web/src/app/login/page.tsx` — the auto-login is
-driven entirely by whether Supabase's `signUp()` response includes
-`data.session`; see the comment at the call site.
+**Root cause (2026-08-16):** the `BEFORE INSERT` trigger
+`on_auth_user_created_auto_confirm` on `auth.users`, calling
+`public.auto_confirm_user()`, which sets
+`NEW.email_confirmed_at := COALESCE(NEW.email_confirmed_at, now())`. GoTrue then
+sees an already-confirmed user, skips the confirmation email, and issues a
+session. Found by querying `pg_trigger` on the live database. Evidence and fix:
+[`../security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md`](../security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md).
+
+**Two investigation mistakes worth not repeating**, both mine:
+1. The first pass searched the **repo** for a trigger and concluded there was
+   none. The authoritative source for "what triggers exist" is the **live
+   database** (`pg_trigger`), not the migration files.
+2. That same grep surfaced `policies/005_harden_legacy_functions.sql`, which
+   documents this function explicitly — and I did not open it. Following up
+   every file a search returns would have found this in the first minutes.
+
+The app code was never at fault. `apps/web/src/app/login/page.tsx` correctly
+branches on whether `signUp()` returned `data.session` — it was handed a real
+session and did the right thing with it.
 
 ## Impact
 

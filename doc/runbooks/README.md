@@ -16,15 +16,21 @@ Rows without one have nothing to click yet — the note explains why.
 | ⛔ blocked | Enable leaked-password protection | Requires Supabase's Pro plan — confirmed 2026-08-10 there is nothing to enable on the current plan. Nothing to do until you upgrade; re-check the box below then. | — |
 | ✅ done | Add worktree ports to Authentication → URL Configuration → Redirect URLs | Worktree dev servers each get their own port so parallel sessions don't collide, but Supabase's redirect allow-list is static per-URL and doesn't wildcard ports — without these, any email confirmation/magic-link/reset link opened from a non-3000 worktree silently redirects to the Site URL instead of back to the worktree. **Added 2026-08-16:** `http://localhost:3000/**` through `3100/**` in steps of 10 (11 rows). Allocation of these ports to specific worktrees is now tracked in [`../../.claude/skills/worktree-orchestration/references/port-registry.md`](../../.claude/skills/worktree-orchestration/references/port-registry.md) — if that pool runs out, this row reopens for the next range. | — |
 
-> ℹ️ **Current auth configuration, verified live 2026-08-16.** "Confirm email" is
-> **ON** in the Supabase dashboard (confirmed via screenshot, changed since the
-> 2026-08-10 note below). Despite that, a brand-new signup on `agent@sparstrow.com`
-> still came back fully confirmed and auto-signed-in with no email sent —
-> `Created at` / `Confirmed at` / `Last signed in` all identical, no
-> `Confirmation sent at`. Root cause not yet found; ruled out so far: stale
-> reused account, `service_role` key mistakenly used client-side, a Postgres
-> trigger auto-confirming `auth.users`. Investigation and repro steps:
-> [`../bug/BUG-2026-08-16-signup-auto-confirms.md`](../bug/BUG-2026-08-16-signup-auto-confirms.md).
+> ℹ️ **Current auth configuration, as of 2026-08-16.** "Confirm email" is **ON**
+> and now actually takes effect. Until today it did not: a `BEFORE INSERT`
+> trigger on `auth.users` (`on_auth_user_created_auto_confirm`) confirmed every
+> new row, so the setting was a **no-op** — the dashboard and GoTrue's
+> `/auth/v1/settings` both reported it enforced while the database overrode it.
+> Dropped by [`policies/011_drop_auto_confirm.sql`](../../packages/shared/drizzle/policies/011_drop_auto_confirm.sql);
+> verified gone. Account:
+> [`../security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md`](../security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md).
+>
+> **Signup therefore now depends on email actually arriving**, which has never
+> been proven (`G-11`, top row of this table). If a confirmation mail does not
+> turn up, the account exists but cannot be confirmed — recover by confirming it
+> by hand in **Authentication → Users**, or re-apply the trigger. Supabase's
+> built-in mailer only serves addresses that are members of the project's
+> Supabase org.
 >
 > <details><summary>Superseded 2026-08-10 note (kept for history)</summary>
 >
