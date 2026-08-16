@@ -344,3 +344,50 @@ At that point, create a dedicated production Supabase project, connect it to
 scratch (it does not inherit `staging`'s settings) — then follow
 `deploy-web-app.md`'s "When `main` goes live" section to point a machine's
 `SPARSTROW_CLOUD_URL`/`SPARSTROW_APP_URL` at `sparstrow.com`.
+
+---
+
+## D-16 — Waking a sleeping machine from the web app
+
+**Parked:** 2026-08-16, by the owner, while giving the Machines user stories —
+"if a machine is sleeping, we might need to add or trigger the machine to wake
+up… Defer this task now for later."
+
+The intent: a machine showing as asleep gets a control in the web app that
+wakes it, so work can be sent to it without walking over to the computer. A
+machine that is genuinely powered off stays out of reach, and that is accepted.
+
+Reporting sleep is **not** deferred — that is US2 of
+[`specs/2026-08-16-setup-and-machines.md`](specs/2026-08-16-setup-and-machines.md).
+Only *acting* on it is parked here.
+
+**The constraint that makes this bigger than a button**, recorded now so
+nobody unparks it expecting an afternoon's work: a cloud web app cannot wake a
+machine on its own. Wake-on-LAN works by broadcasting a magic packet **on the
+machine's own local network**, and `staging.sparstrow.com` is not on it. The
+packet cannot route across the internet to a machine behind NAT. So waking
+needs one of:
+
+- **a second always-on paired machine on the same LAN**, which receives the
+  request from the cloud and broadcasts the packet locally — the only option
+  that needs no router configuration, and it means waking requires two
+  machines on that network;
+- **router configuration** — a directed-broadcast forward or a static ARP
+  entry, per network, often disabled by default and a real security tradeoff;
+- **vendor out-of-band management** (Intel AMT/vPro and equivalents), which is
+  enterprise hardware only and not present on typical machines.
+
+Also unverified: whether the target machine's NIC has WoL enabled at all — it
+is a BIOS/firmware setting that is off by default on many consumer machines,
+and no amount of software fixes that.
+
+- **If wrong:** nothing breaks — the feature simply does not exist, and a
+  sleeping machine is woken the way it is woken today, by touching it. The
+  risk is the opposite one: shipping a **Wake** button that silently does
+  nothing on most networks would be worse than having no button, because it
+  teaches the owner the app is unreliable.
+- **Unpark when:** the owner has a second always-on machine on the same
+  network as the one they want woken (making the relay option real), **or**
+  reaching a sleeping machine becomes routine friction rather than an
+  occasional annoyance. Whichever comes first — and confirm WoL is actually
+  enabled on the target machine's NIC before building anything.
