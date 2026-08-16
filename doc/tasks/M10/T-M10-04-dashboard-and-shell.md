@@ -61,27 +61,53 @@ out.
 Today it prints the literal `"Sparstrowgen"`
 ([`workspace-switcher.tsx:50`](../../../packages/ui/src/components/layout/workspace-switcher.tsx:50)).
 It becomes the workspace's name when there is one, falling back to
-`"Sparstrowgen"` when `useWorkspace()` has no data — which is the case in the
-desktop build, where there is no cloud workspace at all. The dropdown label at
-line 60 keeps showing the account name; the two lines answer different
-questions.
+`"Sparstrowgen"` in **two** cases:
+
+1. `useWorkspace()` has no data — the desktop build, where there is no cloud
+   workspace at all.
+2. `workspace.name` is `""` — a real workspace nobody has named yet, which after
+   M9 is the state every fresh account starts in.
+
+Case 2 is new and is the one that will be missed. Without it the sidebar renders
+an empty string and the workspace line silently vanishes. `name || "Sparstrowgen"`
+covers both, and the same expression is needed anywhere else a workspace name is
+shown — grep for it.
+
+The dropdown label at line 60 keeps showing the **account** name; the two lines
+answer different questions. It needs the same treatment: `account.name` is now
+`""` for a fresh account, so fall back to the email, which is always present and
+is genuinely the person's identifier until they name themselves.
 
 **Rejected:** showing the slug, or the name plus the slug. The slug is an
-internal identifier nothing resolves by ([M9 phase decision 2](../M9/README.md)),
-and putting it in the shell would make it look load-bearing.
+internal identifier nothing resolves by
+([plan decision 8](../../plans/2026-08-16-setup-and-machines.md)), and putting it
+in the shell would make it look load-bearing. **Also rejected:** falling back to
+the email local part, which is the string spec decision 6 exists to get rid of.
+
+### The avatar falls back to initials, and initials need a source
+
+`WorkspaceSwitcher` renders `account.avatarUrl` with a `<Bot>` icon fallback
+([`workspace-switcher.tsx:38-45`](../../../packages/ui/src/components/layout/workspace-switcher.tsx:38)).
+That still works when the name is empty, because it never used the name. Leave
+it alone — if `T-M9-04` shipped, an uploaded avatar flows through
+`account.avatarUrl` from the session metadata with no change here.
 
 ## Checklist
 
 - [ ] `packages/ui/src/components/setup-card.tsx` created, consuming
       `setupSteps()` + `isSetupComplete()` with the same three hooks
-      T-M10-03 uses
+      T-M10-03 uses (`useProfile`, `useWorkspace`, `useRuntimes`)
 - [ ] Returns `null` when complete, `null` when any step is `unknown`, a
       same-height skeleton while loading
 - [ ] Rendered at the **top** of `apps/web/src/app/page.tsx`, above
       `<AttentionQueue />`
-- [ ] `WorkspaceSwitcher` shows the workspace name with the
-      `"Sparstrowgen"` fallback; verified the desktop build still reads
-      `"Sparstrowgen"` and does not flash or error
+- [ ] `WorkspaceSwitcher` shows the workspace name, falling back to
+      `"Sparstrowgen"` for **both** no-data and empty-name; verified the desktop
+      build still reads `"Sparstrowgen"` and does not flash or error
+- [ ] The dropdown label falls back to the email when `account.name` is empty —
+      **not** to the email local part
+- [ ] `grep -rn "workspace.name\|account\.name" packages/ui/src apps/web/src` —
+      every display site has an empty fallback
 - [ ] The switcher's `title` attribute updated to match what it now shows
 - [ ] `pnpm typecheck`, `pnpm test`, `pnpm --filter web build` green
 - [ ] Knowledge Center: `first-run-setup.md` now describes a real guide rather

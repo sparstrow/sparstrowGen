@@ -11,27 +11,25 @@
 
 ## The scenarios this satisfies
 
-> 2. **Given** I am partway through setup, **When** I return later, **Then** the
->    guide shows completed steps as done and points me at the next one.
-> 3. **Given** I complete a step elsewhere in the app … **Then** that step reads
->    as done. It reflects real state, never a separate checkbox I have to tick.
-> 4. **Given** I am fully set up, **When** I look, **Then** the guide is not in
->    my way.
-> 5. **Given** a step cannot be completed yet, **When** I reach it, **Then** it
->    says so and why.
-> 9. **Given** an account that existed before this guide shipped … **Then** the
->    guide reflects what I have actually already done.
+> 2. Returning later: completed steps read done and I am pointed at the next.
+> 3. A step completed elsewhere in the app reads as done. Real state, never a
+>    checkbox I tick.
+> 4. Fully set up: the guide is not in my way.
+> 5. A step that cannot be completed yet says so and why.
+> 9. A brand-new account's steps are empty and say so — nothing guessed on my
+>    behalf.
+> 11. An account that predates the guide reflects what it has actually done.
 
-Scenario 9 needs no code: because nothing is stored, an old account is just an
-account whose workspace was never named. The tests must **prove** that rather
-than assume it.
+Scenarios 9 and 11 need no code *here*: M9 removed the invented names and
+cleared the ones already written, so a pre-existing account is simply an account
+with two empty names. The tests must **prove** that rather than assume it.
 
 ## Objective
 
-One pure function in `packages/ui/src/lib/setup.ts` that turns the account, the
-workspace and the machine list into three steps with a state each. It calls no
-hooks, does no I/O, and stores nothing — which is what makes FR-009 and FR-010
-true by construction, and what makes it testable in a package with no jsdom.
+One pure function in `packages/ui/src/lib/setup.ts` that turns the profile row,
+the workspace row and the machine list into three steps with a state each. It
+calls no hooks, does no I/O, and stores nothing — which makes FR-009 and FR-010
+true by construction, and makes it testable in a package with no jsdom.
 
 ## Decisions already made
 
@@ -47,14 +45,12 @@ export interface SetupStep {
 }
 
 export interface SetupInput {
-  /** null when the host has no accounts (desktop build) — see phase decision 2. */
-  account: { name: string; email: string } | null;
-  /** undefined while loading; null when the query failed. */
-  workspace: { slug: string } | null | undefined;
-  /** undefined while loading; null when the query failed. */
+  /** From useProfile(). undefined = loading, null = the query failed. */
+  profile: { name: string } | null | undefined;
+  /** From useWorkspace(). Same convention. */
+  workspace: { name: string } | null | undefined;
+  /** From useRuntimes(). Same convention. */
   machines: { id: string }[] | null | undefined;
-  /** Same convention for the account: undefined = still resolving. */
-  accountLoading?: boolean;
 }
 
 export function setupSteps(input: SetupInput): SetupStep[];
@@ -62,36 +58,33 @@ export function isSetupComplete(steps: SetupStep[]): boolean;
 ```
 
 **`undefined` means loading, `null` means failed.** Two different renderings —
-a skeleton and "couldn't check this" — so they cannot collapse into one value.
-Callers pass react-query's `data` directly (which is `undefined` while loading)
+a skeleton and "couldn't check this" — so they must not collapse into one
+value. Callers pass react-query's `data` directly (`undefined` while loading)
 and map `isError` to `null`.
 
-### The three rules
+**It takes the profile ROW, not the account.** `useAccount()` is the session
+snapshot the shell renders; `useProfile()` is the row the form edits. They can
+briefly disagree during a save. The row is the truth (M9 phase decision 1).
+
+### The three rules — plain emptiness, no heuristics
 
 ```ts
-// profile: done when the display name is not just the email local part.
-const localPart = account.email.split("@")[0] ?? "";
-const named = account.name.trim().toLowerCase() !== localPart.toLowerCase();
-
-// workspace: done when the slug is no longer the bootstrap-generated one.
-const BOOTSTRAP_SLUG = /^personal-[0-9a-f]{8}$/;
-const named = !BOOTSTRAP_SLUG.test(workspace.slug);
-
-// machine: done when at least one machine is PAIRED. Reachability is irrelevant.
-const paired = machines.length > 0;
+const profileDone   = profile.name.trim().length > 0;
+const workspaceDone = workspace.name.trim().length > 0;
+const machineDone   = machines.length > 0;
 ```
 
-Phase decision 1 carries the reasoning for each. Three points the tests must
-pin down:
+That is the whole rule set. M9's `T-M9-01` removed the two places the database
+was inventing names, so an empty name means exactly one thing: nobody has typed
+one yet.
 
-- The profile comparison is **exact after case-folding and trimming**, not
-  `includes`. A name of `"Srihari"` against `sriharicoder@…` is *done*; a name
-  of `"sriharicoder"` is not.
-- The workspace regex is the **exact** bootstrap shape — eight lowercase hex
-  characters. A user's deliberate `personal-notes` slug is *done*.
-- An empty machine array is `todo`. A `null` machine list is `unknown`, not
-  `todo` — a failed query must never tell someone to pair a machine they
-  already have.
+**Do not compare anything against an email address.** An earlier draft of this
+task did, and spec decision 6 replaced it. A comparison would also now be wrong:
+after M9 the stored value is `''`, not the email local part.
+
+**Only the name decides a step.** The avatar, logo, bio, description and context
+are not consulted — FR-020, and it is the rule most likely to be "improved" into
+requiring a complete profile.
 
 ### Ordering and `current`
 
@@ -105,39 +98,38 @@ step is genuinely undone, the guide still points somewhere useful rather than
 stalling on a step it cannot read.
 
 `isSetupComplete()` is true only when **all three** are `done`. An `unknown`
-anywhere means not complete — the card stays, because hiding it on a failed
-query would look identical to being finished.
+anywhere means not complete: hiding the dashboard card on a failed query would
+look identical to being finished.
 
 ### What it does not do
 
-No labels, no descriptions, no icons, no links. Those are rendering, they are
-copy, and they change without the logic changing. The function returns ids and
-states; the component owns the words.
+No labels, no descriptions, no icons, no links, no field lists. Those are
+rendering, they are copy, and they change without the logic changing. The
+function returns ids and states; the components own the words.
 
 ## Checklist
 
 - [ ] `packages/ui/src/lib/setup.ts` created with the types and both functions
 - [ ] Doc comment recording *why* it is a pure function — no jsdom in this
       package ([`G-13`](../../KnownGaps.md)), so this is the only layer of the
-      guide that can be proved without a renderer
+      guide provable without a renderer — **and** why the rule is an emptiness
+      check rather than a heuristic (spec decision 6)
 - [ ] `packages/ui/src/lib/setup.test.ts` covering:
       all three done → no `current`, `isSetupComplete` true;
-      none done → profile is `current`, other two `todo`;
+      none done → profile `current`, other two `todo`;
       profile done only → workspace `current`;
       profile and workspace done → machine `current`;
-      workspace query failed (`null`) → workspace `unknown`, machine still
+      `name: ""` → not done;
+      `name: "   "` (whitespace only) → not done;
+      `name: "S"` → done (one character is a name);
+      a name that happens to equal the email local part → **done** — the
+      heuristic this replaces would have got this wrong;
+      workspace query failed (`null`) → `unknown`, and the machine step still
       evaluated and able to be `current`;
-      machine query failed → machine `unknown`, `isSetupComplete` false;
+      machine query failed → `unknown`, `isSetupComplete` false;
       still loading (`undefined`) → not `done`, not `unknown`;
-      `account: null` (desktop host) → documented behaviour, whatever phase
-      decision 2 implies for a host that never renders this;
-      profile name exactly the email local part, different case → **not** done;
-      profile name containing the local part but longer → **done**;
-      slug `personal-a1b2c3d4` → not done;
-      slug `personal-notes` → done;
-      slug `personal-A1B2C3D4` (uppercase hex) → **done**, the regex is
-      lowercase because `bootstrap_workspace` writes lowercase;
-      empty machine array → `todo`
+      empty machine array → `todo`;
+      a machine that is paired but unreachable → **done**
 - [ ] `pnpm --filter @sparstrow/ui test` and `pnpm typecheck` green
 
 ## Traps
@@ -147,17 +139,16 @@ Collapsing them with `??` or a truthiness check produces a guide that shows
 "couldn't check this" during every page load, or one that silently treats a
 failed query as unfinished work. Both are worse than the extra branch.
 
+**`name: ""` is a normal value, not a missing one.** Anything that substitutes
+a default for it makes the step read done when it is not — which is the whole
+failure M9 was built to remove.
+
 **Do not read hooks here.** The moment this file imports `useQuery` it becomes
-untestable in this package and the whole reason for its existence is gone.
+untestable in this package and its reason for existing is gone.
 
 **Do not put copy in this file.** A step's title and explanation will be edited
 for tone; the logic will not. Mixing them means every wording change touches a
 tested file.
-
-**`account.email` can in principle have no `@`.** `split("@")[0]` then returns
-the whole string, which is harmless — but the `?? ""` is there because
-`noUncheckedIndexedAccess` may be on. Check the tsconfig rather than removing
-it because it looks redundant.
 
 ## Verification
 

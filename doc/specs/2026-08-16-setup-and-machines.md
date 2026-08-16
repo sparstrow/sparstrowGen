@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | **Draft v3 — owner-reviewed 2026-08-16, all open questions resolved. Ready to plan** |
+| **Status** | **Draft v4 — owner-reviewed 2026-08-16 (two passes), all open questions resolved. Planned and decomposed** |
 | **Created** | 2026-08-16 |
 | **Trigger** | Owner, after deploying `staging.sparstrow.com`: a dedicated Machines menu with CRUD and live status, and an interactive step-by-step setup guide |
 | **Plan** | [`../plans/2026-08-16-setup-and-machines.md`](../plans/2026-08-16-setup-and-machines.md) — written 2026-08-16, phases M8–M11 |
@@ -92,6 +92,40 @@ rather than drop the step or show it as always-done: a small, genuinely new
 surface, and the first thing a multi-workspace future would need anyway.
 **This is real new scope** the spec did not originally ask for — flagged here
 so the plan doesn't absorb it silently.
+
+**6. Setup means filling in a profile and a workspace — not passing a guess.**
+*(Owner, same day, with reference screenshots. Supersedes the "is this name
+derived from the email?" rule an earlier draft of the plan proposed.)*
+
+Nothing anywhere invents a name for the owner and then tries to detect that it
+did. Today an account created with email and password ends up called
+`sriharicoder` — the part of the address before the `@`, chosen by
+`bootstrap_workspace`, never by a person
+([`004_bootstrap_rpc.sql:66-71`](../../packages/shared/drizzle/policies/004_bootstrap_rpc.sql:66)).
+**That fallback goes away.** A new account simply has no name until its owner
+gives it one, which makes "is this step done?" a plain question with a plain
+answer instead of a heuristic that can be wrong about a real name.
+
+The same applies to the workspace: no auto-assigned `"Personal Workspace"`.
+
+**What the two steps actually ask for:**
+
+| Step | Fields | Required to count as done |
+|---|---|---|
+| **Profile** | avatar, name, about you | **name** — the other two are offered, not demanded |
+| **Workspace** | logo, name, description, context | **name** — same rule |
+
+**"About you" and "Context" are not decoration.** They are what an agent reads
+before working on the owner's behalf — role, stack, preferences, the things
+you would tell a new collaborator on day one; and for the workspace, what it is
+for and what an agent should know about it. This product is the one place that
+text has an actual consumer.
+
+**What was deliberately not taken** from the reference screenshots, so nobody
+adds it later thinking it was implied: an issue-number prefix (this product has
+no issues), Leave workspace and Delete workspace (destructive, and the account
+already has its own deletion path), and Members (invites are
+[`D-7`](../Deferred.md)).
 
 ---
 
@@ -191,18 +225,26 @@ machine using only what the guide tells you.
    says so and why, rather than failing when I click.
 6. **Given** I want to skip ahead, **When** I try, **Then** I can — the guide
    is a guide, not a gate.
-7. **Given** I reach the workspace step, **When** I read it, **Then** I can
-   give my workspace a real name in place, and doing so is what marks the step
-   done (decision 5) — the default `"Personal Workspace"` name does not count
-   as complete.
-8. **Given** I reach the machines step, **When** I read it, **Then** it tells
-   me plainly what connecting a machine currently requires, including the dev
-   checkout, rather than implying a command that does not exist (decision 3).
-9. **Given** an account that existed before this guide shipped, **When** I open
-   it, **Then** the guide reflects what I have actually already done — an
-   existing workspace still carrying its auto-generated name reads as
-   not-yet-done, exactly like a new one, since nothing about that account ever
-   asked the owner to name it either.
+7. **Given** I reach the profile step, **When** I read it, **Then** I can set
+   my avatar, my name, and a few lines about me right there — and supplying my
+   name is what marks the step done (decision 6). The other two are offered,
+   never demanded.
+8. **Given** I reach the workspace step, **When** I read it, **Then** I can
+   give my workspace a logo, a name, a description, and the background an
+   agent should know about it — and supplying the name is what marks the step
+   done.
+9. **Given** a brand-new account, **When** I look at either of those steps
+   before touching them, **Then** they are empty and say so. Nothing has been
+   guessed on my behalf and no field is pre-filled with something derived from
+   my email address (decision 6).
+10. **Given** I reach the machines step, **When** I read it, **Then** it tells
+    me plainly what connecting a machine currently requires, including the dev
+    checkout, rather than implying a command that does not exist (decision 3).
+11. **Given** an account that existed before this guide shipped, **When** I
+    open it, **Then** the guide reflects what I have actually already done — a
+    profile or workspace still carrying a name nobody chose reads as
+    not-yet-done, exactly like a new one, since nothing about that account ever
+    asked the owner for it either.
 
 ---
 
@@ -281,8 +323,10 @@ inside the window.
 |---|---|---|
 | **Machines** (sidebar destination) | **new** — promoted out of Settings | Pair, see status, rename, revoke, remove |
 | **Setup guide** | **new** | Follow steps: profile → workspace → machines |
-| **Workspace naming** | **new** (decision 5) | Give the auto-created workspace a real name and slug |
-| Settings → Workspace → General | existing | **Loses the Machines card entirely** (decision 4); gains the workspace-naming control, or the guide links to it — plan's call |
+| **Profile setup** | **new** (decision 6) | Set an avatar, a name, and a few lines about yourself |
+| **Workspace setup** | **new** (decisions 5 and 6) | Set a logo, a name, a description, and the background an agent should know |
+| Settings → Account → Profile | existing, read-only today | Becomes the permanent home of the profile fields, so they can be changed after setup |
+| Settings → Workspace → General | existing | **Loses the Machines card entirely** (decision 4); gains the workspace fields, so they can be changed after setup |
 | Pairing command on the machine | existing CLI, never run against a deployment | Redeem a code; check status; understand failures |
 | Run detail (live transcript) | existing, live half unproved | Watch work execute on the paired machine |
 | Desktop window | existing, never launched | See the hosted product |
@@ -374,12 +418,22 @@ but is never started; a guide step completed elsewhere in the app.
 - **FR-016**: Instructions for connecting a machine MUST state plainly what is
   actually required today, including the dev checkout — the product must not
   imply a command that does not exist (decision 3).
-- **FR-017**: The owner MUST be able to give their workspace a real name (and
-  slug) from the app; today this is only ever set automatically, to
-  `"Personal Workspace"`, with no surface to change it (decision 5).
-- **FR-018**: The workspace setup step MUST read as done only once the
-  workspace's name differs from its auto-generated default — a workspace's
-  mere existence MUST NOT count, since every account has one automatically.
+- **FR-017**: The owner MUST be able to set their workspace's name,
+  description, and agent-facing context from the app; today none of these has
+  a surface (decisions 5 and 6).
+- **FR-018**: The owner MUST be able to set their own avatar, name, and
+  about-you text from the app; today the profile is read-only (decision 6).
+- **FR-019**: Nothing MUST derive a person's name or a workspace's name from
+  an email address, or from anything else the owner did not supply. A new
+  account starts with neither name set (decision 6).
+- **FR-020**: A setup step MUST read as done when its **name** is supplied, and
+  MUST NOT require the avatar, logo, about-you, description or context to be
+  filled in — those are offered, not demanded.
+- **FR-021**: The profile and workspace fields MUST remain editable after
+  setup, from a permanent home in Settings — the guide is where they are first
+  filled in, not the only place they exist.
+- **FR-022**: A workspace's slug MUST be visible to the owner and MUST NOT
+  change once set, so anything that ever comes to depend on it stays valid.
 
 ### Key entities
 
@@ -388,8 +442,12 @@ but is never started; a guide step completed elsewhere in the app.
   of capabilities.
 - **Pairing code**: short-lived, single-use secret joining one machine to one
   workspace.
-- **Workspace**: the account's namespace, auto-created on first sign-in with a
-  generated placeholder name. Has an owner-chosen name and slug once named.
+- **Workspace**: the account's namespace, auto-created on first sign-in **with
+  no name**. Gains a logo, name, description and agent-facing context when its
+  owner supplies them; its slug is set alongside the first name and never moves
+  after that.
+- **Profile**: the person, as agents and any future teammates see them. An
+  avatar, a name, and a few lines about them. Auto-created with no name.
 - **Setup step**: one thing that must be true for the account to be usable.
   Derived from real state, never stored as a tick.
 - **Run**: work started from the browser, executing on a machine, reporting
@@ -412,6 +470,9 @@ but is never started; a guide step completed elsewhere in the app.
   its transcript visible during execution.
 - **SC-007**: `G-12` and `G-16` are closed, or their residue rewritten to say
   exactly what is still unproved.
+- **SC-008**: A brand-new account contains no name the owner did not type.
+  Checked by creating one and reading what the database actually holds, not by
+  looking at the screen (decision 6).
 
 ## Assumptions
 
@@ -437,7 +498,7 @@ but is never started; a guide step completed elsewhere in the app.
 **Stories captured:** 2026-08-16 — US1 and US2 from the owner directly;
 US3–US5 carried forward as inferred.
 
-**Reviewed:** 2026-08-16 — **accepted, with five decisions** recorded above:
+**Reviewed:** 2026-08-16 — **accepted, with six decisions** recorded above:
 "unreachable" over "turned off", sleep detection deferred to `D-16`,
 distribution sequenced as its own round after this one, the Settings Machines
 card removed outright, and — added in a follow-up pass, same day, while
@@ -452,3 +513,14 @@ step's actual completion signal — consequences of decisions 3, 2, and 5
 respectively. Decision 5 is genuinely new scope, flagged as such at decision 5
 itself: workspace name/slug editing did not exist in any form before this
 spec, in code or in the original ask.
+
+**Second review pass, same day — decision 6.** The plan proposed detecting an
+unfilled profile by comparing the stored name against the email local part.
+The owner rejected the premise rather than the mechanism: **stop inventing a
+name at all**, and make both setup steps real forms — avatar / name / about
+you, and logo / name / description / context — with the name as the only
+required field. This is the cleaner rule and it is more scope: it deletes the
+email fallback from `bootstrap_workspace`, adds two columns, and adds image
+upload, which this codebase has never had. US2 went from nine scenarios to
+eleven and gained five functional requirements (FR-018 … FR-022). What it
+removes is a heuristic that could have been wrong about a genuine name.

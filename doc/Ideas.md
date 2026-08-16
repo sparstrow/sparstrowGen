@@ -96,3 +96,37 @@ degraded-retrieval badge has an obvious home.
 no `doc/` or `docs/` directory in the repo at all before this one. Worth a pass
 over code comments for other pointers to files that have moved or were never
 committed.
+
+---
+
+## I-8 — Feed "about you" and workspace "context" into a run
+
+M9 adds `users.bio` and `workspaces.context`, and
+[the setup spec](specs/2026-08-16-setup-and-machines.md) describes both as the
+text an agent reads before working on the owner's behalf — role, stack,
+preferences, what the workspace is for. M10 stores and displays them. **Nothing
+reads them.**
+
+Actually wiring them into a run is its own piece of work with its own
+decisions: where in the prompt they sit relative to the memory block and the
+project directives, what happens when they are empty (omit the section entirely,
+or say "not provided"?), whether they count toward the same budget
+`buildMemoryBlock` works against, and whether a delegated sub-agent inherits
+them.
+
+Worth doing — the fields have no other purpose — but not worth guessing at
+inside a phase about setup UI. Raised while decomposing M9/M10.
+
+---
+
+## I-9 — Server-side image processing for avatars and logos
+
+`T-M9-04` accepts an uploaded image as-is: no resize, no re-encode, no EXIF
+strip. A 2 MB bucket limit bounds the damage, and a 2 MB PNG rendered into a
+32px badge is wasteful rather than harmful.
+
+If this ever matters — many members, mobile bandwidth, or someone uploading a
+photo whose EXIF carries GPS coordinates — the fix is a transform on upload.
+Supabase has an image transformation service on paid plans; a serverless
+re-encode is the alternative. Deliberately not built for one owner and two
+images.

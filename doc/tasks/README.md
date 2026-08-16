@@ -154,7 +154,7 @@ questions` header line is empty or points only to non-blocking entries.
 | M6 — memory sync | 5 (`M6/`) | 01–04 done 2026-08-12, 956 tests · 05 (verification) needs a second machine — [`G-15`](../KnownGaps.md) |
 | M7 — routes + Electron | 4 (`M7/`) | 01–03 done 2026-08-13, 981 tests · 04 (verification) not run — [`G-16`](../KnownGaps.md) |
 | **M8 — Machines menu** *(serves US1)* | 5 (`M8/`) | not started |
-| **M9 — workspace + profile identity** *(foundational)* | 4 (`M9/`) | not started |
+| **M9 — workspace + profile identity** *(foundational)* | 6 (`M9/`) | not started |
 | **M10 — the setup guide** *(serves US2)* | 5 (`M10/`) | not started |
 | **M11 — walk the spec on staging** *(serves US3–US5)* | 5 (`M11/`) | blocked — needs a machine pointed at `staging.sparstrow.com` |
 

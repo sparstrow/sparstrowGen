@@ -242,8 +242,11 @@ small on purpose.
 
 **Band 10 and band 11 are `[P]` against each other** and can run at the same
 time: M8 lives in `packages/ui` routes, nav and `packages/core/src/cli`, while
-M9 lives in `apps/web/src/lib/api/handlers`. Their only shared file is
-`hooks.ts`, and M8 does not touch it.
+M9 lives in the schema, `apps/web/src/lib/api/handlers` and storage. Their only
+shared file is `hooks.ts`, and M8 does not touch it. **Band 12 edits
+`settings.tsx`, which band 10 also edits** — 12.2 adds two forms there while
+10.2 removes the Machines card, so the two must not be worked simultaneously by
+different agents.
 
 ### Band 10 — M8 Machines gets a menu of its own · **serves US1**
 
@@ -274,19 +277,27 @@ Phase spec: [`M9/README.md`](M9/README.md).
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 11.1 | [T-M9-01 — workspace read + rename](M9/T-M9-01-workspace-handler.md) | `[P]` | — | queued |
-| 11.2 | [T-M9-02 — profile display name](M9/T-M9-02-profile-handler.md) | `[P]` | — | queued |
-| 11.3 | [T-M9-03 — hooks](M9/T-M9-03-hooks.md) | `[C]` | 11.1, 11.2 | queued |
-| 11.4 | [T-M9-04 — verification](M9/T-M9-04-verification.md) | `[S]` | 11.1–11.3 | queued |
+| 11.1 | [T-M9-01 — schema, and a bootstrap that invents nothing](M9/T-M9-01-schema-and-bootstrap.md) | `[S]` | — | queued |
+| 11.2 | [T-M9-02 — workspace read + update](M9/T-M9-02-workspace-handler.md) | `[P]` | 11.1 | queued |
+| 11.3 | [T-M9-03 — profile read + update](M9/T-M9-03-profile-handler.md) | `[P]` | 11.1 | queued |
+| 11.4 | [T-M9-04 — avatar and logo upload](M9/T-M9-04-image-upload.md) | `[P]` | 11.1 | queued |
+| 11.5 | [T-M9-05 — hooks](M9/T-M9-05-hooks.md) | `[C]` | 11.2, 11.3 | queued |
+| 11.6 | [T-M9-06 — verification](M9/T-M9-06-verification.md) | `[S]` | 11.1–11.5 | queued |
 
-11.1 and 11.2 are two new handler files with no shared state. 11.3 is `[C]`
-because `packages/ui/src/api/hooks.ts` is a ~2100-line file other work also
-edits.
+11.1 is `[S]` and gates the band: it adds the three missing columns and rewrites
+`bootstrap_workspace` to stop inventing a person's name and a workspace's name
+(spec decision 6). Everything else is written against that. 11.2, 11.3 and 11.4
+are three disjoint pieces of new work — hand them to three workers. 11.5 is
+`[C]` because `packages/ui/src/api/hooks.ts` is a ~2100-line file other work
+also edits.
 
-**11.2 exists because of plan decision 7**, which is flagged there as
-consequential scope the spec did not ask for. If the owner would rather the
-profile setup step read as already-done on signup, drop 11.2 and the profile
-half of 12.2 — nothing else depends on them.
+**11.4 is the one cuttable task in the plan.** This repo has never used Supabase
+Storage, so avatar and logo are genuinely new infrastructure — and neither image
+gates a setup step (FR-020). Cut it and both forms still work with the initials
+badge the shell already renders; 11.2 and 11.3 then accept only `null` for their
+URL fields and 12.2 omits two controls. If it is cut, it needs a
+[`../Deferred.md`](../Deferred.md) entry — a cut feature with no record is
+indistinguishable from one nobody thought of.
 
 ### Band 12 — M10 the setup guide · **serves US2**
 
@@ -295,7 +306,7 @@ Phase spec: [`M10/README.md`](M10/README.md). **Depends on band 11.**
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
 | 12.1 | [T-M10-01 — `setupSteps()` derivation](M10/T-M10-01-derivation.md) | `[S]` | — | queued |
-| 12.2 | [T-M10-02 — the naming controls](M10/T-M10-02-naming-controls.md) | `[P]` | 11.4 | queued |
+| 12.2 | [T-M10-02 — the two setup forms](M10/T-M10-02-setup-forms.md) | `[P]` | 11.6 | queued |
 | 12.3 | [T-M10-03 — `/setup` page and route](M10/T-M10-03-setup-page.md) | `[C]` | 12.1, 12.2 | queued |
 | 12.4 | [T-M10-04 — dashboard card + workspace name in the shell](M10/T-M10-04-dashboard-and-shell.md) | `[C]` | 12.1 | queued |
 | 12.5 | [T-M10-05 — verification](M10/T-M10-05-verification.md) | `[S]` | 12.1–12.4 | queued |

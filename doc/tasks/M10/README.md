@@ -34,16 +34,23 @@
    says so and why, rather than failing when I click.
 6. **Given** I want to skip ahead, **When** I try, **Then** I can — the guide is
    a guide, not a gate.
-7. **Given** I reach the workspace step, **When** I read it, **Then** I can give
-   my workspace a real name in place, and doing so is what marks the step done —
-   the default `"Personal Workspace"` name does not count as complete.
-8. **Given** I reach the machines step, **When** I read it, **Then** it tells me
-   plainly what connecting a machine currently requires, including the dev
-   checkout, rather than implying a command that does not exist.
-9. **Given** an account that existed before this guide shipped, **When** I open
-   it, **Then** the guide reflects what I have actually already done — an
-   existing workspace still carrying its auto-generated name reads as
-   not-yet-done, exactly like a new one.
+7. **Given** I reach the profile step, **When** I read it, **Then** I can set my
+   avatar, my name, and a few lines about me right there — and supplying my name
+   is what marks the step done. The other two are offered, never demanded.
+8. **Given** I reach the workspace step, **When** I read it, **Then** I can give
+   my workspace a logo, a name, a description, and the background an agent
+   should know about it — and supplying the name is what marks the step done.
+9. **Given** a brand-new account, **When** I look at either of those steps
+   before touching them, **Then** they are empty and say so. Nothing has been
+   guessed on my behalf and no field is pre-filled with something derived from
+   my email address.
+10. **Given** I reach the machines step, **When** I read it, **Then** it tells me
+    plainly what connecting a machine currently requires, including the dev
+    checkout, rather than implying a command that does not exist.
+11. **Given** an account that existed before this guide shipped, **When** I open
+    it, **Then** the guide reflects what I have actually already done — a
+    profile or workspace still carrying a name nobody chose reads as
+    not-yet-done, exactly like a new one.
 
 **Independent test:** create a fresh account and reach a paired, working machine
 using only what the guide tells you.
@@ -66,7 +73,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
 | [T-M10-01 — `setupSteps()` derivation](T-M10-01-derivation.md) | `[S]` | US2 | — | not started |
-| [T-M10-02 — the naming controls](T-M10-02-naming-controls.md) | `[P]` | US2 | M9 | not started |
+| [T-M10-02 — the two setup forms](T-M10-02-setup-forms.md) | `[P]` | US2 | M9 | not started |
 | [T-M10-03 — `/setup` page and route](T-M10-03-setup-page.md) | `[C]` | US2 | 01, 02 | not started |
 | [T-M10-04 — dashboard card + workspace name in the shell](T-M10-04-dashboard-and-shell.md) | `[C]` | US2 | 01 | not started |
 | [T-M10-05 — verification](T-M10-05-verification.md) | `[S]` | US2 | 01–04 | not started |
@@ -109,15 +116,20 @@ Naming a workspace with nothing showing the name would be a control whose
 effect is invisible — which is why T-M10-04 carries that change rather than
 leaving it for later.
 
-**Scenario 9 is free, and that is the point of plan decision 5.** Because
+**Scenario 11 is free, and that is the point of plan decision 5.** Because
 nothing is stored, an account created before the guide existed is not a special
-case — it is just an account whose workspace name happens to still be
-`"Personal Workspace"`. No migration, no backfill, no "has seen onboarding"
-column.
+case — it is just an account whose names M9's one-time cleanup emptied. No
+"has seen onboarding" column, no backfill of guide state.
+
+**Settings → Account → Profile is read-only today**
+([`settings.tsx:588`](../../../packages/ui/src/routes/pages/settings.tsx:588)) —
+four `InfoRow`s and a sign-out button. FR-021 makes it the profile fields'
+permanent home, so this phase converts an existing display card into a form as
+well as building a new guide step.
 
 ## Definition of done
 
-- All nine US2 acceptance scenarios walked in a browser, including scenario 9
+- All eleven US2 acceptance scenarios walked in a browser, including scenario 11
   on an account that predates the guide (the owner's own).
 - All four states on both surfaces per the table above — with the **error**
   state reached deliberately by failing a query, not reasoned about.
@@ -144,20 +156,25 @@ Plan decisions 4, 5, 6 and 7 are inherited; cite them rather than restating.
 
 ### 1. The three steps, and exactly what makes each one done
 
-| Step | Done when | Where the signal comes from |
-|---|---|---|
-| **Your profile** | The account's display name is not the email local part | `account.name` vs `account.email.split("@")[0]` |
-| **Your workspace** | The workspace slug no longer matches `^personal-[0-9a-f]{8}$` | `useWorkspace()` |
-| **Your first machine** | At least one runtime row exists — **paired**, not necessarily reachable | `useRuntimes()` |
+| Step | Fields | Done when | Signal |
+|---|---|---|---|
+| **Your profile** | avatar, name, about you | `name` is non-empty after trimming | `useProfile()` |
+| **Your workspace** | logo, name, description, context | `name` is non-empty after trimming | `useWorkspace()` |
+| **Your first machine** | — | at least one machine is **paired** | `useRuntimes()` |
 
-**The machine step counts pairing, not reachability.** A machine that paired
-and is currently switched off completed the step; telling someone to pair again
+**This is a plain emptiness check, and that is the point.** M9 removed the two
+places the database was inventing names, so nothing has to guess whether a
+stored value was chosen by a person. An earlier draft compared the name against
+the email local part; spec decision 6 replaced the heuristic with a fact.
+
+**Only the name gates a step** (FR-020). The avatar, logo, about-you,
+description and context are all offered and none is required — an upload that
+blocks setup is the friction that makes people abandon a guide, and about-you is
+most useful written once someone knows what they want their agents to know.
+
+**The machine step counts pairing, not reachability.** A machine that paired and
+is currently switched off completed the step; telling someone to pair again
 because their laptop is asleep would be wrong and would make the guide flicker.
-
-**The workspace signal is the slug, not the name.** The name could legitimately
-be typed as "Personal Workspace" by someone who likes it; the slug is set by
-`bootstrap_workspace` and only ever changed by a deliberate first rename
-(M9 phase decision 2), so it is the honest record of "was this ever named".
 
 ### 2. The guide is web-only, and the local build is unchanged
 
@@ -197,12 +214,12 @@ on its own when setup completes makes dismissal pointless anyway.
 |---|---|
 | `packages/ui/src/lib/setup.ts` | **new** — `setupSteps()` and its types |
 | `packages/ui/src/lib/setup.test.ts` | **new** — the derivation's tests |
-| `packages/ui/src/components/workspace-name-card.tsx` | **new** |
-| `packages/ui/src/components/profile-name-card.tsx` | **new** |
+| `packages/ui/src/components/workspace-form.tsx` | **new** — logo, name, description, context, slug (read-only) |
+| `packages/ui/src/components/profile-form.tsx` | **new** — avatar, name, about you |
 | `packages/ui/src/routes/pages/setup.tsx` | **new** — the guide |
 | `apps/web/src/app/setup/page.tsx` | **new** — re-export |
 | `apps/web/src/app/page.tsx` | edit — the setup card |
-| `packages/ui/src/routes/pages/settings.tsx` | edit — `WorkspaceNameCard` into Workspace → General |
+| `packages/ui/src/routes/pages/settings.tsx` | edit — `WorkspaceForm` into Workspace → General; `ProfileCard` becomes `ProfileForm` in Account → Profile |
 | `packages/ui/src/components/layout/workspace-switcher.tsx` | edit — show the real name |
 | `packages/ui/src/lib/nav-meta.ts` | edit — `setup` label + icon |
 | `packages/ui/src/content/knowledge/first-run-setup.md` | edit — this phase makes it describe a real thing |
@@ -212,10 +229,14 @@ on its own when setup completes makes dismissal pointless anyway.
 **Adding the card to the shared dashboard shows it to nobody.** See *the shape
 of what was found* #2. The web dashboard is `apps/web/src/app/page.tsx`.
 
-**`account.name` falls back to the email local part, so "done" and "not done"
-differ by a string comparison that must be exact.** `sriharicoder@gmail.com`
-gives `sriharicoder`. Comparing case-insensitively is right; comparing
-`includes()` is not — a name of "Srihari" would then read as not-done forever.
+**`account.name` (the session snapshot) is not `profile.name` (the row).** The
+shell reads the session; the form and the derivation read the row. Deriving step
+state from `useAccount()` would work today and break the moment the two diverge
+during a save. `setupSteps()` takes the row.
+
+**Do not reintroduce a name heuristic.** M9 removed the fallbacks so this phase
+could stop guessing. Any code here that compares a name against an email, or
+substitutes a default for an empty one, puts the guess back in a new place.
 
 **Do not add an `onboarding_completed` column.** Plan decision 5. Every
 argument for it is an argument for a second source of truth that will disagree
@@ -235,8 +256,10 @@ Full procedure in [T-M10-05 — verification](T-M10-05-verification.md).
 
 The assertions that decide the phase:
 
-1. All nine scenarios, walked in a browser.
+1. All eleven scenarios, walked in a browser.
 2. Scenario 3 specifically: pair from `/machines`, watch the guide's step flip,
    with no stored flag anywhere.
-3. Scenario 9 on a pre-existing account.
-4. All four states on both surfaces, with the error state forced.
+3. Scenario 9: a fresh account's two forms are genuinely empty — nothing
+   pre-filled from the email address.
+4. Scenario 11 on a pre-existing account.
+5. All four states on every surface, with the error state forced.

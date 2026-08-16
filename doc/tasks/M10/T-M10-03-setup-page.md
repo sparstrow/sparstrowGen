@@ -16,9 +16,10 @@
 > 4. Fully set up: the guide is not in my way.
 > 5. A step that cannot be completed yet says so and why.
 > 6. I can skip ahead — the guide is a guide, not a gate.
-> 7. Workspace named in place.
-> 8. The machines step says plainly what connecting a machine requires today,
->    including the dev checkout.
+> 7. Profile filled in **right there** — avatar, name, about you.
+> 8. Workspace filled in right there — logo, name, description, context.
+> 10. The machines step says plainly what connecting a machine requires today,
+>     including the dev checkout.
 
 ## Objective
 
@@ -39,20 +40,21 @@ workflow that host does not have.
 
 | Step | What it is for | Action |
 |---|---|---|
-| **Your profile** | "Agents and teammates see this name on everything you start." | `<ProfileNameCard variant="inline" />` |
-| **Your workspace** | "Everything — machines, agents, runs, memory — lives inside a workspace. Give yours a name you'll recognise." | `<WorkspaceNameCard variant="inline" />` |
+| **Your profile** | "Agents work on your behalf — this is who they're working as, and what they should know about you." | `<ProfileForm variant="inline" />` |
+| **Your workspace** | "Everything — machines, agents, runs, memory — lives inside a workspace. Name it, and tell agents what it's for." | `<WorkspaceForm variant="inline" />` |
 | **Your first machine** | "Agents run on a computer you own, not in the browser. Pairing one is what makes everything else work." | a link to `/machines`, plus the honest requirement |
 
-Wording is the implementer's to improve. Two claims are fixed: the machine step
-must state that `sparstrow` is not published and needs a checkout of this
-repository today (FR-016, spec decision 3), and no step may promise anything
-the app cannot deliver.
+Wording is the implementer's to improve. Three claims are fixed: the machine
+step must state that `sparstrow` is not published and needs a checkout of this
+repository today (FR-016, spec decision 3); no step may promise anything the app
+cannot deliver; and the first two steps must make clear that **only the name is
+needed to move on** (FR-020), so nobody thinks an avatar is required.
 
 ### Step rendering by state
 
 | State | Renders |
 |---|---|
-| `done` | collapsed: a check, the title, and what it resolved to (the name, or "1 machine paired"). Still expandable — a done step is not hidden |
+| `done` | collapsed: a check, the title, and what it resolved to (the name, or "1 machine paired"). Still expandable, and expanding it shows the same form so a value can be changed — a done step is not a locked one |
 | `current` | expanded, with its action |
 | `todo` | collapsed, muted, expandable. **Not disabled** — scenario 6 |
 | `unknown` | expanded with "couldn't check this" and a retry that refetches that step's query only |
@@ -76,7 +78,8 @@ out, and the dashboard card disappearing on its own makes it unnecessary.
 ## Checklist
 
 - [ ] `packages/ui/src/routes/pages/setup.tsx` created, consuming
-      `setupSteps()` with `useAccount()`, `useWorkspace()`, `useRuntimes()`
+      `setupSteps()` with `useProfile()`, `useWorkspace()`, `useRuntimes()` —
+      the profile **row**, not `useAccount()`; see T-M10-01
 - [ ] Query `isError` mapped to `null` and `isLoading` left as `undefined`,
       per T-M10-01's convention — do not collapse them
 - [ ] Four step renderings per the table; `todo` steps expandable, never
@@ -121,7 +124,7 @@ and it is a gate.
 
 - [ ] `pnpm typecheck`, `pnpm test` green; `pnpm --filter web build` lists
       `/setup`
-- [ ] Scenarios 1, 2, 4, 5, 6, 7, 8 walked in a browser — proved in
+- [ ] Scenarios 1, 2, 4, 5, 6, 7, 8, 10 walked in a browser — proved in
       [T-M10-05](T-M10-05-verification.md), not here
 - [ ] The desktop build does not gain a `/setup` route — confirmed by grepping
       `packages/ui/src/router.tsx`
