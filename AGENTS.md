@@ -216,12 +216,49 @@ We enforce a strict 3-tier Git & deployment pipeline:
 
 All non-code project memory lives in `doc/`. Read `doc/README.md` first.
 
-**Every file type below has a skeleton in `doc/templates/`** — plans, phase
-specs, tasks, verification tasks, bugs, security reports, runbooks, and entries
-for all four registers. Copy the matching one instead of inventing a shape:
-they encode the required sections (a task's checklist, a gap's "clears when", a
-deferral's unpark trigger) that make "done" mean the same thing every time it's
-written. `doc/templates/README.md` maps situation → template → destination.
+**Every file type below has a skeleton in `doc/templates/`** — specs, plans,
+phase specs, tasks, verification tasks, bugs, security reports, runbooks, and
+entries for all four registers. Copy the matching one instead of inventing a
+shape: they encode the required sections (a task's checklist, a gap's "clears
+when", a deferral's unpark trigger) that make "done" mean the same thing every
+time it's written. `doc/templates/README.md` maps situation → template →
+destination.
+
+### The lifecycle starts at a spec, not a plan
+
+**This app is UX-first.** It is mostly backend, and backend-heavy projects fail
+in one specific way: every layer gets built, each passes its tests, and the
+thing the owner wanted to *use* never quite arrives. The spec is the
+counterweight.
+
+```
+idea → spec → owner review → plan → tasks → code
+```
+
+* **`doc/specs/`** — what the owner wants, **in the owner's terms**. User
+  stories prioritized P1/P2/P3, acceptance scenarios as Given/When/Then, and an
+  Interface & experience section covering all four states. **No technology in a
+  spec** — no table names, endpoints, component names, or framework. If a
+  sentence couldn't be read aloud to someone who has never seen the codebase,
+  it belongs in the plan.
+* **Every user story is independently demoable.** Build only that story and the
+  owner still has something they can open and use. A story that delivers
+  nothing alone is a technical step wearing a story's clothes — it belongs in
+  the plan's foundational work.
+* **The owner reviews the spec before planning starts.** Cheapest point to
+  catch a wrong direction; a wrong spec propagates silently into the plan, the
+  tasks, and everything downstream.
+* **Internal work skips the spec.** Anything that only changes how the repo is
+  built, checked, documented, or governed goes straight to a plan whose `Spec`
+  row reads `n/a (internal)`. When it's genuinely unclear, ask.
+* **The plan splits the spec into foundational and per-story work**, using one
+  test: *can the owner see the result?* Yes → it belongs to a story. No → it is
+  foundational, and it blocks the story work behind it. Foundational phases get
+  ordinary technical tasks; story phases get tasks grouped so the phase ends in
+  something demoable, and are graded on the spec's acceptance scenarios rather
+  than a list of components built. Full rules: `doc/tasks/README.md`.
+* **Every task carries a `Serves` row** naming its user story or the story
+  phase it unblocks. A task that can name neither is a task nobody asked for.
 
 * **`doc/plans/`** — approved plans. The what and why. Uncertainty is allowed here.
 * **`doc/tasks/`** — executable specs derived from an approved plan, one folder

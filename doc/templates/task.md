@@ -23,10 +23,30 @@ unproved assumption as a fact.
 | | |
 |---|---|
 | **Tag** | `<[S] sequential \| [P] parallel \| [C] concurrent>` — <why, e.g. "shares main.ts with T-M7-03; one worker at a time"> |
+| **Serves** | <`US-n` — <the story, in a few words> \| **foundational** — <the story phase it unblocks>> |
 | **Depends on** | <task ids, or —> |
 | **Blocks** | <task ids, or —> |
 | **Phase spec** | [README.md](README.md) |
 | **Status** | <not started \| in progress \| ✅ done <date> \| done except OQ-n> |
+
+<!--
+SERVES is the traceability line: every task points either at the user story it
+delivers or at the story work it unblocks. A task that can name neither is a
+task nobody asked for — check it against the plan's Work breakdown before
+building it (AGENTS.md §3.9: build only what the plan lists).
+-->
+
+<!--
+DELETE for a foundational task.
+
+## The scenario this satisfies
+
+Quote the acceptance scenario(s) from the spec that this task makes true —
+Given / When / Then, verbatim. Verification below is graded against these
+words, not a paraphrase, which is the whole point of writing them down once in
+the owner's language.
+-->
+
 
 ## Objective
 
@@ -64,6 +84,9 @@ piece must not stop the plate being served.
 
 Items commonly forgotten, include them when they apply:
   - typecheck and tests green for the packages touched
+  - ALL FOUR STATES on any surface this task ships — populated, empty,
+    loading, error. The empty state is the one that gets skipped, and it is
+    the first thing the owner sees
   - the Knowledge Center article this change makes true or false (AGENTS.md
     §3.2 — and re-read the four global-claim pages, not just the obvious one)
   - a runbook row, if this task ships something only the owner can finish

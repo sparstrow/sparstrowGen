@@ -7,7 +7,9 @@ a session lives here.
 doc/
 ├── templates/                skeletons for every file type below
 │   └── README.md             ← start here when creating any new document
-├── plans/                    approved plans — the "what and why"
+├── specs/                    what the owner wants, in the owner's terms —
+│   └── README.md             user stories, written BEFORE any plan
+├── plans/                    approved plans — the technical "how"
 ├── tasks/                    executable specs — the "how"
 │   ├── MasterTaskQueue.md    global run order + concurrency tags
 │   └── <phase>/              phase spec + individual tasks
@@ -34,16 +36,30 @@ idea ──────────────► Ideas.md
   │
   │ (owner picks it up)
   ▼
+spec ──────────────► doc/specs/<date>-<slug>.md
+  │                  user stories, acceptance scenarios, what the interface
+  │                  should feel like. NO technology.
+  │ (owner reviews — the cheapest point to catch a wrong direction)
+  ▼
 plan ──────────────► doc/plans/<date>-<slug>.md
+  │                  the technical "how". Splits the spec into foundational
+  │                  work and per-story work. Links the spec, never restates it.
   │                  open decisions go to OpenQuestions.md until answered
   │ (owner approves)
   ▼
-task ──────────────► doc/tasks/<milestone>-<slug>.md
+task ──────────────► doc/tasks/<milestone>/T-<id>-<slug>.md
   │                  MUST contain zero open questions
+  │                  each carries a Serves row: a user story, or the story
+  │                  phase it unblocks
   ▼
 code ──────────────► anything parked mid-flight goes to Deferred.md
                      anything shipped-but-unproved goes to KnownGaps.md
 ```
+
+**Internal work skips the spec.** Anything that only changes how the repo is
+built, checked, documented, or governed goes straight to a plan whose **Spec**
+row reads `n/a (internal)`. Anything the owner can see, use, or reach starts
+with a spec. When it's genuinely unclear, ask.
 
 ## The rule that matters
 
@@ -100,7 +116,8 @@ read by the agent who picks this up in three weeks.
 | "It's built, but I couldn't prove it works" | `KnownGaps.md` |
 | "It works, but only within these limits" | `KnownGaps.md` |
 | "Might be nice one day" | `Ideas.md` |
-| "Here's what we're building and why" | `plans/` |
+| "Here's how I want to use it, and what it should feel like" | `specs/` |
+| "Here's how we'll build what the spec asks for" | `plans/` |
 | "Here's exactly how, step by step" | `tasks/` |
 | "Only a human can do this part (external dashboard, OAuth app, secrets)" | `runbooks/` |
 | "This is behaving wrong" — owner-reported or agent-found | `bug/` |

@@ -9,7 +9,8 @@ that drift apart.
 
 | Creating | Template | Lands in |
 |---|---|---|
-| A plan — what we're building and why | [`plan.md`](plan.md) | `doc/plans/<YYYY-MM-DD>-<slug>.md` |
+| A spec — what the owner wants, in their terms | [`spec.md`](spec.md) | `doc/specs/<YYYY-MM-DD>-<slug>.md` |
+| A plan — how the spec gets built | [`plan.md`](plan.md) | `doc/plans/<YYYY-MM-DD>-<slug>.md` |
 | A phase spec — what a phase's tasks share | [`phase-spec.md`](phase-spec.md) | `doc/tasks/<phase>/README.md` |
 | A task — one executable unit of work | [`task.md`](task.md) | `doc/tasks/<phase>/T-<phase>-<nn>-<slug>.md` |
 | A verification task — proving a phase for real | [`verification-task.md`](verification-task.md) | `doc/tasks/<phase>/T-<phase>-<nn>-verification.md` |
@@ -20,6 +21,13 @@ that drift apart.
 
 Not sure which one? [`../README.md`](../README.md)'s "Which file does this go
 in?" table answers that first — pick the destination, then the template.
+
+**Owner-visible work starts at `spec.md`, not `plan.md`.** Anything that
+changes what the owner sees, does, or can reach gets a spec first, reviewed
+before planning begins. Work that only changes how the repo is built, checked,
+documented, or governed goes straight to a plan with `Spec: n/a (internal)`.
+The chain is spec → plan → tasks, and each links back rather than restating
+the one before it.
 
 ## Conventions used in every template
 

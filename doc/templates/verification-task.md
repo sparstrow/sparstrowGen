@@ -40,11 +40,21 @@ the half it could reach. Say which section is affected and where it gets
 recorded (KnownGaps.md, following an existing entry's shape).
 -->
 
-## A — <the thing this phase built>
+## A — The acceptance scenarios
 
 <!--
-Group assertions by what they prove, one section per group. Every box is
-something a person can do and observe, with an unambiguous result.
+FOR A STORY PHASE: walk the spec's acceptance scenarios verbatim, Given /
+When / Then, in the running app. These are the owner's own words and they are
+what "done" means here — not the task checklists, which only prove the parts
+were built.
+
+Include the story's Independent test from the spec: implement-only-this-story
+must still leave something usable. If the story cannot be demonstrated without
+a LATER story also being present, the split was wrong — say so here rather
+than quietly verifying them together.
+
+FOR A FOUNDATIONAL PHASE: replace this section with the technical assertions,
+and state which story phase is now unblocked.
 
 Reach things the way a USER reaches them. M7's spec says it precisely: reach
 every detail page by clicking a row, never by typing a URL with a made-up id —
@@ -52,8 +62,34 @@ a fabricated id fails exactly the way a broken param does, so typing one
 proves nothing.
 -->
 
-- [ ] <assertion — concrete enough that two people would agree on pass/fail>
+- [ ] **US-n scenario 1** — Given <…>, When <…>, Then <…>
+- [ ] **US-n scenario 2** — the unhappy path, same treatment
+- [ ] The story's independent test passes with only this phase's work present
 - [ ] The browser console has no errors on load
+
+## A2 — The four states
+
+<!--
+DELETE for a foundational phase.
+
+Per AGENTS.md §3.11 and the spec's Interface & experience section, all four
+ship together. Verify each DELIBERATELY — the empty and error states are the
+ones that never get looked at, because reaching them takes effort.
+
+To reach empty: a fresh workspace, or delete the rows. To reach error: stop
+the daemon, kill the network, point at a dead port. If a state genuinely
+cannot be reached, that is a KnownGaps entry, not a tick.
+-->
+
+For every surface this phase ships:
+
+- [ ] **Populated** — real data, correct record
+- [ ] **Empty** — explains what to do next and offers the action, not a bare
+      "No items"
+- [ ] **Loading** — skeleton shaped like the real content, no layout jump
+- [ ] **Error** — names what failed in plain words and offers the next action
+- [ ] Both light and dark themes
+- [ ] Keyboard navigation and visible focus work; nothing scrolls sideways
 
 ## B — What must NOT have changed
 

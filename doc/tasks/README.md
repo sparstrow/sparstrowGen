@@ -25,6 +25,36 @@ once and referenced, not copy-pasted into eight files and then updated in six.
 [`verification-task.md`](../templates/verification-task.md) for the `[S]` task
 every phase ends with.
 
+## Two kinds of phase
+
+Phases come in two shapes, and every phase declares which it is in its
+`README.md` **Kind** row. The split is decided in the plan's Work breakdown,
+using one test:
+
+> **Can the owner see the result of this work?**
+> **Yes** → it belongs to a user story. **No** → it is foundational.
+
+| | **Foundational** | **Serves `US-n`** |
+|---|---|---|
+| Examples | schema, RLS, transport, sync, migrations | a page, a flow, anything the owner opens |
+| Tasks grouped by | technical layer | the story, ending in something demoable |
+| Definition of done | technical outcomes, plus which story phase it unblocks | the spec's acceptance scenarios, walked — plus all four states |
+| Demos to | nobody, and that's correct | the owner, directly |
+
+M1–M7 were all foundational, which is why none of them is named after
+something the owner could open. That was the right shape for building a
+control plane. It is the wrong shape for everything the owner actually
+touches, which is what specs now govern.
+
+**The failure this guards against:** everything gets called foundational,
+no story ever ships, and the app is a backend with no way in. If a plan's
+Work breakdown has stories with no rows under them, that is the warning
+sign — not a scheduling detail.
+
+Every task, in either kind of phase, carries a **Serves** row naming its user
+story or the story phase it unblocks. A task that can name neither is a task
+nobody asked for.
+
 ## The bar
 
 A task is ready when someone can work it **without asking the owner anything**:
