@@ -22,21 +22,49 @@ Welcome agent! This file defines the mandatory workflow, safety rules, and engin
 ```
 
 ### Locked Technology Stack
-- **Web App**: Next.js 16.3 App Router (`apps/web`) with Turbopack bundler.
+
+**`.sparstrowgen/blueprint.yaml` is the single source of truth for the stack,
+commands, and MCP server roster — read it, don't restate its facts here.** It's
+loaded every session same as this file, so duplicating its content in prose here
+would just be two places to keep in sync instead of one. When the stack changes,
+update the blueprint; only touch this section for the wiring detail below, which the
+blueprint deliberately doesn't carry (file paths, provider specifics — not "what tech
+are we on").
+
 - **Router Adapter**: Custom Next.js navigation adapter (`apps/web/src/lib/react-router-mock.tsx`) intercepting TanStack Router calls.
-- **UI & Styling**: Tailwind CSS v4, Radix UI primitives, `@sparstrow/ui` Shadcn components, OKLCH design system tokens (`DESIGN.md`).
-- **Database & ORM**: Supabase PostgreSQL + Drizzle ORM (`@sparstrow/shared`), Drizzle Kit migrations.
+- **Design tokens**: OKLCH design system tokens and component vocabulary live in `DESIGN.md`.
 - **Authentication**: `@supabase/ssr` (Passwordless Magic Link, Email & Password, GitHub OAuth, Google OAuth) + Next.js Middleware Session Guard (`apps/web/src/middleware.ts`).
 - **Realtime Cloud Sync**: Supabase Realtime Postgres event channel streaming (`apps/web/src/components/providers.tsx`) bridging into live React Query cache invalidation.
-- **Vector Search**: Supabase `pgvector` semantic search for memory notes and RAG retrieval.
-- **Desktop Shell**: Electron 36 (`@sparstrow/desktop`).
-- **Package Manager & Monorepo**: `pnpm` v11.6.0 + Turbo 2.9.18 caching.
+
+Vector search specifics (local vs. cloud) are covered in §4, not repeated here.
 
 ### Connected MCP Servers & Skills
-- **`shadcn` MCP Server**: UI pattern discovery (`search_items_in_registries`, `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`).
-- **`impeccable` Skill**: Production-grade UI design commands (`audit`, `adapt`, `polish`, `craft`, `shape`, `distill`, `harden`).
-- **`supabase` MCP Server**: Database schema inspection, migration execution, and Edge Function deployment.
-- **Tool Integration MCPs**: `clockify`, `square`, and `blender` MCP servers for agent action execution.
+
+The server roster is `blueprint.yaml`'s `mcp_servers` list, configured in
+`.mcp.json` — update both together when a server is added or removed. What follows
+is operational detail neither of those files carries (why each is there, auth
+posture, what pairs with what):
+
+- **`supabase`**: schema inspection, migration execution, Edge Function deployment.
+- **`context7`**: up-to-date library/framework documentation lookup — prefer this
+  over training-data knowledge or web search for API syntax and version-specific
+  docs.
+- **`shadcn`**: UI pattern discovery (`search_items_in_registries`,
+  `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`).
+  Paired with the vendored `shadcn` skill (`.claude/skills/shadcn/`) for the
+  procedural half of the Shadcn workflow — see §3.11.
+- **`github`**: PR/issue management and repo search against this project's
+  GitHub remote. OAuth on first connect (run `/mcp` to authorize), same pattern
+  as `supabase` — no token ever belongs in `.mcp.json` or an agent's hands.
+- **`playwright`**: browser automation, backing the end-to-end visual/runtime
+  testing loop mandated in §3.10.
+
+**`impeccable` Skill**: Production-grade UI design commands (`audit`, `adapt`,
+`polish`, `craft`, `shape`, `distill`, `harden`). Personal/user-level, not declared
+in this repo. Any other MCP tool or skill an agent sees available (e.g. `clockify`,
+`square`) comes from that agent's personal/user-level config the same way — don't
+assume it's present for another agent or machine unless it's in `.mcp.json` or
+`.claude/skills/`.
 
 ---
 
@@ -151,8 +179,11 @@ We enforce a strict 3-tier Git & deployment pipeline:
   board, runs, transcripts, chat) is Postgres/Supabase, schema in
   `packages/shared/src/db/schema.ts` (`pgTable`). Each daemon's execution store
   and derived memory index is local SQLite, schema in
-  `packages/core/src/db/schema.ts` (`sqliteTable`). There is no
-  `@sparstrow/daemon` package — the daemon is `@sparstrow/core`.
+  `packages/core/src/db/schema.ts` (`sqliteTable`). **Splitting a standalone
+  `@sparstrow/daemon` package out of `@sparstrow/core` is a planned goal, not yet
+  built** — until that split happens, the daemon's code lives in and runs as
+  `@sparstrow/core`. Don't create a `packages/daemon/` directory speculatively;
+  the split should be its own deliberate piece of work.
 * **RLS is the security boundary, not an add-on.** Dispatch is cloud-canonical,
   so a task row targeting a runtime causes a process to spawn on someone's
   machine. Any new table needs a workspace-scoped policy. Post-migration SQL
