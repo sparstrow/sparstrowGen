@@ -60,13 +60,13 @@ The owner chose to build the automation-workflow *foundations* now and defer the
 
 The research doc's 12-agent roster (`coordinator`, `architect`, `frontend-builder`,
 etc.) and the 13 skills tied to it (`writing-handoff-manifests`,
-`authoring-spec-kit-specs`, per-agent skills) are **not built**. They're designed
-around a spec-kit/handoff-manifest workflow this repo doesn't run, and the owner
-explicitly sequenced agents after this foundational tooling. Revisit
-`doc/research/Sparstrowgen Agent Definition Library.md` Part B/C when that phase
-starts — reconcile its proposed `.claude/agents/*.md` frontmatter and handoff schema
-against whatever `blueprint.yaml`/skills look like by then, rather than building from
-the doc verbatim.
+`authoring-spec-kit-specs`, per-agent skills) were **not built as part of this
+change** — they're designed around a spec-kit/handoff-manifest workflow this repo
+doesn't run. The roster is now being built incrementally in later changes (see the
+Update below); revisit `doc/research/Sparstrowgen Agent Definition Library.md`
+Part B/C for each new agent, and reconcile its proposed `.claude/agents/*.md`
+frontmatter and handoff schema against whatever `blueprint.yaml`/skills look like
+at the time, rather than building from the doc verbatim.
 
 ## Follow-ups
 
@@ -74,6 +74,17 @@ the doc verbatim.
   not something this change can do for you.
 - `context7` works unauthenticated but at a lower rate limit; add `CONTEXT7_API_KEY`
   to `.env` later if that becomes a problem.
+
+## Update — 2026-08-16, agent roster resumed
+
+Despite the "Deferred" section above, the same PR that introduced this plan also
+added `.claude/agents/coordinator.md` — the first agent off the research doc's
+roster, adapted (not ported) to this repo's actual `doc/plans`/`doc/tasks` workflow.
+A follow-up change adds `.claude/agents/product-requirements.md`, adapted the same
+way to `doc/specs/` instead of the research doc's Spec Kit assumption. The
+"Deferred" section's "not built" language is now stale for these two; it still
+holds for the remaining ~10 agents and their skills until each is built the same
+way.
 
 ## Update — 2026-08-16, later same day
 
