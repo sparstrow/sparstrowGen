@@ -35,8 +35,13 @@ Welcome agent! This file defines the mandatory workflow, safety rules, and engin
 ### Connected MCP Servers & Skills
 - **`shadcn` MCP Server**: UI pattern discovery (`search_items_in_registries`, `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`).
 - **`impeccable` Skill**: Production-grade UI design commands (`audit`, `adapt`, `polish`, `craft`, `shape`, `distill`, `harden`).
-- **`supabase` MCP Server**: Database schema inspection, migration execution, and Edge Function deployment.
-- **Tool Integration MCPs**: `clockify`, `square`, and `blender` MCP servers for agent action execution.
+- **Project-level MCP config lives in `.mcp.json`.** Currently only **`supabase`** is
+  declared there (schema inspection, migration execution, Edge Function
+  deployment). More project-level MCP servers are being set up — update this list
+  and `.mcp.json` together when they land. Any other MCP tool an agent sees
+  available (e.g. `clockify`, `square`, `shadcn`) comes from that agent's
+  personal/user-level config, not this repo — don't assume it's present for
+  another agent or machine unless it's in `.mcp.json`.
 
 ---
 
@@ -151,8 +156,11 @@ We enforce a strict 3-tier Git & deployment pipeline:
   board, runs, transcripts, chat) is Postgres/Supabase, schema in
   `packages/shared/src/db/schema.ts` (`pgTable`). Each daemon's execution store
   and derived memory index is local SQLite, schema in
-  `packages/core/src/db/schema.ts` (`sqliteTable`). There is no
-  `@sparstrow/daemon` package — the daemon is `@sparstrow/core`.
+  `packages/core/src/db/schema.ts` (`sqliteTable`). **Splitting a standalone
+  `@sparstrow/daemon` package out of `@sparstrow/core` is a planned goal, not yet
+  built** — until that split happens, the daemon's code lives in and runs as
+  `@sparstrow/core`. Don't create a `packages/daemon/` directory speculatively;
+  the split should be its own deliberate piece of work.
 * **RLS is the security boundary, not an add-on.** Dispatch is cloud-canonical,
   so a task row targeting a runtime causes a process to spawn on someone's
   machine. Any new table needs a workspace-scoped policy. Post-migration SQL
