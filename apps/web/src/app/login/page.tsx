@@ -176,7 +176,7 @@ function LoginForm() {
         const { error } = await supabase.auth.signInWithOtp({
           email,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`,
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
             // Without this, signInWithOtp CREATES an account for any address
             // typed here -- so the sign-in form would quietly become an open
             // signup form. Explicit account creation stays on the sign-up tab.
@@ -203,7 +203,7 @@ function LoginForm() {
 
       if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/confirm?next=/auth/reset-password`,
+          redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
         });
         if (error) throw error;
         // Deliberately unconditional: saying "no account with that email"
@@ -220,7 +220,7 @@ function LoginForm() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`,
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
           },
         });
         if (error) throw error;
