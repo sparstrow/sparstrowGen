@@ -78,7 +78,7 @@ it unblocks. A task that can name neither is a task nobody asked for.
 
 | Spec | Status | Plan | Summary |
 |---|---|---|---|
-| [`2026-08-16-setup-and-machines`](2026-08-16-setup-and-machines.md) | ✅ reviewed 2026-08-16 — ready to plan | — | From a fresh account to a working machine: an interactive setup guide, a dedicated Machines menu with CRUD, and active/unreachable status, pairing against `staging.sparstrow.com`. Its US4–US6 scenarios *are* the verification pass `G-12`/`G-16` have been waiting for |
+| [`2026-08-16-setup-and-machines`](2026-08-16-setup-and-machines.md) | ✅ reviewed 2026-08-16 — ready to plan | — | From a fresh account to a working machine: an interactive setup guide, a dedicated Machines menu with CRUD, and active/unreachable status, pairing against `staging.sparstrow.com`. Its US3–US5 scenarios *are* the verification pass `G-12`/`G-16` have been waiting for |
 
 ## The whole-app spec
 
