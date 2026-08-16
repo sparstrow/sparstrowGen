@@ -208,6 +208,16 @@ and service registration is separate work per platform, with no
 owner's own dev checkout, or before handing the app to anyone who isn't
 comfortable cloning a monorepo.
 
+> **Sequenced 2026-08-16.** At the review of
+> [`specs/2026-08-16-setup-and-machines.md`](specs/2026-08-16-setup-and-machines.md)
+> the owner chose to fix distribution as **its own round, immediately after**
+> that spec ships — not folded into it, and not left indefinite. That spec's
+> setup guide and Machines empty state therefore say plainly that connecting a
+> machine currently needs a dev checkout, rather than implying a `sparstrow`
+> command that is published nowhere. **This entry gets its own spec when the
+> setup-and-machines work lands**, which is the concrete trigger this
+> deferral previously lacked.
+
 ---
 
 ## D-12 — Realtime doorbell for command dispatch
@@ -347,19 +357,48 @@ scratch (it does not inherit `staging`'s settings) — then follow
 
 ---
 
-## D-16 — Waking a sleeping machine from the web app
+## D-16 — Sleep awareness: detecting sleep, and waking from it
 
 **Parked:** 2026-08-16, by the owner, while giving the Machines user stories —
 "if a machine is sleeping, we might need to add or trigger the machine to wake
-up… Defer this task now for later."
+up… Defer this task now for later." **Extended the same day** at spec review to
+cover *detection* as well, when the owner chose to ship the Machines menu with
+two states and revisit sleeping later.
+
+Two parts, parked together because detection's main use is deciding whether
+waking is worth offering — but they have different unpark conditions, so they
+are stated separately.
+
+### Part A — detecting that a machine is asleep
+
+[`specs/2026-08-16-setup-and-machines.md`](specs/2026-08-16-setup-and-machines.md)
+ships **two** states, active and unreachable, because a sleeping machine and a
+dead one are the same silence from the cloud's side. Liveness is derived purely
+from heartbeat age ([`cloud.ts:35-52`](../packages/shared/src/cloud.ts:35)).
+
+Distinguishing them needs the machine to **announce suspension before it goes
+quiet**. Electron 36 ships `powerMonitor` with `suspend`/`resume` events and it
+is currently unused anywhere in `packages/desktop` (verified 2026-08-16), so
+the desktop app is nearly free; headless core needs a per-OS mechanism
+(systemd sleep hooks, Windows power broadcasts, launchd).
+
+**What stays ambiguous no matter what:** a machine that loses power, crashes,
+or drops off the network never gets to announce anything, and is
+indistinguishable from one that was switched off. So even with Part A built,
+the honest set is *active / sleeping / unreachable* — never "turned off".
+
+*(One wrinkle in our favour: Windows Modern Standby machines keep networking
+alive while asleep, so some may keep heartbeating and never need this.)*
+
+- **Unpark when:** the two-state model proves genuinely confusing in daily use —
+  the owner repeatedly cannot tell whether a machine is coming back — **or**
+  Part B is wanted, which needs this first.
+
+### Part B — waking a sleeping machine from the web app
 
 The intent: a machine showing as asleep gets a control in the web app that
-wakes it, so work can be sent to it without walking over to the computer. A
-machine that is genuinely powered off stays out of reach, and that is accepted.
-
-Reporting sleep is **not** deferred — that is US2 of
-[`specs/2026-08-16-setup-and-machines.md`](specs/2026-08-16-setup-and-machines.md).
-Only *acting* on it is parked here.
+wakes it, so work can be sent without walking over to the computer. A machine
+genuinely powered off stays out of reach, and that is accepted.
 
 **The constraint that makes this bigger than a button**, recorded now so
 nobody unparks it expecting an afternoon's work: a cloud web app cannot wake a

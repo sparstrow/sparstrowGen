@@ -2,21 +2,18 @@
 
 | | |
 |---|---|
-| **Status** | **Draft v2 — owner stories captured 2026-08-16, open questions below** |
+| **Status** | **Draft v3 — owner-reviewed 2026-08-16, all open questions resolved. Ready to plan** |
 | **Created** | 2026-08-16 |
 | **Trigger** | Owner, after deploying `staging.sparstrow.com`: a dedicated Machines menu with CRUD and live status, and an interactive step-by-step setup guide |
-| **Plan** | not planned yet — blocked on the open questions |
-| **Open questions** | 4 inline `[NEEDS CLARIFICATION]`, see Assumptions |
+| **Plan** | not written yet — this spec is ready for one |
+| **Open questions** | none |
 
-> **Scope widened from v1.** This started as "pair a machine to the deployed
-> app". The owner's stories make it one journey: **from a fresh account to a
-> machine that runs work.** Setup, machines, pairing and status are steps in
-> that journey, not separate features. Renamed from
-> `2026-08-16-pair-machine-to-deployed-app.md` to match.
-
+> **Scope.** From a fresh account to a machine that runs work. Setup, machines,
+> pairing and status are steps in one journey, not separate features.
+>
 > **This spec is also the pending verification pass.** Almost everything under
-> US4–US6 is already built and has never been *used* against a real
-> deployment. Walking those acceptance scenarios is exactly what
+> US3–US5 is already built and has never been *used* against a real
+> deployment. Walking those acceptance scenarios is what
 > [`G-12`](../KnownGaps.md) and [`G-16`](../KnownGaps.md) have been waiting
 > for — a plan should close them in place, not open a parallel checklist.
 
@@ -33,19 +30,13 @@ Settings → Workspace → General, below Factory Health and above WIP Snapshot
 ([`settings.tsx:781-786`](../../packages/ui/src/routes/pages/settings.tsx:781)).
 The sidebar has 16 destinations and none is Machines
 ([`app-shell.tsx:47-76`](../../packages/ui/src/components/layout/app-shell.tsx:47)).
-So the thing every agent run depends on is three clicks deep, in a settings
-page, next to unrelated controls.
-
-**Status is binary, not three-state.** A machine reads `online` or `offline`,
-derived purely from heartbeat age — 90 seconds of silence and it flips
-([`cloud.ts:35-52`](../../packages/shared/src/cloud.ts:35)). There is no
-concept of sleeping. See the finding below; this is the part of the owner's
-ask that is not free.
+The thing every agent run depends on is three clicks deep, next to unrelated
+controls.
 
 **The card itself is good, and has never been seen.** All four states are
 already implemented — skeletons, a dashed empty panel that explains pairing,
-populated rows with a live dot, and an inline error. It has never been
-rendered in a browser ([`G-12`](../KnownGaps.md)).
+populated rows with a live dot and a `last seen 4m ago`, and an inline error.
+It has never been rendered in a browser ([`G-12`](../KnownGaps.md)).
 
 **Nobody has ever paired against a deployed app.** Every daemon still defaults
 to `localhost:3000` ([`config.ts:138`](../../packages/core/src/config.ts:138)).
@@ -54,45 +45,41 @@ to `localhost:3000` ([`config.ts:138`](../../packages/core/src/config.ts:138)).
 
 - The CLI sends users to *Settings → Workspace → **Runtimes***, a tab that
   does not exist — [`BUG-2026-08-16-pairing-path-wrong-in-cli`](../bug/BUG-2026-08-16-pairing-path-wrong-in-cli.md).
-  A dedicated Machines menu (US1) changes this instruction anyway.
+  US1 moves the destination anyway, so the fix is part of this work.
 - The command the UI tells you to run, `sparstrow pair <code>`, cannot be run
   on a machine without cloning this monorepo — `sparstrow` is published
-  nowhere ([`D-10`](../Deferred.md)). The product prints a promise it cannot
-  keep.
+  nowhere ([`D-10`](../Deferred.md)). See the sequencing decision below.
 
 ---
 
-## ⚠️ Finding: "sleeping" and "turned off" look identical from the cloud
+## Decisions taken at review — 2026-08-16
 
-The owner asked for three states — **active, sleeping, turned off**. Two of
-them are free; the third is not, and it is worth knowing before planning.
+Four questions were open in v2. All are answered; recorded here because each
+one shapes what gets built.
 
-Liveness today is derived entirely from heartbeat age. **A sleeping machine
-and a powered-off machine both stop heartbeating.** The cloud sees the same
-thing in both cases: silence. Nothing in the current design can tell them
-apart, and no amount of UI work changes that.
+**1. The second state is "unreachable", not "turned off".** The app cannot
+tell a powered-off machine from a crashed one or one whose wifi dropped — all
+three produce the same silence. Saying "turned off" would assert a cause we do
+not know, and would send the owner looking at the wrong thing. "Unreachable"
+plus a last-seen time says exactly what is known and no more.
 
-To know a machine is *sleeping*, the machine must **say so before it goes
-quiet** — catch the OS suspend event and report it. That is buildable:
-Electron 36 ships `powerMonitor` with `suspend`/`resume` events, and it is
-currently unused anywhere in `packages/desktop` (verified). Headless core
-would need a per-OS equivalent.
+**2. Sleep detection is deferred entirely** — parked as
+[`D-16`](../Deferred.md). Distinguishing a sleeping machine from an unreachable
+one requires the machine to announce suspension *before* it goes quiet
+(Electron's `powerMonitor`, or a per-OS mechanism for headless core), and even
+then an ungraceful stop stays ambiguous forever. The owner chose to ship the
+Machines menu and setup guide first and live with two states. **So this round
+has two states, not three**, and the third returns with `D-16`.
 
-**But even then, one case stays ambiguous forever.** A machine that loses
-power, crashes, force-shuts-down, or drops off wifi goes quiet *without*
-announcing anything — exactly like a machine that was switched off. So the
-honest third state is **"unreachable"**, meaning *"it stopped talking and did
-not say why"*, not "turned off".
+**3. Distribution is the next round, not this one.** `sparstrow pair` cannot
+run on a machine without a monorepo clone ([`D-10`](../Deferred.md)). Fixing
+that means a published build, per-OS service registration, and native-module
+packaging — its own piece of work with its own spec. **This round tells the
+truth in its wording instead**; the next round makes the truth better.
 
-Calling that state "turned off" would be the product asserting something it
-does not know. Given the owner's own standard elsewhere — the offline machine
-switch that refuses rather than pretending, the CLI's three distinct exit
-codes — I think honesty wins here, but it is the owner's call. See
-`[NEEDS CLARIFICATION]` in Assumptions.
-
-*(One wrinkle in our favour: Windows Modern Standby machines keep networking
-alive in sleep, so some machines may keep heartbeating while asleep and never
-need this at all.)*
+**4. The Settings → Workspace Machines card is removed.** The new menu is the
+only home. Two implementations of the same controls is the duplication that
+drifts — one gets a fix and the other does not.
 
 ---
 
@@ -101,27 +88,26 @@ need this at all.)*
 I open the app on a fresh account and it walks me through getting set up, step
 by step, telling me what is still unfinished. Machines get a menu of their
 own, where I can pair one, see everything connected, tell at a glance whether
-each is working, asleep, or gone, and manage them without hunting through
-settings.
+each is working or gone, and manage them without hunting through settings.
 
 ---
 
 ## User stories
 
-> **US1–US3 are the owner's own words, captured 2026-08-16.** US4–US6 are
-> carried forward from v1 and remain drafted by inference — correct those.
+> **US1 and US2 are the owner's own words**, captured 2026-08-16. US3–US5 are
+> carried forward as inferred and still want correction, though they are
+> lower priority and mostly describe already-built behaviour.
 
 ### US1 — Machines get a menu of their own (Priority: P1)
 
 Machines are a first-class destination in the sidebar, not a card buried in
-settings. I open it and see every machine connected to my workspace, what each
-one is doing, and I can pair a new one or manage an existing one from there —
-rename it, revoke it, remove it — without leaving the page.
+settings. I open it and see every machine connected to my workspace and
+whether each is working, and I can pair a new one or manage an existing one
+right there — rename, revoke, remove — without leaving the page.
 
 **Why this priority:** every agent run needs a machine, so the thing the whole
 product depends on should not be three clicks deep next to unrelated settings.
-It is also where the owner's other stories land: status (US2) and the setup
-guide's final step (US3) both point here.
+It is also where US2's final step sends people.
 
 **Independent test:** open the Machines menu on `staging.sparstrow.com` and
 pair a machine from it end to end, never opening Settings.
@@ -129,58 +115,40 @@ pair a machine from it end to end, never opening Settings.
 **Acceptance scenarios:**
 
 1. **Given** I am signed in, **When** I look at the sidebar, **Then** there is
-   a Machines destination, and I can reach it in one click from anywhere.
+   a Machines destination reachable in one click from anywhere.
 2. **Given** I open Machines with none paired, **When** the page loads,
    **Then** it explains what a machine is for and offers **Pair a machine** as
    the primary action — the empty state teaches the surface.
 3. **Given** I press **Pair a machine**, **When** the code appears, **Then** I
-   see the code, a live countdown, a copy button, and the exact command to run
-   on the machine, naming a place that actually exists.
+   see the code, a live countdown, a copy button, and the exact steps to run on
+   the machine — naming places that actually exist, and honest about needing a
+   dev checkout today (decision 3).
 4. **Given** a machine finishes pairing, **When** I look at the page without
    refreshing, **Then** it appears in the list.
-5. **Given** a machine in the list, **When** I rename it, **Then** the new name
+5. **Given** a machine is running and reachable, **When** I look at it,
+   **Then** it reads as active, with its name, OS, hostname, core version and
+   what it can run.
+6. **Given** a machine has stopped talking — off, asleep, crashed or
+   disconnected — **When** I look at it, **Then** it reads as **unreachable**
+   with when it was last seen, and does **not** claim to know which of those
+   happened (decision 1).
+7. **Given** a machine in the list, **When** I rename it, **Then** the new name
    sticks and is what I see everywhere that machine is named.
-6. **Given** a machine in the list, **When** I revoke or remove it, **Then** I
+8. **Given** a machine in the list, **When** I revoke or remove it, **Then** I
    am told the difference before confirming, and the result matches what I was
    told.
-7. **Given** I am on the Machines page, **When** I complete any of the above,
-   **Then** I never had to open Settings.
+9. **Given** a machine is unreachable, **When** I try a control that needs it,
+   **Then** the control refuses with the reason rather than queuing silently —
+   today's behaviour, preserved.
+10. **Given** I go to Settings → Workspace → General, **When** I look for
+    machines, **Then** the old card is gone (decision 4) and nothing is
+    orphaned by its removal.
+11. **Given** I am on the Machines page, **When** I do any of the above,
+    **Then** I never had to open Settings.
 
 ---
 
-### US2 — Tell at a glance whether a machine is working, asleep, or gone (Priority: P1)
-
-Each machine shows its real state. If it is running and reachable, I see that.
-If it went to sleep, I see that — distinctly, because sleeping is recoverable
-and gone is not. If it stopped talking without warning, I see that too, and
-the app does not pretend to know why.
-
-**Why this priority:** the owner asked for it directly, and it is the
-difference between a list of names and a page that tells you something. It is
-`[NEEDS CLARIFICATION]`-gated on the finding above — see Assumptions.
-
-**Independent test:** put a machine into each state deliberately and confirm
-the page says the right thing within a predictable time.
-
-**Acceptance scenarios:**
-
-1. **Given** a machine running and heartbeating, **When** I look at it,
-   **Then** it reads as active, with what it can run.
-2. **Given** a machine I put to sleep, **When** I look at it, **Then** it reads
-   as sleeping — not the same as gone — and says when it went to sleep.
-3. **Given** a machine that stopped without warning (power cut, crash, network
-   dropped), **When** I look at it, **Then** it reads as unreachable and says
-   when it was last seen, without claiming to know the cause.
-4. **Given** any machine's state changes, **When** I have the page open,
-   **Then** it updates without me refreshing, within a predictable window I
-   could be told about.
-5. **Given** a machine that is not active, **When** I try a control that needs
-   it, **Then** the control refuses with the reason rather than queuing
-   silently — the existing behaviour, preserved.
-
----
-
-### US3 — A setup guide that shows me what is left (Priority: P1)
+### US2 — A setup guide that shows me what is left (Priority: P1)
 
 When I create an account — or come back to one that is half-finished — the app
 shows me what still needs doing to be set up, in order, and walks me through
@@ -189,7 +157,7 @@ along I am, and pick up where I left off.
 
 **Why this priority:** the owner asked for it directly, and it is the only
 story here that serves someone who is not already an expert in this product.
-It is also what makes US1 and US2 discoverable rather than things you have to
+It is also what makes US1 discoverable rather than something you have to
 already know about.
 
 **Independent test:** create a fresh account and reach a paired, working
@@ -202,22 +170,25 @@ machine using only what the guide tells you.
    dashboard.
 2. **Given** I am partway through setup, **When** I return later, **Then** the
    guide shows completed steps as done and points me at the next one.
-3. **Given** I complete a step elsewhere in the app (say I pair a machine from
-   the Machines menu), **When** I look at the guide, **Then** that step reads
-   as done — it reflects real state, never a separate checkbox I have to tick.
+3. **Given** I complete a step elsewhere in the app — say I pair a machine from
+   the Machines menu — **When** I look at the guide, **Then** that step reads
+   as done. It reflects real state, never a separate checkbox I have to tick.
 4. **Given** I am fully set up, **When** I look, **Then** the guide is not in
    my way — it stands down rather than nagging.
-5. **Given** a step cannot be completed yet (something is unavailable),
-   **When** I reach it, **Then** it says so and why, rather than failing when
-   I click.
+5. **Given** a step cannot be completed yet, **When** I reach it, **Then** it
+   says so and why, rather than failing when I click.
 6. **Given** I want to skip ahead, **When** I try, **Then** I can — the guide
    is a guide, not a gate.
-   [NEEDS CLARIFICATION: is any step genuinely mandatory before the app is
-   usable, or is all of it skippable? See Assumptions.]
+7. **Given** I reach the machines step, **When** I read it, **Then** it tells
+   me plainly what connecting a machine currently requires, including the dev
+   checkout, rather than implying a command that does not exist (decision 3).
+8. **Given** an account that existed before this guide shipped, **When** I open
+   it, **Then** the guide reflects what I have actually already done, not a
+   fresh start.
 
 ---
 
-### US4 — Send work from the browser and watch it run on that machine (Priority: P2)
+### US3 — Send work from the browser and watch it run on that machine (Priority: P2)
 
 *(Carried from v1 — inferred, not dictated.)*
 
@@ -244,7 +215,7 @@ transcript while it executes on the paired machine.
 
 ---
 
-### US5 — Understand what broke when a machine will not connect (Priority: P3)
+### US4 — Understand what broke when a machine will not connect (Priority: P3)
 
 *(Carried from v1 — inferred.)*
 
@@ -267,7 +238,7 @@ its actual cause.
 
 ---
 
-### US6 — The desktop app shows the deployed product (Priority: P3)
+### US5 — The desktop app shows the deployed product (Priority: P3)
 
 *(Carried from v1 — inferred.)*
 
@@ -292,7 +263,7 @@ inside the window.
 |---|---|---|
 | **Machines** (sidebar destination) | **new** — promoted out of Settings | Pair, see status, rename, revoke, remove |
 | **Setup guide** | **new** | Follow steps: profile → workspace → machines |
-| Settings → Workspace → General | existing | Loses the Machines card, or keeps a link to it [NEEDS CLARIFICATION] |
+| Settings → Workspace → General | existing | **Loses the Machines card entirely** (decision 4) |
 | Pairing command on the machine | existing CLI, never run against a deployment | Redeem a code; check status; understand failures |
 | Run detail (live transcript) | existing, live half unproved | Watch work execute on the paired machine |
 | Desktop window | existing, never launched | See the hosted product |
@@ -312,15 +283,16 @@ currently the screen that tells them to run a command they cannot run.
 
 ### Machine status vocabulary
 
-Three states, pending the naming decision in Assumptions:
+**Two states this round** (decisions 1 and 2):
 
 | State | Means | How we know |
 |---|---|---|
-| **Active** | Running and reachable | Recent heartbeat |
-| **Sleeping** | Suspended, expected back | The machine announced it before going quiet |
-| **Unreachable** | Stopped talking, cause unknown | Silence with no announcement — covers off, crashed, and network-dropped |
+| **Active** | Running and reachable | Heartbeat within the staleness window |
+| **Unreachable** | Stopped talking — off, asleep, crashed or disconnected, and we do not know which | Silence past the staleness window. Always shown with a last-seen time |
 
-Existing `draining` (shutting down) stays as it is.
+Existing `draining` (shutting down) stays as it is. **Sleeping** joins this
+table when [`D-16`](../Deferred.md) is unparked; nothing in this round should
+make that harder to add.
 
 ### Flow
 
@@ -328,7 +300,7 @@ Existing `draining` (shutting down) stays as it is.
 machines → guide stands down.
 
 **Pairing, from the Machines menu:** Machines → **Pair a machine** → code with
-countdown → run the command on the machine → machine appears → status goes
+countdown → run the steps on the machine → machine appears → status goes
 active.
 
 **Dead ends to check:** an expired code; a reused code; a machine that pairs
@@ -337,16 +309,15 @@ but is never started; a guide step completed elsewhere in the app.
 ## Edge cases
 
 - What does the guide show for an account created before the guide existed —
-  all steps done, or all steps unknown?
+  all steps done, or all steps unknown? (US2 scenario 8 says: reflect reality.)
 - What happens when the code expires *while* the pairing command is running?
-- Does a machine that paired but never started appear at all, or only after
-  its first heartbeat?
-- How long after a machine sleeps or dies does the page reflect it, and is that
+- Does a machine that paired but never started appear at all, or only after its
+  first heartbeat?
+- How long after a machine goes quiet does the page reflect it, and is that
   delay explained anywhere the owner would look?
-- What does a run do when its machine sleeps or dies mid-run?
+- What does a run do when its machine goes unreachable mid-run?
 - Can a machine be in two workspaces? What does the Machines page show then?
-- What does the guide do when a step's prerequisite is deferred or disabled —
-  e.g. a machine cannot be paired because distribution isn't solved?
+- What happens to a bookmark or link pointing at the removed Settings card?
 
 ## Requirements
 
@@ -362,27 +333,28 @@ but is never started; a guide step completed elsewhere in the app.
   store the credential without ever displaying it.
 - **FR-005**: A paired machine MUST appear without a manual refresh, showing
   enough identity to tell it from another machine at a glance.
-- **FR-006**: Each machine MUST show one of three states — active, sleeping,
-  unreachable — and MUST NOT assert a cause it cannot know.
-- **FR-007**: A machine MUST announce suspension before going quiet, so
-  sleeping is distinguishable from unreachable.
-  [NEEDS CLARIFICATION: headless core has no `powerMonitor`; is this
-  desktop-only for now?]
-- **FR-008**: The setup guide MUST derive every step's completion from real
+- **FR-006**: Each machine MUST show either **active** or **unreachable**, and
+  MUST NOT assert a cause it cannot know. Unreachable MUST always carry a
+  last-seen time.
+- **FR-007**: The status model MUST leave room for **sleeping** to be added
+  without reshaping it, since [`D-16`](../Deferred.md) will add it.
+- **FR-008**: The Machines card MUST be removed from Settings → Workspace →
+  General, with nothing orphaned by its removal.
+- **FR-009**: The setup guide MUST derive every step's completion from real
   application state, never from a stored flag the app ticks separately.
-- **FR-009**: The setup guide MUST be available to existing accounts, not only
-  newly created ones.
-- **FR-010**: The setup guide MUST stand down once setup is complete.
-- **FR-011**: The system MUST distinguish, in what it tells the owner, a
+- **FR-010**: The setup guide MUST be available to existing accounts, not only
+  newly created ones, and MUST reflect what those accounts have already done.
+- **FR-011**: The setup guide MUST stand down once setup is complete.
+- **FR-012**: The setup guide MUST NOT gate access — every step is skippable.
+- **FR-013**: The system MUST distinguish, in what it tells the owner, a
   rejected code from an unreachable control plane from a machine not running.
-- **FR-012**: Revoking a machine MUST stop it reaching the workspace on its
+- **FR-014**: Revoking a machine MUST stop it reaching the workspace on its
   next request, and the machine MUST be able to say so about itself.
-- **FR-013**: Every instruction the product prints MUST name a place that
+- **FR-015**: Every instruction the product prints MUST name a place that
   exists.
-- **FR-014**: The pairing instruction shown in the app MUST be runnable on the
-  machine being paired.
-  [NEEDS CLARIFICATION: today this needs a monorepo clone per `D-10` — fix
-  distribution, or change the wording to tell the truth?]
+- **FR-016**: Instructions for connecting a machine MUST state plainly what is
+  actually required today, including the dev checkout — the product must not
+  imply a command that does not exist (decision 3).
 
 ### Key entities
 
@@ -392,21 +364,23 @@ but is never started; a guide step completed elsewhere in the app.
 - **Pairing code**: short-lived, single-use secret joining one machine to one
   workspace.
 - **Setup step**: one thing that must be true for the account to be usable.
-  Derived, never stored as a tick.
+  Derived from real state, never stored as a tick.
 - **Run**: work started from the browser, executing on a machine, reporting
   back while it happens.
 
 ## Success criteria
 
 - **SC-001**: A brand-new account reaches a paired, working machine using only
-  what the app tells them — no source, no docs, no asking.
+  what the app tells them — no source, no docs, no asking. *(Bounded by
+  decision 3: the guide may honestly require a dev checkout; it may not be
+  wrong about it.)*
 - **SC-002**: Machines is reachable in one click from anywhere.
 - **SC-003**: A machine's displayed state matches reality within a stated
-  window, for all three states, verified by forcing each deliberately.
+  window, for both states, verified by forcing each deliberately.
 - **SC-004**: The owner can pair, rename, revoke and remove a machine without
-  opening Settings.
+  opening Settings, and the Settings card is gone.
 - **SC-005**: The setup guide's steps match reality when a step is completed
-  elsewhere in the app.
+  elsewhere in the app, and on an account that predates the guide.
 - **SC-006**: A run started in the browser executes on the paired machine with
   its transcript visible during execution.
 - **SC-007**: `G-12` and `G-16` are closed, or their residue rewritten to say
@@ -414,40 +388,35 @@ but is never started; a guide step completed elsewhere in the app.
 
 ## Assumptions
 
-- **This spec is also the pending verification pass** — walking US4–US6 is
+- **This spec is also the pending verification pass** — walking US3–US5 is
   [`T-M7-04`](../tasks/M7/T-M7-04-verification.md) sections C–D and the rest of
   `T-M3-08`. Close them in place.
 - **Target is `staging.sparstrow.com`.** `main` is still dummy code
   ([`D-15`](../Deferred.md)).
-- **Waking a sleeping machine is deferred** at the owner's instruction —
-  [`D-16`](../Deferred.md). US2 only *reports* sleep; it does not act on it.
 - **Local agent/dev testing stays on `localhost:3000`.**
-- [NEEDS CLARIFICATION: **what do we call the third state?** "Unreachable" is
-  honest — the app genuinely cannot tell a powered-off machine from a crashed
-  or disconnected one. "Turned off" is what was asked for and reads more
-  plainly, but asserts a cause we don't know. Recommendation: "unreachable",
-  with the last-seen time doing the explaining.]
-- [NEEDS CLARIFICATION: **does sleep detection ship desktop-only first?**
-  Electron's `powerMonitor` gives it nearly free for the desktop app; headless
-  core needs a per-OS mechanism. Desktop-only means machines running headless
-  core show unreachable when asleep, which is honest but less useful.]
-- [NEEDS CLARIFICATION: **does this round fix `D-10` distribution?** Making
-  `sparstrow pair` runnable without cloning the monorepo is real work — a
-  published build, per-OS service registration, native module packaging.
-  Otherwise the setup guide's machines step ends at "clone a monorepo", which
-  undercuts US3's whole point. Roughly doubles scope; the owner's call.]
-- [NEEDS CLARIFICATION: **does the Settings → Workspace Machines card stay?**
-  Removing it is cleaner; leaving both is two places to maintain. A link from
-  Settings to the new page is the middle option.]
+- **Two machine states this round**, per decision 2. Sleep detection and waking
+  are both parked in [`D-16`](../Deferred.md).
+- **Distribution is the next round**, per decision 3 — [`D-10`](../Deferred.md)
+  gets its own spec once this one ships.
 - **Out of scope, deliberately**: HITL gates ([`D-1`](../Deferred.md)),
   multi-workspace switching ([`D-7`](../Deferred.md)), agent-definition sync
   ([`D-9`](../Deferred.md)), the Realtime dispatch doorbell
-  ([`D-12`](../Deferred.md)), and waking a sleeping machine
-  ([`D-16`](../Deferred.md)).
+  ([`D-12`](../Deferred.md)), sleep detection and waking
+  ([`D-16`](../Deferred.md)), and machine distribution
+  ([`D-10`](../Deferred.md), next round).
 
 ## Owner review
 
-**Stories captured:** 2026-08-16 — US1, US2, US3 from the owner directly;
-US4–US6 carried forward as inferred.
+**Stories captured:** 2026-08-16 — US1 and US2 from the owner directly;
+US3–US5 carried forward as inferred.
 
-**Reviewed:** — *pending the four open questions above*
+**Reviewed:** 2026-08-16 — **accepted, with four decisions** recorded above:
+"unreachable" over "turned off", sleep detection deferred to `D-16`,
+distribution sequenced as its own round after this one, and the Settings
+Machines card removed outright.
+
+**What changed as a result:** the three-state status story was folded into US1
+and reduced to two states, dropping the story count from six to five. The
+setup guide gained two scenarios — honest wording about the dev checkout, and
+correct behaviour for accounts that predate it — both consequences of
+decisions 3 and 2 respectively.
