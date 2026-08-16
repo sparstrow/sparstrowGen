@@ -153,6 +153,20 @@ questions` header line is empty or points only to non-blocking entries.
 | M5 — transcripts (dual path) | 6 (`M5/`) | 01–05 done · 06 (verification) deferred to the owner — [`G-13`](../KnownGaps.md) |
 | M6 — memory sync | 5 (`M6/`) | 01–04 done 2026-08-12, 956 tests · 05 (verification) needs a second machine — [`G-15`](../KnownGaps.md) |
 | M7 — routes + Electron | 4 (`M7/`) | 01–03 done 2026-08-13, 981 tests · 04 (verification) not run — [`G-16`](../KnownGaps.md) |
+| **M8 — Machines menu** *(serves US1)* | 5 (`M8/`) | not started |
+| **M9 — workspace + profile identity** *(foundational)* | 4 (`M9/`) | not started |
+| **M10 — the setup guide** *(serves US2)* | 5 (`M10/`) | not started |
+| **M11 — walk the spec on staging** *(serves US3–US5)* | 5 (`M11/`) | blocked — needs a machine pointed at `staging.sparstrow.com` |
+
+M8–M11 are the first phases in this repo derived from a **spec** rather than
+straight from a plan, and the first named after things the owner can open. M9 is
+the only foundational one among them, and deliberately small: its whole job is
+to give M10's first two steps something to call. The split was decided by one
+test — *can the owner see the result of this work?* — applied per item in
+[`../plans/2026-08-16-setup-and-machines.md`](../plans/2026-08-16-setup-and-machines.md)'s
+Work breakdown. US1 turned out to need **no** foundational work at all, because
+every endpoint it uses shipped in M3 and M4; that is why M8 can go first and
+alone.
 
 M5's spec depended on what M4's dispatch actually turned out to look
 like, and inventing that early would have been fiction in a confident tone. M4

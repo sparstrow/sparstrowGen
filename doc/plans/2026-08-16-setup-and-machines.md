@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | [`../specs/2026-08-16-setup-and-machines.md`](../specs/2026-08-16-setup-and-machines.md) (reviewed 2026-08-16, five decisions) |
-| **Status** | Draft — awaiting approval · M8 first |
+| **Status** | Decomposed 2026-08-16 into 19 tasks across four phases — bands 10–13 in [`MasterTaskQueue.md`](../tasks/MasterTaskQueue.md) · **M8 and M9 can start now, in parallel** · M11 blocked on an owner action |
 | **Trigger** | Owner, after deploying `staging.sparstrow.com`: a Machines menu of its own, and a setup guide that shows what is left |
 | **Depends on** | M1–M7 (all code-complete). No new schema. |
 | **Touches** | `packages/ui/src/routes/pages/`, `packages/ui/src/components/`, `packages/ui/src/api/hooks.ts`, `apps/web/src/app/`, `apps/web/src/lib/api/handlers/`, `packages/shared/src/cloud.ts`, `packages/core/src/cli/pair.ts` |
@@ -214,7 +214,7 @@ as the workspace naming control, roughly a card and one handler.
 > generalizing an owner decision rather than by being told. It is flagged the
 > way decision 5 was, and it is the one thing in this plan worth a veto: if the
 > owner would rather the profile step read as already-done on signup, delete
-> `T-M9-02` and the profile half of `T-M10-04` and the rest of the plan is
+> `T-M9-02` and the profile half of `T-M10-02` and the rest of the plan is
 > unaffected.
 
 Someone who signed in with GitHub or Google **already has** a real
