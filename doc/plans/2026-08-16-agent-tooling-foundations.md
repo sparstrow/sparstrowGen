@@ -74,3 +74,17 @@ the doc verbatim.
   not something this change can do for you.
 - `context7` works unauthenticated but at a lower rate limit; add `CONTEXT7_API_KEY`
   to `.env` later if that becomes a problem.
+
+## Update — 2026-08-16, later same day
+
+The `scripts/dev-preview.mjs` mechanism referenced above under "What was built" (the
+`core`/`ui` port/data-dir isolation pattern) was **removed** once agent testing moved
+to `apps/web` (Next.js) on a 3000-series port pool instead of previewing the Electron
+desktop app's own UI. Removed: `scripts/dev-preview.mjs`, the `dev:preview:core`/
+`dev:preview:ui` root `package.json` scripts, and their `launch.json` presets. The
+`worktree-orchestration` skill was rewritten to cover only `web` port isolation —
+see `.claude/skills/worktree-orchestration/references/port-isolation.md`'s "What used
+to be here" section for how to rebuild the core/ui mechanism from git history if
+desktop-UI preview testing is ever needed again. `SPARSTROW_PORT`/`SPARSTROW_DATA_DIR`
+support itself was untouched — it lives in `packages/core`, `packages/ui`, and
+`packages/desktop` independent of this launcher, and still works.

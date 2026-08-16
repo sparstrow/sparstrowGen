@@ -15,6 +15,10 @@ doc/
 │                             shouldn't act on your behalf for). Not a
 │                             lifecycle stage — these don't graduate into
 │                             code, they just sit here as reference.
+├── bug/                       owner-reported or agent-found wrong behavior
+│   └── README.md             ← format, workflow, index
+├── security/                  vulnerabilities, trust-boundary violations
+│   └── README.md             ← stricter format, index
 ├── OpenQuestions.md          decisions waiting on the owner
 ├── Deferred.md               agreed to build, explicitly parked
 ├── KnownGaps.md              built, but not verified — or verified to be limited
@@ -97,6 +101,8 @@ read by the agent who picks this up in three weeks.
 | "Here's what we're building and why" | `plans/` |
 | "Here's exactly how, step by step" | `tasks/` |
 | "Only a human can do this part (external dashboard, OAuth app, secrets)" | `runbooks/` |
+| "This is behaving wrong" — owner-reported or agent-found | `bug/` |
+| "This is a vulnerability / trust-boundary issue" — owner-reported or agent-found | `security/` |
 
 ## Open questions must carry options
 

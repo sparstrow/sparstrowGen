@@ -26,13 +26,13 @@ and integration ordering — never implementation.
 ## Adapted from the research doc, not copied verbatim
 
 `doc/research/Sparstrowgen Agent Definition Library.md` Part B1 designs this role
-around a spec-kit workflow (`/speckit.*`, `.sparstrowgen/handoffs/*.json`) and a
-roster of 11 other specialist agents. Neither exists in this repo yet:
+around a slash-command-driven spec/plan/task workflow (`.sparstrowgen/handoffs/*.json`)
+and a roster of 11 other specialist agents. Neither exists in this repo yet:
 
-- **No spec-kit.** This repo tracks work in `doc/plans/` (the what/why) →
-  `doc/tasks/<phase>/*.md` + `doc/tasks/MasterTaskQueue.md` (the executable
-  checklist, concurrency-tagged `[S]`/`[P]`/`[C]`) — see `doc/README.md`. Use that
-  system wherever the original design says "spec/plan/tasks."
+- **No external spec/plan/task tool.** This repo tracks work in `doc/plans/` (the
+  what/why) → `doc/tasks/<phase>/*.md` + `doc/tasks/MasterTaskQueue.md` (the
+  executable checklist, concurrency-tagged `[S]`/`[P]`/`[C]`) — see `doc/README.md`.
+  Use that system wherever the original design says "spec/plan/tasks."
 - **No handoff-manifest system.** `.sparstrowgen/handoffs/` and the
   `writing-handoff-manifests` skill are not built. Until they exist (or prove
   necessary with more than one consumer), use the existing repo mechanism instead:

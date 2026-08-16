@@ -245,6 +245,22 @@ All non-code project memory lives in `doc/`. Read `doc/README.md` first.
   concrete thing that closes it; when you close one, **delete the entry** and say
   where the proof lives.
 * **`doc/Ideas.md`** — unscoped, no commitment, may never be built.
+* **`doc/bug/`** — owner-reported or agent-found wrong behavior in the running
+  app. One file per bug (`BUG-<date>-<slug>.md`), never deleted, just marked
+  resolved in place. Format and index: `doc/bug/README.md`.
+* **`doc/security/`** — vulnerabilities and trust-boundary issues: auth bypass,
+  injection, leaked secrets, data crossing users/workspaces, RLS gaps. One file
+  per issue (`SEC-<date>-<slug>.md`), never a live secret or replayable exploit
+  payload inside it. Format and index: `doc/security/README.md`.
+
+**Always document a bug or security issue in the same turn it surfaces** —
+whether the owner reports it directly, or an agent notices it while
+implementing, reviewing, or verifying unrelated work. Do not wait to be asked,
+and do not rely on chat history being re-read later; a problem mentioned only
+in a chat message does not exist to the next session. Once a bug/security file
+is well enough understood to fix, open a task in `doc/tasks/` (or add to an
+existing phase) and link it back to the bug/security file's id — the report
+stays as the historical record, the task is what gets executed.
 
 When the owner says "park it", "later", or "just an idea", write it to the right
 file in the same turn rather than relying on the conversation to be re-read.

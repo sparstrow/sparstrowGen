@@ -2,20 +2,29 @@
 name: worktree-orchestration
 description: >-
   Sets up an isolated git worktree for a unit of work in this repo, including
-  port/data-dir isolation for running a dev server alongside the always-on
-  packaged app, and the merge-then-cleanup sequence. Use when starting new work
-  that needs its own branch, when a dev/preview server must run inside a
-  worktree without colliding with the main app on port 48750, or when cleaning
-  up after a PR merges.
+  port isolation for the web (Next.js apps/web) dev server — tracked in a port
+  registry with per-branch lock/release status, constrained to a fixed pool
+  pre-registered in Supabase's Auth Redirect URLs allow-list — and the
+  merge-then-cleanup sequence. Use when starting new work that needs its own
+  branch, when a worktree needs a web dev port assigned, or when cleaning up
+  after a PR merges.
 metadata:
   sparstrowgen-owner: coordinator
 ---
 
+> **Port allocation is not "pick a number that looks free."** Every worktree's
+> web dev-server port is tracked in
+> [references/port-registry.md](references/port-registry.md) — read it before
+> assigning a port to a new worktree, and update it in the same change. Ports
+> come from a **fixed pool pre-registered in Supabase's Auth Redirect URLs
+> allow-list** — using a port outside that pool breaks
+> email-confirmation/magic-link/reset redirects silently.
+
 # Worktree orchestration
 
-Grounded in this repo's actual mechanics — not the generic spec-kit/worktree-per-task
-flow described in `doc/research/Sparstrowgen Agent Definition Library.md`, which this
-repo doesn't run. Source of the process rules: `AGENTS.md` §2.
+Grounded in this repo's actual mechanics — not the generic worktree-per-task flow
+described in `doc/research/Sparstrowgen Agent Definition Library.md`, which this repo
+doesn't run. Source of the process rules: `AGENTS.md` §2.
 
 ## When to create a worktree
 
@@ -30,19 +39,27 @@ paths (see below), which only makes sense if the worktree is a real, harness-tra
 directory. Use `ExitWorktree` to remove one when done — never delete the directory by
 hand, that leaves harness registry entries behind.
 
-## Running a dev/preview server inside a worktree
+## Running a dev server inside a worktree
 
-The always-on packaged app owns port `48750` and its default data directory. A dev or
-preview server — including one running inside a worktree — must never collide with
-that. The isolation mechanism already exists in this repo:
-[scripts/dev-preview.mjs](../../../scripts/dev-preview.mjs) sets `SPARSTROW_PORT` and
-`SPARSTROW_DATA_DIR` before spawning `core` or `ui`, and
-[.claude/launch.json](../../launch.json) has per-worktree presets that pin a unique
-port and a worktree-local data directory.
+The always-on packaged desktop app (`@sparstrow/core` + `@sparstrow/ui`) owns port
+`48750`/`5173` as a **singleton** — there is no per-worktree isolated copy of it.
+(There used to be a `dev-preview` mechanism for spinning up an isolated
+core/ui instance per worktree; it was removed 2026-08-16 once testing moved to
+`apps/web` instead — see git history if that capability is ever needed again.)
 
-Full pattern, including how to add a new preset for a new worktree, is in
-[references/port-isolation.md](references/port-isolation.md). Read it before starting
-a dev server for parallel work — do not guess a port.
+What worktrees actually get today is a `web` (Next.js `apps/web`) dev server. Its
+port isn't just "must not collide" — it must be one of the ports **pre-registered in
+the Supabase project's Auth Redirect URLs allow-list**, or
+email-confirmation/magic-link/password-reset links opened from that worktree silently
+redirect to the Site URL instead of back to the worktree. Never assign a worktree an
+arbitrary free port.
+
+**Before assigning a port to a new worktree**, read and update
+[references/port-registry.md](references/port-registry.md) — it's the lock/release
+ledger of which port belongs to which branch, and the only source of which ports are
+actually allow-listed in Supabase. Full mechanics of adding a new `launch.json`
+preset are in [references/port-isolation.md](references/port-isolation.md). Do not
+guess a port from either file alone — check the registry first.
 
 ## Merge and cleanup (AGENTS.md §2.2, §2.4, §2.5)
 
@@ -62,6 +79,12 @@ a dev server for parallel work — do not guess a port.
    git pull origin development
    git fetch --prune
    ```
+6. Release the port: in [references/port-registry.md](references/port-registry.md),
+   flip that worktree's row back to `🟢 available` and blank the
+   branch/worktree/date columns, and delete its preset from `.claude/launch.json`.
+   Do this in the same pass as step 5, not as a separate later chore.
 
 A worktree left behind after its PR merges is a defect — sweep periodically by
-comparing live worktrees against merged PRs.
+comparing live worktrees against merged PRs. The same sweep should compare the port
+registry and `launch.json` against `git worktree list`: a row/preset for a worktree
+that no longer exists is the same defect, just easier to miss.
