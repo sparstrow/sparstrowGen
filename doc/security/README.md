@@ -72,4 +72,4 @@ whatever else is in flight; say so explicitly when opening the task.
 
 | ID | Status | Severity | Summary |
 |---|---|---|---|
-| [`SEC-2026-08-16-auth-users-auto-confirm-trigger`](SEC-2026-08-16-auth-users-auto-confirm-trigger.md) | 🔴 open | high | Hand-applied `auth.users` trigger auto-confirms every signup, silently defeating "Confirm email" while the dashboard reports it enforced |
+| [`SEC-2026-08-16-auth-users-auto-confirm-trigger`](SEC-2026-08-16-auth-users-auto-confirm-trigger.md) | 🟢 resolved | was medium | `auth.users` trigger auto-confirmed every signup, silently defeating "Confirm email" while both the dashboard and GoTrue reported it enforced |

@@ -1,7 +1,7 @@
 # SEC-2026-08-16-auth-users-auto-confirm-trigger
 
-**Status:** 🟡 investigating — owner has decided to remove it; fix not yet applied
-**Severity:** medium today (contained: not deployed, owner-only access) — **critical the moment the app deploys**
+**Status:** 🟢 resolved 2026-08-16
+**Severity:** was medium (contained: not deployed, owner-only access) — would have been critical on deploy
 **Reported by:** agent (found while investigating [`BUG-2026-08-16-signup-auto-confirms`](../bug/BUG-2026-08-16-signup-auto-confirms.md))
 **Reported:** 2026-08-16
 
@@ -102,24 +102,35 @@ principle.
 
 ## Resolution
 
-Owner decided 2026-08-16: **drop it now** and rely on Supabase's built-in mailer,
+Owner decided 2026-08-16: **drop it** and rely on Supabase's built-in mailer,
 which serves addresses that are members of the project's Supabase org (both
 accounts in use qualify). This closes the open decision from the 2026-08-10 plan.
+
+Delivered as tracked SQL —
+[`packages/shared/drizzle/policies/011_drop_auto_confirm.sql`](../../packages/shared/drizzle/policies/011_drop_auto_confirm.sql),
+applied with `node scripts/apply-sql.mjs` per that directory's README:
 
 ```sql
 drop trigger if exists on_auth_user_created_auto_confirm on auth.users;
 drop function if exists public.auto_confirm_user();
 ```
 
-Delivered as tracked SQL under `packages/shared/drizzle/policies/`, applied with
-`node scripts/apply-sql.mjs`, per that directory's README.
+**Verified:**
+- The migration's own assertion block (which raises if either object survives)
+  passed on apply.
+- Independently re-queried `pg_trigger` and `pg_proc` afterwards: no
+  non-internal triggers remain on `auth.users`, and `public.auto_confirm_user`
+  is gone.
+- **Owner confirmed the sign-up flow behaves correctly end to end** (2026-08-16)
+  — sign-up no longer returns a session, and the confirmation path works.
 
-**Consequence to watch:** sign-up now depends on email delivery, which is
-unproven (`G-11`). If the built-in mailer does not deliver, sign-up becomes
-impossible rather than merely unverified — recoverable in seconds by confirming
-the user by hand in the dashboard, or by re-applying the trigger. Custom SMTP
-([`../runbooks/email-delivery.md`](../runbooks/email-delivery.md)) remains
-required before any non-org user can sign up, and before deployment.
+**Still true after this fix:** sign-up now depends on email delivery. Supabase's
+built-in mailer only serves project org members and is rate-limited to a handful
+of messages an hour. Custom SMTP
+([`../runbooks/email-delivery.md`](../runbooks/email-delivery.md)) is still
+required before any non-org user can sign up, and before deployment. If mail
+ever fails to arrive, recover by confirming the user by hand in
+**Authentication → Users** — do not re-add the trigger.
 
 ## Known Limitations & Boundaries
 

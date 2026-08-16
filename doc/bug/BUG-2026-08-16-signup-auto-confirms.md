@@ -1,6 +1,6 @@
 # BUG-2026-08-16-signup-auto-confirms
 
-**Status:** 🟡 investigating — root cause found, fix not yet applied
+**Status:** 🟢 resolved 2026-08-16
 **Reported by:** owner
 **Reported:** 2026-08-16
 
@@ -85,4 +85,17 @@ doesn't actually gate signup" would be a trust-boundary issue.
 
 ## Resolution
 
-Not yet resolved — see Investigation.
+**Fixed 2026-08-16** by
+[`packages/shared/drizzle/policies/011_drop_auto_confirm.sql`](../../packages/shared/drizzle/policies/011_drop_auto_confirm.sql),
+which drops the trigger and its function. Committed on
+`feature/supabase-email-delivery`.
+
+Verified three ways: the migration's assertion block passed; `pg_trigger` /
+`pg_proc` were re-queried independently afterwards and both objects are gone;
+and the owner confirmed the sign-up flow works end to end — sign-up no longer
+returns a session, and the confirmation path completes.
+
+No application code changed. `apps/web/src/app/login/page.tsx` was correct
+throughout: it branches on whether `signUp()` returned `data.session`, and was
+simply being handed a real session by a server that had already confirmed the
+user.

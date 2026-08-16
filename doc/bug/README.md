@@ -70,4 +70,4 @@ the task is what actually gets executed and ticked off.
 
 | ID | Status | Summary |
 |---|---|---|
-| [`BUG-2026-08-16-signup-auto-confirms`](BUG-2026-08-16-signup-auto-confirms.md) | 🟡 investigating | Fresh signup auto-confirms and auto-logs-in despite "Confirm email" verified ON in the Supabase dashboard |
+| [`BUG-2026-08-16-signup-auto-confirms`](BUG-2026-08-16-signup-auto-confirms.md) | 🟢 resolved | Fresh signup auto-confirmed and auto-logged-in despite "Confirm email" being ON — an `auth.users` trigger was overriding the setting |
