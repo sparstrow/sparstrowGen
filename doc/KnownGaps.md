@@ -235,28 +235,30 @@ What is genuinely unproved, as opposed to merely untested-in-isolation:
   and C need a browser and a desktop build and can be done today; section D needs
   the deployment.
 
-### G-11 — Supabase has never been observed delivering an email
+*`G-11` — Supabase never observed delivering an email — was **closed 2026-08-16**.
+The owner confirmed, in a real inbox, that **both** an emailed sign-up
+confirmation and a magic link arrived, and that signing in through them works.
+That is the first time the built-in mailer has been exercised at all: every link
+used across M2/M3 verification was minted with the admin API (`generateLink`),
+which returns a token and sends no mail, so the send path had never once run
+despite both milestones reporting auth verification as passing.
 
-**Raised:** 2026-08-10, investigating "I can't create an account, no link arrives".
+Closing it needed an unrelated fix first. Sign-up could not exercise the mail
+path even in principle, because a `BEFORE INSERT` trigger on `auth.users`
+confirmed every new row — so GoTrue skipped the confirmation send entirely. The
+gap's own text recorded "sign-up is unaffected: Confirm email is off", which was
+true of the setting and false of the behaviour; the trigger, not the setting, was
+deciding. Dropped by
+[`../packages/shared/drizzle/policies/011_drop_auto_confirm.sql`](../packages/shared/drizzle/policies/011_drop_auto_confirm.sql);
+the whole account is in
+[`security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md`](security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md).
 
-Every magic link used across M2 and M3 verification was minted with the **admin
-API** (`generateLink`), which returns a token and sends no mail. That was the right
-tool for an unattended browser pass, and it means the SMTP path was never once
-exercised — while both milestones reported their auth verification as passing.
-
-A live `signInWithOtp` to a real inbox was accepted by Supabase (no error), but
-acceptance is not delivery, and nothing in this repo can read an inbox.
-
-Sign-**up** is unaffected: "Confirm email" is off, so it needs no mail at all.
-Magic-link sign-in and password reset both depend on this entirely.
-
-- **If wrong:** two of the three sign-in routes are dead for everyone, and the
-  built-in mailer's rule — deliver **only** to members of the project's Supabase
-  org — means it can work for the owner and fail for every invited user, which is
-  the worst shape of failure to debug later.
-- **Clears when:** an email is confirmed arriving in a real inbox, or custom SMTP
-  is configured. Procedure and the "Confirm email" interaction:
-  [`runbooks/email-delivery.md`](runbooks/email-delivery.md).
+**The limitation this gap warned about is real and still stands** — it is now a
+known boundary rather than an unknown. Supabase's built-in mailer delivers
+**only** to members of the project's Supabase org and is rate-limited to a few
+messages an hour. Proof of delivery to an org member is **not** proof of delivery
+to anyone else. Custom SMTP is parked as [`D-14`](Deferred.md) with the trigger
+for unparking it.*
 
 *`G-4` — a concurrent run starting while a snapshot is being taken — was **closed
 2026-08-10** by M4 (`T-M4-06`). `finalize()` now holds the busy key across the

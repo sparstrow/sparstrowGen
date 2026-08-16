@@ -278,3 +278,42 @@ because nothing today needs cross-machine contradiction review.
   pull-side ordering rule. Contradictions — cross-machine contradiction
   review becomes a real, requested feature rather than a table with an
   existing shape it would be convenient to reuse.
+
+---
+
+## D-14 — Custom SMTP for transactional email
+
+**Parked:** 2026-08-16, immediately after email delivery was proven working
+(closing `G-11`).
+
+Supabase's **built-in** mailer is now confirmed delivering: an emailed sign-up
+confirmation and a magic link both arrived in a real inbox and both signed the
+owner in. That is enough for today, and the owner explicitly scoped it that way
+— the app is not public, and the only two accounts in use are members of the
+project's Supabase org.
+
+That last clause is the whole reason this entry exists. The built-in mailer
+delivers **only** to addresses that are members of the project's Supabase org,
+and is rate-limited to a handful of messages an hour. Neither limit is visible
+when it bites: a non-member's mail is **silently dropped**, and the classic
+symptom is "it works for me and not for anyone I invite". A plus-address
+(`you+test@gmail.com`) is a different string from the member address, so it may
+not match the allowlist even though it reaches the same inbox.
+
+Setting it up is not a code change — it is a provider account, a sender address
+on a domain under our control, and SPF/DKIM records. Procedure, including which
+providers work and the rate-limit settings to raise afterwards:
+[`runbooks/email-delivery.md`](runbooks/email-delivery.md).
+
+- **If wrong:** the first person outside the Supabase org who tries to sign up,
+  reset a password, or use a magic link gets nothing at all — no error on our
+  side, no error on theirs — and the account they created cannot be confirmed.
+  Since sign-up now genuinely depends on delivery (the auto-confirm trigger that
+  used to mask this was dropped, see `G-11`'s closure note), that is a hard
+  block rather than a degraded experience.
+- **Clears when:** either of these becomes true, whichever comes first —
+  **(a)** anyone who is not a member of the project's Supabase org needs to
+  receive mail from the app (an invited user, a customer, a teammate), or
+  **(b)** the web app is deployed to a public URL. Both are certain to happen
+  before the app ships products to users, which is the owner's stated horizon
+  for this work.

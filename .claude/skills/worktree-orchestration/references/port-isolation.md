@@ -1,66 +1,68 @@
-# Port and data-dir isolation for parallel dev servers
+# Port isolation for worktree dev servers
 
-## Why
+## Why this is a fixed pool, not "any free port"
 
-The packaged desktop app spawns `@sparstrow/core` directly and never sets
-`SPARSTROW_PORT`/`SPARSTROW_DATA_DIR`, so it always owns port `48750` and the default
-data directory. Any dev or preview stack — including one inside a worktree — MUST set
-both vars to something else, or it collides with the always-on app. This is enforced
-by convention, not by code, so get the values right by hand.
+`apps/web` (Next.js) is a special case for port assignment. Its port isn't just
+"must not collide with something else" — it must be one Supabase's Auth Redirect
+URLs allow-list already knows about, because `emailRedirectTo`/`redirectTo` in
+`apps/web/src/app/login/page.tsx` resolves to `window.location.origin` — whatever
+port the browser is actually on. Supabase does not support wildcarding the port
+number in an allow-list entry. A port outside the allow-list doesn't error; Supabase
+silently redirects to the Site URL instead, which reads as a broken confirmation
+link rather than a config gap (see `doc/bug/BUG-2026-08-16-signup-auto-confirms.md`
+for what that confusion actually looks like in practice).
 
-## The two layers
+So the pool of usable worktree ports is deliberately fixed and pre-registered, not
+"pick the next free number." Source of truth for the pool and current
+lock/release status is [references/port-registry.md](port-registry.md).
 
-**1. A single "dev preview" stack** (no worktree, just testing something without
-touching the packaged app): use the existing preset.
+## Allocating a `web` port for a new worktree
 
-```bash
-pnpm dev:preview:core   # SPARSTROW_PORT=48751, SPARSTROW_DATA_DIR=<repo>/data-preview
-pnpm dev:preview:ui     # ui dev server, proxies to the core above
-```
+1. Read [references/port-registry.md](port-registry.md)'s web table, take the first
+   `🟢 available` row, lock it (branch, worktree path, date).
+2. Add a `wt-<short-id>-web` preset to `.claude/launch.json`, e.g.:
+   ```json
+   {
+     "name": "wt-<short-id>-web",
+     "runtimeExecutable": "node",
+     "runtimeArgs": [
+       "-e",
+       "const wt='<absolute worktree path>\\\\apps\\\\web';process.env.PORT='<port>';require('child_process').spawn('pnpm',['dev'],{cwd:wt,stdio:'inherit',shell:true,env:process.env}).on('exit',c=>process.exit(c??0))"
+     ],
+     "port": <port>
+   }
+   ```
+3. Copy `apps/web/.env.local` into the new worktree — it's gitignored and
+   `git worktree add` won't bring it along.
+4. If the fixed pool is exhausted, more rows need adding to the Supabase dashboard
+   allow-list first (owner action, `doc/runbooks/README.md`) before extending the
+   registry table.
 
-This runs [scripts/dev-preview.mjs](../../../../scripts/dev-preview.mjs), which
-defaults `SPARSTROW_PORT` to `48751` and `SPARSTROW_DATA_DIR` to `<repo>/data-preview`
-via `??=` — an explicit override still wins if you need a second preview stack
-running at the same time.
+## Releasing a port
 
-**2. A worktree-scoped stack** (parallel agent work in its own worktree, needs its own
-running app to verify against): add a pair of presets to
-[.claude/launch.json](../../../launch.json) that pin a **unique port** and point
-`SPARSTROW_DATA_DIR` at a `data-preview` folder **inside that worktree**, with `cwd`
-set to the worktree path. Existing example (`wt001-core` / `wt001-ui`):
+When a worktree is cleaned up (`SKILL.md`'s merge/cleanup sequence), flip its
+registry row back to `🟢 available`, blank the branch/worktree/date columns, and
+delete its preset from `.claude/launch.json` in the same pass. A registry row or
+`launch.json` preset for a worktree that `git worktree list` no longer shows is
+drift — the whole point of the registry is to make that visible instead of silent.
 
-```json
-{
-  "name": "wt001-core",
-  "runtimeExecutable": "node",
-  "runtimeArgs": [
-    "-e",
-    "const wt='<absolute worktree path>';process.env.SPARSTROW_PORT='48752';process.env.SPARSTROW_DATA_DIR=wt+'\\\\data-preview';require('child_process').spawn('pnpm',['--filter','@sparstrow/core','start'],{cwd:wt,stdio:'inherit',shell:true,env:process.env}).on('exit',c=>process.exit(c??0))"
-  ],
-  "port": 48752
-}
-```
+## Editing `.claude/launch.json` and the registry from inside a worktree session
 
-The matching `ui` preset uses the same `SPARSTROW_PORT` (so its Vite proxy targets
-the right core) and its own dedicated Vite port with `--strictPort` so it fails loudly
-on collision instead of silently picking a different port:
+Both live at the **repo root**, and a worktree-isolated session is blocked from
+writing outside its own worktree (by design — prevents one worktree's session from
+corrupting another's config). Use `ExitWorktree` (`action: "keep"`) first, make the
+edit from the root checkout, then `EnterWorktree` with `path` set to the worktree to
+go back in.
 
-```json
-{
-  "name": "wt001-ui",
-  "runtimeExecutable": "node",
-  "runtimeArgs": [
-    "-e",
-    "const wt='<absolute worktree path>';process.env.SPARSTROW_PORT='48752';process.env.SPARSTROW_DATA_DIR=wt+'\\\\data-preview';require('child_process').spawn('pnpm',['--filter','@sparstrow/ui','dev','--','--port','5174','--strictPort'],{cwd:wt,stdio:'inherit',shell:true,env:process.env}).on('exit',c=>process.exit(c??0))"
-  ],
-  "port": 5174
-}
-```
+## What used to be here
 
-## Allocating a new port pair
-
-Check `.claude/launch.json` for every `port` already in use and pick the next free
-values — there's no registry beyond that file. Convention so far: core ports climb
-from `48751`, ui ports climb from `5174`. Two worktrees must never share a port or a
-`SPARSTROW_DATA_DIR` — sharing either means one instance's SQLite lock blocks the
-other, or one silently overwrites the other's per-install token.
+Earlier versions of this doc also covered isolating `@sparstrow/core`/`@sparstrow/ui`
+(the Electron desktop app) per worktree via a `dev-preview.mjs` launcher and
+`SPARSTROW_PORT`/`SPARSTROW_DATA_DIR` env vars, so agents could test the desktop UI
+without colliding with the always-on packaged app on `48750`. That mechanism was
+removed 2026-08-16 once testing shifted to `apps/web` instead — the always-on app at
+`48750`/`5173` remains a singleton with no per-worktree isolated copy. If desktop-UI
+preview testing is needed again later, `SPARSTROW_PORT`/`SPARSTROW_DATA_DIR` support
+still exists in `packages/core`, `packages/ui`, and `packages/desktop` — only the
+convenience launcher and worktree-scoping pattern were removed; rebuild from git
+history (`scripts/dev-preview.mjs`, pre-2026-08-16) rather than from scratch.
