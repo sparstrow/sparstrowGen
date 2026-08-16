@@ -125,6 +125,9 @@ picker in the UI, and users are expected to have exactly one for now.
 ## D-8 — GitHub and Google sign-in
 
 **Parked:** 2026-08-10, by the owner — "defer google and github auth."
+**Reconfirmed:** 2026-08-16, by the owner — not using GitHub or Google OAuth
+right now. (`runbooks/README.md`'s row had drifted to "pending"; corrected to
+"parked" the same day.)
 
 The app-side code is **complete and verified**; nothing here is unbuilt. What is
 missing is configuration that only a human can supply: an OAuth app registered
@@ -136,7 +139,7 @@ The login page reads `/auth/v1/settings` on load, so the buttons render disabled
 with "Social sign-in isn't set up yet — use email below" and **light up on their
 own** once the providers are enabled. No code change is needed to unpark this.
 
-Tracked as an action item in [`runbooks/README.md`](runbooks/README.md). Full
+Tracked as a parked row in [`runbooks/README.md`](runbooks/README.md). Full
 steps, including the callback URL people get wrong (it is Supabase's, not the
 app's): [`runbooks/oauth-providers.md`](runbooks/oauth-providers.md).
 
