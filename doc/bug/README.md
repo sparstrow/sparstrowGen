@@ -54,4 +54,5 @@ the task is what actually gets executed and ticked off.
 
 | ID | Status | Summary |
 |---|---|---|
+| [`BUG-2026-08-16-pairing-path-wrong-in-cli`](BUG-2026-08-16-pairing-path-wrong-in-cli.md) | 🔴 open | `sparstrow pair` sends users to "Settings → Workspace → Runtimes", a tab that doesn't exist — the card is **Machines**, under General |
 | [`BUG-2026-08-16-signup-auto-confirms`](BUG-2026-08-16-signup-auto-confirms.md) | 🟢 resolved | Fresh signup auto-confirmed and auto-logged-in despite "Confirm email" being ON — an `auth.users` trigger was overriding the setting |

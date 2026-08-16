@@ -78,7 +78,7 @@ it unblocks. A task that can name neither is a task nobody asked for.
 
 | Spec | Status | Plan | Summary |
 |---|---|---|---|
-| — | — | — | *No specs yet. The first one is the whole-app spec — see below.* |
+| [`2026-08-16-pair-machine-to-deployed-app`](2026-08-16-pair-machine-to-deployed-app.md) | 🔲 draft — needs owner review | — | Pair a machine to `staging.sparstrow.com`, run work on it from the browser, and understand it when it fails. Its acceptance scenarios *are* the verification pass `G-12`/`G-16` have been waiting for |
 
 ## The whole-app spec
 
