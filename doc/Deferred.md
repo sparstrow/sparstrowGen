@@ -125,6 +125,9 @@ picker in the UI, and users are expected to have exactly one for now.
 ## D-8 — GitHub and Google sign-in
 
 **Parked:** 2026-08-10, by the owner — "defer google and github auth."
+**Reconfirmed:** 2026-08-16, by the owner — not using GitHub or Google OAuth
+right now. (`runbooks/README.md`'s row had drifted to "pending"; corrected to
+"parked" the same day.)
 
 The app-side code is **complete and verified**; nothing here is unbuilt. What is
 missing is configuration that only a human can supply: an OAuth app registered
@@ -136,7 +139,7 @@ The login page reads `/auth/v1/settings` on load, so the buttons render disabled
 with "Social sign-in isn't set up yet — use email below" and **light up on their
 own** once the providers are enabled. No code change is needed to unpark this.
 
-Tracked as an action item in [`runbooks/README.md`](runbooks/README.md). Full
+Tracked as a parked row in [`runbooks/README.md`](runbooks/README.md). Full
 steps, including the callback URL people get wrong (it is Supabase's, not the
 app's): [`runbooks/oauth-providers.md`](runbooks/oauth-providers.md).
 
@@ -204,6 +207,16 @@ and service registration is separate work per platform, with no
 **Unpark when:** a second or third real machine needs pairing that isn't the
 owner's own dev checkout, or before handing the app to anyone who isn't
 comfortable cloning a monorepo.
+
+> **Sequenced 2026-08-16.** At the review of
+> [`specs/2026-08-16-setup-and-machines.md`](specs/2026-08-16-setup-and-machines.md)
+> the owner chose to fix distribution as **its own round, immediately after**
+> that spec ships — not folded into it, and not left indefinite. That spec's
+> setup guide and Machines empty state therefore say plainly that connecting a
+> machine currently needs a dev checkout, rather than implying a `sparstrow`
+> command that is published nowhere. **This entry gets its own spec when the
+> setup-and-machines work lands**, which is the concrete trigger this
+> deferral previously lacked.
 
 ---
 
@@ -317,3 +330,103 @@ providers work and the rate-limit settings to raise afterwards:
   **(b)** the web app is deployed to a public URL. Both are certain to happen
   before the app ships products to users, which is the owner's stated horizon
   for this work.
+
+---
+
+## D-15 — Production Supabase project for `main`
+
+**Parked:** 2026-08-16, by the owner, while walking through the Vercel/DNS
+deployment — "later I will create a new Supabase project, and that will be
+connected to the main branch," once `main`'s code is no longer a dummy
+placeholder.
+
+Vercel and Hostinger DNS already route `main` → `sparstrow.com`, and that
+wiring is real. What's missing is everything downstream of it: `main` has no
+environment variables and is not connected to any Supabase project, so the
+live URL currently serves placeholder content. `staging` and `development`
+already share one fully configured Supabase project (env vars, backend, Auth
+redirect URLs) — `main` deliberately does **not** reuse it. Full picture:
+[`runbooks/deploy-web-app.md`](runbooks/deploy-web-app.md).
+
+**Unpark when:** `staging`'s build is solid enough to promote into `main`.
+At that point, create a dedicated production Supabase project, connect it to
+`main`, and configure its own Authentication → URL Configuration from
+scratch (it does not inherit `staging`'s settings) — then follow
+`deploy-web-app.md`'s "When `main` goes live" section to point a machine's
+`SPARSTROW_CLOUD_URL`/`SPARSTROW_APP_URL` at `sparstrow.com`.
+
+---
+
+## D-16 — Sleep awareness: detecting sleep, and waking from it
+
+**Parked:** 2026-08-16, by the owner, while giving the Machines user stories —
+"if a machine is sleeping, we might need to add or trigger the machine to wake
+up… Defer this task now for later." **Extended the same day** at spec review to
+cover *detection* as well, when the owner chose to ship the Machines menu with
+two states and revisit sleeping later.
+
+Two parts, parked together because detection's main use is deciding whether
+waking is worth offering — but they have different unpark conditions, so they
+are stated separately.
+
+### Part A — detecting that a machine is asleep
+
+[`specs/2026-08-16-setup-and-machines.md`](specs/2026-08-16-setup-and-machines.md)
+ships **two** states, active and unreachable, because a sleeping machine and a
+dead one are the same silence from the cloud's side. Liveness is derived purely
+from heartbeat age ([`cloud.ts:35-52`](../packages/shared/src/cloud.ts:35)).
+
+Distinguishing them needs the machine to **announce suspension before it goes
+quiet**. Electron 36 ships `powerMonitor` with `suspend`/`resume` events and it
+is currently unused anywhere in `packages/desktop` (verified 2026-08-16), so
+the desktop app is nearly free; headless core needs a per-OS mechanism
+(systemd sleep hooks, Windows power broadcasts, launchd).
+
+**What stays ambiguous no matter what:** a machine that loses power, crashes,
+or drops off the network never gets to announce anything, and is
+indistinguishable from one that was switched off. So even with Part A built,
+the honest set is *active / sleeping / unreachable* — never "turned off".
+
+*(One wrinkle in our favour: Windows Modern Standby machines keep networking
+alive while asleep, so some may keep heartbeating and never need this.)*
+
+- **Unpark when:** the two-state model proves genuinely confusing in daily use —
+  the owner repeatedly cannot tell whether a machine is coming back — **or**
+  Part B is wanted, which needs this first.
+
+### Part B — waking a sleeping machine from the web app
+
+The intent: a machine showing as asleep gets a control in the web app that
+wakes it, so work can be sent without walking over to the computer. A machine
+genuinely powered off stays out of reach, and that is accepted.
+
+**The constraint that makes this bigger than a button**, recorded now so
+nobody unparks it expecting an afternoon's work: a cloud web app cannot wake a
+machine on its own. Wake-on-LAN works by broadcasting a magic packet **on the
+machine's own local network**, and `staging.sparstrow.com` is not on it. The
+packet cannot route across the internet to a machine behind NAT. So waking
+needs one of:
+
+- **a second always-on paired machine on the same LAN**, which receives the
+  request from the cloud and broadcasts the packet locally — the only option
+  that needs no router configuration, and it means waking requires two
+  machines on that network;
+- **router configuration** — a directed-broadcast forward or a static ARP
+  entry, per network, often disabled by default and a real security tradeoff;
+- **vendor out-of-band management** (Intel AMT/vPro and equivalents), which is
+  enterprise hardware only and not present on typical machines.
+
+Also unverified: whether the target machine's NIC has WoL enabled at all — it
+is a BIOS/firmware setting that is off by default on many consumer machines,
+and no amount of software fixes that.
+
+- **If wrong:** nothing breaks — the feature simply does not exist, and a
+  sleeping machine is woken the way it is woken today, by touching it. The
+  risk is the opposite one: shipping a **Wake** button that silently does
+  nothing on most networks would be worse than having no button, because it
+  teaches the owner the app is unreliable.
+- **Unpark when:** the owner has a second always-on machine on the same
+  network as the one they want woken (making the relay option real), **or**
+  reaching a sleeping machine becomes routine friction rather than an
+  occasional annoyance. Whichever comes first — and confirm WoL is actually
+  enabled on the target machine's NIC before building anything.

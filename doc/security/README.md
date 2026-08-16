@@ -30,36 +30,15 @@ that's an owner action (rotate it) — record the *fact* here and point to
 
 One file per issue: `SEC-<date>-<slug>.md`, e.g. `SEC-2026-08-16-anon-key-scope.md`.
 
-```markdown
-# SEC-<date>-<slug>
+**Copy [`../templates/security.md`](../templates/security.md)** — it carries
+the full skeleton (Status / Severity / Reported by / Reported, then What's
+exposed, Who can trigger it, Evidence, Impact, Resolution) with guidance on
+what belongs in each section. That template is the canonical format; this file
+no longer restates it, so there is only one copy to keep current.
 
-**Status:** 🔴 open | 🟡 investigating | 🟢 resolved
-**Severity:** critical | high | medium | low
-**Reported by:** owner | agent (name what you were doing when you found it)
-**Reported:** <date>
-
-## What's exposed / what's possible
-The concrete thing an attacker (or an over-privileged legitimate user) could
-do. Not "this feels insecure" — the actual action and its effect.
-
-## Who can trigger it
-Anonymous internet, any authenticated user, only a specific role, only with
-local/physical access, etc. This is most of what severity depends on.
-
-## Evidence
-What was checked and how it was confirmed — file/line, a request that proves
-it, an RLS policy read that shows the gap. No live secrets or working exploit
-payloads (see above).
-
-## Impact
-Worst case if left unfixed, blast radius, and whether it's already exploitable
-today or only under some other condition.
-
-## Resolution
-Filled in when closed: the fix, where it landed (commit/PR), and how it was
-verified closed — not just "should be fixed now." Leave the file in place
-after closing; this folder is a record, not a queue that empties out.
-```
+The template repeats the no-live-secrets rule above at the point where it
+actually bites — the **Evidence** section — because that is where the
+temptation to paste a working request is strongest.
 
 ## Turning a security report into work
 

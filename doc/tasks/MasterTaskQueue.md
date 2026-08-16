@@ -216,13 +216,131 @@ plan's bullets.** The routes half is smaller than it looks: the TanStack-to-Next
 adapter already solves route params, and all four detail endpoints already exist
 in `/api/v1`, so each page is a seven-line re-export. The Electron half is
 **blocked on a premise that stopped being true** — "point `loadURL` at the hosted
-app" assumes a deployment, and there isn't one. 9.2 ships the URL as
-configuration so the work lands anyway, but section D of 9.4 cannot be verified
-until the owner deploys. That is the phase's one owner action.
+app" assumes a deployment, and there wasn't one at the time. 9.2 ships the URL
+as configuration so the work lands anyway, but section D of 9.4 cannot be
+verified until a machine's `SPARSTROW_CLOUD_URL`/`SPARSTROW_APP_URL` actually
+points at a deployed environment. **Update 2026-08-16:** `staging.sparstrow.com`
+now exists (see [`../runbooks/deploy-web-app.md`](../runbooks/deploy-web-app.md)),
+but no machine points at it yet — that remains the phase's one owner action.
 
 Also caught: the plan's bullet says the goal route is `goals`, while the router
 and the component both say `/tasks/goals/$goalId`. Building the plan's version
 would produce a page that renders correctly and is linked from nowhere.
+
+---
+
+## Setup and Machines — bands 10–13
+
+Plan: [`../plans/2026-08-16-setup-and-machines.md`](../plans/2026-08-16-setup-and-machines.md).
+Spec: [`../specs/2026-08-16-setup-and-machines.md`](../specs/2026-08-16-setup-and-machines.md).
+Decomposed 2026-08-16.
+
+**The first bands in this repo named after something the owner can open.**
+M1–M7 were all foundational — none of them was named after a surface. Bands 10,
+12 and 13 serve user stories; band 11 is the only foundational one, and it is
+small on purpose.
+
+**Band 10 and band 11 are `[P]` against each other** and can run at the same
+time: M8 lives in `packages/ui` routes, nav and `packages/core/src/cli`, while
+M9 lives in the schema, `apps/web/src/lib/api/handlers` and storage. Their only
+shared file is `hooks.ts`, and M8 does not touch it. **Band 12 edits
+`settings.tsx`, which band 10 also edits** — 12.2 adds two forms there while
+10.2 removes the Machines card, so the two must not be worked simultaneously by
+different agents.
+
+### Band 10 — M8 Machines gets a menu of its own · **serves US1**
+
+Phase spec: [`M8/README.md`](M8/README.md).
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 10.1 | [T-M8-01 — `machineState()` in shared](M8/T-M8-01-machine-state.md) | `[S]` | — | queued |
+| 10.2 | [T-M8-02 — promote the card to a page](M8/T-M8-02-machines-page.md) | `[S]` | 10.1 | queued |
+| 10.3 | [T-M8-03 — route, sidebar, nav metadata](M8/T-M8-03-route-and-nav.md) | `[P]` | 10.2 | queued |
+| 10.4 | [T-M8-04 — fix the CLI's pairing path](M8/T-M8-04-cli-path-strings.md) | `[P]` | — | queued |
+| 10.5 | [T-M8-05 — verification](M8/T-M8-05-verification.md) | `[S]` | 10.1–10.4 | queued |
+
+10.1 and 10.2 are `[S]` for the reason M3's and M4's first tasks were: 10.1
+defines the vocabulary 10.2 renders, and 10.2 moves a file `settings.tsx`
+imports — create, delete and settings edit must land together or the tree does
+not build between them. 10.4 is `[P]` with no dependency at all: it edits
+strings in `packages/core/src/cli/pair.ts` that name a destination 10.3
+registers, but it does not import it.
+
+**Band 10 closes [`BUG-2026-08-16-pairing-path-wrong-in-cli`](../bug/BUG-2026-08-16-pairing-path-wrong-in-cli.md)**
+in 10.4 — the CLI has always sent users to a tab that does not exist, and this
+band moves the destination anyway.
+
+### Band 11 — M9 workspace and profile identity · **foundational**
+
+Phase spec: [`M9/README.md`](M9/README.md).
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 11.1 | [T-M9-01 — schema, and a bootstrap that invents nothing](M9/T-M9-01-schema-and-bootstrap.md) | `[S]` | — | queued |
+| 11.2 | [T-M9-02 — workspace read + update](M9/T-M9-02-workspace-handler.md) | `[P]` | 11.1 | queued |
+| 11.3 | [T-M9-03 — profile read + update](M9/T-M9-03-profile-handler.md) | `[P]` | 11.1 | queued |
+| 11.4 | [T-M9-04 — avatar and logo upload](M9/T-M9-04-image-upload.md) | `[P]` | 11.1 | queued |
+| 11.5 | [T-M9-05 — hooks](M9/T-M9-05-hooks.md) | `[C]` | 11.2, 11.3 | queued |
+| 11.6 | [T-M9-06 — verification](M9/T-M9-06-verification.md) | `[S]` | 11.1–11.5 | queued |
+
+11.1 is `[S]` and gates the band: it adds the three missing columns and rewrites
+`bootstrap_workspace` to stop inventing a person's name and a workspace's name
+(spec decision 6). Everything else is written against that. 11.2, 11.3 and 11.4
+are three disjoint pieces of new work — hand them to three workers. 11.5 is
+`[C]` because `packages/ui/src/api/hooks.ts` is a ~2100-line file other work
+also edits.
+
+**11.4 is the one cuttable task in the plan.** This repo has never used Supabase
+Storage, so avatar and logo are genuinely new infrastructure — and neither image
+gates a setup step (FR-020). Cut it and both forms still work with the initials
+badge the shell already renders; 11.2 and 11.3 then accept only `null` for their
+URL fields and 12.2 omits two controls. If it is cut, it needs a
+[`../Deferred.md`](../Deferred.md) entry — a cut feature with no record is
+indistinguishable from one nobody thought of.
+
+### Band 12 — M10 the setup guide · **serves US2**
+
+Phase spec: [`M10/README.md`](M10/README.md). **Depends on band 11.**
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 12.1 | [T-M10-01 — `setupSteps()` derivation](M10/T-M10-01-derivation.md) | `[S]` | — | queued |
+| 12.2 | [T-M10-02 — the two setup forms](M10/T-M10-02-setup-forms.md) | `[P]` | 11.6 | queued |
+| 12.3 | [T-M10-03 — `/setup` page and route](M10/T-M10-03-setup-page.md) | `[C]` | 12.1, 12.2 | queued |
+| 12.4 | [T-M10-04 — dashboard card + workspace name in the shell](M10/T-M10-04-dashboard-and-shell.md) | `[C]` | 12.1 | queued |
+| 12.5 | [T-M10-05 — verification](M10/T-M10-05-verification.md) | `[S]` | 12.1–12.4 | queued |
+
+12.1 is `[S]` — every other task renders what it decides, and it is the one
+piece of this band provable without a browser. 12.3 and 12.4 are `[C]` against
+each other: both edit `nav-meta.ts` and both consume 12.1.
+
+Band 12 soft-depends on band 10 for the machines step's link target. It can be
+built before M8 lands; it cannot be *verified* before it.
+
+### Band 13 — M11 walk the spec against staging · **serves US3–US5**
+
+Phase spec: [`M11/README.md`](M11/README.md). **Depends on bands 10 and 12, and
+on an owner action.**
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 13.1 | [T-M11-01 — a machine on staging, and both states](M11/T-M11-01-machine-on-staging.md) | `[S]` | owner action | blocked — owner action |
+| 13.2 | [T-M11-02 — a run, live](M11/T-M11-02-run-live.md) | `[C]` | 13.1 | queued |
+| 13.3 | [T-M11-03 — the four failure messages](M11/T-M11-03-failure-messages.md) | `[C]` | 13.1 | queued |
+| 13.4 | [T-M11-04 — the desktop window](M11/T-M11-04-desktop-window.md) | `[P]` | 13.1 | queued |
+| 13.5 | [T-M11-05 — reconcile the gaps](M11/T-M11-05-gap-reconciliation.md) | `[S]` | 13.1–13.4 | queued |
+
+13.2 and 13.3 are `[C]` rather than `[P]` because they drive the same machine
+and the same workspace — and **13.3 must run after 13.2**, since it revokes a
+token 13.2 needs.
+
+**Band 13 is the verification pass `G-12`, `G-13` and `G-16` have been waiting
+for.** It is not a new checklist alongside them: 13.5 closes or rewrites each in
+place, which is SC-007. It is also blocked in a way no other band is — a
+machine's `SPARSTROW_CLOUD_URL` must point at `staging.sparstrow.com`, and until
+someone does that, nothing in the band can start. See
+[`../runbooks/README.md`](../runbooks/README.md).
 
 ---
 
@@ -251,6 +369,7 @@ mechanism was explained. It is live and verified end to end.
 
 | Item | Blocked by | Effect |
 |---|---|---|
+| **M11 (band 13) in its entirety** | **Owner action** — a machine's `SPARSTROW_CLOUD_URL`/`SPARSTROW_APP_URL` pointed at `staging.sparstrow.com` | Hard block, not a slow path. Nothing is undecided; two environment variables and a restart. This is also what unblocks `G-16`'s "everything behind a deployment" bullet and the residue of `T-M7-04` §D. See [`../runbooks/deploy-web-app.md`](../runbooks/deploy-web-app.md). |
 | GitHub / Google sign-in | **Deferred → [D-8](../Deferred.md)** | Not blocked work — parked by the owner 2026-08-10. Code is complete and verified; the buttons render disabled and light up on their own once the providers are enabled. |
 | Leaked password protection | **Supabase plan** | Requires Pro; not available on the current plan (confirmed 2026-08-10). No SQL equivalent, so nothing in this repo can fix it. Verified off by signing up with `password123` and getting a session. Not an action item — the advisor will keep flagging it. |
 | `/runs/[runId]` transcript | M5 (7.6) | M4 made the page openable and the run row live; the transcript inside it is empty until M5 writes `run_events` to the cloud. |
