@@ -19,6 +19,12 @@ doc/tasks/
 The phase `README.md` holds what all its tasks share, so a decision is written
 once and referenced, not copy-pasted into eight files and then updated in six.
 
+**Skeletons for all three live in [`../templates/`](../templates/README.md)** —
+[`phase-spec.md`](../templates/phase-spec.md) for a phase `README.md`,
+[`task.md`](../templates/task.md) for an individual task, and
+[`verification-task.md`](../templates/verification-task.md) for the `[S]` task
+every phase ends with.
+
 ## The bar
 
 A task is ready when someone can work it **without asking the owner anything**:

@@ -216,6 +216,13 @@ We enforce a strict 3-tier Git & deployment pipeline:
 
 All non-code project memory lives in `doc/`. Read `doc/README.md` first.
 
+**Every file type below has a skeleton in `doc/templates/`** — plans, phase
+specs, tasks, verification tasks, bugs, security reports, runbooks, and entries
+for all four registers. Copy the matching one instead of inventing a shape:
+they encode the required sections (a task's checklist, a gap's "clears when", a
+deferral's unpark trigger) that make "done" mean the same thing every time it's
+written. `doc/templates/README.md` maps situation → template → destination.
+
 * **`doc/plans/`** — approved plans. The what and why. Uncertainty is allowed here.
 * **`doc/tasks/`** — executable specs derived from an approved plan, one folder
   per phase, plus `MasterTaskQueue.md` holding the global run order.

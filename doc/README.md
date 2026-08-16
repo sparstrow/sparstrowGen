@@ -5,6 +5,8 @@ a session lives here.
 
 ```
 doc/
+├── templates/                skeletons for every file type below
+│   └── README.md             ← start here when creating any new document
 ├── plans/                    approved plans — the "what and why"
 ├── tasks/                    executable specs — the "how"
 │   ├── MasterTaskQueue.md    global run order + concurrency tags
@@ -103,6 +105,11 @@ read by the agent who picks this up in three weeks.
 | "Only a human can do this part (external dashboard, OAuth app, secrets)" | `runbooks/` |
 | "This is behaving wrong" — owner-reported or agent-found | `bug/` |
 | "This is a vulnerability / trust-boundary issue" — owner-reported or agent-found | `security/` |
+
+Once you know the destination, [`templates/`](templates/README.md) has the
+skeleton for it — plans, phase specs, tasks, verification tasks, bugs,
+security reports, runbooks, and entries for all four registers. Copy, fill in,
+delete the guidance comments.
 
 ## Open questions must carry options
 

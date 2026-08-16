@@ -32,32 +32,16 @@ written before moving on to anything else.
 
 One file per bug: `BUG-<date>-<slug>.md`, e.g. `BUG-2026-08-16-signup-auto-confirms.md`.
 
-```markdown
-# BUG-<date>-<slug>
+**Copy [`../templates/bug.md`](../templates/bug.md)** — it carries the full
+skeleton (Status / Reported by / Reported, then Symptom, Reproduction,
+Investigation, Impact, Resolution) with guidance on what belongs in each
+section. That template is the canonical format; this file no longer restates
+it, so there is only one copy to keep current.
 
-**Status:** 🔴 open | 🟡 investigating | 🟢 resolved
-**Reported by:** owner | agent (name what you were doing when you found it)
-**Reported:** <date>
-
-## Symptom
-What actually happens, from the user's or the system's point of view.
-Concrete — inputs, steps, observed output. Not a guess at the cause.
-
-## Reproduction
-Exact steps, or the exact evidence if it can't be reproduced on demand.
-
-## Investigation
-What was checked, ruled out, and what's still suspected. Update this as it
-develops rather than starting a new file.
-
-## Impact
-What breaks and for whom, if left unfixed.
-
-## Resolution
-Filled in when closed: root cause, the fix, and where it landed (commit/PR).
-Leave the file in place after closing — like `KnownGaps.md`, this folder is a
-record, not a queue that empties out.
-```
+Two things the template will remind you of, worth knowing before you start:
+the **Symptom** section takes what you observed, not what you think caused it,
+and the file **stays here after it's fixed** — flip Status to 🟢 rather than
+deleting it.
 
 ## Turning a bug into work
 
