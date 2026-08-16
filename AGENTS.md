@@ -28,20 +28,40 @@ Welcome agent! This file defines the mandatory workflow, safety rules, and engin
 - **Database & ORM**: Supabase PostgreSQL + Drizzle ORM (`@sparstrow/shared`), Drizzle Kit migrations.
 - **Authentication**: `@supabase/ssr` (Passwordless Magic Link, Email & Password, GitHub OAuth, Google OAuth) + Next.js Middleware Session Guard (`apps/web/src/middleware.ts`).
 - **Realtime Cloud Sync**: Supabase Realtime Postgres event channel streaming (`apps/web/src/components/providers.tsx`) bridging into live React Query cache invalidation.
-- **Vector Search**: Supabase `pgvector` semantic search for memory notes and RAG retrieval.
+- **Vector Search**: **local**, not cloud — 384-dim FastEmbed embeddings in each
+  daemon's `sqlite-vec` index. Cloud `memory_notes` deliberately has no vector
+  column; see §4 before proposing pgvector on the control plane.
 - **Desktop Shell**: Electron 36 (`@sparstrow/desktop`).
 - **Package Manager & Monorepo**: `pnpm` v11.6.0 + Turbo 2.9.18 caching.
 
+**Machine-readable mirror:** `.sparstrowgen/blueprint.yaml` extracts the stack facts
+and commands above into one YAML file. Prose here stays the human-readable source of
+truth; any new agent or skill instruction should reference the blueprint instead of
+restating stack facts inline, so a stack change only needs updating in two places
+(this section + the blueprint) instead of scattered across every agent prompt.
+
 ### Connected MCP Servers & Skills
-- **`shadcn` MCP Server**: UI pattern discovery (`search_items_in_registries`, `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`).
-- **`impeccable` Skill**: Production-grade UI design commands (`audit`, `adapt`, `polish`, `craft`, `shape`, `distill`, `harden`).
-- **Project-level MCP config lives in `.mcp.json`.** Currently only **`supabase`** is
-  declared there (schema inspection, migration execution, Edge Function
-  deployment). More project-level MCP servers are being set up — update this list
-  and `.mcp.json` together when they land. Any other MCP tool an agent sees
-  available (e.g. `clockify`, `square`, `shadcn`) comes from that agent's
-  personal/user-level config, not this repo — don't assume it's present for
-  another agent or machine unless it's in `.mcp.json`.
+- **Project-level MCP config lives in `.mcp.json`.** Five servers are declared
+  there, and this list must stay in sync with it — update both together when a
+  server is added or removed:
+  - **`supabase`**: schema inspection, migration execution, Edge Function deployment.
+  - **`context7`**: up-to-date library/framework documentation lookup — prefer this
+    over training-data knowledge or web search for API syntax and version-specific
+    docs.
+  - **`shadcn`**: UI pattern discovery (`search_items_in_registries`,
+    `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`).
+    Paired with the vendored `shadcn` skill (`.claude/skills/shadcn/`) for the
+    procedural half of the Shadcn workflow — see §3.11.
+  - **`github`**: PR/issue management and repo search against this project's
+    GitHub remote. OAuth on first connect (run `/mcp` to authorize), same pattern
+    as `supabase` — no token ever belongs in `.mcp.json` or an agent's hands.
+  - **`playwright`**: browser automation, backing the end-to-end visual/runtime
+    testing loop mandated in §3.10.
+- **`impeccable` Skill**: Production-grade UI design commands (`audit`, `adapt`, `polish`, `craft`, `shape`, `distill`, `harden`). Personal/user-level, not declared in this repo.
+- Any other MCP tool or skill an agent sees available (e.g. `clockify`, `square`)
+  comes from that agent's personal/user-level config, not this repo — don't assume
+  it's present for another agent or machine unless it's in `.mcp.json` or
+  `.claude/skills/`.
 
 ---
 
