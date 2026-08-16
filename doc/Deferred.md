@@ -320,3 +320,27 @@ providers work and the rate-limit settings to raise afterwards:
   **(b)** the web app is deployed to a public URL. Both are certain to happen
   before the app ships products to users, which is the owner's stated horizon
   for this work.
+
+---
+
+## D-15 — Production Supabase project for `main`
+
+**Parked:** 2026-08-16, by the owner, while walking through the Vercel/DNS
+deployment — "later I will create a new Supabase project, and that will be
+connected to the main branch," once `main`'s code is no longer a dummy
+placeholder.
+
+Vercel and Hostinger DNS already route `main` → `sparstrow.com`, and that
+wiring is real. What's missing is everything downstream of it: `main` has no
+environment variables and is not connected to any Supabase project, so the
+live URL currently serves placeholder content. `staging` and `development`
+already share one fully configured Supabase project (env vars, backend, Auth
+redirect URLs) — `main` deliberately does **not** reuse it. Full picture:
+[`runbooks/deploy-web-app.md`](runbooks/deploy-web-app.md).
+
+**Unpark when:** `staging`'s build is solid enough to promote into `main`.
+At that point, create a dedicated production Supabase project, connect it to
+`main`, and configure its own Authentication → URL Configuration from
+scratch (it does not inherit `staging`'s settings) — then follow
+`deploy-web-app.md`'s "When `main` goes live" section to point a machine's
+`SPARSTROW_CLOUD_URL`/`SPARSTROW_APP_URL` at `sparstrow.com`.

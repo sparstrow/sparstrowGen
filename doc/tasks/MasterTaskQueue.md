@@ -216,9 +216,12 @@ plan's bullets.** The routes half is smaller than it looks: the TanStack-to-Next
 adapter already solves route params, and all four detail endpoints already exist
 in `/api/v1`, so each page is a seven-line re-export. The Electron half is
 **blocked on a premise that stopped being true** — "point `loadURL` at the hosted
-app" assumes a deployment, and there isn't one. 9.2 ships the URL as
-configuration so the work lands anyway, but section D of 9.4 cannot be verified
-until the owner deploys. That is the phase's one owner action.
+app" assumes a deployment, and there wasn't one at the time. 9.2 ships the URL
+as configuration so the work lands anyway, but section D of 9.4 cannot be
+verified until a machine's `SPARSTROW_CLOUD_URL`/`SPARSTROW_APP_URL` actually
+points at a deployed environment. **Update 2026-08-16:** `staging.sparstrow.com`
+now exists (see [`../runbooks/deploy-web-app.md`](../runbooks/deploy-web-app.md)),
+but no machine points at it yet — that remains the phase's one owner action.
 
 Also caught: the plan's bullet says the goal route is `goals`, while the router
 and the component both say `/tasks/goals/$goalId`. Building the plan's version

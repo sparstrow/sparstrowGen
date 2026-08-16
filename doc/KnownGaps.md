@@ -223,10 +223,13 @@ What is genuinely unproved, as opposed to merely untested-in-isolation:
   tested pure function, so "unset behaves exactly as before" is proved as
   logic — but no window has been opened, no `did-fail-load` has fired for real,
   and retry has never been clicked.
-- **Everything behind a deployment.** There isn't one, so the hosted half of the
-  desktop app — sign-in in the window, the machine showing online from its own
-  desktop app, host-local features refusing as designed — is untestable by
-  construction. See [`runbooks/deploy-web-app.md`](runbooks/deploy-web-app.md).
+- **Everything behind a deployment.** `staging.sparstrow.com` has existed since
+  2026-08-16, but no machine's `SPARSTROW_CLOUD_URL`/`SPARSTROW_APP_URL` points
+  at it yet — every daemon still defaults to `localhost:3000` and the desktop
+  window still loads the local core's own UI. The hosted half of the desktop
+  app — sign-in in the window, the machine showing online from its own desktop
+  app, host-local features refusing as designed — remains untestable until
+  that's done. See [`runbooks/deploy-web-app.md`](runbooks/deploy-web-app.md).
 
 - **If wrong:** the routes half fails silently and looks like a data bug, which
   is the worst shape for a user to report. The Electron half fails loudly and is
