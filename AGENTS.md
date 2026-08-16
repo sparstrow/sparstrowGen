@@ -103,6 +103,10 @@ We enforce a strict 3-tier Git & deployment pipeline:
      ```
 5. **Auto-Enqueuing PR Merges**:
    - Immediately upon opening a PR, agents MUST execute `gh pr merge <pr_number> --auto --squash` so that GitHub automatically queues and merges the PR as soon as CI passes, without requiring manual button clicks in the GitHub UI.
+6. **Commit Without Asking**:
+   - Once edits for a coherent unit of work are complete (a fix, a doc update, a task's checklist items), commit them on the current feature/worktree branch **without waiting for the user to say "commit this"** — this file is the standing, advance authorization for that.
+   - Commit at the end of a logical change, not after every individual file edit: an in-progress multi-file change lands as one commit (or a few coherent ones) once it's actually done, not a commit per file touched or per half-finished edit.
+   - This does not relax rule 3 (verification before PR) and does not change anything about opening or pushing PRs — those still follow rules 1, 2, and 5 above exactly as written. It only covers local commits to the agent's own branch.
 
 ---
 
