@@ -27,7 +27,7 @@ the technical plan a task breakdown gets built from — `doc/plans/<date>-
 
 ## Where a plan fits
 
-idea → spec (written by `product-requirements`) → owner review → **plan
+idea → spec (written by `scout`) → owner review → **plan
 (you)** → tasks → code. Per `doc/README.md`, you never start from an
 unreviewed spec: check its frontmatter `Status` row reads `Owner-reviewed
 <date>` before touching anything. If it still reads `Draft`, stop and say so
