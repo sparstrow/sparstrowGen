@@ -45,6 +45,32 @@ const posix = (p) => p.split(path.sep).join("/");
 /** Relative POSIX path from one file's directory to another file. */
 const relFrom = (fromFile, toFile) => posix(path.relative(path.dirname(fromFile), toFile));
 
+/**
+ * A card's own relative hrefs (e.g. `../../styles.css`) are written correctly
+ * for the card's REAL file location. But `build` injects every card into
+ * index.html via `iframe.srcdoc`, and a srcdoc document resolves relative URLs
+ * against the PARENT page's location (index.html, at the system root) — not
+ * against the original file the HTML came from. Without correction, a card
+ * two levels deep resolves `../../styles.css` from index.html's own location
+ * and walks straight out of the design-system folder.
+ *
+ * The fix is a `<base>` tag, which a browser resolves against the *fallback*
+ * base (the parent document's URL) and then uses for every other relative
+ * URL in the document from that point on — re-anchoring the card back to
+ * where it actually lives, whether index.html was opened via file:// or
+ * served over http. Verified both ways with the URL constructor before
+ * relying on it here; do not remove without re-checking both.
+ */
+function rebaseCard(html, cardDir, root) {
+  const base = posix(path.relative(root, cardDir)) + "/";
+  if (/<head[\s>]/i.test(html)) {
+    return html.replace(/<head([\s>])/i, `<head$1<base href="${base}">`);
+  }
+  // No <head> found (a hand-edited or unusual card) — prepending still works;
+  // browsers hoist a leading <base> into an implicit <head>.
+  return `<base href="${base}">\n${html}`;
+}
+
 /** Recursively collect files matching a suffix, returning repo-relative paths. */
 function walk(dir, suffix, out = []) {
   for (const e of listDir(dir)) {
@@ -283,7 +309,7 @@ function collectCards(root) {
         description: descMatch ? descMatch[1] : "",
         section: label,
         group: groupLabel,
-        html,
+        html: rebaseCard(html, path.dirname(file), root),
         prompt: promptPath ? markdown(read(promptPath)) : null,
         promptPath: promptPath ? path.relative(root, promptPath) : null,
         cardPath: path.relative(root, file),
