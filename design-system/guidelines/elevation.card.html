@@ -1,0 +1,41 @@
+<!doctype html>
+<html class="dark"><head><meta charset="utf-8">
+<title>Elevation</title>
+<meta name="description" content="Flat by default — one shadow, reserved for genuinely floating layers">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;padding:var(--space-5);background:var(--card);color:var(--foreground);
+       font-family:var(--font-sans);font-size:14px}
+  .row{display:grid;grid-template-columns:96px 1fr;gap:var(--space-4);align-items:center;
+       padding:var(--space-4) 0;border-bottom:1px solid var(--border)}
+  .row:last-child{border-bottom:0}
+  .lbl{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground)}
+  .sp{display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:center}
+  .box{border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;font-size:13px}
+  .note{font-size:12px;color:var(--muted-foreground);line-height:1.6}
+  .mono{font-family:var(--font-mono);font-size:10.5px;color:var(--muted-foreground)}
+</style></head><body>
+<div class="row"><div class="lbl">Flat</div><div class="sp">
+  <div class="box" style="background:var(--card)">Card &mdash; no shadow</div>
+  <div class="mono">cards, panels, tables, drawers: 1px border only</div>
+</div></div>
+<div class="row"><div class="lbl">Floating</div><div class="sp">
+  <div class="box" style="background:var(--popover);box-shadow:var(--shadow-popover)">Dropdown &mdash; --shadow-popover</div>
+  <div class="mono">0 1px 2px rgb(0 0 0 / .05)<br>the only shadow in the system</div>
+</div></div>
+<div class="row"><div class="lbl">Stack</div>
+  <div style="background:var(--background);padding:var(--space-4);border-radius:var(--radius-lg);width:100%">
+    <div class="box" style="background:var(--card);max-width:340px">
+      <div style="font-weight:600;margin-bottom:4px">Depth without shadow</div>
+      <div style="color:var(--muted-foreground);font-size:12.5px;line-height:1.5">
+        The card sits one lightness step above the page. That step plus the 1px line is the
+        entire elevation vocabulary.</div>
+    </div>
+  </div>
+</div>
+<div class="row"><div class="lbl">Rule</div><div class="note">
+  A shadow appears only when an element genuinely floats above the page &mdash; dropdown,
+  popover, command palette. If a card, panel, or table has a drop shadow, that is a defect,
+  not a style preference. No glow, no glassmorphism blur.
+</div></div>
+</body></html>

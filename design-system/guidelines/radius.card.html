@@ -1,0 +1,39 @@
+<!doctype html>
+<html class="dark"><head><meta charset="utf-8">
+<title>Radius</title>
+<meta name="description" content="Five steps, all derived from a single --radius base of 10px">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;padding:var(--space-5);background:var(--card);color:var(--foreground);
+       font-family:var(--font-sans);font-size:14px}
+  .row{display:grid;grid-template-columns:96px 1fr;gap:var(--space-4);align-items:center;
+       padding:var(--space-4) 0;border-bottom:1px solid var(--border)}
+  .row:last-child{border-bottom:0}
+  .lbl{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground)}
+  .sp{display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:flex-start}
+  .item{display:flex;flex-direction:column;gap:6px;align-items:center;font-size:10.5px;
+        color:var(--muted-foreground);font-family:var(--font-mono)}
+  .bx{width:64px;height:64px;background:var(--muted);border:1px solid var(--border)}
+  .note{font-size:12px;color:var(--muted-foreground);line-height:1.6}
+  code{font-family:var(--font-mono);font-size:11px;background:var(--muted);padding:1px 4px;border-radius:4px}
+</style></head><body>
+<div class="row"><div class="lbl">Scale</div><div class="sp">
+  <div class="item"><div class="bx" style="border-radius:var(--radius-sm)"></div><div>6px &middot; sm</div></div>
+  <div class="item"><div class="bx" style="border-radius:var(--radius-md)"></div><div>8px &middot; md</div></div>
+  <div class="item"><div class="bx" style="border-radius:var(--radius-lg)"></div><div>10px &middot; lg</div></div>
+  <div class="item"><div class="bx" style="border-radius:var(--radius-xl)"></div><div>14px &middot; xl</div></div>
+  <div class="item"><div class="bx" style="border-radius:var(--radius-full)"></div><div>999px &middot; full</div></div>
+</div></div>
+<div class="row"><div class="lbl">Applied</div><div class="note">
+  <strong>sm</strong> badges, chips &nbsp;&middot;&nbsp; <strong>md</strong> inputs, buttons
+  &nbsp;&middot;&nbsp; <strong>lg</strong> cards, panels &nbsp;&middot;&nbsp;
+  <strong>xl</strong> modals &nbsp;&middot;&nbsp; <strong>full</strong> pills, avatars
+</div></div>
+<div class="row"><div class="lbl">Derived</div><div class="note">
+  All five come from <code>--radius: 0.625rem</code> in globals.css via
+  <code>calc()</code> &mdash; they are not independently chosen. Changing that one base moves the
+  whole scale together, which is the intended behaviour and the reason not to hardcode a
+  pixel radius anywhere. Mismatched corners show faster than almost any other inconsistency,
+  because the elements sit adjacent.
+</div></div>
+</body></html>

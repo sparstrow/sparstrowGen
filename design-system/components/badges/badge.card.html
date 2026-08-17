@@ -1,0 +1,51 @@
+<!doctype html>
+<html class="dark"><head><meta charset="utf-8">
+<title>Badge</title>
+<meta name="description" content="Badge — 7 variants including the four semantic statuses">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body{margin:0;padding:var(--space-5);background:var(--card);color:var(--foreground);
+       font-family:var(--font-sans);font-size:14px}
+  .row{display:grid;grid-template-columns:96px 1fr;gap:var(--space-4);align-items:center;
+       padding:var(--space-4) 0;border-bottom:1px solid var(--border)}
+  .row:last-child{border-bottom:0}
+  .lbl{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground)}
+  .sp{display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center}
+  .note{font-size:12px;color:var(--muted-foreground)}
+</style></head><body>
+<style>
+  .bdg{display:inline-flex;align-items:center;gap:4px;border-radius:var(--radius-md);
+       border:1px solid transparent;padding:2px 8px;font-size:12px;font-weight:500;width:fit-content}
+  .b-default{background:var(--primary);color:var(--primary-foreground)}
+  .b-secondary{background:var(--secondary);color:var(--secondary-foreground)}
+  .b-destructive{background:var(--destructive);color:var(--destructive-foreground)}
+  .b-outline{color:var(--foreground);border-color:var(--border)}
+  .b-success{background:var(--success);color:var(--success-foreground)}
+  .b-info{background:var(--info);color:var(--info-foreground)}
+  .b-warning{background:var(--warning);color:var(--warning-foreground)}
+  .dot{width:6px;height:6px;border-radius:999px;background:currentColor}
+</style>
+<div class="row"><div class="lbl">Base</div><div class="sp">
+  <span class="bdg b-default">Default</span>
+  <span class="bdg b-secondary">Secondary</span>
+  <span class="bdg b-outline">Outline</span>
+  <span class="bdg b-destructive">Destructive</span>
+</div></div>
+<div class="row"><div class="lbl">Semantic</div><div class="sp">
+  <span class="bdg b-success">Completed</span>
+  <span class="bdg b-info">Running</span>
+  <span class="bdg b-warning">Queued</span>
+  <span class="bdg b-destructive">Failed</span>
+</div></div>
+<div class="row"><div class="lbl">With dot</div><div class="sp">
+  <span class="bdg b-success"><span class="dot"></span>Machine active</span>
+  <span class="bdg b-warning"><span class="dot"></span>Unreachable</span>
+  <span class="bdg b-info"><span class="dot"></span>Syncing</span>
+</div></div>
+<div class="row"><div class="lbl">Count</div><div class="sp">
+  <span class="bdg b-secondary">12</span>
+  <span class="bdg b-secondary">3</span>
+  <span class="bdg b-destructive">2</span>
+  <span class="note">counts sit next to a page title, not inside table cells</span>
+</div></div>
+</body></html>

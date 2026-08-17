@@ -1,0 +1,57 @@
+<!doctype html>
+<html class="dark"><head><meta charset="utf-8">
+<title>Button</title>
+<meta name="description" content="Button — 6 variants, 4 sizes, focus and disabled states">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body{margin:0;padding:var(--space-5);background:var(--card);color:var(--foreground);
+       font-family:var(--font-sans);font-size:14px}
+  .row{display:grid;grid-template-columns:96px 1fr;gap:var(--space-4);align-items:center;
+       padding:var(--space-4) 0;border-bottom:1px solid var(--border)}
+  .row:last-child{border-bottom:0}
+  .lbl{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground)}
+  .sp{display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center}
+  .note{font-size:12px;color:var(--muted-foreground)}
+</style></head><body>
+<style>
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;
+       border-radius:var(--radius-md);font-size:14px;font-weight:500;border:0;cursor:pointer;
+       height:36px;padding:0 16px;transition:background-color var(--transition-base),color var(--transition-base);
+       font-family:inherit}
+  .v-default{background:var(--primary);color:var(--primary-foreground);box-shadow:var(--shadow-popover)}
+  .v-destructive{background:var(--destructive);color:var(--destructive-foreground);box-shadow:var(--shadow-popover)}
+  .v-outline{background:var(--background);color:var(--foreground);border:1px solid var(--border);box-shadow:var(--shadow-popover)}
+  .v-secondary{background:var(--secondary);color:var(--secondary-foreground);box-shadow:var(--shadow-popover)}
+  .v-ghost{background:transparent;color:var(--foreground)}
+  .v-link{background:transparent;color:var(--primary);text-underline-offset:4px;text-decoration:underline}
+  .s-sm{height:32px;padding:0 12px;font-size:12px}
+  .s-lg{height:40px;padding:0 32px}
+  .s-icon{height:36px;width:36px;padding:0}
+  .is-disabled{opacity:.5;pointer-events:none}
+  .is-focus{outline:none;box-shadow:0 0 0 2px var(--ring)}
+</style>
+<div class="row"><div class="lbl">Variants</div><div class="sp">
+  <button class="btn v-default">Primary</button>
+  <button class="btn v-secondary">Secondary</button>
+  <button class="btn v-outline">Outline</button>
+  <button class="btn v-ghost">Ghost</button>
+  <button class="btn v-destructive">Destructive</button>
+  <button class="btn v-link">Link</button>
+</div></div>
+<div class="row"><div class="lbl">Sizes</div><div class="sp">
+  <button class="btn v-default s-sm">Small</button>
+  <button class="btn v-default">Default</button>
+  <button class="btn v-default s-lg">Large</button>
+  <button class="btn v-default s-icon" aria-label="Add">+</button>
+  <span class="note">32 / 36 / 40 px &middot; icon is square at 36</span>
+</div></div>
+<div class="row"><div class="lbl">With icon</div><div class="sp">
+  <button class="btn v-default"><span>+</span>New agent</button>
+  <button class="btn v-outline">Columns <span>&#9662;</span></button>
+</div></div>
+<div class="row"><div class="lbl">States</div><div class="sp">
+  <button class="btn v-default is-disabled">Disabled</button>
+  <button class="btn v-outline is-focus">Focused</button>
+  <span class="note">focus-visible: 2px ring at --ring &middot; disabled: 50% opacity</span>
+</div></div>
+</body></html>

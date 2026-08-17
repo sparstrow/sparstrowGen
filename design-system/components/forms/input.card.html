@@ -1,0 +1,48 @@
+<!doctype html>
+<html class="dark"><head><meta charset="utf-8">
+<title>Input</title>
+<meta name="description" content="Input — default, focus, error, and disabled field states">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body{margin:0;padding:var(--space-5);background:var(--card);color:var(--foreground);
+       font-family:var(--font-sans);font-size:14px}
+  .row{display:grid;grid-template-columns:96px 1fr;gap:var(--space-4);align-items:center;
+       padding:var(--space-4) 0;border-bottom:1px solid var(--border)}
+  .row:last-child{border-bottom:0}
+  .lbl{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground)}
+  .sp{display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center}
+  .note{font-size:12px;color:var(--muted-foreground)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:var(--space-3);width:100%}
+  .sw{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+  .sw .chip{height:56px}
+  .sw .meta{padding:8px 10px;font-size:11px;line-height:1.45}
+  .sw .name{font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:10px;color:var(--muted-foreground)}
+  .sw .val{font-family:var(--font-mono);font-size:10.5px;color:var(--muted-foreground)}
+</style></head><body>
+<style>
+  .fld{display:flex;flex-direction:column;gap:6px;min-width:210px}
+  .fl{font-size:12px;font-weight:500;color:var(--foreground)}
+  .inp{height:36px;border-radius:var(--radius-md);border:1px solid var(--input);background:transparent;
+       color:var(--foreground);padding:0 12px;font-size:14px;font-family:inherit;width:100%}
+  .inp::placeholder{color:var(--muted-foreground)}
+  .inp.focus{outline:none;box-shadow:0 0 0 2px var(--ring);border-color:var(--ring)}
+  .inp.err{border-color:var(--destructive)}
+  .inp.dis{opacity:.5}
+  .msg{font-size:11.5px;color:var(--destructive)}
+</style>
+<div class="row"><div class="lbl">Default</div><div class="sp">
+  <div class="fld"><label class="fl">Agent name</label><input class="inp" placeholder="spec-writer"></div>
+  <div class="fld"><label class="fl">Working directory</label><input class="inp" value="D:\Sparstrow\Sparstrowgen"></div>
+</div></div>
+<div class="row"><div class="lbl">Focus</div><div class="sp">
+  <div class="fld"><label class="fl">Machine label</label><input class="inp focus" value="workshop-desktop"></div>
+  <span class="note">focus-visible: 2px ring at --ring</span>
+</div></div>
+<div class="row"><div class="lbl">Error</div><div class="sp">
+  <div class="fld"><label class="fl">Max turns</label><input class="inp err" value="-5">
+    <span class="msg">Must be greater than 0</span></div>
+</div></div>
+<div class="row"><div class="lbl">Disabled</div><div class="sp">
+  <div class="fld"><label class="fl">Runtime id</label><input class="inp dis" value="rt_9f2c1a" disabled></div>
+</div></div>
+</body></html>

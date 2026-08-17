@@ -1,0 +1,39 @@
+/* typography.css — MIRRORED from packages/ui/src/styles/globals.css (--font-sans)
+ * and DESIGN.md's type scale, which is prose-only and has no CSS counterpart yet.
+ *
+ * The scale below is DESIGN.md §3 expressed as tokens for the first time. It is
+ * therefore the one part of this system that is not a pure mirror — the app's
+ * components use Tailwind size classes rather than these variables. Treated as
+ * documentation of intent until the app adopts them.
+ */
+
+:root {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Display — page titles */
+  --text-display-size: clamp(2rem, 5vw, 3.5rem);
+  --text-display-weight: 700;
+  --text-display-tracking: -0.02em;
+
+  /* Headline — section headers */
+  --text-headline-size: 1.5rem;
+  --text-headline-weight: 600;
+  --text-headline-tracking: -0.015em;
+
+  /* Title — component and dialog headers */
+  --text-title-size: 1.125rem;
+  --text-title-weight: 600;
+  --text-title-tracking: -0.01em;
+
+  /* Body — primary content. Capped at 65-75ch per the Line-Length Rule. */
+  --text-body-size: 0.875rem;
+  --text-body-weight: 400;
+  --text-body-leading: 1.5;
+  --text-body-measure: 70ch;
+
+  /* Label — field labels, table headers, badges */
+  --text-label-size: 0.75rem;
+  --text-label-weight: 500;
+  --text-label-tracking: 0.05em;
+}
