@@ -11,6 +11,30 @@ guidance: `.claude/skills/design-system/references/decision-log.md`.
 
 ---
 
+## DD-007 — Amber stays at hue 70; the warmer variant was rejected
+
+**Date:** 2026-08-18 · **Asked by:** owner · **Surface:** whole app
+
+**Ask:** Having seen the separation options side by side
+(`design-brief/hue-nudge.html`), should amber move to a warmer hue that reads as
+a distinct colour against Paper rather than part of it?
+
+**Why rejected:** The cohesive reading is the intended one. An accent that sits
+*inside* the surface's warmth matches the north star — an interface that earns
+attention rather than demanding it. The more separated amber (hue 50, 2.6 JND
+away) reads more energetic, which is a different product than the one being
+built. Legibility was never the question: both clear the contrast floor
+comfortably (9.63:1 vs 9.32:1).
+
+**Generalises to:** Nothing — this is a defaults decision only. It does confirm
+the principle in `DESIGN.md` §2.3 that separation is a *brand hue* choice and
+never a surface one.
+
+**Status:** rejected — kept for the record. `DESIGN.md` §2.3 unchanged, amber
+remains hue 70 / chroma 0.15.
+
+---
+
 ## DD-006 — Theme system: user-selectable brand and surface
 
 **Date:** 2026-08-18 · **Asked by:** owner · **Surface:** whole app
