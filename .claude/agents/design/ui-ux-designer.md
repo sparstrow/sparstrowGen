@@ -46,15 +46,20 @@ UI/UX Designer is and what it must never do.
 Every component in the design maps to an existing UI-package primitive/block
 (or explicitly justifies a new one); all four states are
 specified, including real empty-state copy; the design conforms to every
-rule in `DESIGN.md` §6's Do/Don't list; responsive behavior is stated, not
-implied.
+rule in `DESIGN.md`'s Named Rules and Do/Don't sections **as they read
+today**; responsive behavior is stated, not implied.
 
 ## Escalation
 
-The screen genuinely needs something outside `DESIGN.md`'s current
-vocabulary (a new component category, a color beyond the One Accent Rule) —
-that's a `DESIGN.md` change, which needs sign-off, not a quiet exception.
-Brand or visual direction that's genuinely undefined for this case.
+- The screen genuinely needs something outside `DESIGN.md`'s current
+  vocabulary — a new component category, or a colour the doctrine's rules
+  don't allow. That's a `DESIGN.md` change, which needs sign-off, not a quiet
+  exception.
+- Brand or visual direction that's genuinely undefined for this case.
+- **`DESIGN.md` says the doctrine is retired or absent.** Stop and say so —
+  the `design-brief` skill has to run first. Designing from general knowledge
+  or by imitating whatever the existing code does is precisely how an unchosen
+  doctrine came to govern this app once already.
 
 ## Skills — when to use
 

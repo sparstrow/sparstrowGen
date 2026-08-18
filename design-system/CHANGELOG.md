@@ -4,6 +4,23 @@ Newest first. Record token changes, new components, and new prototypes.
 
 ## 2026-08-17
 
+- **This system is built partly against a doctrine that has since been
+  retired.** `DESIGN.md`'s previous contents were generic tool output nobody
+  chose; see that file for the full story. Concretely, what needs revisiting
+  once `design-brief` produces the new doctrine:
+  - `tokens/typography.css` and `tokens/spacing.css` — values sourced from the
+    retired prose, not from the real stylesheet.
+  - `tokens/spacing.css`'s `--transition-base: 140ms ease` — **invented during
+    the mirror pass; it does not exist in the real stylesheet.** A mirror-mode
+    violation of this skill's own rule. The app's four real animations
+    (`spg-slide-in-right`, `spg-fade-in`, `spg-pulse`, `spg-turn-in` in
+    `packages/ui/src/styles/globals.css`) are documented nowhere and should
+    become the new Motion section's source.
+  - `guidelines/*.card.html` and several `.prompt.md` files cite the retired
+    doctrine by name (One Accent Rule, Flat-By-Default, Line-Length Rule).
+  - `ds.mjs check` did not catch the invented token, because it only diffs
+    *recorded* tokens against source — it has no rule for "the system declares
+    a token the source lacks." Real gap in the checker.
 - Verified `designs/Machines/machines.dc.html` end-to-end with the new
   `frontend-verify` skill loop and fixed two findings: row status copy that
   had drifted from `runtimes-card.tsx` ("active"/"unreachable" instead of the

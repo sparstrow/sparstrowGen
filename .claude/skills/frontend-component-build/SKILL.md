@@ -13,7 +13,10 @@ metadata:
 
 ## Order of work (AGENTS.md §3.11 — not optional)
 
-1. Read `DESIGN.md` in full.
+1. Read `DESIGN.md` in full — including its Iconography and Motion sections,
+   which are the two most often skipped and the two whose absence makes a
+   built screen feel lifeless. **If it says the doctrine is retired, stop and
+   run `design-brief` first**; do not substitute general design knowledge.
 2. Query the `shadcn` MCP tools / skill for an existing primitive or block
    before composing one from scratch: `list_components`, `get_component`,
    `get_component_demo` for a single primitive; `list_blocks`, `get_block`

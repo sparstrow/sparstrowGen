@@ -32,7 +32,7 @@ blueprint deliberately doesn't carry (file paths, provider specifics — not "wh
 are we on").
 
 - **Router Adapter**: Custom Next.js navigation adapter (`apps/web/src/lib/react-router-mock.tsx`) intercepting TanStack Router calls.
-- **Design tokens**: OKLCH design system tokens and component vocabulary live in `DESIGN.md`.
+- **Design doctrine**: `DESIGN.md` — **currently retired, pending regeneration.** Its previous contents were generic tool output nobody chose, and were producing an app the owner didn't want. Read the file before any UI work; if it still says retired, run the `design-brief` skill rather than designing against general knowledge or against whatever the existing code happens to do.
 - **Authentication**: `@supabase/ssr` (Passwordless Magic Link, Email & Password, GitHub OAuth, Google OAuth) + Next.js Middleware Session Guard (`apps/web/src/middleware.ts`).
 - **Realtime Cloud Sync**: Supabase Realtime Postgres event channel streaming (`apps/web/src/components/providers.tsx`) bridging into live React Query cache invalidation.
 
@@ -162,9 +162,13 @@ We enforce a strict 3-tier Git & deployment pipeline:
     - ALL design work and Impeccable commands (`craft`, `shape`, `polish`, `audit`, `bolder`, `quieter`, `distill`, `harden`, etc.) MUST use `@sparstrow/ui` Shadcn UI components and design tokens (`bg-background`, `bg-card`, `border-border`, `text-foreground`, `text-muted-foreground`).
     - ALWAYS leverage the `shadcn` MCP server tools (`search_items_in_registries`, `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`) to discover, inspect, and audit Shadcn UI component patterns.
     - **Mandatory Order of Work Before Writing a Component**:
-      1. Read `DESIGN.md` (tokens, motion, component vocabulary) and `PRODUCT.md`'s register.
+      1. Read `DESIGN.md` (tokens, iconography, motion, component vocabulary) and `PRODUCT.md`'s register. **If `DESIGN.md` says the doctrine is retired, stop — run `design-brief` first.** Building UI with no doctrine is what produced the app the owner rejected; general design knowledge is not a substitute.
       2. Invoke the `/shadcn` skill and use the Shadcn UI MCP — `list_components` / `get_component` / `get_component_demo` for primitives, `list_blocks` / `get_block` for composite surfaces. Check for an existing block before composing a page from scratch.
       3. Only then write code.
+13. **The Design Skill Chain (order matters)**:
+    - `design-brief` → `design-system` → `interactive-prototype` → `frontend-component-build` → `frontend-verify`.
+    - `design-brief` writes `DESIGN.md` by interviewing the owner with rendered options. Everything downstream is accountable to that doctrine, so nothing downstream may run before it exists.
+    - **Never restate `DESIGN.md`'s rules inside another skill, agent, or checklist.** Point at it. A duplicated doctrine keeps enforcing itself after the original changes — this happened once already in `design-system-conformance` and silently overrode the design system for every agent that loaded it.
 12. **Mandatory Supabase & Postgres Skills**:
     - Load the `supabase` skill for ANY task touching Supabase — schema changes, Auth, Realtime, Storage, Edge Functions, RLS, the CLI/MCP, or client-library (`supabase-js`, `@supabase/ssr`) integration.
     - Load the `supabase-postgres-best-practices` skill **before** writing or changing anything that lives in Postgres, running anywhere: tables/columns, migrations, RLS policies (and their tests), indexes, triggers, functions, `pg_cron`/`pgmq`, `pgvector`, or restoring/importing data. Load it too when diagnosing slow queries, timeouts, locking, or rows visible to the wrong tenant.

@@ -90,6 +90,12 @@ into silence.
 
 ## Creating a system
 
+0. **Check the doctrine exists first.** This skill turns a design doctrine into
+   a browsable system; it is not where the doctrine gets decided. If the
+   project has no `DESIGN.md` (or one that says it is retired/unagreed), run
+   the **`design-brief`** skill first — it interviews the owner and writes one.
+   Building a system against an unchosen doctrine just makes the wrong
+   direction browsable, and every prototype and screen downstream inherits it.
 1. **Establish the mode** (above) and find the sources. In mirror mode locate the
    real token stylesheet and component directory; note whether the project has a
    written design doc (`DESIGN.md`, brand guidelines) to draw the prose from.
