@@ -33,7 +33,9 @@ import { Button } from "@sparstrow/ui";
 **Dark mode inverts `default`.** `--primary` is near-white on near-black in
 dark, so a primary button is the *lightest* element on screen, not a coloured
 one. This surprises people expecting a brand-coloured CTA — it is correct, and
-it is why the One Accent Rule leaves colour free for status.
+it is why the retired doctrine's accent budget left colour free for status.
+That rationale died with the doctrine (`DECISIONS.md` DD-001) — the neutral
+primary is still what the code does, but it is no longer a defended choice.
 
 ## Sizes
 

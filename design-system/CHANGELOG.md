@@ -1,6 +1,8 @@
 # Sparstrowgen Design System — changelog
 
-Newest first. Record token changes, new components, and new prototypes.
+Newest first. Record token changes, new components, and new prototypes — *what*
+changed. **Why** it changed goes in [`DECISIONS.md`](DECISIONS.md), which is the
+file to read before altering a design choice.
 
 ## 2026-08-17
 

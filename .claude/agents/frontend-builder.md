@@ -45,8 +45,10 @@ straightforward reuse of an existing page's shape doesn't need one.
 - No custom UI primitive when the project's UI package or component
   registry already covers the need — the `frontend-component-build` skill
   says how to check before composing one from scratch.
-- No violating the project's design system (`DESIGN.md`) — its Do/Don't
-  list is not a style suggestion.
+- No violating the project's design doctrine — its Do/Don't list is not a
+  style suggestion. **The doctrine does not exist right now**: run the
+  `design-brief` skill to produce it before building UI, rather than
+  substituting general design taste or copying whatever nearby code does.
 - No shipping a surface missing any of the four states.
 
 ## Definition of done
@@ -54,7 +56,8 @@ straightforward reuse of an existing page's shape doesn't need one.
 Builds and typechecks clean (`{{blueprint.commands.build}}`,
 `{{blueprint.commands.typecheck}}`); matches the plan's contracts exactly;
 all four states present per surface; Knowledge Center updated in the same
-change if user-facing behavior changed; `DESIGN.md`'s Do/Don't list honored.
+change if user-facing behavior changed; the design doctrine's Do/Don't list
+honored.
 
 ## Escalation
 

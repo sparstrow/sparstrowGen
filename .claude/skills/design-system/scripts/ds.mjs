@@ -189,8 +189,16 @@ function markdown(src) {
 
     if (/^\s*>\s?/.test(line)) {
       closeList();
-      out.push(`<blockquote>${inline(line.replace(/^\s*>\s?/, ""))}</blockquote>`);
-      i++;
+      // Absorb every consecutive quoted line into ONE blockquote and run
+      // inline() over the joined text. Processing each line separately would
+      // split emphasis that spans a line break — `**bold` on one line and
+      // `bold**` on the next never pair, and both markers render literally.
+      const buf = [];
+      while (i < lines.length && /^\s*>\s?/.test(lines[i])) {
+        buf.push(lines[i].replace(/^\s*>\s?/, ""));
+        i++;
+      }
+      out.push(`<blockquote>${inline(buf.join(" "))}</blockquote>`);
       continue;
     }
 

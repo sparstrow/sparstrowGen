@@ -181,10 +181,19 @@ Once the owner signs off:
 
 **Check for competing copies of the old doctrine before you finish.** Design
 rules have a habit of being restated inside conformance checkers, agent
-definitions, linters, and component comments. Any of those that hardcode the
-previous design will keep enforcing it after `DESIGN.md` changes, silently
-overriding the new doc. Grep for the retired rules by name and re-point
-whatever you find at `DESIGN.md` instead of restating it.
+definitions, linters, machine-readable exports, and component comments. Any of
+those that hardcode the previous design will keep enforcing it after
+`DESIGN.md` changes, silently overriding the new doc. Grep for the retired
+rules by name and re-point whatever you find at `DESIGN.md` instead of
+restating it.
+
+**Log the founding decisions.** Write the significant choices — and what was
+rejected on the way — into `design-system/DECISIONS.md`, per the
+`design-system` skill's decision-log reference. This is the record that lets a
+future reader tell a decision from a default. Its absence is precisely what
+allowed an unchosen doctrine to govern the app in the first place: every rule
+looked equally authoritative, because nothing recorded which had actually been
+argued for.
 
 ## Scope boundaries
 

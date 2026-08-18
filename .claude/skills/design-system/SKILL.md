@@ -92,8 +92,8 @@ into silence.
 
 0. **Check the doctrine exists first.** This skill turns a design doctrine into
    a browsable system; it is not where the doctrine gets decided. If the
-   project has no `DESIGN.md` (or one that says it is retired/unagreed), run
-   the **`design-brief`** skill first — it interviews the owner and writes one.
+   project has no `DESIGN.md`, run the **`design-brief`** skill first — it
+   interviews the owner and writes one.
    Building a system against an unchosen doctrine just makes the wrong
    direction browsable, and every prototype and screen downstream inherits it.
 1. **Establish the mode** (above) and find the sources. In mirror mode locate the
@@ -170,9 +170,17 @@ This is the half that decides whether the system is alive in six months.
   card and usage notes to match, then `sync`. Do not `sync` first.
 - **`add` for anything new** rather than regenerating. The system accumulates;
   regenerating loses hand-written usage notes, which are the expensive part.
-- **Record it in `CHANGELOG.md`** — new components, token changes, prototypes
-  added. Newest first, dated. Design decisions get relitigated constantly and
-  the changelog is what settles them.
+- **Record what changed in `CHANGELOG.md`** — new components, token changes,
+  prototypes added. Newest first, dated.
+- **Record why it changed in `DECISIONS.md`** — see
+  [references/decision-log.md](references/decision-log.md). Whenever the owner
+  reacts to a design and asks for something different, the reason behind the
+  request is worth more than the change itself, because it usually generalises
+  into a rule that stops the same argument recurring on every later page.
+  Capture it in the turn it is said; nobody reconstructs it accurately
+  afterwards. This is also the document that lets a future reader tell a
+  deliberate decision apart from a default nobody chose — a distinction that,
+  when lost, lets an unchosen doctrine govern an app indefinitely.
 
 Treat a stale card the way this repo treats stale docs: as a defect, not
 housekeeping. See [references/mirror-mode.md](references/mirror-mode.md) for the

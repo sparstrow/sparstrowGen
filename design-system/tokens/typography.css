@@ -1,10 +1,11 @@
-/* typography.css — MIRRORED from packages/ui/src/styles/globals.css (--font-sans)
- * and DESIGN.md's type scale, which is prose-only and has no CSS counterpart yet.
+/* typography.css — the font stack is MIRRORED from
+ * packages/ui/src/styles/globals.css (--font-sans) and remains valid.
  *
- * The scale below is DESIGN.md §3 expressed as tokens for the first time. It is
- * therefore the one part of this system that is not a pure mirror — the app's
- * components use Tailwind size classes rather than these variables. Treated as
- * documentation of intent until the app adopts them.
+ * The SCALE below is not. It was transcribed from the retired doctrine's prose
+ * (see DECISIONS.md DD-001), which had no CSS counterpart — the app's
+ * components use Tailwind size classes rather than these variables. It is now
+ * a placeholder recording a direction nobody chose, not documentation of
+ * intent. Expect design-brief to replace it wholesale.
  */
 
 :root {
@@ -26,7 +27,8 @@
   --text-title-weight: 600;
   --text-title-tracking: -0.01em;
 
-  /* Body — primary content. Capped at 65-75ch per the Line-Length Rule. */
+  /* Body — primary content. The retired doctrine capped lines at 65-75ch;
+   * whether that rule survives is for the new doctrine to decide. */
   --text-body-size: 0.875rem;
   --text-body-weight: 400;
   --text-body-leading: 1.5;

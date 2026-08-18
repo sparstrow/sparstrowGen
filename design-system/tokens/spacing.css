@@ -1,5 +1,14 @@
 /* spacing.css — radius is MIRRORED from globals.css (--radius: 0.625rem).
- * Spacing and shadow scales come from DESIGN.md §4-§5, which are prose-only.
+ *
+ * Spacing and shadow scales were transcribed from the RETIRED doctrine's prose
+ * and carry no authority now (see DECISIONS.md DD-001). Placeholders until
+ * design-brief produces the replacement.
+ *
+ * --transition-base below is worse than a placeholder: it was INVENTED during
+ * the mirror pass and exists in no real stylesheet. The app's four actual
+ * animations live in packages/ui/src/styles/globals.css (spg-slide-in-right,
+ * spg-fade-in, spg-pulse, spg-turn-in) and should be the new Motion section's
+ * source.
  *
  * shadcn derives its radius steps from a single --radius base, so the four
  * values below are computed, not independently chosen. Changing --radius in
@@ -19,7 +28,7 @@
   --space-2: 8px;    /* icon + label */
   --space-3: 12px;   /* inline */
   --space-4: 16px;   /* form fields */
-  --space-5: 20px;   /* card padding — DESIGN.md §5 */
+  --space-5: 20px;   /* card padding — from the retired doctrine */
   --space-6: 24px;   /* section padding */
   --space-8: 32px;
   --space-10: 40px;

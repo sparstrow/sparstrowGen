@@ -10,9 +10,12 @@
  *    `:root` is the LIGHT theme. The app runs dark, so `.dark` is effectively
  *    the default in practice even though it is the override in the CSS.
  * 2. Every colour is OKLCH with zero chroma except the four semantic statuses
- *    and destructive. That neutrality is deliberate — DESIGN.md's "One Accent
- *    Rule" keeps accent on <=10% of any screen so agent output and code diffs
- *    are what stands out.
+ *    and destructive. These VALUES are mirrored from the real stylesheet and
+ *    remain valid. The RATIONALE once given here cited the retired doctrine's
+ *    accent-budget rule; that doctrine was deleted (see DECISIONS.md DD-001),
+ *    so the near-total neutrality below is currently an observation about the
+ *    app, not a rule anyone still stands behind. The owner has since asked for
+ *    more visible status colour — see DD-002.
  */
 
 :root {

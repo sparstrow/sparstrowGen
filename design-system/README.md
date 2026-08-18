@@ -1,5 +1,14 @@
 # Sparstrowgen Design System
 
+> ⚠️ **Partly built against a doctrine that has since been deleted.** The old
+> `DESIGN.md` was generic tool output nobody chose; it was removed 2026-08-17
+> (see [`DECISIONS.md`](DECISIONS.md) DD-001). The **colour and radius tokens
+> below are still valid** — they are mirrored from the app's real stylesheet.
+> The **type and spacing scales, and the guideline cards' prose, are not** —
+> they were derived from the retired doctrine. Do not treat this system as
+> settled design guidance until `design-brief` produces the new doctrine and
+> this is rebuilt against it.
+
 **Product:** Sparstrowgen — an autonomous AI agent platform and developer
 control plane. Multi-node agent runtimes, task pipelines, GOAP goal planning,
 and RAG memory.
@@ -26,13 +35,14 @@ code changes, `check` says so.
 |---|---|
 | Colour + radius tokens | `packages/ui/src/styles/globals.css` |
 | Components | `packages/ui/src/components/ui/` (26 primitives) |
-| Written design intent | `DESIGN.md` (repo root) |
+| Written design intent | **none — the doctrine was deleted, see `DECISIONS.md` DD-001** |
 | Product/stack facts | `.sparstrowgen/blueprint.yaml` |
 
-Type and spacing tokens are the one exception to "pure mirror": `DESIGN.md`
-specifies a scale in prose that has no CSS counterpart in the app, which uses
-Tailwind size classes instead. They are recorded in `tokens/` as documentation
-of intent and flagged here so nobody mistakes them for live variables.
+Type and spacing tokens are the one exception to "pure mirror": they were
+transcribed from the retired doctrine's prose, which had no CSS counterpart in
+the app (it uses Tailwind size classes instead). **They therefore carry no
+authority now** — they are the old direction expressed as variables. Treat them
+as placeholders until the new doctrine replaces them.
 
 ## Product context
 
@@ -136,8 +146,8 @@ design-system/
 ├── styles.css                  @import entry point
 ├── tokens/
 │   ├── colors.css              mirrored from globals.css, both themes
-│   ├── typography.css          DESIGN.md scale as tokens (intent, not yet live)
-│   └── spacing.css             radius mirrored; spacing/shadow from DESIGN.md
+│   ├── typography.css          retired doctrine's scale — placeholder, not live
+│   └── spacing.css             radius mirrored; spacing/shadow from retired doctrine
 ├── guidelines/
 │   ├── surfaces.card.html      surface stack + text hierarchy
 │   ├── status-colors.card.html four semantic statuses

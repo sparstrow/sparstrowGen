@@ -138,7 +138,16 @@ names, real-shaped codes, realistic quantities and dates.
    ```bash
    node .claude/skills/design-system/scripts/ds.mjs build --root design-system
    ```
-8. **Run the `frontend-verify` skill against it before calling the prototype
+8. **When the owner reacts, log why — not just what.** A prototype exists to
+   provoke exactly this: "try it denser", "that colour is wrong", "add
+   something here". Those requests arrive with their reasoning attached, and
+   the reasoning is the valuable half — it usually generalises into a rule that
+   saves every later screen from the same round of feedback. Record it in
+   `design-system/DECISIONS.md` in the same turn it is said, per the
+   `design-system` skill's decision-log reference. A revision applied to the
+   prototype but never written down is lost the moment someone builds the real
+   page from the doctrine instead.
+9. **Run the `frontend-verify` skill against it before calling the prototype
    done.** This is not optional and not the same as opening it once yourself —
    that skill's loop (enumerate every state and interaction from this
    handoff, click through them, watch the console, fix and re-verify from the

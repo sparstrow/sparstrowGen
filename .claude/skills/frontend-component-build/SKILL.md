@@ -15,8 +15,9 @@ metadata:
 
 1. Read `DESIGN.md` in full — including its Iconography and Motion sections,
    which are the two most often skipped and the two whose absence makes a
-   built screen feel lifeless. **If it says the doctrine is retired, stop and
-   run `design-brief` first**; do not substitute general design knowledge.
+   built screen feel lifeless. **If it does not exist, stop and run
+   `design-brief` first** — it does not exist in this project right now. Do
+   not substitute general design knowledge.
 2. Query the `shadcn` MCP tools / skill for an existing primitive or block
    before composing one from scratch: `list_components`, `get_component`,
    `get_component_demo` for a single primitive; `list_blocks`, `get_block`
