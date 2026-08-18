@@ -157,6 +157,7 @@ We enforce a strict 3-tier Git & deployment pipeline:
     - The browser agent MUST report back with detailed feedback, console errors, and usability issues found.
     - The main agent MUST then verify and fix any reported issues.
     - Upon applying fixes, the browser agent MUST be invoked again to re-verify. This loop MUST continue until all issues are resolved and the goal is complete before claiming task completion.
+    - **This is what the `frontend-verify` skill (`.claude/skills/frontend-verify/`) implements.** It is the concrete, repeatable form of this rule — invoke it rather than improvising the loop, and always after the `interactive-prototype` or `design-system` skills produce something.
 11. **Shadcn UI & MCP Server Integration (Impeccable Workflow)**:
     - ALL design work and Impeccable commands (`craft`, `shape`, `polish`, `audit`, `bolder`, `quieter`, `distill`, `harden`, etc.) MUST use `@sparstrow/ui` Shadcn UI components and design tokens (`bg-background`, `bg-card`, `border-border`, `text-foreground`, `text-muted-foreground`).
     - ALWAYS leverage the `shadcn` MCP server tools (`search_items_in_registries`, `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`) to discover, inspect, and audit Shadcn UI component patterns.

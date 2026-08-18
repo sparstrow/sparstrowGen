@@ -134,3 +134,61 @@ assumption rather than silently resolved:
   speed. The real mutations (`useRenameRuntime`, `useRevokeRuntimeToken`,
   `useRemoveRuntime`, `useCreatePairingCode`) already exist in
   `packages/ui/src/api/hooks` and were not reinvented here.
+
+## Verification — 2026-08-17
+
+**Tested:** `machines.dc.html`, served via `ds.mjs serve` at
+`localhost:4321/designs/Machines/machines.dc.html`, against this handoff's
+States/Interactions tables above and the real `runtimes-card.tsx` source.
+
+### Checklist
+- [x] Populated state — 4 rows, correct dot color per status
+- [x] Empty state (devbar toggle)
+- [x] Loading state (devbar toggle) — skeleton shape, no header count shown
+- [x] Error state (devbar toggle) — no header count shown
+- [x] Retry (error → loading → populated, count restored)
+- [x] Pairing panel — code display, live countdown ticking, honesty warning box
+- [x] Copy pairing code — real clipboard write, toast shown
+- [x] Inline rename — commit via Enter
+- [x] Inline rename — cancel via Escape
+- [x] Revoke — confirm dialog copy, Cancel dismisses without side effect
+- [x] Revoke — confirm executes, dot/meta update, toast shown
+- [x] Remove — confirm dialog copy, Cancel dismisses without side effect
+- [x] Remove — confirm executes, row removed, count decrements, toast shown
+- [x] Console clean across every state and action above
+- [x] `ds.mjs build` + `ds.mjs check --root design-system` — no drift
+
+### Found & fixed
+- **Row status copy invented instead of matching the source it claims to
+  mirror.** The row meta line read `"active"` / `"unreachable · last seen
+  Xm ago"`. The handoff's own Component mapping table says the row structure
+  is reused "near-verbatim" from `runtimes-card.tsx` — but the real component
+  renders `runtime.online ? "online" : \`last seen ${relativeTime(...)}\``.
+  There is no `"active"`/`"unreachable"` anywhere in the source. Fixed in both
+  `machines.dc.html` and `machines.card.html` to use the real component's
+  exact wording. This was an authoring slip during the initial build, not a
+  deliberate invention — it should have been in "Invented" if intentional,
+  and wasn't, which is itself the signal that it was wrong.
+- **Header count badge went stale when previewing Empty/Loading/Error via the
+  devbar switcher.** `setState()` only toggled panel visibility; the count
+  badge (`#count`) is set once by `renderRows()` from the real `runtimes`
+  array and the switcher never touched it. Forcing "Empty" showed "Machines
+  3" in the header directly above a "No machines paired yet" body — a
+  visible self-contradiction for anyone clicking through the states, not
+  just a cosmetic nit. Fixed: `setState()` now sets the count to match the
+  state being previewed (0 for empty, hidden entirely for loading/error,
+  since a real client doesn't know the count yet in either of those), and
+  restores the real count on populated.
+
+### Found & not fixed
+- None.
+
+### Environment caveats
+- Testing the Enter-key rename path with this browser tool's `key` action
+  using the label `"Return"` produces a keydown event with `key: ""` (empty),
+  not `key: "Enter"` — the handler correctly never fires on it. This is a
+  tool key-naming detail (the label `"Enter"` produces a correct
+  `key: "Enter"` event and works as expected), not a bug in the prototype or
+  a repeat of the `document.hasFocus()` limitation found in the previous
+  verification pass. Confirmed by attaching a temporary listener and
+  comparing both key labels directly before concluding either way.

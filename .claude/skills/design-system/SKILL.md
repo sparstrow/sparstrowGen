@@ -109,8 +109,12 @@ into silence.
 6. **Write `README.md`** — this becomes the page's masthead and is the highest-
    value prose in the system. See
    [references/readme-structure.md](references/readme-structure.md).
-7. **`build`**, open `index.html`, and look at it. A card that renders wrong in
-   the viewer renders wrong everywhere.
+7. **`build`**, open `index.html`, and run the **`frontend-verify`** skill
+   against it before calling the system done — every card, every state a card
+   claims to show (hover, focus-visible, disabled, error, empty), both themes
+   if the app supports dark mode, and a clean console. A card that renders
+   wrong in the viewer renders wrong everywhere, and eyeballing the default
+   state once is exactly how the wrong ones slip through.
 
 ## What makes a card worth having
 

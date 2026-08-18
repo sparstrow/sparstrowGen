@@ -134,12 +134,18 @@ names, real-shaped codes, realistic quantities and dates.
    representative screenshot-like fragment is fine; it is a tile, not the thing.
 6. **Write the handoff** — see
    [references/handoff-contract.md](references/handoff-contract.md).
-7. **Rebuild and look at it**:
+7. **Rebuild it**:
    ```bash
    node .claude/skills/design-system/scripts/ds.mjs build --root design-system
    ```
-   Then actually open it and click through. A prototype you have not clicked is
-   a guess.
+8. **Run the `frontend-verify` skill against it before calling the prototype
+   done.** This is not optional and not the same as opening it once yourself —
+   that skill's loop (enumerate every state and interaction from this
+   handoff, click through them, watch the console, fix and re-verify from the
+   top) is what actually earns "done." A prototype nobody has run that loop
+   against is still a guess, no matter how it looks in a screenshot. Append
+   its report under a `## Verification` heading at the bottom of this
+   prototype's `handoff.md`.
 
 ## What makes a prototype useful
 

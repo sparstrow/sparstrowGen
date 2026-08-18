@@ -218,7 +218,7 @@ function renderRows() {
         ? r.capabilities.map((c) => `<span class="bdg bdg-secondary">${c}</span>`).join("")
         : `<span class="bdg bdg-outline" title="This machine reported no usable providers">no providers</span>`;
       const draining = r.status === "draining" ? `<span class="bdg bdg-secondary">shutting down</span>` : "";
-      const metaTail = active ? "active" : `unreachable · last seen ${relativeTime(r.lastHeartbeat)}`;
+      const metaTail = active ? "online" : `last seen ${relativeTime(r.lastHeartbeat)}`;
       return `
       <div class="row" data-id="${r.id}">
         <span class="dot ${active ? "active" : "inactive"}" aria-hidden="true"></span>
@@ -395,6 +395,15 @@ function setState(name) {
   for (const s of STATES) $(`#state-${s}`).style.display = s === name ? "" : "none";
   pairingArea.style.display = name === "populated" || name === "empty" ? "" : "none";
   document.querySelectorAll(".devbar button").forEach((b) => b.classList.toggle("active", b.dataset.state === name));
+  // The header count badge reads from `runtimes`, which the devbar switcher
+  // never touches — without this it would keep showing the real count while
+  // "Empty" is being previewed, contradicting the empty-state body right
+  // below it. Loading/error hide it outright: a real client doesn't know the
+  // count yet in either case, so a stale number there would be its own lie.
+  const showCount = name === "populated" || name === "empty";
+  countEl.style.display = showCount ? "" : "none";
+  if (name === "populated") countEl.textContent = String(runtimes.length);
+  if (name === "empty") countEl.textContent = "0";
 }
 document.querySelectorAll(".devbar button").forEach((b) =>
   b.addEventListener("click", () => setState(b.dataset.state)),
