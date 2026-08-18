@@ -430,3 +430,59 @@ and no amount of software fixes that.
   reaching a sleeping machine becomes routine friction rather than an
   occasional annoyance. Whichever comes first — and confirm WoL is actually
   enabled on the target machine's NIC before building anything.
+
+---
+
+## D-17 — Settings → Display: the theme picker UI
+
+**Parked:** 2026-08-18, by the owner, while locking `DESIGN.md` — the theming
+*contract* was decided and written (§2), the *picker* was explicitly left as its
+own piece of work.
+
+The owner asked for user-selectable brand colour and surface character
+("paper, slate, soft, mono"), exposed in Settings. §2 defines what any theme
+must satisfy — curated presets only, one accent role, status colour never
+themeable, every preset clearing 4.5:1 in both modes. What it deliberately does
+not define is the UI, or where the choice is stored.
+
+Open sub-questions the spec has to answer: whether the choice is per-device or
+synced to the account; whether it applies instantly or on save; what a viewer
+sees before their preference loads (a flash of the default is a real problem on
+a dark-first app); and whether density joins brand and surface as a third axis
+(§13 lists that as undecided).
+
+**Depends on `G-19`** — there is nothing to pick between until `globals.css` is
+parametric. Building the picker first would produce a control that changes
+nothing.
+
+- **Unpark when:** `G-19` closes and the design-system rebuild lands, at which
+  point this needs a `product-requirements` pass before build. Recorded as
+  `DD-006` in `design-system/DECISIONS.md`.
+
+---
+
+## D-18 — Entity profiles and the in-app tab strip
+
+**Parked:** 2026-08-18, by the owner, on locking `DESIGN.md` §9 — the owner
+asked for the navigation *instruction* to exist so agents design to it, not for
+the feature to be built in the same turn.
+
+`DESIGN.md` §9 fully specifies it: an outer tab strip (which entity's profile is
+open), a side sub-nav (which section of that entity), a smart-default +
+modifier-key destination model for tangential actions, and mandatory ARIA/
+keyboard requirements from the first commit. Proved interactively in
+`design-brief/entity-profile-board.html`, including that per-tab state survives
+switching away and back.
+
+None of it is built. Today no detail view exists for a machine or an agent at
+all, and `project-detail.tsx`'s tabs are a *different*, sidebar-panel pattern.
+
+§9.4 fixes the order and the reason: **Machines** first (a real gap, nothing to
+regress), **Agents** second (same shape of gap, still greenfield), **Projects**
+last and deliberately — it is the only one of the three that is a migration of
+working code rather than new work.
+
+- **Unpark when:** the design-system rebuild lands (this needs the doctrine's
+  tokens to exist) and Machines gets a `product-requirements` pass — it is still
+  outside `specs/2026-08-16-setup-and-machines.md`, whose "profile" means the
+  *user's* profile, not a machine's. Recorded as `DD-003`/`DD-008`.

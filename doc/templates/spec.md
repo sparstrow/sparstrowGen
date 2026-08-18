@@ -123,7 +123,7 @@ gets its own section rather than being scattered through scenarios.
 
 DESCRIBE EXPERIENCE AND STATES, NOT CSS. "The empty state explains what to do
 next and offers the button that does it" — yes. "16px muted heading, 24px
-gap" — no; that is DESIGN.md's job and the implementer's.
+gap" — no; that is the design doctrine's job and the implementer's.
 
 Naming a shadcn component or an existing page to copy the shape of is fine and
 useful. Specifying padding is not.
@@ -143,8 +143,8 @@ whether each is new or already exists.
 ### The four states
 
 <!--
-MANDATORY, per DESIGN.md and AGENTS.md §3.11. Every surface above ships all
-four together — a surface that only has a populated state is not finished.
+MANDATORY, per AGENTS.md §3.11. Every surface above ships all four together —
+a surface that only has a populated state is not finished.
 
 The empty state is the one that gets skipped and the one that matters most:
 it is what the owner sees on day one, before any data exists.

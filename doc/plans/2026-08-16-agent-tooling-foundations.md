@@ -99,3 +99,24 @@ to be here" section for how to rebuild the core/ui mechanism from git history if
 desktop-UI preview testing is ever needed again. `SPARSTROW_PORT`/`SPARSTROW_DATA_DIR`
 support itself was untouched — it lives in `packages/core`, `packages/ui`, and
 `packages/desktop` independent of this launcher, and still works.
+
+## Update — 2026-08-17, agent files are personas, procedure moves to skills
+
+Two changes to how the roster gets built, both from the owner directly rather than
+inferred:
+
+1. **The agent `.md` is a lean persona/identity file — role, router description,
+   tool allowlist, scope boundaries, DoD, escalation. Step-by-step procedure
+   belongs in a skill, not the agent body**, even when that procedure is specific
+   to one agent and not obviously reusable. `.claude/agents/product-requirements.md`
+   (added in the update above) violated this — its 10-step "Operating procedure"
+   was skill-shaped content sitting in the agent file. Split into
+   `.claude/skills/writing-specs/` (the procedure) and `.claude/agents/scout.md`
+   (the persona, renamed from `product-requirements` — a role name, not a function
+   label, matching the intent behind `architect`/`frontend-builder` but pushed
+   further). `product-requirements.md` is deleted; `architect.md`'s one reference to
+   it was updated to `scout`.
+2. Confirmed: `handoffs` stay as plain markdown files with frontmatter tables (a
+   spec's `Plan` row, a plan's `Spec`/`Tasks` rows) for now — no
+   `.sparstrowgen/handoffs/*.json` manifest system. Revisit only once more
+   automation actually needs a machine-parsed handoff; premature otherwise.

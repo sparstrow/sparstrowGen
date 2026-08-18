@@ -276,6 +276,45 @@ and that the snapshot precedes handoff.*
 
 ---
 
+### G-17 — The four new design skills have never been proved to *trigger*
+
+**Raised:** 2026-08-18, on finishing the design-brief run.
+
+`design-system`, `interactive-prototype`, `frontend-verify`, and `design-brief`
+were each exercised by being invoked **by name, deliberately**, and each worked.
+None has been through `skill-creator`'s evaluation loop, which is the part that
+tests whether a skill's `description` actually fires it from a natural request.
+`design-brief` in particular could not be invoked via the `Skill` tool at all
+during this session — the harness had scanned skills at startup, before the
+directory existed — so it was followed by reading `SKILL.md` directly.
+
+- **If wrong:** the skills sit there and never fire. An agent asked to "make
+  this page look better" designs from general taste, which is precisely the
+  failure `DESIGN.md` was rewritten to prevent, and nobody notices because the
+  output still looks plausible.
+- **Clears when:** each skill is run through the eval loop against realistic
+  prompts that *don't* name it, with a baseline for comparison — or, more
+  cheaply, when a fresh session is observed picking the right skill unprompted.
+
+### G-18 — `ds.mjs check` cannot see a token the design system invented
+
+**Raised:** 2026-08-18, from a defect it failed to catch.
+
+`check` diffs *recorded* token values against their source file, so it detects a
+token that changed or disappeared upstream. It has no rule for the opposite
+direction: a token declared in `design-system/tokens/` that **exists in no
+source at all**. That is exactly how `--transition-base: 140ms ease` — invented
+during the mirror pass, present in no stylesheet — survived a clean `check` run
+and is still there today.
+
+- **If wrong:** the design system quietly accumulates invented values that read
+  as mirrored fact. This is the same class of error as the retired doctrine —
+  something authoritative-looking that nobody chose — and `check`'s green tick
+  actively launders it.
+- **Clears when:** `check` gains an `unsourced-token` finding that walks
+  `tokens/*.css` and flags any custom property with no counterpart in a declared
+  source, and `--transition-base` is either removed or given a real source.
+
 ## Accepted limitations
 
 ### G-5 — Untrusted runs are badged, not write-clamped
@@ -388,3 +427,33 @@ dashboard", which is true and useful. That is a correct answer, not a complete o
 - **Clears when:** the real quotas are read off the Supabase dashboard for the
   current plan and written down with that provenance. Cheap; worth doing next time
   the dashboard is open anyway.
+
+### G-19 — `DESIGN.md` §2 describes a theming system the app does not have
+
+**Raised:** 2026-08-18, immediately on writing the doctrine.
+
+`DESIGN.md` §2 specifies a **theming contract**: a user-selectable brand accent
+and surface character, every token derived from five root variables, all 40
+combinations contrast-verified. That system is real and proven — but it exists
+**only in `design-brief/theme-board.html`**, the prototype where it was
+designed and measured.
+
+The shipped app does not work this way. `packages/ui/src/styles/globals.css`
+holds **72 literal `oklch(...)` values**, one per token per mode, with no
+derivation and no relationship the code enforces between a token's light and
+dark form. Nothing in the app reads a brand hue or a surface character, because
+neither exists as a variable.
+
+The doctrine is written in the present tense throughout, as doctrines are. A
+reader has no way to tell §2 from §5, which *does* describe what the code
+already does.
+
+- **If wrong:** someone builds against §2 expecting `--brand` to exist and
+  finds it doesn't; or worse, assumes theming ships and tells a user so. This is
+  the overstating direction `AGENTS.md` §3.2 names as the dangerous one — the
+  page claims a capability the code lacks.
+- **Clears when:** `globals.css` is rebuilt parametrically from the five
+  variables the theme board proved out (`--sh`/`--sc`/`--bh`/`--bc`/`--bll`),
+  and a contrast check over all preset × surface × mode combinations runs in CI.
+  Until then §2 is a specification, not a description. **This is the first task
+  of the design-system rebuild**, not a follow-up to it.

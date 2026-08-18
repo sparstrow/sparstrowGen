@@ -1,0 +1,48 @@
+<!doctype html>
+<html class="dark"><head><meta charset="utf-8">
+<title>Motion</title>
+<meta name="description" content="140ms ease throughout — no spring, no bounce, reduced-motion honoured">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;padding:var(--space-5);background:var(--card);color:var(--foreground);
+       font-family:var(--font-sans);font-size:14px}
+  .row{display:grid;grid-template-columns:96px 1fr;gap:var(--space-4);align-items:center;
+       padding:var(--space-4) 0;border-bottom:1px solid var(--border)}
+  .row:last-child{border-bottom:0}
+  .lbl{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground)}
+  .sp{display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:center}
+  .note{font-size:12px;color:var(--muted-foreground);line-height:1.6}
+  .mono{font-family:var(--font-mono);font-size:10.5px;color:var(--muted-foreground)}
+  .demo{padding:10px 14px;border-radius:var(--radius-md);background:var(--secondary);
+        color:var(--secondary-foreground);font-size:13px;cursor:pointer;user-select:none;
+        transition:background-color var(--transition-base),transform var(--transition-base),
+                   box-shadow var(--transition-base)}
+  .demo:hover{background:var(--accent);transform:translateY(-1px);box-shadow:var(--shadow-popover)}
+  @keyframes sgFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @keyframes sgPop{from{opacity:0;transform:scale(.97) translateY(5px)}to{opacity:1;transform:none}}
+  .replay{animation:sgFade 200ms ease}
+  .replay.pop{animation:sgPop 150ms ease}
+  @media (prefers-reduced-motion:reduce){
+    .demo{transition:none} .demo:hover{transform:none} .replay{animation:none}
+  }
+</style></head><body>
+<div class="row"><div class="lbl">Hover</div><div class="sp">
+  <div class="demo">Hover me</div>
+  <div class="mono">background + 1px lift<br>--transition-base &middot; 140ms ease</div>
+</div></div>
+<div class="row"><div class="lbl">Entrance</div><div class="sp">
+  <div class="demo replay" onclick="this.classList.remove('replay');void this.offsetWidth;this.classList.add('replay')">Click to replay &mdash; sgFade</div>
+  <div class="mono">opacity 0&rarr;1 + translateY(6px)&rarr;0 &middot; 200ms</div>
+</div></div>
+<div class="row"><div class="lbl">Pop</div><div class="sp">
+  <div class="demo replay pop" onclick="this.classList.remove('replay');void this.offsetWidth;this.classList.add('replay')">Click to replay &mdash; sgPop</div>
+  <div class="mono">scale(.97)&rarr;1 + translateY(5px)&rarr;0 &middot; 150ms<br>dropdowns, popovers</div>
+</div></div>
+<div class="row"><div class="lbl">Rule</div><div class="note">
+  150&ndash;200ms, <strong>ease</strong>, throughout. No spring, no bounce &mdash; this is a control
+  plane, and motion that draws attention to itself competes with the run telemetry and diffs it
+  is supposed to be framing. Every transition honours
+  <code style="font-family:var(--font-mono);font-size:11px">prefers-reduced-motion</code>;
+  that is a correctness requirement, not a nicety.
+</div></div>
+</body></html>

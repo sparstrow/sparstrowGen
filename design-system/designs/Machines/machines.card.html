@@ -1,0 +1,40 @@
+<!doctype html>
+<html class="dark"><head><meta charset="utf-8">
+<title>Machines</title>
+<meta name="description" content="Machines — US1: a first-class destination, all four states, from doc/specs/2026-08-16-setup-and-machines.md">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body{margin:0;padding:var(--space-5);background:var(--card);color:var(--foreground);
+       font-family:var(--font-sans);font-size:13px}
+  h4{margin:0 0 2px;font-size:15px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:6px}
+  .count{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;
+         border-radius:999px;background:var(--secondary);color:var(--secondary-foreground);font-size:10px;font-weight:600}
+  .sub{margin:0 0 var(--space-4);font-size:12px;color:var(--muted-foreground)}
+  .row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+  .row:last-child{border-bottom:0}
+  .dot{width:7px;height:7px;border-radius:999px;flex-shrink:0}
+  .dot.active{background:var(--success-foreground)}
+  .dot.inactive{background:color-mix(in oklab, var(--muted-foreground) 40%, transparent)}
+  .name{font-size:12.5px;font-weight:500}
+  .meta{font-size:11px;color:var(--muted-foreground);margin-top:1px}
+  .bdg{margin-left:auto;font-size:10px;padding:2px 6px;border-radius:var(--radius-sm);
+       background:var(--secondary);color:var(--secondary-foreground)}
+</style></head>
+<body>
+<h4>Machines <span class="count">4</span></h4>
+<p class="sub">First-class sidebar destination — pair, rename, revoke, remove.</p>
+<div class="row">
+  <span class="dot active"></span>
+  <div><div class="name">workshop-desktop</div><div class="meta">win32 · online</div></div>
+  <span class="bdg">claude-code</span>
+</div>
+<div class="row">
+  <span class="dot active"></span>
+  <div><div class="name">office-mac-mini</div><div class="meta">darwin · online</div></div>
+  <span class="bdg">ollama</span>
+</div>
+<div class="row">
+  <span class="dot inactive"></span>
+  <div><div class="name">build-server</div><div class="meta">linux · last seen 52m ago</div></div>
+</div>
+</body></html>

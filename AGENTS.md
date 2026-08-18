@@ -32,7 +32,7 @@ blueprint deliberately doesn't carry (file paths, provider specifics — not "wh
 are we on").
 
 - **Router Adapter**: Custom Next.js navigation adapter (`apps/web/src/lib/react-router-mock.tsx`) intercepting TanStack Router calls.
-- **Design tokens**: OKLCH design system tokens and component vocabulary live in `DESIGN.md`.
+- **Design doctrine**: `DESIGN.md` — written 2026-08-18 with the owner via the `design-brief` skill, replacing generic tool output nobody had chosen. Read it before any UI work. It defines a **theming contract** (user-selectable brand accent + surface character, with contrast floors) rather than a fixed palette, so never hardcode a colour.
 - **Authentication**: `@supabase/ssr` (Passwordless Magic Link, Email & Password, GitHub OAuth, Google OAuth) + Next.js Middleware Session Guard (`apps/web/src/middleware.ts`).
 - **Realtime Cloud Sync**: Supabase Realtime Postgres event channel streaming (`apps/web/src/components/providers.tsx`) bridging into live React Query cache invalidation.
 
@@ -157,13 +157,19 @@ We enforce a strict 3-tier Git & deployment pipeline:
     - The browser agent MUST report back with detailed feedback, console errors, and usability issues found.
     - The main agent MUST then verify and fix any reported issues.
     - Upon applying fixes, the browser agent MUST be invoked again to re-verify. This loop MUST continue until all issues are resolved and the goal is complete before claiming task completion.
+    - **This is what the `frontend-verify` skill (`.claude/skills/frontend-verify/`) implements.** It is the concrete, repeatable form of this rule — invoke it rather than improvising the loop, and always after the `interactive-prototype` or `design-system` skills produce something.
 11. **Shadcn UI & MCP Server Integration (Impeccable Workflow)**:
     - ALL design work and Impeccable commands (`craft`, `shape`, `polish`, `audit`, `bolder`, `quieter`, `distill`, `harden`, etc.) MUST use `@sparstrow/ui` Shadcn UI components and design tokens (`bg-background`, `bg-card`, `border-border`, `text-foreground`, `text-muted-foreground`).
     - ALWAYS leverage the `shadcn` MCP server tools (`search_items_in_registries`, `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`) to discover, inspect, and audit Shadcn UI component patterns.
     - **Mandatory Order of Work Before Writing a Component**:
-      1. Read `DESIGN.md` (tokens, motion, component vocabulary) and `PRODUCT.md`'s register.
+      1. Read `DESIGN.md` in full — especially §6 Iconography and §7 Motion, whose absence is what made the app read as plain — plus `PRODUCT.md`'s register. Verify new UI in **both modes and at least the Paper and Mono surfaces**; Mono is the honest worst case.
       2. Invoke the `/shadcn` skill and use the Shadcn UI MCP — `list_components` / `get_component` / `get_component_demo` for primitives, `list_blocks` / `get_block` for composite surfaces. Check for an existing block before composing a page from scratch.
       3. Only then write code.
+13. **The Design Skill Chain (order matters)**:
+    - `design-brief` → `design-system` → `interactive-prototype` → `frontend-component-build` → `frontend-verify`.
+    - `design-brief` writes the doctrine by interviewing the owner with rendered options. Everything downstream is accountable to it, so nothing downstream may run before it exists.
+    - **Never restate the doctrine's rules inside another skill, agent, or checklist.** Point at it. A duplicated doctrine keeps enforcing itself after the original changes — this happened in `design-system-conformance` and silently overrode the design system for every agent that loaded it.
+    - **Record why a design changed, not just what changed.** When the owner asks for a different style, a tighter layout, or something added on top, that request has a reason behind it, and the reason is worth more than the change: it usually generalises into a rule that stops the same debate recurring on every subsequent page. `design-system/DECISIONS.md` is where it goes — see the `design-system` skill.
 12. **Mandatory Supabase & Postgres Skills**:
     - Load the `supabase` skill for ANY task touching Supabase — schema changes, Auth, Realtime, Storage, Edge Functions, RLS, the CLI/MCP, or client-library (`supabase-js`, `@supabase/ssr`) integration.
     - Load the `supabase-postgres-best-practices` skill **before** writing or changing anything that lives in Postgres, running anywhere: tables/columns, migrations, RLS policies (and their tests), indexes, triggers, functions, `pg_cron`/`pgmq`, `pgvector`, or restoring/importing data. Load it too when diagnosing slow queries, timeouts, locking, or rows visible to the wrong tenant.

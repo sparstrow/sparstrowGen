@@ -1,0 +1,45 @@
+<!doctype html>
+<html class="dark"><head><meta charset="utf-8">
+<title>Surfaces</title>
+<meta name="description" content="Surface stack — background, card, muted, sidebar, border">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;padding:var(--space-5);background:var(--card);color:var(--foreground);
+       font-family:var(--font-sans);font-size:14px}
+  .row{display:grid;grid-template-columns:96px 1fr;gap:var(--space-4);align-items:center;
+       padding:var(--space-4) 0;border-bottom:1px solid var(--border)}
+  .row:last-child{border-bottom:0}
+  .lbl{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground)}
+  .sp{display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center}
+  .note{font-size:12px;color:var(--muted-foreground)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:var(--space-3);width:100%}
+  .sw{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+  .sw .chip{height:56px}
+  .sw .meta{padding:8px 10px;font-size:11px;line-height:1.45}
+  .sw .name{font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:10px;color:var(--muted-foreground)}
+  .sw .val{font-family:var(--font-mono);font-size:10.5px;color:var(--muted-foreground)}
+</style></head><body>
+<div class="row"><div class="lbl">Stack</div><div class="grid">
+  <div class="sw"><div class="chip" style="background:var(--background)"></div>
+    <div class="meta"><div class="name">Background</div><div class="val">--background</div></div></div>
+  <div class="sw"><div class="chip" style="background:var(--card)"></div>
+    <div class="meta"><div class="name">Card / Popover</div><div class="val">--card</div></div></div>
+  <div class="sw"><div class="chip" style="background:var(--muted)"></div>
+    <div class="meta"><div class="name">Muted / Accent</div><div class="val">--muted</div></div></div>
+  <div class="sw"><div class="chip" style="background:var(--sidebar)"></div>
+    <div class="meta"><div class="name">Sidebar</div><div class="val">--sidebar</div></div></div>
+  <div class="sw"><div class="chip" style="background:var(--border)"></div>
+    <div class="meta"><div class="name">Border</div><div class="val">--border</div></div></div>
+</div></div>
+<div class="row"><div class="lbl">Text</div><div class="grid">
+  <div class="sw"><div class="chip" style="background:var(--card);display:flex;align-items:center;justify-content:center;color:var(--foreground);font-weight:600">Primary</div>
+    <div class="meta"><div class="name">Foreground</div><div class="val">--foreground</div></div></div>
+  <div class="sw"><div class="chip" style="background:var(--card);display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)">Secondary</div>
+    <div class="meta"><div class="name">Muted</div><div class="val">--muted-foreground</div></div></div>
+</div></div>
+<div class="row"><div class="lbl">Note</div><div class="note">
+  In dark, <code>--sidebar</code>, <code>--card</code> and <code>--popover</code> share one value.
+  Hierarchy there comes from the 1px border, not a lightness step. Borders in dark are
+  translucent white (<code>oklch(1 0 0 / 10%)</code>), so they lift with whatever sits behind them.
+</div></div>
+</body></html>
