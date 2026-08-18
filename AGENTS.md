@@ -32,7 +32,7 @@ blueprint deliberately doesn't carry (file paths, provider specifics — not "wh
 are we on").
 
 - **Router Adapter**: Custom Next.js navigation adapter (`apps/web/src/lib/react-router-mock.tsx`) intercepting TanStack Router calls.
-- **Design doctrine**: **none exists right now.** The previous `DESIGN.md` was generic tool output nobody chose, and was faithfully producing an app the owner didn't want; it was deleted 2026-08-17 (recoverable from git history). The `design-brief` skill writes its replacement by interviewing the owner — run it before any UI work rather than designing from general taste or from whatever nearby code happens to do.
+- **Design doctrine**: `DESIGN.md` — written 2026-08-18 with the owner via the `design-brief` skill, replacing generic tool output nobody had chosen. Read it before any UI work. It defines a **theming contract** (user-selectable brand accent + surface character, with contrast floors) rather than a fixed palette, so never hardcode a colour.
 - **Authentication**: `@supabase/ssr` (Passwordless Magic Link, Email & Password, GitHub OAuth, Google OAuth) + Next.js Middleware Session Guard (`apps/web/src/middleware.ts`).
 - **Realtime Cloud Sync**: Supabase Realtime Postgres event channel streaming (`apps/web/src/components/providers.tsx`) bridging into live React Query cache invalidation.
 
@@ -162,7 +162,7 @@ We enforce a strict 3-tier Git & deployment pipeline:
     - ALL design work and Impeccable commands (`craft`, `shape`, `polish`, `audit`, `bolder`, `quieter`, `distill`, `harden`, etc.) MUST use `@sparstrow/ui` Shadcn UI components and design tokens (`bg-background`, `bg-card`, `border-border`, `text-foreground`, `text-muted-foreground`).
     - ALWAYS leverage the `shadcn` MCP server tools (`search_items_in_registries`, `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`) to discover, inspect, and audit Shadcn UI component patterns.
     - **Mandatory Order of Work Before Writing a Component**:
-      1. Read the design doctrine (tokens, iconography, motion, component vocabulary) and `PRODUCT.md`'s register. **There is no doctrine right now — stop and run `design-brief` first.** Building UI against an unchosen doctrine is exactly what produced the app the owner rejected; general design knowledge is not a substitute.
+      1. Read `DESIGN.md` in full — especially §6 Iconography and §7 Motion, whose absence is what made the app read as plain — plus `PRODUCT.md`'s register. Verify new UI in **both modes and at least the Paper and Mono surfaces**; Mono is the honest worst case.
       2. Invoke the `/shadcn` skill and use the Shadcn UI MCP — `list_components` / `get_component` / `get_component_demo` for primitives, `list_blocks` / `get_block` for composite surfaces. Check for an existing block before composing a page from scratch.
       3. Only then write code.
 13. **The Design Skill Chain (order matters)**:

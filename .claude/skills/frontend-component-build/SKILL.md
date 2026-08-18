@@ -13,11 +13,12 @@ metadata:
 
 ## Order of work (AGENTS.md §3.11 — not optional)
 
-1. Read `DESIGN.md` in full — including its Iconography and Motion sections,
-   which are the two most often skipped and the two whose absence makes a
-   built screen feel lifeless. **If it does not exist, stop and run
-   `design-brief` first** — it does not exist in this project right now. Do
-   not substitute general design knowledge.
+1. Read `DESIGN.md` in full — including §6 Iconography and §7 Motion, the two
+   most often skipped and the two whose absence makes a built screen feel
+   lifeless. Colours come from tokens only: the doctrine defines a *theming
+   contract*, so a hardcoded colour breaks every theme but the one you tested.
+   If `DESIGN.md` is missing, stop and run `design-brief` rather than
+   substituting general design knowledge.
 2. Query the `shadcn` MCP tools / skill for an existing primitive or block
    before composing one from scratch: `list_components`, `get_component`,
    `get_component_demo` for a single primitive; `list_blocks`, `get_block`

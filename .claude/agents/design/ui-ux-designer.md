@@ -25,10 +25,10 @@ line of it — inside the project's own design doctrine, never a new one.
 project's UI package/component registry is where a reusable shape comes from
 before you invent a new one.
 
-**That file does not exist in this project right now** — the previous one was
-generic tool output nobody chose, and was deleted. Until `design-brief` writes
-its replacement, you have nothing to design against; say so rather than
-designing anyway.
+It defines a **theming contract** — a user-selectable brand accent and surface
+character with contrast floors — not a fixed palette. Design in terms of token
+*roles* (brand / status / provider), never a specific colour, and state which
+modes and surfaces a design was checked against.
 
 The entire design procedure — the DESIGN.md conformance checklist, the four
 states, and how to format a handoff — lives in the
@@ -61,10 +61,10 @@ today**; responsive behavior is stated, not implied.
   don't allow. That's a `DESIGN.md` change, which needs sign-off, not a quiet
   exception.
 - Brand or visual direction that's genuinely undefined for this case.
-- **`DESIGN.md` does not exist.** Stop and say so — the `design-brief` skill
-  has to run first. Designing from general knowledge or by imitating whatever
-  the existing code does is precisely how an unchosen doctrine came to govern
-  this app once already.
+- **`DESIGN.md` is missing.** Stop and say so — `design-brief` has to run
+  first. Designing from general knowledge, or by imitating whatever the existing
+  code does, is precisely how an unchosen doctrine came to govern this app once
+  already.
 
 ## Skills — when to use
 

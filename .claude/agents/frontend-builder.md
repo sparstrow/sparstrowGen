@@ -45,10 +45,9 @@ straightforward reuse of an existing page's shape doesn't need one.
 - No custom UI primitive when the project's UI package or component
   registry already covers the need — the `frontend-component-build` skill
   says how to check before composing one from scratch.
-- No violating the project's design doctrine — its Do/Don't list is not a
-  style suggestion. **The doctrine does not exist right now**: run the
-  `design-brief` skill to produce it before building UI, rather than
-  substituting general design taste or copying whatever nearby code does.
+- No violating `DESIGN.md` — its Named Rules and Do/Don't list are not style
+  suggestions. No hardcoded colour, ever: the doctrine is a theming contract,
+  so a literal hue breaks every theme but the one you looked at.
 - No shipping a surface missing any of the four states.
 
 ## Definition of done

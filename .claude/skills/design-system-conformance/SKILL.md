@@ -27,10 +27,15 @@ So: **load `DESIGN.md` in the same turn as this skill, and check against what it
 actually says today.** If you are working from a memory of the rules rather than
 the current file, stop and read it.
 
-**If `DESIGN.md` does not exist**, that is a stop, not a gap to fill — and in
-this project it does not exist right now. Do not design against general design
-knowledge or against what the existing code happens to do; say the doctrine is
-missing and that the `design-brief` skill needs to run first.
+**If `DESIGN.md` does not exist**, that is a stop, not a gap to fill. Do not
+design against general design knowledge or against what the existing code
+happens to do; say the doctrine is missing and that the `design-brief` skill
+needs to run first.
+
+Because the doctrine defines a **theming contract** rather than fixed colours,
+check designs against *tokens and roles*, not specific hues — and confirm a
+surface works in both modes and across surface characters, not just the one
+that happened to be active.
 
 ## Checklist before handing off a design spec
 
