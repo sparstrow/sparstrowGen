@@ -47,6 +47,15 @@ brand accent and a surface character; the doctrine guarantees every combination
 is legible. All values are OKLCH — this is what makes the light/dark adaptation
 work, because hue and chroma hold while lightness re-derives per mode.
 
+> ⚠️ **Specification, not description — see `doc/KnownGaps.md` G-19.** This
+> section is fully designed and contrast-verified, but it is proved only in
+> `design-brief/theme-board.html`. The shipped `globals.css` still holds 72
+> literal `oklch()` values with no derivation, so `--brand` and the surface
+> variables **do not exist in the app yet**. Making §2 true is the first task of
+> the design-system rebuild. Every other section of this document describes
+> either what the code already does or what to do next time you write some;
+> this one describes what to build.
+
 ### 2.1 The three colour roles — never mix them
 
 | Role | What it means | Themeable? |

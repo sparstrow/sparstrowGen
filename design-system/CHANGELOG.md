@@ -4,6 +4,17 @@ Newest first. Record token changes, new components, and new prototypes — *what
 changed. **Why** it changed goes in [`DECISIONS.md`](DECISIONS.md), which is the
 file to read before altering a design choice.
 
+## 2026-08-18
+
+- **`DESIGN.md` was written** (`design-brief`), replacing the retired doctrine.
+  This system has **not yet been rebuilt against it** — its type and spacing
+  tokens still carry values transcribed from the retired prose, and
+  `--transition-base` remains an invented token present in no real stylesheet.
+  Tracked as `doc/KnownGaps.md` **G-18** (the checker's blind spot) and **G-19**
+  (the doctrine's theming contract not existing in `globals.css`).
+- Added `DECISIONS.md` — 8 entries, `DD-001`…`DD-008`.
+- Added `designs/Machines/` prototype and `design-brief/` boards.
+
 ## 2026-08-17
 
 - **This system is built partly against a doctrine that has since been
