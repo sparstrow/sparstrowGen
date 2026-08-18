@@ -49,8 +49,15 @@ a warm cast so the app stops looking like stock shadcn.
 
 **Known characteristic, accepted:** Paper's hue (85) sits only 15° from amber's
 (70), so the accent reads as *within* the surface's warmth rather than against
-it. Separation comes from chroma (0.15 vs 0.010), not hue. Cohesive by design;
-if it ever reads as too integrated the fix is a one-token hue nudge.
+it. Separation comes from chroma (0.15 vs 0.010), not hue. Cohesive by design.
+
+**Correction — the remedy is not what was first stated.** This entry originally
+said the fix, if it ever read as too integrated, was "a one-token hue nudge",
+implying the surface. Measured against `design-brief/hue-nudge.html`: shifting
+Paper's hue 85→100 is **0.13 JND** and halving its chroma is **0.25 JND** — both
+invisible, because a surface at chroma 0.010 has no perceptible hue to move.
+Only moving the **brand** hue works (amber 70→50 = **2.6 JND**). Surface sets
+warmth of character; brand hue sets separation.
 
 **Generalises to:** Defaults only. Every other preset remains available and
 verified.

@@ -108,6 +108,14 @@ failures, worst case exactly 4.50.
 (85), so the accent reads as *within* the surface's warmth rather than against
 it — cohesive by design. Separation comes from chroma (0.15 vs 0.010), not hue.
 
+**Surface hue is not a tuning lever — measured, not assumed.** Because a surface
+carries chroma 0.010, shifting its hue is imperceptible: moving Paper from 85 to
+100 is a 0.13 JND change in OKLab, where 1 JND is the threshold of visibility.
+Halving its chroma is 0.25 JND. Neither is visible. If the accent ever needs to
+separate more, **move the brand hue, not the surface** — amber 70 → 50 is 2.6 JND
+and plainly visible. Surface choice controls *warmth of character*; brand hue
+controls *separation*. They are not interchangeable.
+
 ### 2.4 Status colours — fixed, in every theme
 
 | Status | Dark | Light |
