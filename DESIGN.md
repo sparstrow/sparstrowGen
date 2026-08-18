@@ -10,7 +10,7 @@
 | **Decided** | 2026-08-18, with the owner, via the `design-brief` skill |
 | **Situation** | improve — keep the spine, fix what was thin |
 | **Component library** | shadcn/ui, via `@sparstrow/ui` (26 primitives installed) |
-| **References** | **Linear** (list & task surfaces) · **Vercel** (dark contrast, future FinOps) · **Supabase** (nested-menu motion) · **Multica** (system logic only — see §13) · **beautifului.dev** (AI-native component vocabulary; showcase, not installable) |
+| **References** | **Linear** (list & task surfaces) · **Vercel** (dark contrast, future FinOps) · **Supabase** (nested-menu motion) · **Multica** (system logic only — see §14) · **beautifului.dev** (AI-native component vocabulary; showcase, not installable) |
 | **Status** | agreed with owner. Values in §2 are contrast-verified; §3 type scale is a new decision, not a mirror |
 | **Supersedes** | the generic `DESIGN.md` + `DESIGN.json` retired 2026-08-17 — see `design-system/DECISIONS.md` DD-001 |
 
@@ -314,7 +314,94 @@ do. It must be impossible to miss and impossible to approve by accident.
 
 ---
 
-## 9. The four states
+## 9. Navigation model
+
+**Two separate mechanisms, not one.** They were conflated in the original ask
+and have to stay distinct or agents will build one when the other was meant.
+
+| | Answers | Lives | Precedent |
+|---|---|---|---|
+| **Tab strip** | *Which entity's profile is open?* | Top of the app shell | New — didn't exist before this doctrine |
+| **Side sub-nav** | *Which section of THIS entity?* | Inside a profile | Extends `project-detail.tsx`'s existing sidebar tabs (Rules/Memory/Schedule/Files), promoted from a sidebar panel to the primary view |
+
+Verified working end to end in `design-brief/entity-profile-board.html`
+2026-08-18 — opening a machine, switching its sub-nav, navigating away, and
+back, preserves that tab's state exactly.
+
+### 9.1 The tab strip contract
+
+- **One tab per open entity.** Clicking a row for an entity that already has a
+  tab open focuses that tab — it does not duplicate it.
+- **Every tab preserves its own state** (active sub-nav section, scroll
+  position, in-progress form input) independent of every other tab and of the
+  underlying list view.
+- **Closable**, always, with an explicit control — never only by navigating
+  elsewhere.
+- **Every tab's label is unique on screen.** A profile tab and a tab spawned
+  from an action inside it (a chat, say) must not read identically — qualify
+  the second with what it is (`workshop-desktop — chat`), not just what it's
+  about. Two tabs reading "workshop-desktop" with nothing to tell them apart
+  was a real defect found while building the board, not a hypothetical.
+
+### 9.2 Opening a tangential action — smart default, modifier override
+
+An action inside a profile that leads somewhere else (starting a chat,
+opening a related entity) does not ask every time. It has a sensible default,
+and a modifier key overrides it per click — the same convention browsers and
+IDEs already use, which is why it needs no on-screen teaching:
+
+| Trigger | Destination |
+|---|---|
+| Plain click | The action's default — full reading-column work (a chat) defaults to **new tab**; a quick single-field confirm defaults to **centre modal** |
+| `⌘`/`Ctrl` + click | Force **new tab** |
+| `⇧` + click | Force **centre modal** |
+
+**Named rule — Destination Fits Content.** A surface with a scrolling
+reading-column body (§8.1) belongs in a tab, never a modal — a modal that has
+to scroll a whole conversation inside it fights the Reading Width rule. A
+single field or a yes/no confirmation belongs in a modal, never a tab — a tab
+for one input is a click spent for nothing gained.
+
+### 9.3 Accessibility — mandatory, not a follow-up pass
+
+The first version of the board proved the interaction model with plain
+`<div>`s: no keyboard focus, no ARIA role, on any of the list rows, tab strip,
+or sub-nav. That was acceptable for a throwaway prototype and would not be
+acceptable shipped. Any real implementation of this pattern requires, from the
+first commit:
+
+- Tab strip: `role="tablist"` on the container, `role="tab"` and
+  `aria-selected` on each tab, roving `tabindex` (one tab in the strip is
+  tabbable at a time; arrow keys move focus between them, matching the
+  standard tablist pattern).
+- Every list row and sub-nav item is a real focusable, keyboard-activatable
+  control — a `button` or equivalent, never a `div` with only a click
+  handler.
+- Closing a tab is reachable from the keyboard, not only a mouse-only ×.
+- Centre modal: `role="dialog"`, `aria-modal="true"`, focus moves into it on
+  open, `Escape` closes it, and focus returns to whatever triggered it on
+  close.
+- A screen reader user is told when a new tab opens and which one is now
+  active — a silent DOM change here is invisible to them.
+
+### 9.4 Rollout — one entity at a time, proven before generalised
+
+This pattern ships to **Machines first** — it already has a real gap (DD-003:
+no detail view exists at all) and nothing to regress. Once proven there:
+
+- **Agents next.** Same shape of gap as Machines — only a list and a create
+  form exist today, no detail page — so this is greenfield, not a migration.
+- **Projects last, and carefully.** `project-detail.tsx` already has a
+  *working* tabbed detail view today. Moving it into the tab-strip pattern is
+  a migration of real, live functionality, not a greenfield build, and carries
+  real regression risk that Machines and Agents don't. Do not start here.
+
+Each entity gets its own `frontend-verify` pass before the next one starts —
+the same discipline this doctrine's own drafting used throughout.
+
+---
+
+## 10. The four states
 
 Every surface ships Populated, Empty, Loading, and Error together. A surface
 with only a populated state is not finished.
@@ -327,7 +414,7 @@ with only a populated state is not finished.
 
 ---
 
-## 10. Named rules
+## 11. Named rules
 
 1. **Three Roles** — every colour is brand, status, or provider identity (§2.1).
 2. **Status Is Not Themeable** — semantic colour never changes with theme (§2.1).
@@ -338,11 +425,15 @@ with only a populated state is not finished.
 7. **Icons Identify or Indicate** — no decorative icons; functional ones required (§6).
 8. **Motion Explains** — no decorative motion (§7).
 9. **Reduced Motion** — opacity-only at 100ms, ambient loops stop (§7).
-10. **Four States** — every surface, always (§9).
+10. **Four States** — every surface, always (§10).
+11. **One Tab Per Entity** — no duplicate tabs for the same open entity (§9.1).
+12. **Distinguishing Labels** — no two open tabs may read identically (§9.1).
+13. **Destination Fits Content** — reading-column content in a tab, single
+    inputs in a modal, never the reverse (§9.2).
 
 ---
 
-## 11. Do / Don't
+## 12. Do / Don't
 
 **Do**
 
@@ -353,6 +444,8 @@ with only a populated state is not finished.
 - Check the `shadcn` registry before building any primitive.
 - Verify new UI in **both modes and at least Paper and Mono** — Mono is the
   honest worst case, because it has no surface tint to hide behind.
+- Build any tab strip or sub-nav as real focusable controls with the ARIA
+  roles §9.3 names, from the first commit — not retrofitted after.
 
 **Don't**
 
@@ -360,12 +453,14 @@ with only a populated state is not finished.
 - Don't put agent output in a chat bubble (§8.1).
 - Don't use a spinner where a skeleton fits.
 - Don't add a colour, icon, or animation without being able to name its job.
+- Don't migrate `project-detail.tsx`'s working tabs into the new tab-strip
+  pattern before Machines and Agents have each shipped and been verified (§9.4).
 - Don't restate these rules in another skill, agent, or checklist — point here.
   A duplicated doctrine keeps enforcing itself after this file changes.
 
 ---
 
-## 12. Deliberately undecided
+## 13. Deliberately undecided
 
 Ask before inventing. An invented answer here becomes the de-facto standard by
 the third screen that copies it.
@@ -380,10 +475,17 @@ the third screen that copies it.
   addition to surface and brand.
 - **Empty-state illustration.** Multica uses small abstract previews; whether
   Sparstrowgen does is unresolved.
+- **Tab strip visual design.** §9 specifies the contract (one tab per entity,
+  unique labels, closable, ARIA roles) but not pixel-level chrome — height,
+  icon-per-kind, overflow behaviour once many tabs are open.
+- **Keyboard shortcut for closing a tab.** Browsers reserve `Ctrl/Cmd+W`; an
+  in-app tab strip needs its own binding that doesn't collide with it.
+- **What survives a page reload.** Whether open tabs persist across a refresh,
+  and if so, per-device or synced to the user's account.
 
 ---
 
-## 13. On Multica
+## 14. On Multica
 
 Multica is a **direct competitor** in the same category — same nouns (Agents,
 Runtimes, Skills, Squads), nearly the same navigation groups. It was studied

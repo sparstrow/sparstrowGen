@@ -116,6 +116,42 @@ passing, worst case 4.50 — 2026-08-18
 
 ---
 
+## DD-008 — Navigation model: tab strip + side sub-nav, rollout order
+
+**Date:** 2026-08-18 · **Asked by:** owner · **Surface:** whole app
+
+**Ask:** Entity list rows open into a "profile" with tabs or a side sub-menu.
+Tangential actions inside a profile (start a new chat) should be able to open
+in a new tab or a small centre window instead of navigating away. Wanted as a
+written instruction in DESIGN.md so any agent designing frontend does this
+"smartly" without being asked each time. Rollout requested across Machines,
+Agents, and Projects.
+
+**Why:** The owner's own words made clear this was two things at once — which
+profile is open, and which section of it you're viewing — conflated under one
+ask. Separating them let each get its own contract instead of one vague one.
+The destination question (tab vs modal) needed a rule, not a per-click prompt,
+or it becomes friction on every single action.
+
+**Generalises to:** Yes, entirely — this is now `DESIGN.md` §9, a full section,
+not a per-page pattern. Verified against a real interactive board
+(`design-brief/entity-profile-board.html`) before being written down: state
+preservation across tab switches was checked in the DOM, not assumed, and the
+board's own throwaway `<div>`-based interactions surfaced the accessibility gap
+that became §9.3's mandatory requirements.
+
+**Sequencing, not full scope:** the owner asked for Machines + Agents +
+Projects together. §9.4 stages them — Machines first (DD-003, a real gap,
+nothing to regress), Agents next (same shape of gap), Projects last and only
+after the first two are proven, because it's a migration of *working* code
+(`project-detail.tsx`'s existing sidebar tabs) rather than a greenfield build,
+and carries real regression risk the other two don't.
+
+**Status:** in `DESIGN.md` §9 — 2026-08-18. Not yet built for real; §9.4's
+rollout order is the build sequence when it is.
+
+---
+
 ## DD-003 — Machines needs a per-machine profile showing its agents
 
 **Date:** 2026-08-17 · **Asked by:** owner · **Surface:** Machines
@@ -132,13 +168,14 @@ exists to answer.
 than a one-off. Worth deciding once, in the doctrine, which component carries
 detail views across the app.
 
-**Status:** **not scoped — new work.** This is not in
-`doc/specs/2026-08-16-setup-and-machines.md`; that spec's "profile" means the
-*user's* profile (avatar, name, about), not a machine's. Per the repo's
-spec-first lifecycle this needs `product-requirements` before it is prototyped.
-Two blockers worth knowing now: neither `sheet` nor `drawer` is installed, so
-there is no primitive for a detail panel yet; and no provider logo assets exist
-anywhere in the repo.
+**Status:** **shape resolved, build not started.** `DESIGN.md` §9 now specifies
+the profile pattern in full — side sub-nav for sections (Overview/Agents/
+Activity/Settings), the outer tab strip for opening the profile itself, ships
+first per §9.4. Still needs `product-requirements` before build, since it
+remains outside `doc/specs/2026-08-16-setup-and-machines.md`'s scope (that
+spec's "profile" is the user's, not a machine's). The `sheet`/`drawer` blocker
+is now moot — the resolved pattern uses the tab strip + side sub-nav, not an
+overlay panel. Provider logo assets remain unresolved (§13).
 
 ---
 
