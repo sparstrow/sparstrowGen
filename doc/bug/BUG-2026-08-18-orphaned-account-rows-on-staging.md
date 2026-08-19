@@ -1,6 +1,6 @@
 # BUG-2026-08-18-orphaned-account-rows-on-staging
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — found while dry-running `T-M9-01`'s cleanup against staging
 **Reported:** 2026-08-18
 
@@ -110,7 +110,22 @@ reason. `daemon_tokens` was checked: no orphaned account holds one.
 
 ## Resolution
 
-**Half done.** Prevention has landed; the cleanup itself has not.
+**Resolved 2026-08-18.** Both halves done.
+
+**The cleanup was run by the owner** (the agent harness's safety classifier
+refused the `DELETE`, correctly, so it was handed over rather than worked
+around). Verified immediately afterwards by reading the database:
+
+| | before | after |
+|---|---|---|
+| `auth.users` | 1 | 1 |
+| `public.users` | 9 | **1** |
+| orphaned profile rows | 8 | **0** |
+| `public.workspaces` | 8 | **1** |
+| `public.workspace_members` | 8 | **1** |
+
+The live account and its workspace are untouched, exactly as the predicate
+intended.
 
 **Update 2026-08-18, after M9's apply session.** The delete was attempted and
 **refused by the agent harness's safety classifier**, which blocks destructive
@@ -146,7 +161,7 @@ select (select count(*) from del_ws) as workspaces_deleted,
 
 Two halves, and the second matters more than the first:
 
-1. **Clean up the eight trees** — one SQL statement as `postgres`, deleting
+1. **Clean up the eight trees.** ✅ **Done** — see above. One SQL statement as `postgres`, deleting
    `workspaces` (which cascades to `workspace_members`), then `public.users`,
    for every `public.users.id` with no `auth.users` counterpart. Cheap, and
    worth doing in the same session as M9's migration since that already needs a
