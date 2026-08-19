@@ -1,29 +1,42 @@
 ---
-name: frontend-component-build
+name: frontend-wiring
 description: >-
-  Implements UI in apps/web (Next.js App Router) against @sparstrow/ui
-  primitives and the shared Zod contracts, wired through the TanStack-Router
-  mock adapter, shipping all four interface states. Use during frontend
-  implementation work.
+  How UI actually gets wired in this repo: where things live in @sparstrow/ui
+  and apps/web, the TanStack-Router mock adapter, the shared Zod contracts, the
+  four interface states, Knowledge Center sync, and what to run before calling
+  a change done. Use during frontend implementation work. It holds the repo
+  mechanics, not the design — that is DESIGN.md and design-system/.
 metadata:
   sparstrowgen-owner: frontend-builder
 ---
 
-# Frontend component build
+# Frontend wiring
 
-## Order of work (AGENTS.md §3.11 — not optional)
+This skill is the repo half of frontend work: paths, adapters, contracts,
+states, and verification. **It decides nothing about how anything looks.**
 
-1. Read `DESIGN.md` in full — including §6 Iconography and §7 Motion, the two
-   most often skipped and the two whose absence makes a built screen feel
-   lifeless. Colours come from tokens only: the doctrine defines a *theming
-   contract*, so a hardcoded colour breaks every theme but the one you tested.
-   If `DESIGN.md` is missing, stop and run `design-brief` rather than
+## Before you write UI (AGENTS.md §3.11 — not optional)
+
+1. **Read the doctrine, do not recall it.** `DESIGN.md` is the design
+   instruction — read it in the same turn you build, and read
+   `design-system/` alongside it (`system.json` for tokens,
+   `guidelines/*.card.html` for the foundations, `components/` for what already
+   exists). Neither this skill nor any other restates their rules; a duplicated
+   doctrine keeps enforcing itself after the original changes.
+   **If `DESIGN.md` is missing, stop and run `design-brief`** rather than
    substituting general design knowledge.
-2. Query the `shadcn` MCP tools / skill for an existing primitive or block
-   before composing one from scratch: `list_components`, `get_component`,
-   `get_component_demo` for a single primitive; `list_blocks`, `get_block`
-   for a composite surface.
-3. Only then write code.
+2. **Load `ai-design-slop`** and build without introducing the tells it names.
+   Do not narrate the checklist — a screen that announces its own restraint is
+   its own tell.
+3. **Check the registry before composing a primitive.** Query the `shadcn` MCP
+   tools / skill: `list_components`, `get_component`, `get_component_demo` for a
+   single primitive; `list_blocks`, `get_block` for a composite surface.
+4. Only then write code.
+
+**When the doctrine has no answer**, that is a `DESIGN.md` change needing owner
+sign-off — never a quiet exception on one screen. A one-off exception is
+invisible to every other agent and becomes an inconsistency nobody can trace
+later. `DESIGN.md` §13 exists precisely so an agent asks rather than invents.
 
 ## Where things live
 
@@ -62,6 +75,18 @@ spec.md`, `doc/tasks/README.md`'s Definition-of-done table).
   Next.js `error.tsx` boundaries and `sonner.tsx` toasts are both in use in
   this codebase; pick based on whether the failure is page-level or
   action-level.
+
+## Two things that get skipped, every time
+
+Neither is a design decision — both are stated facts a surface either has or
+does not.
+
+- **Focus-visible, stated.** Every interactive element has a focus treatment you
+  can name, and it comes from the doctrine, not the browser default. A control
+  reachable only by mouse is unfinished, not styled.
+- **Breakpoints named, not implied.** Say which widths matter for *this* screen
+  and what changes at each. "Responsive" described only as desktop behaviour is
+  a desktop screen with a claim attached.
 
 ## Wiring to contracts
 

@@ -11,6 +11,63 @@ guidance: `.claude/skills/design-system/references/decision-log.md`.
 
 ---
 
+## DD-009 — Slop is catalogued separately from the doctrine, and audited by an agent that cannot fix
+
+**Date:** 2026-08-19 · **Asked by:** owner · **Surface:** whole app, and every future one
+
+**Ask:** Delete `design-system-conformance`, and build a named AI-slop catalogue
+plus a generic auditing agent in its place — with coding and database slop
+families to follow.
+
+**Why:** The conformance skill forbade "drifting toward generic AI-slop
+patterns" and named none, which is not a rule anyone can apply or fail. It was
+also written before `design-system/` existed; once the token mirror and the
+guideline cards were real, its remaining job was a prose hop between two
+documents that already carried the answer. The `ui-ux-designer` agent went with
+it for the same reason: a design spec in prose, sitting between `DESIGN.md` and
+the code, is a third place for the design to be stated.
+
+**The decision inside the decision** — and the one worth keeping: every
+candidate rule sorts by *would this still be slop in someone else's app?*
+Absolute tells (gradient text, a kicker above a heading, emoji standing in for
+an icon) go in the catalogue and are portable. Everything project-specific is
+drift, stays in `DESIGN.md` and `design-system/`, and the catalogue only points
+at it. **`ai-design-slop` therefore contains no token name, no value, and no
+palette of ours by construction**, which is the direct lesson of DD-001 below:
+the last time design rules were copied into a skill, the copy went on enforcing
+retired rules for every agent that loaded it, and re-pointing the doctrine could
+not reach it.
+
+**Rejected:** adopting `impeccable` or Anthropic's `frontend-design` skill
+wholesale. Both are Apache-2.0 and both name real tells, but each carries its own
+design doctrine — `frontend-design` generates an aesthetic per brief, which would
+re-decide the look on every screen. We took the rules and the structure and left
+the doctrine. Attribution: `.claude/skills/ai-design-slop/NOTICE.md`.
+
+**Also rejected:** letting the audit fix what it finds. An author auditing their
+own surface is not a second opinion. `frontend-builder` loads the catalogue so
+the tells never go in; `slop-killer` checks afterwards and carries no write
+tools, so report-only is structural rather than a promise.
+
+**Generalises to:** AGENTS.md §3.13 — design lives in `DESIGN.md` +
+`design-system/`, repo mechanics live in `frontend-wiring`, and slop is a
+portable family with its own catalogue. A new family (`ai-coding-slop`,
+`ai-database-slop`) drops in by supplying a catalogue with the same schema and
+tiers; `slop-audit` and `slop-killer` need no change.
+
+**Supersedes:** `.claude/skills/design-system-conformance/` and
+`.claude/agents/design/ui-ux-designer.md`, both deleted 2026-08-19 and
+recoverable from git history. `frontend-component-build` was renamed
+`frontend-wiring` in the same change — its name implied it owned component
+design when it actually holds paths, adapters, contracts, and verification.
+
+**Status:** **closed** — plan at `doc/plans/2026-08-19-slop-skills.md`.
+
+**Known limit:** the audit's static pass cannot reach render-tier rules on a
+component with no route to paint it. Tracked in `doc/KnownGaps.md`.
+
+---
+
 ## DD-007 — Amber stays at hue 70; the warmer variant was rejected
 
 **Date:** 2026-08-18 · **Asked by:** owner · **Surface:** whole app

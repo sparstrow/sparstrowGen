@@ -276,9 +276,11 @@ and that the snapshot precedes handoff.*
 
 ---
 
-### G-17 — The four new design skills have never been proved to *trigger*
+### G-17 — The design and slop skills have never been proved to *trigger*
 
 **Raised:** 2026-08-18, on finishing the design-brief run.
+**Extended:** 2026-08-19 to cover `ai-design-slop`, `slop-audit`, and the
+`slop-killer` agent, which have the same problem for the same reason.
 
 `design-system`, `interactive-prototype`, `frontend-verify`, and `design-brief`
 were each exercised by being invoked **by name, deliberately**, and each worked.
@@ -316,6 +318,29 @@ and is still there today.
   source, and `--transition-base` is either removed or given a real source.
 
 ## Accepted limitations
+
+### G-20 — A slop audit cannot reach render-tier rules on a component with no route
+
+**Raised:** 2026-08-19, with the `slop-audit` skill.
+
+Six rules in `ai-design-slop` are marked `detect: render` — `oversized-h1`,
+`scattered-entrances`, `monotonous-spacing`, `uniform-section-shell`, and the
+contrast/overflow checks the render pass borrows from `frontend-verify`. They
+need a painted page. A component that no route renders in isolation therefore
+gets a **static-only** audit, and its render tier is unknown rather than clean.
+
+This is accepted, not a defect: standing up a harness to paint arbitrary
+components in isolation is a larger piece of work than the findings justify, and
+the future `ai-coding-slop` / `ai-database-slop` families have no render pass at
+all, so the static path has to be the one that always works.
+
+- **If wrong:** a subtree audited as clean is only clean in the two thirds of
+  rules the static pass covers. The mitigation is procedural — `slop-audit`
+  requires a **Not scanned** row in every report, so an unpainted target says so
+  in writing. If that row is ever skipped, this gap becomes a silent one.
+- **Clears when:** either the routes exist so the components paint in the real
+  app (the likely path, as Machines and Agents get detail views), or a
+  component-level render harness is added and `slop-audit` gains a third pass.
 
 ### G-5 — Untrusted runs are badged, not write-clamped
 

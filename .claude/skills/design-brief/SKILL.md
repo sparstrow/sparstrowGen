@@ -128,6 +128,7 @@ rejected won't propose one every third screen.
 **Then ask once more at the close** (see the interview guide's closing sweep).
 Owners recognise a missing expectation when they read the draft far more
 reliably than they recall it cold at the start.
+
 ## Step 3 — Show, don't ask
 
 **This is the technique that makes the interview work.** Most owners cannot
@@ -250,7 +251,7 @@ argued for.
 ## Scope boundaries
 
 - **No production UI code.** This skill produces a document. Building against
-  it is `frontend-component-build`'s job, and seeing it is
+  it is `frontend-wiring`'s job, and seeing it is
   `interactive-prototype`'s.
 - **Don't decide for the owner.** Recommending strongly is good; picking
   silently because they were vague is how the original problem happened. If

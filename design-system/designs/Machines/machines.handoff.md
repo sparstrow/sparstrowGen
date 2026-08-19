@@ -51,7 +51,7 @@ including `--warning` (for the "requires a dev checkout" honesty note) and
 |---|---|---|
 | Populated | yes — default | 4 machines: 2 active, 1 unreachable, 1 draining |
 | Empty | yes — devbar toggle, or the natural path (remove all 4 machines) | Copy matches the real empty state verbatim |
-| Loading | yes — devbar toggle | Skeleton shape, not a spinner, per `frontend-component-build` |
+| Loading | yes — devbar toggle | Skeleton shape, not a spinner, per `frontend-wiring` |
 | Error | yes — devbar toggle | **Copy is invented** — no real precedent exists. See below |
 
 The devbar state switcher at the top is **prototype-only**, not real product

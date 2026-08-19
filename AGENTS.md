@@ -61,7 +61,12 @@ posture, what pairs with what):
 
 **`impeccable` Skill**: Production-grade UI design commands (`audit`, `adapt`,
 `polish`, `craft`, `shape`, `distill`, `harden`). Personal/user-level, not declared
-in this repo. Any other MCP tool or skill an agent sees available (e.g. `clockify`,
+in this repo. Its slop rules — and three default clusters from Anthropic's
+`frontend-design` skill — were adapted into the repo's own `ai-design-slop`
+catalogue under Apache-2.0; attribution and the list of what was deliberately
+not taken live in `.claude/skills/ai-design-slop/NOTICE.md`. That catalogue is
+the one an agent here loads; `impeccable` itself carries a competing doctrine
+and is not part of this repo's chain. Any other MCP tool or skill an agent sees available (e.g. `clockify`,
 `square`) comes from that agent's personal/user-level config the same way — don't
 assume it's present for another agent or machine unless it's in `.mcp.json` or
 `.claude/skills/`.
@@ -166,9 +171,12 @@ We enforce a strict 3-tier Git & deployment pipeline:
       2. Invoke the `/shadcn` skill and use the Shadcn UI MCP — `list_components` / `get_component` / `get_component_demo` for primitives, `list_blocks` / `get_block` for composite surfaces. Check for an existing block before composing a page from scratch.
       3. Only then write code.
 13. **The Design Skill Chain (order matters)**:
-    - `design-brief` → `design-system` → `interactive-prototype` → `frontend-component-build` → `frontend-verify`.
+    - `design-brief` → `design-system` → `interactive-prototype` → `frontend-wiring` + `ai-design-slop` → `frontend-verify` → `slop-audit`.
     - `design-brief` writes the doctrine by interviewing the owner with rendered options. Everything downstream is accountable to it, so nothing downstream may run before it exists.
-    - **Never restate the doctrine's rules inside another skill, agent, or checklist.** Point at it. A duplicated doctrine keeps enforcing itself after the original changes — this happened in `design-system-conformance` and silently overrode the design system for every agent that loaded it.
+    - **Never restate the doctrine's rules inside another skill, agent, or checklist.** Point at it. A duplicated doctrine keeps enforcing itself after the original changes — this happened in the retired `design-system-conformance` skill and silently overrode the design system for every agent that loaded it.
+    - **Design lives in `DESIGN.md` + `design-system/`; the repo mechanics live in `frontend-wiring`.** The split is load-bearing: `frontend-wiring` holds paths, the router mock adapter, contract wiring, the four states, and verification, and decides nothing about how anything looks.
+    - **Slop is a family, not a design concern.** `ai-design-slop` is a catalogue of tells that would be slop in *any* app — absolute, portable, and deliberately free of this project's tokens. Anything project-specific is drift and belongs to the doctrine. `ai-coding-slop` and `ai-database-slop` will follow the same schema.
+    - **`slop-audit` is report-only** and is run by the `slop-killer` agent, which carries no write tools. An author auditing their own surface is not a second opinion — build with `ai-design-slop` loaded, then have `slop-killer` check it.
     - **Record why a design changed, not just what changed.** When the owner asks for a different style, a tighter layout, or something added on top, that request has a reason behind it, and the reason is worth more than the change: it usually generalises into a rule that stops the same debate recurring on every subsequent page. `design-system/DECISIONS.md` is where it goes — see the `design-system` skill.
 12. **Mandatory Supabase & Postgres Skills**:
     - Load the `supabase` skill for ANY task touching Supabase — schema changes, Auth, Realtime, Storage, Edge Functions, RLS, the CLI/MCP, or client-library (`supabase-js`, `@supabase/ssr`) integration.
