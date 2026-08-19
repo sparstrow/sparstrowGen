@@ -53,8 +53,21 @@ test.
 request, which is usually what you want — a fresh workspace shows empty states
 honestly instead of inheriting someone else's data.
 
-**4. Clean up.** Disposable accounts are cheap but not free; they accumulate in
-`auth.users` and each one owns a workspace.
+**4. Clean up — with this query, and not with the admin API.** Disposable
+accounts are cheap but not free; they accumulate in `auth.users` and each one
+owns a workspace.
+
+> ⚠️ **`auth.admin.deleteUser` and the dashboard's Authentication → Users list
+> do NOT clean up after themselves.** There is no foreign key from
+> `public.users.id` to `auth.users.id` — the columns are `text` and `uuid` in
+> different schemas — so deleting the auth user leaves its profile row, its
+> workspace and its membership behind **permanently**. No RLS policy can reach
+> them afterwards, because every policy resolves through the session that no
+> longer exists. Eight such trees were found on staging on 2026-08-18:
+> [`BUG-2026-08-18-orphaned-account-rows-on-staging`](../bug/BUG-2026-08-18-orphaned-account-rows-on-staging.md).
+>
+> Use the query below, or call the app's own `delete_own_account()` as that
+> user. Both remove everything; nothing else does.
 
 ```sql
 with victims as (select id::text as tid, id as uid from auth.users where email like '%@sparstrow.test'),
