@@ -56,3 +56,4 @@ the task is what actually gets executed and ticked off.
 |---|---|---|
 | [`BUG-2026-08-16-pairing-path-wrong-in-cli`](BUG-2026-08-16-pairing-path-wrong-in-cli.md) | 🔴 open | `sparstrow pair` sends users to "Settings → Workspace → Runtimes", a tab that doesn't exist — the card is **Machines**, under General |
 | [`BUG-2026-08-16-signup-auto-confirms`](BUG-2026-08-16-signup-auto-confirms.md) | 🟢 resolved | Fresh signup auto-confirmed and auto-logged-in despite "Confirm email" being ON — an `auth.users` trigger was overriding the setting |
+| [`BUG-2026-08-18-shell-invents-name-from-email`](BUG-2026-08-18-shell-invents-name-from-email.md) | 🔴 open | The shell still derives an account name from the email local part — the same FR-019 invention M9 removed from the database, in a second store. Clearing your name puts it back |
