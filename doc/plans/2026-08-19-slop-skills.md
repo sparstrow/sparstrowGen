@@ -7,8 +7,8 @@
 | **Trigger** | Owner review of the design skill chain: `design-system-conformance` forbade "AI-slop patterns" without naming any, and the owner asked for a real slop catalogue plus a generic auditing agent, with coding and database families to follow |
 | **Depends on** | `DESIGN.md` (2026-08-18) and `design-system/`, both of which must exist for drift to be measurable |
 | **Touches** | `.claude/skills/{ai-design-slop,slop-audit,frontend-wiring}/`, `.claude/agents/{slop-killer,frontend-builder}.md`, `AGENTS.md` §1 and §3.13 |
-| **Tasks** | Not decomposed — landed in one sitting |
-| **Open questions** | none |
+| **Tasks** | [D1](../tasks/D1/) — follow-on phase for the palette drift the first audit found |
+| **Open questions** | OQ-3, blocking only two items in T-D1-01 |
 
 ## Summary
 
@@ -44,7 +44,7 @@ deliberately contains no token name, no value, and no palette from this project.
 |---|---|
 | `.claude/skills/ai-design-slop/` | The `design` family catalogue: 38 absolute tells with a seven-field schema, three confidence tiers, plus `drift.md` (pointers only) and `NOTICE.md` (Apache-2.0 attribution) |
 | `.claude/skills/slop-audit/` | Family-agnostic, report-only procedure: resolve family and target, static pass, optional render pass, triage, report |
-| `.claude/agents/slop-killer.md` | Generic auditing agent. `Read, Grep, Glob, Bash` and **no write tools** — report-only is structural, not a promise |
+| `.claude/agents/slop-killer.md` | Generic auditing agent declaring `Read, Grep, Glob, Bash` only. See the correction note below — the tool list is not self-enforcing |
 
 Sources, both Apache-2.0: `impeccable` (rule schema, ~25 of its 32 slop rules,
 the `craft-floor.md` refuse list, the tiering idea, the suppression ladder) and
@@ -61,6 +61,19 @@ having a second copy of.
 | Renamed `frontend-component-build` → `frontend-wiring` | The name implied it owned component design; it actually holds repo mechanics — paths, the router mock adapter footgun, contract wiring, the four states, Knowledge Center sync, verification |
 | Rehomed four survivors into `frontend-wiring` | No-`DESIGN.md`-stop and four-states were already there; **doctrine-lacks → sign-off** and **focus-visible + named breakpoints** were added |
 | Rewrote `frontend-builder` | Two skills (`frontend-wiring`, `ai-design-slop`), no subagent, no `Agent` tool, `nesting: leaf`. Definition of done gains: no `certain`-tier finding left standing |
+
+## Correction — the tool list does not enforce report-only
+
+This plan was written expecting `tools: Read, Grep, Glob, Bash` to make
+report-only structural. It does not. On registering the agent the harness
+returned its tool list with **`Write` and `Edit` appended**, despite the
+definition omitting both.
+
+So the boundary is a behavioural rule the agent keeps, reinforced in three
+places (the agent body, `slop-audit`, and its Definition of done) rather than a
+wall it sits behind. The enforceable part is the evidence:
+**`git status --short` unchanged from before the run** — which is what the first
+audit was actually checked against, and it passed.
 
 ## Why the auditor is a separate agent
 

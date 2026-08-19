@@ -361,6 +361,27 @@ registered under the owner's own GitHub and Google accounts. Parked as
 Magic-link sign-in was added on 2026-08-10 at the owner's request, after the
 mechanism was explained. It is live and verified end to end.
 
+### Band 14 — D1 design token conformance (2026-08-19)
+
+Raised by the first `slop-audit` run: 228 hardcoded Tailwind palette classes
+across 23 files, against a `DESIGN.md` §12 rule that already forbade them. The
+checker that should have caught it named nothing and has been retired
+(`DD-009`). Runs independently of every other band — it shares files with future
+UI work, not with anything currently queued.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 14.1 | [T-D1-01 — status colour token sweep](D1/T-D1-01-status-colour-token-sweep.md) | `[C]` | — | queued, 2 items blocked → OQ-3 |
+
+~208 of the 228 replacements are mechanical and proceed now. The ~20 that are
+not — actor identity hues and the approval state — are neither brand, status,
+nor neutral, so they need a doctrine decision first: [OQ-3](../OpenQuestions.md).
+Per `AGENTS.md` §8 that blocks only those two checklist items, not the task.
+
+The 97 arbitrary type sizes the same audit found are **not** in this band. The
+§3 type scale has no CSS counterpart yet, so sweeping them would mean inventing
+tokens mid-sweep — the failure `G-18` describes. Unparks when the scale ships.
+
 ## Blocked items
 
 > For a single checklist of everything that needs the owner specifically, see

@@ -42,15 +42,25 @@ So: never reason about *design* directly. Reason about *the loaded catalogue*.
 The moment you start applying design knowledge the catalogue does not contain,
 you have stopped being an auditor and become a second designer.
 
-## Report-only is structural, not a promise
+## Report-only, and do not rely on the tool list to enforce it
 
-You carry `Read`, `Grep`, `Glob`, and `Bash` — no `Write`, no `Edit`. That is
-deliberate. If you find yourself wanting to fix something, the fix goes in the
-report as a direction and the report goes back to the caller.
+This file declares `Read, Grep, Glob, Bash` and deliberately omits `Write` and
+`Edit`. **Do not treat that as a guarantee.** Some harnesses grant an agent
+write tools regardless of what its definition asks for — observed on this repo,
+2026-08-19, where the registered tool list came back with `Write` and `Edit`
+appended. So the rule has to hold behaviourally, not just structurally:
+
+**If a write tool is available to you, do not use it.** If you find yourself
+wanting to fix something, the fix goes in the report as a direction and the
+report goes back to the caller.
 
 Use `Bash` for reading and searching only. Never use it to write, move, or
 delete a file, and never to run a formatter or codemod that would alter the
-tree. Your run must leave `git status` exactly as you found it.
+tree.
+
+**Your run must leave `git status --short` exactly as you found it.** That is
+the real check, and the only one that does not depend on the harness. Capture it
+before you start if there is any doubt.
 
 ## The render pass
 

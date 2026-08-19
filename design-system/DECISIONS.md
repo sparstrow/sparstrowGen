@@ -46,8 +46,14 @@ the doctrine. Attribution: `.claude/skills/ai-design-slop/NOTICE.md`.
 
 **Also rejected:** letting the audit fix what it finds. An author auditing their
 own surface is not a second opinion. `frontend-builder` loads the catalogue so
-the tells never go in; `slop-killer` checks afterwards and carries no write
-tools, so report-only is structural rather than a promise.
+the tells never go in; `slop-killer` checks afterwards and does not fix.
+
+**Corrected same day:** report-only was designed to be *structural* — the agent
+declares no `Write` and no `Edit`. The harness appends them anyway, so the tool
+list is not self-enforcing and the claim was wrong as written. The boundary is
+now a behavioural rule stated in three places, and the evidence is
+`git status --short` unchanged across a run. Worth knowing before designing any
+future agent around a restricted tool list.
 
 **Generalises to:** AGENTS.md §3.13 — design lives in `DESIGN.md` +
 `design-system/`, repo mechanics live in `frontend-wiring`, and slop is a

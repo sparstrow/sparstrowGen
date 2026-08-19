@@ -34,9 +34,13 @@ own work.
 | File a `doc/bug/` entry | The report names which findings deserve one; filing is the caller's call |
 | Claim a clean surface it did not inspect | Say what was scanned and what was not. An unscanned surface is unknown, not clean |
 
-The `slop-killer` agent carries no `Write` and no `Edit`, which makes this
-structural rather than a promise. When the skill is invoked directly in a
-session that *does* have write tools, the boundary still holds.
+The `slop-killer` agent declares no `Write` and no `Edit` — but a harness may
+grant them anyway (observed 2026-08-19), so the boundary is a rule you keep, not
+a wall you are behind. It holds identically when this skill is invoked directly
+in a session that has every write tool available.
+
+**The check is `git status --short`, unchanged from before the run.** It is the
+one piece of evidence that does not depend on the harness honouring a tool list.
 
 ## Flow
 
