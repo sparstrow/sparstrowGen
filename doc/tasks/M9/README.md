@@ -78,7 +78,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
 | [T-M9-01 — schema, and a bootstrap that invents nothing](T-M9-01-schema-and-bootstrap.md) | `[S]` | foundational → M10 | — | ✅ authored — unapplied ([`G-20`](../../KnownGaps.md)) |
-| [T-M9-02 — workspace read + update](T-M9-02-workspace-handler.md) | `[P]` | foundational → M10 | 01 | not started |
+| [T-M9-02 — workspace read + update](T-M9-02-workspace-handler.md) | `[P]` | foundational → M10 | 01 | ✅ done (2026-08-18) |
 | [T-M9-03 — profile read + update](T-M9-03-profile-handler.md) | `[P]` | foundational → M10 | 01 | not started |
 | [T-M9-04 — avatar and logo upload](T-M9-04-image-upload.md) | `[P]` | foundational → M10 | 01 | not started |
 | [T-M9-05 — hooks](T-M9-05-hooks.md) | `[C]` | foundational → M10 | 02, 03 | not started |
