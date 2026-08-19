@@ -332,14 +332,29 @@ compiled but never executed against a real row.
 
 Two separate reasons, and both need naming because they clear differently:
 
-1. **No reachable project.** The Supabase MCP in this session authenticates to
-   the org `agent-sparstrow`, which holds **zero projects** — `list_projects`
-   returns `[]`. It cannot see the real one. The worktree has no `.env.local`
-   and no `DATABASE_URL`, so `scripts/apply-sql.mjs` has nothing to connect to
-   either.
+1. **The MCP connection is read-only.** It reaches
+   `sparstrowgen-staging` (`pnymngoqseltgigcfevq`) fine — `get_project` and
+   `execute_sql` both work — but connects as `supabase_read_only_user`, so
+   `apply_migration` and any writing statement are refused. Note also that
+   `list_projects` returns `[]`: the project lives in org
+   `srgkhnltqybdlkvnrtlw`, while the token's own org is `agent-sparstrow`.
+   Granting a role *within* `agent-sparstrow` does not change either fact. The
+   worktree has no `.env.local` and no `DATABASE_URL`, so
+   `scripts/apply-sql.mjs` has nothing to connect to either.
 2. **012 ends in an irreversible data mutation on the owner's own account**,
    which is an `AGENTS.md` §3.7 HITL gate regardless of access. It is not a
    thing an agent applies unilaterally, and the task document says so itself.
+
+**The read-only access did confirm the gap is real rather than assumed**, on
+2026-08-18: none of the three columns exists, `bootstrap_workspace`'s live
+definition still contains both `split_part(u.email` and `'Personal Workspace'`,
+and `storage.buckets` has no `public-images` row.
+
+It also **dry-ran 012's cleanup**, which turns out to be far smaller than the
+warning implies: **1** `public.users` row and **8** `public.workspaces` rows,
+with 0 preserved in each case. Only one of those user rows belongs to a live
+account. See [`BUG-2026-08-18-orphaned-account-rows-on-staging`](bug/BUG-2026-08-18-orphaned-account-rows-on-staging.md)
+for why the user count is 1 of 9 rather than 9 of 9 — it is not a broken query.
 
 - **If wrong:** the whole of M9 is unproved, and so is SC-008 — the phase's
   headline assertion is *"a fresh account holds no name in either table, read
