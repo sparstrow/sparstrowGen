@@ -7,7 +7,7 @@
 | **Depends on** | T-M9-01 |
 | **Blocks** | the image half of `T-M10-02` |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | 🟡 **half done** — SQL authored (unapplied); the component is held, see the Result |
+| **Status** | 🟡 **SQL done, applied and hardened on staging**; the component is held — see the Result |
 
 > **This is the one cuttable task in the plan** (plan decision 7a). Neither
 > image gates a setup step (FR-020), and without this both forms still work:
@@ -108,11 +108,11 @@ and the guard twice.
 ## Checklist
 
 - [x] `supabase` skill loaded before any storage work
-- [x] Bucket `public-images` created — public read, 2 MB limit, MIME allowlist — **as SQL in 013, applied nowhere**
+- [x] Bucket `public-images` created — public read, 2 MiB limit, MIME allowlist — **applied to staging**
 - [x] Policy file `packages/shared/drizzle/policies/013_storage_images.sql`
       with the write policies above, using
       `(select private.current_workspace_ids())` for the workspace prefix
-- [~] Applied to staging; `get_advisors` clean afterwards — **not done**, [`G-20`](../../KnownGaps.md)
+- [x] Applied to staging; `get_advisors` clean afterwards — confirmed, no new findings
 - [~] `packages/ui/src/components/image-upload-field.tsx` created — takes a
       current URL, a prefix and an `onUploaded(url)` callback
 - [~] All four states: current image / empty (initials + "click to upload") /
@@ -155,10 +155,10 @@ image.** Order matters: upload → write the row → delete the old file.
 - [ ] Replace both; the old objects are gone from the bucket
 - [ ] A 3 MB file is refused **client-side** with a readable message
 - [ ] A `.pdf` renamed to `.png` is refused — the MIME check, not the extension
-- [ ] **As a second account**, attempt to write to the first account's
+- [~] **As a second account**, attempt to write to the first account's
       `avatars/<their-id>/` prefix directly through the storage API. Denied.
       Proved in [T-M9-06](T-M9-06-verification.md)
-- [ ] `get_advisors` reports no new findings
+- [x] `get_advisors` reports no new findings
 
 ## On completion
 
@@ -178,8 +178,11 @@ image.** Order matters: upload → write the row → delete the old file.
 [`policies/013_storage_images.sql`](../../../packages/shared/drizzle/policies/013_storage_images.sql)
 carries the bucket (public, 2 MiB, `png`/`jpeg`/`webp`) and **seven policies**:
 one public read, then insert/update/delete for each of the two prefixes.
-Applied nowhere — [`G-20`](../../KnownGaps.md), same two blockers as the rest of
-M9.
+**Applied to staging 2026-08-18** as migrations `storage_images` and
+`storage_images_exact_depth`. `get_advisors` clean — and notably no
+`auth_rls_initplan` warning, which confirms the `(select auth.uid())` /
+`(select private.current_workspace_ids())` form hoists as an InitPlan rather
+than running per row.
 
 Three things worth knowing about it:
 
@@ -201,6 +204,33 @@ Three things worth knowing about it:
 
 The header says at length that **nothing else may ever go in this bucket** —
 every object in it has a guessable, permanent, unauthenticated URL.
+
+### Verification found a real gap, which is the point of verifying
+
+After applying, the installed predicate was evaluated against ten crafted paths
+rather than re-read. Nine behaved correctly — another user's folder, a missing
+owner segment (`NULL`, so denied), an empty owner segment, the bucket root,
+`avatars-<other-id>/` as one filename, and an id merely *starting with* the
+caller's, all refused.
+
+The tenth did not. `avatars/<my-id>/../<their-id>/pic.png` was **allowed**:
+`storage.foldername` treats `..` as an ordinary segment, so `[2]` was still the
+caller's own id. Not exploitable — storage keys are opaque strings, so it is a
+different key from the victim's and overwrites nothing, and a browser normalises
+`..` out of the URL before sending — but it let a caller mint keys carrying
+someone else's id outside their namespace, which is what these policies exist to
+prevent.
+
+Closed the same session by pinning depth: `array_length(storage.foldername(name), 1) = 2`,
+on all six write predicates. Re-verified against the expression read back out of
+`pg_policy`: the `..` case is now `false` and only the legitimate path is `true`.
+Written up as
+[`SEC-2026-08-18-storage-policy-dotdot-segment`](../../security/SEC-2026-08-18-storage-policy-dotdot-segment.md),
+per this task's instruction that storage-policy findings go to `security/`.
+
+**What is still not proved:** the end-to-end denial — a *second real account*
+attempting the write through the storage HTTP API. The predicate is proved; the
+round trip is not, and needs a second account this project does not have.
 
 ### Held: `<ImageUploadField>`
 

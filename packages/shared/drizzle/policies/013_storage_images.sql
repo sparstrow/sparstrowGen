@@ -98,6 +98,19 @@ create policy public_images_read on storage.objects
 -- UPDATE carries both `using` and `with check`. Without the second, a caller
 -- could *move* their own object into someone else's prefix -- the row is theirs
 -- when the policy reads it and not theirs afterwards.
+--
+-- `array_length(...) = 2` pins the depth to exactly the shape the uploader
+-- generates. It is not decoration: `storage.foldername` treats `..` as an
+-- ordinary segment, so WITHOUT this guard the path
+--
+--     avatars/<my-id>/../<their-id>/pic.png
+--
+-- passes the [1]/[2] test, because [2] is still my own id. That is not a
+-- traversal -- storage keys are opaque strings, so the object lands under that
+-- literal key and overwrites nothing -- but it lets a caller mint keys carrying
+-- someone else's id outside their own namespace, which is exactly what these
+-- policies exist to prevent. Found by evaluating the predicate against crafted
+-- paths after applying, not by reading it.
 
 -- avatars/<user_id>/...
 drop policy if exists public_images_avatar_insert on storage.objects;
@@ -105,6 +118,7 @@ create policy public_images_avatar_insert on storage.objects
   for insert to authenticated
   with check (
     bucket_id = 'public-images'
+    and array_length(storage.foldername(name), 1) = 2
     and (storage.foldername(name))[1] = 'avatars'
     and (storage.foldername(name))[2] = (select auth.uid())::text
   );
@@ -114,11 +128,13 @@ create policy public_images_avatar_update on storage.objects
   for update to authenticated
   using (
     bucket_id = 'public-images'
+    and array_length(storage.foldername(name), 1) = 2
     and (storage.foldername(name))[1] = 'avatars'
     and (storage.foldername(name))[2] = (select auth.uid())::text
   )
   with check (
     bucket_id = 'public-images'
+    and array_length(storage.foldername(name), 1) = 2
     and (storage.foldername(name))[1] = 'avatars'
     and (storage.foldername(name))[2] = (select auth.uid())::text
   );
@@ -128,6 +144,7 @@ create policy public_images_avatar_delete on storage.objects
   for delete to authenticated
   using (
     bucket_id = 'public-images'
+    and array_length(storage.foldername(name), 1) = 2
     and (storage.foldername(name))[1] = 'avatars'
     and (storage.foldername(name))[2] = (select auth.uid())::text
   );
@@ -149,6 +166,7 @@ create policy public_images_logo_insert on storage.objects
   for insert to authenticated
   with check (
     bucket_id = 'public-images'
+    and array_length(storage.foldername(name), 1) = 2
     and (storage.foldername(name))[1] = 'workspace-logos'
     and (storage.foldername(name))[2] in (select private.current_workspace_ids())
   );
@@ -158,11 +176,13 @@ create policy public_images_logo_update on storage.objects
   for update to authenticated
   using (
     bucket_id = 'public-images'
+    and array_length(storage.foldername(name), 1) = 2
     and (storage.foldername(name))[1] = 'workspace-logos'
     and (storage.foldername(name))[2] in (select private.current_workspace_ids())
   )
   with check (
     bucket_id = 'public-images'
+    and array_length(storage.foldername(name), 1) = 2
     and (storage.foldername(name))[1] = 'workspace-logos'
     and (storage.foldername(name))[2] in (select private.current_workspace_ids())
   );
@@ -172,6 +192,7 @@ create policy public_images_logo_delete on storage.objects
   for delete to authenticated
   using (
     bucket_id = 'public-images'
+    and array_length(storage.foldername(name), 1) = 2
     and (storage.foldername(name))[1] = 'workspace-logos'
     and (storage.foldername(name))[2] in (select private.current_workspace_ids())
   );

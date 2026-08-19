@@ -110,17 +110,58 @@ reason. `daemon_tokens` was checked: no orphaned account holds one.
 
 ## Resolution
 
-Open. Two halves, and the second matters more than the first:
+**Half done.** Prevention has landed; the cleanup itself has not.
+
+**Update 2026-08-18, after M9's apply session.** The delete was attempted and
+**refused by the agent harness's safety classifier**, which blocks destructive
+SQL. It was not retried or worked around. What the attempt did establish, from a
+read-only preview, is that the deletion is **zero-loss**: the seven dead
+workspaces contain **0 runs, 0 tasks, 0 agents, 0 projects, 0 runtimes,
+0 daemon_tokens and 0 memory_notes**. They are empty shells. The live workspace
+is correctly excluded by the predicate (7 dead of 8 total).
+
+The exact statement is below and is safe to run as `postgres`; it keys on "no
+member is a live auth user", so a workspace with even one live member cannot be
+caught by it.
+
+```sql
+with dead_ws as (
+  select w.id from public.workspaces w
+  where not exists (
+    select 1 from public.workspace_members m
+    join auth.users a on a.id::text = m.user_id
+    where m.workspace_id = w.id
+  )
+),
+del_ws as (delete from public.workspaces where id in (select id from dead_ws) returning 1),
+del_users as (
+  delete from public.users u
+  where not exists (select 1 from auth.users a where a.id::text = u.id)
+  returning 1
+)
+select (select count(*) from del_ws) as workspaces_deleted,
+       (select count(*) from del_users) as orphan_user_rows_deleted;
+-- expect: 7, 8
+```
+
+Two halves, and the second matters more than the first:
 
 1. **Clean up the eight trees** — one SQL statement as `postgres`, deleting
    `workspaces` (which cascades to `workspace_members`), then `public.users`,
    for every `public.users.id` with no `auth.users` counterpart. Cheap, and
    worth doing in the same session as M9's migration since that already needs a
    privileged connection.
-2. **Stop producing them.** `auth.admin.deleteUser` alone must never be the way
-   a throwaway account is removed. The runbook's query is correct; what is
-   missing is a sentence saying *use it, and do not reach for the admin API or
-   the dashboard instead* — added in the same change as this file.
+2. **Stop producing them.** ✅ **Done.** `auth.admin.deleteUser` alone must never
+   be the way a throwaway account is removed. The runbook's query was already
+   correct; what was missing was a sentence saying *use it, and do not reach for
+   the admin API or the dashboard instead* —
+   [added to the runbook](../runbooks/agent-browser-session.md) in the same
+   change as this file.
+
+   **It works.** M9's verification created two throwaway accounts on staging and
+   both cleaned themselves up completely — profile row, workspace, membership and
+   auth row. Re-counting `@sparstrow.test` rows afterwards found only the two
+   pre-existing `uipass-*` orphans, so that pass added none.
 
 A database-level guarantee (an `after delete` trigger on `auth.users`) is
 **not** proposed. This repo has had one incident from a trigger on `auth.users`

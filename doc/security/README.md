@@ -51,4 +51,5 @@ whatever else is in flight; say so explicitly when opening the task.
 
 | ID | Status | Severity | Summary |
 |---|---|---|---|
+| [`SEC-2026-08-18-storage-policy-dotdot-segment`](SEC-2026-08-18-storage-policy-dotdot-segment.md) | 🟢 resolved | low | `public-images` write policies matched a literal `..` segment, letting a caller mint keys carrying another user's id. Not exploitable (opaque keys, empty bucket); closed by pinning path depth |
 | [`SEC-2026-08-16-auth-users-auto-confirm-trigger`](SEC-2026-08-16-auth-users-auto-confirm-trigger.md) | 🟢 resolved | was medium | `auth.users` trigger auto-confirmed every signup, silently defeating "Confirm email" while both the dashboard and GoTrue reported it enforced |

@@ -128,6 +128,12 @@ policies/012_no_invented_names.sql     M9 — bootstrap stops inventing names + 
 policies/013_storage_images.sql        M9 — the public-images bucket and its write policies
 ```
 
+**Applied to staging 2026-08-18** as migrations `setup_identity_fields`,
+`no_invented_names`, `storage_images` and `storage_images_exact_depth`. Note the
+history is partial by design: 009–011 were applied through `scripts/apply-sql.mjs`,
+which records nothing, so `list_migrations` shows fewer entries than this list
+has files.
+
 **013 is the first file here that touches Supabase Storage**, and the first that
 creates a **publicly readable** resource. Every object in `public-images` has a
 guessable, permanent, unauthenticated URL — which is correct for an avatar and a
@@ -237,6 +243,12 @@ someone hunting for a typo in a code that was simply already used.
   its target from `auth.uid()`, so there is no parameter to point at another
   account. A service-role variant taking a user id would have put "delete any
   user" one missing check away from being reachable over HTTP.
+- **`start_run` and `cancel_run` are SECURITY DEFINER functions callable by
+  `authenticated`.** Added to this list 2026-08-18 — the advisor has always
+  reported them, and they were simply never written down here. Same shape as the
+  two above: both resolve the caller from `auth.uid()` and check workspace
+  membership internally, which is exactly why 009 grants them to `authenticated`
+  while granting `claim_runtime_commands` and `ack_runtime_command` to nobody.
 
 `redeem_pairing_code` (008) is **not** on this list and should never appear on
 it. The advisor only flags `SECURITY DEFINER` functions reachable by

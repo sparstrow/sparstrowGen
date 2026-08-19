@@ -315,68 +315,6 @@ and is still there today.
   `tokens/*.css` and flags any custom property with no counterpart in a declared
   source, and `--transition-base` is either removed or given a real source.
 
-### G-20 — M9's SQL is written but has never touched a database
-
-**Raised:** 2026-08-18, on landing `T-M9-01`.
-
-Three files are **authored and reviewed, and applied nowhere**:
-
-| File | What has not happened |
-|---|---|
-| `0003_setup_identity_fields.sql` | `users.bio`, `workspaces.context`, `workspaces.logo_url` do not exist on staging |
-| `policies/012_no_invented_names.sql` | `bootstrap_workspace` still writes `split_part(email,'@',1)` and `'Personal Workspace'`; the cleanup has cleared nothing |
-| `policies/013_storage_images.sql` | the `public-images` bucket does not exist, and none of its seven policies is in force |
-
-Everything downstream in M9 — both handlers, the hooks — is therefore also
-compiled but never executed against a real row.
-
-Two separate reasons, and both need naming because they clear differently:
-
-1. **The MCP connection is read-only.** It reaches
-   `sparstrowgen-staging` (`pnymngoqseltgigcfevq`) fine — `get_project` and
-   `execute_sql` both work — but connects as `supabase_read_only_user`, so
-   `apply_migration` and any writing statement are refused. Note also that
-   `list_projects` returns `[]`: the project lives in org
-   `srgkhnltqybdlkvnrtlw`, while the token's own org is `agent-sparstrow`.
-   Granting a role *within* `agent-sparstrow` does not change either fact. The
-   worktree has no `.env.local` and no `DATABASE_URL`, so
-   `scripts/apply-sql.mjs` has nothing to connect to either.
-2. **012 ends in an irreversible data mutation on the owner's own account**,
-   which is an `AGENTS.md` §3.7 HITL gate regardless of access. It is not a
-   thing an agent applies unilaterally, and the task document says so itself.
-
-**The read-only access did confirm the gap is real rather than assumed**, on
-2026-08-18: none of the three columns exists, `bootstrap_workspace`'s live
-definition still contains both `split_part(u.email` and `'Personal Workspace'`,
-and `storage.buckets` has no `public-images` row.
-
-It also **dry-ran 012's cleanup**, which turns out to be far smaller than the
-warning implies: **1** `public.users` row and **8** `public.workspaces` rows,
-with 0 preserved in each case. Only one of those user rows belongs to a live
-account. See [`BUG-2026-08-18-orphaned-account-rows-on-staging`](bug/BUG-2026-08-18-orphaned-account-rows-on-staging.md)
-for why the user count is 1 of 9 rather than 9 of 9 — it is not a broken query.
-
-- **If wrong:** the whole of M9 is unproved, and so is SC-008 — the phase's
-  headline assertion is *"a fresh account holds no name in either table, read
-  from the database"*, and no database has been read. A syntax error or a
-  dropped grant in the replaced `bootstrap_workspace` would 500 **every**
-  endpoint for **every** new account, which is precisely what M2's defect 1
-  was. The function is a verbatim copy with two expressions changed, which
-  lowers the odds and does not remove them.
-
-  **013 carries the sharper risk of the three.** A storage bucket whose write
-  policies are wrong is a public write endpoint, not a cosmetic defect — and
-  nothing about it can be checked by reading the SQL, because the failure mode
-  is a path expression that looks right and matches more than intended. Its own
-  header ends with the two cross-account uploads that have to be *attempted*,
-  as a second account, and anything that succeeds there belongs in
-  [`security/`](security/README.md) rather than `bug/`.
-- **Clears when:** `T-M9-06` runs — all three files applied to staging, a
-  throwaway signup read straight out of `public.users` / `public.workspaces`,
-  the cross-account storage denials attempted and refused, `get_advisors`
-  clean, and the cleanup's row counts recorded in `T-M9-01`'s Result. See
-  [`runbooks/README.md`](runbooks/README.md).
-
 ## Accepted limitations
 
 ### G-5 — Untrusted runs are badged, not write-clamped
