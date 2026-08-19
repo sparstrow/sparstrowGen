@@ -348,6 +348,25 @@ holds the real method; the doctrine records the results without it.
   whether values are gamut-clamped before luminance — so the published figures
   are reproducible, and the approval and identity values are measured the same
   way and written in.
+- **Planned:** [`plans/2026-08-19-parametric-theming.md`](plans/2026-08-19-parametric-theming.md),
+  phase D2.1.
+
+**Method identified 2026-08-19, while writing that plan.** Two unstated
+assumptions reproduce all five published figures exactly (4.50 / 4.58 / 4.55 /
+4.56 / 4.57), so this is a documentation gap rather than a disagreement.
+Reproduce with `node design-brief/contrast-check.mjs`:
+
+1. Linear sRGB is **clamped to `[0,1]` before relative luminance** — several
+   preset x surface pairs land marginally outside gamut.
+2. The sweep covered **`--background` and `--card` only**. `--accent`, the
+   raised third step of the ramp, was not measured.
+
+Assumption 2 is a real hole. Extending the sweep to `--accent` turns 40
+combinations into 120, and **20 fail** — every preset, every surface, light
+mode, ranging 4.12 to 4.46. `--accent` is the hover fill, the active tab, and
+the selected row, which is exactly where a brand-coloured label sits. Dropping
+each preset's light-mode lightness by 0.017-0.022 clears all 120. That is a
+`DESIGN.md` §2.3 edit and needs the owner's yes, so it stays a gap until then.
 
 ### G-20 — A slop audit cannot reach render-tier rules on a component with no route
 
@@ -512,3 +531,7 @@ already does.
   and a contrast check over all preset × surface × mode combinations runs in CI.
   Until then §2 is a specification, not a description. **This is the first task
   of the design-system rebuild**, not a follow-up to it.
+- **Planned:** [`plans/2026-08-19-parametric-theming.md`](plans/2026-08-19-parametric-theming.md).
+  It sequences behind `T-D1-01` — 228 hardcoded palette classes do not read
+  tokens, so a parametric rebuild would leave them showing the old neutral
+  palette on a themed surface.

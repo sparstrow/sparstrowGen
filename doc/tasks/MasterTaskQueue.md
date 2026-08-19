@@ -366,8 +366,8 @@ mechanism was explained. It is live and verified end to end.
 Raised by the first `slop-audit` run: 228 hardcoded Tailwind palette classes
 across 23 files, against a `DESIGN.md` §12 rule that already forbade them. The
 checker that should have caught it named nothing and has been retired
-(`DD-009`). Runs independently of every other band — it shares files with future
-UI work, not with anything currently queued.
+(`DD-009`). Runs independently of every band currently queued, but it is a hard
+precondition for **band 15** — see there.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
@@ -381,6 +381,26 @@ fourth colour role (§2.5 actor identity) and a fifth status (§2.4 approval).
 The 97 arbitrary type sizes the same audit found are **not** in this band. The
 §3 type scale has no CSS counterpart yet, so sweeping them would mean inventing
 tokens mid-sweep — the failure `G-18` describes. Unparks when the scale ships.
+
+### Band 15 — D2 parametric theming (2026-08-19) · **not decomposed yet**
+
+Plan: [`../plans/2026-08-19-parametric-theming.md`](../plans/2026-08-19-parametric-theming.md).
+Closes `G-19` and `G-21` — `DESIGN.md` §2 specifies a theming contract the app
+does not have, and its published contrast figures were not reproducible from the
+document until this plan's research settled the method.
+
+**Runs strictly after band 14.** Not a preference: 228 hardcoded palette classes
+do not read tokens, so rebuilding `globals.css` parametrically first would leave
+every one of them wearing the old neutral palette on a themed surface.
+
+Three phases when decomposed — D2.1 the contrast checker and measurement basis
+(foundational), D2.2 parametric `globals.css`, D2.3 approval status and actor
+identity. Tasks are written once the owner accepts the §2.3 lightness
+recalibration the plan asks for; D2.1 has a stated fallback if they decline, so
+the phase lands either way.
+
+`OQ-4` blocks one sub-item of D2.2 (the `--hl-*` syntax palette) and nothing
+else.
 
 ## Blocked items
 

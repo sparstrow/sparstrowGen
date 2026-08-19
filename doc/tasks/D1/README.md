@@ -6,7 +6,7 @@
 | **Kind** | **foundational** — no new surface; it makes an existing rule true |
 | **Spec** | n/a (internal) |
 | **Depends on** | — (the status tokens it needs already ship) |
-| **Blocks** | nothing today. It is a precondition for the theming work `G-19` describes: parametric themes cannot work while colours are hardcoded |
+| **Blocks** | **D2 — parametric theming** ([plan](../../plans/2026-08-19-parametric-theming.md)). Not a soft dependency: 228 hardcoded palette classes do not read tokens, so a parametric rebuild would leave every one of them showing the old neutral palette on a themed surface |
 | **Status** | not started |
 | **Open questions** | none |
 
@@ -24,9 +24,10 @@ phase clears what it never saw.
 
 ## What makes this a real problem, not tidying
 
-`DESIGN.md` §2's **Named rule — Three Roles**: every colour on screen is brand,
-status, or neutral, and **status is never user-customisable** — green must mean
-*online* in every theme or status stops being readable at a glance.
+`DESIGN.md` §2.5's **Named rule — Four Roles**: every colour on screen is brand,
+status, provider identity, or actor identity, and **status is never
+user-customisable** — green must mean *online* in every theme or status stops
+being readable at a glance.
 
 A hardcoded `bg-emerald-500` satisfies that rule by accident today and breaks it
 the moment anything about the palette changes. More concretely: it is a colour

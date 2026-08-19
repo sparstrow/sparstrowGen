@@ -13,9 +13,112 @@ When one is answered, record the answer in the plan or task that consumes it and
 
 ---
 
-**Nothing is currently open.** OQ-3 was answered by the owner on 2026-08-19 —
-the answer is recorded in `DESIGN.md` §2.1, §2.4, and §2.5, and unblocks the
-two parked items in `tasks/D1/T-D1-01-status-colour-token-sweep.md`.
+## OQ-4 — Is code syntax highlighting a fifth colour role, or does it get folded into the four?
+
+**Raised:** 2026-08-19, planning `doc/plans/2026-08-19-parametric-theming.md`.
+**Blocks:** one sub-item of phase D2.2 — whether `--hl-*` is rewritten
+parametrically alongside everything else. The rest of D2.2 proceeds either way.
+
+### Context
+
+`packages/ui/src/styles/globals.css` carries a second colour system almost
+nobody has looked at: six `--hl-*` tokens per mode (comment, keyword, string,
+number, title, attr), twelve chromatic values in total, driving
+`rehype-highlight` output in chat and transcripts.
+
+`DESIGN.md` §2.5's **Named rule — Four Roles** says every colour on screen is
+brand, status, provider identity, or actor identity, and a colour that is none
+of those four is a bug. Syntax highlighting is none of the four. By the letter
+of the rule these twelve values are twelve bugs, which is almost certainly not
+what the rule meant — but the rule does not say so, and the parametric rebuild
+is the moment someone has to decide.
+
+The practical question underneath: **when a user picks the Slate surface,
+should their code blocks shift with it?**
+
+### The user-side scenario
+
+You open a run transcript. The agent pasted forty lines of TypeScript. You have
+the Soft surface selected because you read these for long stretches. Today the
+code block's greens and purples are the same greens and purples they would be
+on Mono — they were tuned once against a neutral ramp and never move.
+
+### Options
+
+#### Option A — A fifth role: "code", fixed and never themed
+
+Syntax colour joins status and provider identity on the not-themeable side.
+`DESIGN.md` §2.1's table grows a fifth row; the `--hl-*` values stay literal and
+are excluded from the rebuild, with a comment saying why.
+
+- **Pros:** Truthful about what the values are. Cheapest — twelve values keep
+  working. Matches how every editor behaves: a theme is a theme, and syntax
+  colouring is its own well-developed craft that surface hue has no opinion
+  about. Keeps the Four Roles rule honest by naming the exception rather than
+  quietly tolerating it.
+- **Cons:** Adds a role to a doctrine whose strength is that there are only
+  four. On a warm Paper surface, cool untinted code will read very slightly
+  foreign.
+- **Score:** 8/10
+- **Blast radius if wrong:** Very small. Twelve values in one file, no consumer
+  outside `hljs` classes. Reversible in an afternoon.
+- **Caveats:** Requires editing §2.1 and §2.5, which are two days old and were
+  just signed off. Adding a role so soon is worth a moment's thought about
+  whether the rule was drawn correctly, not just whether this fits it.
+
+#### Option B — Tint the syntax palette with the surface hue/chroma
+
+`--hl-*` gets rebuilt like everything else: lightness per token, hue and chroma
+inherited from `--sh`/`--sc` at low strength so code sits *in* the surface.
+
+- **Pros:** Total coherence — nothing on screen is untouched by the user's
+  choice. Cheap to express once the machinery exists.
+- **Cons:** Syntax colours are already close together by necessity; pushing all
+  six toward one hue compresses the distinctions readers depend on. Each of the
+  twelve then needs its own contrast measurement against three surfaces in two
+  modes — 72 more combinations, on values whose whole job is to be
+  distinguishable from *each other*, which WCAG does not measure.
+- **Score:** 4/10
+- **Blast radius if wrong:** Moderate and slow to notice. Code becomes subtly
+  harder to read; nobody files a bug about that, they just read less carefully.
+- **Caveats:** The failure mode is quiet, which for a monitoring surface is the
+  worst kind.
+
+#### Option C — Map syntax onto the existing four roles
+
+Retire `--hl-*`; drive keywords from brand, strings from success, numbers from
+warning, and so on.
+
+- **Pros:** No fifth role, no new tokens, the Four Roles rule holds literally.
+- **Cons:** Directly breaks the load-bearing rule underneath it — status colour
+  must mean one thing. A red string literal is not an error, a green one is not
+  online. It also makes code recolour when the user picks an accent, so keywords
+  turn teal, which is Option B's readability problem with a worse cause.
+- **Score:** 2/10
+- **Blast radius if wrong:** Large. It teaches the eye that status colours are
+  decorative, which degrades every status signal in the app.
+- **Caveats:** Listed because it is the option that looks most obedient to the
+  doctrine and is the one that damages it most.
+
+### Recommendation
+
+**Option A.** The Four Roles rule exists to stop arbitrary colour appearing with
+no meaning attached — and syntax highlighting is the opposite of arbitrary: it
+is a well-defined semantic mapping that simply is not one of the four. Naming it
+as a fifth fixed role costs one table row and makes the doctrine describe the
+app accurately, which is the whole reason `G-19` and `G-21` were raised in the
+first place.
+
+The cohesion argument for B is real but small, and it is bought with the one
+property syntax colour cannot lose. If warmth on Paper turns out to bother the
+owner, the reversible version of B — nudging chroma without moving hues — stays
+available afterwards.
+
+---
+
+> OQ-3 was answered by the owner on 2026-08-19 — the answer is recorded in
+> `DESIGN.md` §2.1, §2.4, and §2.5, and unblocks the two parked items in
+> `tasks/D1/T-D1-01-status-colour-token-sweep.md`.
 
 ---
 
