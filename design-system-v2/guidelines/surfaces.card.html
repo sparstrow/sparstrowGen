@@ -1,0 +1,74 @@
+<!doctype html>
+<html class="dark"><head><meta charset="utf-8">
+<title>Surfaces</title>
+<meta name="description" content="The real neutral ramp, both modes — and the four surface characters DESIGN.md §2.2 specifies but the app does not have">
+<link rel="stylesheet" href="../styles.css">
+<!-- Card chrome uses literal px. The app defines no spacing tokens (see
+     tokens/spacing.css), so a card that used var(--space-4) would be
+     demonstrating something the system does not have. -->
+<style>
+  body{margin:0;padding:20px;background:var(--card);color:var(--foreground);
+       font-family:var(--font-sans);font-size:14px}
+  .modes{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .pane{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+  .pane h4{margin:0;padding:8px 12px;font-size:11px;font-weight:600;letter-spacing:.06em;
+           text-transform:uppercase;color:var(--muted-foreground);border-bottom:1px solid var(--border)}
+  .stack{padding:12px;display:flex;flex-direction:column;gap:8px}
+  .swatch{display:flex;align-items:center;gap:10px;padding:10px 12px;
+          border:1px solid var(--border);border-radius:var(--radius-md);font-size:12px}
+  .name{font-weight:600}
+  .val{margin-left:auto;font-size:10.5px;opacity:.75;font-variant-numeric:tabular-nums}
+  .note{margin-top:16px;font-size:12px;color:var(--muted-foreground);line-height:1.6}
+  .gap{margin-top:12px;padding:12px;border:1px dashed var(--border);
+       border-radius:var(--radius-md);font-size:12px;line-height:1.6;color:var(--muted-foreground)}
+  .gap strong{color:var(--foreground)}
+  code{font-size:11px;background:var(--muted);padding:1px 4px;border-radius:4px}
+</style></head><body>
+
+<div class="modes">
+  <div class="pane"><h4>Dark — ships</h4>
+    <div class="stack" style="background:oklch(0.145 0 0);color:oklch(0.985 0 0)">
+      <div class="swatch" style="background:oklch(0.145 0 0)"><span class="name">background</span><span class="val">0.145</span></div>
+      <div class="swatch" style="background:oklch(0.205 0 0)"><span class="name">card</span><span class="val">0.205</span></div>
+      <div class="swatch" style="background:oklch(0.269 0 0)"><span class="name">muted / accent</span><span class="val">0.269</span></div>
+      <div class="swatch" style="background:oklch(0.205 0 0)"><span class="name">popover</span><span class="val">0.205</span></div>
+    </div>
+  </div>
+  <div class="pane"><h4>Light</h4>
+    <div class="stack" style="background:oklch(1 0 0);color:oklch(0.145 0 0)">
+      <div class="swatch" style="background:oklch(1 0 0)"><span class="name">background</span><span class="val">1.0</span></div>
+      <div class="swatch" style="background:oklch(1 0 0)"><span class="name">card</span><span class="val">1.0</span></div>
+      <div class="swatch" style="background:oklch(0.97 0 0)"><span class="name">muted / accent</span><span class="val">0.97</span></div>
+      <div class="swatch" style="background:oklch(1 0 0)"><span class="name">popover</span><span class="val">1.0</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  Chroma is <strong>0</strong> on every neutral above. The ramp is pure greyscale in both
+  modes — no warmth, no cast. Dark mode is a <code>.dark</code> class, not a media query,
+  so <code>:root</code> is light and the app overrides to dark.
+</div>
+
+<div class="note">
+  <strong>Light mode has no surface ramp at all.</strong> <code>background</code>,
+  <code>card</code>, and <code>popover</code> are all <code>oklch(1 0 0)</code> — the same
+  pure white — so the right pane above separates only by its borders. Dark mode does have
+  three real steps (0.145 / 0.205 / 0.269). <code>DESIGN.md</code> §2.2 specifies a
+  differentiated light ramp (<code>--background</code> at 0.985 against <code>--card</code>
+  at 1.0); the app does not implement it. This is not a rendering artefact of the card —
+  it is what ships.
+</div>
+
+<div class="gap">
+  <strong>Specified but not built.</strong> <code>DESIGN.md</code> §2.2 defines four surface
+  <em>characters</em> — Paper (hue 85, chroma 0.010), Slate (250, 0.011), Soft (280, 0.007),
+  Mono (0, 0) — each with a light and dark expression derived from five root variables.
+  None of that exists here. Every value above is a hand-maintained literal with no
+  relationship the code enforces between its light and dark form, which is why
+  <em>Paper</em> and <em>Mono</em> cannot be shown side by side: today the app only has Mono,
+  and it has it by accident rather than by choice. Tracked as
+  <code>doc/KnownGaps.md</code> G-19.
+</div>
+
+</body></html>

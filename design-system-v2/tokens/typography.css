@@ -1,0 +1,33 @@
+/* typography.css — MIRRORED.
+ *
+ * Source of truth: packages/ui/src/styles/globals.css
+ *
+ * ONE typography token exists in the app. That is the whole inventory, and
+ * this file says so rather than filling the gap.
+ *
+ * DESIGN.md §3 specifies a seven-role scale — Display 28px / Headline 17px /
+ * Title 15px / Body 13px / Meta 12px / Label 11px / Mono 12px — and states
+ * plainly that it is "a new decision, not mirrored from the app". It has no
+ * CSS counterpart. Every size in the codebase is either a Tailwind step
+ * (`text-xs`, `text-sm`) or an arbitrary literal (`text-[10px]`, `text-[11px]`
+ * — 97 of those, found by the 2026-08-19 slop audit).
+ *
+ * The previous design system transcribed §3's prose into CSS here. That is the
+ * failure this file refuses to repeat: a transcribed value looks identical to a
+ * mirrored one, nothing in the app references it, and `check` cannot tell them
+ * apart. See DECISIONS.md DD-001 and doc/KnownGaps.md G-18.
+ *
+ * WHEN THE SCALE SHIPS: add the tokens to globals.css first, then re-run sync.
+ * Not the other way round.
+ */
+
+:root {
+  /* Mirrored from globals.css @theme inline */
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* NOT IN THE APP — do not add values here to make the list look complete:
+ *   --font-mono          DESIGN.md §3 names a stack; globals.css defines none
+ *   --text-display .. --text-label   the seven-role scale, §3
+ *   line-height and tracking tokens  §3 specifies both per role
+ */

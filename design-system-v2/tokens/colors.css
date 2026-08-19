@@ -1,0 +1,86 @@
+/* colors.css — MIRRORED. Generated from the real stylesheet, not transcribed.
+ *
+ * Source of truth: packages/ui/src/styles/globals.css
+ * Regenerate:  node .claude/skills/design-system/scripts/ds.mjs sync --root design-system-v2
+ *
+ * Read DESIGN.md §2 alongside this file, and mind the gap between them:
+ * §2 specifies a THEMING CONTRACT — a user-picked brand accent and surface
+ * character, every token derived from five root variables. None of that exists
+ * below. What is below is 61 literal values, maintained by hand, with no
+ * relationship the code enforces between a token's light and dark form. That
+ * gap is doc/KnownGaps.md G-19, and closing it is the first job of any real
+ * rebuild — not something this mirror can paper over.
+ *
+ * Dark mode is a `.dark` CLASS, not a media query and not a data attribute.
+ * `:root` is LIGHT. The app ships dark, so `.dark` is the practical default
+ * even though it is the override in the cascade.
+ */
+
+/* Light — 31 tokens */
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --success: oklch(0.94 0.045 155);
+  --success-foreground: oklch(0.4 0.1 155);
+  --warning: oklch(0.94 0.06 80);
+  --warning-foreground: oklch(0.42 0.12 70);
+  --info: oklch(0.94 0.035 250);
+  --info-foreground: oklch(0.42 0.13 255);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+}
+
+/* Dark — 30 tokens */
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --success: oklch(0.28 0.05 155);
+  --success-foreground: oklch(0.82 0.11 155);
+  --warning: oklch(0.3 0.06 70);
+  --warning-foreground: oklch(0.8 0.13 70);
+  --info: oklch(0.28 0.05 250);
+  --info-foreground: oklch(0.78 0.12 255);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+}

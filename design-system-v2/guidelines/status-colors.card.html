@@ -1,0 +1,78 @@
+<!doctype html>
+<html class="dark"><head><meta charset="utf-8">
+<title>Status &amp; identity colour</title>
+<meta name="description" content="Four status tokens ship; approval and actor identity are specified in DESIGN.md §2.4–2.5 and not yet built">
+<link rel="stylesheet" href="../styles.css">
+<!-- Literal px for card chrome — the app defines no spacing tokens. -->
+<style>
+  body{margin:0;padding:20px;background:var(--card);color:var(--foreground);
+       font-family:var(--font-sans);font-size:14px}
+  h4{margin:0 0 10px;font-size:11px;font-weight:600;letter-spacing:.06em;
+     text-transform:uppercase;color:var(--muted-foreground)}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .tok{padding:10px 12px;border-radius:var(--radius-md);font-size:12px;
+       display:flex;align-items:center;gap:8px}
+  .tok b{font-weight:650}
+  .tok span{margin-left:auto;font-size:10.5px;opacity:.8}
+  .ship{border:1px solid var(--border)}
+  .todo{border:1px dashed var(--border);background:var(--muted);color:var(--muted-foreground)}
+  .note{margin-top:16px;font-size:12px;color:var(--muted-foreground);line-height:1.6}
+  .note strong{color:var(--foreground)}
+  .rule{margin-top:12px;padding:10px 12px;border-left:2px solid var(--border);
+        font-size:12px;line-height:1.6;color:var(--muted-foreground)}
+  code{font-size:11px;background:var(--muted);padding:1px 4px;border-radius:4px}
+  hr{border:0;border-top:1px solid var(--border);margin:20px 0}
+</style></head><body>
+
+<h4>Ships today — four tokens, both modes</h4>
+<div class="grid">
+  <div class="tok ship" style="background:var(--success);color:var(--success-foreground)">
+    <b>success</b> online, passed <span>--success</span></div>
+  <div class="tok ship" style="background:var(--warning);color:var(--warning-foreground)">
+    <b>warning</b> needs attention <span>--warning</span></div>
+  <div class="tok ship" style="background:var(--info);color:var(--info-foreground)">
+    <b>info</b> informational <span>--info</span></div>
+  <div class="tok ship" style="background:var(--destructive);color:var(--destructive-foreground)">
+    <b>destructive</b> failed <span>--destructive</span></div>
+</div>
+
+<div class="note">
+  Each token is a <strong>tinted surface</strong>; its <code>-foreground</code> pair is the
+  text that sits on it. That is the shape to copy — <code>bg-warning</code> with
+  <code>text-warning-foreground</code>, opacity modifiers welcome
+  (<code>bg-warning/5</code>, <code>border-warning/30</code>). Both modes are already
+  defined, so a <code>dark:</code> variant on a status colour is a sign someone hand-rolled
+  a palette value instead.
+</div>
+
+<hr>
+
+<h4>Specified 2026-08-19, not yet built</h4>
+<div class="grid">
+  <div class="tok todo"><b>approval</b> awaiting a human yes <span>hue 310</span></div>
+  <div class="tok todo"><b>identity &times;6</b> which agent is this <span>§2.5</span></div>
+</div>
+
+<div class="rule">
+  <strong>Approval is a fifth status, not a shade of warning.</strong> <em>Blocked</em> and
+  <em>awaiting approval</em> are triaged differently and must be separable across a room.
+  Hue 310 keeps it clear of info (255) and of the Violet brand preset (285).
+</div>
+
+<div class="rule">
+  <strong>Named rule — Identity Is Not Status.</strong> No actor-identity hue sits within
+  20&deg; of a status hue. The palette shipping today breaks this: <code>actor-avatar.tsx</code>
+  hashes names onto emerald, amber, and rose — which are <em>success</em>, <em>warning</em>,
+  and <em>danger</em> — so an avatar can currently read as a state it has nothing to do with.
+  Identity is also never themed: if a user accent could recolour it, two agents could
+  collapse to one hue and the palette would stop doing its only job.
+</div>
+
+<div class="note">
+  Neither has been contrast-measured. <code>DESIGN.md</code> §2 requires measurement before
+  a colour ships, and the model used to check it could not reproduce §2.3&rsquo;s own
+  published figures — see <code>doc/KnownGaps.md</code> G-21. Specified by hue and
+  constraint is where these honestly stand.
+</div>
+
+</body></html>
