@@ -7,8 +7,19 @@
 | **Spec** | [`../../specs/2026-08-16-setup-and-machines.md`](../../specs/2026-08-16-setup-and-machines.md) |
 | **Depends on** | — (every endpoint shipped in M3/M4) |
 | **Blocks** | M11. M10 soft-depends on it for the machines step's link target. |
-| **Status** | not started |
+| **Status** | 🟡 **partly done** — 01 and 04 landed 2026-08-18; 02, 03 and 05 held for the design-system rebuild. See the note below. |
 | **Open questions** | none |
+
+> **⚠️ The CLI currently names a page that does not exist.** `T-M8-04` landed
+> ahead of `T-M8-03`, which was always the plan, but 02/03 are held for the
+> design-system rebuild -- so `sparstrow pair` now says *"open Machines in the
+> sidebar"* while the only Machines surface is still the card in Settings ->
+> Workspace -> General. Pointing at the Settings card instead would have meant
+> editing all four strings twice inside one milestone; the hold is what makes
+> the window longer than the task assumed. The Knowledge Center still says
+> **Settings -> Machines**, which is correct today, and `T-M8-03` owns updating
+> it. Nothing is broken -- the pairing control works and is one tab away -- but
+> until 03 lands, the CLI's instruction is aspirational.
 
 ## The story this serves
 
