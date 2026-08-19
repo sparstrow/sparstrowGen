@@ -254,10 +254,10 @@ Phase spec: [`M8/README.md`](M8/README.md).
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 10.1 | [T-M8-01 — `machineState()` in shared](M8/T-M8-01-machine-state.md) | `[S]` | — | queued |
+| 10.1 | [T-M8-01 — `machineState()` in shared](M8/T-M8-01-machine-state.md) | `[S]` | — | ✅ done (2026-08-18) |
 | 10.2 | [T-M8-02 — promote the card to a page](M8/T-M8-02-machines-page.md) | `[S]` | 10.1 | queued |
 | 10.3 | [T-M8-03 — route, sidebar, nav metadata](M8/T-M8-03-route-and-nav.md) | `[P]` | 10.2 | queued |
-| 10.4 | [T-M8-04 — fix the CLI's pairing path](M8/T-M8-04-cli-path-strings.md) | `[P]` | — | queued |
+| 10.4 | [T-M8-04 — fix the CLI's pairing path](M8/T-M8-04-cli-path-strings.md) | `[P]` | — | ✅ done (2026-08-18) |
 | 10.5 | [T-M8-05 — verification](M8/T-M8-05-verification.md) | `[S]` | 10.1–10.4 | queued |
 
 10.1 and 10.2 are `[S]` for the reason M3's and M4's first tasks were: 10.1

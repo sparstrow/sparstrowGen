@@ -70,10 +70,10 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
-| [T-M8-01 — `machineState()` in shared](T-M8-01-machine-state.md) | `[S]` | US1 | — | not started |
+| [T-M8-01 — `machineState()` in shared](T-M8-01-machine-state.md) | `[S]` | US1 | — | ✅ done (2026-08-18) |
 | [T-M8-02 — promote the card to a page](T-M8-02-machines-page.md) | `[S]` | US1 | 01 | not started |
 | [T-M8-03 — route, sidebar, nav metadata](T-M8-03-route-and-nav.md) | `[P]` | US1 | 02 | not started |
-| [T-M8-04 — fix the CLI's pairing path](T-M8-04-cli-path-strings.md) | `[P]` | US1 | — | not started |
+| [T-M8-04 — fix the CLI's pairing path](T-M8-04-cli-path-strings.md) | `[P]` | US1 | — | ✅ done (2026-08-18) |
 | [T-M8-05 — verification](T-M8-05-verification.md) | `[S]` | US1 | 01–04 | not started |
 
 01 is `[S]` because it defines the vocabulary 02 renders. 02 is `[S]` because it

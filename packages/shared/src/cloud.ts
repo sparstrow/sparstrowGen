@@ -52,6 +52,40 @@ export function isRuntimeOnline(
   return !Number.isNaN(age) && !(age >= HEARTBEAT_STALE_AFTER_MS);
 }
 
+/** The words the UI is allowed to use about a machine. M8, FR-006 / FR-007. */
+export type MachineState = "active" | "unreachable" | "draining";
+
+/**
+ * What to CALL a machine, from what it declared and when it last spoke.
+ *
+ * Two states plus `draining` this round. Sleep detection is D-16; when it
+ * lands, a daemon declares `status = 'sleeping'` BEFORE it suspends and this
+ * function gains one branch. That is the whole reason the label is computed
+ * here rather than in the row that renders it.
+ *
+ * **Reachability is checked first, and that ordering is the decision.** A
+ * machine that declared `draining` and then went quiet IS unreachable — it may
+ * have finished shutting down twenty minutes ago, or it may have been unplugged
+ * mid-drain, and we cannot tell which. Saying "shutting down" about it asserts
+ * a cause we do not know, which is the same rule that rejected "turned off" in
+ * favour of "unreachable". Reversing the order would leave a machine reading
+ * "shutting down" forever.
+ *
+ * Built ON `isRuntimeOnline`, not instead of it: that function answers "may I
+ * dispatch to this?" for three callers, and this one answers "what do I call
+ * it?" for the UI. Reimplementing the comparison here would also lose the
+ * deliberate `!(age >= X)` form that makes a corrupt timestamp read as offline.
+ */
+export function machineState(
+  status: string | null | undefined,
+  lastHeartbeat: string | Date | null | undefined,
+  now: number = Date.now(),
+): MachineState {
+  if (!isRuntimeOnline(lastHeartbeat, now)) return "unreachable";
+  if (status === "draining") return "draining";
+  return "active";
+}
+
 /** What a machine reports about itself. Sent at pairing and on every boot. */
 export interface RuntimeIdentity {
   /** Owner-facing label. Defaults to the hostname; never overwritten once set. */
