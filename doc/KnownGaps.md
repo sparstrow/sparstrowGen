@@ -319,14 +319,16 @@ and is still there today.
 
 **Raised:** 2026-08-18, on landing `T-M9-01`.
 
-`0003_setup_identity_fields.sql` (three `ADD COLUMN`s) and
-`policies/012_no_invented_names.sql` (the replaced `bootstrap_workspace` plus
-the one-time cleanup) are **authored and reviewed, and applied nowhere**. No
-column exists on staging, `bootstrap_workspace` still writes
-`split_part(email,'@',1)` and `'Personal Workspace'`, and the cleanup has
-cleared nothing. Everything downstream in M9 — the two handlers, the storage
-policies, the hooks — is therefore also compiled but never executed against a
-real row.
+Three files are **authored and reviewed, and applied nowhere**:
+
+| File | What has not happened |
+|---|---|
+| `0003_setup_identity_fields.sql` | `users.bio`, `workspaces.context`, `workspaces.logo_url` do not exist on staging |
+| `policies/012_no_invented_names.sql` | `bootstrap_workspace` still writes `split_part(email,'@',1)` and `'Personal Workspace'`; the cleanup has cleared nothing |
+| `policies/013_storage_images.sql` | the `public-images` bucket does not exist, and none of its seven policies is in force |
+
+Everything downstream in M9 — both handlers, the hooks — is therefore also
+compiled but never executed against a real row.
 
 Two separate reasons, and both need naming because they clear differently:
 
@@ -346,10 +348,19 @@ Two separate reasons, and both need naming because they clear differently:
   endpoint for **every** new account, which is precisely what M2's defect 1
   was. The function is a verbatim copy with two expressions changed, which
   lowers the odds and does not remove them.
-- **Clears when:** `T-M9-06` runs — the migration and 012 applied to staging,
-  a throwaway signup read straight out of `public.users` / `public.workspaces`,
-  `get_advisors` clean, and the cleanup's row counts recorded in `T-M9-01`'s
-  Result. See [`runbooks/README.md`](runbooks/README.md).
+
+  **013 carries the sharper risk of the three.** A storage bucket whose write
+  policies are wrong is a public write endpoint, not a cosmetic defect — and
+  nothing about it can be checked by reading the SQL, because the failure mode
+  is a path expression that looks right and matches more than intended. Its own
+  header ends with the two cross-account uploads that have to be *attempted*,
+  as a second account, and anything that succeeds there belongs in
+  [`security/`](security/README.md) rather than `bug/`.
+- **Clears when:** `T-M9-06` runs — all three files applied to staging, a
+  throwaway signup read straight out of `public.users` / `public.workspaces`,
+  the cross-account storage denials attempted and refused, `get_advisors`
+  clean, and the cleanup's row counts recorded in `T-M9-01`'s Result. See
+  [`runbooks/README.md`](runbooks/README.md).
 
 ## Accepted limitations
 

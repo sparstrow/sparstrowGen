@@ -7,7 +7,7 @@
 | **Depends on** | T-M9-01 |
 | **Blocks** | the image half of `T-M10-02` |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | 🟡 **half done** — SQL authored (unapplied); the component is held, see the Result |
 
 > **This is the one cuttable task in the plan** (plan decision 7a). Neither
 > image gates a setup step (FR-020), and without this both forms still work:
@@ -107,24 +107,24 @@ and the guard twice.
 
 ## Checklist
 
-- [ ] `supabase` skill loaded before any storage work
-- [ ] Bucket `public-images` created — public read, 2 MB limit, MIME allowlist
-- [ ] Policy file `packages/shared/drizzle/policies/013_storage_images.sql`
+- [x] `supabase` skill loaded before any storage work
+- [x] Bucket `public-images` created — public read, 2 MB limit, MIME allowlist — **as SQL in 013, applied nowhere**
+- [x] Policy file `packages/shared/drizzle/policies/013_storage_images.sql`
       with the write policies above, using
       `(select private.current_workspace_ids())` for the workspace prefix
-- [ ] Applied to staging; `get_advisors` clean afterwards
-- [ ] `packages/ui/src/components/image-upload-field.tsx` created — takes a
+- [~] Applied to staging; `get_advisors` clean afterwards — **not done**, [`G-20`](../../KnownGaps.md)
+- [~] `packages/ui/src/components/image-upload-field.tsx` created — takes a
       current URL, a prefix and an `onUploaded(url)` callback
-- [ ] All four states: current image / empty (initials + "click to upload") /
+- [~] All four states: current image / empty (initials + "click to upload") /
       uploading (progress or spinner, control disabled) / error (the real
       reason, image unchanged)
-- [ ] Client-side size and type check **before** the request, with a message
+- [~] Client-side size and type check **before** the request, with a message
       naming the actual limit
-- [ ] Random filename; extension from the validated MIME type
-- [ ] Previous file deleted after the new URL is saved
-- [ ] The URL handed to `PATCH /me` / `PATCH /workspace` passes their
+- [~] Random filename; extension from the validated MIME type
+- [~] Previous file deleted after the new URL is saved
+- [x] The URL handed to `PATCH /me` / `PATCH /workspace` passes their
       storage-origin check (see those tasks' traps)
-- [ ] `pnpm typecheck` and `pnpm test` green
+- [x] `pnpm typecheck` and `pnpm test` green
 
 ## Traps
 
@@ -171,4 +171,54 @@ image.** Order matters: upload → write the row → delete the old file.
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+**Half landed 2026-08-18. Not cut — split.**
+
+### Done: the whole SQL half
+
+[`policies/013_storage_images.sql`](../../../packages/shared/drizzle/policies/013_storage_images.sql)
+carries the bucket (public, 2 MiB, `png`/`jpeg`/`webp`) and **seven policies**:
+one public read, then insert/update/delete for each of the two prefixes.
+Applied nowhere — [`G-20`](../../KnownGaps.md), same two blockers as the rest of
+M9.
+
+Three things worth knowing about it:
+
+- **UPDATE carries `with check` as well as `using`.** Without the second, a
+  caller could *move* their own object into someone else's prefix: the row is
+  theirs when the policy reads it and not theirs afterwards. This is the trap
+  the task's "get the path-prefix match right" was pointing at, and it is not
+  visible from testing insert alone.
+- **RLS is asserted, not enabled** — `storage.objects` belongs to
+  `supabase_storage_admin`, so `alter table` is not ours to run. Same shape as
+  `010`'s handling of `realtime.messages`, and it raises rather than proceeding,
+  because a false assumption here means the bucket is world-writable and all
+  seven policies are decoration.
+- **The logo prefix keys on workspace *membership*, not admin.** Deliberate:
+  `workspaces_admin_update` already means a non-admin cannot attach the logo to
+  the row, so their upload is a wasted 2 MB rather than a privilege. Making the
+  storage policy admin-only as well would be a second, subtly different copy of
+  an authorization rule.
+
+The header says at length that **nothing else may ever go in this bucket** —
+every object in it has a guessable, permanent, unauthenticated URL.
+
+### Held: `<ImageUploadField>`
+
+Not cut — **held**, which is a different state and needs no `Deferred.md` entry
+(nothing has been given up). Two reasons, and the first is the operative one:
+
+1. **The design system is being rebuilt in a parallel worktree.** A new
+   component with four states, written now against `globals.css` as it stands
+   today, is the most likely thing in this phase to be rewritten on contact —
+   see [`G-19`](../../KnownGaps.md), which says §2 of the doctrine describes a
+   theming system the app does not yet have. Building it after that lands costs
+   nothing extra; building it before costs it twice.
+2. It cannot be exercised at all until the bucket exists, so it would ship
+   unverified even by the standards the rest of M9 is being held to.
+
+**Nothing downstream is blocked by the hold.** Both handlers already validate
+the URL and correctly refuse every non-null value today, because no URL can yet
+satisfy the check. `T-M10-02` omits the two controls, exactly as the cut path
+described — the difference is that the SQL is in the tree, so resuming is
+writing one component rather than re-deciding a bucket, seven policies and a
+security boundary.

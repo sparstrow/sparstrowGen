@@ -125,7 +125,17 @@ policies/009_command_spine.sql         M4 — start/cancel a run, claim/ack comm
 policies/010_transcript_broadcast.sql  M5 — who may subscribe to a run's transcript
 policies/011_drop_auto_confirm.sql     drop the auth.users auto-confirm trigger
 policies/012_no_invented_names.sql     M9 — bootstrap stops inventing names + one-time cleanup
+policies/013_storage_images.sql        M9 — the public-images bucket and its write policies
 ```
+
+**013 is the first file here that touches Supabase Storage**, and the first that
+creates a **publicly readable** resource. Every object in `public-images` has a
+guessable, permanent, unauthenticated URL — which is correct for an avatar and a
+logo and wrong for everything else. Its header says so at length; read it before
+putting any other kind of file in that bucket. Like 010, it *asserts* RLS is
+enabled on `storage.objects` rather than enabling it: the table belongs to
+`supabase_storage_admin`, and if the assertion ever fires the bucket is
+world-writable and the policies are decoration.
 
 **012 is the only file here that mutates existing rows.** Everything else in
 this directory is idempotent structure — policies, grants, function bodies — and
