@@ -7,7 +7,7 @@
 | **Depends on** | — (the strings name a route T-M8-03 registers; the edit does not import it) |
 | **Blocks** | — |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done (2026-08-18) — bug closed |
 
 Fixes [`BUG-2026-08-16-pairing-path-wrong-in-cli`](../../bug/BUG-2026-08-16-pairing-path-wrong-in-cli.md).
 
@@ -57,16 +57,16 @@ URL is worse still, because the CLI does not know the deployment's host.
 
 ## Checklist
 
-- [ ] All four strings replaced; no occurrence of `Runtimes` or `Settings →`
+- [x] All four strings replaced; no occurrence of `Runtimes` or `Settings →`
       remains in `pair.ts`
-- [ ] `grep -rn "Workspace → Runtimes\|→ Runtimes" packages/core/src` → no
+- [x] `grep -rn "Workspace → Runtimes\|→ Runtimes" packages/core/src` → no
       matches (checks for a fifth occurrence this task did not know about)
-- [ ] `grep -rni "settings" packages/core/src/cli/` reviewed — any other CLI
+- [x] `grep -rni "settings" packages/core/src/cli/` reviewed — any other CLI
       that sends a user to Settings for pairing is corrected too
-- [ ] `pnpm --filter @sparstrow/core test` and `pnpm typecheck` green
-- [ ] Bug file flipped to 🟢 resolved with a filled-in **Resolution** section
+- [x] `pnpm --filter @sparstrow/core test` and `pnpm typecheck` green
+- [x] Bug file flipped to 🟢 resolved with a filled-in **Resolution** section
       naming the new destination and this task
-- [ ] [`../../bug/README.md`](../../bug/README.md) index row flipped to
+- [x] [`../../bug/README.md`](../../bug/README.md) index row flipped to
       🟢 resolved
 
 ## Traps
@@ -86,21 +86,61 @@ edit to its indentation reflows the printed help.
 
 ## Verification
 
-- [ ] `node packages/core/dist/cli/pair.js --help` (or the equivalent
+- [x] `node packages/core/dist/cli/pair.js --help` (or the equivalent
       `pnpm --filter @sparstrow/core` invocation) prints a GETTING A CODE
       section naming Machines and not Runtimes
-- [ ] `sparstrow pair --status` on an unpaired machine prints the corrected
+- [x] `sparstrow pair --status` on an unpaired machine prints the corrected
       line
-- [ ] The `--unpair` note is confirmed by running it on a machine paired to a
+- [~] The `--unpair` note is confirmed by running it on a machine paired to a
       throwaway workspace, or read in [T-M8-05](T-M8-05-verification.md) if no
       such machine exists yet
 
 ## On completion
 
-- [ ] Tick 10.4 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] Update this file's **Status** row and the phase README's task table
-- [ ] Bug file and bug index updated (above)
+- [x] Tick 10.4 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Update this file's **Status** row and the phase README's task table
+- [x] Bug file and bug index updated (above)
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+**Landed 2026-08-18.** All four strings replaced; grep confirms no `Runtimes`
+and no `Settings ->` anywhere in `packages/core/src/cli/`, and there was **no
+fifth occurrence**. Full Resolution, including the exact new wording, is in
+[the bug file](../../bug/BUG-2026-08-16-pairing-path-wrong-in-cli.md), now green.
+
+### Verified by running the CLI, which is what the original report could not do
+
+The bug was found by reading two files. This fix was checked by building the
+real bundle (`pnpm --filter @sparstrow/core build:cli`) and executing it:
+
+- `sparstrow pair --help` -- the `GETTING A CODE` section names Machines; the
+  template literal still interpolates `secretsDir` and `cloudUrl` correctly; the
+  block's indentation is unchanged, which the task's trap specifically warned
+  about.
+- `sparstrow pair --status` -- on this unpaired machine, prints the corrected
+  line.
+
+`--unpair` was **not** run: it needs a machine paired to a throwaway workspace,
+and there isn't one. Left for `T-M8-05`. The string was read in place.
+
+### The caveat that matters more than the fix
+
+**The CLI now names a page that does not exist yet.** `T-M8-02` and `T-M8-03`
+build and register `/machines`, and both are held while the design system is
+rebuilt in a parallel worktree. Until they land, the CLI points at a
+destination that is *about* to exist.
+
+That is the trade this task's `Depends on: -` always implied -- the alternative
+was pointing at the Settings card and then editing all four strings a second
+time within the same milestone. It is worth restating because the hold makes the
+window longer than "a few days".
+
+**The Knowledge Center was deliberately left alone.**
+[`first-run-setup.md:53`](../../../packages/ui/src/content/knowledge/first-run-setup.md:53)
+and [`settings.md:27`](../../../packages/ui/src/content/knowledge/settings.md:27)
+both say **Settings -> Machines**, which is *correct today* -- the card really
+is there. Rewriting them to name a sidebar page would be documenting something
+not built, which AGENTS.md 3.2 names as the dangerous direction of drift. They
+get updated by `T-M8-03`, in the change that makes them true. So for now the CLI
+and the Knowledge Center disagree, on purpose, and the KC is the one telling the
+truth.

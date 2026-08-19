@@ -7,7 +7,7 @@
 | **Depends on** | T-M9-01 |
 | **Blocks** | T-M9-05, and M10 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done (2026-08-18) — live round-trip deferred to `T-M9-06` |
 
 ## Objective
 
@@ -99,19 +99,19 @@ authorization data and must never be settable by its own subject.
 
 ## Checklist
 
-- [ ] `apps/web/src/lib/api/handlers/profile.ts` created with both routes
-- [ ] Imported in `handlers/index.ts` **before** the `./stubs` import
-- [ ] Partial `PATCH`: only the keys present are written
-- [ ] Both stores written, in the order above
-- [ ] `bio` written to `public.users` only — **not** to auth metadata
-- [ ] Length validation: name 60, bio 2000, with specific messages
-- [ ] Empty `name` accepted
-- [ ] `email`, `password`, `role`, `id` in the body → `400` naming the key
-- [ ] Unauthenticated → `401`
-- [ ] Router-level tests: read; set each field alone; set all three; empty
+- [x] `apps/web/src/lib/api/handlers/profile.ts` created with both routes
+- [x] Imported in `handlers/index.ts` **before** the `./stubs` import
+- [x] Partial `PATCH`: only the keys present are written
+- [x] Both stores written, in the order above
+- [x] `bio` written to `public.users` only — **not** to auth metadata
+- [x] Length validation: name 60, bio 2000, with specific messages
+- [x] Empty `name` accepted
+- [x] `email`, `password`, `role`, `id` in the body → `400` naming the key
+- [x] Unauthenticated → `401`
+- [x] Router-level tests: read; set each field alone; set all three; empty
       name; 61-char name; 2001-char bio; a body containing `role` (400); a
       body containing `email` (400)
-- [ ] `pnpm --filter web test` and `pnpm typecheck` green
+- [x] `pnpm --filter web test` and `pnpm typecheck` green
 
 ## Traps
 
@@ -142,17 +142,73 @@ earlier draft carried.
 
 ## Verification
 
-- [ ] `pnpm --filter web test` — every case in the checklist
-- [ ] `pnpm typecheck` clean
-- [ ] A live edit, confirmed in **both** stores — the shell's displayed name and
+- [x] `pnpm --filter web test` — every case in the checklist
+- [x] `pnpm typecheck` clean
+- [~] A live edit, confirmed in **both** stores — the shell's displayed name and
       a direct read of `public.users` — is proved in
-      [T-M9-06](T-M9-06-verification.md)
+      [T-M9-06](T-M9-06-verification.md). Still outstanding
+      ([`G-20`](../../KnownGaps.md))
 
 ## On completion
 
-- [ ] Tick 11.3 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] Update this file's **Status** row and the phase README's task table
+- [x] Tick 11.3 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Update this file's **Status** row and the phase README's task table
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+**Landed 2026-08-18.** `GET`/`PATCH /api/v1/me` in
+[`handlers/profile.ts`](../../../apps/web/src/lib/api/handlers/profile.ts),
+registered before `./stubs`. **22 tests**, all green
+([`profile-routes.test.ts`](../../../apps/web/src/lib/api/profile-routes.test.ts));
+`pnpm typecheck` and the full `apps/web` suite (215 tests) green.
+
+### The RLS trap was checked, not assumed
+
+`users_self_update` exists in
+[`001_rls.sql:177-181`](../../../packages/shared/drizzle/policies/001_rls.sql:177)
+with **both** `using` and `with check` on `id = (select auth.uid())::text`. No
+policy addition needed, so no migration and no second `supabase-postgres-best-practices`
+pass. Recorded because the task said to confirm rather than assume, and the
+answer being "already fine" is worth the same one line as the answer being "add
+one".
+
+### What the tests actually pin
+
+Not the 200 — the **store each field lands in**, which no status code reveals:
+
+- `name` → auth metadata under **both** `full_name` and `name`, *and* the row.
+- `bio` → the row **only**. Asserted as `metadataWrites` being exactly `[]`,
+  so a future "tidy" that folds bio into the metadata object fails here rather
+  than in production, where it would ride along in every JWT.
+- `avatar_url` → both.
+- A PATCH carrying one field does not blank the others.
+- Auth failing means the row is **not** written — the ordering decision, proved
+  rather than commented.
+
+### One thing found, filed rather than fixed
+
+[`BUG-2026-08-18-shell-invents-name-from-email`](../../bug/BUG-2026-08-18-shell-invents-name-from-email.md).
+
+`toSnapshot()` derives the shell's account name as
+`full_name || name || email.split("@")[0] || "Account"` — the **same FR-019
+invention `T-M9-01` removed from the database**, surviving in the session store.
+It has a specific consequence for this task: because the chain tests
+truthiness, writing `full_name: ""` (which is exactly what `PATCH /me` does when
+someone clears their name) falls straight through to the email local part. **The
+clear looks like a failed save.**
+
+Not fixed here, deliberately. Removing the fallback is one line; deciding what
+the shell shows for an account with no name — `"Account"`, the email, initials,
+a nameless avatar — is a design call on an always-visible surface, and
+`T-M10-04` already edits that component for the workspace name. Writing
+`null` instead of `""` to metadata was considered and rejected: it only moves
+the wrong answer from the email to `"Account"` and leaves the fallback in place.
+
+### Also noted, not a defect
+
+`workspaces_admin_update` scopes `PATCH /workspace` (T-M9-02) to admins/owners,
+so a plain **member** gets zero rows back and therefore a `404`. Correct
+behaviour — a member should not rename the workspace — but `404` after a
+successful `GET` reads oddly. Unreachable today (invites are out of scope and
+every workspace has exactly one member), so it is not worth special-casing;
+noted so M10's error state is not surprised by it if invites ever land.

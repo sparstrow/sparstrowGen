@@ -33,7 +33,7 @@ const EXIT_UNREACHABLE = 2;
 const HELP = `sparstrow pair — connect this machine to a Sparstrow workspace
 
 USAGE
-  sparstrow pair <code>          Redeem a pairing code from Settings → Workspace
+  sparstrow pair <code>          Redeem a pairing code from the Machines page
   sparstrow pair --status        Show whether this machine is paired, and to what
   sparstrow pair --unpair        Forget the stored token (does not revoke it)
   sparstrow pair --help
@@ -45,8 +45,8 @@ OPTIONS
                   run cannot silently move a machine between workspaces.
 
 GETTING A CODE
-  In the web app, open Settings → Workspace → Runtimes and choose "Pair a
-  machine". Codes last 10 minutes and work exactly once.
+  In the web app, open Machines in the sidebar and choose "Pair a machine".
+  Codes last 10 minutes and work exactly once.
 
 NOTES
   The token is stored encrypted in ${config.secretsDir}, never in the project
@@ -65,7 +65,7 @@ function fail(code: number, message: string): never {
 async function showStatus(): Promise<never> {
   if (!isPaired()) {
     console.log("This machine is not paired.");
-    console.log("Run `sparstrow pair <code>` with a code from Settings → Workspace → Runtimes.");
+    console.log("Run `sparstrow pair <code>` with a code from the Machines page in the web app.");
     process.exit(EXIT_OK);
   }
 
@@ -116,7 +116,7 @@ async function main(): Promise<void> {
     clearPairing();
     console.log("Forgot the stored pairing.");
     console.log(
-      "Note: this does NOT revoke the token in the cloud. Revoke it in Settings → Workspace → Runtimes if the machine is no longer trusted.",
+      "Note: this does NOT revoke the token in the cloud. Revoke it on the Machines page if the machine is no longer trusted.",
     );
     process.exit(EXIT_OK);
   }

@@ -7,7 +7,7 @@
 | **Depends on** | — |
 | **Blocks** | T-M9-02 … T-M9-06, and all of M10 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ **done — applied and verified on staging 2026-08-18** |
 
 ## The requirement this satisfies
 
@@ -124,25 +124,25 @@ account. Say what it did in the Result.
 
 ## Checklist
 
-- [ ] `supabase` and `supabase-postgres-best-practices` skills loaded **before**
+- [x] `supabase` and `supabase-postgres-best-practices` skills loaded **before**
       writing SQL (AGENTS.md §3.12)
-- [ ] Three columns added to `packages/shared/src/db/schema.ts`
-- [ ] `drizzle-kit generate` run; the generated migration reviewed by eye before
+- [x] Three columns added to `packages/shared/src/db/schema.ts`
+- [x] `drizzle-kit generate` run; the generated migration reviewed by eye before
       it is applied — it is three `ALTER TABLE ADD COLUMN`s and nothing else
-- [ ] New policy file `packages/shared/drizzle/policies/012_no_invented_names.sql`
+- [x] New policy file `packages/shared/drizzle/policies/012_no_invented_names.sql`
       containing the replaced `bootstrap_workspace` **and** the two cleanup
       statements, in that order
-- [ ] The function keeps its existing `SECURITY DEFINER`, its `search_path`
+- [x] The function keeps its existing `SECURITY DEFINER`, its `search_path`
       pinning, its advisory lock, and its grant — copy the current definition
       and change only the two `coalesce`/`values` expressions
-- [ ] Applied to staging; `list_migrations` confirms it landed
-- [ ] RLS unaffected: the three new columns inherit their tables' existing
-      policies. **Confirm** rather than assume — `get_advisors` for security
-      after applying
-- [ ] `pnpm typecheck` green; any code that reads `users.name` or
+- [x] Applied to staging; `list_migrations` confirms it landed
+- [x] RLS unaffected: confirmed with `get_advisors(security)` after applying —
+      no new findings, and the five it does report are all pre-existing and
+      already accepted
+- [x] `pnpm typecheck` green; any code that reads `users.name` or
       `workspaces.name` for display gains an empty fallback (grep for both;
       `workspace-switcher.tsx` is the known one, `T-M10-04` owns it)
-- [ ] `pnpm test` green
+- [x] `pnpm test` green
 
 ## Traps
 
@@ -169,24 +169,118 @@ it the update silently matches nothing and the cleanup appears to succeed.
 
 ## Verification
 
-- [ ] Sign up a **throwaway account** on staging. Read the rows directly:
+- [x] Sign up a **throwaway account** on staging. Read the rows directly:
       `users.name = ''` and `workspaces.name = ''`, `workspaces.slug` matches
       `^personal-[0-9a-f]{8}$`, `users.email` correct. **This is SC-008** and it
       is checked against the database, not the screen
-- [ ] Every `/api/v1` endpoint still resolves for that account — bootstrap did
-      not break
-- [ ] The owner's pre-existing account: `users.name` and `workspaces.name` both
+- [~] Every `/api/v1` endpoint still resolves for that account — bootstrap did
+      not break — **not run**: proving this needs an HTTP session against a
+      running app, not SQL. `bootstrap_workspace()` itself was invoked directly
+      and returned a workspace id, which is the part that 500s every endpoint
+      when it is broken. Remaining item in `T-M9-06`.
+- [x] The owner's pre-existing account: `users.name` and `workspaces.name` both
       now `''`, and nothing else about the account changed
-- [ ] `get_advisors` reports no new security or performance findings
-- [ ] `pnpm -r typecheck` and `pnpm -r test` green
+- [x] `get_advisors` reports no new security or performance findings
+- [x] `pnpm -r typecheck` and `pnpm -r test` green
 
 ## On completion
 
-- [ ] Tick 11.1 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] Update this file's **Status** row and the phase README's task table
-- [ ] Record in the Result **exactly how many rows the cleanup touched**
+- [x] Tick 11.1 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Update this file's **Status** row and the phase README's task table
+- [x] Record in the Result **exactly how many rows the cleanup touched**
 
 ## Result
 
-<!-- The generated migration name, the policy file, the throwaway account's
-     actual column values, and the cleanup's row counts. -->
+**Applied to `sparstrowgen-staging` (`pnymngoqseltgigcfevq`) on 2026-08-18 and
+verified against the database.** [`G-20`](../../KnownGaps.md) is closed and
+deleted.
+
+### Migrations landed
+
+| Migration | Contents |
+|---|---|
+| `setup_identity_fields` | the three `ADD COLUMN`s from `0003_setup_identity_fields.sql` |
+| `no_invented_names` | the replaced `bootstrap_workspace` from `012` |
+
+Split from the file's own layout deliberately: the function went through
+`apply_migration` (DDL, so it gets a history entry) and the two cleanup
+`UPDATE`s through `execute_sql`, so their row counts could be captured with
+`returning`. Same statements, same order.
+
+### The cleanup's row counts — the number this section exists to record
+
+| | rows changed |
+|---|---|
+| `public.users.name` cleared | **1** |
+| `public.workspaces.name` cleared | **8** |
+
+Both matched the dry-run taken beforehand, exactly. Afterwards: **0** workspaces
+hold a non-empty name; 8 users still do, and **all eight are orphaned rows with
+no `auth.users` counterpart** — see
+[`BUG-2026-08-18-orphaned-account-rows-on-staging`](../../bug/BUG-2026-08-18-orphaned-account-rows-on-staging.md).
+The single live account (`domains`) was cleared as intended. That is why the
+user count reads 1-of-9 rather than 9-of-9; it is not a broken predicate.
+
+### SC-008, proved from the database
+
+A throwaway `auth.users` row was created with empty `raw_user_meta_data`,
+`bootstrap_workspace()` was invoked under that user's JWT claims, and the
+resulting rows were read directly:
+
+| Column | Value |
+|---|---|
+| `users.name` | `''` |
+| `users.bio` | `''` |
+| `users.email` | `m9-sc008@sparstrow.test` |
+| `workspaces.name` | `''` |
+| `workspaces.context` | `''` |
+| `workspaces.logo_url` | `NULL` |
+| `workspaces.slug` | `personal-516a901f` — matches `^personal-[0-9a-f]{8}$` |
+| `workspace_members.role` | `owner` |
+
+**The provider path was proved too**, because it is the half that is easy to
+break while making the first half pass: a second throwaway with
+`raw_user_meta_data = {"full_name":"Sri Hari"}` bootstrapped to
+`users.name = 'Sri Hari'` and `workspaces.name = ''`. A name someone actually
+supplied survives; one nobody supplied does not appear.
+
+Both test accounts deleted themselves completely — profile row, workspace,
+membership and auth row — so this pass added **no** new orphans. Confirmed by
+re-counting `@sparstrow.test` rows afterwards: the only two remaining are the
+pre-existing `uipass-*` orphans from August 10–11.
+
+### The function survived the replacement intact
+
+Checked against `pg_proc` rather than by reading the file back:
+
+- `prosecdef` = **true**, `proconfig` = `search_path=""`
+- executable body (comments stripped) contains **no** `split_part(u.email` and
+  **no** `'Personal Workspace'` — an earlier check said otherwise, but it was
+  matching the new file's own comments, which quote the removed code
+- advisory lock and the orphan-adoption branch present
+- grants: `anon` = **false**, `authenticated` = **true**, unchanged
+
+And the neighbouring invariants the policies README says must hold still do:
+`redeem_pairing_code`, `claim_runtime_commands` and `ack_runtime_command` are
+all `false, false`.
+
+### One deviation from the task's stated SQL
+
+None of substance. An earlier draft added `updated_at = now()` to both cleanup
+`UPDATE`s and a redundant `u.name <> ''` guard; both were removed before
+applying, to keep the statements exactly as decided and because the
+verification step asserts *nothing else about the account changed*.
+
+### One thing found that the phase docs do not name
+
+`toSnapshot()` in
+[`account-snapshot.ts:35`](../../../apps/web/src/lib/auth/account-snapshot.ts:35)
+derives the shell's display name as
+`user_metadata.full_name || user_metadata.name || email.split("@")[0] || "Account"`.
+
+A **second** place a name is invented from an email address, in the session
+store rather than the database — and now the *only* remaining one. Filed as
+[`BUG-2026-08-18-shell-invents-name-from-email`](../../bug/BUG-2026-08-18-shell-invents-name-from-email.md),
+owned by `T-M10-04`. It matters to `T-M9-03`: writing `full_name: ""` leaves an
+empty string, which is falsy, so the chain falls through to the email and
+clearing a name looks like a failed save.

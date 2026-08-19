@@ -7,7 +7,7 @@
 | **Depends on** | T-M9-02, T-M9-03 |
 | **Blocks** | M10 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done (2026-08-18) |
 
 ## Objective
 
@@ -81,14 +81,14 @@ second conversion.
 
 ## Checklist
 
-- [ ] `Workspace` and `Profile` interfaces exported, placed near the `Runtime`
+- [x] `Workspace` and `Profile` interfaces exported, placed near the `Runtime`
       interface rather than at the top of the file
-- [ ] The four hooks added with the signatures above
-- [ ] The no-polling comment, the no-extra-invalidation comment, and the
+- [x] The four hooks added with the signatures above
+- [x] The no-polling comment, the no-extra-invalidation comment, and the
       `useProfile` vs `useAccount` comment — all three record a decision that
       looks like an omission
-- [ ] `pnpm --filter @sparstrow/ui typecheck` and `pnpm typecheck` green
-- [ ] `pnpm test` green
+- [x] `pnpm --filter @sparstrow/ui typecheck` and `pnpm typecheck` green
+- [x] `pnpm test` green
 
 ## Traps
 
@@ -107,15 +107,54 @@ make the setup step read done when it is not.
 
 ## Verification
 
-- [ ] `pnpm typecheck` clean, `pnpm test` green
-- [ ] The hooks return real data against a running app — proved in
+- [x] `pnpm typecheck` clean, `pnpm test` green
+- [~] The hooks return real data against a running app — proved in
       [T-M9-06](T-M9-06-verification.md)
 
 ## On completion
 
-- [ ] Tick 11.5 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] Update this file's **Status** row and the phase README's task table
+- [x] Tick 11.5 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Update this file's **Status** row and the phase README's task table
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+**Landed 2026-08-18.** Four hooks and two interfaces appended to
+[`packages/ui/src/api/hooks.ts`](../../../packages/ui/src/api/hooks.ts) as a new
+`Workspace & profile identity (M9)` section. `pnpm typecheck` and `pnpm test`
+green across all seven packages.
+
+**Appended at the end of the file rather than beside `Runtime`.** The checklist
+asked for "near the `Runtime` interface, rather than the top of the file", and
+the reason behind that — do not put new types in the shared preamble everything
+imports — is satisfied either way. Appending narrows the merge surface further:
+this file is `[C]` precisely because several phases edit it, and **M8's Machines
+work reads the runtimes block that sits immediately above**. A new section at
+the end conflicts with nothing; an insertion into that block would.
+
+### The three comments the checklist asks for are the substance of this task
+
+Each records a decision that reads as an omission, and each has a specific way
+of being silently undone:
+
+1. **No `refetchInterval`** — with the contrast to `useRuntimes` (15s) named
+   right there, because that hook is a few lines above and is the thing someone
+   copies. A workspace changes only when its owner changes it, through the
+   mutation that invalidates; polling would be re-fetching on a timer to observe
+   a write this client just made.
+2. **`useUpdateProfile` invalidates `["profile"]` and nothing else** — the
+   shell's name and avatar come from `onAuthStateChange`, fired by the handler's
+   own `auth.updateUser`. An extra invalidation would look like it was doing
+   that work while doing nothing.
+3. **`useProfile` and `useAccount` are not duplicates** — session versus row,
+   and `bio` exists only in the second.
+
+Also carried, from the Traps: no `placeholderData` and no fallback object, so
+M10's derivation can tell a failed read (`unknown`) from a legitimately empty
+name (`todo`). The `""`-is-normal note is on both `name` fields.
+
+### Not proved here
+
+The hooks returning real data against a running app — `T-M9-06`, and behind
+[`G-20`](../../KnownGaps.md) like the rest of the phase. What *is* proved is
+that they typecheck against the handlers' actual response shapes, which is what
+would catch a `logo_url`/`logoUrl` mismatch.

@@ -7,7 +7,7 @@
 | **Depends on** | T-M9-01 |
 | **Blocks** | T-M9-05, and M10 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done (2026-08-18) — live round-trip deferred to `T-M9-06` |
 
 ## Objective
 
@@ -80,23 +80,23 @@ spends an afternoon on a field that was never wired up.
 
 ## Checklist
 
-- [ ] `apps/web/src/lib/api/handlers/workspace.ts` created with both routes
-- [ ] Imported in `handlers/index.ts` **before** the `./stubs` import
-- [ ] Partial `PATCH`: only the keys present are written
-- [ ] Per-field length validation with specific messages naming the limit
-- [ ] Empty `name` accepted
-- [ ] `slug` in the body ignored; slug set only on the first non-empty name
+- [x] `apps/web/src/lib/api/handlers/workspace.ts` created with both routes
+- [x] Imported in `handlers/index.ts` **before** the `./stubs` import
+- [x] Partial `PATCH`: only the keys present are written
+- [x] Per-field length validation with specific messages naming the limit
+- [x] Empty `name` accepted
+- [x] `slug` in the body ignored; slug set only on the first non-empty name
       while the bootstrap pattern still matches
-- [ ] Slug derivation handles the empty-result case without writing `''`
-- [ ] `23505` handled with one retry, then name-wins fallback
-- [ ] Unknown body keys → `400` naming them
-- [ ] Zero-row update returns `404`, not `200`
-- [ ] Router-level tests: read; set each field alone; set all four; name to
+- [x] Slug derivation handles the empty-result case without writing `''`
+- [x] `23505` handled with one retry, then name-wins fallback
+- [x] Unknown body keys → `400` naming them
+- [x] Zero-row update returns `404`, not `200`
+- [x] Router-level tests: read; set each field alone; set all four; name to
       empty; 61-char name; 281-char description; 4001-char context; name set
       twice (**slug frozen after the first**); a name that slugifies to empty;
       a body containing `slug` (ignored, not an error); a body containing
       `owner_id` (400)
-- [ ] `pnpm --filter web test` and `pnpm typecheck` green
+- [x] `pnpm --filter web test` and `pnpm typecheck` green
 
 ## Traps
 
@@ -141,4 +141,56 @@ resolves it, and a second path to that decision would be unaudited.
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+**Landed 2026-08-18.** `GET`/`PATCH /api/v1/workspace` in
+[`handlers/workspace.ts`](../../../apps/web/src/lib/api/handlers/workspace.ts),
+registered before `./stubs`. **31 tests**, all green
+([`workspace-routes.test.ts`](../../../apps/web/src/lib/api/workspace-routes.test.ts));
+`pnpm typecheck` and the full `pnpm --filter web test` (193 tests) green.
+
+### Two deviations, both deliberate
+
+**1. The storage-origin check is a shared module, not inline.** M9 decision 3
+says validation is "inline and shared with nothing". The six ordinary fields
+follow that exactly — every length and type rule is inline in its own handler.
+`isOwnStorageUrl` is not one of those six: it is a **security** check with three
+consumers (`PATCH /workspace`, `PATCH /me`, and `T-M9-04`'s upload), and
+decision 4 requires the identical rule in at least two of them. Two hand-copied
+origin checks drift, and the direction they drift is *accepts more*. It lives in
+[`api/storage-url.ts`](../../../apps/web/src/lib/api/storage-url.ts) with the
+reasoning in its header. Decision 3's actual target — a generic field validator
+— was not built.
+
+It is also **narrower than decision 4 asked for**: the check pins the bucket
+(`public-images`), not just the origin. A URL under a *different* bucket of this
+same project would pass an origin-only test, and that bucket need not carry
+`T-M9-04`'s write policies.
+
+**2. Validation is an exported pure function, not a closure.** `parseWorkspacePatch`,
+`slugify` and `withCollisionSuffix` are exported so the rules are testable
+without a Supabase session — the same shape `enqueueFailureFrom` uses in
+[`api/enqueue.ts`](../../../apps/web/src/lib/api/enqueue.ts). Still inline in the
+sense that matters: the rules live in the handler's own file and no other handler
+imports them.
+
+### Tests go one level deeper than the repo's other route tests
+
+`runtime-routes.test.ts` asserts dispatch only, on the stated grounds that
+handler bodies need a Supabase session. That is true of *those* handlers. Here
+the two things worth proving — what a body may contain, and whether the slug
+moves — need only `.select().eq().maybeSingle()` and
+`.update().eq().select().maybeSingle()`, so a ~25-line fake buys real coverage
+of the slug-freeze rule. **That rule fires exactly once in a workspace's
+lifetime and is frozen forever after**, so getting it wrong is not something a
+later edit repairs. Dispatch-only tests would have left it entirely unproved.
+
+The collision path is covered too, including the give-up branch: with all 65,537
+candidate slugs taken, the third attempt drops the slug and **still applies the
+name**.
+
+### Not proved here
+
+RLS, cross-workspace denial, and the live round-trip — `T-M9-06`, against
+staging, and currently behind [`G-20`](../../KnownGaps.md) (nothing in M9 has
+touched a database). Note in particular that `logo_url` cannot round-trip at all
+until `T-M9-04`'s bucket exists: today every non-null value is correctly refused,
+because no URL can yet satisfy the check.
