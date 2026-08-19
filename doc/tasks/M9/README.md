@@ -81,7 +81,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | [T-M9-02 — workspace read + update](T-M9-02-workspace-handler.md) | `[P]` | foundational → M10 | 01 | ✅ done (2026-08-18) |
 | [T-M9-03 — profile read + update](T-M9-03-profile-handler.md) | `[P]` | foundational → M10 | 01 | ✅ done (2026-08-18) |
 | [T-M9-04 — avatar and logo upload](T-M9-04-image-upload.md) | `[P]` | foundational → M10 | 01 | not started |
-| [T-M9-05 — hooks](T-M9-05-hooks.md) | `[C]` | foundational → M10 | 02, 03 | not started |
+| [T-M9-05 — hooks](T-M9-05-hooks.md) | `[C]` | foundational → M10 | 02, 03 | ✅ done (2026-08-18) |
 | [T-M9-06 — verification](T-M9-06-verification.md) | `[S]` | foundational → M10 | 01–05 | not started |
 
 01 is `[S]` and blocks everything: the columns and the bootstrap change are what
