@@ -196,7 +196,17 @@
 
 /* Syntax highlighting (rehype-highlight / highlight.js) tuned to the neutral
    token system: restrained OKLCH hues, one step calmer than editor themes,
-   with light and dark variants. Only the classes hljs actually emits. */
+   with light and dark variants. Only the classes hljs actually emits.
+
+   THESE TWELVE VALUES ARE DELIBERATELY LITERAL AND DELIBERATELY UNTHEMED.
+   Code syntax is the fifth colour role (DESIGN.md 2.1 and 2.6), fixed like
+   status and provider identity, so a user's surface or accent choice must not
+   reach it. Read 2.6 before "fixing" them: tinting these with the surface
+   costs about a third of the perceptual separation between the six, and
+   mapping them onto the status/brand roles costs about half and makes a green
+   string literal read as "online". Decided 2026-08-19, DD-011, answering
+   OQ-4. They are the one exception to the parametric rebuild in
+   doc/plans/2026-08-19-parametric-theming.md. */
 :root {
   --hl-comment: oklch(0.55 0.01 250);
   --hl-keyword: oklch(0.45 0.13 300);

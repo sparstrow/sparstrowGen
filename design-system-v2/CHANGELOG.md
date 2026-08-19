@@ -33,6 +33,27 @@ to the original — the two of the four interface states most often skipped.
 `OQ-3`: approval as a fifth status (§2.4) and actor identity as a fourth colour
 role (§2.5). Both are shown as specified-not-built.
 
+## 2026-08-19 (later) &mdash; code syntax documented as the fifth colour role
+
+`OQ-4` was answered: syntax highlighting is a colour role of its own, fixed and
+never themed (`DESIGN.md` §2.6, `DD-011`). Two consequences here.
+
+**`tokens/colors.css` gained the twelve `--hl-*` values.** `system.json` had
+been fingerprinting them since this system was built, so `check` would have
+caught a change to them &mdash; but the token file a reader opens did not list
+them, and the two disagreed. 31 + 30 becomes 37 + 36.
+
+**New guideline card, `code-syntax`.** It is the only card in this system that
+documents a foundation with **no gap between doctrine and code**, because §2.6
+was written to describe what already ships rather than to specify something to
+build. Every other card here names a gap.
+
+Also folded in: `DESIGN.md` §2.3's five light-mode brand lightnesses dropped
+0.017&ndash;0.022 (`DD-010`). Nothing in this system renders them &mdash;
+`--brand` still does not exist in the app &mdash; so no card changed, but the
+`status-colors` card's specified-not-built list is now measured against the
+corrected table.
+
 ### Findings surfaced while building
 
 - **Light mode has no surface ramp.** `background`, `card`, and `popover` are

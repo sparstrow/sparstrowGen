@@ -11,6 +11,86 @@ guidance: `.claude/skills/design-system/references/decision-log.md`.
 
 ---
 
+## DD-011 — Code syntax is a fifth colour role, and is never themed
+
+**Date:** 2026-08-19 · **Asked by:** owner, answering `OQ-4` · **Surface:** code blocks in chat and run transcripts
+
+**Ask:** `globals.css` carries twelve `--hl-*` values that are none of the four
+colour roles §2.5 allows. By the letter of the rule they are twelve bugs.
+Decide what they are before the parametric rebuild reaches them.
+
+**Answer: option A.** Syntax becomes a fifth role, fixed like status and
+provider identity. The twelve values stay literal and are excluded from the
+rebuild. `DESIGN.md` §2.1 grows a row and §2.6 says why.
+
+**Why:** The Four Roles rule existed to stop arbitrary colour appearing with no
+meaning attached. Syntax highlighting is the opposite of arbitrary — it is a
+well-defined semantic mapping that simply is not one of the four. Naming it as a
+fifth costs one table row and makes the doctrine describe the app instead of
+quietly excusing it.
+
+The two rejected options were both measured rather than argued, on a rendered
+board the owner reviewed. **Tinting the palette with the surface** (option B)
+costs about a third of the perceptual separation between the six colours —
+smallest pairwise OKLab ΔE falls from 0.050 to roughly 0.033. **Mapping them
+onto the existing roles** (option C) costs about half, to 0.026, and recolours
+keywords when the user changes accent. Neither crosses into indistinguishable,
+which is worth saying plainly because the first draft of the argument claimed it
+did; the real objection is directional, not a threshold breach.
+
+**Generalises to:** Yes, twice. First: a rule that would classify working,
+deliberate code as a bug is a rule with a missing row, not a codebase with a
+defect — check which before "fixing" twelve values. Second, and more useful: the
+failure mode decided this. Nobody reports that code became harder to read, they
+just read it less carefully, and on a monitoring surface a silent regression is
+the worst kind.
+
+**Also worth keeping:** option C is the trap. It looks like the most obedient
+reading of the rule and does the most damage, because a green string literal is
+not *online* and an amber number is not *needs attention* — it teaches the eye
+that status colour is decorative, degrading every status signal in the app.
+
+**Status:** `DESIGN.md` §2.1 and §2.6 — 2026-08-19
+
+---
+
+## DD-010 — A brand colour is measured against the whole ramp, not two thirds of it
+
+**Date:** 2026-08-19 · **Asked by:** found while planning the `G-19` rebuild · **Surface:** every themed surface
+
+**Ask:** n/a — a defect in the published contrast figures, surfaced by trying to
+reproduce them.
+
+**Why:** §2.3's first table was verified across "40 combinations" — 5 presets ×
+4 surfaces × 2 modes, one background each. The ramp has **three** steps. Adding
+`--accent`, the raised step, turns 40 into 120, and **all 20 light-mode
+`--accent` combinations failed**, between 4.12 and 4.46.
+
+That is not an obscure surface. `--accent` is the hover fill on every row, the
+active tab, and the selected item — exactly where a brand-coloured label sits.
+Every preset's light-mode lightness drops by 0.017–0.022 to clear it, which the
+owner accepted after reviewing both versions side by side. The visible
+difference is very small; the correctness difference is a rule that was being
+enforced against two thirds of the cases it names.
+
+**Generalises to:** Yes — **a floor is only as good as the sweep behind it, and
+the sweep is the part nobody re-reads.** The rule said "every surface" and the
+measurement said "every surface's first two steps", and the two sentences look
+identical at a glance. Any named rule with numbers attached should say what was
+measured, not only what passed. §2.3 now carries the measurement basis in prose
+for the same reason.
+
+**Also worth keeping:** this was found by trying to re-derive published figures
+from the document alone, which is exactly what `G-21` was raised to force. The
+gap entry did its job — the finding is the return on having written it down
+instead of moving on.
+
+**Status:** `DESIGN.md` §2.3, verified by `design-brief/contrast-check.mjs`
+(120 combinations, exits non-zero on any failure or any figure that no longer
+matches the table) — 2026-08-19
+
+---
+
 ## DD-009 — Slop is catalogued separately from the doctrine, and audited by an agent that cannot fix
 
 **Date:** 2026-08-19 · **Asked by:** owner · **Surface:** whole app, and every future one

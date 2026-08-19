@@ -84,3 +84,28 @@
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
 }
+
+/* Code syntax - the fifth colour role (DESIGN.md 2.1, 2.6). Six tokens per
+   mode, driving rehype-highlight output in chat and run transcripts.
+   NEVER THEMED: fixed like status and provider identity, so a surface or
+   accent choice does not reach them. Added here 2026-08-19 when OQ-4 named
+   the role; system.json had been fingerprinting them since this system was
+   built, but this file omitted them, so the two disagreed. */
+
+:root {
+  --hl-comment: oklch(0.55 0.01 250);
+  --hl-keyword: oklch(0.45 0.13 300);
+  --hl-string: oklch(0.45 0.09 150);
+  --hl-number: oklch(0.5 0.12 50);
+  --hl-title: oklch(0.42 0.1 250);
+  --hl-attr: oklch(0.45 0.08 220);
+}
+
+.dark {
+  --hl-comment: oklch(0.62 0.01 250);
+  --hl-keyword: oklch(0.75 0.1 300);
+  --hl-string: oklch(0.76 0.09 150);
+  --hl-number: oklch(0.78 0.1 50);
+  --hl-title: oklch(0.78 0.08 250);
+  --hl-attr: oklch(0.75 0.07 220);
+}

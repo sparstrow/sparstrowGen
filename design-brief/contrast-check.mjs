@@ -1,22 +1,26 @@
-// Contrast sweep for DESIGN.md §2 — the reproduction that closed G-21's
-// "cannot be reproduced from the document" finding.
+// Contrast check for DESIGN.md §2 — sweeps every brand preset against every
+// step of every surface ramp, in both modes, and verifies §2.3's table.
 //
-//   node design-brief/contrast-check.mjs
+//   node design-brief/contrast-check.mjs        exits 1 on any failure
 //
 // Zero dependencies, Node 18+. This is the PROTOTYPE, sitting beside
 // theme-board.html where the theming work was designed. The shipping version is
 // a unit test over constants in @sparstrow/shared — see phase D2.1 of
 // doc/plans/2026-08-19-parametric-theming.md. Do not wire CI to this file.
 //
-// Two assumptions were missing from DESIGN.md §2 and are what made the
-// published figures unreproducible. Both are implemented below and flagged:
+// WHY THIS EXISTS. §2.3's first published figures could not be re-derived from
+// the document (doc/KnownGaps.md G-21). Two assumptions were missing:
 //
 //   1. Linear sRGB is CLAMPED to [0,1] before relative luminance. Several
 //      preset x surface pairs land marginally outside gamut; unclamped they
 //      compute a luminance no display can show.
-//   2. The published "40 combinations" swept --background and --card only.
-//      --accent, the raised third step, was not measured. It is here, and
-//      that is where the 20 failures are.
+//   2. The sweep covered --background and --card only. --accent, the raised
+//      third step, was never measured — and all five presets failed against it
+//      in light mode, 4.12 to 4.46.
+//
+// Assumption 1 is now stated in §2.3. Assumption 2 was a real defect: the
+// light-mode lightnesses below are 0.017-0.022 lower than the first set, which
+// is what clears --accent. Both changes were accepted by the owner 2026-08-19.
 
 // ---------- colour ----------
 
@@ -48,15 +52,17 @@ const contrast = (a, b) => {
   return (hi + 0.05) / (lo + 0.05);
 };
 
+const paint = (L, C, H) => clampToGamut(toLinearSrgb(L, C, H));
+
 // ---------- the system, transcribed from DESIGN.md §2.2 / §2.3 ----------
 
 /** [hue, chroma, light-mode L]. Dark-mode L is 0.78 for every preset. */
 const PRESETS = {
-  Amber: [70, 0.15, 0.55],
-  Violet: [285, 0.18, 0.555],
-  Blue: [250, 0.16, 0.54],
-  Teal: [190, 0.12, 0.515],
-  Rose: [15, 0.16, 0.56],
+  Amber: [70, 0.15, 0.528],
+  Violet: [285, 0.18, 0.538],
+  Blue: [250, 0.16, 0.52],
+  Teal: [190, 0.12, 0.496],
+  Rose: [15, 0.16, 0.542],
 };
 
 /** [hue, chroma]. */
@@ -68,14 +74,15 @@ const SURFACES = {
 };
 
 const DARK_BRAND_L = 0.78;
+const FLOOR = 4.5;
 
-/** §2.3's published worst case, for the reproduction assertion. */
-const PUBLISHED = { Amber: 4.5, Violet: 4.58, Blue: 4.55, Teal: 4.56, Rose: 4.57 };
+/** §2.3's published worst case per preset. The check is that these are real. */
+const PUBLISHED = { Amber: 4.51, Violet: 4.51, Blue: 4.52, Teal: 4.5, Rose: 4.51 };
 
 /**
  * The three-step neutral ramp per surface and mode. Soft is the documented
  * exception (§2.2) — it lifts the dark ramp and brightens the light one.
- * `card` is a pure neutral in light mode in both variants, hence chroma 0.
+ * `card` is a pure neutral in light mode in both variants, hence the flag.
  */
 const ramp = (surface, mode) => {
   const soft = surface === "Soft";
@@ -89,82 +96,57 @@ const ramp = (surface, mode) => {
     : [["background", 0.985], ["card", 1, true], ["accent", 0.955]];
 };
 
-const FLOOR = 4.5;
-
 // ---------- sweep ----------
 
-const measure = ({ includeAccent }) => {
-  const rows = [];
-  for (const [preset, [bh, bc, lightL]] of Object.entries(PRESETS)) {
-    for (const [surface, [sh, sc]] of Object.entries(SURFACES)) {
-      for (const mode of ["light", "dark"]) {
-        const raw = toLinearSrgb(mode === "light" ? lightL : DARK_BRAND_L, bc, bh);
-        const brand = clampToGamut(raw);
-        for (const [step, L, neutral] of ramp(surface, mode)) {
-          if (step === "accent" && !includeAccent) continue;
-          const bg = toLinearSrgb(L, neutral ? 0 : sc, neutral ? 0 : sh);
-          rows.push({
-            preset, surface, mode, step,
-            ratio: contrast(brand, bg),
-            clamped: !inGamut(raw),
-          });
-        }
+const rows = [];
+for (const [preset, [bh, bc, lightL]] of Object.entries(PRESETS)) {
+  for (const [surface, [sh, sc]] of Object.entries(SURFACES)) {
+    for (const mode of ["light", "dark"]) {
+      const raw = toLinearSrgb(mode === "light" ? lightL : DARK_BRAND_L, bc, bh);
+      const brand = clampToGamut(raw);
+      for (const [step, L, neutral] of ramp(surface, mode)) {
+        rows.push({
+          preset, surface, mode, step,
+          ratio: contrast(brand, toLinearSrgb(L, neutral ? 0 : sc, neutral ? 0 : sh)),
+          clamped: !inGamut(raw),
+        });
       }
     }
   }
-  return rows;
-};
-
-const worstPerPreset = (rows) => {
-  const out = {};
-  for (const r of rows) if (!out[r.preset] || r.ratio < out[r.preset].ratio) out[r.preset] = r;
-  return out;
-};
-
-// ---------- 1. reproduce §2.3 ----------
-
-console.log("§2.3 reproduction — clamped, --background and --card only\n");
-const published = worstPerPreset(measure({ includeAccent: false }));
-let reproduced = true;
-for (const [preset, r] of Object.entries(published)) {
-  const match = Math.abs(r.ratio - PUBLISHED[preset]) < 0.005;
-  if (!match) reproduced = false;
-  console.log(
-    `  ${preset.padEnd(7)} published ${PUBLISHED[preset].toFixed(2)}   measured ${r.ratio.toFixed(2)}` +
-      `   ${match ? "match" : "MISMATCH"}   worst: ${r.mode}/${r.surface}/${r.step}`
-  );
-}
-console.log(`\n  ${reproduced ? "All five reproduce exactly. G-21's method is confirmed." : "DOES NOT REPRODUCE."}`);
-
-// ---------- 2. the full sweep, including --accent ----------
-
-const full = measure({ includeAccent: true });
-const failures = full.filter((r) => r.ratio < FLOOR);
-
-console.log(`\nFull sweep — all three ramp steps: ${full.length} combinations, ${failures.length} below ${FLOOR}\n`);
-for (const r of failures.sort((a, b) => a.ratio - b.ratio)) {
-  console.log(`  ${`${r.preset}/${r.surface}/${r.mode}/${r.step}`.padEnd(32)} ${r.ratio.toFixed(2)}`);
 }
 
-// ---------- 3. what would clear it ----------
+let ok = true;
 
-console.log("\nLight-mode lightness needed to clear the floor on every step\n");
-for (const [preset, [bh, bc, current]] of Object.entries(PRESETS)) {
-  let chosen = null;
-  for (let L = current; L > 0.3; L -= 0.001) {
-    const brand = clampToGamut(toLinearSrgb(L, bc, bh));
-    let worst = Infinity;
-    for (const [surface, [sh, sc]] of Object.entries(SURFACES)) {
-      for (const [, bgL, neutral] of ramp(surface, "light")) {
-        worst = Math.min(worst, contrast(brand, toLinearSrgb(bgL, neutral ? 0 : sc, neutral ? 0 : sh)));
-      }
-    }
-    if (worst >= FLOOR) { chosen = [L, worst]; break; }
+// 1. the floor
+const failures = rows.filter((r) => r.ratio < FLOOR);
+console.log(`Contrast floor — ${rows.length} combinations, floor ${FLOOR}:1\n`);
+if (failures.length === 0) {
+  console.log("  all clear");
+} else {
+  ok = false;
+  for (const r of failures.sort((a, b) => a.ratio - b.ratio)) {
+    console.log(`  FAIL  ${`${r.preset}/${r.surface}/${r.mode}/${r.step}`.padEnd(32)} ${r.ratio.toFixed(2)}`);
   }
+}
+
+// 2. §2.3's table is not decorative — check every published figure
+console.log("\n§2.3 published worst case per preset\n");
+for (const preset of Object.keys(PRESETS)) {
+  const worst = rows
+    .filter((r) => r.preset === preset)
+    .reduce((a, b) => (b.ratio < a.ratio ? b : a));
+  const match = Math.abs(worst.ratio - PUBLISHED[preset]) < 0.005;
+  if (!match) ok = false;
   console.log(
-    `  ${preset.padEnd(7)} ${current.toFixed(3)} -> ${chosen[0].toFixed(3)}` +
-      `   (worst becomes ${chosen[1].toFixed(2)}, a drop of ${(current - chosen[0]).toFixed(3)})`
+    `  ${preset.padEnd(7)} published ${PUBLISHED[preset].toFixed(2)}   measured ${worst.ratio.toFixed(2)}` +
+      `   ${match ? "match" : "MISMATCH"}   at ${worst.mode}/${worst.surface}/${worst.step}`
   );
 }
 
-console.log("\nDark mode passes everywhere and is untouched by the above.");
+// 3. how much of the sweep needed the clamp — the assumption that was unstated
+const clamped = new Set(rows.filter((r) => r.clamped).map((r) => `${r.preset}/${r.surface}/${r.mode}`));
+console.log(`\n${clamped.size} preset x surface x mode combinations land out of gamut and are clamped.`);
+console.log("Dark mode uses one lightness for every preset and passes throughout.");
+
+console.log(ok ? "\nOK\n" : "\nFAILED\n");
+process.exit(ok ? 0 : 1);

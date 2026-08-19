@@ -54,6 +54,7 @@ The most useful thing this system can tell you, stated once:
 | **Colour** | 60 literal values (30 per mode), hand-maintained | §2 — a theming contract: user-picked accent and surface, all derived from five roots. **Not built** (G-19) |
 | **Radius** | One base, three `calc()` steps. Real | §5 |
 | **Status** | 4 tokens: success, warning, info, destructive | §2.4 adds **approval**; §2.5 adds **actor identity**. Neither built |
+| **Code syntax** | 6 tokens per mode. Real, and never themed | §2.6 &mdash; the one foundation with **no gap**. Written to describe what shipped |
 | **Type** | `--font-sans`, and nothing else | §3 — a seven-role scale. **No CSS counterpart** |
 | **Spacing** | No tokens. Tailwind defaults at each call site | §4 specifies a base unit and density |
 | **Shadow** | No tokens. Tailwind utilities | §5 |

@@ -21,7 +21,7 @@ h1{font-size:15px;font-weight:600;margin:0 0 4px}
 .app{
   /* surface character: --sh hue, --sc chroma. mode flips the L ramp. */
   --sh:0; --sc:0;
-  --bh:70; --bc:0.15; --bll:0.550;         /* brand hue / chroma / light-mode L (per-hue calibrated) */
+  --bh:70; --bc:0.15; --bll:0.528;         /* brand hue / chroma / light-mode L (per-hue calibrated) */
 
   --bg:oklch(0.145 var(--sc) var(--sh));
   --card:oklch(0.195 var(--sc) var(--sh));
@@ -162,7 +162,9 @@ svg{display:block}
 <script>
 const SURF = { mono:[0,0], slate:[250,0.011], paper:[85,0.010], soft:[280,0.007] };
 // [hue, chroma, light-mode L] — L calibrated per hue so every preset clears 4.5:1 in light mode
-const BRAND = { amber:[70,0.15,0.550], violet:[285,0.18,0.555], blue:[250,0.16,0.540], teal:[190,0.12,0.515], rose:[15,0.16,0.560] };
+/* Light-mode L recalibrated 2026-08-19: the first set was measured against
+   --bg and --card only and failed against --raise. See DESIGN.md 2.3. */
+const BRAND = { amber:[70,0.15,0.528], violet:[285,0.18,0.538], blue:[250,0.16,0.520], teal:[190,0.12,0.496], rose:[15,0.16,0.542] };
 const app = document.getElementById("app");
 let mode="dark", surf="mono", brand="amber";
 function apply(){

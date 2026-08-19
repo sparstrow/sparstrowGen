@@ -3,12 +3,12 @@
 | | |
 |---|---|
 | **Spec** | `DESIGN.md` §2 — written with the owner via the `design-brief` skill on 2026-08-18 and reviewed then. It is the spec for this work in everything but filename: it states the contract in the owner's terms and decides nothing technical |
-| **Status** | Draft |
+| **Status** | Approved 2026-08-19 — both owner decisions answered, not decomposed |
 | **Trigger** | Owner, 2026-08-19: the design system shows a neutral app, not the Amber-on-Paper they chose. `G-19` is why |
 | **Depends on** | `T-D1-01` (band 14) — the palette sweep. Non-negotiable, see Decisions |
 | **Touches** | `packages/ui/src/styles/globals.css`, `packages/shared/src/theme/`, `packages/ui/src/components/actor-avatar.tsx`, `DESIGN.md` §2.3–§2.5, `design-system-v2/` |
 | **Tasks** | not decomposed yet — becomes `doc/tasks/D2/` |
-| **Open questions** | `OQ-4` (the `--hl-*` syntax palette). Blocks one sub-item of D2.2, nothing else |
+| **Open questions** | none — `OQ-4` answered 2026-08-19 (option A, `DD-011`) |
 
 ## Summary
 
@@ -83,9 +83,11 @@ The fix is small: each preset's light-mode lightness drops by 0.017–0.022.
 | Teal | 0.515 | **0.496** |
 | Rose | 0.560 | **0.542** |
 
-That is a doctrine edit to §2.3, so it needs the owner's yes — but it is a
-correction of measured fact, not a change of direction, and the visible
-difference is a barely-perceptible darkening of the accent in light mode.
+**Accepted by the owner 2026-08-19**, after reviewing both specimens side by
+side. §2.3 now carries the recalibrated lightnesses, a **Named rule — Measure
+Against the Whole Ramp**, and the measurement basis in prose;
+`design-brief/contrast-check.mjs` verifies all 120 combinations and every
+published figure, exiting non-zero on either kind of failure.
 
 ## Work breakdown
 
@@ -179,17 +181,17 @@ later do.
 
 ## Phases
 
-### D2.1 — the checker and the measurement basis *(foundational)*
+### D2.1 — the checker *(foundational)*
 
 Preset/surface constants in `@sparstrow/shared`; the contrast sweep as a test
-over all 120 combinations plus the identity-vs-status separation rule; one
-sentence in `DESIGN.md` §2 stating the measurement basis. Done when the test
-passes against the **recalibrated** lightnesses and fails if any is reverted.
+over all 120 combinations plus the identity-vs-status separation rule. Done when
+the test passes against the recalibrated lightnesses and fails if any is
+reverted.
 
-Depends on the owner accepting the §2.3 recalibration. If they decline, the test
-ships asserting the current figures against `--background`/`--card` only, and
-the 20 raised-surface failures become a `KnownGaps.md` entry instead — the phase
-still lands.
+**No longer gated on anything.** The doctrine half landed on 2026-08-19 — §2.3
+carries the recalibrated values and the measurement basis, and
+`design-brief/contrast-check.mjs` is the working prototype this phase promotes
+into `pnpm test`. Port it rather than rewriting it; it is already correct.
 
 ### D2.2 — parametric `globals.css` *(serves US-T1)*
 
@@ -198,8 +200,11 @@ the preset and surface classes; the emit-and-diff test. Done when the app runs
 Amber-on-Paper, `pnpm build` is clean, and changing one class on `<html>`
 re-themes every surface.
 
-The `--hl-*` syntax-highlighting tokens are out until `OQ-4` is answered; they
-stay as they are and the phase completes around them.
+**The twelve `--hl-*` values stay literal and are excluded from the rebuild** —
+`OQ-4`, answered 2026-08-19 as option A and written up as `DESIGN.md` §2.6.
+Syntax is the fifth colour role and is never themed, so a later agent finding
+twelve untokenised chromatic values there should read §2.6 before "fixing"
+them.
 
 ### D2.3 — approval status and actor identity *(serves US-T2)*
 
@@ -212,10 +217,10 @@ separation assertion passes.
 
 | Not doing | Where it lives |
 |---|---|
+| Theming the syntax palette | Answered: `DESIGN.md` §2.6 — syntax is never themed |
 | The theme picker UI, storage, per-device vs synced, flash-before-preference | `D-18` in `Deferred.md`, explicitly unparked by this plan closing |
 | Type scale tokens | Out of `T-D1-01` for the same reason — §3 has no CSS counterpart. Not created here |
 | Spacing and shadow tokens | §4/§5 specify them; inventing them mid-rebuild is `G-18` repeating |
-| `--hl-*` syntax colours | `OQ-4` |
 | Density as a third theming axis | `DESIGN.md` §13, undecided |
 
 ## Verification

@@ -393,14 +393,13 @@ document until this plan's research settled the method.
 do not read tokens, so rebuilding `globals.css` parametrically first would leave
 every one of them wearing the old neutral palette on a themed surface.
 
-Three phases when decomposed — D2.1 the contrast checker and measurement basis
-(foundational), D2.2 parametric `globals.css`, D2.3 approval status and actor
-identity. Tasks are written once the owner accepts the §2.3 lightness
-recalibration the plan asks for; D2.1 has a stated fallback if they decline, so
-the phase lands either way.
+Three phases when decomposed — D2.1 the contrast checker (foundational), D2.2
+parametric `globals.css`, D2.3 approval status and actor identity.
 
-`OQ-4` blocks one sub-item of D2.2 (the `--hl-*` syntax palette) and nothing
-else.
+**Both owner decisions are answered (2026-08-19), so nothing here is undecided.**
+The §2.3 lightness recalibration was accepted and is already in the doctrine;
+`OQ-4` was answered as option A and written up as `DESIGN.md` §2.6. What remains
+before decomposition is only band 14 landing.
 
 ## Blocked items
 

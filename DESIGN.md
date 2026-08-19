@@ -56,7 +56,7 @@ work, because hue and chroma hold while lightness re-derives per mode.
 > either what the code already does or what to do next time you write some;
 > this one describes what to build.
 
-### 2.1 The four colour roles — never mix them
+### 2.1 The five colour roles — never mix them
 
 | Role | What it means | Themeable? |
 |---|---|---|
@@ -64,6 +64,7 @@ work, because hue and chroma hold while lightness re-derives per mode.
 | **Status** | Semantic state: online, success, warning, approval, danger, info | **No — never** |
 | **Provider** | External identity: Claude, Antigravity, Ollama marks | **No** — those are their brands |
 | **Actor identity** | Telling one agent, machine, or column apart from another at a glance | **No** — see §2.5 |
+| **Code syntax** | Highlighting inside code blocks: keyword, string, number, comment, type | **No** — see §2.6 |
 
 **Status colour is not themeable, and this is the load-bearing rule of the whole
 system.** If a user's accent choice could change what green means, the
@@ -105,14 +106,31 @@ its own calibrated light-mode lightness:
 
 | Preset | Hue | Chroma | Dark L | Light L | Worst contrast |
 |---|---|---|---|---|---|
-| **Amber** — *default* | 70 | 0.15 | 0.78 | **0.550** | 4.50 |
-| Violet | 285 | 0.18 | 0.78 | **0.555** | 4.58 |
-| Blue | 250 | 0.16 | 0.78 | **0.540** | 4.55 |
-| Teal | 190 | 0.12 | 0.78 | **0.515** | 4.56 |
-| Rose | 15 | 0.16 | 0.78 | **0.560** | 4.57 |
+| **Amber** — *default* | 70 | 0.15 | 0.78 | **0.528** | 4.51 |
+| Violet | 285 | 0.18 | 0.78 | **0.538** | 4.51 |
+| Blue | 250 | 0.16 | 0.78 | **0.520** | 4.52 |
+| Teal | 190 | 0.12 | 0.78 | **0.496** | 4.50 |
+| Rose | 15 | 0.16 | 0.78 | **0.542** | 4.51 |
 
-Verified across all 4 surfaces × 5 presets × 2 modes — 40 combinations, zero
-failures, worst case exactly 4.50.
+Verified across 4 surfaces × 5 presets × 2 modes × **all three ramp steps** —
+120 combinations, zero failures, worst case exactly 4.50 (Teal on Soft, light,
+against `--accent`). Reproduce with `node design-brief/contrast-check.mjs`.
+
+**Named rule — Measure Against the Whole Ramp.** A brand colour is measured
+against `--background`, `--card` **and** `--accent`, in both modes. The first
+published version of this table swept only the first two, and every one of the
+five then failed against `--accent` in light mode — between 4.12 and 4.46. That
+is not an obscure surface: `--accent` is the hover fill on every row, the active
+tab, and the selected item, which is exactly where a brand-coloured label sits.
+The light lightnesses above are 0.017–0.022 lower than the first version for
+this reason.
+
+**Measurement basis — state it, because the figures are otherwise
+unreproducible.** Contrast is WCAG 2.x relative luminance, computed from OKLCH
+via OKLab to **linear sRGB clamped to `[0,1]`**. The clamp is load-bearing:
+several preset × surface pairs land marginally out of gamut, and skipping it
+produces a luminance no display can show and figures that disagree with this
+table. Leaving that unstated is what raised `doc/KnownGaps.md` G-21.
 
 **Ships as: Amber on Paper, dark mode.** Amber's hue (70) sits 15° from Paper's
 (85), so the accent reads as *within* the surface's warmth rather than against
@@ -159,11 +177,39 @@ if a user's accent could recolour it, two agents could collapse to the same hue
 and the palette would stop doing the one thing it exists for. A future theming
 pass must not "unify" these with the accent.
 
-**Named rule — Four Roles.** Every colour on screen is brand, status, provider
-identity, or actor identity. A colour that is none of those four is a bug.
+**Named rule — Five Roles.** Every colour on screen is brand, status, provider
+identity, actor identity, or code syntax. A colour that is none of those five is
+a bug.
 
 **Named rule — Contrast Floor.** Every brand preset clears **4.5:1** against
-every surface in both modes. A new preset is not shippable until measured.
+**every step of every surface ramp**, in both modes — see §2.3's measurement
+basis. A new preset is not shippable until measured that way.
+
+### 2.6 Code syntax — the fifth role, and the one nobody chose
+
+Code blocks in chat and run transcripts are coloured by six tokens
+(`--hl-comment`, `--hl-keyword`, `--hl-string`, `--hl-number`, `--hl-title`,
+`--hl-attr`), one set per mode. They are none of the other four roles, which by
+the letter of Five Roles would make them twelve bugs. They are not. Syntax
+highlighting is a well-defined semantic mapping in its own right, and this
+section exists so the rule describes the app instead of quietly excusing it.
+
+**Named rule — Syntax Is Not Themed.** The syntax palette is fixed, like status
+and provider identity. A user's surface or accent choice does not reach it.
+
+Two reasons, and the second is the one that decides it. Syntax colours are
+already close together by necessity — pulling them toward a surface hue costs
+about a third of the perceptual separation between the six, and roughly half if
+they are mapped onto the status and brand roles instead. And the failure mode is
+silent: nobody reports that code became harder to read, they just read it less
+carefully. On a surface whose whole job is monitoring, that is the worst kind of
+regression.
+
+Mapping syntax onto the four existing roles was considered and rejected outright.
+It looks like the most obedient reading of Five Roles and does the most damage:
+a green string literal is not *online* and an amber number is not *needs
+attention*, so it teaches the eye that status colour is decorative. Recorded as
+`OQ-4`, answered 2026-08-19.
 
 ---
 

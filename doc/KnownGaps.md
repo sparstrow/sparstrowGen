@@ -344,12 +344,21 @@ holds the real method; the doctrine records the results without it.
   hues (§2.5), added 2026-08-19. Both are specified by hue and constraint and
   **neither has been measured** — deliberately, rather than publishing a figure
   from an unvalidated model.
-- **Clears when:** §2 states the measurement basis — which background pair, and
-  whether values are gamut-clamped before luminance — so the published figures
-  are reproducible, and the approval and identity values are measured the same
-  way and written in.
+- **Clears when:** the approval and identity values are measured the same way
+  and written into §2.4 and §2.5.
 - **Planned:** [`plans/2026-08-19-parametric-theming.md`](plans/2026-08-19-parametric-theming.md),
-  phase D2.1.
+  phase D2.3.
+
+**Narrowed 2026-08-19 — the reproducibility half is closed.** §2.3 now states
+the measurement basis, and `design-brief/contrast-check.mjs` verifies every
+published figure against it and exits non-zero on a mismatch. What remains is
+only the second half of the original entry: **approval (§2.4) and the six actor
+identity hues (§2.5) are still specified by hue and constraint with no measured
+values**, deliberately, rather than publishing figures from an unvalidated
+model. Those land in phase D2.3 alongside the unit-test version of the checker.
+
+The investigation that closed the first half is below, kept because it is what
+the remaining work has to match.
 
 **Method identified 2026-08-19, while writing that plan.** Two unstated
 assumptions reproduce all five published figures exactly (4.50 / 4.58 / 4.55 /

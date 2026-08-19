@@ -24,8 +24,8 @@ phase clears what it never saw.
 
 ## What makes this a real problem, not tidying
 
-`DESIGN.md` §2.5's **Named rule — Four Roles**: every colour on screen is brand,
-status, provider identity, or actor identity, and **status is never
+`DESIGN.md` §2.5's **Named rule — Five Roles**: every colour on screen is brand,
+status, provider identity, actor identity, or code syntax, and **status is never
 user-customisable** — green must mean *online* in every theme or status stops
 being readable at a glance.
 
