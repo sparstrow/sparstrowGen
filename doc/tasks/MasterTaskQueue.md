@@ -277,7 +277,7 @@ Phase spec: [`M9/README.md`](M9/README.md).
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 11.1 | [T-M9-01 — schema, and a bootstrap that invents nothing](M9/T-M9-01-schema-and-bootstrap.md) | `[S]` | — | queued |
+| 11.1 | [T-M9-01 — schema, and a bootstrap that invents nothing](M9/T-M9-01-schema-and-bootstrap.md) | `[S]` | — | ✅ authored 2026-08-18 — **unapplied**, [`G-20`](../KnownGaps.md) |
 | 11.2 | [T-M9-02 — workspace read + update](M9/T-M9-02-workspace-handler.md) | `[P]` | 11.1 | queued |
 | 11.3 | [T-M9-03 — profile read + update](M9/T-M9-03-profile-handler.md) | `[P]` | 11.1 | queued |
 | 11.4 | [T-M9-04 — avatar and logo upload](M9/T-M9-04-image-upload.md) | `[P]` | 11.1 | queued |

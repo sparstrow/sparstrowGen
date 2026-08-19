@@ -315,6 +315,42 @@ and is still there today.
   `tokens/*.css` and flags any custom property with no counterpart in a declared
   source, and `--transition-base` is either removed or given a real source.
 
+### G-20 — M9's SQL is written but has never touched a database
+
+**Raised:** 2026-08-18, on landing `T-M9-01`.
+
+`0003_setup_identity_fields.sql` (three `ADD COLUMN`s) and
+`policies/012_no_invented_names.sql` (the replaced `bootstrap_workspace` plus
+the one-time cleanup) are **authored and reviewed, and applied nowhere**. No
+column exists on staging, `bootstrap_workspace` still writes
+`split_part(email,'@',1)` and `'Personal Workspace'`, and the cleanup has
+cleared nothing. Everything downstream in M9 — the two handlers, the storage
+policies, the hooks — is therefore also compiled but never executed against a
+real row.
+
+Two separate reasons, and both need naming because they clear differently:
+
+1. **No reachable project.** The Supabase MCP in this session authenticates to
+   the org `agent-sparstrow`, which holds **zero projects** — `list_projects`
+   returns `[]`. It cannot see the real one. The worktree has no `.env.local`
+   and no `DATABASE_URL`, so `scripts/apply-sql.mjs` has nothing to connect to
+   either.
+2. **012 ends in an irreversible data mutation on the owner's own account**,
+   which is an `AGENTS.md` §3.7 HITL gate regardless of access. It is not a
+   thing an agent applies unilaterally, and the task document says so itself.
+
+- **If wrong:** the whole of M9 is unproved, and so is SC-008 — the phase's
+  headline assertion is *"a fresh account holds no name in either table, read
+  from the database"*, and no database has been read. A syntax error or a
+  dropped grant in the replaced `bootstrap_workspace` would 500 **every**
+  endpoint for **every** new account, which is precisely what M2's defect 1
+  was. The function is a verbatim copy with two expressions changed, which
+  lowers the odds and does not remove them.
+- **Clears when:** `T-M9-06` runs — the migration and 012 applied to staging,
+  a throwaway signup read straight out of `public.users` / `public.workspaces`,
+  `get_advisors` clean, and the cleanup's row counts recorded in `T-M9-01`'s
+  Result. See [`runbooks/README.md`](runbooks/README.md).
+
 ## Accepted limitations
 
 ### G-5 — Untrusted runs are badged, not write-clamped

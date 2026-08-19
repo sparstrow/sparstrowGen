@@ -112,6 +112,7 @@ surface should be a handful of audited functions, not broad table access.
 ```
 0000_special_romulus.sql        36 tables
 0001_flat_justin_hammer.sql     25 FK indexes
+0003_setup_identity_fields.sql  M9 — users.bio, workspaces.context, workspaces.logo_url
 policies/001_rls.sql            RLS + private.* helpers
 policies/002_realtime.sql       realtime publication (11 tables)
 policies/003_bootstrap_fix.sql  break the first-workspace RLS deadlock
@@ -123,7 +124,16 @@ policies/008_redeem_pairing_code.sql   M3 — pairing code → runtime + token
 policies/009_command_spine.sql         M4 — start/cancel a run, claim/ack commands
 policies/010_transcript_broadcast.sql  M5 — who may subscribe to a run's transcript
 policies/011_drop_auto_confirm.sql     drop the auth.users auto-confirm trigger
+policies/012_no_invented_names.sql     M9 — bootstrap stops inventing names + one-time cleanup
 ```
+
+**012 is the only file here that mutates existing rows.** Everything else in
+this directory is idempotent structure — policies, grants, function bodies — and
+can be replayed onto any database with the same result. 012 ends with two
+`UPDATE`s that clear names `bootstrap_workspace` previously invented. Re-running
+it changes nothing further, but it does **not** restore what it cleared, and it
+touches the owner's own account. Read both statements before applying it to an
+environment with real users in it.
 
 **010 is the first policy on a table this project does not own.**
 `realtime.messages` belongs to `supabase_realtime_admin`, and `postgres` is not
