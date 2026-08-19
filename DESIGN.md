@@ -56,13 +56,14 @@ work, because hue and chroma hold while lightness re-derives per mode.
 > either what the code already does or what to do next time you write some;
 > this one describes what to build.
 
-### 2.1 The three colour roles — never mix them
+### 2.1 The four colour roles — never mix them
 
 | Role | What it means | Themeable? |
 |---|---|---|
 | **Brand** | Identity and interaction: links, active nav, primary actions, focus rings | **Yes** — user-selectable |
-| **Status** | Semantic state: online, success, warning, danger, info | **No — never** |
+| **Status** | Semantic state: online, success, warning, approval, danger, info | **No — never** |
 | **Provider** | External identity: Claude, Antigravity, Ollama marks | **No** — those are their brands |
+| **Actor identity** | Telling one agent, machine, or column apart from another at a glance | **No** — see §2.5 |
 
 **Status colour is not themeable, and this is the load-bearing rule of the whole
 system.** If a user's accent choice could change what green means, the
@@ -130,12 +131,36 @@ controls *separation*. They are not interchangeable.
 | Status | Dark | Light |
 |---|---|---|
 | Success / online | `oklch(0.78 0.16 155)` | `oklch(0.52 0.15 155)` |
-| Warning | `oklch(0.80 0.14 75)` | `oklch(0.42 0.12 70)` |
+| Warning / needs attention | `oklch(0.80 0.14 75)` | `oklch(0.42 0.12 70)` |
+| **Approval** — *awaiting a human decision* | hue **310**, values owed | hue **310**, values owed |
 | Danger / destructive | `oklch(0.70 0.19 22)` | `oklch(0.58 0.25 27)` |
 | Info | `oklch(0.78 0.12 255)` | `oklch(0.42 0.13 255)` |
 
-**Named rule — Three Roles.** Every colour on screen is brand, status, or
-provider identity. A colour that is none of those three is a bug.
+**Approval is a fifth status, not a shade of warning.** *Needs attention* (a run
+is blocked or failed) and *awaiting approval* (a run is fine and wants a human
+to say yes) are triaged differently and must be separable across a room — that
+is the whole job of a monitoring surface. Hue 310 keeps it clear of info (255)
+and of the Violet brand preset (285), so it cannot be mistaken for either a
+state it is not or a user's accent choice.
+
+### 2.5 Actor identity — a palette, not a status
+
+Six fixed hues, assigned by hashing a stable name, so one agent is one colour
+everywhere it appears. Used as a tint plus its own foreground, never as a solid
+fill, and never large enough to read as a state.
+
+**Named rule — Identity Is Not Status.** No identity hue sits within **20°** of
+a status hue. The palette shipping today violates this — it uses emerald, amber,
+and rose, which are success, warning, and danger — so an avatar can currently
+read as a state it has nothing to do with. Fixing that is part of the rebuild.
+
+**Identity is never themed.** It is excluded from the brand contract on purpose:
+if a user's accent could recolour it, two agents could collapse to the same hue
+and the palette would stop doing the one thing it exists for. A future theming
+pass must not "unify" these with the accent.
+
+**Named rule — Four Roles.** Every colour on screen is brand, status, provider
+identity, or actor identity. A colour that is none of those four is a bug.
 
 **Named rule — Contrast Floor.** Every brand preset clears **4.5:1** against
 every surface in both modes. A new preset is not shippable until measured.

@@ -319,6 +319,36 @@ and is still there today.
 
 ## Accepted limitations
 
+### G-21 — `DESIGN.md` §2's contrast figures cannot be reproduced from the document
+
+**Raised:** 2026-08-19, answering `OQ-3`.
+
+§2.3 publishes a worst-case contrast per brand preset (Amber 4.50, Violet 4.58,
+Blue 4.55, Teal 4.56, Rose 4.57) and §2's Contrast Floor rule says a new colour
+is not shippable until measured. Re-deriving those numbers from the values the
+document itself gives — the §2.2 ramp and the §2.3 preset table, via
+OKLCH → linear sRGB → WCAG relative luminance — produces **a consistent +0.28
+offset** on all five. Same ordering, same ballpark, reproducibly different.
+
+A constant offset across every preset means one differing assumption, not an
+error in either set: most likely which background the worst case was measured
+against (`--background`, `--card`, and `--accent` give 4.78 / 4.99 / 4.37 for
+Amber), or a gamut-clamping step the document does not state. `theme-board.html`
+holds the real method; the doctrine records the results without it.
+
+- **If wrong:** the rebuild `G-19` calls for cannot verify its own output. Anyone
+  re-deriving the system gets numbers that disagree with the doctrine and has no
+  way to tell which is right, so either the check gets skipped or a correct
+  palette gets "fixed" to match a figure it never had to hit.
+- **Also affected:** the **approval** status (§2.4) and the six **actor identity**
+  hues (§2.5), added 2026-08-19. Both are specified by hue and constraint and
+  **neither has been measured** — deliberately, rather than publishing a figure
+  from an unvalidated model.
+- **Clears when:** §2 states the measurement basis — which background pair, and
+  whether values are gamut-clamped before luminance — so the published figures
+  are reproducible, and the approval and identity values are measured the same
+  way and written in.
+
 ### G-20 — A slop audit cannot reach render-tier rules on a component with no route
 
 **Raised:** 2026-08-19, with the `slop-audit` skill.

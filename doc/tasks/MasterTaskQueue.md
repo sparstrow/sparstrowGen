@@ -371,12 +371,12 @@ UI work, not with anything currently queued.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 14.1 | [T-D1-01 — status colour token sweep](D1/T-D1-01-status-colour-token-sweep.md) | `[C]` | — | queued, 2 items blocked → OQ-3 |
+| 14.1 | [T-D1-01 — status colour token sweep](D1/T-D1-01-status-colour-token-sweep.md) | `[C]` | — | queued, fully unblocked |
 
-~208 of the 228 replacements are mechanical and proceed now. The ~20 that are
-not — actor identity hues and the approval state — are neither brand, status,
-nor neutral, so they need a doctrine decision first: [OQ-3](../OpenQuestions.md).
-Per `AGENTS.md` §8 that blocks only those two checklist items, not the task.
+All 228 replacements are actionable. The ~20 that were parked — actor identity
+hues and the approval state — were neither brand, status, nor provider identity,
+so they needed a doctrine decision. Answered 2026-08-19: `DESIGN.md` gains a
+fourth colour role (§2.5 actor identity) and a fifth status (§2.4 approval).
 
 The 97 arbitrary type sizes the same audit found are **not** in this band. The
 §3 type scale has no CSS counterpart yet, so sweeping them would mean inventing

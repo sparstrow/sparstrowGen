@@ -91,10 +91,17 @@ half goes on text is the one way to get a legible-looking but wrong result.
 - [ ] **blue → info**: `run-transcript.tsx:177`
 - [ ] Every `dark:` variant that existed only to pair a light palette value is
       removed, not carried over
-- [ ] `[~] blocked → OQ-3` — actor identity hues (`actor-avatar.tsx:4-11`,
-      `tasks.tsx:54-57` column accents)
-- [ ] `[~] blocked → OQ-3` — the approval state (`attention-queue.tsx:230,234,242`,
-      `canvas/node-shell.tsx:31,43`)
+- [ ] **Approval → its own status.** `attention-queue.tsx:230,234,242` and
+      `canvas/node-shell.tsx:31,43` move to an `approval` token at hue 310, per
+      `DESIGN.md` §2.4. Add the token pair to `globals.css` in the same shape as
+      the other four status tokens — both modes, plus the `--color-approval`
+      Tailwind mapping — before replacing any call site
+- [ ] **Actor identity → its own role.** `actor-avatar.tsx:4-11` and
+      `tasks.tsx:54-57` become identity tokens per `DESIGN.md` §2.5. The hashing
+      stays exactly as it is; only the six hues become tokens. **Do not reuse the
+      current emerald/amber/rose** — §2.5's Identity Is Not Status rule requires
+      every identity hue to sit ≥20° from a status hue, which those three
+      violate today
 - [ ] Verification below, all four steps
 
 ## Verification
