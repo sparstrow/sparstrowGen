@@ -71,6 +71,27 @@ function rebaseCard(html, cardDir, root) {
   return `<base href="${base}">\n${html}`;
 }
 
+/*
+ * KNOWN LIMITATION — one 404 per card in the console, then the correct 200.
+ *
+ * The preload scanner starts fetching a card's subresources before the parser
+ * has applied the <base> above, so `../styles.css` is first resolved against
+ * index.html's own location and misses, then re-resolved correctly. Cards
+ * render fine; the cost is console noise on a page whose job is to be
+ * inspected, plus one wasted request each.
+ *
+ * Rewriting the hrefs to their post-base form was tried (2026-08-19) and is
+ * WRONG: <base> then re-anchors the already-resolved URL a second time and
+ * every card loses its stylesheet. If you attempt this again, the rewrite and
+ * the <base> tag have to be removed together, and that means also rewriting
+ * relative URLs inside inline CSS `url(...)`, which <base> currently covers
+ * for free.
+ *
+ * Do not "fix" it with server-absolute URLs: `index.html` is required to work
+ * when opened directly over file://, which is the whole reason it is the
+ * primary view.
+ */
+
 /** Recursively collect files matching a suffix, returning repo-relative paths. */
 function walk(dir, suffix, out = []) {
   for (const e of listDir(dir)) {

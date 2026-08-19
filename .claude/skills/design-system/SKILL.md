@@ -199,6 +199,41 @@ to render functions — it cannot be derived, so it is real ongoing cost. See
 [references/app-route.md](references/app-route.md). Do not build it for a
 greenfield project; there is nothing live to show yet.
 
+### The viewer is a frame, and a frame has two obligations
+
+The chrome around the cards is not a place to show taste. It surrounds work
+whose colour, weight, and spacing are the things being judged, so every
+decision it makes is a thumb on that scale. Two rules follow, both enforced in
+`assets/viewer-shell.html` and both worth re-checking after any edit to it:
+
+**1. The chrome is achromatic.** Every `--vw-*` value is a true grey — equal
+red, green, and blue channels. Not "mostly neutral": a `#17171a` reads as
+considered and still casts blue over every swatch beside it. Image editors use
+grey canvases and galleries use grey walls for exactly this reason. The viewer
+shipped a terracotta accent for a while, and it was quietly biasing every
+colour review done in it.
+
+**2. The theme control switches the cards, not the page.** It writes
+`data-theme` and `.dark` onto card documents only. The chrome holds still,
+following the operating system once at load and never moving again.
+
+That second rule is the one that gets built wrong, because applying the theme
+to the whole page is less code and looks more impressive. It costs two things:
+the whole page flashes to buy one specimen change, and — the real damage —
+nothing on screen holds still, so there is no fixed reference to judge either
+theme against. It also guarantees a light card is only ever seen on light
+chrome and a dark card on dark chrome, which are the two comparisons that
+flatter a palette most and test it least.
+
+**Label the control for what it changes** — "Cards: Light", not "Light". A
+control named after an appearance setting will be read as one.
+
+**Run the `ai-design-slop` catalogue over the viewer itself** whenever you
+change the shell. It is UI, it is generated once and then worn identically by
+every system this skill produces, and a tell baked in here is a tell in all of
+them. The placeholder brand mark is the clearest example: a filled accent
+square that every generated system carried, chosen by nobody.
+
 ## Prototypes
 
 Full clickable prototypes (`.dc.html`) live in `designs/<Category>/` alongside a
