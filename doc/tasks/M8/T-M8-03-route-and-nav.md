@@ -144,7 +144,7 @@ destination that renders correctly in one place and wrongly in another, which
 is the failure mode this task's own table exists to prevent.
 
 The two shells are a real duplication and a standing trap for the next
-destination anyone adds. Recorded as [`G-20`](../../KnownGaps.md) rather than
+destination anyone adds. Recorded as [`G-23`](../../KnownGaps.md) rather than
 fixed here — merging them is its own piece of work with its own regression
 surface.
 

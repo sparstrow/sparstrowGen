@@ -66,7 +66,7 @@ Reach things the way a user does — click the sidebar entry, do not type a URL.
       through `GET /api/v1/runtimes` and across a reload. **"and is what the
       Runs page shows for that machine too" was not reached** — the disposable
       verification workspace has no runs, and creating one needs an agent and a
-      provider. See `G-21`
+      provider. See `G-24`
 - [x] **8** — Given a machine, When revoke is pressed, Then the dialog
       explains revoke vs remove before confirming; the same for remove; the
       outcome matches what the dialog said. Revoke dialog opened and cancelled
@@ -165,7 +165,7 @@ assertions M11 will walk; doing them here is a bonus, not a duplicate.
 **Skipped — the owner action has not happened.** Both were walked against
 `localhost:3000` instead, with real pairings and a real daemon, which is what
 this task said to do rather than skip. What staging would add is the deployed
-host and a genuinely separate computer. Recorded as `G-21`.
+host and a genuinely separate computer. Recorded as `G-24`.
 
 ## E — Regression surface
 
@@ -183,8 +183,8 @@ host and a genuinely separate computer. Recorded as `G-21`.
       user is told to go**, so re-read `first-run-setup.md` and
       `what-is-sparstrowgen.md` as well as anything naming Settings
 - [x] Every unreached assertion written into
-      [`../../KnownGaps.md`](../../KnownGaps.md) — `G-20` (the two duplicated
-      app shells) and `G-21` (what only staging and a second computer can
+      [`../../KnownGaps.md`](../../KnownGaps.md) — `G-23` (the two duplicated
+      app shells) and `G-24` (what only staging and a second computer can
       show)
 
 ## Result
@@ -278,6 +278,48 @@ this PR: changing shared test configuration does not belong in a UI change.
 The 1044/4-skipped figure above is from a clean run. Take it as "the suite passes
 when it is not fighting itself", which is the honest reading until that bug is
 closed.
+
+### Re-verified after the theming rebuild — 2026-08-20
+
+The pass above ran against the pre-`G-19` palette. PR #100 merged the same day
+and replaced it, so the visual assertions were re-run on the rebased branch
+rather than assumed to carry:
+
+- **Populated, empty and error states, on Paper and Mono, in both modes.** Mono
+  is `DESIGN.md` §12's stated worst case — no surface tint to hide behind — and
+  had not been checked in the first pass, which predates the surfaces existing.
+- **Status colour re-read after the token inversion.** `active` renders green
+  and the dot is visible on every surface tried; before the fix both were
+  near-white. This is the regression the rebase caught.
+- **The brand accent now reaches the page**, correctly and only where §2.1 says
+  it may: the primary **Pair a machine** button and the snapshot switch. Nothing
+  status-coloured moved.
+- **Keyboard order unchanged** — Pair a machine → Rename → Revoke → Remove.
+- **375px still has no sideways scroll** (`scrollWidth === innerWidth === 375`).
+- **Console clean**, zero errors and zero warnings across all three states.
+- `pnpm typecheck` green; `pnpm test` **1219 passed / 4 skipped** (up from 1044
+  — PR #100 added the theme contrast sweep to `@sparstrow/shared`).
+
+**A slop audit was run against the page** using the `slop-audit` skill, which
+did not exist when the page was written. Zero findings in the target after the
+`nested-cards` fix. Two things it surfaced that are **not** findings, recorded
+so the next audit does not re-litigate them:
+
+- `icon-tile-stack` matches the machine tile and is **earned** — `DESIGN.md` §6
+  mandates the entity tile by name, and the tile carries the status dot, so it
+  is not information-free geometry.
+- `text-[1.75rem] font-[650] leading-[1.15]` and `max-w-[1280px]` are arbitrary
+  literals where tokens belong. They are the **already-parked** position in
+  [`../D1/README.md`](../D1/README.md): §3's type scale has no CSS counterpart
+  yet, and inventing tokens mid-sweep is what `G-18` exists to prevent. The
+  literals match the doctrine's own figures and stay until the scale ships.
+
+**Caveat on who ran it.** `AGENTS.md` §3.13 says `slop-audit` is run by the
+`slop-killer` agent, precisely because an author auditing their own surface is
+not a second opinion. It was run inline in the authoring session instead. The
+report-only boundary was kept and is evidenced — `git status --short` was
+identical before and after — but the independence the rule asks for was not
+achieved. Worth re-running from `slop-killer` before this merges.
 
 ### Cleanup
 

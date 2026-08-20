@@ -33,6 +33,18 @@ so in the task's Result section *and* open an entry here.
 Each entry carries: what is unproved, why it ended up that way, what it would
 cost if the assumption is wrong, and the concrete thing that would close it.
 
+**Never reuse a `G-` number.** "Delete the entry when you clear it" and "take the
+next free number" combine badly: a cleared id looks free, so the next writer
+takes it, and every reference to the old meaning silently starts pointing at the
+new one. `G-20` has already been through this twice — M9 used it, `T-M9-01`
+closed and deleted it, PR #100 then reused it for an unrelated slop-audit gap,
+and `T-M9-02`, `T-M9-03`, `T-M9-05` and
+[`BUG-2026-08-18-shell-invents-name-from-email`](bug/BUG-2026-08-18-shell-invents-name-from-email.md)
+still link to it expecting M9's meaning. **Those five references are stale and
+have not been corrected here** — fixing them belongs to whoever owns those
+files. Allocate above the highest number this file has ever used, not above the
+highest currently present.
+
 **Closed 2026-08-19: `G-19`** — `DESIGN.md` §2 described a theming system the
 app did not have. It has it now. `packages/shared/src/theme/tokens.ts` is the
 single source for every colour; `globals.css` holds a generated block and
@@ -361,7 +373,7 @@ and is still there today.
   `tokens/*.css` and flags any custom property with no counterpart in a declared
   source, and `--transition-base` is either removed or given a real source.
 
-### G-20 — Two app shells keep two copies of the navigation, and only one is the browser's
+### G-23 — Two app shells keep two copies of the navigation, and only one is the browser's
 
 **Raised:** 2026-08-20, by `T-M8-03` — found by rendering the page, not by
 reading the tree.
@@ -387,7 +399,7 @@ read `NAV_META`. The two shells are not.
   primitive (`next/link` vs TanStack `Link`), in live-event transport, and in the
   footer they render. Worth its own task rather than a drive-by.
 
-### G-21 — M8 is proved on localhost, not on staging, and not with a second computer
+### G-24 — M8 is proved on localhost, not on staging, and not with a second computer
 
 **Raised:** 2026-08-20, closing [`T-M8-05`](tasks/M8/T-M8-05-verification.md).
 

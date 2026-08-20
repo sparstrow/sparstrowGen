@@ -233,3 +233,37 @@ question from what to call the machine — and the comment now says so.
 
 `pnpm typecheck` green across 7 packages; `pnpm test` 1044 passed / 4 skipped;
 `pnpm --filter web build` lists `/machines`.
+
+### Rebased onto the parametric theming rebuild — 2026-08-20
+
+Built on `f43d64e` (PR #99). **PR #100 merged hours later**, closing `G-19` and
+rebuilding `globals.css` from `packages/shared/src/theme/tokens.ts`. This branch
+was rebased onto it; three things had to change, and one of them was a visible
+regression rather than a conflict.
+
+**1. The status tokens inverted, and the page went with them.** Before, a status
+token was a pale tint and its `-foreground` was the saturated colour, so
+`bg-success-foreground` painted a green dot. After, `--success` *is* the status
+colour and `--success-foreground` is the near-white neutral that goes on top of
+a solid fill (`DESIGN.md` §2.4). The dot, the `active` / `shutting down` label
+and the paired-confirmation tick all resolved to near-white — invisible on a
+light ground. Fixed to `bg-success` / `text-success` / `bg-warning` /
+`text-warning`, which is the same correction PR #100 had already applied to
+`runtimes-card.tsx` before this branch deleted it. Their fix arrived as a
+rebase conflict inside the moved file, which is how it was noticed.
+
+**2. `nested-cards`, from the catalogue the chain gained in the same PR.** See
+the phase README.
+
+**3. The reduced-motion guard survived, the `--hl-*` block did not.** `globals.css`
+is now generated from `tokens.ts` between markers; the syntax-highlighting
+literals moved into that generated block. The rebase offered to reinstate the
+old hand-written `:root { --hl-* }` copy — taking it would have shadowed the
+generated values with stale ones. Resolved by keeping upstream's file and
+re-adding only the `prefers-reduced-motion` block, which upstream still lacks.
+Verified: `git diff c220c46 -- globals.css` is that block and nothing else.
+
+**What did not need changing:** `Monitor` is still §6's machine icon, `item` is
+still §8's list-row default, and every neutral token kept its name. The one
+thing to carry forward is that this page's earlier note claiming the rebuild
+"renames nothing" was an assumption about unmerged work stated as fact.

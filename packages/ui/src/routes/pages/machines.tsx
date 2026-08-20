@@ -199,7 +199,7 @@ function RuntimeRow({ runtime }: { runtime: Runtime }) {
   }
 
   return (
-    <Item variant="outline" size="sm" className="flex-wrap gap-3">
+    <Item variant="outline" size="default" className="flex-wrap gap-x-3 gap-y-2 px-4 py-3">
       <MachineTile state={state} />
 
       <ItemContent>
@@ -373,7 +373,7 @@ function SnapshotControl({ runtime }: { runtime: Runtime }) {
   };
 
   return (
-    <div className="w-full rounded-md border border-dashed px-3 py-2">
+    <div className="w-full border-t border-border/60 pt-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs font-medium">Snapshot uncommitted work</p>
@@ -405,7 +405,7 @@ function SnapshotControl({ runtime }: { runtime: Runtime }) {
 /** Skeletons shaped like the rows they stand in for, so nothing jumps on arrival. */
 function MachineRowSkeleton() {
   return (
-    <Item variant="outline" size="sm" className="flex-wrap gap-3">
+    <Item variant="outline" size="default" className="flex-wrap gap-x-3 gap-y-2 px-4 py-3">
       <Skeleton className="size-8 shrink-0 rounded-md" />
       <div className="min-w-0 flex-1 space-y-1.5">
         <Skeleton className="h-4 w-40" />
@@ -414,7 +414,9 @@ function MachineRowSkeleton() {
       <Skeleton className="h-5 w-20 rounded-full" />
       <Skeleton className="h-8 w-16" />
       <ItemFooter>
-        <Skeleton className="h-11 w-full rounded-md" />
+        <div className="w-full border-t border-border/60 pt-2">
+          <Skeleton className="h-9 w-full" />
+        </div>
       </ItemFooter>
     </Item>
   );

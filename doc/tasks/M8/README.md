@@ -17,15 +17,29 @@
 > destination, the CLI's four strings name it, and `sparstrow pair --help` was
 > run against the built CLI to confirm rather than read.
 
-> **The hold for the design-system rebuild was lifted, deliberately.** 02, 03
-> and 05 were parked because there was no doctrine to build against.
-> `DESIGN.md` was written on 2026-08-18, which removes that reason: the
-> outstanding rebuild work is [`G-19`](../../KnownGaps.md) — making §2's
-> *theming contract* real in `globals.css` — and this page uses none of it. It
-> is built entirely from semantic tokens that already exist (`bg-background`,
-> `text-muted-foreground`, `--success-foreground`), which the rebuild
-> re-derives rather than renames. Nothing here has to be rewritten when `G-19`
-> closes.
+> **The hold for the design-system rebuild was lifted, and the rebuild then
+> landed underneath it.** 02, 03 and 05 were parked for lack of a doctrine;
+> `DESIGN.md` (2026-08-18) removed that reason, so they were built on
+> 2026-08-20 against the tokens that existed at the time. **PR #100 merged the
+> same day**, closing `G-19` and rebuilding `globals.css` parametrically, and
+> this branch was rebased onto it.
+>
+> The judgement that the page did not depend on the rebuild was **half right,
+> and the wrong half mattered.** Neutrals (`bg-background`,
+> `text-muted-foreground`) were re-derived, not renamed, exactly as assumed.
+> **Status tokens inverted their meaning**: `--success` used to be a pale tint
+> with `--success-foreground` carrying the saturated colour, and now
+> `--success` *is* the status colour while `--success-foreground` is the
+> neutral that sits on top of a solid fill. Every `bg-success-foreground` and
+> `text-success-foreground` in this page — the status dot, the state label, the
+> paired-confirmation tick — therefore became near-white, invisible in light
+> mode. Caught on the rebase and corrected; re-verified in a browser on Paper
+> and Mono, both modes.
+>
+> **The lesson is the general one, not the specific one:** "the rebuild renames
+> nothing" was an assumption about someone else's unmerged work, stated in this
+> file as if it were a fact. It should have been checked against the branch, or
+> written as an assumption.
 
 ## The story this serves
 
@@ -127,7 +141,7 @@ one fails quietly:
 > — and `breadcrumbs.tsx` kept a **second** copy of the section-label map, so
 > the breadcrumb read a lowercase `machines` beside a tab strip reading
 > `Machines`. The breadcrumb duplicate was deleted rather than extended; the two
-> app shells remain, recorded as [`G-20`](../../KnownGaps.md).
+> app shells remain, recorded as [`G-23`](../../KnownGaps.md).
 
 | File | What breaks if skipped |
 |---|---|
@@ -313,3 +327,12 @@ per-machine snapshot control on a second line. Four machines fill the viewport.
 Not changed here: the control is moved behaviour, and the right home for it is
 the machine profile that [`D-18`](../../Deferred.md) parks. Noted so the next
 person does not read the current density as a decision.
+
+**A slop pass belongs in the build, not after it.** The chain gained
+`ai-design-slop` (loaded while writing UI) and `slop-audit` (run afterwards, by
+someone who did not write it) in PR #100, after this page was first written.
+Reading the catalogue found a real tell the page had introduced —
+`nested-cards`: the row is a bordered container and the snapshot control drew a
+second bordered box inside it. The original card avoided it by accident, using
+a divider rather than an outline for the row. Flattened to a hairline-separated
+footer, which is both the catalogue's stated direction and §5 Flat by Default.
