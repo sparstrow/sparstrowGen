@@ -71,6 +71,8 @@ needs your judgment lands in the **attention queue** on the Dashboard and waits 
 
 ## Where to go next
 
-1. [First-run setup](/knowledge/first-run-setup) — connect a provider and check factory health.
-2. [Create your first agent](/knowledge/create-your-first-agent).
-3. [Run it and read the results](/knowledge/run-and-read-results).
+1. **Setup** (linked from the dashboard, or **/setup**) — a fresh account lands here: your
+   profile, your workspace's name, and pairing your first machine, in order.
+2. [First-run setup](/knowledge/first-run-setup) — connect a provider and check factory health.
+3. [Create your first agent](/knowledge/create-your-first-agent).
+4. [Run it and read the results](/knowledge/run-and-read-results).

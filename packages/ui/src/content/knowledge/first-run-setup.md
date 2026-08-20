@@ -6,12 +6,20 @@ order: 2
 updated: 2026-08-20
 ---
 
-Before agents can run, the factory needs at least one working **provider** (the engine
-agents run on). Everything below happens in **Settings**.
+**A new account lands on a Setup guide, not an empty dashboard.** It walks your profile,
+your workspace's name, and pairing your first machine — three steps, in order, with the
+one still open always shown. Nothing in it is a gate: skip ahead, come back later, or do
+a step from somewhere else in the app (pairing from **Machines**, say) and the guide
+reflects it. Find it any time from the dashboard's setup card, or at **/setup**.
+
+This article covers what that guide does not: connecting a **provider** (the engine
+agents run on) and confirming the factory is healthy. Everything below happens in
+**Settings**.
 
 > **Using the app in a browser?** Then you also need a **paired machine** — agents run
-> on your computers, not in the browser. See step 4 below. If you're in the desktop app
-> on the machine that does the work, it's already the machine, and you can skip that.
+> on your computers, not in the browser. The Setup guide's third step covers this, or see
+> step 4 below. If you're in the desktop app on the machine that does the work, it's
+> already the machine, and you can skip that.
 
 ## 1. Pick and connect a provider
 
@@ -50,6 +58,7 @@ Green across the required row means you're ready to create an agent.
 
 ## 4. Pair a machine (browser only)
 
+Also the Setup guide's third step — do it there or here, they read the same list.
 **Machines** — in the sidebar, under Workspace — lists the computers this workspace can
 reach. If it's empty, nothing can run.
 

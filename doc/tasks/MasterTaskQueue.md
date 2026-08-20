@@ -314,11 +314,11 @@ Phase spec: [`M10/README.md`](M10/README.md). **Depends on band 11.**
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 12.1 | [T-M10-01 — `setupSteps()` derivation](M10/T-M10-01-derivation.md) | `[S]` | — | queued |
-| 12.2 | [T-M10-02 — the two setup forms](M10/T-M10-02-setup-forms.md) | `[P]` | 11.6 | queued |
-| 12.3 | [T-M10-03 — `/setup` page and route](M10/T-M10-03-setup-page.md) | `[C]` | 12.1, 12.2 | queued |
-| 12.4 | [T-M10-04 — dashboard card + workspace name in the shell](M10/T-M10-04-dashboard-and-shell.md) | `[C]` | 12.1 | queued |
-| 12.5 | [T-M10-05 — verification](M10/T-M10-05-verification.md) | `[S]` | 12.1–12.4 | queued |
+| 12.1 | [T-M10-01 — `setupSteps()` derivation](M10/T-M10-01-derivation.md) | `[S]` | — | ✅ done (2026-08-20) |
+| 12.2 | [T-M10-02 — the two setup forms](M10/T-M10-02-setup-forms.md) | `[P]` | 11.6 | ✅ done (2026-08-20) |
+| 12.3 | [T-M10-03 — `/setup` page and route](M10/T-M10-03-setup-page.md) | `[C]` | 12.1, 12.2 | ✅ done (2026-08-20) |
+| 12.4 | [T-M10-04 — dashboard card + workspace name in the shell](M10/T-M10-04-dashboard-and-shell.md) | `[C]` | 12.1 | ✅ done (2026-08-20) |
+| 12.5 | [T-M10-05 — verification](M10/T-M10-05-verification.md) | `[S]` | 12.1–12.4 | 🟡 partly done (2026-08-20) — scenario 11 + form-level micro-behaviours open as `G-25`/`G-26` |
 
 12.1 is `[S]` — every other task renders what it decides, and it is the one
 piece of this band provable without a browser. 12.3 and 12.4 are `[C]` against

@@ -4,6 +4,7 @@ import {
   Puzzle,
   Brain,
   CalendarClock,
+  Compass,
   FolderKanban,
   Inbox,
   LayoutDashboard,
@@ -27,6 +28,10 @@ export interface NavMeta {
 /** One source of truth for section label + icon, shared by the sidebar, command palette, and tab strip. */
 export const NAV_META: Record<string, NavMeta> = {
   "": { label: "Dashboard", icon: LayoutDashboard },
+  // Not in `NAV_GROUPS` (no permanent sidebar row — T-M10-03 phase decision):
+  // the dashboard card and this breadcrumb are the only entry points to a page
+  // that stops being useful once setup is complete.
+  setup: { label: "Setup", icon: Compass },
   agents: { label: "Agents", icon: Bot },
   imports: { label: "Imports", icon: PackagePlus },
   teams: { label: "Teams", icon: Users },

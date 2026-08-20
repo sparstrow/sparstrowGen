@@ -1,6 +1,6 @@
 # BUG-2026-08-18-shell-invents-name-from-email
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved 2026-08-20
 **Reported by:** agent — found while writing `T-M9-01`, confirmed while writing `T-M9-03`
 **Reported:** 2026-08-18
 
@@ -29,8 +29,13 @@ copies that agree. It becomes visible the moment either of those is cleared.
 
 ## Reproduction
 
-Not reproducible today: it needs `T-M9-01`'s SQL applied, which is
-[`G-20`](../KnownGaps.md). The sequence that will produce it:
+Not reproducible when this was filed: it needed `T-M9-01`'s SQL applied to
+staging, which at the time was tracked as a `KnownGaps.md` entry numbered
+`G-20` — since closed, and its number since reused for an unrelated finding
+(see that file's "never reuse a `G-` number" note, which names this file as
+one of the stale references left over from that). The SQL has since been
+applied and this bug is fixed regardless; the sequence below is the historical
+record of how it was found to be forthcoming, not a live reproduction:
 
 1. Apply `0003_setup_identity_fields.sql` and
    `policies/012_no_invented_names.sql` to staging.
@@ -94,12 +99,23 @@ who deliberately clears the field.
 
 ## Resolution
 
-Open. **Owned by `T-M10-04`**, which already edits the shell for the workspace
-name and is where the "what does an unnamed account look like" decision belongs
-alongside it. Not fixed in M9: M9 is the API and the database, and a
-one-line-looking change here is really a design question about an
-always-visible surface.
+**Fixed — 2026-08-20, in `T-M10-04`.**
+[`account-snapshot.ts:29-40`](../../apps/web/src/lib/auth/account-snapshot.ts:29)
+no longer falls back to `email.split("@")[0]`. Removing that third link in the
+`||` chain fixed both defects at once, not just the first: with only two
+`(typeof x === "string" && x) || …` links left, an explicit `""` and an absent
+key both fall all the way through to the final `""` — the presence-vs-truthiness
+gap only existed because a *third*, truthy-by-construction fallback used to
+catch what the first two missed.
 
-Fixing it means removing the `email.split("@")[0]` fallback **and** making the
-chain test presence rather than truthiness, so that `""` reads as a deliberate
-empty rather than a missing value.
+The "what does an unnamed account look like" call landed as: `account.name` is
+now genuinely `""` (matching the row, and matching every other identity field
+this app has), and **display** sites decide what to show for that themselves —
+`WorkspaceSwitcher`'s dropdown label falls back to `account.email`, a rendering
+choice, not a re-invention of identity.
+
+Verified: `apps/web/src/lib/auth/account-snapshot.test.ts` (5 tests, including
+the exact reproduction — `full_name: "", name: ""` on an
+`sriharicoder@example.com` account, which now returns `""` rather than
+`"sriharicoder"`). `grep -rn 'email.split' apps/web/src packages/ui/src` has no
+remaining name-from-email derivation.

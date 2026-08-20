@@ -7,7 +7,7 @@
 | **Depends on** | — (types only; it does not call the hooks) |
 | **Blocks** | T-M10-03, T-M10-04 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done (2026-08-20) |
 
 ## The scenarios this satisfies
 
@@ -109,12 +109,12 @@ function returns ids and states; the components own the words.
 
 ## Checklist
 
-- [ ] `packages/ui/src/lib/setup.ts` created with the types and both functions
-- [ ] Doc comment recording *why* it is a pure function — no jsdom in this
+- [x] `packages/ui/src/lib/setup.ts` created with the types and both functions
+- [x] Doc comment recording *why* it is a pure function — no jsdom in this
       package ([`G-13`](../../KnownGaps.md)), so this is the only layer of the
       guide provable without a renderer — **and** why the rule is an emptiness
       check rather than a heuristic (spec decision 6)
-- [ ] `packages/ui/src/lib/setup.test.ts` covering:
+- [x] `packages/ui/src/lib/setup.test.ts` covering:
       all three done → no `current`, `isSetupComplete` true;
       none done → profile `current`, other two `todo`;
       profile done only → workspace `current`;
@@ -130,7 +130,7 @@ function returns ids and states; the components own the words.
       still loading (`undefined`) → not `done`, not `unknown`;
       empty machine array → `todo`;
       a machine that is paired but unreachable → **done**
-- [ ] `pnpm --filter @sparstrow/ui test` and `pnpm typecheck` green
+- [x] `pnpm --filter @sparstrow/ui test` and `pnpm typecheck` green
 
 ## Traps
 
@@ -152,16 +152,27 @@ tested file.
 
 ## Verification
 
-- [ ] `pnpm --filter @sparstrow/ui test` — every case above
-- [ ] `pnpm typecheck` clean
+- [x] `pnpm --filter @sparstrow/ui test` — every case above
+- [x] `pnpm typecheck` clean
 - [ ] Rendering is proved in [T-M10-05](T-M10-05-verification.md). This task
       ticks logic only, and says so.
 
 ## On completion
 
-- [ ] Tick 12.1 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] Update this file's **Status** row and the phase README's task table
+- [x] Tick 12.1 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Update this file's **Status** row and the phase README's task table
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+`packages/ui/src/lib/setup.ts` — three buckets (`done` / `unknown` / `pending`)
+rather than four, since `StepState` has no "loading" value: a step that is
+still loading occupies the same position as one that resolved to an empty
+name (`pending`), and both are eligible to become `current`. Only `unknown`
+(a failed query) is excluded from that eligibility, matching decision 3.
+
+`packages/ui/src/lib/setup.test.ts` — 15 tests, every case in the checklist
+above plus a fixed-order assertion. All pass. `pnpm --filter @sparstrow/ui
+typecheck` and `pnpm typecheck` (all 7 packages) both green.
+
+No hooks imported, no I/O, no copy — confirmed by reading the file back
+rather than assumed from writing it that way.

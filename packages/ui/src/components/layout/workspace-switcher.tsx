@@ -8,6 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useWorkspace } from "@/api/hooks";
 import { useAccount } from "@/lib/account";
 import { cn } from "@/lib/utils";
 
@@ -19,17 +20,36 @@ import { cn } from "@/lib/utils";
  * identity lines and Log out become real, while the local desktop build has no
  * account to sign out of and keeps them disabled with a tooltip explaining
  * why. See `@/lib/account` for why that distinction lives in context.
+ *
+ * **T-M10-04: shows the real workspace name.** Falls back to "Sparstrowgen"
+ * in two cases, not one — no data at all (the desktop build, which has no
+ * cloud workspace, hence `enabled: Boolean(account)`), and `workspace.name`
+ * being `""` (a real workspace nobody has named yet, which after `T-M9-01`
+ * is where every fresh account starts). Missing the second case would render
+ * an empty string and the line would silently vanish.
  */
 export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }) {
   const navigate = useNavigate();
   const account = useAccount();
+  const workspace = useWorkspace(Boolean(account));
+
+  const workspaceName = workspace.data?.name || "Sparstrowgen";
+  // The dropdown label answers "who am I", not "what is this workspace" —
+  // account.name is now "" for a fresh account (T-M9-01), so it falls back to
+  // the email, which is always present, rather than to the pre-M9 email local
+  // part spec decision 6 exists to get rid of.
+  const displayName = account ? account.name || account.email : "Sparstrowgen";
 
   const subtitle = account ? account.email : "Local workspace";
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        title={account ? `Signed in as ${account.email}` : "Sparstrowgen — local workspace"}
+        title={
+          account
+            ? `${workspaceName} — signed in as ${account.email}`
+            : "Sparstrowgen — local workspace"
+        }
         className={cn(
           "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent focus:outline-none",
           collapsed && "justify-center px-0",
@@ -47,7 +67,7 @@ export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }
           <>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold tracking-tight">
-                Sparstrowgen
+                {workspaceName}
               </span>
               <span className="block truncate text-[11px] text-muted-foreground">{subtitle}</span>
             </span>
@@ -57,7 +77,7 @@ export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-60">
         <DropdownMenuLabel className="flex flex-col gap-0.5">
-          <span className="truncate">{account ? account.name : "Sparstrowgen"}</span>
+          <span className="truncate">{displayName}</span>
           <span className="truncate text-xs font-normal text-muted-foreground">
             {account ? account.email : "Single-user agent factory · 127.0.0.1"}
           </span>

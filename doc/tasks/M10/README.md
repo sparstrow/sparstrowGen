@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-16-setup-and-machines.md`](../../specs/2026-08-16-setup-and-machines.md) |
 | **Depends on** | **M9** (the three handlers). Soft-depends on **M8** for the machines step's link target. |
 | **Blocks** | M11 |
-| **Status** | not started |
+| **Status** | 🟡 01–04 done (2026-08-20, verified live in a browser, one real bug found and fixed). 05 (this verification) partly done — scenario 11 and several form-level micro-behaviours remain, tracked as `G-25`/`G-26` |
 | **Open questions** | none |
 
 ## The story this serves
@@ -72,11 +72,11 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
-| [T-M10-01 — `setupSteps()` derivation](T-M10-01-derivation.md) | `[S]` | US2 | — | not started |
-| [T-M10-02 — the two setup forms](T-M10-02-setup-forms.md) | `[P]` | US2 | M9 | not started |
-| [T-M10-03 — `/setup` page and route](T-M10-03-setup-page.md) | `[C]` | US2 | 01, 02 | not started |
-| [T-M10-04 — dashboard card + workspace name in the shell](T-M10-04-dashboard-and-shell.md) | `[C]` | US2 | 01 | not started |
-| [T-M10-05 — verification](T-M10-05-verification.md) | `[S]` | US2 | 01–04 | not started |
+| [T-M10-01 — `setupSteps()` derivation](T-M10-01-derivation.md) | `[S]` | US2 | — | ✅ done (2026-08-20) |
+| [T-M10-02 — the two setup forms](T-M10-02-setup-forms.md) | `[P]` | US2 | M9 | ✅ done (2026-08-20) |
+| [T-M10-03 — `/setup` page and route](T-M10-03-setup-page.md) | `[C]` | US2 | 01, 02 | ✅ done (2026-08-20) |
+| [T-M10-04 — dashboard card + workspace name in the shell](T-M10-04-dashboard-and-shell.md) | `[C]` | US2 | 01 | ✅ done (2026-08-20) |
+| [T-M10-05 — verification](T-M10-05-verification.md) | `[S]` | US2 | 01–04 | 🟡 partly done (2026-08-20) — see its Result |
 
 01 is `[S]` — every other task renders what it decides. 02 is `[P]`, two new
 component files. 03 and 04 are `[C]` against each other: both touch nav/route
@@ -263,3 +263,19 @@ The assertions that decide the phase:
    pre-filled from the email address.
 4. Scenario 11 on a pre-existing account.
 5. All four states on every surface, with the error state forced.
+
+**Forcing the error state (assertion 5) is what found the phase's real
+defect.** `/setup`'s workspace step auto-expands into its own inline form when
+`unknown`, and that form's `useWorkspace()` call is a second observer on the
+same query the page's own loading gate reads. Mounting it on the way out of
+loading could itself trigger a refetch, and if that refetch flipped the shared
+query back into a loading-looking state, the page unmounted the very form that
+caused it — a feedback loop that meant a genuinely failed `/workspace` request
+never actually reached the `unknown` render at all, just an endless skeleton.
+`setupSteps()`'s own tests could not have caught this: they are pure-function
+and correctly assume `undefined`/`null` are delivered once, not toggling.
+Found and fixed live, 2026-08-20:
+[`BUG-2026-08-20-setup-workspace-error-never-settles`](../../bug/BUG-2026-08-20-setup-workspace-error-never-settles.md).
+Fixing the dropdown-label fallback in the same pass also closed a second,
+pre-existing bug M9 had predicted but not fixed:
+[`BUG-2026-08-18-shell-invents-name-from-email`](../../bug/BUG-2026-08-18-shell-invents-name-from-email.md).

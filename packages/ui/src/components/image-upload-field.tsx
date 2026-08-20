@@ -27,7 +27,7 @@ export interface ImageUploadFieldProps {
   /** Storage prefix this image belongs under, e.g. `avatars/<user_id>`. */
   prefix: string;
   /** Persists the new URL (or `null`, when removing). Rethrow to signal failure. */
-  onSave: (url: string | null) => Promise<void>;
+  onSave: (url: string | null) => Promise<unknown>;
   /** What this image is, for alt text and error copy — "avatar" or "logo". */
   label: string;
   /**

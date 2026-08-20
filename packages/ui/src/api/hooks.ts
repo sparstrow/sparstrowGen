@@ -2196,10 +2196,17 @@ export interface Profile {
  * legitimately empty name (`todo`), and anything that makes failure look like
  * data collapses the two.
  */
-export function useWorkspace(): UseQueryResult<Workspace, ApiError> {
+/**
+ * `enabled` defaults to `true` so every existing call site is unaffected;
+ * `WorkspaceSwitcher` (T-M10-04) passes `false` on the local desktop build,
+ * where `/workspace` was never registered — without it, the sidebar would
+ * fire a doomed request on every render just to discard its result.
+ */
+export function useWorkspace(enabled = true): UseQueryResult<Workspace, ApiError> {
   return useQuery({
     queryKey: ["workspace"],
     queryFn: () => api<Workspace>("/workspace"),
+    enabled,
   });
 }
 
