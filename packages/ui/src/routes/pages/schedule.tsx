@@ -53,7 +53,7 @@ const PRESETS: { label: string; expr: string }[] = [
 
 const cnDot = (s: "ok" | "warn" | "off") =>
   "size-2 rounded-full " +
-  (s === "ok" ? "bg-emerald-500" : s === "warn" ? "bg-amber-500" : "bg-muted-foreground/40");
+  (s === "ok" ? "bg-success" : s === "warn" ? "bg-warning" : "bg-muted-foreground/40");
 
 /** Best-effort plain-English rendering of common cron shapes; falls back to the raw expression. */
 function describeCron(expr: string): string {

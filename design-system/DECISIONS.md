@@ -11,6 +11,245 @@ guidance: `.claude/skills/design-system/references/decision-log.md`.
 
 ---
 
+## DD-013 — Actor identity is a neutral chip with a coloured mark, not a coloured chip
+
+**Date:** 2026-08-19 · **Asked by:** found while solving §2.5's missing values · **Surface:** every avatar, board column, and actor label
+
+**Ask:** n/a — §2.5 specified a form and named no values. Deriving the values
+showed the form does not clear the contrast floor.
+
+**Why:** §2.5 said actor identity is "used as a tint plus its own foreground".
+Measured, that form reaches **3.91** in dark mode — an identity-coloured mark on
+a 15% tint of its own hue. The tint lifts the ground by more than the mark
+gains, so the gap closes rather than opening. It is not a bad hue: the same
+measurement over the darkest surface flatters it by nearly a point, which is the
+mistake that made this look fine the first time.
+
+Three forms, measured:
+
+| Form | Worst | What carries identity |
+|---|---|---|
+| Identity tint + identity mark | 3.91 ✗ | both, illegibly |
+| Identity tint + neutral mark | 6.78 ✓ | the fill alone |
+| **Neutral fill + identity mark + identity ring** | **7.16 dark / 4.72 light ✓** | **both** |
+
+The second passes and is the obvious-looking fix, but it spends the whole
+identity signal on a 15% tint of one hue — at 22px, one of those is very hard to
+tell from another, which is the single thing this palette exists to do. So the
+chip takes its fill from the surface's own raised step and spends the colour on
+the mark plus a ring at 40%.
+
+**The hues.** Six, from the 155 of 360 that sit ≥20° from every status hue, chosen
+for the largest possible minimum separation from *each other*: **50, 135, 185,
+235, 285, 335 — 50° apart.** A brand-distance constraint was measured and
+rejected: adding ±20° around the five brand presets collapses the legal space to
+four narrow bands and forces the six identities to within 15° of each other. That
+trades the property identity exists for against a collision that only appears for
+one accent choice at a time.
+
+**Generalises to:** Yes — **when a doctrine specifies a form and a floor, derive
+the values before trusting either.** The form here was written first and read as
+obviously fine; the floor was written first and read as obviously satisfiable.
+Only measurement showed they were mutually exclusive. Also: contrast against a
+tint of a colour's own hue is worst over the *lightest* ground in the mode, not
+the darkest — the intuition runs the wrong way.
+
+**Status:** `DESIGN.md` §2.5 carries the six values and the form, verified by
+`design-brief/contrast-check.mjs` — 2026-08-19
+
+---
+
+## DD-012 — A status token holds the colour, not a pale tint of it
+
+**Date:** 2026-08-19 · **Asked by:** found while adding the approval status · **Surface:** every badge, dot, and tinted callout
+
+**Ask:** n/a — a model inconsistency that would have made the `T-D1-01` sweep
+produce invisible tints.
+
+**Why:** The codebase carried two conventions at once. `--destructive` holds the
+**saturated colour** (`oklch(0.577 0.245 27)`), used as `text-destructive`,
+`bg-destructive/10`, `border-destructive/40` — 87 sites of the first alone.
+`--success`, `--warning`, and `--info` hold a **pale tint**
+(`oklch(0.94 0.06 80)`) with `-foreground` carrying the actual colour, used as
+`bg-warning` plus `text-warning-foreground`.
+
+`T-D1-01`'s mapping table sends `bg-amber-500/5` to `bg-warning/5` and
+`border-amber-500/30` to `border-warning/30`. Under the tint convention those
+are 5% and 30% of a near-white — **invisible in light mode.** The sweep would
+have typechecked, rendered nothing, and looked like a token problem rather than a
+model problem.
+
+So all five status tokens now follow `--destructive`: the token is the colour,
+`-foreground` is the neutral that goes on top of a solid fill. This also matches
+`DESIGN.md` §2.4, whose table always gave one value per mode, and shadcn's own
+convention. Six call sites change; `Badge`'s three variants keep working
+unchanged because `bg-X` + `text-X-foreground` means the same thing in both
+models.
+
+**Also in this decision:** the neutral on a solid fill **flips with the mode** —
+`oklch(0.16 0 0)` in dark, `oklch(0.985 0 0)` in light. The dark-mode status
+values are light (L 0.70–0.80) and the light-mode ones are dark (L 0.42–0.55), so
+a single foreground fails one mode outright. `--destructive-foreground` is
+`oklch(0.985 0 0)` in both today, which is why a dark solid destructive badge
+reads at 2.03:1.
+
+**And two of §2.4's published values were under the floor** — success light at
+4.14, danger light at 3.85, both against `--accent`. Recalibrated to
+`oklch(0.498 0.15 155)` and `oklch(0.548 0.226 27)`. Same defect as `DD-010`,
+found by the same sweep.
+
+**Generalises to:** Yes — **before a mechanical find-and-replace across 228
+sites, check that the replacement means what the original meant.** The mapping
+table was right about intent (amber *is* warning) and wrong about mechanism, and
+nothing in a typecheck or a diff review would have caught it.
+
+**Status:** `DESIGN.md` §2.4; the token rewrite lands with `T-D1-01` — 2026-08-19
+
+---
+
+## DD-011 — Code syntax is a fifth colour role, and is never themed
+
+**Date:** 2026-08-19 · **Asked by:** owner, answering `OQ-4` · **Surface:** code blocks in chat and run transcripts
+
+**Ask:** `globals.css` carries twelve `--hl-*` values that are none of the four
+colour roles §2.5 allows. By the letter of the rule they are twelve bugs.
+Decide what they are before the parametric rebuild reaches them.
+
+**Answer: option A.** Syntax becomes a fifth role, fixed like status and
+provider identity. The twelve values stay literal and are excluded from the
+rebuild. `DESIGN.md` §2.1 grows a row and §2.6 says why.
+
+**Why:** The Four Roles rule existed to stop arbitrary colour appearing with no
+meaning attached. Syntax highlighting is the opposite of arbitrary — it is a
+well-defined semantic mapping that simply is not one of the four. Naming it as a
+fifth costs one table row and makes the doctrine describe the app instead of
+quietly excusing it.
+
+The two rejected options were both measured rather than argued, on a rendered
+board the owner reviewed. **Tinting the palette with the surface** (option B)
+costs about a third of the perceptual separation between the six colours —
+smallest pairwise OKLab ΔE falls from 0.050 to roughly 0.033. **Mapping them
+onto the existing roles** (option C) costs about half, to 0.026, and recolours
+keywords when the user changes accent. Neither crosses into indistinguishable,
+which is worth saying plainly because the first draft of the argument claimed it
+did; the real objection is directional, not a threshold breach.
+
+**Generalises to:** Yes, twice. First: a rule that would classify working,
+deliberate code as a bug is a rule with a missing row, not a codebase with a
+defect — check which before "fixing" twelve values. Second, and more useful: the
+failure mode decided this. Nobody reports that code became harder to read, they
+just read it less carefully, and on a monitoring surface a silent regression is
+the worst kind.
+
+**Also worth keeping:** option C is the trap. It looks like the most obedient
+reading of the rule and does the most damage, because a green string literal is
+not *online* and an amber number is not *needs attention* — it teaches the eye
+that status colour is decorative, degrading every status signal in the app.
+
+**Status:** `DESIGN.md` §2.1 and §2.6 — 2026-08-19
+
+---
+
+## DD-010 — A brand colour is measured against the whole ramp, not two thirds of it
+
+**Date:** 2026-08-19 · **Asked by:** found while planning the `G-19` rebuild · **Surface:** every themed surface
+
+**Ask:** n/a — a defect in the published contrast figures, surfaced by trying to
+reproduce them.
+
+**Why:** §2.3's first table was verified across "40 combinations" — 5 presets ×
+4 surfaces × 2 modes, one background each. The ramp has **three** steps. Adding
+`--accent`, the raised step, turns 40 into 120, and **all 20 light-mode
+`--accent` combinations failed**, between 4.12 and 4.46.
+
+That is not an obscure surface. `--accent` is the hover fill on every row, the
+active tab, and the selected item — exactly where a brand-coloured label sits.
+Every preset's light-mode lightness drops by 0.017–0.022 to clear it, which the
+owner accepted after reviewing both versions side by side. The visible
+difference is very small; the correctness difference is a rule that was being
+enforced against two thirds of the cases it names.
+
+**Generalises to:** Yes — **a floor is only as good as the sweep behind it, and
+the sweep is the part nobody re-reads.** The rule said "every surface" and the
+measurement said "every surface's first two steps", and the two sentences look
+identical at a glance. Any named rule with numbers attached should say what was
+measured, not only what passed. §2.3 now carries the measurement basis in prose
+for the same reason.
+
+**Also worth keeping:** this was found by trying to re-derive published figures
+from the document alone, which is exactly what `G-21` was raised to force. The
+gap entry did its job — the finding is the return on having written it down
+instead of moving on.
+
+**Status:** `DESIGN.md` §2.3, verified by `design-brief/contrast-check.mjs`
+(120 combinations, exits non-zero on any failure or any figure that no longer
+matches the table) — 2026-08-19
+
+---
+
+## DD-009 — Slop is catalogued separately from the doctrine, and audited by an agent that cannot fix
+
+**Date:** 2026-08-19 · **Asked by:** owner · **Surface:** whole app, and every future one
+
+**Ask:** Delete `design-system-conformance`, and build a named AI-slop catalogue
+plus a generic auditing agent in its place — with coding and database slop
+families to follow.
+
+**Why:** The conformance skill forbade "drifting toward generic AI-slop
+patterns" and named none, which is not a rule anyone can apply or fail. It was
+also written before `design-system/` existed; once the token mirror and the
+guideline cards were real, its remaining job was a prose hop between two
+documents that already carried the answer. The `ui-ux-designer` agent went with
+it for the same reason: a design spec in prose, sitting between `DESIGN.md` and
+the code, is a third place for the design to be stated.
+
+**The decision inside the decision** — and the one worth keeping: every
+candidate rule sorts by *would this still be slop in someone else's app?*
+Absolute tells (gradient text, a kicker above a heading, emoji standing in for
+an icon) go in the catalogue and are portable. Everything project-specific is
+drift, stays in `DESIGN.md` and `design-system/`, and the catalogue only points
+at it. **`ai-design-slop` therefore contains no token name, no value, and no
+palette of ours by construction**, which is the direct lesson of DD-001 below:
+the last time design rules were copied into a skill, the copy went on enforcing
+retired rules for every agent that loaded it, and re-pointing the doctrine could
+not reach it.
+
+**Rejected:** adopting `impeccable` or Anthropic's `frontend-design` skill
+wholesale. Both are Apache-2.0 and both name real tells, but each carries its own
+design doctrine — `frontend-design` generates an aesthetic per brief, which would
+re-decide the look on every screen. We took the rules and the structure and left
+the doctrine. Attribution: `.claude/skills/ai-design-slop/NOTICE.md`.
+
+**Also rejected:** letting the audit fix what it finds. An author auditing their
+own surface is not a second opinion. `frontend-builder` loads the catalogue so
+the tells never go in; `slop-killer` checks afterwards and does not fix.
+
+**Corrected same day:** report-only was designed to be *structural* — the agent
+declares no `Write` and no `Edit`. The harness appends them anyway, so the tool
+list is not self-enforcing and the claim was wrong as written. The boundary is
+now a behavioural rule stated in three places, and the evidence is
+`git status --short` unchanged across a run. Worth knowing before designing any
+future agent around a restricted tool list.
+
+**Generalises to:** AGENTS.md §3.13 — design lives in `DESIGN.md` +
+`design-system/`, repo mechanics live in `frontend-wiring`, and slop is a
+portable family with its own catalogue. A new family (`ai-coding-slop`,
+`ai-database-slop`) drops in by supplying a catalogue with the same schema and
+tiers; `slop-audit` and `slop-killer` need no change.
+
+**Supersedes:** `.claude/skills/design-system-conformance/` and
+`.claude/agents/design/ui-ux-designer.md`, both deleted 2026-08-19 and
+recoverable from git history. `frontend-component-build` was renamed
+`frontend-wiring` in the same change — its name implied it owned component
+design when it actually holds paths, adapters, contracts, and verification.
+
+**Status:** **closed** — plan at `doc/plans/2026-08-19-slop-skills.md`.
+
+**Known limit:** the audit's static pass cannot reach render-tier rules on a
+component with no route to paint it. Tracked in `doc/KnownGaps.md`.
+
+---
+
 ## DD-007 — Amber stays at hue 70; the warmer variant was rejected
 
 **Date:** 2026-08-18 · **Asked by:** owner · **Surface:** whole app

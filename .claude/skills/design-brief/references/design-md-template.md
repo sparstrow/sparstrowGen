@@ -109,19 +109,42 @@ detail panel, a confirm, a status indicator) so every screen doesn't re-decide.
 **Rule:** <e.g. never hand-roll a primitive the library ships; if none fits, say
 so rather than inventing quietly.>
 
-## 9. The four states
+## 9. Expected surfaces & elements
+
+What this app is made of, agreed with the owner — §8 says which components
+exist to reach for, this says which ones this product actually has. Three
+lists, because "not building this" carries as much instruction as "building
+this".
+
+| Element | Status | Where | Note |
+|---|---|---|---|
+| <e.g. side panel inside the profiles tab> | Expected | Profiles | <what it holds> |
+| <e.g. user-picked brand accent> | Expected | App-wide | <see §2> |
+| <e.g. command palette> | Not building | — | <why it was rejected> |
+| <e.g. notifications centre> | Not yet | — | See §13 |
+
+**Where two mechanisms could be confused, say what each answers in one line.**
+That line is the reason the row exists — a tab strip answering *which record is
+open?* and an in-record sub-nav answering *which section of this record?* read
+as one idea in conversation and become two different builds.
+
+**Rule:** <e.g. an agent that needs a surface not on this list adds it here
+with the owner rather than inventing one on the screen it happened to be
+building.>
+
+## 10. The four states
 
 Every surface ships Populated, Empty, Loading, and Error. State what each must
 contain — particularly empty-state copy, which is the screen a new user sees
 first and the one most often skipped.
 
-## 10. Named rules
+## 11. Named rules
 
 Every checkable rule from above, collected in one list so a conformance pass can
 run down it. If a rule can't be phrased so that two people would agree whether a
 screen passes, it isn't ready to be here.
 
-## 11. Do / Don't
+## 12. Do / Don't
 
 Concrete, specific, and drawn from this project's actual failure modes rather
 than generic advice.
@@ -132,7 +155,7 @@ than generic advice.
 **Don't:**
 -
 
-## 12. Deliberately undecided
+## 13. Deliberately undecided
 
 Decisions consciously not made yet. An agent hitting one of these asks rather
 than inventing — an invented answer here becomes the de-facto standard by the

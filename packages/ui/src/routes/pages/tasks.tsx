@@ -51,24 +51,24 @@ import { formatDate, shortId } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const COLUMNS: { status: TaskStatus; label: string; accent: string }[] = [
-  { status: "inbox", label: "Inbox", accent: "bg-slate-400" },
-  { status: "todo", label: "To do", accent: "bg-sky-500" },
-  { status: "in_progress", label: "In progress", accent: "bg-amber-500" },
-  { status: "review", label: "Review", accent: "bg-violet-500" },
-  { status: "done", label: "Done", accent: "bg-emerald-500" },
-  { status: "failed", label: "Failed", accent: "bg-red-500" },
+  { status: "inbox", label: "Inbox", accent: "bg-muted-foreground" },
+  { status: "todo", label: "To do", accent: "bg-info" },
+  { status: "in_progress", label: "In progress", accent: "bg-warning" },
+  { status: "review", label: "Review", accent: "bg-approval" },
+  { status: "done", label: "Done", accent: "bg-success" },
+  { status: "failed", label: "Failed", accent: "bg-destructive" },
 ];
 
 const PRIORITY_LABELS = ["Low", "Normal", "High", "Urgent"] as const;
 
 /** Child status → tree/mini-meter color (P3 delegation affordances). */
 const CHILD_STATUS_STYLE: Record<string, string> = {
-  done: "text-emerald-600 dark:text-emerald-400",
-  failed: "text-red-600 dark:text-red-400",
-  in_progress: "text-amber-600 dark:text-amber-400",
-  waiting_children: "text-amber-600 dark:text-amber-400",
-  pending_approval: "text-sky-600 dark:text-sky-400",
-  blocked: "text-amber-600 dark:text-amber-400",
+  done: "text-success",
+  failed: "text-destructive",
+  in_progress: "text-warning",
+  waiting_children: "text-warning",
+  pending_approval: "text-info",
+  blocked: "text-warning",
 };
 
 /** "3 · 1✓ 1▶ 1⚠" — a parent card's children at a glance (design contract). */
@@ -80,9 +80,9 @@ function ChildrenMeter({ children }: { children: Task[] }) {
     <Badge variant="outline" className="gap-1 text-[10px] tabular-nums" title={`${children.length} subtasks: ${done} done, ${active} active, ${failed} failed`}>
       <CornerDownRight className="size-2.5" />
       {children.length}
-      {done > 0 && <span className="text-emerald-600 dark:text-emerald-400">{done}✓</span>}
-      {active > 0 && <span className="text-amber-600 dark:text-amber-400">{active}▶</span>}
-      {failed > 0 && <span className="text-red-600 dark:text-red-400">{failed}⚠</span>}
+      {done > 0 && <span className="text-success">{done}✓</span>}
+      {active > 0 && <span className="text-warning">{active}▶</span>}
+      {failed > 0 && <span className="text-destructive">{failed}⚠</span>}
     </Badge>
   );
 }
@@ -131,8 +131,8 @@ function priorityBadge(priority: number) {
   const variants = [
     "text-muted-foreground",
     "",
-    "border-amber-500/50 text-amber-600 dark:text-amber-400",
-    "border-red-500/50 text-red-600 dark:text-red-400",
+    "border-warning/50 text-warning",
+    "border-destructive/50 text-destructive",
   ];
   return (
     <Badge variant="outline" className={cn("text-[10px]", variants[priority] ?? "")}>
@@ -296,9 +296,9 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
       {needsAttention.length > 0 && (
         <Link
           to="/"
-          className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm transition-colors hover:bg-amber-500/10"
+          className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-sm transition-colors hover:bg-warning/10"
         >
-          <span className="rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-white">
+          <span className="rounded-full bg-warning px-1.5 text-xs font-semibold text-white">
             {needsAttention.length}
           </span>
           <span className="font-medium">
@@ -357,7 +357,7 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
                       >
                         <p className="line-clamp-2 text-xs font-medium">{task.title}</p>
                         {task.status === "waiting_children" && kids.length > 0 && (
-                          <p className="mt-0.5 text-[10px] text-amber-600 dark:text-amber-400">
+                          <p className="mt-0.5 text-[10px] text-warning">
                             waiting on {kids.filter((k) => !["done", "failed"].includes(k.status)).length} subtask(s)
                           </p>
                         )}
@@ -597,7 +597,7 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
                         instead of a Select the owner could desync. */}
                     {!COLUMNS.some((c) => c.status === selected.status) ? (
                       <div className="flex h-9 items-center rounded-md border px-3">
-                        <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400">
+                        <Badge variant="outline" className="border-warning/40 text-warning">
                           {selected.status.replace(/_/g, " ")}
                         </Badge>
                       </div>

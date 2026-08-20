@@ -206,9 +206,9 @@ export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?
                       className={
                         "size-2 shrink-0 rounded-full " +
                         (p.enabled && p.steps.length > 0
-                          ? "bg-emerald-500"
+                          ? "bg-success"
                           : p.enabled
-                            ? "bg-amber-500"
+                            ? "bg-warning"
                             : "bg-muted-foreground/40")
                       }
                       title={

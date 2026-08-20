@@ -106,8 +106,8 @@ export function BlockedProjectActions({ task }: { task: Task }) {
   const failure = relink.error ?? clone.error ?? unbind.error ?? updateTask.error ?? null;
 
   return (
-    <div className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-2">
-      <p className="flex items-start gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+    <div className="mt-2 rounded-md border border-warning/40 bg-warning/5 p-2">
+      <p className="flex items-start gap-1.5 text-xs font-medium text-warning">
         <AlertTriangle className="mt-px size-3.5 shrink-0" />
         <span>
           {target

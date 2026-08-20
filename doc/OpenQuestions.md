@@ -13,7 +13,18 @@ When one is answered, record the answer in the plan or task that consumes it and
 
 ---
 
-**Nothing is currently open.** M4 task planning is unblocked.
+> **Nothing is currently open.**
+>
+> `OQ-4` (is code syntax highlighting a fifth colour role) was answered by the
+> owner on 2026-08-19 — **option A**. Recorded in `DESIGN.md` §2.1 and the new
+> §2.6, and as `DD-011` in `design-system/DECISIONS.md`. It unblocks the
+> `--hl-*` sub-item of phase D2.2 in
+> [`plans/2026-08-19-parametric-theming.md`](plans/2026-08-19-parametric-theming.md):
+> the twelve values stay literal and are excluded from the parametric rebuild.
+>
+> OQ-3 was answered by the owner on 2026-08-19 — the answer is recorded in
+> `DESIGN.md` §2.1, §2.4, and §2.5, and unblocks the two parked items in
+> `tasks/D1/T-D1-01-status-colour-token-sweep.md`.
 
 ---
 

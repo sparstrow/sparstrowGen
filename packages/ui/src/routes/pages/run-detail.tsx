@@ -64,7 +64,7 @@ export function RunDetailPage() {
         <RunStatusBadge status={r.status} />
         {r.untrusted && (
           <span
-            className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-500"
+            className="rounded bg-warning/15 px-1.5 py-0.5 text-[11px] font-medium text-warning"
             title="This run consumed untrusted/external content (sandbox, delegated task, or web/foreign-MCP tools). Signal notes extracted from it are quarantined."
           >
             untrusted content

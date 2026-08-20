@@ -39,7 +39,7 @@ function TeamHierarchy({ members }: { members: { agentId: string; agentName: str
         <ActorAvatar name={leader!.agentName} size="md" />
         <div className="min-w-0">
           <p className="flex items-center gap-1 text-xs font-medium">
-            <Crown className="size-3 text-amber-500" />
+            <Crown className="size-3 text-warning" />
             <span className="truncate">{leader!.agentName}</span>
           </p>
           <p className="text-[10px] text-muted-foreground">Team Leader</p>
@@ -179,7 +179,7 @@ export function TeamsPage() {
                   {(team.isEphemeral || team.archivedAt) && (
                     <div className="flex gap-1.5">
                       {team.isEphemeral && (
-                        <Badge variant="outline" className="text-[10px] border-sky-500/40 text-sky-600 dark:text-sky-400">
+                        <Badge variant="outline" className="text-[10px] border-info/40 text-info">
                           ephemeral
                         </Badge>
                       )}

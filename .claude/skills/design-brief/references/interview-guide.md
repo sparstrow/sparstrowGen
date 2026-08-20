@@ -10,7 +10,7 @@ answers, which is the failure mode this whole skill is built to avoid.
 
 ## Universal opening
 
-Regardless of situation, establish three things before design questions start:
+Regardless of situation, establish four things before design questions start:
 
 1. **Who uses this, and in what context?** A tool someone lives in for eight
    hours a day has near-opposite requirements to one they touch twice a month.
@@ -21,6 +21,11 @@ Regardless of situation, establish three things before design questions start:
 3. **What should it never feel like?** Negative constraints are easier to state
    than positive ones and are unusually informative — "not like enterprise
    software", "not a toy" each rule out a great deal quickly.
+4. **What do you already picture the app containing?** Owners usually arrive
+   with two or three concrete expectations — a side panel here, a theme the
+   user picks, tabs across the top — and will never volunteer them in answer to
+   a question about colour. Take whatever comes now, work the full inventory at
+   SKILL.md Step 2, and ask again at the close.
 
 Then go to references (SKILL.md Step 1) before anything abstract.
 
@@ -32,8 +37,13 @@ Nothing exists, so nothing constrains you — which is harder, not easier.
   to, references are carrying nearly all the signal.
 - Run the **character** board early, before any detail questions. The owner's
   reaction reshapes everything after it.
-- Ask about the component library (SKILL.md Step 3) before the component
+- Ask about the component library (SKILL.md Step 4) before the component
   vocabulary section — the library determines what the vocabulary can name.
+- Work the element inventory properly here — this is the mode where the app has
+  no shape at all yet, so the forcing questions in
+  [element-inventory.md](element-inventory.md) are doing most of the work. Get a
+  **not building** list too; on a greenfield app it is the only thing standing
+  between the doctrine and a plausible everything-app.
 - Expect more "deliberately undecided" entries than in the other modes, and
   don't treat that as failure. Some decisions genuinely can't be made before
   real screens exist; parking them honestly beats inventing them.
@@ -53,6 +63,10 @@ The app looks roughly right. The job is capturing it so it stops drifting.
 - Boards are still worth building for anything genuinely inconsistent — show
   the two or three treatments already in the app and let the owner pick which
   becomes the rule.
+- **Inventory the elements the app already has** and read the list back. Same
+  question as for rules: was each one chosen, or did it just appear? An element
+  the owner is surprised to hear about belongs on the *not building* list, not
+  in the doctrine — and this is the cheapest moment it will ever be removed.
 
 ## Improve
 
@@ -71,6 +85,10 @@ the one where the interview matters most.
   nobody asked for.
 - Build boards that vary **only the weak dimension**, holding the rest constant.
   That is what makes the improvement legible as an improvement.
+- **Check whether the complaint is a missing element rather than a weak rule.**
+  "It feels basic" is as often an absent surface — no inspector, no status
+  indicator, nothing to switch — as it is thin typography. Run the inventory
+  before concluding the fix is a token.
 
 ## Redesign
 
@@ -83,6 +101,9 @@ The look is wrong; start over.
   articulate what was wrong tends to reproduce it in a new palette.
 - Run two or three genuinely divergent character boards. This is the one
   situation where wide exploration is clearly worth the rounds.
+- **Ask which elements survive.** A redesign is usually about character, not
+  inventory — the sidebar and the detail page are probably staying. Naming what
+  survives keeps the session from turning into a rebuild nobody costed.
 - Record the retired doctrine's provenance in the new doc's References row.
   Knowing what the previous direction was, and why it was dropped, stops it
   quietly returning a year later.
@@ -100,6 +121,23 @@ either a question you skipped or an entry for "deliberately undecided":
 - What animates, for how long, and what must never animate?
 - Which component library, and what does an agent reach for by default for a
   list row, a detail panel, a confirm, and a status indicator?
+- Which surfaces and elements are **expected**, which are **explicitly not**,
+  and which are **not yet decided** — and for any two that could be confused,
+  what question does each one answer?
+
+## The closing sweep — ask for elements one last time
+
+Before the sign-off, with the draft in front of them:
+
+> Reading this back — is there anything you pictured this app having that we
+> haven't named?
+
+This catches more than the opening question does, and reliably. An owner
+recognises a missing expectation when they see the shape of the doc; they
+rarely recall it cold at the start, and almost never in answer to a question
+about colour. Whatever comes back goes into the expected-surfaces section, or
+into "deliberately undecided" if it can't be settled now — never into an
+agent's imagination three weeks later.
 
 Then read the draft back — or better, show a board built entirely from the
 finished doctrine — and get an explicit yes before handing off to

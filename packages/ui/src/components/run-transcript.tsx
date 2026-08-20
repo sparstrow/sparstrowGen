@@ -129,7 +129,7 @@ function EventRow({ event }: { event: RunEvent }) {
     }
     case "stderr":
       return (
-        <p className="font-mono text-[11px] leading-tight text-red-600/80 dark:text-red-400/70">
+        <p className="font-mono text-[11px] leading-tight text-destructive/80">
           {String(event.payload)}
         </p>
       );
@@ -174,7 +174,7 @@ export function RunTranscript({ events, live }: { events: RunEvent[]; live: bool
       ))}
       {live && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="size-2 animate-pulse rounded-full bg-blue-500" />
+          <span className="size-2 animate-pulse rounded-full bg-info" />
           running…
         </div>
       )}

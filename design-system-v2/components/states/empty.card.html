@@ -1,0 +1,57 @@
+<!doctype html>
+<html class="dark"><head><meta charset="utf-8">
+<title>Empty</title>
+<meta name="description" content="The screen a new user sees first — a good empty state next to the bare one it replaces">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body{margin:0;padding:20px;background:var(--card);color:var(--foreground);
+       font-family:var(--font-sans);font-size:14px}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .frame{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+  .cap{padding:7px 12px;font-size:10.5px;font-weight:600;letter-spacing:.05em;
+       text-transform:uppercase;border-bottom:1px solid var(--border)}
+  .bad .cap{color:var(--destructive)}
+  .good .cap{color:var(--success-foreground);background:var(--success)}
+  .body{padding:32px 20px;text-align:center;background:var(--background);min-height:150px;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+  .media{width:40px;height:40px;border-radius:var(--radius-md);background:var(--muted);
+         display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .title{font-size:15px;font-weight:600}
+  .desc{font-size:13px;line-height:1.6;color:var(--muted-foreground);max-width:34ch}
+  .cta{display:inline-flex;align-items:center;height:32px;padding:0 14px;border-radius:var(--radius-md);
+       background:var(--primary);color:var(--primary-foreground);font-size:12px;font-weight:500}
+  .flat{font-size:13px;color:var(--muted-foreground)}
+  .note{margin-top:16px;font-size:12px;color:var(--muted-foreground);line-height:1.6}
+  .note strong{color:var(--foreground)}
+  code{font-size:11px;background:var(--muted);padding:1px 4px;border-radius:4px}
+</style></head><body>
+
+<div class="pair">
+  <div class="frame bad"><div class="cap">Not this</div>
+    <div class="body"><div class="flat">No items.</div></div></div>
+  <div class="frame good"><div class="cap">This</div>
+    <div class="body">
+      <div class="media">&#9633;</div>
+      <div class="title">No machines paired yet</div>
+      <div class="desc">Pair a machine to give your agents somewhere to run. It takes about a minute.</div>
+      <div class="cta">Pair a machine</div>
+    </div></div>
+</div>
+
+<div class="note">
+  <strong>The empty state is the first screen a new user sees</strong>, and the most often
+  skipped of the four. The left frame is what a surface ships with when nobody wrote one:
+  technically correct, and it tells a new user nothing about what this page is for or how to
+  make it do something.
+</div>
+
+<div class="note">
+  The parts are <code>Empty</code> &rsaquo; <code>EmptyHeader</code> &rsaquo;
+  <code>EmptyMedia</code> &middot; <code>EmptyTitle</code> &middot;
+  <code>EmptyDescription</code> &rsaquo; <code>EmptyContent</code>. The rule that matters is
+  in the last slot: <strong>the copy explains what to do next, and the action that does it
+  is right there.</strong> A description ending in advice the user cannot act on from this
+  screen is half a state.
+</div>
+
+</body></html>

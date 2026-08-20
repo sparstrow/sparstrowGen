@@ -14,6 +14,10 @@ const badgeVariants = cva(
         success: "border-transparent bg-success text-success-foreground",
         info: "border-transparent bg-info text-info-foreground",
         warning: "border-transparent bg-warning text-warning-foreground",
+        // A run that is fine and wants a human to say yes — triaged
+        // differently from `warning`, which means blocked or failed.
+        // DESIGN.md §2.4.
+        approval: "border-transparent bg-approval text-approval-foreground",
       },
     },
     defaultVariants: { variant: "default" },

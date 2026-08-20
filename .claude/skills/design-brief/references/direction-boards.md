@@ -56,6 +56,14 @@ Run the **character** board first. It usually settles half the later questions
 implicitly, and the owner's reaction to it tells you which of the remaining
 boards are even worth building.
 
+**Build the shared fragment out of the elements the owner said they expect**
+(SKILL.md Step 2). A board rendering a generic card teaches you about cards; a
+board rendering *their* list row with *their* side panel open teaches you about
+their app — and it doubles as the first honest look at whether the inventory
+they described actually holds together. When an expected element is unusual or
+easily confused with another, give it a board of its own rather than a
+paragraph.
+
 ## Building one
 
 Write a single `.html` file with no external dependencies — inline CSS, inline

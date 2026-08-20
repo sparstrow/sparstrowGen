@@ -17,7 +17,7 @@ export function PrRow({ pr }: { pr: PullRequestSummary }) {
       className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 transition-colors hover:bg-accent"
     >
       <div className="flex min-w-0 items-center gap-2">
-        <GitPullRequest className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+        <GitPullRequest className="size-4 shrink-0 text-success" />
         <span className="text-xs text-muted-foreground">#{pr.number}</span>
         <span className="min-w-0 truncate text-sm font-medium">{pr.title}</span>
         {pr.draft && <Badge variant="secondary">draft</Badge>}

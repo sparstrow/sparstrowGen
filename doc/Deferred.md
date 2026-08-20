@@ -451,13 +451,32 @@ sees before their preference loads (a flash of the default is a real problem on
 a dark-first app); and whether density joins brand and surface as a third axis
 (§13 lists that as undecided).
 
-**Depends on `G-19`** — there is nothing to pick between until `globals.css` is
-parametric. Building the picker first would produce a control that changes
-nothing.
+**The dependency cleared on 2026-08-19.** `G-19` closed: `globals.css` is
+parametric, and the four surfaces and five brand presets ship as root classes.
+Adding `surface-slate` or `theme-teal` to `<html>` re-themes the whole app
+today, so a picker would now be wiring a control to something real rather than
+to nothing.
 
-- **Unpark when:** `G-19` closes and the design-system rebuild lands, at which
-  point this needs a `product-requirements` pass before build. Recorded as
-  `DD-006` in `design-system/DECISIONS.md`.
+- **Still parked, and this is the point:** what is missing is not mechanism, it
+  is the product decision. Per-device or synced to the account? Instant or on
+  save? What a viewer sees before their preference loads — a flash of the
+  default is a real problem on a dark-first app. And whether density joins brand
+  and surface as a third axis (§13 lists that as undecided).
+- **Unpark when:** the owner wants it. It needs a `product-requirements` pass
+  before build, and that pass is now the only thing between here and shipping
+  it. Recorded as `DD-006` in `design-system/DECISIONS.md`.
+
+> **Sequenced 2026-08-19.** The owner chose to hold all further colour/theme
+> design work — this picker included — until **machine pairing is working
+> end-to-end**, rather than running it in parallel. Machine pairing itself
+> (`sparstrow pair`) has shipped since M3 (2026-08-10); what is still open is
+> walking the full setup-and-machines spec against staging (`M11`, band 13),
+> which is blocked on an owner action — pointing a machine's
+> `SPARSTROW_CLOUD_URL` / `SPARSTROW_APP_URL` at `staging.sparstrow.com` — not
+> on any undone engineering. See
+> [`runbooks/deploy-web-app.md`](runbooks/deploy-web-app.md).
+> **Unpark trigger is now:** M11 (band 13) reported done, in addition to the
+> owner wanting the picker.
 
 ---
 
