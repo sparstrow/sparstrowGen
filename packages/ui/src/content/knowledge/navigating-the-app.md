@@ -3,7 +3,7 @@ title: Getting around
 section: Getting started
 description: Workspace tabs, the command palette, pinned items, and the grouped sidebar.
 order: 5
-updated: 2026-07-18
+updated: 2026-08-20
 ---
 
 The app is built for keeping several things open at once. Here's how to move around quickly.
@@ -13,7 +13,7 @@ The app is built for keeping several things open at once. Here's how to move aro
 The left sidebar groups every page under three headers:
 
 - **Personal** — Chat, Inbox, Task Board, Memory.
-- **Workspace** — Agents, Teams, Projects, Runs, Pipelines, Schedule, Imports.
+- **Workspace** — Agents, Teams, Projects, Runs, Machines, Pipelines, Schedule, Imports.
 - **Configure** — Skills, Terminals, Knowledge Center, Settings.
 
 The Dashboard sits above the groups. The **workspace switcher** at the very top holds your

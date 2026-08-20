@@ -15,6 +15,7 @@ import {
 } from "@sparstrow/ui/components/ui/table";
 import { RunStatusBadge } from "@sparstrow/ui/components/run-status-badge";
 import { AttentionQueue } from "@sparstrow/ui/components/attention-queue";
+import { SetupCard } from "@sparstrow/ui/components/setup-card";
 import { PrQueueCard } from "@sparstrow/ui/components/pr-queue";
 import { useAgents, useHealth, useProjects, useRuns } from "@sparstrow/ui/api/hooks";
 import { formatCost, formatDate, formatDuration } from "@sparstrow/ui/lib/format";
@@ -33,6 +34,7 @@ export default function Home() {
 
   return (
     <div className="space-y-5">
+      <SetupCard />
       <AttentionQueue />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

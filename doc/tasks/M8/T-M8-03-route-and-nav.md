@@ -7,7 +7,7 @@
 | **Depends on** | T-M8-02 |
 | **Blocks** | — |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done (2026-08-20) |
 
 ## The scenarios this satisfies
 
@@ -25,6 +25,10 @@ labelled in the breadcrumb and tab strip, and findable from Ctrl-K.
 ## Decisions already made
 
 ### Five files, and skipping any one fails quietly
+
+> **It was seven.** Two more were found by opening the page rather than reading
+> the tree — see *What decomposition missed*, below. The table as written was
+> still correct; it was incomplete.
 
 | File | What it does | Failure if skipped |
 |---|---|---|
@@ -65,17 +69,20 @@ export default function Page() {
 
 ## Checklist
 
-- [ ] `apps/web/src/app/machines/page.tsx` created, matching the shape above
-- [ ] `/machines` registered in `packages/ui/src/router.tsx` next to the other
+- [x] `apps/web/src/app/machines/page.tsx` created, matching the shape above
+- [x] `/machines` registered in `packages/ui/src/router.tsx` next to the other
       page routes
-- [ ] `NAV_GROUPS` in `app-shell.tsx`: `{ to: "/machines", label: "Machines",
-      icon: MonitorSmartphone }` in the **Workspace** group, after `/runs`
-- [ ] `NAV_META.machines = { label: "Machines", icon: MonitorSmartphone }` in
+- [x] `NAV_GROUPS` in `app-shell.tsx`: `{ to: "/machines", label: "Machines",
+      icon: Monitor }` in the **Workspace** group, after `/runs` — **and the
+      same entry in `apps/web/src/components/layout/app-shell.tsx`**, which
+      keeps its own copy
+- [x] `NAV_META.machines = { label: "Machines", icon: Monitor }` in
       `nav-meta.ts`
-- [ ] `command-palette.tsx` destination row added, same label and icon
-- [ ] `pnpm typecheck` green; `pnpm --filter web build` lists `/machines` in
+- [x] `command-palette.tsx` destination row added, same label and icon
+- [x] `breadcrumbs.tsx` reads `NAV_META` instead of its own duplicate label map
+- [x] `pnpm typecheck` green; `pnpm --filter web build` lists `/machines` in
       the route manifest
-- [ ] Knowledge Center: any article that tells a user to find machines under
+- [x] Knowledge Center: any article that tells a user to find machines under
       Settings is corrected (AGENTS.md §3.2 — and re-read the four
       global-claim pages, since this changes where a user is sent)
 
@@ -97,16 +104,53 @@ it.
 
 ## Verification
 
-- [ ] `pnpm typecheck` clean
-- [ ] `pnpm --filter web build` output includes `/machines`
-- [ ] The sidebar entry, breadcrumb label, tab-strip label and Ctrl-K entry are
-      confirmed visually in [T-M8-05](T-M8-05-verification.md) — not here
+- [x] `pnpm typecheck` clean
+- [x] `pnpm --filter web build` output includes `/machines`
+- [x] The sidebar entry, breadcrumb label, tab-strip label and Ctrl-K entry are
+      confirmed visually in [T-M8-05](T-M8-05-verification.md) — not here.
+      **They were**, in a real browser, in both hosts.
 
 ## On completion
 
-- [ ] Tick 10.3 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] Update this file's **Status** row and the phase README's task table
+- [x] Tick 10.3 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Update this file's **Status** row and the phase README's task table
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+**Landed 2026-08-20**, in the same commit as `T-M8-02`.
+
+`/machines` is registered and reachable in one click from at least three
+different routes (checked from `/`, `/runs` and `/settings`; clicking the
+sidebar entry from Settings landed on `/machines`). Ctrl-K finds it. The
+breadcrumb, the tab strip and the sidebar all say **Machines** with the same
+`Monitor` glyph. The vite/desktop build resolves `/machines` too — it renders
+the page and, with no core behind the dev proxy, its error state, which is a
+second independent sighting of that branch.
+
+### What decomposition missed: two more registration points
+
+The task's five-file table was right and incomplete. Both extras fail exactly
+the way the task warned about — quietly:
+
+| File | What it does | How it failed |
+|---|---|---|
+| `apps/web/src/components/layout/app-shell.tsx` | the hosted app's **own** `NAV_GROUPS` | **No sidebar entry in the browser at all.** `packages/ui`'s shell is the vite/desktop one; the Next app duplicates it. Scenario 1 failed in the host that matters most, and nothing in the build or the type checker noticed. |
+| `packages/ui/src/components/layout/breadcrumbs.tsx` | a **second** copy of the section-label map | The breadcrumb read a lowercase `machines` directly beside a tab strip reading `Machines`. |
+
+The breadcrumb one is fixed by **deleting the duplicate**, not by adding a row
+to it: `breadcrumbs.tsx` now reads `NAV_META`, the file that calls itself "one
+source of truth for section label + icon". A second copy of a map is a
+destination that renders correctly in one place and wrongly in another, which
+is the failure mode this task's own table exists to prevent.
+
+The two shells are a real duplication and a standing trap for the next
+destination anyone adds. Recorded as [`G-23`](../../KnownGaps.md) rather than
+fixed here — merging them is its own piece of work with its own regression
+surface.
+
+### Icon: `Monitor`, not `MonitorSmartphone`
+
+This task specified `MonitorSmartphone` on 2026-08-16. `DESIGN.md` was written
+on 2026-08-18 and its §6 semantic map assigns `Monitor` to a machine, with an
+explicit rule that the doctrine wins any disagreement. `Monitor` it is, in all
+four nav surfaces.

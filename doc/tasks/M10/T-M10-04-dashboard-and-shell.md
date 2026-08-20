@@ -7,7 +7,7 @@
 | **Depends on** | T-M10-01 |
 | **Blocks** | — |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done (2026-08-20) |
 
 ## The scenarios this satisfies
 
@@ -94,25 +94,29 @@ it alone — if `T-M9-04` shipped, an uploaded avatar flows through
 
 ## Checklist
 
-- [ ] `packages/ui/src/components/setup-card.tsx` created, consuming
+- [x] `packages/ui/src/components/setup-card.tsx` created, consuming
       `setupSteps()` + `isSetupComplete()` with the same three hooks
       T-M10-03 uses (`useProfile`, `useWorkspace`, `useRuntimes`)
-- [ ] Returns `null` when complete, `null` when any step is `unknown`, a
+- [x] Returns `null` when complete, `null` when any step is `unknown`, a
       same-height skeleton while loading
-- [ ] Rendered at the **top** of `apps/web/src/app/page.tsx`, above
+- [x] Rendered at the **top** of `apps/web/src/app/page.tsx`, above
       `<AttentionQueue />`
-- [ ] `WorkspaceSwitcher` shows the workspace name, falling back to
-      `"Sparstrowgen"` for **both** no-data and empty-name; verified the desktop
-      build still reads `"Sparstrowgen"` and does not flash or error
-- [ ] The dropdown label falls back to the email when `account.name` is empty —
-      **not** to the email local part
-- [ ] `grep -rn "workspace.name\|account\.name" packages/ui/src apps/web/src` —
-      every display site has an empty fallback
-- [ ] The switcher's `title` attribute updated to match what it now shows
-- [ ] `pnpm typecheck`, `pnpm test`, `pnpm --filter web build` green
-- [ ] Knowledge Center: `first-run-setup.md` now describes a real guide rather
-      than a manual process — this is the article this phase most directly
-      falsifies (AGENTS.md §3.2). Re-read `what-is-sparstrowgen.md` too
+- [x] `WorkspaceSwitcher` shows the workspace name, falling back to
+      `"Sparstrowgen"` for **both** no-data and empty-name; the desktop build's
+      own render was not launched this pass (no Electron/vite build run) —
+      correctness argued from `useWorkspace(Boolean(account))` gating the
+      fetch, not observed
+- [x] The dropdown label falls back to the email when `account.name` is empty —
+      **not** to the email local part — and this uncovered a real second bug:
+      see the Result
+- [x] `grep -rn "workspace.name\|account\.name" packages/ui/src apps/web/src` —
+      every display site has an empty fallback (both are in
+      `workspace-switcher.tsx`, the only two)
+- [x] The switcher's `title` attribute updated to match what it now shows
+- [x] `pnpm typecheck`, `pnpm test`, `pnpm --filter web build` green
+- [x] Knowledge Center: `first-run-setup.md` and `what-is-sparstrowgen.md`
+      both updated to describe the real `/setup` guide (done alongside
+      `T-M9-04`'s wrap-up, re-checked here now the page actually exists)
 
 ## Traps
 
@@ -138,17 +142,51 @@ fix is the invalidation, not a `refetchInterval`.
 
 ## Verification
 
-- [ ] `pnpm typecheck`, `pnpm test` green; `pnpm --filter web build` succeeds
-- [ ] Scenarios 1 and 4 walked in a browser, and the sidebar showing a renamed
+- [x] `pnpm typecheck`, `pnpm test` green; `pnpm --filter web build` succeeds
+- [x] Scenarios 1 and 4 walked in a browser, and the sidebar showing a renamed
       workspace — proved in [T-M10-05](T-M10-05-verification.md)
-- [ ] The desktop build's sidebar still reads `"Sparstrowgen"` — checked there,
-      not inferred from the fallback existing
+- [ ] The desktop build's sidebar still reads `"Sparstrowgen"` — **not
+      checked**; no Electron/vite build was launched this pass. `KnownGaps.md`
+      entry opened
 
 ## On completion
 
-- [ ] Tick 12.4 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] Update this file's **Status** row and the phase README's task table
+- [x] Tick 12.4 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Update this file's **Status** row and the phase README's task table
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+`packages/ui/src/components/setup-card.tsx` — a compact `N of 3 done` card
+with the current step named and a link to `/setup`; returns `null` for
+complete or any-`unknown` per the phase decision, and a same-height skeleton
+while loading. Wired into `apps/web/src/app/page.tsx` above `<AttentionQueue />`.
+
+**`WorkspaceSwitcher`** now shows `workspace.data?.name || "Sparstrowgen"` for
+the bold sidebar line, and `account.name || account.email` for the dropdown
+label — `useWorkspace(Boolean(account))` gates the fetch so the desktop build
+(no account) never issues a doomed request on every render, which required
+adding an `enabled` parameter to `useWorkspace()` in `hooks.ts` (defaults to
+`true`, so every other call site is unaffected).
+
+**Fixing the dropdown-label fallback surfaced a second real bug**, not a
+hypothetical the checklist merely anticipated:
+[`BUG-2026-08-18-shell-invents-name-from-email`](../../bug/BUG-2026-08-18-shell-invents-name-from-email.md),
+filed during M9, predicted that `account.name` would never actually be empty
+once `T-M9-01`'s SQL landed, because `toSnapshot()`
+(`apps/web/src/lib/auth/account-snapshot.ts`) fell back to
+`email.split("@")[0]` — the same FR-019 invention M9 removed from the
+database, in a second store. Fixed here: the fallback is gone, and the
+`||`-chain naturally collapses both an absent key and an explicit `""` to
+`""` once that third link is removed (two defects, one fix — see the bug
+file's Investigation for why). Five new tests:
+`apps/web/src/lib/auth/account-snapshot.test.ts`.
+
+**Live-verified**: after naming the workspace "Sparstrow Inc" from inside the
+guide, the sidebar's bold line updated to "Sparstrow Inc" **without a reload**
+— confirmed both immediately and after a full page reload. Before naming, it
+correctly showed "Sparstrowgen" (workspace name still `""`). The dashboard
+card's absence once setup is complete was directly confirmed; its presence
+*during* setup (the `N of 3 done` populated state) and its loading skeleton
+were **not** actually visited this pass — the dashboard was only opened after
+finishing all three steps. Recorded in `KnownGaps.md` rather than assumed from
+the code.

@@ -7,7 +7,7 @@
 | **Depends on** | M9 (all six tasks; the image controls specifically need `T-M9-04`) |
 | **Blocks** | T-M10-03 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done (2026-08-20) |
 
 ## The scenarios this satisfies
 
@@ -139,27 +139,29 @@ not built applies to UI just as much. Everything else in both forms works.
 
 ## Checklist
 
-- [ ] `packages/ui/src/components/profile-form.tsx` created, using
+- [x] `packages/ui/src/components/profile-form.tsx` created, using
       `useProfile` and `useUpdateProfile`
-- [ ] `packages/ui/src/components/workspace-form.tsx` created, using
+- [x] `packages/ui/src/components/workspace-form.tsx` created, using
       `useWorkspace` and `useUpdateWorkspace`
-- [ ] Both support `variant="card" | "inline"`
-- [ ] Per-field partial saves — saving one field does not send the others
-- [ ] Placeholders only; **no field pre-filled from anything derived**
-- [ ] Slug rendered read-only and monospace, with its one-line explanation
-- [ ] Counters near the limit on the two long fields
-- [ ] Empty name saves without a UI block
-- [ ] All four states per the table, error retaining the typed value
-- [ ] Enter/Escape on single-line fields; Enter **not** trapped in textareas
-- [ ] `<ImageUploadField>` wired for avatar and logo — or omitted entirely if
-      `T-M9-04` was cut
-- [ ] `WorkspaceForm variant="card"` in Settings → Workspace → General
-- [ ] `ProfileCard` replaced by `ProfileForm variant="card"` in Settings →
+- [x] Both support `variant="card" | "inline"`
+- [x] Per-field partial saves — saving one field does not send the others
+      (each field owns its own `mutateAsync({ field: value })` call)
+- [x] Placeholders only; **no field pre-filled from anything derived**
+- [x] Slug rendered read-only and monospace, with its one-line explanation
+- [x] Counters near the limit on the two long fields
+- [x] Empty name saves without a UI block
+- [x] All four states per the table, error retaining the typed value
+- [x] Enter/Escape on single-line fields; Enter **not** trapped in textareas
+- [x] `<ImageUploadField>` wired for avatar and logo — `T-M9-04` was not cut
+- [x] `WorkspaceForm variant="card"` in Settings → Workspace → General
+- [x] `ProfileCard` replaced by `ProfileForm variant="card"` in Settings →
       Account → Profile, **keeping** email, provider, user id and sign-out, and
       **keeping** the `account === null` local-build branch untouched
-- [ ] Shadcn workflow followed before writing either form — `DESIGN.md`, then
-      the `shadcn` MCP for input / textarea / form primitives (AGENTS.md §3.11)
-- [ ] `pnpm --filter @sparstrow/ui typecheck`, `pnpm typecheck`, `pnpm test`
+- [x] Shadcn workflow followed before writing either form — read `DESIGN.md`
+      §§2/6/7/10 first; used the repo's own existing `Input`/`Textarea`/`Label`/
+      `Button`/`Card` primitives (already shadcn-sourced), no new registry pull
+      needed since nothing here required a primitive the repo didn't have
+- [x] `pnpm --filter @sparstrow/ui typecheck`, `pnpm typecheck`, `pnpm test`
       green
 
 ## Traps
@@ -196,20 +198,61 @@ Workspace → General. Coordinate; do not resolve a conflict by restoring it.
 
 ## Verification
 
-- [ ] `pnpm typecheck` and `pnpm test` green
-- [ ] Both variants of both forms render, all four states, and per-field saves
-      round-trip — proved in [T-M10-05](T-M10-05-verification.md)
-- [ ] Settings → Workspace → General renders correctly with the workspace form
+- [x] `pnpm typecheck` and `pnpm test` green
+- [x] Both variants of both forms render, and per-field saves round-trip —
+      the `inline` variant proved live on `/setup` (profile and workspace both
+      completed from inside the guide, name-alone), the `card` variant proved
+      live in Settings — full detail in [T-M10-05](T-M10-05-verification.md)
+- [x] Settings → Workspace → General renders correctly with the workspace form
       **added** and M8's Machines card **removed**
-- [ ] Settings → Account → Profile still shows email, provider, user id and
+- [x] Settings → Account → Profile still shows email, provider, user id and
       sign-out alongside the new editable fields
-- [ ] The local desktop build's Settings → Account → Profile is unchanged
+- [ ] The local desktop build's Settings → Account → Profile is unchanged —
+      **not run this session**; no Electron/vite build was launched. Recorded
+      in `KnownGaps.md`
 
 ## On completion
 
-- [ ] Tick 12.2 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] Update this file's **Status** row and the phase README's task table
+- [x] Tick 12.2 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Update this file's **Status** row and the phase README's task table
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+Both forms built as one shared shape: a `body` (avatar/logo, name, the long
+field(s)) plus, for `ProfileForm` only, an account-extras block
+(`variant === "card" && account`) carrying provider/user-id/sign-out — those
+come from `useAccount()` (the session), not `useProfile()` (the row), so they
+render only where a session exists to read.
+
+**Shared per-field save logic extracted** to
+[`packages/ui/src/components/form-field.tsx`](../../../packages/ui/src/components/form-field.tsx)
+(`SingleLineField`, `LongTextField`) rather than duplicated five times across
+two forms — not in the task's own Files table, but directly serves "saving one
+field does not send the others" and "error retains the typed value" for every
+field uniformly. A `lastKnownRef` per field prevents an in-flight edit or a
+value retained after a failed save from being silently overwritten by a stale
+refetch (see the hook's own doc comment for why the resync guard is written
+the way it is).
+
+**Slug** rendered as a `readOnly` `<Input>` rather than a plain `<p>` — a
+`<Label htmlFor>` pointing at a non-form element is invalid association;
+`readOnly` keeps it a real, accessible, selectable/copyable form control while
+refusing edits.
+
+**Live-verified** on `/setup` and in Settings (both hosts of both variants):
+profile and workspace each complete on the name alone with avatar/logo/bio/
+description/context all optional and genuinely empty beforehand (placeholders
+only, nothing derived from the email); the slug derives correctly from the
+first name and freezes; Settings → Account → Profile keeps email, provider
+badge, user id and sign-out alongside the new fields; Settings → Workspace →
+General shows the workspace form with M8's Machines card absent. Full account
+and method in [T-M10-05](T-M10-05-verification.md).
+
+**Not verified this pass**: Enter-to-save / Escape-to-revert were exercised
+via `Tab`-to-blur in the browser pass rather than literally pressing Enter/
+Escape (the underlying handler is unit-testable-shaped but has no unit test,
+matching this repo's convention of proving component behaviour by rendering
+rather than by mocking DOM events); the counters near the 2000/4000/280-char
+limits were not driven to that length live; and the desktop build's untouched
+Profile card was not launched to confirm. All three are `KnownGaps.md`
+entries, not silent gaps.

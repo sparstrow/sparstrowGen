@@ -10,25 +10,8 @@ import {
 } from "@/components/ui/breadcrumb";
 import { useProjects, useTeams } from "@/api/hooks";
 import { getArticle } from "@/lib/knowledge";
+import { NAV_META } from "@/lib/nav-meta";
 import { shortId } from "@/lib/format";
-
-const SECTION_LABELS: Record<string, string> = {
-  agents: "Agents",
-  imports: "Imports",
-  teams: "Teams",
-  projects: "Projects",
-  tasks: "Task Board",
-  chat: "Chat",
-  messages: "Inbox",
-  runs: "Runs",
-  pipelines: "Pipelines",
-  schedule: "Schedule",
-  memory: "Memory",
-  skills: "Skills",
-  knowledge: "Knowledge Center",
-  terminals: "Terminals",
-  settings: "Settings",
-};
 
 interface Crumb {
   label: string;
@@ -51,7 +34,11 @@ export function Breadcrumbs() {
 
     const [section, ...rest] = segs;
     const out: Crumb[] = [];
-    const sectionLabel = SECTION_LABELS[section!] ?? section!;
+    // `NAV_META` is the one source of truth for a section's label. This file
+    // used to keep a second copy of the same map, which silently drifted the
+    // moment a destination was added — M8's `/machines` shipped a breadcrumb
+    // reading a lowercase "machines" for exactly that reason.
+    const sectionLabel = NAV_META[section!]?.label ?? section!;
     out.push({ label: sectionLabel, to: rest.length > 0 ? `/${section}` : undefined });
 
     if (rest.length === 0) return out;

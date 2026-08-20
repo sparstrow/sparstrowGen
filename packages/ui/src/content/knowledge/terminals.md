@@ -2,7 +2,7 @@
 title: Terminals
 section: Surfaces
 description: Real embedded shells on your machine, inside the app.
-order: 12
+order: 13
 updated: 2026-07-13
 ---
 

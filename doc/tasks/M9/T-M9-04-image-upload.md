@@ -7,7 +7,7 @@
 | **Depends on** | T-M9-01 |
 | **Blocks** | the image half of `T-M10-02` |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | 🟡 **SQL done, applied and hardened on staging**; the component is held — see the Result |
+| **Status** | ✅ **done (2026-08-20)** — component built, wired into both hosts, and its storage-layer security proved live against staging with two real accounts. See the Result |
 
 > **This is the one cuttable task in the plan** (plan decision 7a). Neither
 > image gates a setup step (FR-020), and without this both forms still work:
@@ -113,15 +113,15 @@ and the guard twice.
       with the write policies above, using
       `(select private.current_workspace_ids())` for the workspace prefix
 - [x] Applied to staging; `get_advisors` clean afterwards — confirmed, no new findings
-- [~] `packages/ui/src/components/image-upload-field.tsx` created — takes a
-      current URL, a prefix and an `onUploaded(url)` callback
-- [~] All four states: current image / empty (initials + "click to upload") /
-      uploading (progress or spinner, control disabled) / error (the real
-      reason, image unchanged)
-- [~] Client-side size and type check **before** the request, with a message
-      naming the actual limit
-- [~] Random filename; extension from the validated MIME type
-- [~] Previous file deleted after the new URL is saved
+- [x] `packages/ui/src/components/image-upload-field.tsx` created — takes a
+      current URL, a prefix and an `onSave(url)` callback
+- [x] All four states: current image / empty (caller-supplied fallback +
+      "Upload …") / uploading (spinner overlay, controls disabled) / error
+      (the real reason, image unchanged)
+- [x] Client-side size and type check **before** the request, with a message
+      naming the actual limit (`checkImageFile()`, `@sparstrow/shared`)
+- [x] Random filename; extension from the validated MIME type
+- [x] Previous file deleted after the new URL is saved
 - [x] The URL handed to `PATCH /me` / `PATCH /workspace` passes their
       storage-origin check (see those tasks' traps)
 - [x] `pnpm typecheck` and `pnpm test` green
@@ -150,24 +150,32 @@ image.** Order matters: upload → write the row → delete the old file.
 
 ## Verification
 
-- [ ] Upload an avatar; it renders in the sidebar and in Settings
-- [ ] Upload a workspace logo; it renders wherever the workspace badge shows
-- [ ] Replace both; the old objects are gone from the bucket
-- [ ] A 3 MB file is refused **client-side** with a readable message
-- [ ] A `.pdf` renamed to `.png` is refused — the MIME check, not the extension
-- [~] **As a second account**, attempt to write to the first account's
+- [~] Upload an avatar; it renders in the sidebar and in Settings — the
+      storage half is proved (below); the rendered half needs `T-M10-02`,
+      which has not been built yet
+- [~] Upload a workspace logo; it renders wherever the workspace badge shows —
+      same caveat
+- [~] Replace both; the old objects are gone from the bucket — the component's
+      upload→save→delete-old order is implemented and code-reviewed, but
+      exercising it live needs a consuming form (`T-M10-02`); a *direct*
+      replace-in-place was proved instead (below)
+- [x] A 3 MB file is refused **client-side** with a readable message —
+      `checkImageFile()` unit-tested in `packages/shared/src/image-upload.test.ts`
+- [x] A `.pdf` renamed to `.png` is refused — proved live against staging: the
+      bucket's MIME allowlist reads the declared `Content-Type`, not the key
+- [x] **As a second account**, attempt to write to the first account's
       `avatars/<their-id>/` prefix directly through the storage API. Denied.
-      Proved in [T-M9-06](T-M9-06-verification.md)
-- [x] `get_advisors` reports no new findings
+      Proved live against staging with two real accounts (below) — the
+      policies are symmetric per-caller, so A-cannot-write-B's proves the
+      general case
+- [x] `get_advisors` reports no new findings — unchanged since 2026-08-18; no
+      new migration landed with this task
 
 ## On completion
 
-- [ ] Tick 11.4 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] Update this file's **Status** row and the phase README's task table
-- [ ] If this task was **cut**, say so in the phase README and open a
-      [`../../Deferred.md`](../../Deferred.md) entry with what unparks it —
-      a cut feature that leaves no record is indistinguishable from one nobody
-      thought of
+- [x] Tick 11.4 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Update this file's **Status** row and the phase README's task table
+- [x] Not cut — completed. No `Deferred.md` entry needed.
 
 ## Result
 
@@ -252,3 +260,101 @@ satisfy the check. `T-M10-02` omits the two controls, exactly as the cut path
 described — the difference is that the SQL is in the tree, so resuming is
 writing one component rather than re-deciding a bucket, seven policies and a
 security boundary.
+
+### Resumed and completed — 2026-08-20
+
+The hold's reason 1 — "the design system is being rebuilt in a parallel
+worktree" — was PR #100 (D2 parametric theming), merged 2026-08-18 and rebased
+into `T-M8-02`'s branch the same week. `DESIGN.md` §2's theming contract is now
+real in `globals.css`, so building against it no longer risks a rewrite on
+contact. Reason 2 — "cannot be exercised until the bucket exists" — no longer
+applies either: the bucket has been live on staging since 2026-08-18.
+
+#### `<ImageUploadField>`, and how it gets a Supabase client
+
+[`packages/ui/src/components/image-upload-field.tsx`](../../../packages/ui/src/components/image-upload-field.tsx),
+one component for both avatar and logo, taking `currentUrl`, `prefix`, `onSave`,
+`label`, and a caller-supplied `fallback` node for the empty tile (initials or
+an icon — the component has no way to derive either, since it doesn't know
+whose image this is).
+
+**`@sparstrow/ui` cannot construct a Supabase client itself** — it is shared
+with the local desktop build, which has no Supabase project to point at, and
+building one from env vars would mean this package reading `NEXT_PUBLIC_*`
+variables only `apps/web` knows how to resolve. This codebase already has the
+answer for exactly this shape of problem: `LiveEventSource`
+([`packages/ui/src/lib/live-events.ts`](../../../packages/ui/src/lib/live-events.ts))
+and `Account`
+([`packages/ui/src/lib/account.tsx`](../../../packages/ui/src/lib/account.tsx))
+are both host-varying capabilities injected via React context, defaulting to
+`null`/the local behaviour, with `apps/web` providing the real implementation.
+[`packages/ui/src/lib/image-upload.tsx`](../../../packages/ui/src/lib/image-upload.tsx)
+follows the same shape: an `ImageUploader` interface (`upload`, `remove`),
+default `null`. `<ImageUploadField>` renders nothing when the context is
+`null` — not a disabled control, per AGENTS.md's rule against documenting or
+displaying what a host cannot do — which is automatically correct for the
+desktop build without it needing to know why.
+
+`apps/web` wires the real implementation
+([`apps/web/src/lib/storage/image-uploader.ts`](../../../apps/web/src/lib/storage/image-uploader.ts))
+into [`WebAccountProvider`](../../../apps/web/src/components/auth/account-provider.tsx),
+reusing the same browser Supabase client the account context already builds —
+one client, one memo, two contexts fed from it.
+
+**One small consolidation while wiring this up:** `PUBLIC_IMAGE_BUCKET` had
+exactly one copy, in `apps/web/src/lib/api/storage-url.ts`. The new client-side
+uploader needed the same name, and the component needed the same size/MIME
+limits for its pre-request check — a second hand-copied bucket name is the
+exact drift `storage-url.ts`'s own comment warns against ("two hand-copied
+origin checks would drift, in the direction of accepting more"). Moved
+`PUBLIC_IMAGE_BUCKET`, plus new `PUBLIC_IMAGE_MAX_BYTES` /
+`PUBLIC_IMAGE_ALLOWED_TYPES` / `checkImageFile()`, into
+`packages/shared/src/constants.ts`; `storage-url.ts` now imports the bucket
+name rather than declaring it.
+
+#### Proved live against staging, not just typechecked
+
+`get_advisors` and the ten-crafted-path predicate check from 2026-08-18 proved
+the *policy expression*. What had not been proved was the actual HTTP round
+trip through the storage API as a second real account — the task's own "most
+worth being paranoid about" assertion. Two disposable `*@sparstrow.test`
+accounts were minted via the runbook's `generateLink` + `verifyOtp` procedure
+(the same exchange `/auth/confirm` performs — not a bypass), each bootstrapped
+through the real `bootstrap_workspace` RPC, then driven directly against
+`storage.objects` with the anon-key client each would actually use in the
+browser. All nine assertions passed:
+
+| Assertion | Result |
+|---|---|
+| A can upload into their own `avatars/` prefix | ✅ succeeded |
+| The uploaded object is publicly readable | ✅ `200` |
+| A can upload into their own `workspace-logos/` prefix (membership, not admin) | ✅ succeeded |
+| A is denied writing into B's `avatars/` prefix | ✅ denied — RLS |
+| A is denied writing into B's `workspace-logos/` prefix | ✅ denied — RLS |
+| A is denied the `..` path minting B's id outside A's own namespace | ✅ denied — RLS (the `array_length(...) = 2` guard from the 2026-08-18 fix) |
+| The bucket itself refuses a 2 MiB + 1 KiB file, client check bypassed | ✅ denied — "The object exceeded the maximum allowed size" |
+| The bucket refuses `application/pdf` bytes under a `.png`-looking key | ✅ denied — "mime type application/pdf is not supported" |
+| A can replace (`update`) their own avatar object in place | ✅ succeeded |
+
+Both accounts, their workspaces, and every object written during the pass were
+deleted afterward — direct table deletes in the same order the runbook's SQL
+uses (`workspaces` → `public.users` → `auth.users`), not `admin.deleteUser`
+alone, which the runbook documents as leaving orphans
+([`BUG-2026-08-18-orphaned-account-rows-on-staging`](../../bug/BUG-2026-08-18-orphaned-account-rows-on-staging.md)).
+The verification script itself was scratch (Node + `@supabase/supabase-js`,
+run from `apps/web` so module resolution worked) and was deleted after the
+run; it is not part of this tree.
+
+**What this does and does not close.** This proves the storage bucket's write
+and read policies for real, and proves `checkImageFile()`'s logic in isolation
+(`packages/shared/src/image-upload.test.ts`). It does **not** prove the
+component renders correctly, because nothing consumes it yet —
+`ProfileForm`/`WorkspaceForm` are `T-M10-02`, not started. `T-M9-06`'s Section D
+is updated with the same evidence rather than restated; its remaining items
+(the rendered upload/replace flow through the actual component) stay open
+until `T-M10-02` gives it a page to run on.
+
+`pnpm typecheck` (all 7 packages) and `pnpm test` are green except the
+pre-existing, already-documented flake in
+[`BUG-2026-08-20-flaky-realtime-live-events-test`](../../bug/BUG-2026-08-20-flaky-realtime-live-events-test.md)
+(unrelated — passes standalone every time it was retried).

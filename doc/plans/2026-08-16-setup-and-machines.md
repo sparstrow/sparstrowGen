@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | [`../specs/2026-08-16-setup-and-machines.md`](../specs/2026-08-16-setup-and-machines.md) (reviewed 2026-08-16, six decisions) |
-| **Status** | Decomposed 2026-08-16 into 21 tasks across four phases — bands 10–13 in [`MasterTaskQueue.md`](../tasks/MasterTaskQueue.md) · **M8 and M9 can start now, in parallel** · M11 blocked on an owner action |
+| **Status** | **M8 complete** · **M9 done except the HTTP half of its verification** · **M10 build complete, verification partly done** (2026-08-20 — 01–04 done and live-verified, closing two real bugs found in the process; 05 has scenario 11 and some form-level micro-behaviours still open as `G-25`/`G-26`) · M11 still blocked on an owner action — bands 10–13 in [`MasterTaskQueue.md`](../tasks/MasterTaskQueue.md) |
 | **Trigger** | Owner, after deploying `staging.sparstrow.com`: a Machines menu of its own, and a setup guide that shows what is left |
 | **Depends on** | M1–M7 (all code-complete). One migration, in M9. |
 | **Touches** | `packages/ui/src/routes/pages/`, `packages/ui/src/components/`, `packages/ui/src/api/hooks.ts`, `apps/web/src/app/`, `apps/web/src/lib/api/handlers/`, `packages/shared/src/cloud.ts`, `packages/shared/src/db/schema.ts`, `packages/shared/drizzle/policies/`, `packages/core/src/cli/pair.ts` |

@@ -55,6 +55,13 @@ Rows without one have nothing to click yet — the note explains why.
 folder, but it is a procedure an **agent** follows, not something you do. It is
 here because it is operational reference that never graduates into code.
 
+It grew a second half on 2026-08-20: **how to get a browser that actually
+renders**. Three `KnownGaps.md` entries had recorded "nothing composites frames
+here" as a fact about this environment; it is a fact about the in-app Browser
+pane only, and the Playwright MCP renders normally. M8 used it for the first
+fully rendered verification pass in this repo and found four defects a green
+typecheck and 1044 passing tests could not see.
+
 **Status legend:** 🔲 pending — do it whenever you're ready · ⛔ blocked — can't
 be done yet, the reason is the whole action item · ⏸️ parked — deliberately
 deferred with a recorded trigger for picking it back up, tracked in

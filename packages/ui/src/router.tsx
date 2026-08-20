@@ -13,6 +13,7 @@ import { ProjectsPage } from "@/routes/pages/projects";
 import { ProjectWorkspacePage } from "@/routes/pages/project-detail";
 import { RunsPage } from "@/routes/pages/runs";
 import { RunDetailPage } from "@/routes/pages/run-detail";
+import { MachinesPage } from "@/routes/pages/machines";
 import { MemoryPage } from "@/routes/pages/memory";
 import { SettingsPage } from "@/routes/pages/settings";
 import { TasksPage } from "@/routes/pages/tasks";
@@ -90,6 +91,13 @@ const runDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/runs/$runId",
   component: RunDetailPage,
+});
+
+// M8: machines are a destination of their own, not a card in Settings.
+const machinesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/machines",
+  component: MachinesPage,
 });
 
 const memoryRoute = createRoute({
@@ -191,6 +199,7 @@ const routeTree = rootRoute.addChildren([
   projectDetailRoute,
   runsRoute,
   runDetailRoute,
+  machinesRoute,
   memoryRoute,
   settingsRoute,
   tasksRoute,

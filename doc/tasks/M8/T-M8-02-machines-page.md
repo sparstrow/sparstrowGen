@@ -7,7 +7,7 @@
 | **Depends on** | T-M8-01 |
 | **Blocks** | T-M8-03 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done (2026-08-20) |
 
 ## The scenarios this satisfies
 
@@ -31,7 +31,7 @@
 
 ## Objective
 
-Move [`runtimes-card.tsx`](../../../packages/ui/src/components/runtimes-card.tsx)
+Move `packages/ui/src/components/runtimes-card.tsx`
 to `packages/ui/src/routes/pages/machines.tsx` as a full page, adopt
 `machineState()` for the row's label, make the pairing instructions honest, and
 delete the card from Settings — all in one change, because `settings.tsx`
@@ -110,29 +110,29 @@ decision 3).
 
 ## Checklist
 
-- [ ] `packages/ui/src/routes/pages/machines.tsx` created with the moved
+- [x] `packages/ui/src/routes/pages/machines.tsx` created with the moved
       components, their comments intact, and a page header
-- [ ] Row label switched to `machineState()`; `unreachable` always carries a
+- [x] Row label switched to `machineState()`; `unreachable` always carries a
       last-seen time
-- [ ] Empty state rebuilt: explains the surface, **Pair a machine** as the
+- [x] Empty state rebuilt: explains the surface, **Pair a machine** as the
       primary action, honest about the dev checkout
-- [ ] Loading state: skeleton rows shaped like real rows
-- [ ] Error state: the query's real message rendered **in place of the list**
+- [x] Loading state: skeleton rows shaped like real rows
+- [x] Error state: the query's real message rendered **in place of the list**
       with a retry — not a toast, not a silent empty list
       (`runtimes.isError` is not currently handled at all; today a failed list
       renders as "No machines paired yet", which is a lie)
-- [ ] Pairing-code creation error still rendered (it is today; keep it)
-- [ ] `packages/ui/src/components/runtimes-card.tsx` deleted
-- [ ] `settings.tsx` import and usage removed; `WipSnapshotCard` untouched
-- [ ] `grep -rn "runtimes-card\|RuntimesCard" packages apps` returns nothing
-- [ ] `pnpm --filter @sparstrow/ui typecheck` and `pnpm typecheck` green
-- [ ] `pnpm test` green
+- [x] Pairing-code creation error still rendered (it is today; keep it)
+- [x] `packages/ui/src/components/runtimes-card.tsx` deleted
+- [x] `settings.tsx` import and usage removed; `WipSnapshotCard` untouched
+- [x] `grep -rn "runtimes-card\|RuntimesCard" packages apps` returns nothing
+- [x] `pnpm --filter @sparstrow/ui typecheck` and `pnpm typecheck` green
+- [x] `pnpm test` green
 
 ## Traps
 
 **The list currently has no error state.** `runtimes.isLoading` and
 `machines.length === 0` are the only branches
-([`runtimes-card.tsx:370-375`](../../../packages/ui/src/components/runtimes-card.tsx:370)),
+(`runtimes-card.tsx:370-375`, as it stood before the move),
 so a failed query falls through to the empty state and tells a new owner they
 have no machines when the truth is the request failed. Moving the component
 verbatim carries that bug onto the most important screen in the spec. Fix it in
@@ -157,20 +157,113 @@ file. Splitting them leaves `development` unbuildable between two merges.
 
 ## Verification
 
-- [ ] `pnpm typecheck` and `pnpm test` green
-- [ ] `grep -rn "RuntimesCard" packages apps` → no matches
-- [ ] `grep -n "WipSnapshotCard" packages/ui/src/routes/pages/settings.tsx` →
+- [x] `pnpm typecheck` and `pnpm test` green
+- [x] `grep -rn "RuntimesCard" packages apps` → no matches
+- [x] `grep -n "WipSnapshotCard" packages/ui/src/routes/pages/settings.tsx` →
       still present
-- [ ] Rendering, all four states, and scenarios 2, 3, 4, 7, 8, 9, 10 are proved
-      in [T-M8-05](T-M8-05-verification.md). Nothing here claims a rendered
-      pixel — see [`G-12`](../../KnownGaps.md) on why that is stated rather
-      than assumed.
+- [x] Rendering, all four states, and scenarios 2, 3, 4, 7, 8, 9, 10 are proved
+      in [T-M8-05](T-M8-05-verification.md). **They were reached this time** —
+      `G-12`'s "the pane never composites" is worked around by driving the
+      Playwright MCP against a local dev server; see that task's Result.
 
 ## On completion
 
-- [ ] Tick 10.2 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] Update this file's **Status** row and the phase README's task table
+- [x] Tick 10.2 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Update this file's **Status** row and the phase README's task table
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+**Landed 2026-08-20** on `claude/machine-pairing-task-dde544`, together with
+`T-M8-03` — the two were built as one change because the page and the
+destination that reaches it are useless apart.
+
+`runtimes-card.tsx` (430 lines) became
+[`routes/pages/machines.tsx`](../../../packages/ui/src/routes/pages/machines.tsx).
+All three comment-bearing behaviours moved intact and were then proved live,
+not just read: the countdown ticks (observed at `9:57` and falling), the
+auto-retire effect fired when a real machine redeemed a code (the panel
+retired itself with no refresh), and `SnapshotControl` did **not** move when
+clicked — it flipped only after the daemon reported `git.wipSnapshot: "off"`
+back, roughly 12 seconds later. That last one is `G-6`'s invariant, and this
+is the first time it has been watched rather than reasoned about.
+
+**Three decisions the task doc did not anticipate**, all because `DESIGN.md`
+was written (2026-08-18) after this task was decomposed (2026-08-16):
+
+1. **`Monitor`, not `MonitorSmartphone`.** §6's semantic map fixes one icon per
+   concept and names `Monitor` for a machine. The doctrine wins over the task
+   doc by its own §1 rule. Same icon in all four nav surfaces.
+2. **The row is an `item`, and the machine gets an entity tile.** §8 names
+   `item` as the default reach for a list row and records that this package
+   lacked it; §6 calls the tile-plus-status-dot "the single most important
+   visual pattern in the app". Both were adopted, which added one new primitive
+   — [`components/ui/item.tsx`](../../../packages/ui/src/components/ui/item.tsx),
+   a new file nothing else imports, so zero regression surface.
+3. **The error state is two-tiered, not one.** The task asked for the real
+   message "in place of the list". That is right when there is nothing to show,
+   and wrong when there is: a background refetch that fails would erase a list
+   whose rename, revoke and remove all still work. With machines on screen the
+   failure is reported above them instead.
+
+**Found by rendering it, not by reading it** — three defects the checklist
+could not have caught:
+
+- **The destination has to be registered in *seven* places, not five.**
+  `apps/web/src/components/layout/app-shell.tsx` keeps its **own** copy of
+  `NAV_GROUPS` — the sidebar the hosted app actually renders — and
+  `components/layout/breadcrumbs.tsx` kept a **second** copy of the
+  section-label map. The first meant no sidebar entry in the browser at all;
+  the second meant the breadcrumb read a lowercase `machines` while the tab
+  strip beside it read `Machines`. Breadcrumbs now read `NAV_META`, so that
+  duplicate is deleted rather than extended. Written up in
+  [T-M8-03](T-M8-03-route-and-nav.md).
+- **The honesty note rendered twice at once** — once in the pairing panel and
+  again in the empty state below it — on the one screen the phase spec calls
+  the most important. Now the empty state's copy is suppressed while a code is
+  on screen.
+- **At 375px the identity line truncated to `active · win3…`** — exactly the
+  fields scenario 5 requires the row to show. `truncate` dropped, and the
+  capability badges take their own line below `sm` instead of squeezing the
+  name.
+
+**Vocabulary alignment:** `SnapshotControl`'s offline copy said "This machine
+is offline" while the row above it said "unreachable". It now says unreachable
+too. It still *disables* on `runtime.online` — deliverability is a different
+question from what to call the machine — and the comment now says so.
+
+`pnpm typecheck` green across 7 packages; `pnpm test` 1044 passed / 4 skipped;
+`pnpm --filter web build` lists `/machines`.
+
+### Rebased onto the parametric theming rebuild — 2026-08-20
+
+Built on `f43d64e` (PR #99). **PR #100 merged hours later**, closing `G-19` and
+rebuilding `globals.css` from `packages/shared/src/theme/tokens.ts`. This branch
+was rebased onto it; three things had to change, and one of them was a visible
+regression rather than a conflict.
+
+**1. The status tokens inverted, and the page went with them.** Before, a status
+token was a pale tint and its `-foreground` was the saturated colour, so
+`bg-success-foreground` painted a green dot. After, `--success` *is* the status
+colour and `--success-foreground` is the near-white neutral that goes on top of
+a solid fill (`DESIGN.md` §2.4). The dot, the `active` / `shutting down` label
+and the paired-confirmation tick all resolved to near-white — invisible on a
+light ground. Fixed to `bg-success` / `text-success` / `bg-warning` /
+`text-warning`, which is the same correction PR #100 had already applied to
+`runtimes-card.tsx` before this branch deleted it. Their fix arrived as a
+rebase conflict inside the moved file, which is how it was noticed.
+
+**2. `nested-cards`, from the catalogue the chain gained in the same PR.** See
+the phase README.
+
+**3. The reduced-motion guard survived, the `--hl-*` block did not.** `globals.css`
+is now generated from `tokens.ts` between markers; the syntax-highlighting
+literals moved into that generated block. The rebase offered to reinstate the
+old hand-written `:root { --hl-* }` copy — taking it would have shadowed the
+generated values with stale ones. Resolved by keeping upstream's file and
+re-adding only the `prefers-reduced-motion` block, which upstream still lacks.
+Verified: `git diff c220c46 -- globals.css` is that block and nothing else.
+
+**What did not need changing:** `Monitor` is still §6's machine icon, `item` is
+still §8's list-row default, and every neutral token kept its name. The one
+thing to carry forward is that this page's earlier note claiming the rebuild
+"renames nothing" was an assumption about unmerged work stated as fact.
