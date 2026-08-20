@@ -179,7 +179,7 @@ export function MemoryPage() {
               className={cn(
                 "rounded-full border px-2 py-0.5 text-[11px] transition-colors hover:bg-accent",
                 typeFacet === facet && "border-primary bg-accent font-medium",
-                facet === "quarantined" && "text-amber-600 dark:text-amber-500",
+                facet === "quarantined" && "text-warning",
               )}
             >
               {facet}
@@ -198,7 +198,7 @@ export function MemoryPage() {
           )}
         </div>
         {typeFacet === "quarantined" && (
-          <p className="text-xs text-amber-600 dark:text-amber-500">
+          <p className="text-xs text-warning">
             Quarantined notes came from runs that consumed untrusted content. They are never
             injected or searchable by agents until you approve them.
           </p>
@@ -267,7 +267,7 @@ export function MemoryPage() {
                   <FileText className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="truncate text-sm font-medium">{note.title}</span>
                   {note.quarantined && (
-                    <ShieldAlert className="size-3.5 shrink-0 text-amber-600 dark:text-amber-500" />
+                    <ShieldAlert className="size-3.5 shrink-0 text-warning" />
                   )}
                 </div>
                 <div className="mt-1 flex items-center gap-1.5">
@@ -318,7 +318,7 @@ export function MemoryPage() {
                     {selected.source}
                   </Badge>
                   {selected.quarantined && (
-                    <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-500">
+                    <Badge className="bg-warning/15 text-warning">
                       quarantined
                     </Badge>
                   )}

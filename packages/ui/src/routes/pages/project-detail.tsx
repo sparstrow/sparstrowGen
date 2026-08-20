@@ -103,7 +103,7 @@ export function ProjectWorkspacePage() {
           <GitBadge state={git.data} loading={git.isLoading} />
           <ProfileBadge profile={p.executionProfile === "production_app" ? "production_app" : "factory"} />
           {p.isSandbox && (
-            <Badge variant="outline" className="border-sky-500/40 text-sky-600 dark:text-sky-400" title="Sandbox: memory writes are isolated to this project.">
+            <Badge variant="outline" className="border-info/40 text-info" title="Sandbox: memory writes are isolated to this project.">
               sandbox
             </Badge>
           )}
@@ -179,7 +179,7 @@ function GitBadge({ state, loading }: { state?: ReturnType<typeof useProjectGitS
     <Badge variant="outline" className="gap-1" title={`${state.changedFiles} changed file(s)`}>
       <GitBranch className="size-3" />
       {state.branch ?? "detached"}
-      {state.dirty && <span className="text-amber-600 dark:text-amber-400">●</span>}
+      {state.dirty && <span className="text-warning">●</span>}
       {state.ahead > 0 && <span className="text-muted-foreground">↑{state.ahead}</span>}
       {state.behind > 0 && <span className="text-muted-foreground">↓{state.behind}</span>}
     </Badge>
@@ -493,7 +493,7 @@ function DreamCyclePanel({ projectId, isSandbox }: { projectId: string; isSandbo
         </div>
       )}
       {runNow.isSuccess && (
-        <p className="text-xs text-emerald-600 dark:text-emerald-400">
+        <p className="text-xs text-success">
           Dream cycle started — the digest lands in your inbox.
         </p>
       )}
@@ -570,7 +570,7 @@ function FileTree({ projectId, subpath, depth }: { projectId: string; subpath: s
               {entry.type === "dir" ? (
                 <>
                   <ChevronRight className={cn("size-3 shrink-0 transition-transform", isOpen && "rotate-90")} />
-                  <Folder className="size-3.5 shrink-0 text-sky-500" />
+                  <Folder className="size-3.5 shrink-0 text-info" />
                 </>
               ) : (
                 <FileText className="ml-3 size-3.5 shrink-0 text-muted-foreground" />
@@ -775,7 +775,7 @@ function VariantsPanel({
         <Button size="sm" variant="outline" disabled={sync.isPending} onClick={() => sync.mutate(projectId)}>
           <RefreshCw className="size-3.5" /> {sync.isPending ? "Queuing…" : "Sync from base"}
         </Button>
-        {sync.isSuccess && <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">Review task created.</p>}
+        {sync.isSuccess && <p className="mt-2 text-xs text-success">Review task created.</p>}
         {sync.isError && <p className="mt-2 text-xs text-destructive">{sync.error.message}</p>}
       </div>
     );

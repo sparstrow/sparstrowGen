@@ -149,6 +149,10 @@ function XtermView({ session }: { session: TerminalSession }) {
       cursorBlink: true,
       fontSize: 13,
       fontFamily: "ui-monospace, 'Cascadia Mono', Consolas, monospace",
+      // Deliberately literal, and deliberately dark in both modes. xterm's
+      // theme API takes a colour string, not a CSS variable, and a terminal is
+      // a terminal — same argument as DESIGN.md §2.6 makes for code syntax.
+      // The container below matches it for the same reason.
       theme: { background: "#0a0a0a" },
       scrollback: 5000,
     });
@@ -199,16 +203,17 @@ function XtermView({ session }: { session: TerminalSession }) {
   }, [session.id]);
 
   return (
+    // Literal to match the xterm canvas above. See the note on its theme.
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-[#0a0a0a]">
       <div className="flex items-center gap-2 border-b border-white/10 px-3 py-1.5 text-xs text-muted-foreground">
         <span
           className={cn(
             "size-2 rounded-full",
             status === "connected"
-              ? "bg-emerald-500"
+              ? "bg-success"
               : status === "connecting"
-                ? "bg-amber-500 animate-pulse"
-                : "bg-red-500",
+                ? "bg-warning animate-pulse"
+                : "bg-destructive",
           )}
         />
         {status}

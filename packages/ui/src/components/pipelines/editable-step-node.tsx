@@ -94,7 +94,7 @@ export function EditableStepNode({ data }: NodeProps<EditableFlowNode>) {
       </div>
 
       {data.unresolvedAgentName && (
-        <p className="mt-1 inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] leading-snug text-amber-600 dark:text-amber-400">
+        <p className="mt-1 inline-flex items-center gap-1 rounded-md bg-warning/10 px-1.5 py-0.5 text-[10px] leading-snug text-warning">
           <AlertTriangle className="size-2.5 shrink-0" />
           <span>Unknown agent — pick a replacement</span>
         </p>

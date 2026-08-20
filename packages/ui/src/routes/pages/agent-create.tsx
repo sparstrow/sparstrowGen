@@ -283,7 +283,7 @@ export function AgentCreatePage() {
             )}
             {busy && <ThinkingDots />}
             {source === "fallback" && !turnError && (
-              <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-foreground">
+              <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-foreground">
                 AI drafting is unavailable — using basic mode. Edit fields on the right.
               </p>
             )}
@@ -296,7 +296,7 @@ export function AgentCreatePage() {
               />
             )}
             {matches.length > 0 && (
-              <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
+              <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs">
                 <p className="mb-1 font-medium text-foreground">
                   You may already have {matches.length === 1 ? "an agent" : "agents"} like this —
                   reuse or extend instead of duplicating.

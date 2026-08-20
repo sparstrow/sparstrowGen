@@ -109,7 +109,7 @@ export function UpdateBanner() {
 
   return (
     <div
-      className="flex shrink-0 items-center gap-3 border-b border-indigo-500/30 bg-indigo-500/10 px-5 py-2 text-xs text-foreground [&_.banner-action]:inline-flex [&_.banner-action]:items-center [&_.banner-action]:gap-1 [&_.banner-action]:rounded-md [&_.banner-action]:border [&_.banner-action]:border-indigo-500/40 [&_.banner-action]:px-2 [&_.banner-action]:py-0.5 [&_.banner-action]:font-medium [&_.banner-action]:hover:bg-indigo-500/20"
+      className="flex shrink-0 items-center gap-3 border-b border-info/30 bg-info/10 px-5 py-2 text-xs text-foreground [&_.banner-action]:inline-flex [&_.banner-action]:items-center [&_.banner-action]:gap-1 [&_.banner-action]:rounded-md [&_.banner-action]:border [&_.banner-action]:border-info/40 [&_.banner-action]:px-2 [&_.banner-action]:py-0.5 [&_.banner-action]:font-medium [&_.banner-action]:hover:bg-info/20"
       role="status"
     >
       {body}

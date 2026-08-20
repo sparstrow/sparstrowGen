@@ -194,7 +194,7 @@ export function AppShell() {
                         {item.to === "/" && attentionCount > 0 ? (
                           <span
                             className={cn(
-                              "rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-white",
+                              "rounded-full bg-warning px-1.5 text-xs font-semibold text-white",
                               collapsed && "md:hidden",
                             )}
                           >
@@ -238,7 +238,7 @@ export function AppShell() {
             {attentionCount > 0 ? (
               <Link to="/" title={`${attentionCount} item(s) need your attention`}>
                 <Badge variant="warning" className="gap-1.5 rounded-full">
-                  <span className="size-1.5 rounded-full bg-amber-500" />
+                  <span className="size-1.5 rounded-full bg-warning" />
                   {attentionCount} waiting
                 </Badge>
               </Link>
@@ -251,7 +251,7 @@ export function AppShell() {
               <span
                 className={cn(
                   "size-1.5 rounded-full",
-                  connected ? "bg-emerald-500" : "bg-red-100 animate-pulse",
+                  connected ? "bg-success" : "bg-destructive animate-pulse",
                 )}
               />
               {connected ? "live" : "offline"}

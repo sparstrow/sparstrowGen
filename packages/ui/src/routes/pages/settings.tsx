@@ -101,7 +101,7 @@ function GraphEngineRow() {
           </>
         )}
         {indexAll.isSuccess && (
-          <span className="text-xs text-success-foreground">
+          <span className="text-xs text-success">
             {indexAll.data.queued} queued{indexAll.data.skipped > 0 ? `, ${indexAll.data.skipped} skipped` : ""}
           </span>
         )}
