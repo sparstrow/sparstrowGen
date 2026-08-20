@@ -145,11 +145,17 @@ the owner's existing one. Say which account each assertion was run on.
       never clears `draft` on a caught error) but not independently re-driven
       with a mutation-level failure (as opposed to the query-read failure
       already forced)
-- [ ] Enter saves a single-line field; Escape reverts it; Enter in a textarea
-      inserts a newline rather than saving — **not exercised via literal
-      keypresses** this pass (fields were filled and blurred via `Tab`, which
-      does exercise the same `onBlur` commit path, but not the `onKeyDown`
-      branches)
+- [x] Enter saves a single-line field; Escape reverts it — exercised with
+      literal `page.keyboard.press()` calls, not blur, in a follow-up pass
+      (2026-08-20): typed a value into the profile name field, pressed
+      `Escape`, confirmed the DOM value reverted to `""` (the last-known
+      server value, not merely cleared); then typed "Sri Hari" and pressed
+      `Enter`, confirmed it committed and the step collapsed to done. Enter in
+      a textarea inserting a newline rather than saving was not separately
+      re-exercised — `LongTextField` has no `onKeyDown` handler at all
+      (confirmed by reading `form-field.tsx`), so a textarea's native
+      newline-on-Enter is untouched by this code, which is what the assertion
+      actually depends on
 - [ ] Saving one field does **not** blank the others — architecturally true
       (each field sends only its own key) and covered by M9's handler unit
       tests, but not re-confirmed by reading the row directly after a save
@@ -281,19 +287,33 @@ loop rather than trusting green CI.
 `pnpm -r typecheck` — 7/7 packages clean. `pnpm --filter web build` succeeds
 and lists `/setup`.
 
+**Follow-up pass, 2026-08-20 (same day, second session):** a fresh disposable
+account (`g26verify-<timestamp>@sparstrow.test`) walked the keyboard-level
+Enter/Escape behavior on `SingleLineField` specifically, per the open item
+above — both confirmed working as designed and folded into section A2 above.
+This pass was stopped partway through the rest of `G-26`'s list (counters,
+image upload, dashboard card states, DB-level field-isolation check, Mono
+surface) when the owner flagged that `staging.sparstrow.com` does not carry
+M10 at all yet — no code point in re-deriving scenario 11 against staging
+right now, and the remaining `G-26` items are lower-priority polish rather
+than blockers, so the branch moves to PR instead of continuing the sweep.
+Test account cleaned up the same way as the first pass (direct table deletes,
+confirmed 1 workspace / 1 `public.users` row / 1 `auth.users` row removed).
+
 **What remains open, each with a `KnownGaps.md` entry rather than left
 silent:**
 
-- Scenario 11 — no pre-existing account available to this harness
+- Scenario 11 — no pre-existing account available to this harness, and moot
+  until this code actually reaches staging
 - The desktop/Electron build was never launched — its `/setup`-absence and
   `WorkspaceSwitcher` fallback are argued from the code (route grep, the
   `enabled` gate), not observed rendering
 - The dashboard setup card's own **populated** and **loading** states were
   never visited (only its complete/absent state was)
-- Keyboard-level Enter/Escape on the form fields, save-doesn't-blank-others at
-  the database level, counters driven to their limit, and the image-upload
-  round trip through `<ImageUploadField>` specifically (as opposed to the
-  direct API proof in `T-M9-04`) were not re-driven live this pass
+- Character counters driven to their limit, save-doesn't-blank-others at the
+  database level, and the image-upload round trip through
+  `<ImageUploadField>` specifically (as opposed to the direct API proof in
+  `T-M9-04`) were not driven live in either pass
 - Mono surface and explicit focus-visible auditing were not checked (only
   Paper, both modes)
 

@@ -473,14 +473,16 @@ be synthesized after the fact.
 ### G-26 — Several of M10's form-level behaviours are implemented and unit-adjacent, not driven live
 
 **Raised:** 2026-08-20, closing [`T-M10-05`](tasks/M10/T-M10-05-verification.md).
+**Narrowed:** 2026-08-20, same day — a follow-up pass drove the Enter/Escape
+item live with real keypresses (see `T-M10-05`'s Result section) and removed
+it from this list. Stopped partway through the rest when the owner flagged
+that `staging.sparstrow.com` does not carry M10 yet, making further live
+polish lower priority than getting the branch to PR.
 
 The pass proved the guide's structure, its data flow, and — after finding and
 fixing [`BUG-2026-08-20-setup-workspace-error-never-settles`](bug/BUG-2026-08-20-setup-workspace-error-never-settles.md)
-— its error handling, live. It did **not** separately re-drive, this session:
+— its error handling, live. What is **still** not separately re-driven:
 
-- Literal Enter-to-save / Escape-to-revert keypresses on the single-line
-  fields (blur was used instead, which exercises the same commit path but not
-  the `onKeyDown` branches)
 - The character counters near the 2000/4000/280-char limits (never typed that
   far)
 - An avatar or logo actually selected and uploaded through
