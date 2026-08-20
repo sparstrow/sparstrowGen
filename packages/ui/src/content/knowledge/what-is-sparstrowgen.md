@@ -3,7 +3,7 @@ title: What is Sparstrowgen?
 section: Getting started
 description: The mental model — an agent factory where the board is in the cloud and the work runs on your machines.
 order: 1
-updated: 2026-08-11
+updated: 2026-08-20
 ---
 
 Sparstrowgen is your **agent factory**: an app for creating, organizing, and running AI
@@ -32,7 +32,7 @@ the machine it's on.
 └───────────────────────────────┘      └─────────────────────────────────────┘
 ```
 
-You **pair** a machine once, from Settings → Machines, and it shows up as online
+You **pair** a machine once, from **Machines** in the sidebar, and it reads as active
 whenever it's running. A machine that's switched off simply has no agents available on
 it; the board is still there.
 

@@ -38,7 +38,6 @@ import {
 import { useTheme, type Theme } from "@/theme/theme-provider";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { RuntimesCard } from "@/components/runtimes-card";
 
 /**
  * P5 (design F4): ONE engine-level row — per-project index state lives on each
@@ -780,7 +779,6 @@ export function SettingsPage() {
             </div>
             <TabsContent value="general" className="space-y-5 pt-0">
               <FactoryHealthCard />
-              <RuntimesCard />
               <WipSnapshotCard />
               <SystemCard />
               <AdvancedCard />

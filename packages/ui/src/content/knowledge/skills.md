@@ -2,7 +2,7 @@
 title: Skills
 section: Surfaces
 description: Reusable instruction packs you assign to agents — injected into every run, created three ways.
-order: 11
+order: 12
 updated: 2026-07-19
 ---
 

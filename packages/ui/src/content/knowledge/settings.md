@@ -1,9 +1,9 @@
 ---
 title: Settings
 section: Surfaces
-description: Providers and keys, factory health, paired machines, snapshots, GitHub PAT, the code-graph engine, and app configuration.
-order: 13
-updated: 2026-08-11
+description: Providers and keys, factory health, snapshots, GitHub PAT, the code-graph engine, and app configuration.
+order: 14
+updated: 2026-08-20
 ---
 
 Settings is the factory's engine room. The cards that matter:
@@ -24,18 +24,11 @@ The "am I armed?" self-check: database, memory vault, providers (required) plus
 code-graph engine, embedder, GitHub PAT (optional — features degrade without them).
 Check it whenever something feels off; it's faster than guessing.
 
-## Machines
+## Machines — moved
 
-The computers running Sparstrowgen that this workspace can reach. **Agents run on
-these, not in the browser** — an empty list means nothing can execute.
-
-**Pair a machine** generates a short, single-use code; run `sparstrow pair <code>` on
-that computer and it appears here. Each machine reports which providers it actually has
-installed, so the board knows what it can be asked to do. A machine shows **online**
-while it's running and drops to offline roughly 90 seconds after it stops.
-
-**Revoke** cuts a machine off immediately — it stops reaching the workspace on its very
-next request. Use it for a computer you no longer control; pair again to restore it.
+Machines are no longer configured here. They have their own destination in the sidebar,
+under **Workspace**: [Machines](/knowledge/machines). Pairing, status, rename, revoke,
+remove and the per-machine snapshot switch all live there.
 
 ## Work-in-progress snapshots
 
@@ -93,8 +86,9 @@ extraction — also live here.
 - **Revoking a machine is immediate but not retroactive** — it stops the next request,
   it doesn't undo work already done.
 - **Snapshot settings are per machine.** Changing them on one computer does not change
-  them on another. They are editable from the browser in Settings → Machines, one
-  machine at a time — and only while that machine is online, since the change is
+  them on another. They are editable from the browser on the
+  [Machines](/knowledge/machines) page, one machine at a time — and only while that
+  machine is reachable, since the change is
   carried to it rather than stored centrally. The switch shows what the machine last
   confirmed, so it never reports a change that did not land.
 - **Snapshots only cover git repositories.** A project folder that isn't a repo has

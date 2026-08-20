@@ -544,6 +544,21 @@
   animation: spg-turn-in 0.18s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
 
+/* DESIGN.md named rule "Reduced Motion": movement collapses to opacity-only at
+   100ms and ambient loops stop entirely. Declared once here rather than per
+   call site, because every animation in this file is a candidate. */
+@media (prefers-reduced-motion: reduce) {
+  .spg-sheet[data-state="open"],
+  .spg-overlay[data-state="open"],
+  .spg-turn {
+    animation: spg-fade-in 0.1s linear;
+  }
+  .spg-dot {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 /* Syntax highlighting (rehype-highlight / highlight.js), tuned to the token
    system: restrained OKLCH hues, one step calmer than an editor theme, with
    light and dark variants. Only the classes hljs actually emits are styled.

@@ -2,7 +2,7 @@
 title: Schedule
 section: Surfaces
 description: Cron jobs for agents and pipelines — recurring work that runs while you sleep.
-order: 9
+order: 10
 updated: 2026-07-13
 ---
 

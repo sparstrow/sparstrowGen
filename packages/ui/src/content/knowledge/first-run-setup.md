@@ -3,7 +3,7 @@ title: First-run setup
 section: Getting started
 description: Connect a provider, arm the factory, and confirm everything is healthy.
 order: 2
-updated: 2026-08-10
+updated: 2026-08-20
 ---
 
 Before agents can run, the factory needs at least one working **provider** (the engine
@@ -50,22 +50,26 @@ Green across the required row means you're ready to create an agent.
 
 ## 4. Pair a machine (browser only)
 
-**Settings → Machines** lists the computers this workspace can reach. If it's empty,
-nothing can run.
+**Machines** — in the sidebar, under Workspace — lists the computers this workspace can
+reach. If it's empty, nothing can run.
 
 1. Click **Pair a machine** to generate a short code. It expires, so use it promptly.
 2. On the computer you want to use, run `sparstrow pair <code>`.
-3. It appears in the list and shows **online** while it's running.
+3. It appears in the list and reads **active** while it's running.
+
+`sparstrow` isn't published yet, so that computer needs a checkout of this repository to
+run the command.
 
 The machine reports which providers it actually has installed, so the board knows what
 each one can do. Pairing stores a credential that's scoped to that one machine — you can
-revoke it from this card at any time, and it stops reaching the workspace immediately.
+revoke it from that page at any time, and it stops reaching the workspace immediately.
+Full details: [Machines](/knowledge/machines).
 
 ## Notes & limitations
 
 - The core service on each machine listens on `127.0.0.1:48750` and is not exposed to
   the network. Reaching your workspace from a browser goes through the cloud board
-  instead, which is why a machine has to be **paired** (Settings → Machines) rather
+  instead, which is why a machine has to be **paired** (Machines in the sidebar) rather
   than opened up.
 - CLI providers depend on the CLI being logged in *outside* Sparstrowgen; if a CLI run
   fails immediately, check the CLI works in a terminal first.
