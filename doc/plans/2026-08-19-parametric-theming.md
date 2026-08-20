@@ -3,11 +3,11 @@
 | | |
 |---|---|
 | **Spec** | `DESIGN.md` §2 — written with the owner via the `design-brief` skill on 2026-08-18 and reviewed then. It is the spec for this work in everything but filename: it states the contract in the owner's terms and decides nothing technical |
-| **Status** | Approved 2026-08-19 — both owner decisions answered, not decomposed |
+| **Status** | ✅ Completed 2026-08-19 |
 | **Trigger** | Owner, 2026-08-19: the design system shows a neutral app, not the Amber-on-Paper they chose. `G-19` is why |
 | **Depends on** | `T-D1-01` (band 14) — the palette sweep. Non-negotiable, see Decisions |
 | **Touches** | `packages/ui/src/styles/globals.css`, `packages/shared/src/theme/`, `packages/ui/src/components/actor-avatar.tsx`, `DESIGN.md` §2.3–§2.5, `design-system-v2/` |
-| **Tasks** | not decomposed yet — becomes `doc/tasks/D2/` |
+| **Tasks** | [`doc/tasks/D2/`](../tasks/D2/) — three tasks, all done |
 | **Open questions** | none — `OQ-4` answered 2026-08-19 (option A, `DD-011`) |
 
 ## Summary
@@ -248,4 +248,36 @@ change, which is a weaker claim, and `D-18` carries the rest.
 
 ## Result
 
-<!-- Filled in as phases land. -->
+**All three phases landed on 2026-08-19.** `G-19` and `G-21` are closed and
+deleted; `G-22` opened in their place. Both user stories are usable: the app
+wears Amber on Paper, and agents have identity colours that cannot be mistaken
+for status.
+
+### What this plan did not anticipate
+
+Five things, and the pattern in them is worth more than any one:
+
+1. **§2.4's status colours had the same defect as §2.3's brand presets.** The
+   plan treated `DD-010` as a one-off correction. It was a class: success light
+   at 4.14 and danger light at 3.85, both against the raised step.
+2. **The codebase had two status-token conventions at once**, and the sweep this
+   plan sequenced first would have produced invisible tints under one of them.
+   Caught by reading the values, not by any test that existed.
+3. **§2.5's specified avatar form is unachievable at the contrast floor.** A
+   doctrine can specify a form and a floor that are mutually exclusive, and
+   nothing catches that until someone derives the values.
+4. **Tailwind's CSS parser opens a string on an apostrophe inside a comment.**
+   Only `pnpm build` sees it — not typecheck, not tests, not review.
+5. **The plan's ordering claim needed a note, not obedience.** `T-D1-01` before
+   `D2` was about the observable result; both landed in one push and the failure
+   it guarded against never occurred. Recorded in `D2/README.md`.
+
+The common thread: **every one was found by deriving a value rather than reading
+a document.** `G-21` existed precisely to force that derivation, and it paid for
+itself several times over. That is the argument for writing gap entries at all.
+
+### What it spawned
+
+- `G-22` — the running app has never rendered any of this.
+- `D-17` unparked: the theme picker now needs a product decision, not mechanism.
+- `DD-010` … `DD-013` in `design-system/DECISIONS.md`.

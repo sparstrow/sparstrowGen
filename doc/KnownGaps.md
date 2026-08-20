@@ -33,6 +33,16 @@ so in the task's Result section *and* open an entry here.
 Each entry carries: what is unproved, why it ended up that way, what it would
 cost if the assumption is wrong, and the concrete thing that would close it.
 
+**Closed 2026-08-19: `G-19`** — `DESIGN.md` §2 described a theming system the
+app did not have. It has it now. `packages/shared/src/theme/tokens.ts` is the
+single source for every colour; `globals.css` holds a generated block and
+nothing else chromatic; surface and brand are class-swappable on the root and
+were verified orthogonal in the browser. Proof:
+`packages/shared/src/theme/theme.test.ts` in `pnpm test` — 120 preset × surface
+× mode × ramp-step combinations against the floor, plus a diff of the committed
+CSS against the emitter. The 228 hardcoded palette classes that would have
+survived it are gone (`T-D1-01`).
+
 **Closed 2026-08-19: `G-21`** — `DESIGN.md` §2's colour figures are now
 reproducible from the document. §2.3 states the measurement basis (OKLCH → OKLab
 → linear sRGB **clamped to gamut**, then WCAG relative luminance) and the sweep
@@ -329,6 +339,34 @@ and is still there today.
 
 ## Accepted limitations
 
+### G-22 — The new colour system has never been seen in the running app
+
+**Raised:** 2026-08-19, closing `G-19`.
+
+Every colour in `apps/web` and `packages/ui` now derives from
+`packages/shared/src/theme/tokens.ts`, and the derivation is verified three
+ways: 250 unit tests including a 120-combination contrast sweep, a clean
+`pnpm build`, and live browser checks in the `design-system-v2` viewer, which
+loads the same generated CSS and where surface and brand were confirmed
+orthogonal in both modes.
+
+What has **not** happened is rendering `apps/web` itself. It needs
+`NEXT_PUBLIC_SUPABASE_URL` and an anon key, which this environment does not
+have; without them the app serves a "not configured" page that does not even
+load the stylesheet.
+
+- **If wrong:** something that only appears in composition — a token used where
+  its `-foreground` was meant, a surface that reads flat once real content is on
+  it, a focus ring that vanishes on the raised step. The unit tests measure
+  colours in isolation; they cannot see a component that picked the wrong one.
+  The `DD-012` model change is the specific risk: six call sites moved from
+  `-foreground` to the base token by hand.
+- **Clears when:** the app is run with real credentials and the routes carrying
+  each status are walked in both modes — a blocked run, a connected machine, a
+  failed import, an awaiting-approval item, and a board with several agents'
+  avatars on it. That is `frontend-verify`'s loop, and it needs the same
+  deployment `G-16` is waiting on.
+
 ### G-20 — A slop audit cannot reach render-tier rules on a component with no route
 
 **Raised:** 2026-08-19, with the `slop-audit` skill.
@@ -463,36 +501,3 @@ dashboard", which is true and useful. That is a correct answer, not a complete o
   current plan and written down with that provenance. Cheap; worth doing next time
   the dashboard is open anyway.
 
-### G-19 — `DESIGN.md` §2 describes a theming system the app does not have
-
-**Raised:** 2026-08-18, immediately on writing the doctrine.
-
-`DESIGN.md` §2 specifies a **theming contract**: a user-selectable brand accent
-and surface character, every token derived from five root variables, all 40
-combinations contrast-verified. That system is real and proven — but it exists
-**only in `design-brief/theme-board.html`**, the prototype where it was
-designed and measured.
-
-The shipped app does not work this way. `packages/ui/src/styles/globals.css`
-holds **72 literal `oklch(...)` values**, one per token per mode, with no
-derivation and no relationship the code enforces between a token's light and
-dark form. Nothing in the app reads a brand hue or a surface character, because
-neither exists as a variable.
-
-The doctrine is written in the present tense throughout, as doctrines are. A
-reader has no way to tell §2 from §5, which *does* describe what the code
-already does.
-
-- **If wrong:** someone builds against §2 expecting `--brand` to exist and
-  finds it doesn't; or worse, assumes theming ships and tells a user so. This is
-  the overstating direction `AGENTS.md` §3.2 names as the dangerous one — the
-  page claims a capability the code lacks.
-- **Clears when:** `globals.css` is rebuilt parametrically from the five
-  variables the theme board proved out (`--sh`/`--sc`/`--bh`/`--bc`/`--bll`),
-  and a contrast check over all preset × surface × mode combinations runs in CI.
-  Until then §2 is a specification, not a description. **This is the first task
-  of the design-system rebuild**, not a follow-up to it.
-- **Planned:** [`plans/2026-08-19-parametric-theming.md`](plans/2026-08-19-parametric-theming.md).
-  It sequences behind `T-D1-01` — 228 hardcoded palette classes do not read
-  tokens, so a parametric rebuild would leave them showing the old neutral
-  palette on a themed surface.

@@ -7,7 +7,7 @@
 | **Spec** | n/a (internal) |
 | **Depends on** | — (the status tokens it needs already ship) |
 | **Blocks** | **D2 — parametric theming** ([plan](../../plans/2026-08-19-parametric-theming.md)). Not a soft dependency: 228 hardcoded palette classes do not read tokens, so a parametric rebuild would leave every one of them showing the old neutral palette on a themed surface |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-19 |
 | **Open questions** | none |
 
 ## Why this phase exists

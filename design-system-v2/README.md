@@ -51,9 +51,9 @@ The most useful thing this system can tell you, stated once:
 
 | Foundation | In the code | In `DESIGN.md` |
 |---|---|---|
-| **Colour** | 60 literal values (30 per mode), hand-maintained | §2 — a theming contract: user-picked accent and surface, all derived from five roots. **Not built** (G-19) |
+| **Colour** | Derived from `packages/shared/src/theme/tokens.ts`: 4 surfaces × 5 brands × 2 modes, as root classes | §2 — the theming contract. **Built** 2026-08-19; `G-19` closed |
 | **Radius** | One base, three `calc()` steps. Real | §5 |
-| **Status** | 4 tokens: success, warning, info, destructive | §2.4 adds **approval**; §2.5 adds **actor identity**. Neither built |
+| **Status** | 5 tokens: success, warning, **approval**, danger, info — plus 6 **identity** roles | §2.4, §2.5. Both built and measured 2026-08-19 |
 | **Code syntax** | 6 tokens per mode. Real, and never themed | §2.6 &mdash; the one foundation with **no gap**. Written to describe what shipped |
 | **Type** | `--font-sans`, and nothing else | §3 — a seven-role scale. **No CSS counterpart** |
 | **Spacing** | No tokens. Tailwind defaults at each call site | §4 specifies a base unit and density |
@@ -62,9 +62,11 @@ The most useful thing this system can tell you, stated once:
 
 ## Known limitations & boundaries
 
-- **Light mode has no surface ramp.** `background`, `card`, and `popover` are
-  all `oklch(1 0 0)`. Borders do all the separating. Dark mode has three real
-  steps.
+- **There is no theme picker.** Surface and brand are class-swappable on
+  `<html>` and nothing in the product changes them — no control, no storage, no
+  per-device or per-account decision. That is `doc/Deferred.md` D-18, parked by
+  the owner, and it needs a `product-requirements` pass before it is built. The
+  light/dark toggle in Settings is a separate, older thing and is unaffected.
 - **Nothing responds to `prefers-reduced-motion`** — verified 2026-08-19, no
   match in `packages/ui/src` or `apps/web/src`. `spg-pulse` is infinite.
 - **`check` cannot catch an invented token.** It diffs recorded tokens against
@@ -73,15 +75,22 @@ The most useful thing this system can tell you, stated once:
   than more.
 - **No prototypes yet.** `designs/` is empty. The original system carries the
   Machines prototype and its handoff.
-- **Contrast is not re-verified here.** `DESIGN.md` §2.3's published figures
-  could not be reproduced from the document — G-21.
+- **Contrast is verified, but not by this system.**
+  `packages/shared/src/theme/theme.test.ts` sweeps every preset × surface ×
+  mode × ramp step in `pnpm test`; these cards only display the result. A card
+  that looks wrong here is a card bug, not a token bug.
+- **Two exceptions to "no literal colours" ship on purpose.** The terminal
+  canvas (`terminals.tsx`) is `#0a0a0a` in both modes because xterm takes a
+  colour string rather than a variable, and the Google mark in
+  `provider-icons.tsx` is that provider's own brand — §2.1's Provider role.
 
 ## What differs from the original `design-system/`
 
 | | `design-system/` | `design-system-v2/` |
 |---|---|---|
-| Built against | The retired doctrine, partly | `DESIGN.md` as of 2026-08-19, including §2.4–2.5 |
+| Built against | The retired doctrine, partly | `DESIGN.md` as of 2026-08-19, including §2.4–2.6 |
 | Invented tokens | `--transition-base`, `--space-*`, `--font-mono`, `--radius-full` — none exist in the app | **None.** Gaps are stated, not filled |
+| Colour source | Whatever `globals.css` happened to hold | A typed table, with a test that fails on divergence |
 | Cards depend on | At least one invented token, all 10 of them | Only tokens the app really has |
 | Type scale | §3's prose transcribed into CSS | Shown as literals, labelled as unbuilt |
 | Motion | One invented duration token | The four real keyframes, animating live |

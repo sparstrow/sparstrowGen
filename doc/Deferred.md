@@ -451,13 +451,20 @@ sees before their preference loads (a flash of the default is a real problem on
 a dark-first app); and whether density joins brand and surface as a third axis
 (§13 lists that as undecided).
 
-**Depends on `G-19`** — there is nothing to pick between until `globals.css` is
-parametric. Building the picker first would produce a control that changes
-nothing.
+**The dependency cleared on 2026-08-19.** `G-19` closed: `globals.css` is
+parametric, and the four surfaces and five brand presets ship as root classes.
+Adding `surface-slate` or `theme-teal` to `<html>` re-themes the whole app
+today, so a picker would now be wiring a control to something real rather than
+to nothing.
 
-- **Unpark when:** `G-19` closes and the design-system rebuild lands, at which
-  point this needs a `product-requirements` pass before build. Recorded as
-  `DD-006` in `design-system/DECISIONS.md`.
+- **Still parked, and this is the point:** what is missing is not mechanism, it
+  is the product decision. Per-device or synced to the account? Instant or on
+  save? What a viewer sees before their preference loads — a flash of the
+  default is a real problem on a dark-first app. And whether density joins brand
+  and surface as a third axis (§13 lists that as undecided).
+- **Unpark when:** the owner wants it. It needs a `product-requirements` pass
+  before build, and that pass is now the only thing between here and shipping
+  it. Recorded as `DD-006` in `design-system/DECISIONS.md`.
 
 ---
 

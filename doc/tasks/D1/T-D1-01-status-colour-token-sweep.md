@@ -7,7 +7,7 @@
 | **Depends on** | — |
 | **Blocks** | — |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-19 |
 
 ## Objective
 
@@ -125,5 +125,39 @@ half goes on text is the one way to get a legible-looking but wrong result.
 
 ## Result
 
-<!-- Fill in on completion: what was actually run, what was skipped and why,
-     and whether any KnownGaps entry opened or closed. -->
+**Done 2026-08-19, with three corrections to the mapping above.** All were
+found by reading call sites rather than trusting the hue, which is the whole
+reason the mapping table was written from usage in the first place — it was
+right about intent and wrong in three places about mechanism.
+
+| Specified here | What shipped | Why |
+|---|---|---|
+| violet → *(unlisted)* | `approval` | It is the approval state at every site: `attention-queue`, the node-shell approval ring and dot, the tasks board Review column |
+| `tasks.tsx:54-57` → identity tokens | status tokens | Those rows are task statuses (inbox/todo/in_progress/review/done/failed), not actors |
+| — | `bg-slate-400` → `bg-muted-foreground` | The Inbox column dot, missed by the class list above |
+| — | `rgba(16,185,129,0.35)` → `color-mix` over `var(--success)` | A hardcoded glow inside an arbitrary Tailwind shadow in `node-shell.tsx`, invisible to any palette-class grep |
+
+**And one thing the sweep would have got wrong without `DD-012`.** The mapping
+sends `bg-amber-500/5` to `bg-warning/5`. Under the token model the codebase
+actually had, `--warning` was a pale tint (`oklch(0.94 0.06 80)`), so that is
+5% of a near-white — invisible in light mode, and it would have typechecked and
+rendered nothing. All five status tokens now follow `--destructive`: the token
+is the colour. Six call sites moved from `-foreground` to the base token.
+
+**Deliberate exception, annotated at both call sites:** `terminals.tsx` keeps
+`#0a0a0a`. xterm's theme API takes a colour string, not a CSS variable, and a
+terminal is always dark — the same argument `DESIGN.md` §2.6 makes for code
+syntax. The Google mark in `provider-icons.tsx` is the Provider role (§2.1) and
+also stays.
+
+**Verification run:** `pnpm typecheck` 7/7, `pnpm test` 5/5 packages,
+`pnpm build` 6/6. The grep in step 1 returns only `actor-avatar.tsx` before
+`T-D2-03` and nothing after it.
+
+**Not run: step 2, walking the surfaces in a browser.** `apps/web` needs
+Supabase credentials this environment does not have. Opened as `G-22` in the
+same change, per `AGENTS.md` §5 — shipping without proof is allowed, staying
+quiet about it is not.
+
+**Gaps:** none opened by this task; `G-22` belongs to `D2`, which landed with
+it.

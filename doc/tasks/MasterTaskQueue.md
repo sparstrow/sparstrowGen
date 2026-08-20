@@ -371,7 +371,7 @@ precondition for **band 15** — see there.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 14.1 | [T-D1-01 — status colour token sweep](D1/T-D1-01-status-colour-token-sweep.md) | `[C]` | — | queued, fully unblocked |
+| 14.1 | [T-D1-01 — status colour token sweep](D1/T-D1-01-status-colour-token-sweep.md) | `[C]` | — | ✅ done 2026-08-19 |
 
 All 228 replacements are actionable. The ~20 that were parked — actor identity
 hues and the approval state — were neither brand, status, nor provider identity,
@@ -382,7 +382,7 @@ The 97 arbitrary type sizes the same audit found are **not** in this band. The
 §3 type scale has no CSS counterpart yet, so sweeping them would mean inventing
 tokens mid-sweep — the failure `G-18` describes. Unparks when the scale ships.
 
-### Band 15 — D2 parametric theming (2026-08-19) · **not decomposed yet**
+### Band 15 — D2 parametric theming (2026-08-19) · ✅ **done**
 
 Plan: [`../plans/2026-08-19-parametric-theming.md`](../plans/2026-08-19-parametric-theming.md).
 Closes `G-19` and `G-21` — `DESIGN.md` §2 specifies a theming contract the app
@@ -393,13 +393,24 @@ document until this plan's research settled the method.
 do not read tokens, so rebuilding `globals.css` parametrically first would leave
 every one of them wearing the old neutral palette on a themed surface.
 
-Three phases when decomposed — D2.1 the contrast checker (foundational), D2.2
-parametric `globals.css`, D2.3 approval status and actor identity.
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 15.1 | [T-D2-01 — the constants, and the floor as a test](D2/T-D2-01-contrast-checker.md) | `[S]` | — | ✅ done 2026-08-19 |
+| 15.2 | [T-D2-02 — globals.css derives instead of transcribing](D2/T-D2-02-parametric-globals.md) | `[S]` | 15.1 | ✅ done 2026-08-19 |
+| 15.3 | [T-D2-03 — approval, identity, the avatar](D2/T-D2-03-approval-and-identity.md) | `[S]` | 15.2 | ✅ done 2026-08-19 |
 
-**Both owner decisions are answered (2026-08-19), so nothing here is undecided.**
-The §2.3 lightness recalibration was accepted and is already in the doctrine;
-`OQ-4` was answered as option A and written up as `DESIGN.md` §2.6. What remains
-before decomposition is only band 14 landing.
+`G-19` and `G-21` are both deleted from `KnownGaps.md` with their proof named.
+`G-22` opened in their place: the colour system is verified by 250 unit tests, a
+clean build, and the design-system viewer, but `apps/web` itself has never been
+rendered with it — that needs Supabase credentials, same as `G-16`.
+
+Band 14 was specified to land strictly before this one. It did land first, but
+in the same push rather than in a separate one; the reasoning was about the
+visible result, and it is recorded in `D2/README.md` rather than left to look
+like a skipped step.
+
+**`D-17`, the theme picker, is unparked by this.** Its dependency was `G-19`.
+What it still needs is a `product-requirements` pass, not more mechanism.
 
 ## Blocked items
 

@@ -198,8 +198,14 @@ describe("globals.css is generated from these constants", () => {
     new URL("../../../ui/src/styles/globals.css", import.meta.url),
   );
 
+  // Line endings are normalised on both sides. This repo is developed on
+  // Windows, git rewrites LF to CRLF on checkout, and comparing raw bytes turns
+  // a colour-drift check into a line-ending check that fails for no reason.
+  const CR = String.fromCharCode(13);
+  const lf = (text: string) => text.split(CR).join("");
+
   it("has not drifted from the emitter", () => {
-    const source = readFileSync(globalsPath, "utf8");
+    const source = lf(readFileSync(globalsPath, "utf8"));
     const committed = extractThemeCss(source);
     expect(
       committed,
@@ -219,7 +225,7 @@ describe("globals.css is generated from these constants", () => {
     }
 
     // If this fails, the CSS was hand-edited. Change tokens.ts and re-emit.
-    expect(extractThemeCss(readFileSync(globalsPath, "utf8"))!.trim()).toBe(fresh.trim());
+    expect(extractThemeCss(lf(readFileSync(globalsPath, "utf8")))!.trim()).toBe(fresh.trim());
   });
 
   it("resolves every surface and brand class it claims to offer", () => {

@@ -2,6 +2,45 @@
 
 Newest first. Record token changes, new components, and new prototypes.
 
+## 2026-08-19 (latest) &mdash; the doctrine became description
+
+`G-19` closed. `DESIGN.md` §2 specified a theming contract the app did not
+have; it now has it, and this system mirrors the result rather than naming the
+gap.
+
+**`tokens/colors.css` is a verbatim copy of the generated region of
+`globals.css`**, which is itself emitted from
+`packages/shared/src/theme/tokens.ts`. Three links, one source. 310 values, none
+hand-maintained: 4 surfaces &times; 5 brands &times; 2 modes, plus the fixed
+roles.
+
+**Surface and brand are orthogonal and class-swappable.** Verified live in this
+viewer: adding `surface-slate` to a card document moves `--background` from hue
+85 to 250 and leaves `--brand` alone; adding `theme-teal` moves `--brand` from
+hue 70 to 190 and leaves the neutrals alone. Removing both restores the default
+exactly.
+
+**Light mode gained its surface ramp.** It was `1.0 / 1.0 / 1.0` &mdash; the
+finding this system opened with. It is now `0.985 / 1.0 / 0.955`, three real
+steps, derived rather than transcribed.
+
+**Approval and the six identity roles ship**, with measured values rather than
+"hue 310, values owed". New `code-syntax` card documents the fifth colour role.
+The `surfaces` and `status-colors` cards no longer describe gaps that closed.
+
+### Corrections this forced
+
+- Two of the four original status colours were **under the 4.5:1 floor** once
+  the sweep covered the raised step: success light at 4.14, danger light at
+  3.85 (`DD-012`).
+- The status token model was **inverted** for three of the five: `--warning`
+  held a pale tint rather than the colour, which would have made
+  `bg-warning/5` invisible in light mode (`DD-012`).
+- §2.5's specified avatar form &mdash; an identity tint plus the colour's own
+  foreground &mdash; **cannot clear the floor in dark mode**, topping out at
+  3.91. The chip is now a neutral fill with a coloured mark and ring
+  (`DD-013`).
+
 ## 2026-08-19 — built for comparison against `design-system/`
 
 Initialised in `mirror` mode against `packages/ui/src/styles/globals.css` and

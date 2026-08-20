@@ -1,7 +1,7 @@
 <!doctype html>
 <html class="dark"><head><meta charset="utf-8">
 <title>Surfaces</title>
-<meta name="description" content="The real neutral ramp, both modes — and the four surface characters DESIGN.md §2.2 specifies but the app does not have">
+<meta name="description" content="The neutral ramp in both modes, derived from the four surface characters of DESIGN.md §2.2 — all of which ship as root classes">
 <link rel="stylesheet" href="../styles.css">
 <!-- Card chrome uses literal px. The app defines no spacing tokens (see
      tokens/spacing.css), so a card that used var(--space-4) would be
@@ -51,24 +51,30 @@
 </div>
 
 <div class="note">
-  <strong>Light mode has no surface ramp at all.</strong> <code>background</code>,
-  <code>card</code>, and <code>popover</code> are all <code>oklch(1 0 0)</code> — the same
-  pure white — so the right pane above separates only by its borders. Dark mode does have
-  three real steps (0.145 / 0.205 / 0.269). <code>DESIGN.md</code> §2.2 specifies a
-  differentiated light ramp (<code>--background</code> at 0.985 against <code>--card</code>
-  at 1.0); the app does not implement it. This is not a rendering artefact of the card —
-  it is what ships.
+  <strong>Light mode used to have no surface ramp.</strong> <code>background</code>,
+  <code>card</code>, and <code>popover</code> were all <code>oklch(1 0 0)</code> — the same
+  pure white — so a light-mode surface separated only by its borders. <strong>Fixed
+  2026-08-19.</strong> Light now runs 0.985 / 1.0 / 0.955 and dark runs 0.145 / 0.195 /
+  0.245, both derived rather than transcribed, so every mode has three real steps.
 </div>
 
-<div class="gap">
-  <strong>Specified but not built.</strong> <code>DESIGN.md</code> §2.2 defines four surface
-  <em>characters</em> — Paper (hue 85, chroma 0.010), Slate (250, 0.011), Soft (280, 0.007),
-  Mono (0, 0) — each with a light and dark expression derived from five root variables.
-  None of that exists here. Every value above is a hand-maintained literal with no
-  relationship the code enforces between its light and dark form, which is why
-  <em>Paper</em> and <em>Mono</em> cannot be shown side by side: today the app only has Mono,
-  and it has it by accident rather than by choice. Tracked as
-  <code>doc/KnownGaps.md</code> G-19.
+<div class="rule">
+  <strong>Four surface characters, all real.</strong> <code>DESIGN.md</code> §2.2 defines
+  Paper (hue 85, chroma 0.010), Slate (250, 0.011), Soft (280, 0.007) and Mono (0, 0), each
+  with a light and dark expression. All four ship as root classes — add
+  <code>surface-slate</code> to <code>&lt;html&gt;</code> and every neutral above re-derives.
+  The app defaults to Paper.
+  <br><br>
+  Surface is orthogonal to brand: changing one does not move the other. And surface hue is
+  not a tuning lever — at chroma 0.010 a hue shift is below the threshold of visibility, so
+  if an accent needs more separation, move the brand hue instead (§2.3).
+</div>
+
+<div class="rule">
+  <strong>These values are generated.</strong> They come from
+  <code>packages/shared/src/theme/tokens.ts</code> via the marked block in
+  <code>globals.css</code>. This card mirrors that block. <code>G-19</code> — the gap that
+  said §2 described a system the app did not have — closed 2026-08-19.
 </div>
 
 </body></html>

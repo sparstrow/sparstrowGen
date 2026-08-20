@@ -1,7 +1,7 @@
 <!doctype html>
 <html class="dark"><head><meta charset="utf-8">
 <title>Status &amp; identity colour</title>
-<meta name="description" content="Four status tokens ship; approval and actor identity are specified in DESIGN.md §2.4–2.5 and not yet built">
+<meta name="description" content="Five status tokens and six actor-identity roles, every value measured against all four surfaces in both modes">
 <link rel="stylesheet" href="../styles.css">
 <!-- Literal px for card chrome — the app defines no spacing tokens. -->
 <style>
@@ -37,20 +37,33 @@
 </div>
 
 <div class="note">
-  Each token is a <strong>tinted surface</strong>; its <code>-foreground</code> pair is the
-  text that sits on it. That is the shape to copy — <code>bg-warning</code> with
-  <code>text-warning-foreground</code>, opacity modifiers welcome
-  (<code>bg-warning/5</code>, <code>border-warning/30</code>). Both modes are already
-  defined, so a <code>dark:</code> variant on a status colour is a sign someone hand-rolled
-  a palette value instead.
+  <strong>Each token holds the colour itself</strong>, not a pale tint of it — so
+  <code>text-warning</code> is the colour, <code>bg-warning/5</code> is a faint wash of it,
+  and <code>bg-warning</code> with <code>text-warning-foreground</code> is a solid fill.
+  The <code>-foreground</code> is the neutral that goes on top, and it flips with the mode
+  because the dark values are light and the light values are dark.
+  <br><br>
+  Both modes are defined, so a <code>dark:</code> variant on a status colour is a sign
+  someone hand-rolled a palette value instead. Changed 2026-08-19 — see
+  <code>DD-012</code>, which is also why <code>bg-warning/5</code> is visible at all.
 </div>
 
 <hr>
 
-<h4>Specified 2026-08-19, not yet built</h4>
+<h4>Also shipping — added 2026-08-19</h4>
 <div class="grid">
-  <div class="tok todo"><b>approval</b> awaiting a human yes <span>hue 310</span></div>
-  <div class="tok todo"><b>identity &times;6</b> which agent is this <span>§2.5</span></div>
+  <div class="tok ship" style="background:var(--approval);color:var(--approval-foreground)">
+    <b>approval</b> awaiting a human yes <span>--approval</span></div>
+  <div class="tok ship" style="border-color:var(--border)">
+    <b>identity &times;6</b> which agent is this
+    <span style="display:flex;gap:3px;margin-left:auto">
+      <i style="width:9px;height:9px;border-radius:2px;background:var(--identity-1)"></i>
+      <i style="width:9px;height:9px;border-radius:2px;background:var(--identity-2)"></i>
+      <i style="width:9px;height:9px;border-radius:2px;background:var(--identity-3)"></i>
+      <i style="width:9px;height:9px;border-radius:2px;background:var(--identity-4)"></i>
+      <i style="width:9px;height:9px;border-radius:2px;background:var(--identity-5)"></i>
+      <i style="width:9px;height:9px;border-radius:2px;background:var(--identity-6)"></i>
+    </span></div>
 </div>
 
 <div class="rule">
@@ -61,18 +74,27 @@
 
 <div class="rule">
   <strong>Named rule — Identity Is Not Status.</strong> No actor-identity hue sits within
-  20&deg; of a status hue. The palette shipping today breaks this: <code>actor-avatar.tsx</code>
-  hashes names onto emerald, amber, and rose — which are <em>success</em>, <em>warning</em>,
-  and <em>danger</em> — so an avatar can currently read as a state it has nothing to do with.
-  Identity is also never themed: if a user accent could recolour it, two agents could
-  collapse to one hue and the palette would stop doing its only job.
+  20&deg; of a status hue. The six shipping hues are 50 / 135 / 185 / 235 / 285 / 335 — also
+  the widest mutual separation available, 50&deg;, because telling two agents apart is the
+  one job this palette has. Identity is never themed: if a user accent could recolour it,
+  two agents could collapse to one hue.
+</div>
+
+<div class="rule">
+  <strong>The avatar is a neutral chip with a coloured mark, not a coloured chip.</strong>
+  §2.5 originally specified an identity tint plus the colour&rsquo;s own foreground. Measured,
+  that reaches 3.91:1 in dark mode — a 15% tint lifts the ground by more than the mark
+  gains. A neutral fill with the identity colour on the mark and a 40% ring keeps both
+  signals at 7.16 dark and 4.72 light. <code>DD-013</code>.
 </div>
 
 <div class="note">
-  Neither has been contrast-measured. <code>DESIGN.md</code> §2 requires measurement before
-  a colour ships, and the model used to check it could not reproduce §2.3&rsquo;s own
-  published figures — see <code>doc/KnownGaps.md</code> G-21. Specified by hue and
-  constraint is where these honestly stand.
+  <strong>Every value on this card is measured</strong>, against all four surfaces &times;
+  three ramp steps &times; both modes, by
+  <code>packages/shared/src/theme/theme.test.ts</code> in <code>pnpm test</code>. Two of the
+  four original status colours were under the 4.5:1 floor when that sweep was first run
+  properly — success light at 4.14 and danger light at 3.85, both against the raised step
+  (<code>DD-012</code>). <code>G-21</code> closed 2026-08-19.
 </div>
 
 </body></html>
