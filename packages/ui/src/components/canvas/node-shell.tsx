@@ -27,10 +27,10 @@ export const SEMANTIC_RING: Record<NodeSemanticStatus, string> = {
   pending: "border-muted-foreground/30 border-dashed",
   ready: "border-muted-foreground/50",
   running: "border-primary ring-2 ring-primary/30 animate-pulse",
-  attention: "border-amber-500 ring-2 ring-amber-500/30",
-  approval: "border-violet-500 ring-2 ring-violet-500/30",
-  done: "border-emerald-500 ring-2 ring-emerald-500/40 shadow-[0_0_14px_rgba(16,185,129,0.35)]",
-  failed: "border-red-500 ring-2 ring-red-500/30",
+  attention: "border-warning ring-2 ring-warning/30",
+  approval: "border-approval ring-2 ring-approval/30",
+  done: "border-success ring-2 ring-success/40 shadow-[0_0_14px_color-mix(in_oklab,var(--success)_35%,transparent)]",
+  failed: "border-destructive ring-2 ring-destructive/30",
   skipped: "border-muted-foreground/20 opacity-50",
 };
 
@@ -39,10 +39,10 @@ export const SEMANTIC_DOT: Record<NodeSemanticStatus, string> = {
   pending: "bg-muted-foreground/40",
   ready: "bg-muted-foreground",
   running: "bg-primary",
-  attention: "bg-amber-500",
-  approval: "bg-violet-500",
-  done: "bg-emerald-500",
-  failed: "bg-red-500",
+  attention: "bg-warning",
+  approval: "bg-approval",
+  done: "bg-success",
+  failed: "bg-destructive",
   skipped: "bg-muted-foreground/30",
 };
 

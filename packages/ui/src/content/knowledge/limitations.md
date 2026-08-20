@@ -3,7 +3,7 @@ title: Limitations & gotchas
 section: Reference
 description: The honest list — what Sparstrowgen deliberately doesn't do, and the sharp edges to know about.
 order: 1
-updated: 2026-08-11
+updated: 2026-08-20
 ---
 
 Knowing the edges is part of knowing the tool. These are current and deliberate unless
@@ -71,12 +71,14 @@ marked otherwise.
 
 ## Known Limitations & Boundaries
 
-- **A machine reads offline about 90 seconds after it stops.** Status is derived from
-  the last check-in, so a crash and a clean shutdown look the same for that window.
+- **A machine reads unreachable about 90 seconds after it stops.** Status is derived
+  from the last check-in, so a crash and a clean shutdown look the same for that
+  window — which is why the app says "unreachable" rather than naming a cause.
 - **Pairing codes are single-use and expire.** Generate a new one per machine.
 - **Some settings are per-machine, not per-workspace** — work-in-progress snapshots,
   for one. You can change them from the browser, but you change them *for one machine
-  at a time*, in Settings → Machines, because machines can legitimately disagree: a
+  at a time*, on the [Machines](/knowledge/machines) page, because machines can
+  legitimately disagree: a
   laptop with a small disk and a workstation with a large one have different right
   answers. The switch is disabled while a machine is offline rather than queueing a
   change against a computer that is switched off.

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogOut, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useAccount } from "@/lib/account";
 import {
   useClearGithubPat,
@@ -38,7 +38,8 @@ import {
 import { useTheme, type Theme } from "@/theme/theme-provider";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { RuntimesCard } from "@/components/runtimes-card";
+import { ProfileForm } from "@/components/profile-form";
+import { WorkspaceForm } from "@/components/workspace-form";
 
 /**
  * P5 (design F4): ONE engine-level row — per-project index state lives on each
@@ -101,7 +102,7 @@ function GraphEngineRow() {
           </>
         )}
         {indexAll.isSuccess && (
-          <span className="text-xs text-success-foreground">
+          <span className="text-xs text-success">
             {indexAll.data.queued} queued{indexAll.data.skipped > 0 ? `, ${indexAll.data.skipped} skipped` : ""}
           </span>
         )}
@@ -246,8 +247,10 @@ function GitCard() {
  * the switch is a row in that machine's SQLite. The hosted app has no
  * `/system/settings` route at all, so rendering this there would give a control
  * that flips and then silently fails to reach the daemon it claims to configure.
- * A per-runtime version belongs in the Machines card once M4's command spine can
- * carry a setting to a specific daemon; until then, absent beats fake.
+ * The per-runtime version this comment anticipated now exists: M4's command
+ * spine carries a setting to a named daemon, and the control lives on the
+ * Machines page (M8). This card stays because it is a different thing sharing
+ * a word — the local build's own setting, in its own SQLite.
  */
 function WipSnapshotCard() {
   const account = useAccount();
@@ -579,12 +582,12 @@ function AdvancedCard() {
   );
 }
 
-const PROVIDER_LABELS: Record<string, string> = {
-  email: "Email & password",
-  github: "GitHub",
-  google: "Google",
-};
-
+/**
+ * Two hosts, two answers to "what is your profile". The local desktop build
+ * has no account (`useAccount()` is `null`, per `@/lib/account`'s standing
+ * convention) — this branch is untouched by T-M10-02, which only converts the
+ * signed-in half into `ProfileForm`.
+ */
 function ProfileCard() {
   const account = useAccount();
 
@@ -608,31 +611,7 @@ function ProfileCard() {
     );
   }
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm">Profile</CardTitle>
-        <CardDescription>The account this browser is signed in as.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <InfoRow label="Name">{account.name}</InfoRow>
-        <InfoRow label="Email">{account.email}</InfoRow>
-        <InfoRow label="Signed in with">
-          <Badge variant="secondary">
-            {PROVIDER_LABELS[account.provider] ?? account.provider}
-          </Badge>
-        </InfoRow>
-        <InfoRow label="User ID">
-          <span className="font-mono text-xs text-muted-foreground">{account.id}</span>
-        </InfoRow>
-        <div className="flex justify-end pt-3">
-          <Button variant="outline" size="sm" onClick={() => void account.signOut()}>
-            <LogOut className="size-4" /> Sign out
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
+  return <ProfileForm variant="card" />;
 }
 
 /**
@@ -779,8 +758,8 @@ export function SettingsPage() {
               </TabsList>
             </div>
             <TabsContent value="general" className="space-y-5 pt-0">
+              <WorkspaceForm variant="card" />
               <FactoryHealthCard />
-              <RuntimesCard />
               <WipSnapshotCard />
               <SystemCard />
               <AdvancedCard />

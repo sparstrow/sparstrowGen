@@ -48,7 +48,7 @@ function QuestionCard({ row, agentName }: { row: TaskAttentionRow; agentName: st
   }
 
   return (
-    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+    <div className="rounded-lg border border-warning/30 bg-warning/5 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <Link to="/tasks" className="text-sm font-semibold hover:underline">
@@ -58,7 +58,7 @@ function QuestionCard({ row, agentName }: { row: TaskAttentionRow; agentName: st
             {agentName} · asked {ageLabel(row.ageMs)}
           </p>
         </div>
-        <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400">
+        <Badge variant="outline" className="border-warning/40 text-warning">
           blocked
         </Badge>
       </div>
@@ -109,7 +109,7 @@ function QuestionCard({ row, agentName }: { row: TaskAttentionRow; agentName: st
           {answer.isPending ? "Waking…" : "Answer & wake"}
         </Button>
         {deferred ? (
-          <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+          <span className="flex items-center gap-1 text-xs text-warning">
             <AlertCircle className="size-3.5" /> {deferred}
           </span>
         ) : null}
@@ -135,11 +135,11 @@ function ApprovalCard({ row }: { row: TaskAttentionRow }) {
   const a = row.approval!;
 
   return (
-    <div className="rounded-lg border border-sky-500/30 bg-sky-500/5 p-3">
+    <div className="rounded-lg border border-info/30 bg-info/5 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-sm font-semibold">
-            <ArrowRightLeft className="size-3.5 shrink-0 text-sky-500" />
+            <ArrowRightLeft className="size-3.5 shrink-0 text-info" />
             {a.delegatedByAgentName ?? "An agent"} → {a.targetAgentName ?? "unknown agent"}
             <span className="font-normal text-muted-foreground">(cross-team)</span>
           </p>
@@ -148,7 +148,7 @@ function ApprovalCard({ row }: { row: TaskAttentionRow }) {
             requested {ageLabel(row.ageMs)}
           </p>
         </div>
-        <Badge variant="outline" className="border-sky-500/40 text-sky-600 dark:text-sky-400">
+        <Badge variant="outline" className="border-info/40 text-info">
           approval
         </Badge>
       </div>
@@ -227,11 +227,11 @@ function ContradictionCard({ row }: { row: AttentionRow }) {
   const resolve = useResolveContradiction();
   const c = row.contradiction!;
   return (
-    <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-3">
+    <div className="rounded-lg border border-approval/30 bg-approval/5 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-sm font-semibold">
-            <GitCompareArrows className="size-3.5 shrink-0 text-violet-500" />
+            <GitCompareArrows className="size-3.5 shrink-0 text-approval" />
             Memory contradiction
             {c.projectSlug && <span className="font-normal text-muted-foreground">({c.projectSlug})</span>}
           </p>
@@ -239,7 +239,7 @@ function ContradictionCard({ row }: { row: AttentionRow }) {
             flagged {ageLabel(row.ageMs)} · confidence {Math.round(c.confidence * 100)}% · {c.severity}
           </p>
         </div>
-        <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
+        <Badge variant="outline" className="border-approval/40 text-approval">
           contradiction
         </Badge>
       </div>
@@ -306,7 +306,7 @@ export function AttentionQueue() {
           </>
         ) : rows.length === 0 ? (
           <div className="flex flex-col items-center gap-1.5 py-6 text-center">
-            <CheckCircle2 className="size-6 text-emerald-500" />
+            <CheckCircle2 className="size-6 text-success" />
             <p className="text-sm font-medium">All clear</p>
             <p className="text-xs text-muted-foreground">
               No agents are waiting on you. Blocked work and reviews land here.

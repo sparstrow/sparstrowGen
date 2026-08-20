@@ -112,6 +112,7 @@ surface should be a handful of audited functions, not broad table access.
 ```
 0000_special_romulus.sql        36 tables
 0001_flat_justin_hammer.sql     25 FK indexes
+0003_setup_identity_fields.sql  M9 — users.bio, workspaces.context, workspaces.logo_url
 policies/001_rls.sql            RLS + private.* helpers
 policies/002_realtime.sql       realtime publication (11 tables)
 policies/003_bootstrap_fix.sql  break the first-workspace RLS deadlock
@@ -122,7 +123,33 @@ policies/007_delete_own_account.sql
 policies/008_redeem_pairing_code.sql   M3 — pairing code → runtime + token
 policies/009_command_spine.sql         M4 — start/cancel a run, claim/ack commands
 policies/010_transcript_broadcast.sql  M5 — who may subscribe to a run's transcript
+policies/011_drop_auto_confirm.sql     drop the auth.users auto-confirm trigger
+policies/012_no_invented_names.sql     M9 — bootstrap stops inventing names + one-time cleanup
+policies/013_storage_images.sql        M9 — the public-images bucket and its write policies
 ```
+
+**Applied to staging 2026-08-18** as migrations `setup_identity_fields`,
+`no_invented_names`, `storage_images` and `storage_images_exact_depth`. Note the
+history is partial by design: 009–011 were applied through `scripts/apply-sql.mjs`,
+which records nothing, so `list_migrations` shows fewer entries than this list
+has files.
+
+**013 is the first file here that touches Supabase Storage**, and the first that
+creates a **publicly readable** resource. Every object in `public-images` has a
+guessable, permanent, unauthenticated URL — which is correct for an avatar and a
+logo and wrong for everything else. Its header says so at length; read it before
+putting any other kind of file in that bucket. Like 010, it *asserts* RLS is
+enabled on `storage.objects` rather than enabling it: the table belongs to
+`supabase_storage_admin`, and if the assertion ever fires the bucket is
+world-writable and the policies are decoration.
+
+**012 is the only file here that mutates existing rows.** Everything else in
+this directory is idempotent structure — policies, grants, function bodies — and
+can be replayed onto any database with the same result. 012 ends with two
+`UPDATE`s that clear names `bootstrap_workspace` previously invented. Re-running
+it changes nothing further, but it does **not** restore what it cleared, and it
+touches the owner's own account. Read both statements before applying it to an
+environment with real users in it.
 
 **010 is the first policy on a table this project does not own.**
 `realtime.messages` belongs to `supabase_realtime_admin`, and `postgres` is not
@@ -216,6 +243,12 @@ someone hunting for a typo in a code that was simply already used.
   its target from `auth.uid()`, so there is no parameter to point at another
   account. A service-role variant taking a user id would have put "delete any
   user" one missing check away from being reachable over HTTP.
+- **`start_run` and `cancel_run` are SECURITY DEFINER functions callable by
+  `authenticated`.** Added to this list 2026-08-18 — the advisor has always
+  reported them, and they were simply never written down here. Same shape as the
+  two above: both resolve the caller from `auth.uid()` and check workspace
+  membership internally, which is exactly why 009 grants them to `authenticated`
+  while granting `claim_runtime_commands` and `ack_runtime_command` to nobody.
 
 `redeem_pairing_code` (008) is **not** on this list and should never appear on
 it. The advisor only flags `SECURITY DEFINER` functions reachable by
@@ -239,7 +272,19 @@ a grant has been widened and the pairing flow is exposed.
   Partly mitigated since 2026-08-10: **magic-link sign-in is back**, and an
   account that signs in by emailed link has no password to be breached at all.
   It is opt-in per user, so this narrows the exposure rather than closing it.
-- **`auto_confirm_user()` marks every new signup's email as confirmed** (see
-  005). Combined with the "Create one" button on the login page, anyone who can
-  reach the app can make a working account without controlling the address.
-  Acceptable on staging; it must not reach production.
+- ~~**`auto_confirm_user()` marks every new signup's email as confirmed**~~ —
+  **closed 2026-08-16 by [`011_drop_auto_confirm.sql`](011_drop_auto_confirm.sql).**
+  The trigger and function are dropped; verified absent from `pg_trigger` /
+  `pg_proc` after applying.
+
+  Worth reading `011`'s header before assuming this was routine. The trigger
+  **silently overrode the dashboard's "Confirm email" setting**: both the
+  dashboard and GoTrue's `/auth/v1/settings` reported confirmation as enforced
+  (`mailer_autoconfirm: false`) while the database did the opposite, so toggling
+  the setting changed nothing and the contradiction was invisible to every check
+  an operator would normally run. That characteristic — a database object
+  overriding a platform setting, with both sources of truth still reporting the
+  setting's value — is the part worth remembering, not the trigger itself.
+  Full account: [`doc/security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md`](../../../../doc/security/SEC-2026-08-16-auth-users-auto-confirm-trigger.md).
+
+  **Signup now depends on email delivery**, which is still unproven (`G-11`).

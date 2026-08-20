@@ -1,0 +1,190 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>Sparstrowgen — Chat character board</title>
+<style>
+* { box-sizing: border-box; }
+body { margin:0; background:#08080a; color:#e8e8ea; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+.page { padding: 20px 20px 60px; }
+h1 { font-size:15px; font-weight:600; margin:0 0 4px; letter-spacing:-.01em; }
+.sub { font-size:12.5px; color:#8b8b93; margin:0 0 18px; max-width:940px; line-height:1.55; }
+.sub b { color:#c9c9cf; font-weight:600; }
+.cols { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; align-items:start; }
+@media (max-width:1100px){ .cols{ grid-template-columns:1fr; } }
+.col { min-width:0; }
+.colhead { padding:0 2px 10px; }
+.colhead .nm { font-size:13px; font-weight:650; letter-spacing:-.01em; }
+.colhead .ds { font-size:11.5px; color:#8b8b93; margin-top:3px; line-height:1.45; }
+.pane { border-radius:12px; overflow:hidden; }
+
+/* ============ DIRECTION A — Linear-calm ============ */
+.dirA{
+  --bg:oklch(0.145 0 0); --panel:oklch(0.185 0 0); --raise:oklch(0.225 0 0);
+  --fg:oklch(0.96 0 0); --dim:oklch(0.66 0 0); --line:oklch(1 0 0 / 9%);
+  --acc:oklch(0.62 0.19 277); --acc-fg:oklch(0.97 0 0); --acc-soft:oklch(0.62 0.19 277 / 14%);
+  --ok:oklch(0.72 0.14 155); --warn:oklch(0.78 0.13 75);
+  --r:8px; --r-sm:6px; --pad:13px; --gap:9px; --fs:13px; --meta:11.5px;
+  --speed:140ms; --ease:cubic-bezier(.4,0,.2,1);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+/* ============ DIRECTION B — Vercel-sharp ============ */
+.dirB{
+  --bg:oklch(0.115 0 0); --panel:oklch(0.16 0 0); --raise:oklch(0.21 0 0);
+  --fg:oklch(0.99 0 0); --dim:oklch(0.62 0 0); --line:oklch(1 0 0 / 14%);
+  --acc:oklch(0.72 0.16 232); --acc-fg:oklch(0.12 0 0); --acc-soft:oklch(0.72 0.16 232 / 16%);
+  --ok:oklch(0.78 0.17 155); --warn:oklch(0.82 0.16 75);
+  --r:6px; --r-sm:4px; --pad:14px; --gap:10px; --fs:13px; --meta:11px;
+  --speed:110ms; --ease:cubic-bezier(.2,0,.15,1);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+/* ============ DIRECTION C — Supabase-functional ============ */
+.dirC{
+  --bg:oklch(0.155 0.006 160); --panel:oklch(0.198 0.008 160); --raise:oklch(0.242 0.01 160);
+  --fg:oklch(0.95 0 0); --dim:oklch(0.68 0.01 160); --line:oklch(1 0 0 / 11%);
+  --acc:oklch(0.7 0.15 158); --acc-fg:oklch(0.14 0 0); --acc-soft:oklch(0.7 0.15 158 / 15%);
+  --ok:oklch(0.74 0.15 158); --warn:oklch(0.8 0.14 75);
+  --r:6px; --r-sm:5px; --pad:12px; --gap:8px; --fs:12.5px; --meta:10.5px;
+  --speed:190ms; --ease:cubic-bezier(.32,.72,0,1);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+
+.pane{ background:var(--bg); border:1px solid var(--line); font-size:var(--fs); color:var(--fg); }
+.bar{ display:flex; align-items:center; gap:8px; padding:9px var(--pad); border-bottom:1px solid var(--line); background:var(--panel); }
+.tabs{ display:flex; gap:2px; }
+.tab{ padding:4px 9px; border-radius:var(--r-sm); font-size:var(--meta); color:var(--dim); }
+.tab.on{ background:var(--raise); color:var(--fg); font-weight:600; }
+.dirB .tab.on{ box-shadow:inset 0 1px 0 oklch(1 0 0 / 12%); }
+.dirC .tab.on{ background:var(--acc-soft); color:var(--acc); }
+.spacer{ margin-left:auto; }
+.mdl{ font-size:var(--meta); color:var(--dim); font-family:var(--mono); }
+.body{ padding:var(--pad); display:flex; flex-direction:column; gap:var(--gap); }
+
+.msg-u{ align-self:flex-end; max-width:82%; background:var(--raise); border:1px solid var(--line); border-radius:var(--r); padding:8px 11px; line-height:1.5; }
+.dirB .msg-u{ background:var(--acc-soft); border-color:oklch(0.72 0.16 232 / 35%); }
+.dirC .msg-u{ background:var(--panel); }
+
+.think{ border:1px solid var(--line); border-radius:var(--r); background:var(--panel); overflow:hidden; }
+.think .hd{ display:flex; align-items:center; gap:7px; padding:7px 10px; font-size:var(--meta); color:var(--dim); }
+.think .hd .t{ color:var(--fg); font-weight:600; }
+.think .steps{ padding:0 10px 9px 27px; display:flex; flex-direction:column; gap:5px; }
+.think .st{ font-size:var(--meta); color:var(--dim); display:flex; gap:7px; align-items:baseline; line-height:1.45; }
+.think .st::before{ content:""; width:4px; height:4px; border-radius:9px; background:var(--dim); flex:none; transform:translateY(-1px); }
+.dirC .think .hd{ background:var(--acc-soft); }
+
+.chips{ display:flex; flex-wrap:wrap; gap:5px; }
+.chip{ display:inline-flex; align-items:center; gap:5px; padding:3px 8px; border-radius:99px; background:var(--panel);
+       border:1px solid var(--line); font-size:var(--meta); color:var(--dim); font-family:var(--mono); }
+.dirB .chip{ border-radius:var(--r-sm); background:transparent; }
+.dirC .chip{ border-radius:var(--r-sm); background:var(--raise); }
+.chip .dot{ width:5px; height:5px; border-radius:9px; background:var(--ok); flex:none; }
+
+.ans{ line-height:1.6; }
+.ans code{ font-family:var(--mono); font-size:.92em; }
+.ans .src{ display:inline-flex; align-items:center; padding:1px 6px; margin:0 2px; border-radius:99px;
+           background:var(--acc-soft); color:var(--acc); font-size:10.5px; font-family:var(--mono); }
+
+.appr{ border:1px solid var(--line); border-radius:var(--r); padding:var(--pad); background:var(--panel); }
+.dirA .appr{ border-color:oklch(0.62 0.19 277 / 30%); }
+.dirB .appr{ border-color:oklch(0.72 0.16 232 / 40%); box-shadow:0 0 0 1px oklch(0.72 0.16 232 / 10%), 0 8px 30px -12px oklch(0.72 0.16 232 / 35%); }
+.dirC .appr{ border-left:3px solid var(--warn); }
+.appr .q{ font-weight:600; margin-bottom:3px; }
+.appr .d{ font-size:var(--meta); color:var(--dim); line-height:1.5; margin-bottom:10px; }
+.appr .d code{ font-family:var(--mono); }
+.appr .acts{ display:flex; gap:6px; }
+.btn{ padding:5px 11px; border-radius:var(--r-sm); font-size:var(--meta); font-weight:600; border:1px solid var(--line);
+      background:transparent; color:var(--fg); transition:all var(--speed) var(--ease); }
+.btn.p{ background:var(--acc); color:var(--acc-fg); border-color:transparent; }
+
+.rows{ border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
+.row{ display:flex; align-items:center; gap:8px; padding:7px 10px; border-bottom:1px solid var(--line); font-size:var(--meta); }
+.row:last-child{ border-bottom:0; }
+.row .nm{ color:var(--fg); font-size:var(--fs); }
+.row .rt{ margin-left:auto; }
+.badge{ padding:2px 7px; border-radius:99px; font-size:10px; font-weight:600; }
+.dirA .badge{ background:transparent; color:var(--dim); padding:0; }
+.dirA .badge.ok{ color:var(--ok); }
+.dirB .badge{ border-radius:var(--r-sm); background:var(--raise); color:var(--dim); }
+.dirB .badge.ok{ background:oklch(0.78 0.17 155 / 18%); color:var(--ok); }
+.dirC .badge{ border-radius:var(--r-sm); background:var(--acc-soft); color:var(--acc); }
+.dirC .badge.ok{ background:oklch(0.74 0.15 158 / 20%); color:var(--ok); }
+.sdot{ width:6px; height:6px; border-radius:9px; flex:none; }
+
+.comp{ margin:var(--pad); margin-top:2px; border:1px solid var(--line); border-radius:var(--r); background:var(--panel); padding:9px 11px; }
+.dirB .comp{ box-shadow:inset 0 1px 0 oklch(1 0 0 / 8%); }
+.comp .ph{ color:var(--dim); font-size:var(--fs); }
+.comp .cbar{ display:flex; align-items:center; gap:6px; margin-top:9px; }
+.ic{ width:22px; height:22px; border-radius:var(--r-sm); border:1px solid var(--line); display:grid; place-items:center; color:var(--dim); }
+.dirA .ic{ border-color:transparent; }
+.send{ margin-left:auto; width:24px; height:24px; border-radius:var(--r-sm); background:var(--acc); color:var(--acc-fg); display:grid; place-items:center; }
+svg{ display:block; }
+.lbl{ font-size:9.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--warn); font-weight:700; margin-bottom:5px; }
+.dirA .lbl, .dirB .lbl{ display:none; }
+</style></head>
+<body><div class="page">
+<h1>Chat &mdash; three directions</h1>
+<p class="sub">Identical conversation in all three, so you are comparing the <b>design</b> and not the example. Content is a real Sparstrowgen exchange &mdash; an agent fixing the failing auth tests &mdash; rendered with the <b>thinking trace</b>, <b>tool chips</b>, <b>answer with sources</b>, <b>approval gate</b> (your HITL), and <b>task rows</b>: the AI-native primitives the app has none of today.</p>
+<div class="cols" id="cols"></div>
+</div>
+<script>
+const DIRS = [
+  { k:"dirA", nm:"A — Calm & restrained", ds:"Linear. One accent (violet) used sparingly, quiet borders, generous line-height, status as small dots. Closest to today's character, but actually finished." },
+  { k:"dirB", nm:"B — Sharp & technical", ds:"Vercel / Raycast. Darker ground, higher contrast, tighter radii, mono metadata, cyan interactive accent, and real depth on the approval gate." },
+  { k:"dirC", nm:"C — Functional & dense", ds:"Supabase / Railway. Slight green cast, micro-labels, coloured badges throughout, visible chrome, more motion. Most information per pixel." },
+];
+const ico = {
+  brain:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5a3 3 0 0 0-3 3 3 3 0 0 0-1 5.8V16a3 3 0 0 0 4 2.8A3 3 0 0 0 16 16v-2.2A3 3 0 0 0 15 8a3 3 0 0 0-3-3Z"/></svg>',
+  chev:'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>',
+  plus:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
+  at:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg>',
+  send:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 14-7-7 14-2-5z"/></svg>',
+};
+const pane = (d) => `
+<div class="col">
+<div class="colhead"><div class="nm">${d.nm}</div><div class="ds">${d.ds}</div></div>
+<div class="pane ${d.k}">
+  <div class="bar">
+    <div class="tabs"><span class="tab on">Auth tests</span><span class="tab">Staging</span><span class="tab">Memory</span></div>
+    <span class="spacer"></span><span class="mdl">claude-opus-5</span>
+  </div>
+  <div class="body">
+    <div class="msg-u">Fix the failing auth tests on staging.</div>
+
+    <div class="think">
+      <div class="hd">${ico.brain}<span class="t">Thought</span> for 6s ${ico.chev}</div>
+      <div class="steps">
+        <div class="st">Read the staging run output &mdash; 3 failures, all in the session guard</div>
+        <div class="st">Traced to a trigger on auth.users added outside migrations</div>
+        <div class="st">Confirmed it fires before the confirm-email check</div>
+      </div>
+    </div>
+
+    <div class="chips">
+      <span class="chip"><span class="dot"></span>Read middleware.ts</span>
+      <span class="chip"><span class="dot"></span>Edit 12 lines</span>
+      <span class="chip"><span class="dot"></span>pnpm test</span>
+    </div>
+
+    <div class="ans">The failures come from a hidden trigger on <code>auth.users</code> that defeats
+      <b>Confirm email</b><span class="src">schema.ts</span>. Dropping it fixes all three, and matches
+      what shipped in <span class="src">#94</span>.</div>
+
+    <div class="appr">
+      <div class="lbl">Approval required</div>
+      <div class="q">Run the migration on staging?</div>
+      <div class="d">Drops <code>on_auth_user_created</code>. Reversible, but it touches auth on a shared environment.</div>
+      <div class="acts"><button class="btn p">Approve &amp; run</button><button class="btn">Show diff</button><button class="btn">Skip</button></div>
+    </div>
+
+    <div class="rows">
+      <div class="row"><span class="sdot" style="background:var(--ok)"></span><span class="nm">Reproduce failures</span><span class="rt"><span class="badge ok">done</span></span></div>
+      <div class="row"><span class="sdot" style="background:var(--warn)"></span><span class="nm">Apply migration</span><span class="rt"><span class="badge">waiting</span></span></div>
+      <div class="row"><span class="sdot" style="background:var(--dim)"></span><span class="nm">Re-run suite</span><span class="rt"><span class="badge">queued</span></span></div>
+    </div>
+  </div>
+  <div class="comp">
+    <div class="ph">Reply, or @ a file&hellip;</div>
+    <div class="cbar"><span class="ic">${ico.plus}</span><span class="ic">${ico.at}</span><span class="send">${ico.send}</span></div>
+  </div>
+</div>
+</div>`;
+document.getElementById("cols").innerHTML = DIRS.map(pane).join("");
+</script></body></html>

@@ -1,0 +1,84 @@
+# Worktree Port Registry
+
+Source of truth for which port belongs to which worktree/branch. **Read this
+before allocating a port for a new worktree's dev server; update it in the
+same change that adds or removes a `.claude/launch.json` preset.** A stale row
+here is exactly as misleading as a stale `launch.json` entry — don't let it
+drift.
+
+## Web (Next.js `apps/web`) — fixed pool, Supabase-constrained
+
+`apps/web`'s Supabase project has a static Auth **Redirect URLs** allow-list
+(dashboard → Authentication → URL Configuration). Email confirmation, magic
+link, and password reset flows only work if the port they redirect to is in
+that list — Supabase does not support wildcarding the port number, so this
+pool is deliberately a **fixed, pre-registered set**, not "any free port."
+Assigning a `web` worktree a port outside this table means its auth redirects
+silently bounce to the Site URL instead of back to the worktree — looks like a
+fresh bug, isn't one (see `doc/bug/BUG-2026-08-16-signup-auto-confirms.md` for
+what that confusion actually looks like in practice).
+
+Allow-listed in the Supabase dashboard as of 2026-08-16: `3000`, `3010`,
+`3020`, ... `3100` (step 10, 11 rows total). `3000` stays reserved for the
+main checkout — never assign it to a worktree.
+
+| Port | Status | Branch | Worktree | Assigned |
+|---|---|---|---|---|
+| 3000 | 🔒 reserved | — | main checkout (no worktree) | — |
+| 3010 | 🔒 locked | `feature/supabase-email-delivery` | `.claude/worktrees/supabase-email-delivery` | 2026-08-16 |
+| 3020 | 🟢 available | — | — | — |
+| 3030 | 🟢 available | — | — | — |
+| 3040 | 🟢 available | — | — | — |
+| 3050 | 🟢 available | — | — | — |
+| 3060 | 🟢 available | — | — | — |
+| 3070 | 🟢 available | — | — | — |
+| 3080 | 🟢 available | — | — | — |
+| 3090 | 🟢 available | — | — | — |
+| 3100 | 🟢 available | — | — | — |
+
+**Pool exhausted (all 10 assignable rows locked)?** Add more rows to the
+Supabase dashboard allow-list first (same `http://localhost:<port>/**`
+pattern, next step of 10), then add matching rows here. Adding the dashboard
+rows is an owner action — see `doc/runbooks/README.md`.
+
+## Core / UI (`@sparstrow/core`, `@sparstrow/ui`) — singleton, no worktree pool
+
+There is no per-worktree isolated copy of the Electron desktop app. `48750` (core)
+and `5173` (ui) belong to the single always-on packaged app in the main checkout —
+reserved, not assignable.
+
+| Port | App | Status | Branch | Worktree | Assigned |
+|---|---|---|---|---|---|
+| 48750 | core | 🔒 reserved | — | main checkout (always-on packaged app) | — |
+| 5173 | ui | 🔒 reserved | — | main checkout (packaged app default) | — |
+
+A `dev-preview` mechanism used to let a worktree spin up its own isolated core/ui
+instance (ports `48751`+); it was removed 2026-08-16 once agent testing moved to
+`apps/web` instead. Details and how to rebuild it if ever needed again:
+[references/port-isolation.md](port-isolation.md)'s "What used to be here" section.
+
+## Allocation procedure — do this, not "pick a number that looks free"
+
+1. Open this file, find the first `🟢 available` row in the web table.
+2. Edit that row in place: `🟢 available` → `🔒 locked`, fill in branch,
+   worktree path, today's date.
+3. Add a `wt-<short-id>-web` preset to `.claude/launch.json` using that exact
+   port (see existing `wt-sed-web` entry as the template).
+4. Copy `apps/web/.env.local` into the new worktree — `.env*` files are
+   gitignored and don't come along with `git worktree add`.
+
+**Editing `.claude/launch.json` and this registry from inside a worktree
+session:** both live at the **repo root**, and a worktree-isolated session is
+blocked from writing outside its own worktree (by design — prevents one
+worktree's session from corrupting another's config). Use `ExitWorktree`
+(`action: "keep"`) first, make the edit from the root checkout, then
+`EnterWorktree` with `path` set to the worktree to go back in.
+
+## Release (when a worktree is cleaned up)
+
+Per this skill's merge/cleanup sequence in `SKILL.md`: once the PR is
+confirmed merged and the worktree is removed, flip its row back to `🟢
+available`, blank the branch/worktree/date columns, and delete its preset
+from `.claude/launch.json` in the same pass. Do this as part of the existing
+"sweep for worktrees left behind after merge" habit — don't treat it as a
+separate chore that can be skipped.

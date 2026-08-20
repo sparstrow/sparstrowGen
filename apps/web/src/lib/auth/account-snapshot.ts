@@ -29,11 +29,18 @@ interface UserLike {
 export function toSnapshot(user: UserLike): AccountSnapshot {
   const email = user.email ?? "";
   const meta = user.user_metadata ?? {};
+  // T-M10-04, closing BUG-2026-08-18-shell-invents-name-from-email: no
+  // `email.split("@")[0]` fallback. That was the same invention T-M9-01
+  // removed from `bootstrap_workspace`, in a second store — FR-019 forbids
+  // deriving a name from an email address anywhere. `""` is the correct,
+  // deliberate value for "nobody has typed one yet" (matching the row this
+  // reads alongside), not a signal to guess. Callers that need something to
+  // *display* for an empty name fall back to the email themselves (see
+  // `WorkspaceSwitcher`), which is a rendering choice, not identity.
   const name =
     (typeof meta.full_name === "string" && meta.full_name) ||
     (typeof meta.name === "string" && meta.name) ||
-    email.split("@")[0] ||
-    "Account";
+    "";
   const avatarUrl =
     (typeof meta.avatar_url === "string" && meta.avatar_url) ||
     (typeof meta.picture === "string" && meta.picture) ||

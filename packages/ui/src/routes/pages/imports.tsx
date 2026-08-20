@@ -35,10 +35,10 @@ const STATUS_LABEL: Record<SkillImportStatus, string> = {
 function ImportStatusBadge({ status }: { status: SkillImportStatus }) {
   const tone =
     status === "ready"
-      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+      ? "bg-success/10 text-success"
       : status === "failed"
-        ? "bg-red-500/10 text-red-600 dark:text-red-400"
-        : "bg-amber-500/10 text-amber-600 dark:text-amber-400";
+        ? "bg-destructive/10 text-destructive"
+        : "bg-warning/10 text-warning";
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", tone)}>
       {status !== "ready" && status !== "failed" && <Loader2 className="size-3 animate-spin" />}
@@ -48,9 +48,9 @@ function ImportStatusBadge({ status }: { status: SkillImportStatus }) {
 }
 
 const VERDICT: Record<SpecterVerdict, { label: string; tone: string; Icon: typeof ShieldCheck }> = {
-  pass: { label: "Pass", tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", Icon: ShieldCheck },
-  flag: { label: "Flag", tone: "bg-amber-500/10 text-amber-600 dark:text-amber-400", Icon: ShieldAlert },
-  block: { label: "Block", tone: "bg-red-500/10 text-red-600 dark:text-red-400", Icon: ShieldX },
+  pass: { label: "Pass", tone: "bg-success/10 text-success", Icon: ShieldCheck },
+  flag: { label: "Flag", tone: "bg-warning/10 text-warning", Icon: ShieldAlert },
+  block: { label: "Block", tone: "bg-destructive/10 text-destructive", Icon: ShieldX },
 };
 
 function VerdictBadge({ verdict }: { verdict: SpecterVerdict }) {
@@ -75,7 +75,7 @@ function SpecterReportView({ report }: { report: SpecterReport }) {
       {report.staticFlags.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {report.staticFlags.map((f) => (
-            <span key={f} className="rounded bg-red-500/10 px-1.5 py-0.5 font-mono text-[10px] text-red-600 dark:text-red-400">
+            <span key={f} className="rounded bg-destructive/10 px-1.5 py-0.5 font-mono text-[10px] text-destructive">
               {f}
             </span>
           ))}
@@ -89,9 +89,9 @@ function SpecterReportView({ report }: { report: SpecterReport }) {
                 className={cn(
                   "mt-0.5 h-fit rounded px-1 text-[10px] font-semibold uppercase",
                   f.severity === "critical"
-                    ? "bg-red-500/15 text-red-600 dark:text-red-400"
+                    ? "bg-destructive/15 text-destructive"
                     : f.severity === "warn"
-                      ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                      ? "bg-warning/15 text-warning"
                       : "bg-muted text-muted-foreground",
                 )}
               >
@@ -128,7 +128,7 @@ function DraftCard({ draft }: { draft: Agent }) {
 
   if (draft.status === "active") {
     return (
-      <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-3 text-sm">
+      <div className="rounded-lg border border-success/40 bg-success/5 p-3 text-sm">
         <span className="font-medium">{draft.name}</span> — promoted &amp; enabled.
       </div>
     );
@@ -199,7 +199,7 @@ function DraftCard({ draft }: { draft: Agent }) {
       ) : (
         <div className="space-y-2 rounded-md border p-3">
           {report?.verdict === "block" && (
-            <p className="rounded bg-red-500/10 px-2 py-1 text-xs text-red-600 dark:text-red-400">
+            <p className="rounded bg-destructive/10 px-2 py-1 text-xs text-destructive">
               Specter flagged this as <strong>block</strong>. Promote only if you understand the risk.
             </p>
           )}

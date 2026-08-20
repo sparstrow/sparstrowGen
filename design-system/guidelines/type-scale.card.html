@@ -1,0 +1,36 @@
+<!doctype html>
+<html class="dark"><head><meta charset="utf-8">
+<title>Type Scale</title>
+<meta name="description" content="Six steps — Inter Variable for UI, monospace for codes, IDs and figures">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;padding:var(--space-5);background:var(--card);color:var(--foreground);
+       font-family:var(--font-sans);font-size:14px}
+  .t{display:grid;grid-template-columns:150px 1fr;gap:var(--space-4);align-items:baseline;
+     padding:11px 0;border-bottom:1px solid var(--border)}
+  .t:last-of-type{border-bottom:0}
+  .spec{font-family:var(--font-mono);font-size:10.5px;color:var(--muted-foreground)}
+  .note{font-size:12px;color:var(--muted-foreground);line-height:1.55;
+        padding-top:var(--space-4);border-top:1px solid var(--border);margin-top:var(--space-2)}
+  code{font-family:var(--font-mono);font-size:11px;background:var(--muted);padding:1px 4px;border-radius:4px}
+</style></head><body>
+<div class="t"><div class="spec">18px / 700 / -0.02em</div>
+  <div style="font-size:18px;font-weight:700;letter-spacing:-.02em">Machines &mdash; workshop-desktop</div></div>
+<div class="t"><div class="spec">15px / 600 / -0.015em</div>
+  <div style="font-size:15px;font-weight:600;letter-spacing:-.015em">Runs &middot; Memory &middot; Agents</div></div>
+<div class="t"><div class="spec">14px / 400 / 1.5</div>
+  <div style="font-size:14px;max-width:70ch">Body text. Capped at 65&ndash;75ch so long run transcripts
+  stay readable instead of running the full width of a wide monitor.</div></div>
+<div class="t"><div class="spec">12px / 400</div>
+  <div style="font-size:12px;color:var(--muted-foreground)">Updated 2026-08-17 &middot; last heartbeat 40s ago</div></div>
+<div class="t"><div class="spec">11px / 600 / .05em</div>
+  <div style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground)">Status &middot; Runtime &middot; Started</div></div>
+<div class="t"><div class="spec">mono 12px / tabular</div>
+  <div style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">rt_9f2c1a&nbsp;&nbsp; run_04b8&nbsp;&nbsp; 1,204&nbsp;&nbsp; 98.4%</div></div>
+<div class="note">
+  Hierarchy is carried by <strong>scale and weight</strong>, not colour or decoration &mdash;
+  inherited from the retired doctrine (DECISIONS.md DD-001) and pending re-decision.
+  Anything compared down a column (durations, counts, percentages) uses
+  <code>font-variant-numeric: tabular-nums</code>, without which right-aligned figures sit subtly ragged.
+</div>
+</body></html>

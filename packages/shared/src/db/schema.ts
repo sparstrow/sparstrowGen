@@ -43,9 +43,18 @@ import type { SpecterReport } from "../schemas/specter";
 
 export const workspaces = pgTable("workspaces", {
   id: text("id").primaryKey(),
+  // `name` is `''` until the owner supplies one. Nothing derives it -- not from
+  // an email, not from a literal default. See policies/012_no_invented_names.sql.
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   description: text("description").notNull().default(""),
+  // Background an agent should know about this workspace. Mirrors `description`'s
+  // shape (notNull + "" default) rather than being nullable, so "unset" is one
+  // value everywhere instead of two.
+  context: text("context").notNull().default(""),
+  // Nullable, mirroring users.avatar_url. Matching the neighbouring column of the
+  // same kind beats being internally consistent with `context`.
+  logoUrl: text("logo_url"),
   ownerId: text("owner_id").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -54,8 +63,11 @@ export const workspaces = pgTable("workspaces", {
 export const users = pgTable("users", {
   id: text("id").primaryKey(), // matches Supabase Auth user.id
   email: text("email").notNull().unique(),
+  // `''` until the person supplies one, or until an OAuth provider hands us a
+  // name they themselves typed. See policies/012_no_invented_names.sql.
   name: text("name").notNull(),
   avatarUrl: text("avatar_url"),
+  bio: text("bio").notNull().default(""),
   role: text("role").notNull().default("developer"), // admin | developer | viewer
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

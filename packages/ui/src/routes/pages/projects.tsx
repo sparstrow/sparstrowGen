@@ -270,7 +270,7 @@ export function ProjectsPage() {
                           {project.name}
                         </Link>
                         {project.isSandbox && (
-                          <Badge variant="outline" className="text-[10px] border-sky-500/40 text-sky-600 dark:text-sky-400">
+                          <Badge variant="outline" className="text-[10px] border-info/40 text-info">
                             sandbox
                           </Badge>
                         )}

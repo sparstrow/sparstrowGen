@@ -40,10 +40,10 @@ import { cn } from "@/lib/utils";
 
 /** Goal status → the locked semantic tokens (design rule 15). */
 const GOAL_BADGE: Record<GoalStatus, string> = {
-  planning: "border-sky-500/50 text-sky-600 dark:text-sky-400",
+  planning: "border-info/50 text-info",
   running: "border-primary/50 text-primary",
-  blocked: "border-amber-500/50 text-amber-600 dark:text-amber-400",
-  done: "border-emerald-500/50 text-emerald-600 dark:text-emerald-400",
+  blocked: "border-warning/50 text-warning",
+  done: "border-success/50 text-success",
   cancelled: "text-muted-foreground",
 };
 
@@ -110,7 +110,7 @@ export function GoalDetailPage() {
           {goal.status}
         </Badge>
         {goal.paused && (
-          <Badge variant="outline" className="border-amber-500/50 text-amber-600 dark:text-amber-400">
+          <Badge variant="outline" className="border-warning/50 text-warning">
             paused
           </Badge>
         )}
@@ -151,20 +151,20 @@ export function GoalDetailPage() {
 
       {/* State banners (UI states registry, rule 14) */}
       {goal.status === "blocked" && goal.blockedReason && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
-          <p className="text-sm font-medium text-amber-600 dark:text-amber-400">Needs you</p>
+        <div className="rounded-lg border border-warning/40 bg-warning/5 p-3">
+          <p className="text-sm font-medium text-warning">Needs you</p>
           <p className="mt-1 whitespace-pre-wrap text-sm">{goal.blockedReason}</p>
         </div>
       )}
       {goal.status === "done" && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-3 text-sm">
-          <CheckCircle2 className="size-4 text-emerald-500" />
+        <div className="flex items-center gap-2 rounded-lg border border-success/40 bg-success/5 p-3 text-sm">
+          <CheckCircle2 className="size-4 text-success" />
           All steps completed.
         </div>
       )}
       {goal.status === "planning" && (
-        <div className="flex items-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/5 p-3 text-sm">
-          <Loader2 className="size-4 animate-spin text-sky-500" />
+        <div className="flex items-center gap-2 rounded-lg border border-info/40 bg-info/5 p-3 text-sm">
+          <Loader2 className="size-4 animate-spin text-info" />
           {goal.planVersion === 0
             ? "The Planner is mapping the steps…"
             : `Replanning after a failure — v${goal.planVersion + 1} is being drafted…`}
@@ -222,7 +222,7 @@ export function GoalDetailPage() {
               </DialogHeader>
               <div className="space-y-3">
                 {selectedNode.statusDetail && (
-                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 text-sm">
+                  <p className="rounded-lg border border-warning/30 bg-warning/5 p-2.5 text-sm">
                     {selectedNode.statusDetail}
                   </p>
                 )}
@@ -310,7 +310,7 @@ export function GoalCard({ goal, projectName }: { goal: Goal; projectName: strin
           {goal.status}
         </Badge>
         {goal.paused && (
-          <Badge variant="outline" className="border-amber-500/50 text-amber-600 dark:text-amber-400">
+          <Badge variant="outline" className="border-warning/50 text-warning">
             paused
           </Badge>
         )}
@@ -323,7 +323,7 @@ export function GoalCard({ goal, projectName }: { goal: Goal; projectName: strin
         <span className="ml-auto text-[10px] text-muted-foreground">{formatDate(goal.updatedAt)}</span>
       </div>
       {goal.status === "blocked" && goal.blockedReason && (
-        <p className="line-clamp-2 text-xs text-amber-600 dark:text-amber-400">{goal.blockedReason}</p>
+        <p className="line-clamp-2 text-xs text-warning">{goal.blockedReason}</p>
       )}
     </Link>
   );

@@ -1,0 +1,73 @@
+<!doctype html>
+<html class="dark"><head><meta charset="utf-8">
+<title>Code syntax</title>
+<meta name="description" content="The fifth colour role: six tokens per mode, fixed and never themed (DESIGN.md §2.6)">
+<link rel="stylesheet" href="../styles.css">
+<!-- Literal px for card chrome — the app defines no spacing tokens. -->
+<style>
+  body{margin:0;padding:20px;background:var(--card);color:var(--foreground);
+       font-family:var(--font-sans);font-size:14px}
+  h4{margin:0 0 10px;font-size:11px;font-weight:600;letter-spacing:.06em;
+     text-transform:uppercase;color:var(--muted-foreground)}
+  pre{margin:0;padding:14px 16px;border:1px solid var(--border);
+      border-radius:var(--radius-md);background:var(--background);
+      font-size:12px;line-height:1.7;overflow-x:auto;
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .c{color:var(--hl-comment);font-style:italic}
+  .k{color:var(--hl-keyword)}
+  .s{color:var(--hl-string)}
+  .n{color:var(--hl-number)}
+  .t{color:var(--hl-title)}
+  .a{color:var(--hl-attr)}
+  .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+  .key{display:flex;align-items:center;gap:7px;font-size:11.5px;
+       color:var(--muted-foreground)}
+  .key i{width:14px;height:14px;border-radius:4px;flex:0 0 auto}
+  .note{margin-top:16px;font-size:12px;color:var(--muted-foreground);line-height:1.6}
+  .note strong{color:var(--foreground)}
+  .rule{margin-top:12px;padding:10px 12px;border-left:2px solid var(--border);
+        font-size:12px;line-height:1.6;color:var(--muted-foreground)}
+  code{font-size:11px;background:var(--muted);padding:1px 4px;border-radius:4px}
+</style></head><body>
+
+<h4>Ships today — six tokens per mode</h4>
+
+<pre><span class="c">// Contrast is measured against all three ramp steps.</span>
+<span class="k">const</span> <span class="t">PRESETS</span> = {
+  <span class="a">Amber</span>:  { h: <span class="n">70</span>, c: <span class="n">0.15</span>, lightL: <span class="n">0.528</span> },
+  <span class="a">Violet</span>: { h: <span class="n">285</span>, c: <span class="n">0.18</span>, lightL: <span class="n">0.538</span> },
+};
+
+<span class="k">export function</span> <span class="t">check</span>(<span class="a">p</span>: <span class="t">Preset</span>) {
+  <span class="k">if</span> (<span class="t">worst</span>(<span class="a">p</span>) &lt; <span class="n">4.5</span>)
+    <span class="k">throw new</span> <span class="t">Error</span>(<span class="s">"below the contrast floor"</span>);
+}</pre>
+
+<div class="keys">
+  <div class="key"><i style="background:var(--hl-comment)"></i>--hl-comment</div>
+  <div class="key"><i style="background:var(--hl-keyword)"></i>--hl-keyword</div>
+  <div class="key"><i style="background:var(--hl-string)"></i>--hl-string</div>
+  <div class="key"><i style="background:var(--hl-number)"></i>--hl-number</div>
+  <div class="key"><i style="background:var(--hl-title)"></i>--hl-title</div>
+  <div class="key"><i style="background:var(--hl-attr)"></i>--hl-attr</div>
+</div>
+
+<p class="note"><strong>This is the fifth colour role, not a leftover.</strong>
+  Only the classes <code>highlight.js</code> actually emits are styled; anything
+  else falls through to <code>--foreground</code>. The values sit one step
+  calmer than a typical editor theme because code here appears inside a
+  monitoring surface, not an editor.</p>
+
+<div class="rule"><strong>Named rule — Syntax Is Not Themed.</strong> A user's
+  surface or accent choice does not reach these six. Tinting them with the
+  surface costs about a third of the perceptual separation between them, and
+  mapping them onto the status and brand roles costs about half — and makes a
+  green string literal read as <em>online</em>. <code>DESIGN.md</code> §2.6,
+  decided 2026-08-19 (<code>OQ-4</code> → <code>DD-011</code>).</div>
+
+<p class="note">Unlike every other guideline card here, this one documents a
+  foundation with <strong>no gap between the doctrine and the code</strong> —
+  §2.6 was written to describe what already shipped rather than to specify
+  something to build.</p>
+
+</body></html>

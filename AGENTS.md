@@ -22,21 +22,54 @@ Welcome agent! This file defines the mandatory workflow, safety rules, and engin
 ```
 
 ### Locked Technology Stack
-- **Web App**: Next.js 16.3 App Router (`apps/web`) with Turbopack bundler.
+
+**`.sparstrowgen/blueprint.yaml` is the single source of truth for the stack,
+commands, and MCP server roster — read it, don't restate its facts here.** It's
+loaded every session same as this file, so duplicating its content in prose here
+would just be two places to keep in sync instead of one. When the stack changes,
+update the blueprint; only touch this section for the wiring detail below, which the
+blueprint deliberately doesn't carry (file paths, provider specifics — not "what tech
+are we on").
+
 - **Router Adapter**: Custom Next.js navigation adapter (`apps/web/src/lib/react-router-mock.tsx`) intercepting TanStack Router calls.
-- **UI & Styling**: Tailwind CSS v4, Radix UI primitives, `@sparstrow/ui` Shadcn components, OKLCH design system tokens (`DESIGN.md`).
-- **Database & ORM**: Supabase PostgreSQL + Drizzle ORM (`@sparstrow/shared`), Drizzle Kit migrations.
+- **Design doctrine**: `DESIGN.md` — written 2026-08-18 with the owner via the `design-brief` skill, replacing generic tool output nobody had chosen. Read it before any UI work. It defines a **theming contract** (user-selectable brand accent + surface character, with contrast floors) rather than a fixed palette, so never hardcode a colour.
 - **Authentication**: `@supabase/ssr` (Passwordless Magic Link, Email & Password, GitHub OAuth, Google OAuth) + Next.js Middleware Session Guard (`apps/web/src/middleware.ts`).
 - **Realtime Cloud Sync**: Supabase Realtime Postgres event channel streaming (`apps/web/src/components/providers.tsx`) bridging into live React Query cache invalidation.
-- **Vector Search**: Supabase `pgvector` semantic search for memory notes and RAG retrieval.
-- **Desktop Shell**: Electron 36 (`@sparstrow/desktop`).
-- **Package Manager & Monorepo**: `pnpm` v11.6.0 + Turbo 2.9.18 caching.
+
+Vector search specifics (local vs. cloud) are covered in §4, not repeated here.
 
 ### Connected MCP Servers & Skills
-- **`shadcn` MCP Server**: UI pattern discovery (`search_items_in_registries`, `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`).
-- **`impeccable` Skill**: Production-grade UI design commands (`audit`, `adapt`, `polish`, `craft`, `shape`, `distill`, `harden`).
-- **`supabase` MCP Server**: Database schema inspection, migration execution, and Edge Function deployment.
-- **Tool Integration MCPs**: `clockify`, `square`, and `blender` MCP servers for agent action execution.
+
+The server roster is `blueprint.yaml`'s `mcp_servers` list, configured in
+`.mcp.json` — update both together when a server is added or removed. What follows
+is operational detail neither of those files carries (why each is there, auth
+posture, what pairs with what):
+
+- **`supabase`**: schema inspection, migration execution, Edge Function deployment.
+- **`context7`**: up-to-date library/framework documentation lookup — prefer this
+  over training-data knowledge or web search for API syntax and version-specific
+  docs.
+- **`shadcn`**: UI pattern discovery (`search_items_in_registries`,
+  `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`).
+  Paired with the vendored `shadcn` skill (`.claude/skills/shadcn/`) for the
+  procedural half of the Shadcn workflow — see §3.11.
+- **`github`**: PR/issue management and repo search against this project's
+  GitHub remote. OAuth on first connect (run `/mcp` to authorize), same pattern
+  as `supabase` — no token ever belongs in `.mcp.json` or an agent's hands.
+- **`playwright`**: browser automation, backing the end-to-end visual/runtime
+  testing loop mandated in §3.10.
+
+**`impeccable` Skill**: Production-grade UI design commands (`audit`, `adapt`,
+`polish`, `craft`, `shape`, `distill`, `harden`). Personal/user-level, not declared
+in this repo. Its slop rules — and three default clusters from Anthropic's
+`frontend-design` skill — were adapted into the repo's own `ai-design-slop`
+catalogue under Apache-2.0; attribution and the list of what was deliberately
+not taken live in `.claude/skills/ai-design-slop/NOTICE.md`. That catalogue is
+the one an agent here loads; `impeccable` itself carries a competing doctrine
+and is not part of this repo's chain. Any other MCP tool or skill an agent sees available (e.g. `clockify`,
+`square`) comes from that agent's personal/user-level config the same way — don't
+assume it's present for another agent or machine unless it's in `.mcp.json` or
+`.claude/skills/`.
 
 ---
 
@@ -75,6 +108,10 @@ We enforce a strict 3-tier Git & deployment pipeline:
      ```
 5. **Auto-Enqueuing PR Merges**:
    - Immediately upon opening a PR, agents MUST execute `gh pr merge <pr_number> --auto --squash` so that GitHub automatically queues and merges the PR as soon as CI passes, without requiring manual button clicks in the GitHub UI.
+6. **Commit Without Asking**:
+   - Once edits for a coherent unit of work are complete (a fix, a doc update, a task's checklist items), commit them on the current feature/worktree branch **without waiting for the user to say "commit this"** — this file is the standing, advance authorization for that.
+   - Commit at the end of a logical change, not after every individual file edit: an in-progress multi-file change lands as one commit (or a few coherent ones) once it's actually done, not a commit per file touched or per half-finished edit.
+   - This does not relax rule 3 (verification before PR) and does not change anything about opening or pushing PRs — those still follow rules 1, 2, and 5 above exactly as written. It only covers local commits to the agent's own branch.
 
 ---
 
@@ -125,13 +162,22 @@ We enforce a strict 3-tier Git & deployment pipeline:
     - The browser agent MUST report back with detailed feedback, console errors, and usability issues found.
     - The main agent MUST then verify and fix any reported issues.
     - Upon applying fixes, the browser agent MUST be invoked again to re-verify. This loop MUST continue until all issues are resolved and the goal is complete before claiming task completion.
+    - **This is what the `frontend-verify` skill (`.claude/skills/frontend-verify/`) implements.** It is the concrete, repeatable form of this rule — invoke it rather than improvising the loop, and always after the `interactive-prototype` or `design-system` skills produce something.
 11. **Shadcn UI & MCP Server Integration (Impeccable Workflow)**:
     - ALL design work and Impeccable commands (`craft`, `shape`, `polish`, `audit`, `bolder`, `quieter`, `distill`, `harden`, etc.) MUST use `@sparstrow/ui` Shadcn UI components and design tokens (`bg-background`, `bg-card`, `border-border`, `text-foreground`, `text-muted-foreground`).
     - ALWAYS leverage the `shadcn` MCP server tools (`search_items_in_registries`, `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`) to discover, inspect, and audit Shadcn UI component patterns.
     - **Mandatory Order of Work Before Writing a Component**:
-      1. Read `DESIGN.md` (tokens, motion, component vocabulary) and `PRODUCT.md`'s register.
+      1. Read `DESIGN.md` in full — especially §6 Iconography and §7 Motion, whose absence is what made the app read as plain — plus `PRODUCT.md`'s register. Verify new UI in **both modes and at least the Paper and Mono surfaces**; Mono is the honest worst case.
       2. Invoke the `/shadcn` skill and use the Shadcn UI MCP — `list_components` / `get_component` / `get_component_demo` for primitives, `list_blocks` / `get_block` for composite surfaces. Check for an existing block before composing a page from scratch.
       3. Only then write code.
+13. **The Design Skill Chain (order matters)**:
+    - `design-brief` → `design-system` → `interactive-prototype` → `frontend-wiring` + `ai-design-slop` → `frontend-verify` → `slop-audit`.
+    - `design-brief` writes the doctrine by interviewing the owner with rendered options. Everything downstream is accountable to it, so nothing downstream may run before it exists.
+    - **Never restate the doctrine's rules inside another skill, agent, or checklist.** Point at it. A duplicated doctrine keeps enforcing itself after the original changes — this happened in the retired `design-system-conformance` skill and silently overrode the design system for every agent that loaded it.
+    - **Design lives in `DESIGN.md` + `design-system/`; the repo mechanics live in `frontend-wiring`.** The split is load-bearing: `frontend-wiring` holds paths, the router mock adapter, contract wiring, the four states, and verification, and decides nothing about how anything looks.
+    - **Slop is a family, not a design concern.** `ai-design-slop` is a catalogue of tells that would be slop in *any* app — absolute, portable, and deliberately free of this project's tokens. Anything project-specific is drift and belongs to the doctrine. `ai-coding-slop` and `ai-database-slop` will follow the same schema.
+    - **`slop-audit` is report-only** and is run by the `slop-killer` agent. An author auditing their own surface is not a second opinion — build with `ai-design-slop` loaded, then have `slop-killer` check it. Report-only is a rule the agent keeps, not a wall: a restricted `tools:` list is **not** self-enforcing here, so the evidence is `git status --short` unchanged across the run.
+    - **Record why a design changed, not just what changed.** When the owner asks for a different style, a tighter layout, or something added on top, that request has a reason behind it, and the reason is worth more than the change: it usually generalises into a rule that stops the same debate recurring on every subsequent page. `design-system/DECISIONS.md` is where it goes — see the `design-system` skill.
 12. **Mandatory Supabase & Postgres Skills**:
     - Load the `supabase` skill for ANY task touching Supabase — schema changes, Auth, Realtime, Storage, Edge Functions, RLS, the CLI/MCP, or client-library (`supabase-js`, `@supabase/ssr`) integration.
     - Load the `supabase-postgres-best-practices` skill **before** writing or changing anything that lives in Postgres, running anywhere: tables/columns, migrations, RLS policies (and their tests), indexes, triggers, functions, `pg_cron`/`pgmq`, `pgvector`, or restoring/importing data. Load it too when diagnosing slow queries, timeouts, locking, or rows visible to the wrong tenant.
@@ -151,8 +197,11 @@ We enforce a strict 3-tier Git & deployment pipeline:
   board, runs, transcripts, chat) is Postgres/Supabase, schema in
   `packages/shared/src/db/schema.ts` (`pgTable`). Each daemon's execution store
   and derived memory index is local SQLite, schema in
-  `packages/core/src/db/schema.ts` (`sqliteTable`). There is no
-  `@sparstrow/daemon` package — the daemon is `@sparstrow/core`.
+  `packages/core/src/db/schema.ts` (`sqliteTable`). **Splitting a standalone
+  `@sparstrow/daemon` package out of `@sparstrow/core` is a planned goal, not yet
+  built** — until that split happens, the daemon's code lives in and runs as
+  `@sparstrow/core`. Don't create a `packages/daemon/` directory speculatively;
+  the split should be its own deliberate piece of work.
 * **RLS is the security boundary, not an add-on.** Dispatch is cloud-canonical,
   so a task row targeting a runtime causes a process to spawn on someone's
   machine. Any new table needs a workspace-scoped policy. Post-migration SQL
@@ -180,6 +229,50 @@ We enforce a strict 3-tier Git & deployment pipeline:
 ## 5. Documentation & Decision Records (`doc/`)
 
 All non-code project memory lives in `doc/`. Read `doc/README.md` first.
+
+**Every file type below has a skeleton in `doc/templates/`** — specs, plans,
+phase specs, tasks, verification tasks, bugs, security reports, runbooks, and
+entries for all four registers. Copy the matching one instead of inventing a
+shape: they encode the required sections (a task's checklist, a gap's "clears
+when", a deferral's unpark trigger) that make "done" mean the same thing every
+time it's written. `doc/templates/README.md` maps situation → template →
+destination.
+
+### The lifecycle starts at a spec, not a plan
+
+**This app is UX-first.** It is mostly backend, and backend-heavy projects fail
+in one specific way: every layer gets built, each passes its tests, and the
+thing the owner wanted to *use* never quite arrives. The spec is the
+counterweight.
+
+```
+idea → spec → owner review → plan → tasks → code
+```
+
+* **`doc/specs/`** — what the owner wants, **in the owner's terms**. User
+  stories prioritized P1/P2/P3, acceptance scenarios as Given/When/Then, and an
+  Interface & experience section covering all four states. **No technology in a
+  spec** — no table names, endpoints, component names, or framework. If a
+  sentence couldn't be read aloud to someone who has never seen the codebase,
+  it belongs in the plan.
+* **Every user story is independently demoable.** Build only that story and the
+  owner still has something they can open and use. A story that delivers
+  nothing alone is a technical step wearing a story's clothes — it belongs in
+  the plan's foundational work.
+* **The owner reviews the spec before planning starts.** Cheapest point to
+  catch a wrong direction; a wrong spec propagates silently into the plan, the
+  tasks, and everything downstream.
+* **Internal work skips the spec.** Anything that only changes how the repo is
+  built, checked, documented, or governed goes straight to a plan whose `Spec`
+  row reads `n/a (internal)`. When it's genuinely unclear, ask.
+* **The plan splits the spec into foundational and per-story work**, using one
+  test: *can the owner see the result?* Yes → it belongs to a story. No → it is
+  foundational, and it blocks the story work behind it. Foundational phases get
+  ordinary technical tasks; story phases get tasks grouped so the phase ends in
+  something demoable, and are graded on the spec's acceptance scenarios rather
+  than a list of components built. Full rules: `doc/tasks/README.md`.
+* **Every task carries a `Serves` row** naming its user story or the story
+  phase it unblocks. A task that can name neither is a task nobody asked for.
 
 * **`doc/plans/`** — approved plans. The what and why. Uncertainty is allowed here.
 * **`doc/tasks/`** — executable specs derived from an approved plan, one folder
@@ -214,6 +307,22 @@ All non-code project memory lives in `doc/`. Read `doc/README.md` first.
   concrete thing that closes it; when you close one, **delete the entry** and say
   where the proof lives.
 * **`doc/Ideas.md`** — unscoped, no commitment, may never be built.
+* **`doc/bug/`** — owner-reported or agent-found wrong behavior in the running
+  app. One file per bug (`BUG-<date>-<slug>.md`), never deleted, just marked
+  resolved in place. Format and index: `doc/bug/README.md`.
+* **`doc/security/`** — vulnerabilities and trust-boundary issues: auth bypass,
+  injection, leaked secrets, data crossing users/workspaces, RLS gaps. One file
+  per issue (`SEC-<date>-<slug>.md`), never a live secret or replayable exploit
+  payload inside it. Format and index: `doc/security/README.md`.
+
+**Always document a bug or security issue in the same turn it surfaces** —
+whether the owner reports it directly, or an agent notices it while
+implementing, reviewing, or verifying unrelated work. Do not wait to be asked,
+and do not rely on chat history being re-read later; a problem mentioned only
+in a chat message does not exist to the next session. Once a bug/security file
+is well enough understood to fix, open a task in `doc/tasks/` (or add to an
+existing phase) and link it back to the bug/security file's id — the report
+stays as the historical record, the task is what gets executed.
 
 When the owner says "park it", "later", or "just an idea", write it to the right
 file in the same turn rather than relying on the conversation to be re-read.

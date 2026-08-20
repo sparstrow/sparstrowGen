@@ -2,7 +2,7 @@
 title: Pipelines
 section: Surfaces
 description: Chain agents into multi-step workflows with output piped between steps.
-order: 8
+order: 9
 updated: 2026-07-13
 ---
 

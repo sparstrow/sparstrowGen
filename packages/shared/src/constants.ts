@@ -112,3 +112,43 @@ export function resolveWipSnapshotKeep(raw: string | null | undefined): number {
   const n = Number.parseInt(raw ?? "", 10);
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_WIP_SNAPSHOT_KEEP;
 }
+
+/**
+ * T-M9-04 — the one Supabase Storage bucket for avatar and workspace-logo
+ * images. Named once, here, so the upload component's client-side check, the
+ * server's `isOwnStorageUrl` origin check, and the SQL policy comment
+ * (`013_storage_images.sql`) do not each carry their own copy to drift out of
+ * sync.
+ *
+ * **Never put anything else in this bucket** — every object in it has a
+ * guessable, permanent, unauthenticated URL.
+ */
+export const PUBLIC_IMAGE_BUCKET = "public-images";
+
+/** Matches the bucket's own `file_size_limit` in `013_storage_images.sql`. */
+export const PUBLIC_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+
+/** Matches the bucket's own `allowed_mime_types`. Value is the file extension to upload under. */
+export const PUBLIC_IMAGE_ALLOWED_TYPES: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+
+/**
+ * The client-side half of "enforced twice" (T-M9-04 decision). Only a
+ * courtesy — the bucket's own size limit and MIME allowlist are what actually
+ * hold, since anyone can call the storage API directly — but it turns an
+ * oversized or wrong-type file into an instant, readable message instead of a
+ * slow upload followed by an opaque storage error.
+ */
+export function checkImageFile(file: { type: string; size: number }): string | null {
+  if (!(file.type in PUBLIC_IMAGE_ALLOWED_TYPES)) {
+    return "Only PNG, JPEG or WebP images are accepted.";
+  }
+  if (file.size > PUBLIC_IMAGE_MAX_BYTES) {
+    const mb = (file.size / (1024 * 1024)).toFixed(1);
+    return `Image must be 2 MB or smaller (this one is ${mb} MB).`;
+  }
+  return null;
+}

@@ -246,7 +246,7 @@ export function AgentsPage() {
                         <span
                           className={cn(
                             "absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-background",
-                            agent.enabled ? "bg-emerald-500" : "bg-muted-foreground/40",
+                            agent.enabled ? "bg-success" : "bg-muted-foreground/40",
                           )}
                         />
                       </span>
@@ -280,14 +280,14 @@ export function AgentsPage() {
                       className={cn(
                         "inline-flex items-center gap-1.5 text-xs font-medium",
                         agent.enabled
-                          ? "text-emerald-600 dark:text-emerald-400"
+                          ? "text-success"
                           : "text-muted-foreground",
                       )}
                     >
                       <span
                         className={cn(
                           "size-1.5 rounded-full",
-                          agent.enabled ? "bg-emerald-500" : "bg-muted-foreground/40",
+                          agent.enabled ? "bg-success" : "bg-muted-foreground/40",
                         )}
                       />
                       {agent.enabled ? "Ready" : "Disabled"}

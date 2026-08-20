@@ -255,7 +255,7 @@ export function ManagerChatPanel({
           <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
               {validation.ok ? (
-                <span className="text-emerald-600 dark:text-emerald-400">Ready to publish.</span>
+                <span className="text-success">Ready to publish.</span>
               ) : (
                 <span>
                   {validation.reasons[0]}

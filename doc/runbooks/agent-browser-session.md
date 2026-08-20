@@ -53,8 +53,21 @@ test.
 request, which is usually what you want — a fresh workspace shows empty states
 honestly instead of inheriting someone else's data.
 
-**4. Clean up.** Disposable accounts are cheap but not free; they accumulate in
-`auth.users` and each one owns a workspace.
+**4. Clean up — with this query, and not with the admin API.** Disposable
+accounts are cheap but not free; they accumulate in `auth.users` and each one
+owns a workspace.
+
+> ⚠️ **`auth.admin.deleteUser` and the dashboard's Authentication → Users list
+> do NOT clean up after themselves.** There is no foreign key from
+> `public.users.id` to `auth.users.id` — the columns are `text` and `uuid` in
+> different schemas — so deleting the auth user leaves its profile row, its
+> workspace and its membership behind **permanently**. No RLS policy can reach
+> them afterwards, because every policy resolves through the session that no
+> longer exists. Eight such trees were found on staging on 2026-08-18:
+> [`BUG-2026-08-18-orphaned-account-rows-on-staging`](../bug/BUG-2026-08-18-orphaned-account-rows-on-staging.md).
+>
+> Use the query below, or call the app's own `delete_own_account()` as that
+> user. Both remove everything; nothing else does.
 
 ```sql
 with victims as (select id::text as tid, id as uid from auth.users where email like '%@sparstrow.test'),
@@ -63,6 +76,103 @@ with victims as (select id::text as tid, id as uid from auth.users where email l
  au as (delete from auth.users where id in (select uid from victims) returning 1)
 select (select count(*) from ws), (select count(*) from pu), (select count(*) from au);
 ```
+
+## Getting a browser that actually renders — added 2026-08-20
+
+The procedure above gives you a *session*. For two milestones that was only half
+of what a visual pass needs, because nothing here rendered a frame: `G-12`,
+`G-13` and `G-16` all record the same blocker in different words.
+
+**The blocker is the in-app Browser pane specifically, not this environment.**
+A page loaded into that pane reports `document.visibilityState === "hidden"` and
+is throttled hard enough that React Query never issues its first fetch — so a
+page that is working perfectly sits on its loading skeletons forever and reads
+as a bug in your own code. `tabs_select` does not change it. Do not spend an
+hour debugging a query that is fine.
+
+**Use the Playwright MCP instead.** It drives its own browser, which composites,
+screenshots, accepts real keyboard input, and — the part that matters most for
+the four-states rule — intercepts routes, so error and loading states can be
+reached deliberately rather than waited for.
+
+### The whole loop
+
+1. **Give the worktree an env file.** A fresh worktree has no `apps/web/.env.local`,
+   and without it every path 503s behind the app's own "this deployment is not
+   configured" guard. Copy it from the main checkout; it is gitignored, so it
+   cannot be committed by accident.
+
+   ```
+   cp <main-checkout>/apps/web/.env.local apps/web/.env.local
+   ```
+
+   `G-16` declined to do this "for a routing check", which was right for a
+   routing check and wrong for anything visual.
+
+2. **Start the dev server** through `preview_start` with a `.claude/launch.json`
+   entry running `pnpm --filter web dev` on port 3000. Never with the Bash tool.
+
+3. **Mint a token** exactly as above, then navigate the *Playwright* browser to
+   `/auth/confirm?token_hash=…&type=magiclink&next=/<page under test>`. The
+   session cookie lands in that browser.
+
+4. **Walk the page.** `browser_snapshot` for structure, `browser_click` /
+   `browser_type` / `browser_press_key` for interaction, `browser_take_screenshot`
+   for the record, `browser_console_messages` for the console-clean assertion.
+
+5. **Force the states you cannot wait for**, with `page.route` via
+   `browser_run_code_unsafe`:
+
+   ```js
+   // Error state
+   await page.route('**/api/v1/runtimes', r => r.fulfill({
+     status: 503, contentType: 'application/json',
+     body: JSON.stringify({ error: 'The control plane is not reachable right now.' }),
+   }));
+
+   // Loading state — hold the response open long enough to read the skeletons
+   await page.route('**/api/v1/runtimes', async r => { await page.waitForTimeout(4000); await r.continue(); });
+   ```
+
+   `page.unrouteAll()` between states. Note that `setTimeout` is not defined in
+   that evaluation context — use `page.waitForTimeout`.
+
+6. **Dark mode and mobile** are `page.emulateMedia({ colorScheme: 'dark' })` plus
+   the app's own `.dark` class, and `page.setViewportSize({ width: 375, … })`.
+   Assert no sideways scroll by comparing `document.documentElement.scrollWidth`
+   with `window.innerWidth` rather than by looking.
+
+### If the pass needs a paired machine
+
+Pair against `localhost:3000` — but **give each machine its own secrets dir**, or
+you will overwrite the owner's real pairing in `~/.sparstrow`:
+
+```
+SPARSTROW_SECRETS_DIR=<scratch>/secrets-1 \
+SPARSTROW_DATA_DIR=<scratch>/data-1 \
+SPARSTROW_CLOUD_URL=http://localhost:3000 \
+npx tsx src/cli/pair.ts <code> --name build-server --force
+```
+
+Mint the codes from the signed-in page itself (`fetch('/api/v1/pairing-codes',
+{ method: 'POST' })` inside `browser_evaluate`) rather than passing a session
+cookie into a shell script. Several dirs give you several machines, which is
+what a populated list at realistic volume needs.
+
+For a genuinely *live* machine — an `active` row, a working per-runtime
+settings command — start core with the same env plus a spare port:
+
+```
+SPARSTROW_SECRETS_DIR=<scratch>/secrets SPARSTROW_DATA_DIR=<scratch>/data \
+SPARSTROW_CLOUD_URL=http://localhost:3000 SPARSTROW_PORT=48760 npx tsx src/index.ts
+```
+
+It registers with the control plane in a couple of seconds; the embedder takes
+a few more on first run.
+
+**Everything above still needs the cleanup step.** Machines paired to a
+disposable workspace disappear with it when the SQL below runs; anything paired
+elsewhere does not.
 
 ## Why not the alternatives
 
@@ -84,4 +194,10 @@ The options weighed in OQ-2, and why this beat them:
   cleanup query keys on it.
 - Each token works **once** and expires in an hour. Mint a fresh one per pass
   rather than reusing.
-- Never do this against production data. Staging only.
+- Never do this against production data. Staging only. As of 2026-08-20 the
+  `staging`/`development` Supabase project is the only one that exists — a
+  separate production project is deliberately not created yet
+  ([`deploy-web-app.md`](deploy-web-app.md)) — so `.env.local` satisfies this.
+  Re-check before assuming it still does.
+- **Give paired machines their own `SPARSTROW_SECRETS_DIR`.** The default is
+  `~/.sparstrow`, which holds the owner's real pairing.

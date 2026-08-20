@@ -174,7 +174,7 @@ export function TeamDetailPage() {
                     <Users className="size-3" /> {team.members.length}
                   </Badge>
                   {team.isEphemeral && (
-                    <Badge variant="outline" className="border-sky-500/40 text-sky-600 dark:text-sky-400" title="Auto-created around a multi-assign task; archives itself when the task finishes.">
+                    <Badge variant="outline" className="border-info/40 text-info" title="Auto-created around a multi-assign task; archives itself when the task finishes.">
                       ephemeral
                     </Badge>
                   )}
@@ -188,7 +188,7 @@ export function TeamDetailPage() {
                   {team.description || <span className="italic">No description provided.</span>}
                 </p>
                 {team.isEphemeral && (
-                  <p className="mt-2 text-sm text-sky-600 dark:text-sky-400 bg-sky-500/10 p-2 rounded-md border border-sky-500/20 w-fit">
+                  <p className="mt-2 text-sm text-info bg-info/10 p-2 rounded-md border border-info/20 w-fit">
                     This is an ephemeral team created around a task. It is read-only and will be archived automatically.
                   </p>
                 )}
@@ -375,7 +375,7 @@ function MemberRow({ teamId, member, readOnly }: { teamId: string, member: any, 
               }}
             />
             <Button size="icon" variant="ghost" className="size-7" onClick={save} disabled={updateMember.isPending}>
-              <Check className="size-4 text-emerald-500" />
+              <Check className="size-4 text-success" />
             </Button>
             <Button size="icon" variant="ghost" className="size-7" onClick={cancel}>
               <X className="size-4 text-muted-foreground" />

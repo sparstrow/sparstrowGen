@@ -1,0 +1,42 @@
+/* spacing.css — radius is MIRRORED from globals.css (--radius: 0.625rem).
+ *
+ * Spacing and shadow scales were transcribed from the RETIRED doctrine's prose
+ * and carry no authority now (see DECISIONS.md DD-001). Placeholders until
+ * design-brief produces the replacement.
+ *
+ * --transition-base below is worse than a placeholder: it was INVENTED during
+ * the mirror pass and exists in no real stylesheet. The app's four actual
+ * animations live in packages/ui/src/styles/globals.css (spg-slide-in-right,
+ * spg-fade-in, spg-pulse, spg-turn-in) and should be the new Motion section's
+ * source.
+ *
+ * shadcn derives its radius steps from a single --radius base, so the four
+ * values below are computed, not independently chosen. Changing --radius in
+ * globals.css moves all of them together — that is the intended behaviour.
+ */
+
+:root {
+  --radius: 0.625rem;              /* 10px — the base every step derives from */
+  --radius-sm: calc(var(--radius) - 4px);   /*  6px — small badges, chips */
+  --radius-md: calc(var(--radius) - 2px);   /*  8px — inputs, buttons */
+  --radius-lg: var(--radius);               /* 10px — cards, panels */
+  --radius-xl: calc(var(--radius) + 4px);   /* 14px — modals */
+  --radius-full: 999px;                     /*        pills, avatars */
+
+  /* 4px base grid */
+  --space-1: 4px;    /* icon gaps */
+  --space-2: 8px;    /* icon + label */
+  --space-3: 12px;   /* inline */
+  --space-4: 16px;   /* form fields */
+  --space-5: 20px;   /* card padding — from the retired doctrine */
+  --space-6: 24px;   /* section padding */
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Flat-by-default: the ONLY shadow in the system, reserved for floating
+     popovers, dropdowns and command palettes. Cards and panels get none. */
+  --shadow-popover: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+
+  --transition-base: 140ms ease;
+}

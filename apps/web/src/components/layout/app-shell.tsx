@@ -14,6 +14,7 @@ import {
   ListChecks,
   Menu,
   MessagesSquare,
+  Monitor,
   PackagePlus,
   Play,
   Puzzle,
@@ -64,6 +65,7 @@ const NAV_GROUPS: { heading: string | null; items: NavItem[] }[] = [
       { to: "/teams", label: "Teams", icon: Users },
       { to: "/projects", label: "Projects", icon: FolderKanban },
       { to: "/runs", label: "Runs", icon: Play },
+      { to: "/machines", label: "Machines", icon: Monitor },
       { to: "/pipelines", label: "Pipelines", icon: Workflow },
       { to: "/schedule", label: "Schedule", icon: CalendarClock },
       { to: "/imports", label: "Imports", icon: PackagePlus },
@@ -227,7 +229,7 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
                         {item.to === "/" && attentionCount > 0 ? (
                           <span
                             className={cn(
-                              "rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-white",
+                              "rounded-full bg-warning px-1.5 text-xs font-semibold text-white",
                               collapsed && "md:hidden",
                             )}
                           >
@@ -271,7 +273,7 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
             {attentionCount > 0 ? (
               <Link href="/" title={`${attentionCount} item(s) need your attention`}>
                 <Badge variant="warning" className="gap-1.5 rounded-full">
-                  <span className="size-1.5 rounded-full bg-amber-500" />
+                  <span className="size-1.5 rounded-full bg-warning" />
                   {attentionCount} waiting
                 </Badge>
               </Link>
@@ -284,7 +286,7 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
               <span
                 className={cn(
                   "size-1.5 rounded-full",
-                  connected ? "bg-emerald-500" : "bg-red-100 animate-pulse",
+                  connected ? "bg-success" : "bg-destructive animate-pulse",
                 )}
               />
               {connected ? "live" : "offline"}

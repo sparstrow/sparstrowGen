@@ -19,6 +19,42 @@ doc/tasks/
 The phase `README.md` holds what all its tasks share, so a decision is written
 once and referenced, not copy-pasted into eight files and then updated in six.
 
+**Skeletons for all three live in [`../templates/`](../templates/README.md)** —
+[`phase-spec.md`](../templates/phase-spec.md) for a phase `README.md`,
+[`task.md`](../templates/task.md) for an individual task, and
+[`verification-task.md`](../templates/verification-task.md) for the `[S]` task
+every phase ends with.
+
+## Two kinds of phase
+
+Phases come in two shapes, and every phase declares which it is in its
+`README.md` **Kind** row. The split is decided in the plan's Work breakdown,
+using one test:
+
+> **Can the owner see the result of this work?**
+> **Yes** → it belongs to a user story. **No** → it is foundational.
+
+| | **Foundational** | **Serves `US-n`** |
+|---|---|---|
+| Examples | schema, RLS, transport, sync, migrations | a page, a flow, anything the owner opens |
+| Tasks grouped by | technical layer | the story, ending in something demoable |
+| Definition of done | technical outcomes, plus which story phase it unblocks | the spec's acceptance scenarios, walked — plus all four states |
+| Demos to | nobody, and that's correct | the owner, directly |
+
+M1–M7 were all foundational, which is why none of them is named after
+something the owner could open. That was the right shape for building a
+control plane. It is the wrong shape for everything the owner actually
+touches, which is what specs now govern.
+
+**The failure this guards against:** everything gets called foundational,
+no story ever ships, and the app is a backend with no way in. If a plan's
+Work breakdown has stories with no rows under them, that is the warning
+sign — not a scheduling detail.
+
+Every task, in either kind of phase, carries a **Serves** row naming its user
+story or the story phase it unblocks. A task that can name neither is a task
+nobody asked for.
+
 ## The bar
 
 A task is ready when someone can work it **without asking the owner anything**:
@@ -117,6 +153,20 @@ questions` header line is empty or points only to non-blocking entries.
 | M5 — transcripts (dual path) | 6 (`M5/`) | 01–05 done · 06 (verification) deferred to the owner — [`G-13`](../KnownGaps.md) |
 | M6 — memory sync | 5 (`M6/`) | 01–04 done 2026-08-12, 956 tests · 05 (verification) needs a second machine — [`G-15`](../KnownGaps.md) |
 | M7 — routes + Electron | 4 (`M7/`) | 01–03 done 2026-08-13, 981 tests · 04 (verification) not run — [`G-16`](../KnownGaps.md) |
+| **M8 — Machines menu** *(serves US1)* | 5 (`M8/`) | not started |
+| **M9 — workspace + profile identity** *(foundational)* | 6 (`M9/`) | not started |
+| **M10 — the setup guide** *(serves US2)* | 5 (`M10/`) | not started |
+| **M11 — walk the spec on staging** *(serves US3–US5)* | 5 (`M11/`) | blocked — needs a machine pointed at `staging.sparstrow.com` |
+
+M8–M11 are the first phases in this repo derived from a **spec** rather than
+straight from a plan, and the first named after things the owner can open. M9 is
+the only foundational one among them, and deliberately small: its whole job is
+to give M10's first two steps something to call. The split was decided by one
+test — *can the owner see the result of this work?* — applied per item in
+[`../plans/2026-08-16-setup-and-machines.md`](../plans/2026-08-16-setup-and-machines.md)'s
+Work breakdown. US1 turned out to need **no** foundational work at all, because
+every endpoint it uses shipped in M3 and M4; that is why M8 can go first and
+alone.
 
 M5's spec depended on what M4's dispatch actually turned out to look
 like, and inventing that early would have been fiction in a confident tone. M4

@@ -125,6 +125,9 @@ picker in the UI, and users are expected to have exactly one for now.
 ## D-8 — GitHub and Google sign-in
 
 **Parked:** 2026-08-10, by the owner — "defer google and github auth."
+**Reconfirmed:** 2026-08-16, by the owner — not using GitHub or Google OAuth
+right now. (`runbooks/README.md`'s row had drifted to "pending"; corrected to
+"parked" the same day.)
 
 The app-side code is **complete and verified**; nothing here is unbuilt. What is
 missing is configuration that only a human can supply: an OAuth app registered
@@ -136,7 +139,7 @@ The login page reads `/auth/v1/settings` on load, so the buttons render disabled
 with "Social sign-in isn't set up yet — use email below" and **light up on their
 own** once the providers are enabled. No code change is needed to unpark this.
 
-Tracked as an action item in [`runbooks/README.md`](runbooks/README.md). Full
+Tracked as a parked row in [`runbooks/README.md`](runbooks/README.md). Full
 steps, including the callback URL people get wrong (it is Supabase's, not the
 app's): [`runbooks/oauth-providers.md`](runbooks/oauth-providers.md).
 
@@ -204,6 +207,16 @@ and service registration is separate work per platform, with no
 **Unpark when:** a second or third real machine needs pairing that isn't the
 owner's own dev checkout, or before handing the app to anyone who isn't
 comfortable cloning a monorepo.
+
+> **Sequenced 2026-08-16.** At the review of
+> [`specs/2026-08-16-setup-and-machines.md`](specs/2026-08-16-setup-and-machines.md)
+> the owner chose to fix distribution as **its own round, immediately after**
+> that spec ships — not folded into it, and not left indefinite. That spec's
+> setup guide and Machines empty state therefore say plainly that connecting a
+> machine currently needs a dev checkout, rather than implying a `sparstrow`
+> command that is published nowhere. **This entry gets its own spec when the
+> setup-and-machines work lands**, which is the concrete trigger this
+> deferral previously lacked.
 
 ---
 
@@ -278,3 +291,217 @@ because nothing today needs cross-machine contradiction review.
   pull-side ordering rule. Contradictions — cross-machine contradiction
   review becomes a real, requested feature rather than a table with an
   existing shape it would be convenient to reuse.
+
+---
+
+## D-14 — Custom SMTP for transactional email
+
+**Parked:** 2026-08-16, immediately after email delivery was proven working
+(closing `G-11`).
+
+Supabase's **built-in** mailer is now confirmed delivering: an emailed sign-up
+confirmation and a magic link both arrived in a real inbox and both signed the
+owner in. That is enough for today, and the owner explicitly scoped it that way
+— the app is not public, and the only two accounts in use are members of the
+project's Supabase org.
+
+That last clause is the whole reason this entry exists. The built-in mailer
+delivers **only** to addresses that are members of the project's Supabase org,
+and is rate-limited to a handful of messages an hour. Neither limit is visible
+when it bites: a non-member's mail is **silently dropped**, and the classic
+symptom is "it works for me and not for anyone I invite". A plus-address
+(`you+test@gmail.com`) is a different string from the member address, so it may
+not match the allowlist even though it reaches the same inbox.
+
+Setting it up is not a code change — it is a provider account, a sender address
+on a domain under our control, and SPF/DKIM records. Procedure, including which
+providers work and the rate-limit settings to raise afterwards:
+[`runbooks/email-delivery.md`](runbooks/email-delivery.md).
+
+- **If wrong:** the first person outside the Supabase org who tries to sign up,
+  reset a password, or use a magic link gets nothing at all — no error on our
+  side, no error on theirs — and the account they created cannot be confirmed.
+  Since sign-up now genuinely depends on delivery (the auto-confirm trigger that
+  used to mask this was dropped, see `G-11`'s closure note), that is a hard
+  block rather than a degraded experience.
+- **Clears when:** either of these becomes true, whichever comes first —
+  **(a)** anyone who is not a member of the project's Supabase org needs to
+  receive mail from the app (an invited user, a customer, a teammate), or
+  **(b)** the web app is deployed to a public URL. Both are certain to happen
+  before the app ships products to users, which is the owner's stated horizon
+  for this work.
+
+---
+
+## D-15 — Production Supabase project for `main`
+
+**Parked:** 2026-08-16, by the owner, while walking through the Vercel/DNS
+deployment — "later I will create a new Supabase project, and that will be
+connected to the main branch," once `main`'s code is no longer a dummy
+placeholder.
+
+Vercel and Hostinger DNS already route `main` → `sparstrow.com`, and that
+wiring is real. What's missing is everything downstream of it: `main` has no
+environment variables and is not connected to any Supabase project, so the
+live URL currently serves placeholder content. `staging` and `development`
+already share one fully configured Supabase project (env vars, backend, Auth
+redirect URLs) — `main` deliberately does **not** reuse it. Full picture:
+[`runbooks/deploy-web-app.md`](runbooks/deploy-web-app.md).
+
+**Unpark when:** `staging`'s build is solid enough to promote into `main`.
+At that point, create a dedicated production Supabase project, connect it to
+`main`, and configure its own Authentication → URL Configuration from
+scratch (it does not inherit `staging`'s settings) — then follow
+`deploy-web-app.md`'s "When `main` goes live" section to point a machine's
+`SPARSTROW_CLOUD_URL`/`SPARSTROW_APP_URL` at `sparstrow.com`.
+
+---
+
+## D-16 — Sleep awareness: detecting sleep, and waking from it
+
+**Parked:** 2026-08-16, by the owner, while giving the Machines user stories —
+"if a machine is sleeping, we might need to add or trigger the machine to wake
+up… Defer this task now for later." **Extended the same day** at spec review to
+cover *detection* as well, when the owner chose to ship the Machines menu with
+two states and revisit sleeping later.
+
+Two parts, parked together because detection's main use is deciding whether
+waking is worth offering — but they have different unpark conditions, so they
+are stated separately.
+
+### Part A — detecting that a machine is asleep
+
+[`specs/2026-08-16-setup-and-machines.md`](specs/2026-08-16-setup-and-machines.md)
+ships **two** states, active and unreachable, because a sleeping machine and a
+dead one are the same silence from the cloud's side. Liveness is derived purely
+from heartbeat age ([`cloud.ts:35-52`](../packages/shared/src/cloud.ts:35)).
+
+Distinguishing them needs the machine to **announce suspension before it goes
+quiet**. Electron 36 ships `powerMonitor` with `suspend`/`resume` events and it
+is currently unused anywhere in `packages/desktop` (verified 2026-08-16), so
+the desktop app is nearly free; headless core needs a per-OS mechanism
+(systemd sleep hooks, Windows power broadcasts, launchd).
+
+**What stays ambiguous no matter what:** a machine that loses power, crashes,
+or drops off the network never gets to announce anything, and is
+indistinguishable from one that was switched off. So even with Part A built,
+the honest set is *active / sleeping / unreachable* — never "turned off".
+
+*(One wrinkle in our favour: Windows Modern Standby machines keep networking
+alive while asleep, so some may keep heartbeating and never need this.)*
+
+- **Unpark when:** the two-state model proves genuinely confusing in daily use —
+  the owner repeatedly cannot tell whether a machine is coming back — **or**
+  Part B is wanted, which needs this first.
+
+### Part B — waking a sleeping machine from the web app
+
+The intent: a machine showing as asleep gets a control in the web app that
+wakes it, so work can be sent without walking over to the computer. A machine
+genuinely powered off stays out of reach, and that is accepted.
+
+**The constraint that makes this bigger than a button**, recorded now so
+nobody unparks it expecting an afternoon's work: a cloud web app cannot wake a
+machine on its own. Wake-on-LAN works by broadcasting a magic packet **on the
+machine's own local network**, and `staging.sparstrow.com` is not on it. The
+packet cannot route across the internet to a machine behind NAT. So waking
+needs one of:
+
+- **a second always-on paired machine on the same LAN**, which receives the
+  request from the cloud and broadcasts the packet locally — the only option
+  that needs no router configuration, and it means waking requires two
+  machines on that network;
+- **router configuration** — a directed-broadcast forward or a static ARP
+  entry, per network, often disabled by default and a real security tradeoff;
+- **vendor out-of-band management** (Intel AMT/vPro and equivalents), which is
+  enterprise hardware only and not present on typical machines.
+
+Also unverified: whether the target machine's NIC has WoL enabled at all — it
+is a BIOS/firmware setting that is off by default on many consumer machines,
+and no amount of software fixes that.
+
+- **If wrong:** nothing breaks — the feature simply does not exist, and a
+  sleeping machine is woken the way it is woken today, by touching it. The
+  risk is the opposite one: shipping a **Wake** button that silently does
+  nothing on most networks would be worse than having no button, because it
+  teaches the owner the app is unreliable.
+- **Unpark when:** the owner has a second always-on machine on the same
+  network as the one they want woken (making the relay option real), **or**
+  reaching a sleeping machine becomes routine friction rather than an
+  occasional annoyance. Whichever comes first — and confirm WoL is actually
+  enabled on the target machine's NIC before building anything.
+
+---
+
+## D-17 — Settings → Display: the theme picker UI
+
+**Parked:** 2026-08-18, by the owner, while locking `DESIGN.md` — the theming
+*contract* was decided and written (§2), the *picker* was explicitly left as its
+own piece of work.
+
+The owner asked for user-selectable brand colour and surface character
+("paper, slate, soft, mono"), exposed in Settings. §2 defines what any theme
+must satisfy — curated presets only, one accent role, status colour never
+themeable, every preset clearing 4.5:1 in both modes. What it deliberately does
+not define is the UI, or where the choice is stored.
+
+Open sub-questions the spec has to answer: whether the choice is per-device or
+synced to the account; whether it applies instantly or on save; what a viewer
+sees before their preference loads (a flash of the default is a real problem on
+a dark-first app); and whether density joins brand and surface as a third axis
+(§13 lists that as undecided).
+
+**The dependency cleared on 2026-08-19.** `G-19` closed: `globals.css` is
+parametric, and the four surfaces and five brand presets ship as root classes.
+Adding `surface-slate` or `theme-teal` to `<html>` re-themes the whole app
+today, so a picker would now be wiring a control to something real rather than
+to nothing.
+
+- **Still parked, and this is the point:** what is missing is not mechanism, it
+  is the product decision. Per-device or synced to the account? Instant or on
+  save? What a viewer sees before their preference loads — a flash of the
+  default is a real problem on a dark-first app. And whether density joins brand
+  and surface as a third axis (§13 lists that as undecided).
+- **Unpark when:** the owner wants it. It needs a `product-requirements` pass
+  before build, and that pass is now the only thing between here and shipping
+  it. Recorded as `DD-006` in `design-system/DECISIONS.md`.
+
+> **Sequenced 2026-08-19.** The owner chose to hold all further colour/theme
+> design work — this picker included — until **machine pairing is working
+> end-to-end**, rather than running it in parallel. Machine pairing itself
+> (`sparstrow pair`) has shipped since M3 (2026-08-10); what is still open is
+> walking the full setup-and-machines spec against staging (`M11`, band 13),
+> which is blocked on an owner action — pointing a machine's
+> `SPARSTROW_CLOUD_URL` / `SPARSTROW_APP_URL` at `staging.sparstrow.com` — not
+> on any undone engineering. See
+> [`runbooks/deploy-web-app.md`](runbooks/deploy-web-app.md).
+> **Unpark trigger is now:** M11 (band 13) reported done, in addition to the
+> owner wanting the picker.
+
+---
+
+## D-18 — Entity profiles and the in-app tab strip
+
+**Parked:** 2026-08-18, by the owner, on locking `DESIGN.md` §9 — the owner
+asked for the navigation *instruction* to exist so agents design to it, not for
+the feature to be built in the same turn.
+
+`DESIGN.md` §9 fully specifies it: an outer tab strip (which entity's profile is
+open), a side sub-nav (which section of that entity), a smart-default +
+modifier-key destination model for tangential actions, and mandatory ARIA/
+keyboard requirements from the first commit. Proved interactively in
+`design-brief/entity-profile-board.html`, including that per-tab state survives
+switching away and back.
+
+None of it is built. Today no detail view exists for a machine or an agent at
+all, and `project-detail.tsx`'s tabs are a *different*, sidebar-panel pattern.
+
+§9.4 fixes the order and the reason: **Machines** first (a real gap, nothing to
+regress), **Agents** second (same shape of gap, still greenfield), **Projects**
+last and deliberately — it is the only one of the three that is a migration of
+working code rather than new work.
+
+- **Unpark when:** the design-system rebuild lands (this needs the doctrine's
+  tokens to exist) and Machines gets a `product-requirements` pass — it is still
+  outside `specs/2026-08-16-setup-and-machines.md`, whose "profile" means the
+  *user's* profile, not a machine's. Recorded as `DD-003`/`DD-008`.

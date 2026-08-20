@@ -2,7 +2,7 @@
 title: Memory
 section: Surfaces
 description: The markdown vault — scopes, typed notes, wikilinks, search, quarantine, and the nightly dream cycle.
-order: 10
+order: 11
 updated: 2026-07-13
 ---
 
