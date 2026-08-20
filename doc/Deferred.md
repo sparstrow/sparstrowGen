@@ -466,6 +466,18 @@ to nothing.
   before build, and that pass is now the only thing between here and shipping
   it. Recorded as `DD-006` in `design-system/DECISIONS.md`.
 
+> **Sequenced 2026-08-19.** The owner chose to hold all further colour/theme
+> design work — this picker included — until **machine pairing is working
+> end-to-end**, rather than running it in parallel. Machine pairing itself
+> (`sparstrow pair`) has shipped since M3 (2026-08-10); what is still open is
+> walking the full setup-and-machines spec against staging (`M11`, band 13),
+> which is blocked on an owner action — pointing a machine's
+> `SPARSTROW_CLOUD_URL` / `SPARSTROW_APP_URL` at `staging.sparstrow.com` — not
+> on any undone engineering. See
+> [`runbooks/deploy-web-app.md`](runbooks/deploy-web-app.md).
+> **Unpark trigger is now:** M11 (band 13) reported done, in addition to the
+> owner wanting the picker.
+
 ---
 
 ## D-18 — Entity profiles and the in-app tab strip
