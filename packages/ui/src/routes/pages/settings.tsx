@@ -245,8 +245,10 @@ function GitCard() {
  * the switch is a row in that machine's SQLite. The hosted app has no
  * `/system/settings` route at all, so rendering this there would give a control
  * that flips and then silently fails to reach the daemon it claims to configure.
- * A per-runtime version belongs in the Machines card once M4's command spine can
- * carry a setting to a specific daemon; until then, absent beats fake.
+ * The per-runtime version this comment anticipated now exists: M4's command
+ * spine carries a setting to a named daemon, and the control lives on the
+ * Machines page (M8). This card stays because it is a different thing sharing
+ * a word — the local build's own setting, in its own SQLite.
  */
 function WipSnapshotCard() {
   const account = useAccount();

@@ -140,6 +140,19 @@ staging; these are the corners that pass could not reach.
 - **Clears when:** someone runs the click-through pass in an environment where
   the browser pane renders, and pairs a second machine for reassign.
 
+> **Update 2026-08-20 (M8, `T-M8-05`).** The premise underneath the first
+> bullet has changed. The in-app **Browser pane** still does not composite — a
+> page loaded into it reports `document.visibilityState === "hidden"` and is
+> throttled hard enough that React Query never issues its first fetch, so the
+> page sits on skeletons and reads as broken. The **Playwright MCP** is a
+> different browser and is unaffected: it renders, screenshots, takes real
+> keyboard input, and intercepts routes. M8's pass used it for a full rendered
+> click-through and found four defects that 1044 passing tests could not see.
+> **Nothing below is closed by this** — these assertions still have not been
+> run — but nothing is stopping them any more. Method:
+> [`runbooks/agent-browser-session.md`](runbooks/agent-browser-session.md).
+
+
 ### G-13 — M5 (transcripts) is built and unit-tested, not verified live
 
 **Raised:** 2026-08-12, while decomposing and building M5. `T-M5-01`–`T-M5-05`
@@ -258,6 +271,17 @@ What is genuinely unproved, as opposed to merely untested-in-isolation:
   and C need a browser and a desktop build and can be done today; section D needs
   the deployment.
 
+> **Update 2026-08-20 (M8, `T-M8-05`).** Both of this entry's stated blockers
+> turned out to be soluble, and neither needed anything new to be built. The
+> `.env.local` bullet — "getting past it means copying Supabase secrets into a
+> worktree, which is not worth doing for a routing check" — was a reasonable
+> call for a routing check and the wrong one for a visual phase; M8 copied the
+> file (it is gitignored) and the app came up configured. The compositing bullet
+> is answered by using the Playwright MCP instead of the Browser pane. **This
+> entry stays open**: M7's five pages still have not been looked at, and the
+> Electron shell still has not been launched. What changed is that `T-M7-04`
+> sections A and C are now ordinary work rather than blocked work.
+
 *`G-11` — Supabase never observed delivering an email — was **closed 2026-08-16**.
 The owner confirmed, in a real inbox, that **both** an emailed sign-up
 confirmation and a magic link arrived, and that signing in through them works.
@@ -336,6 +360,62 @@ and is still there today.
 - **Clears when:** `check` gains an `unsourced-token` finding that walks
   `tokens/*.css` and flags any custom property with no counterpart in a declared
   source, and `--transition-base` is either removed or given a real source.
+
+### G-20 — Two app shells keep two copies of the navigation, and only one is the browser's
+
+**Raised:** 2026-08-20, by `T-M8-03` — found by rendering the page, not by
+reading the tree.
+
+`packages/ui/src/components/layout/app-shell.tsx` and
+`apps/web/src/components/layout/app-shell.tsx` are near-duplicates. The first is
+the vite/desktop shell; the second is what the hosted app actually renders. Each
+holds its own `NAV_GROUPS` literal. Registering a destination in the shared one
+alone produces **no sidebar entry in the browser at all**, with a green
+typecheck, a passing test suite, and a route manifest that lists the page.
+
+`breadcrumbs.tsx` had a third copy of the same information — a private
+`SECTION_LABELS` map beside `nav-meta.ts`'s `NAV_META`, which calls itself "one
+source of truth for section label + icon". That one is **fixed**: breadcrumbs now
+read `NAV_META`. The two shells are not.
+
+- **If wrong:** the next destination anyone adds is invisible in the sidebar of
+  the only host real users have. The failure is silent in every automated check
+  this repo runs, so it is caught only by someone opening the app — which, until
+  M8, nobody had been able to do.
+- **Clears when:** the two shells share one `NAV_GROUPS` (the honest minimum), or
+  are merged (the real fix). Neither is small: the shells differ in routing
+  primitive (`next/link` vs TanStack `Link`), in live-event transport, and in the
+  footer they render. Worth its own task rather than a drive-by.
+
+### G-21 — M8 is proved on localhost, not on staging, and not with a second computer
+
+**Raised:** 2026-08-20, closing [`T-M8-05`](tasks/M8/T-M8-05-verification.md).
+
+Ten of US1's eleven acceptance scenarios were walked in a real browser against
+`http://localhost:3000`, with four machines paired and a live `@sparstrow/core`.
+What that pass could **not** cover:
+
+- **Staging.** `staging.sparstrow.com` was not used, because no machine's
+  `SPARSTROW_CLOUD_URL` points at it — the owner action in
+  [`runbooks/README.md`](runbooks/README.md). Section D of `T-M8-05` is skipped,
+  not ticked. The spec's own independent test says "on `staging.sparstrow.com`",
+  so US1 is demoed but not demoed *where it was written to be*.
+- **A genuinely separate computer.** All four machines were the same host with
+  different `SPARSTROW_SECRETS_DIR`s, so every row reads the same `win32` and the
+  same hostname. Nothing distinguishes rows by identity, and no cross-machine
+  behaviour was exercised.
+- **Scenario 7's second half.** The name persists across a reload and through the
+  API, but "and is what the Runs page shows for that machine too" was not
+  checked: the disposable verification workspace had no runs, and creating one
+  needs an agent and a configured provider.
+
+- **If wrong:** most likely a deployment-shaped difference — cookies, origins, or
+  a Realtime channel behaving differently over HTTPS than over localhost — rather
+  than anything about the page's logic, which was exercised against the real
+  handlers and the real database. Scenario 7's residue is cosmetic if wrong: a
+  stale name in one list.
+- **Clears when:** band 13 (M11) runs. `T-M11-01` walks exactly these assertions
+  against staging with a real second machine, which is what that band exists for.
 
 ## Accepted limitations
 

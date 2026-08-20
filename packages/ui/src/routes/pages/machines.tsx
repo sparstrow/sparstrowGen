@@ -240,7 +240,7 @@ function RuntimeRow({ runtime }: { runtime: Runtime }) {
          * assertion the spec rejected — we do not know whether it is off,
          * asleep, crashed, or merely off the network.
          */}
-        <ItemDescription className="truncate">
+        <ItemDescription>
           <span
             className={cn(
               "font-medium",
@@ -256,7 +256,10 @@ function RuntimeRow({ runtime }: { runtime: Runtime }) {
         </ItemDescription>
       </ItemContent>
 
-      <div className="flex flex-wrap items-center gap-1.5">
+      {/* Its own line under ~sm, where sharing one with the name squeezed the
+          identity text down to "active · win3…" — the very fields scenario 5
+          asks the row to show. */}
+      <div className="flex basis-full flex-wrap items-center gap-1.5 sm:basis-auto">
         {runtime.capabilities.length === 0 ? (
           <Badge variant="outline" title="This machine reported no usable providers">
             no providers
@@ -341,9 +344,14 @@ function RuntimeRow({ runtime }: { runtime: Runtime }) {
  * it claimed to configure, and a switch that shows what you clicked rather than
  * what happened has the same defect wearing a better hat.
  *
- * Offline machines get a disabled control with the reason spelled out. Queuing
- * the command instead would leave someone believing they had changed a setting
- * on a computer that is switched off.
+ * Unreachable machines get a disabled control with the reason spelled out.
+ * Queuing the command instead would leave someone believing they had changed a
+ * setting on a computer that is switched off.
+ *
+ * It still disables on `runtime.online`, not on `machineState()`: this is a
+ * "can the command be delivered?" question, and the label above is a "what do
+ * I call it?" one. Only the wording is shared, so that one row does not say
+ * "unreachable" and "offline" about the same machine in two places.
  */
 function SnapshotControl({ runtime }: { runtime: Runtime }) {
   const setSetting = useSetRuntimeSetting();
@@ -372,7 +380,7 @@ function SnapshotControl({ runtime }: { runtime: Runtime }) {
           <p className="text-xs text-muted-foreground">
             {runtime.online
               ? `Keeps the last ${keep} runs' working trees on this machine, under a private git ref.`
-              : "This machine is offline — its settings can be changed when it reconnects."}
+              : "This machine is unreachable — its settings can be changed when it reconnects."}
           </p>
         </div>
 
@@ -409,6 +417,52 @@ function MachineRowSkeleton() {
         <Skeleton className="h-11 w-full rounded-md" />
       </ItemFooter>
     </Item>
+  );
+}
+
+/**
+ * What failed, in the user's words, plus the next action — `DESIGN.md` §10.
+ * `inline` is the with-data form: the list below it is real and usable, so
+ * this says the refresh failed without pretending the page is empty.
+ */
+function RuntimesError({
+  message,
+  query,
+  inline = false,
+}: {
+  message: string;
+  query: { isFetching: boolean; refetch: () => unknown };
+  inline?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border border-destructive/40 bg-destructive/5",
+        inline ? "flex flex-wrap items-center gap-3 px-4 py-3" : "p-6",
+      )}
+      role="alert"
+    >
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">
+          {inline ? "Couldn't refresh this list" : "Couldn't load machines"}
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">{message}</p>
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        className={inline ? "" : "mt-3"}
+        disabled={query.isFetching}
+        onClick={() => void query.refetch()}
+      >
+        {query.isFetching ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <RefreshCw className="size-4" />
+        )}
+        Try again
+      </Button>
+    </div>
   );
 }
 
@@ -499,30 +553,22 @@ export function MachinesPage() {
       ) : null}
 
       {/*
-       * Error is checked BEFORE empty, and that ordering is the fix `T-M8-02`
-       * was written for: the card this page replaces had no error branch at
-       * all, so a failed request fell through to "No machines paired yet" and
-       * told a new owner something untrue about their workspace.
+       * A failed load must never reach the empty state. The card this page
+       * replaces had no error branch at all, so a failed request fell through
+       * to "No machines paired yet" and told a new owner something untrue
+       * about their workspace.
+       *
+       * Two tiers, because the two failures are not the same: with nothing to
+       * show, the error REPLACES the list; with machines already on screen, a
+       * refetch that failed is reported above them rather than erasing a list
+       * whose controls still work.
        */}
-      {runtimes.isError ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-6">
-          <p className="text-sm font-medium">Couldn't load machines</p>
-          <p className="mt-1 text-sm text-muted-foreground">{runtimes.error.message}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-3"
-            disabled={runtimes.isFetching}
-            onClick={() => void runtimes.refetch()}
-          >
-            {runtimes.isFetching ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <RefreshCw className="size-4" />
-            )}
-            Try again
-          </Button>
-        </div>
+      {runtimes.isError && machines.length > 0 ? (
+        <RuntimesError inline message={runtimes.error.message} query={runtimes} />
+      ) : null}
+
+      {runtimes.isError && machines.length === 0 ? (
+        <RuntimesError message={runtimes.error.message} query={runtimes} />
       ) : runtimes.isLoading ? (
         <ItemGroup className="gap-2">
           <MachineRowSkeleton />
@@ -541,10 +587,15 @@ export function MachinesPage() {
               browser. Generate a code here, then redeem it on that computer.
             </EmptyDescription>
           </EmptyHeader>
-          <EmptyContent>
-            {issued ? null : <PairButton variant="default" />}
-            <p className="text-xs text-muted-foreground">{CHECKOUT_NOTE}</p>
-          </EmptyContent>
+          {/* While a code is on screen the panel above is already saying both
+              of these; repeating them here puts the same sentence twice on
+              the one page the spec calls its most important. */}
+          {issued ? null : (
+            <EmptyContent>
+              <PairButton variant="default" />
+              <p className="text-xs text-muted-foreground">{CHECKOUT_NOTE}</p>
+            </EmptyContent>
+          )}
         </Empty>
       ) : (
         <ItemGroup className="gap-2">

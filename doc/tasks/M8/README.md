@@ -7,19 +7,25 @@
 | **Spec** | [`../../specs/2026-08-16-setup-and-machines.md`](../../specs/2026-08-16-setup-and-machines.md) |
 | **Depends on** | — (every endpoint shipped in M3/M4) |
 | **Blocks** | M11. M10 soft-depends on it for the machines step's link target. |
-| **Status** | 🟡 **partly done** — 01 and 04 landed 2026-08-18; 02, 03 and 05 held for the design-system rebuild. See the note below. |
+| **Status** | ✅ **complete** — 01 and 04 landed 2026-08-18; 02, 03 and 05 on 2026-08-20. |
 | **Open questions** | none |
 
-> **⚠️ The CLI currently names a page that does not exist.** `T-M8-04` landed
-> ahead of `T-M8-03`, which was always the plan, but 02/03 are held for the
-> design-system rebuild -- so `sparstrow pair` now says *"open Machines in the
-> sidebar"* while the only Machines surface is still the card in Settings ->
-> Workspace -> General. Pointing at the Settings card instead would have meant
-> editing all four strings twice inside one milestone; the hold is what makes
-> the window longer than the task assumed. The Knowledge Center still says
-> **Settings -> Machines**, which is correct today, and `T-M8-03` owns updating
-> it. Nothing is broken -- the pairing control works and is one tab away -- but
-> until 03 lands, the CLI's instruction is aspirational.
+> **The CLI's instruction is now true.** `T-M8-04` landed ahead of `T-M8-03`,
+> which was always the plan, and for two days `sparstrow pair` said *"open
+> Machines in the sidebar"* while the only Machines surface was a card in
+> Settings. `T-M8-03` closed that window on 2026-08-20: Machines is a
+> destination, the CLI's four strings name it, and `sparstrow pair --help` was
+> run against the built CLI to confirm rather than read.
+
+> **The hold for the design-system rebuild was lifted, deliberately.** 02, 03
+> and 05 were parked because there was no doctrine to build against.
+> `DESIGN.md` was written on 2026-08-18, which removes that reason: the
+> outstanding rebuild work is [`G-19`](../../KnownGaps.md) — making §2's
+> *theming contract* real in `globals.css` — and this page uses none of it. It
+> is built entirely from semantic tokens that already exist (`bg-background`,
+> `text-muted-foreground`, `--success-foreground`), which the rebuild
+> re-derives rather than renames. Nothing here has to be rewritten when `G-19`
+> closes.
 
 ## The story this serves
 
@@ -82,10 +88,10 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
 | [T-M8-01 — `machineState()` in shared](T-M8-01-machine-state.md) | `[S]` | US1 | — | ✅ done (2026-08-18) |
-| [T-M8-02 — promote the card to a page](T-M8-02-machines-page.md) | `[S]` | US1 | 01 | not started |
-| [T-M8-03 — route, sidebar, nav metadata](T-M8-03-route-and-nav.md) | `[P]` | US1 | 02 | not started |
+| [T-M8-02 — promote the card to a page](T-M8-02-machines-page.md) | `[S]` | US1 | 01 | ✅ done (2026-08-20) |
+| [T-M8-03 — route, sidebar, nav metadata](T-M8-03-route-and-nav.md) | `[P]` | US1 | 02 | ✅ done (2026-08-20) |
 | [T-M8-04 — fix the CLI's pairing path](T-M8-04-cli-path-strings.md) | `[P]` | US1 | — | ✅ done (2026-08-18) |
-| [T-M8-05 — verification](T-M8-05-verification.md) | `[S]` | US1 | 01–04 | not started |
+| [T-M8-05 — verification](T-M8-05-verification.md) | `[S]` | US1 | 01–04 | ✅ done (2026-08-20) |
 
 01 is `[S]` because it defines the vocabulary 02 renders. 02 is `[S]` because it
 moves a file three other modules import. 03 and 04 are `[P]` — disjoint files,
@@ -114,6 +120,14 @@ graded on nothing being lost in it.
 
 **A new destination has to be registered in five places, not two.** Missing any
 one fails quietly:
+
+> **It was seven.** `T-M8-03`'s pass found two more, both by opening the page
+> rather than reading the tree: `apps/web/src/components/layout/app-shell.tsx`
+> keeps its **own** `NAV_GROUPS` — so the hosted app had no sidebar entry at all
+> — and `breadcrumbs.tsx` kept a **second** copy of the section-label map, so
+> the breadcrumb read a lowercase `machines` beside a tab strip reading
+> `Machines`. The breadcrumb duplicate was deleted rather than extended; the two
+> app shells remain, recorded as [`G-20`](../../KnownGaps.md).
 
 | File | What breaks if skipped |
 |---|---|
@@ -260,7 +274,11 @@ trap bites M10 — noted here because the two phases share reviewers.
 
 ## Verification
 
-Full procedure in [T-M8-05 — verification](T-M8-05-verification.md).
+Full procedure and results in [T-M8-05 — verification](T-M8-05-verification.md).
+**Walked 2026-08-20** against `localhost:3000` in a real browser, with four
+machines paired and a live daemon: ten of eleven scenarios ticked, all four
+states seen, both themes, 375px and keyboard. Four defects found by rendering
+that nothing in 1044 passing tests could see.
 
 The assertions that decide the phase:
 
@@ -269,3 +287,29 @@ The assertions that decide the phase:
    the label changing within 90 seconds (`HEARTBEAT_STALE_AFTER_MS`).
 3. Settings → Workspace → General with nothing orphaned.
 4. `sparstrow pair --help` naming a place that exists.
+
+---
+
+## What this phase learned
+
+**Rendered verification is available in this environment after all.** Three
+`KnownGaps.md` entries — `G-12`, `G-13`, `G-16` — rest on "the Browser pane has
+never composited a frame here". That is still true of the pane, and it is not
+true of the **Playwright MCP**, which drives its own browser. Every visual
+assertion in `T-M8-05` was reached that way. The other half of the unlock is
+just as mundane: copying `apps/web/.env.local` into the worktree gets past the
+app's "not configured" guard, which `G-16` had declined to do. Both are now in
+[`runbooks/agent-browser-session.md`](../../runbooks/agent-browser-session.md).
+
+**A move is not a small task when the destination is new.** The page itself was
+close to a straight relocation, as the task predicted. Everything that went
+wrong was in the *registration*: two nav surfaces the decomposition did not know
+existed, both failing silently, both invisible to the type checker and the test
+suite. The lesson generalises past this phase — the next destination anyone adds
+hits the same two files.
+
+**Rows are taller than `DESIGN.md` §4's 48px target**, because each carries the
+per-machine snapshot control on a second line. Four machines fill the viewport.
+Not changed here: the control is moved behaviour, and the right home for it is
+the machine profile that [`D-18`](../../Deferred.md) parks. Noted so the next
+person does not read the current density as a decision.

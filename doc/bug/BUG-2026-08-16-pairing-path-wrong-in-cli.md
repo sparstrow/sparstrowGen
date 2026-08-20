@@ -118,3 +118,21 @@ second time. `T-M8-05` walks the CLI text against the rendered page.
 
 The **Symptom** and **Investigation** sections above are left exactly as
 written; they are the historical record of what was observed on 2026-08-16.
+
+---
+
+## Closing note — 2026-08-20
+
+The one caveat this file left open is cleared.
+[`T-M8-03`](../tasks/M8/T-M8-03-route-and-nav.md) registered `/machines` on
+2026-08-20, so the destination the CLI names now exists: it is in the sidebar's
+**Workspace** group, directly after Runs, in both hosts, reachable from Ctrl-K,
+and correctly labelled in the breadcrumb and tab strip.
+
+Re-checked at that point, not assumed: `sparstrow pair --help` was **run** and
+its `GETTING A CODE` section read against the rendered page in a browser. The
+instruction and the app now agree, which is the first time that has been true
+since the strings were written.
+
+Nothing above this note was edited. The window in which the CLI named a page
+that did not yet exist ran 2026-08-18 → 2026-08-20 and is part of the record.

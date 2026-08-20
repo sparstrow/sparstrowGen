@@ -248,17 +248,17 @@ shared file is `hooks.ts`, and M8 does not touch it. **Band 12 edits
 10.2 removes the Machines card, so the two must not be worked simultaneously by
 different agents.
 
-### Band 10 — M8 Machines gets a menu of its own · **serves US1**
+### Band 10 — M8 Machines gets a menu of its own · **serves US1** ✅ complete
 
 Phase spec: [`M8/README.md`](M8/README.md).
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
 | 10.1 | [T-M8-01 — `machineState()` in shared](M8/T-M8-01-machine-state.md) | `[S]` | — | ✅ done (2026-08-18) |
-| 10.2 | [T-M8-02 — promote the card to a page](M8/T-M8-02-machines-page.md) | `[S]` | 10.1 | queued |
-| 10.3 | [T-M8-03 — route, sidebar, nav metadata](M8/T-M8-03-route-and-nav.md) | `[P]` | 10.2 | queued |
+| 10.2 | [T-M8-02 — promote the card to a page](M8/T-M8-02-machines-page.md) | `[S]` | 10.1 | ✅ done (2026-08-20) |
+| 10.3 | [T-M8-03 — route, sidebar, nav metadata](M8/T-M8-03-route-and-nav.md) | `[P]` | 10.2 | ✅ done (2026-08-20) |
 | 10.4 | [T-M8-04 — fix the CLI's pairing path](M8/T-M8-04-cli-path-strings.md) | `[P]` | — | ✅ done (2026-08-18) |
-| 10.5 | [T-M8-05 — verification](M8/T-M8-05-verification.md) | `[S]` | 10.1–10.4 | queued |
+| 10.5 | [T-M8-05 — verification](M8/T-M8-05-verification.md) | `[S]` | 10.1–10.4 | ✅ done (2026-08-20) |
 
 10.1 and 10.2 are `[S]` for the reason M3's and M4's first tasks were: 10.1
 defines the vocabulary 10.2 renders, and 10.2 moves a file `settings.tsx`
@@ -269,7 +269,16 @@ registers, but it does not import it.
 
 **Band 10 closes [`BUG-2026-08-16-pairing-path-wrong-in-cli`](../bug/BUG-2026-08-16-pairing-path-wrong-in-cli.md)**
 in 10.4 — the CLI has always sent users to a tab that does not exist, and this
-band moves the destination anyway.
+band moves the destination anyway. **Closed for real on 2026-08-20**: 10.3
+registered the page the CLI names, and `sparstrow pair --help` was run against
+it.
+
+**Band 10 completed 2026-08-20.** 10.2, 10.3 and 10.5 had been held for the
+design-system rebuild; the hold was lifted once `DESIGN.md` existed, because the
+only rebuild work still outstanding is `G-19` (parametric `globals.css`) and this
+page uses no token it touches. 10.5 was the first **rendered** verification pass
+in this repo's history — see its Result for the method, and for the four defects
+it caught that 1044 passing tests could not.
 
 ### Band 11 — M9 workspace and profile identity · **foundational**
 
