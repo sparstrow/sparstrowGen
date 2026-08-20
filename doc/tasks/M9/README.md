@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-16-setup-and-machines.md`](../../specs/2026-08-16-setup-and-machines.md) |
 | **Depends on** | — |
 | **Blocks** | **M10.** Without these, US2's first two steps have nothing to fill in and no way to fill it. |
-| **Status** | 🟢 **01–05 done; SQL applied to staging 2026-08-18.** 04's component and 06's HTTP-level checks remain |
+| **Status** | 🟢 **01–05 done.** SQL applied to staging 2026-08-18; **04's component completed and its storage-layer security proved live 2026-08-20.** 06's HTTP-level checks (Sections B/C, and Section D's rendered half) remain |
 | **Open questions** | none |
 
 ## Objective
@@ -80,7 +80,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | [T-M9-01 — schema, and a bootstrap that invents nothing](T-M9-01-schema-and-bootstrap.md) | `[S]` | foundational → M10 | — | ✅ done — applied + verified on staging |
 | [T-M9-02 — workspace read + update](T-M9-02-workspace-handler.md) | `[P]` | foundational → M10 | 01 | ✅ done (2026-08-18) |
 | [T-M9-03 — profile read + update](T-M9-03-profile-handler.md) | `[P]` | foundational → M10 | 01 | ✅ done (2026-08-18) |
-| [T-M9-04 — avatar and logo upload](T-M9-04-image-upload.md) | `[P]` | foundational → M10 | 01 | 🟡 SQL applied + hardened; component held for the design system |
+| [T-M9-04 — avatar and logo upload](T-M9-04-image-upload.md) | `[P]` | foundational → M10 | 01 | ✅ done (2026-08-20) |
 | [T-M9-05 — hooks](T-M9-05-hooks.md) | `[C]` | foundational → M10 | 02, 03 | ✅ done (2026-08-18) |
 | [T-M9-06 — verification](T-M9-06-verification.md) | `[S]` | foundational → M10 | 01–05 | not started |
 

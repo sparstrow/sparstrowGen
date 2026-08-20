@@ -289,7 +289,7 @@ Phase spec: [`M9/README.md`](M9/README.md).
 | 11.1 | [T-M9-01 — schema, and a bootstrap that invents nothing](M9/T-M9-01-schema-and-bootstrap.md) | `[S]` | — | ✅ done (staging, 2026-08-18) |
 | 11.2 | [T-M9-02 — workspace read + update](M9/T-M9-02-workspace-handler.md) | `[P]` | 11.1 | ✅ done (2026-08-18) |
 | 11.3 | [T-M9-03 — profile read + update](M9/T-M9-03-profile-handler.md) | `[P]` | 11.1 | ✅ done (2026-08-18) |
-| 11.4 | [T-M9-04 — avatar and logo upload](M9/T-M9-04-image-upload.md) | `[P]` | 11.1 | 🟡 SQL done (staging); component held |
+| 11.4 | [T-M9-04 — avatar and logo upload](M9/T-M9-04-image-upload.md) | `[P]` | 11.1 | ✅ done (2026-08-20) |
 | 11.5 | [T-M9-05 — hooks](M9/T-M9-05-hooks.md) | `[C]` | 11.2, 11.3 | ✅ done (2026-08-18) |
 | 11.6 | [T-M9-06 — verification](M9/T-M9-06-verification.md) | `[S]` | 11.1–11.5 | 🟡 SQL layer done; HTTP layer + 2nd account remain |
 

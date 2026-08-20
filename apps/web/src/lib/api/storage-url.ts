@@ -1,3 +1,4 @@
+import { PUBLIC_IMAGE_BUCKET } from "@sparstrow/shared";
 import { supabaseUrl } from "@web/utils/supabase/env";
 
 /**
@@ -21,14 +22,6 @@ import { supabaseUrl } from "@web/utils/supabase/env";
  * hand-copied origin checks would drift, and the direction they drift in is
  * "accepts more".
  */
-
-/**
- * The single bucket `T-M9-04` creates. Named here, not just in the policy file,
- * because a URL under a *different* bucket of this same project would pass an
- * origin-only check — and that bucket might not have the write policies this
- * one does.
- */
-export const PUBLIC_IMAGE_BUCKET = "public-images";
 
 /** How Supabase Storage serves a public object. */
 const PUBLIC_OBJECT_PREFIX = `/storage/v1/object/public/${PUBLIC_IMAGE_BUCKET}/`;

@@ -48,6 +48,31 @@ recorded in each task's Result section, not restated here):
 **Both throwaway accounts deleted themselves completely**, so this pass added no
 orphans — see [`BUG-2026-08-18-orphaned-account-rows-on-staging`](../../bug/BUG-2026-08-18-orphaned-account-rows-on-staging.md).
 
+## Progress — 2026-08-20 (Section D, the storage half)
+
+`T-M9-04`'s component was resumed and completed this session (its own Result
+has the full account). While proving the bucket policies for real — not just
+reading the predicate back from `pg_policy` — this closed most of Section D
+below without needing a rendered page:
+
+- An avatar/logo uploads into the caller's own prefix and denies a second
+  account writing into either of the first's prefixes (`avatars/` and
+  `workspace-logos/`) — proved with two real `*@sparstrow.test` accounts
+  through `generateLink`/`verifyOtp`, not a simulated session
+- The `..` traversal guard from the 2026-08-18 fix holds through the real API,
+  not just the policy expression
+- A file over 2 MiB and a `.pdf`'s bytes under a `.png`-looking key are both
+  refused **by the bucket**, with the client-side check bypassed entirely
+- Replace-in-place (`update`) succeeds for the object's own owner
+
+**Still open in Section D**, and unaffected by the above: the *rendered*
+upload/replace flow through `<ImageUploadField>` itself — nothing consumes the
+component yet (`T-M10-02` is not started), so "an avatar uploads and renders
+in the sidebar" cannot be proved until a page exists to look at. The
+`PATCH /me { avatar_url: "https://evil.example/..." }` rejection is covered by
+existing unit tests (`profile-routes.test.ts`), not by this live pass. Full
+detail and the exact nine assertions: `T-M9-04`'s Result.
+
 ### What remains, and why
 
 Everything left needs something SQL cannot substitute for:
@@ -137,22 +162,32 @@ optional.
 ## D — The bucket
 
 **Skip this section entirely if `T-M9-04` was cut** — and say so, rather than
-leaving it looking unrun.
+leaving it looking unrun. It was not cut; see the 2026-08-20 progress note
+above for what the storage-layer half of this section already proved.
 
-- [ ] An avatar uploads and renders
-- [ ] A workspace logo uploads and renders
-- [ ] Replacing either removes the old object from the bucket
-- [ ] A 3 MB file is refused client-side with a readable message
-- [ ] A file over 2 MB pushed **directly at the storage API**, bypassing the
-      client, is refused by the bucket
-- [ ] A `.pdf` renamed `.png` is refused — MIME, not extension
-- [ ] **As account B, write directly to `avatars/<A's id>/` through the storage
+- [~] An avatar uploads and renders — uploads: ✅ proved live 2026-08-20;
+      renders: needs `T-M10-02`
+- [~] A workspace logo uploads and renders — same split
+- [~] Replacing either removes the old object from the bucket — the
+      component's upload→save→delete-old order needs `T-M10-02` to exercise
+      end-to-end; a direct replace-in-place was proved instead (2026-08-20)
+- [x] A 3 MB file is refused client-side with a readable message —
+      `checkImageFile()` unit-tested (`packages/shared/src/image-upload.test.ts`)
+- [x] A file over 2 MB pushed **directly at the storage API**, bypassing the
+      client, is refused by the bucket — proved live 2026-08-20
+- [x] A `.pdf` renamed `.png` is refused — MIME, not extension — proved live
+      2026-08-20 (declared `Content-Type`, not the key's extension)
+- [x] **As account B, write directly to `avatars/<A's id>/` through the storage
       API. Denied.** A public bucket with a wrong write policy is a public
-      write endpoint; this is the assertion worth being paranoid about
-- [ ] Same for `workspace-logos/<A's workspace id>/`
+      write endpoint; this is the assertion worth being paranoid about —
+      proved live 2026-08-20 with two real accounts (policy is symmetric per
+      caller, so A-denied-writing-B's-prefix proves the general case)
+- [x] Same for `workspace-logos/<A's workspace id>/` — proved live 2026-08-20
 - [ ] `PATCH /me { avatar_url: "https://evil.example/x.png" }` → rejected by
-      the storage-origin check
-- [ ] `get_advisors` (security and performance) reports no new findings
+      the storage-origin check — covered by `profile-routes.test.ts`'s unit
+      tests, not yet by a live HTTP call (Section B)
+- [x] `get_advisors` (security and performance) reports no new findings —
+      unchanged since 2026-08-18; no new migration landed with `T-M9-04`
 
 ## E — What must NOT have changed
 
