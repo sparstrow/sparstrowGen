@@ -208,10 +208,18 @@ them.
 
 ### D2.3 — approval status and actor identity *(serves US-T2)*
 
-`--approval` at hue 310 with both modes measured; `--identity-1..6` chosen
-against the 20° rule; `actor-avatar.tsx` rewired; a `Badge` variant for
-approval. Done when `slop-audit` finds no palette class in the avatar and the
-separation assertion passes.
+**The colour work is already done** — `G-21` closed on 2026-08-19 and
+`DESIGN.md` §2.4/§2.5 now carry measured values: approval at
+`oklch(0.78 0.15 310)` / `oklch(0.47 0.14 310)`, and six identity hues 50° apart
+at 50/135/185/235/285/335. Derivation is
+`design-brief/status-identity-solve.mjs`; the checker verifies them.
+
+What remains is wiring: the five status tokens plus `--approval` and
+`--identity-1..6` in `globals.css` under the `DD-012` model (the token is the
+colour, `-foreground` is the neutral on a solid fill, and that neutral flips with
+the mode), `actor-avatar.tsx` rewired to a neutral fill with an identity mark and
+ring per `DD-013`, and a `Badge` `approval` variant. Done when `slop-audit`
+finds no palette class in the avatar and the separation assertion passes.
 
 ## Scope boundaries
 

@@ -148,5 +148,125 @@ const clamped = new Set(rows.filter((r) => r.clamped).map((r) => `${r.preset}/${
 console.log(`\n${clamped.size} preset x surface x mode combinations land out of gamut and are clamped.`);
 console.log("Dark mode uses one lightness for every preset and passes throughout.");
 
+// =====================================================================
+// The fixed colours — status (§2.4) and actor identity (§2.5)
+// =====================================================================
+//
+// These are not themeable, so they have to clear the floor on EVERY surface,
+// not just the shipping one. Values derived by
+// design-brief/status-identity-solve.mjs; this is the check that keeps them
+// honest. Two of the status values were recalibrated on 2026-08-19 for the
+// same reason the brand presets were — see DD-010.
+
+const STATUS = {
+  success:  { dark: [0.78, 0.16, 155], light: [0.498, 0.15, 155] },
+  warning:  { dark: [0.80, 0.14, 75],  light: [0.42, 0.12, 70] },
+  approval: { dark: [0.78, 0.15, 310], light: [0.47, 0.14, 310] },
+  danger:   { dark: [0.70, 0.19, 22],  light: [0.548, 0.226, 27] },
+  info:     { dark: [0.78, 0.12, 255], light: [0.42, 0.13, 255] },
+};
+
+/** Text on a solid status fill. Flips with the mode — §2.4. */
+const ON_SOLID = { dark: [0.16, 0, 0], light: [0.985, 0, 0] };
+
+const IDENTITY_HUES = [50, 135, 185, 235, 285, 335];
+const IDENTITY = {
+  dark: IDENTITY_HUES.map((h) => [0.78, 0.13, h]),
+  light: IDENTITY_HUES.map((h) => [0.48, 0.13, h]),
+};
+
+const IDENTITY_MIN_STATUS_GAP = 20;
+
+const hueGap = (a, b) => {
+  const d = ((a - b) % 360 + 360) % 360;
+  return Math.min(d, 360 - d);
+};
+
+/** Every ground a fixed colour can land on, in one mode: 4 surfaces x 3 steps. */
+function grounds(mode) {
+  const out = [];
+  for (const [name, [sh, sc]] of Object.entries(SURFACES)) {
+    ramp(name, mode).forEach(([step, L, neutral]) => {
+      out.push({ label: `${name}/${step}`, rgb: clampToGamut(toLinearSrgb(L, neutral ? 0 : sc, neutral ? 0 : sh)) });
+    });
+  }
+  return out;
+}
+
+function worstOnGrounds(value, mode) {
+  const fg = clampToGamut(toLinearSrgb(...value));
+  let worst = Infinity, where = "";
+  for (const g of grounds(mode)) {
+    const v = contrast(fg, g.rgb);
+    if (v < worst) { worst = v; where = g.label; }
+  }
+  return { worst, where };
+}
+
+console.log("\n§2.4 status colours — fixed, so measured on every surface\n");
+for (const [name, byMode] of Object.entries(STATUS)) {
+  for (const mode of ["light", "dark"]) {
+    const { worst, where } = worstOnGrounds(byMode[mode], mode);
+    if (worst < FLOOR) ok = false;
+    console.log(
+      `  ${(name + "/" + mode).padEnd(16)} ${worst.toFixed(2)}` +
+        `  ${worst >= FLOOR ? "ok" : "FAIL at " + where}`
+    );
+  }
+}
+
+console.log("\n  text on a solid status fill\n");
+for (const mode of ["light", "dark"]) {
+  let worst = Infinity, which = "";
+  for (const [name, byMode] of Object.entries(STATUS)) {
+    const v = contrast(
+      clampToGamut(toLinearSrgb(...ON_SOLID[mode])),
+      clampToGamut(toLinearSrgb(...byMode[mode]))
+    );
+    if (v < worst) { worst = v; which = name; }
+  }
+  if (worst < FLOOR) ok = false;
+  console.log(`  ${mode.padEnd(6)} ${worst.toFixed(2)}  ${worst >= FLOOR ? "ok" : "FAIL"}  worst on ${which}`);
+}
+
+console.log("\n§2.5 actor identity — Identity Is Not Status, and legible on every surface\n");
+
+// the 20-degree rule, against every status hue in either mode
+const statusHues = [...new Set(
+  Object.values(STATUS).flatMap((m) => [m.light[2], m.dark[2]])
+)];
+let gapOk = true;
+for (const h of IDENTITY_HUES) {
+  const closest = statusHues.reduce((a, s) => (hueGap(h, s) < a[1] ? [s, hueGap(h, s)] : a), [0, 999]);
+  if (closest[1] < IDENTITY_MIN_STATUS_GAP) { gapOk = false; ok = false; }
+  console.log(
+    `  hue ${String(h).padStart(3)}  nearest status hue ${String(closest[0]).padStart(3)} at ${String(closest[1]).padStart(3)}°` +
+      `  ${closest[1] >= IDENTITY_MIN_STATUS_GAP ? "ok" : "TOO CLOSE"}`
+  );
+}
+
+// mutual separation — the property identity exists for
+let minPair = Infinity;
+for (let i = 0; i < IDENTITY_HUES.length; i++)
+  for (let j = i + 1; j < IDENTITY_HUES.length; j++)
+    minPair = Math.min(minPair, hueGap(IDENTITY_HUES[i], IDENTITY_HUES[j]));
+console.log(`\n  closest two identities: ${minPair}° apart`);
+
+for (const mode of ["light", "dark"]) {
+  const worst = IDENTITY[mode].reduce((a, v) => {
+    const w = worstOnGrounds(v, mode);
+    return w.worst < a.worst ? { ...w, hue: v[2] } : a;
+  }, { worst: Infinity, where: "", hue: 0 });
+  if (worst.worst < FLOOR) ok = false;
+  console.log(
+    `  ${mode.padEnd(6)} worst mark on any surface ${worst.worst.toFixed(2)}` +
+      `  ${worst.worst >= FLOOR ? "ok" : "FAIL"}  (hue ${worst.hue} at ${worst.where})`
+  );
+}
+console.log(
+  "\n  The mark is measured on the surface, not on a tint of its own hue —\n" +
+  "  §2.5 explains why that form was rejected (it tops out at 3.91 in dark)."
+);
+
 console.log(ok ? "\nOK\n" : "\nFAILED\n");
 process.exit(ok ? 0 : 1);

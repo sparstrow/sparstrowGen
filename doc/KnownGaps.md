@@ -33,6 +33,16 @@ so in the task's Result section *and* open an entry here.
 Each entry carries: what is unproved, why it ended up that way, what it would
 cost if the assumption is wrong, and the concrete thing that would close it.
 
+**Closed 2026-08-19: `G-21`** — `DESIGN.md` §2's colour figures are now
+reproducible from the document. §2.3 states the measurement basis (OKLCH → OKLab
+→ linear sRGB **clamped to gamut**, then WCAG relative luminance) and the sweep
+covers all three ramp steps; §2.4 and §2.5 carry measured values for approval
+and the six actor-identity hues, which were the half still owed. Proof:
+`design-brief/contrast-check.mjs` verifies every published figure and exits
+non-zero on a mismatch, and `design-brief/status-identity-solve.mjs` is the
+derivation. Three defects surfaced while closing it and are recorded as
+`DD-010`, `DD-012`, and `DD-013`.
+
 ---
 
 ## Unverified
@@ -318,64 +328,6 @@ and is still there today.
   source, and `--transition-base` is either removed or given a real source.
 
 ## Accepted limitations
-
-### G-21 — `DESIGN.md` §2's contrast figures cannot be reproduced from the document
-
-**Raised:** 2026-08-19, answering `OQ-3`.
-
-§2.3 publishes a worst-case contrast per brand preset (Amber 4.50, Violet 4.58,
-Blue 4.55, Teal 4.56, Rose 4.57) and §2's Contrast Floor rule says a new colour
-is not shippable until measured. Re-deriving those numbers from the values the
-document itself gives — the §2.2 ramp and the §2.3 preset table, via
-OKLCH → linear sRGB → WCAG relative luminance — produces **a consistent +0.28
-offset** on all five. Same ordering, same ballpark, reproducibly different.
-
-A constant offset across every preset means one differing assumption, not an
-error in either set: most likely which background the worst case was measured
-against (`--background`, `--card`, and `--accent` give 4.78 / 4.99 / 4.37 for
-Amber), or a gamut-clamping step the document does not state. `theme-board.html`
-holds the real method; the doctrine records the results without it.
-
-- **If wrong:** the rebuild `G-19` calls for cannot verify its own output. Anyone
-  re-deriving the system gets numbers that disagree with the doctrine and has no
-  way to tell which is right, so either the check gets skipped or a correct
-  palette gets "fixed" to match a figure it never had to hit.
-- **Also affected:** the **approval** status (§2.4) and the six **actor identity**
-  hues (§2.5), added 2026-08-19. Both are specified by hue and constraint and
-  **neither has been measured** — deliberately, rather than publishing a figure
-  from an unvalidated model.
-- **Clears when:** the approval and identity values are measured the same way
-  and written into §2.4 and §2.5.
-- **Planned:** [`plans/2026-08-19-parametric-theming.md`](plans/2026-08-19-parametric-theming.md),
-  phase D2.3.
-
-**Narrowed 2026-08-19 — the reproducibility half is closed.** §2.3 now states
-the measurement basis, and `design-brief/contrast-check.mjs` verifies every
-published figure against it and exits non-zero on a mismatch. What remains is
-only the second half of the original entry: **approval (§2.4) and the six actor
-identity hues (§2.5) are still specified by hue and constraint with no measured
-values**, deliberately, rather than publishing figures from an unvalidated
-model. Those land in phase D2.3 alongside the unit-test version of the checker.
-
-The investigation that closed the first half is below, kept because it is what
-the remaining work has to match.
-
-**Method identified 2026-08-19, while writing that plan.** Two unstated
-assumptions reproduce all five published figures exactly (4.50 / 4.58 / 4.55 /
-4.56 / 4.57), so this is a documentation gap rather than a disagreement.
-Reproduce with `node design-brief/contrast-check.mjs`:
-
-1. Linear sRGB is **clamped to `[0,1]` before relative luminance** — several
-   preset x surface pairs land marginally outside gamut.
-2. The sweep covered **`--background` and `--card` only**. `--accent`, the
-   raised third step of the ramp, was not measured.
-
-Assumption 2 is a real hole. Extending the sweep to `--accent` turns 40
-combinations into 120, and **20 fail** — every preset, every surface, light
-mode, ranging 4.12 to 4.46. `--accent` is the hover fill, the active tab, and
-the selected row, which is exactly where a brand-coloured label sits. Dropping
-each preset's light-mode lightness by 0.017-0.022 clears all 120. That is a
-`DESIGN.md` §2.3 edit and needs the owner's yes, so it stays a gap until then.
 
 ### G-20 — A slop audit cannot reach render-tier rules on a component with no route
 

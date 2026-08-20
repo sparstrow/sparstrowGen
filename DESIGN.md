@@ -146,13 +146,32 @@ controls *separation*. They are not interchangeable.
 
 ### 2.4 Status colours — fixed, in every theme
 
-| Status | Dark | Light |
+| Status | Dark | Light | Worst on any surface |
+|---|---|---|---|
+| Success / online | `oklch(0.78 0.16 155)` | `oklch(0.498 0.15 155)` | 4.52 |
+| Warning / needs attention | `oklch(0.80 0.14 75)` | `oklch(0.42 0.12 70)` | 7.14 |
+| **Approval** — *awaiting a human decision* | `oklch(0.78 0.15 310)` | `oklch(0.47 0.14 310)` | 6.04 |
+| Danger / destructive | `oklch(0.70 0.19 22)` | `oklch(0.548 0.226 27)` | 4.50 |
+| Info | `oklch(0.78 0.12 255)` | `oklch(0.42 0.13 255)` | 7.06 |
+
+Each value is the **status colour itself** — the one used for a dot, an icon, a
+label, a border, or a low-alpha tint behind one (`bg-warning/5`). A solid fill
+takes a neutral on top, and which neutral flips with the mode because the dark
+values are light and the light values are dark:
+
+| | Text on a solid status fill | Worst |
 |---|---|---|
-| Success / online | `oklch(0.78 0.16 155)` | `oklch(0.52 0.15 155)` |
-| Warning / needs attention | `oklch(0.80 0.14 75)` | `oklch(0.42 0.12 70)` |
-| **Approval** — *awaiting a human decision* | hue **310**, values owed | hue **310**, values owed |
-| Danger / destructive | `oklch(0.70 0.19 22)` | `oklch(0.58 0.25 27)` |
-| Info | `oklch(0.78 0.12 255)` | `oklch(0.42 0.13 255)` |
+| Dark mode | `oklch(0.16 0 0)` | 9.17 |
+| Light mode | `oklch(0.985 0 0)` | 7.01 |
+
+**Two of these were recalibrated on 2026-08-19, for the same reason the brand
+presets were** — the original figures were never measured against `--accent`.
+Success light went `0.52 → 0.498` (it was at 4.14) and danger light went
+`oklch(0.58 0.25 27) → oklch(0.548 0.226 27)` (it was at 3.85). Both now clear
+the floor on all twelve surface positions. `DD-010` is the general rule this
+keeps running into: a floor is only as good as the sweep behind it. Derived by
+`design-brief/status-identity-solve.mjs`, verified on every run of
+`design-brief/contrast-check.mjs`.
 
 **Approval is a fifth status, not a shade of warning.** *Needs attention* (a run
 is blocked or failed) and *awaiting approval* (a run is fine and wants a human
@@ -164,13 +183,52 @@ state it is not or a user's accent choice.
 ### 2.5 Actor identity — a palette, not a status
 
 Six fixed hues, assigned by hashing a stable name, so one agent is one colour
-everywhere it appears. Used as a tint plus its own foreground, never as a solid
-fill, and never large enough to read as a state.
+everywhere it appears. Never a solid fill, and never large enough to read as a
+state.
 
 **Named rule — Identity Is Not Status.** No identity hue sits within **20°** of
-a status hue. The palette shipping today violates this — it uses emerald, amber,
+a status hue. That leaves 155 of 360 hues legal, in six bands, and the six
+below are the set with the largest possible minimum separation from each other
+— **50° apart**, which is what makes two agents tellable apart at avatar size:
+
+| | Hue | Dark | Light |
+|---|---|---|---|
+| `--identity-1` | 50 | `oklch(0.78 0.13 50)` | `oklch(0.48 0.13 50)` |
+| `--identity-2` | 135 | `oklch(0.78 0.13 135)` | `oklch(0.48 0.13 135)` |
+| `--identity-3` | 185 | `oklch(0.78 0.13 185)` | `oklch(0.48 0.13 185)` |
+| `--identity-4` | 235 | `oklch(0.78 0.13 235)` | `oklch(0.48 0.13 235)` |
+| `--identity-5` | 285 | `oklch(0.78 0.13 285)` | `oklch(0.48 0.13 285)` |
+| `--identity-6` | 335 | `oklch(0.78 0.13 335)` | `oklch(0.48 0.13 335)` |
+
+Worst case 7.16 in dark, 4.72 in light, across all twelve surface positions.
+
+**The form is a neutral fill with an identity mark and ring, not an identity
+tint.** This section used to say "a tint plus its own foreground", and that form
+does not clear the contrast floor: an identity-coloured mark on a 15% tint of
+its own hue tops out at **3.91** in dark mode, because the tint lifts the ground
+by more than the mark gains. The tint is not the problem — colouring the mark
+*and* the fill is. Two ways out, and only one keeps both signals:
+
+| Form | Worst | What carries identity |
+|---|---|---|
+| Identity tint + identity mark | 3.91 ✗ | both, illegibly |
+| Identity tint + neutral mark | 6.78 ✓ | the fill alone — and a 15% tint of one hue is hard to tell from another at 22px |
+| **Neutral fill + identity mark + identity ring** | **7.16 / 4.72 ✓** | **both** |
+
+So the avatar chip takes its fill from the surface's own raised step and spends
+the identity colour on the mark and a ring at 40%. Same double encoding the
+tint version was reaching for, legible in both modes.
+
+**The palette shipping today violates the 20° rule** — it uses emerald, amber,
 and rose, which are success, warning, and danger — so an avatar can currently
-read as a state it has nothing to do with. Fixing that is part of the rebuild.
+read as a state it has nothing to do with. Replacing it is part of the rebuild.
+
+**Identity is not required to avoid the brand hues, and deliberately so.**
+`--identity-5` at 285 is the Violet preset's hue exactly, and `--identity-3` at
+185 is 5° from Teal. Adding a 20° brand exclusion was measured and rejected: it
+collapses the legal space to four narrow bands and forces the six identities to
+within **15°** of each other, trading the thing identity exists for against a
+collision that only appears for one accent choice at a time.
 
 **Identity is never themed.** It is excluded from the brand contract on purpose:
 if a user's accent could recolour it, two agents could collapse to the same hue

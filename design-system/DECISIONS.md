@@ -11,6 +11,102 @@ guidance: `.claude/skills/design-system/references/decision-log.md`.
 
 ---
 
+## DD-013 — Actor identity is a neutral chip with a coloured mark, not a coloured chip
+
+**Date:** 2026-08-19 · **Asked by:** found while solving §2.5's missing values · **Surface:** every avatar, board column, and actor label
+
+**Ask:** n/a — §2.5 specified a form and named no values. Deriving the values
+showed the form does not clear the contrast floor.
+
+**Why:** §2.5 said actor identity is "used as a tint plus its own foreground".
+Measured, that form reaches **3.91** in dark mode — an identity-coloured mark on
+a 15% tint of its own hue. The tint lifts the ground by more than the mark
+gains, so the gap closes rather than opening. It is not a bad hue: the same
+measurement over the darkest surface flatters it by nearly a point, which is the
+mistake that made this look fine the first time.
+
+Three forms, measured:
+
+| Form | Worst | What carries identity |
+|---|---|---|
+| Identity tint + identity mark | 3.91 ✗ | both, illegibly |
+| Identity tint + neutral mark | 6.78 ✓ | the fill alone |
+| **Neutral fill + identity mark + identity ring** | **7.16 dark / 4.72 light ✓** | **both** |
+
+The second passes and is the obvious-looking fix, but it spends the whole
+identity signal on a 15% tint of one hue — at 22px, one of those is very hard to
+tell from another, which is the single thing this palette exists to do. So the
+chip takes its fill from the surface's own raised step and spends the colour on
+the mark plus a ring at 40%.
+
+**The hues.** Six, from the 155 of 360 that sit ≥20° from every status hue, chosen
+for the largest possible minimum separation from *each other*: **50, 135, 185,
+235, 285, 335 — 50° apart.** A brand-distance constraint was measured and
+rejected: adding ±20° around the five brand presets collapses the legal space to
+four narrow bands and forces the six identities to within 15° of each other. That
+trades the property identity exists for against a collision that only appears for
+one accent choice at a time.
+
+**Generalises to:** Yes — **when a doctrine specifies a form and a floor, derive
+the values before trusting either.** The form here was written first and read as
+obviously fine; the floor was written first and read as obviously satisfiable.
+Only measurement showed they were mutually exclusive. Also: contrast against a
+tint of a colour's own hue is worst over the *lightest* ground in the mode, not
+the darkest — the intuition runs the wrong way.
+
+**Status:** `DESIGN.md` §2.5 carries the six values and the form, verified by
+`design-brief/contrast-check.mjs` — 2026-08-19
+
+---
+
+## DD-012 — A status token holds the colour, not a pale tint of it
+
+**Date:** 2026-08-19 · **Asked by:** found while adding the approval status · **Surface:** every badge, dot, and tinted callout
+
+**Ask:** n/a — a model inconsistency that would have made the `T-D1-01` sweep
+produce invisible tints.
+
+**Why:** The codebase carried two conventions at once. `--destructive` holds the
+**saturated colour** (`oklch(0.577 0.245 27)`), used as `text-destructive`,
+`bg-destructive/10`, `border-destructive/40` — 87 sites of the first alone.
+`--success`, `--warning`, and `--info` hold a **pale tint**
+(`oklch(0.94 0.06 80)`) with `-foreground` carrying the actual colour, used as
+`bg-warning` plus `text-warning-foreground`.
+
+`T-D1-01`'s mapping table sends `bg-amber-500/5` to `bg-warning/5` and
+`border-amber-500/30` to `border-warning/30`. Under the tint convention those
+are 5% and 30% of a near-white — **invisible in light mode.** The sweep would
+have typechecked, rendered nothing, and looked like a token problem rather than a
+model problem.
+
+So all five status tokens now follow `--destructive`: the token is the colour,
+`-foreground` is the neutral that goes on top of a solid fill. This also matches
+`DESIGN.md` §2.4, whose table always gave one value per mode, and shadcn's own
+convention. Six call sites change; `Badge`'s three variants keep working
+unchanged because `bg-X` + `text-X-foreground` means the same thing in both
+models.
+
+**Also in this decision:** the neutral on a solid fill **flips with the mode** —
+`oklch(0.16 0 0)` in dark, `oklch(0.985 0 0)` in light. The dark-mode status
+values are light (L 0.70–0.80) and the light-mode ones are dark (L 0.42–0.55), so
+a single foreground fails one mode outright. `--destructive-foreground` is
+`oklch(0.985 0 0)` in both today, which is why a dark solid destructive badge
+reads at 2.03:1.
+
+**And two of §2.4's published values were under the floor** — success light at
+4.14, danger light at 3.85, both against `--accent`. Recalibrated to
+`oklch(0.498 0.15 155)` and `oklch(0.548 0.226 27)`. Same defect as `DD-010`,
+found by the same sweep.
+
+**Generalises to:** Yes — **before a mechanical find-and-replace across 228
+sites, check that the replacement means what the original meant.** The mapping
+table was right about intent (amber *is* warning) and wrong about mechanism, and
+nothing in a typecheck or a diff review would have caught it.
+
+**Status:** `DESIGN.md` §2.4; the token rewrite lands with `T-D1-01` — 2026-08-19
+
+---
+
 ## DD-011 — Code syntax is a fifth colour role, and is never themed
 
 **Date:** 2026-08-19 · **Asked by:** owner, answering `OQ-4` · **Surface:** code blocks in chat and run transcripts
