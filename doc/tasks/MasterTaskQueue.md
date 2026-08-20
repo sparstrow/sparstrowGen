@@ -254,10 +254,10 @@ Phase spec: [`M8/README.md`](M8/README.md).
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 10.1 | [T-M8-01 — `machineState()` in shared](M8/T-M8-01-machine-state.md) | `[S]` | — | queued |
+| 10.1 | [T-M8-01 — `machineState()` in shared](M8/T-M8-01-machine-state.md) | `[S]` | — | ✅ done (2026-08-18) |
 | 10.2 | [T-M8-02 — promote the card to a page](M8/T-M8-02-machines-page.md) | `[S]` | 10.1 | queued |
 | 10.3 | [T-M8-03 — route, sidebar, nav metadata](M8/T-M8-03-route-and-nav.md) | `[P]` | 10.2 | queued |
-| 10.4 | [T-M8-04 — fix the CLI's pairing path](M8/T-M8-04-cli-path-strings.md) | `[P]` | — | queued |
+| 10.4 | [T-M8-04 — fix the CLI's pairing path](M8/T-M8-04-cli-path-strings.md) | `[P]` | — | ✅ done (2026-08-18) |
 | 10.5 | [T-M8-05 — verification](M8/T-M8-05-verification.md) | `[S]` | 10.1–10.4 | queued |
 
 10.1 and 10.2 are `[S]` for the reason M3's and M4's first tasks were: 10.1
@@ -277,12 +277,12 @@ Phase spec: [`M9/README.md`](M9/README.md).
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 11.1 | [T-M9-01 — schema, and a bootstrap that invents nothing](M9/T-M9-01-schema-and-bootstrap.md) | `[S]` | — | queued |
-| 11.2 | [T-M9-02 — workspace read + update](M9/T-M9-02-workspace-handler.md) | `[P]` | 11.1 | queued |
-| 11.3 | [T-M9-03 — profile read + update](M9/T-M9-03-profile-handler.md) | `[P]` | 11.1 | queued |
-| 11.4 | [T-M9-04 — avatar and logo upload](M9/T-M9-04-image-upload.md) | `[P]` | 11.1 | queued |
-| 11.5 | [T-M9-05 — hooks](M9/T-M9-05-hooks.md) | `[C]` | 11.2, 11.3 | queued |
-| 11.6 | [T-M9-06 — verification](M9/T-M9-06-verification.md) | `[S]` | 11.1–11.5 | queued |
+| 11.1 | [T-M9-01 — schema, and a bootstrap that invents nothing](M9/T-M9-01-schema-and-bootstrap.md) | `[S]` | — | ✅ done (staging, 2026-08-18) |
+| 11.2 | [T-M9-02 — workspace read + update](M9/T-M9-02-workspace-handler.md) | `[P]` | 11.1 | ✅ done (2026-08-18) |
+| 11.3 | [T-M9-03 — profile read + update](M9/T-M9-03-profile-handler.md) | `[P]` | 11.1 | ✅ done (2026-08-18) |
+| 11.4 | [T-M9-04 — avatar and logo upload](M9/T-M9-04-image-upload.md) | `[P]` | 11.1 | 🟡 SQL done (staging); component held |
+| 11.5 | [T-M9-05 — hooks](M9/T-M9-05-hooks.md) | `[C]` | 11.2, 11.3 | ✅ done (2026-08-18) |
+| 11.6 | [T-M9-06 — verification](M9/T-M9-06-verification.md) | `[S]` | 11.1–11.5 | 🟡 SQL layer done; HTTP layer + 2nd account remain |
 
 11.1 is `[S]` and gates the band: it adds the three missing columns and rewrites
 `bootstrap_workspace` to stop inventing a person's name and a workspace's name

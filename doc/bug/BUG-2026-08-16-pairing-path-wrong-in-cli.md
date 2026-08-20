@@ -1,6 +1,6 @@
 # BUG-2026-08-16-pairing-path-wrong-in-cli
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — found while writing
 [`specs/2026-08-16-pair-machine-to-deployed-app.md`](../specs/2026-08-16-pair-machine-to-deployed-app.md),
 reading the pairing CLI against the settings page it points at
@@ -78,5 +78,43 @@ machine. That changes the moment anyone else does.
 
 ## Resolution
 
-<!-- Fix belongs with the US1 work in the pairing spec; update all four
-strings in pair.ts to "Settings → Workspace → General → Machines". -->
+**Fixed 2026-08-18 by [`T-M8-04`](../tasks/M8/T-M8-04-cli-path-strings.md),
+commit on branch `claude/next-backend-feature-175d27`.** All four strings in
+[`packages/core/src/cli/pair.ts`](../../packages/core/src/cli/pair.ts) — lines
+36, 48, 68 and 119 — replaced. No occurrence of `Runtimes` or `Settings →`
+remains anywhere in `packages/core/src/cli/`, checked by grep rather than by
+eye; there was no fifth occurrence.
+
+**The destination is not the one this file proposed.** The comment here said to
+point at *"Settings → Workspace → General → Machines"*. That was correct on
+2026-08-16 and would have been stale again within the same milestone: M8 moves
+machines out of Settings entirely and onto a top-level page (US1). The strings
+now say:
+
+| Line | Now reads |
+|---|---|
+| 36 | `Redeem a pairing code from the Machines page` |
+| 48 | `In the web app, open Machines in the sidebar and choose "Pair a machine".` |
+| 68 | `Run \`sparstrow pair <code>\` with a code from the Machines page in the web app.` |
+| 119 | `Revoke it on the Machines page if the machine is no longer trusted.` |
+
+None names a sidebar group, a tab path, or a URL — deliberately. A four-level
+path is exactly what went stale here, and "Machines in the sidebar" survives a
+nav reshuffle.
+
+**Verified by running the CLI, not by reading it** — which is what the original
+report could not do. `sparstrow pair --help` and `sparstrow pair --status` were
+both executed against a fresh `esbuild` bundle and their real output read: the
+`GETTING A CODE` section names Machines, the template literal still interpolates
+`secretsDir` and `cloudUrl` correctly, and the block's indentation is unchanged.
+
+**One caveat, stated rather than glossed.** The strings now name a page that
+[`T-M8-03`](../tasks/M8/T-M8-03-route-and-nav.md) has not registered yet — the
+Machines destination does not exist at the time of this fix. For the few days
+until M8 lands, the CLI names a place that is *about* to exist rather than one
+that does. That is the deliberate trade the task's `Depends on: —` records: the
+alternative was pointing at the Settings card, then editing all four strings a
+second time. `T-M8-05` walks the CLI text against the rendered page.
+
+The **Symptom** and **Investigation** sections above are left exactly as
+written; they are the historical record of what was observed on 2026-08-16.

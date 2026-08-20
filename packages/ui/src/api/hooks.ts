@@ -2133,3 +2133,114 @@ export function useSetRuntimeSetting(): UseMutationResult<
     },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Workspace & profile identity (M9)
+// ---------------------------------------------------------------------------
+
+/**
+ * The workspace row, as the workspace form edits it.
+ *
+ * Singular endpoints and singular query keys: the caller has exactly one active
+ * workspace, resolved server-side. There is no picker and no id in the path
+ * (M9 decision 1).
+ */
+export interface Workspace {
+  id: string;
+  /**
+   * `""` until the owner names it, and that is a normal value rather than a
+   * missing one — `bootstrap_workspace` stops inventing one as of T-M9-01.
+   * Anything here that substitutes a default puts the guess back.
+   */
+  name: string;
+  /** Derived from the first real name, then frozen. Returned, never sent. */
+  slug: string;
+  description: string;
+  /** Background an agent should know about this workspace. */
+  context: string;
+  logoUrl: string | null;
+  createdAt: string;
+}
+
+/**
+ * The `public.users` row, as the profile form edits it.
+ *
+ * **Not a duplicate of `useAccount()`, and neither should be deleted in favour
+ * of the other.** `useAccount()` is the *session*: who is signed in, read from
+ * auth metadata and server-rendered into the shell's first paint. This is the
+ * *row*: the three fields a person edits. `bio` exists only here — it is
+ * deliberately kept out of the session metadata (plan decision 9), because the
+ * shell never renders it and it would ride along on every request.
+ */
+export interface Profile {
+  id: string;
+  email: string;
+  /** `""` until supplied. See the note on `Workspace.name`. */
+  name: string;
+  bio: string;
+  avatarUrl: string | null;
+}
+
+/**
+ * No `refetchInterval`, and that is deliberate rather than forgotten.
+ *
+ * The contrast worth naming is `useRuntimes` a few lines above, which polls at
+ * 15s because a machine crossing the staleness threshold changes nothing in the
+ * database and so nothing pushes. A workspace changes only when its owner
+ * changes it, through the mutation below, which invalidates. Copying the poll
+ * down here would be re-fetching on a timer to observe a write this client just
+ * made.
+ *
+ * Also no `placeholderData` and no fallback object: M10's setup derivation has
+ * to tell a *failed read* (`unknown` — "couldn't check this") apart from a
+ * legitimately empty name (`todo`), and anything that makes failure look like
+ * data collapses the two.
+ */
+export function useWorkspace(): UseQueryResult<Workspace, ApiError> {
+  return useQuery({
+    queryKey: ["workspace"],
+    queryFn: () => api<Workspace>("/workspace"),
+  });
+}
+
+/** Partial, matching the handler: a form that saves one field sends one field. */
+export function useUpdateWorkspace(): UseMutationResult<
+  Workspace,
+  ApiError,
+  Partial<Pick<Workspace, "name" | "description" | "context" | "logoUrl">>
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body) => api<Workspace>("/workspace", { method: "PATCH", body }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace"] });
+    },
+  });
+}
+
+/** See `Profile` for why this and `useAccount()` both exist. No polling, same reasons as `useWorkspace`. */
+export function useProfile(): UseQueryResult<Profile, ApiError> {
+  return useQuery({
+    queryKey: ["profile"],
+    queryFn: () => api<Profile>("/me"),
+  });
+}
+
+export function useUpdateProfile(): UseMutationResult<
+  Profile,
+  ApiError,
+  Partial<Pick<Profile, "name" | "bio" | "avatarUrl">>
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body) => api<Profile>("/me", { method: "PATCH", body }),
+    onSuccess: () => {
+      // `["profile"]` and nothing else, deliberately. The shell's name and
+      // avatar do NOT come from react-query -- they come from Supabase's
+      // onAuthStateChange, and the handler's `auth.updateUser` call is what
+      // fires `USER_UPDATED` for them. An extra invalidation here would look
+      // like it was doing that work while doing nothing.
+      void queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+  });
+}

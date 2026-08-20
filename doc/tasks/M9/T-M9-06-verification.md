@@ -6,7 +6,7 @@
 | **Depends on** | T-M9-01 … T-M9-05 |
 | **Blocks** | M10 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | 🟡 **partly done 2026-08-18** — SQL/RLS layer proved directly; the HTTP layer and the second account remain. See *Progress* below. |
 
 ## Objective
 
@@ -28,6 +28,43 @@ obtaining that session:
 **two throwaway accounts** — one to be the second party in the cross-workspace
 and cross-user assertions, one created fresh to prove SC-008. M2's pass created
 three accounts; follow the same route rather than skipping sections C and D.
+
+## Progress — 2026-08-18
+
+**Done, proved directly against `sparstrowgen-staging` as `postgres`** (results
+recorded in each task's Result section, not restated here):
+
+| Assertion | How |
+|---|---|
+| **SC-008** — a fresh account holds no name in either table | `bootstrap_workspace()` invoked under a throwaway user's JWT claims; `users.name`, `users.bio`, `workspaces.name`, `workspaces.context` all `''`, `logo_url` `NULL`, slug matching `^personal-[0-9a-f]{8}$`, role `owner` |
+| A provider-supplied name still survives | second throwaway with `full_name: "Sri Hari"` → `users.name = 'Sri Hari'`, workspace still `''` |
+| The one-time cleanup's blast radius | 1 `users` row, 8 `workspaces` rows — matching the dry-run exactly |
+| `bootstrap_workspace` kept its security properties | `prosecdef` true, `search_path=""`, advisory lock present, grants `anon=false` / `authenticated=true` |
+| Neighbouring grant invariants | `redeem_pairing_code`, `claim_runtime_commands`, `ack_runtime_command` all `false, false` |
+| The bucket and its seven policies | applied; `array_length(...) = 2` guard added after verification found a `..` gap ([`SEC-2026-08-18`](../../security/SEC-2026-08-18-storage-policy-dotdot-segment.md)) |
+| Storage predicate against ten crafted paths | evaluated against the expression read back from `pg_policy`; only the legitimate path allowed |
+| `get_advisors` security + performance | no new findings; the 5 security warnings are all pre-existing and accepted |
+
+**Both throwaway accounts deleted themselves completely**, so this pass added no
+orphans — see [`BUG-2026-08-18-orphaned-account-rows-on-staging`](../../bug/BUG-2026-08-18-orphaned-account-rows-on-staging.md).
+
+### What remains, and why
+
+Everything left needs something SQL cannot substitute for:
+
+1. **The HTTP layer.** `GET`/`PATCH /api/v1/workspace` and `/me` have never been
+   called over HTTP. Their logic is covered by 53 unit tests against a fake
+   Supabase client, and the SQL they emit is proved to work — but the round trip
+   through `parseBody` → `toSnake` → handler → `toCamel` has not been exercised.
+   Needs a signed-in session against a running app.
+2. **A second account.** Every cross-workspace and cross-user denial (sections
+   C/D, and the storage cross-account write) needs a second real party. One
+   session cannot be two workspace members.
+3. **The hooks returning real data**, which needs 1 and a rendered app.
+
+None of this is blocked on a decision — it is blocked on a running app plus a
+second account, exactly as M2's pass needed. It is **not** a `KnownGaps.md`
+entry, because this verification task is itself the open record of it.
 
 ## A — SC-008: nothing is invented
 

@@ -7,7 +7,7 @@
 | **Depends on** | — |
 | **Blocks** | T-M8-02 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done (2026-08-18) |
 
 ## The scenario this satisfies
 
@@ -74,12 +74,12 @@ asking a different question ("may I dispatch to this?") than the UI is
 
 ## Checklist
 
-- [ ] `MachineState` type and `machineState()` added to
+- [x] `MachineState` type and `machineState()` added to
       `packages/shared/src/cloud.ts`, beside `isRuntimeOnline`, with the
       doc-comment above (the D-16 sentence is the point of it — do not trim it)
-- [ ] Exported from `packages/shared/src/index.ts` if that file re-exports
+- [x] Exported from `packages/shared/src/index.ts` if that file re-exports
       explicitly rather than with `export *` — check before assuming
-- [ ] Tests in `packages/shared/src/cloud.test.ts` covering:
+- [x] Tests in `packages/shared/src/cloud.test.ts` covering:
       fresh heartbeat + `online` → `active`;
       fresh heartbeat + `draining` → `draining`;
       stale heartbeat + `draining` → `unreachable` (the ordering case);
@@ -89,7 +89,7 @@ asking a different question ("may I dispatch to this?") than the UI is
       exactly `HEARTBEAT_STALE_AFTER_MS` old → `unreachable` (boundary);
       one millisecond younger → `active`;
       `null`/`undefined`/unknown `status` with a fresh heartbeat → `active`
-- [ ] `pnpm --filter @sparstrow/shared test` and `pnpm typecheck` green
+- [x] `pnpm --filter @sparstrow/shared test` and `pnpm typecheck` green
 
 ## Traps
 
@@ -109,16 +109,50 @@ ever produce, which is worse than absent.
 
 ## Verification
 
-- [ ] `pnpm --filter @sparstrow/shared test` — all nine cases above pass
-- [ ] `pnpm typecheck` clean across the workspace
-- [ ] Grep confirms no existing call site was changed: `isRuntimeOnline` still
+- [x] `pnpm --filter @sparstrow/shared test` — all nine cases above pass
+- [x] `pnpm typecheck` clean across the workspace
+- [x] Grep confirms no existing call site was changed: `isRuntimeOnline` still
       has exactly its current three callers
 
 ## On completion
 
-- [ ] Tick 10.1 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] Update this file's **Status** row and the phase README's task table
+- [x] Tick 10.1 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Update this file's **Status** row and the phase README's task table
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+**Landed 2026-08-18.** `MachineState` and `machineState()` in
+[`packages/shared/src/cloud.ts`](../../../packages/shared/src/cloud.ts), beside
+`isRuntimeOnline`. **10 tests** added to `cloud.test.ts` (85 in the package,
+all green); `pnpm typecheck` clean across all seven packages.
+
+No export change needed — `packages/shared/src/index.ts` uses
+`export * from "./cloud"`, checked rather than assumed as the checklist asked.
+
+### Two tests beyond the nine the checklist listed
+
+Both guard FR-007 (*"leave room for `sleeping` without reshaping"*), which the
+nine cases exercise but do not actually pin:
+
+- **"never returns a state the UI has no rendering for"** — the full cross
+  product of six status values against four heartbeat values, asserting the
+  result is always one of the three. A fourth state reaching a renderer that has
+  no branch for it is the failure this type exists to prevent.
+- **"does not treat `sleeping` as its own state yet"** — asserts
+  `machineState("sleeping", fresh)` is `active` today. It reads like a test of
+  the wrong behaviour, and it is on purpose: it fails loudly the day
+  [`D-16`](../../Deferred.md) adds the branch, which is exactly when the
+  renderer needs a fourth case. Shipping `sleeping` early would ship a state
+  nothing can produce.
+
+### One correction to the task document
+
+It says `isRuntimeOnline` has "exactly its current three callers" and names
+`runtimes.ts` ×2 and `system.ts`. The grep finds **eight call sites across four
+modules** — those three plus `runtimes.ts:359`, `system.ts:125`, `system.ts:140`,
+`api/daemon/me/route.ts:40` and `api/daemon/memory/push/route.ts:269`.
+
+The point the count was making still stands, and is stronger for the real
+number: `isRuntimeOnline` answers *"may I dispatch to this?"* for a lot of
+callers, and none of them was touched. `machineState` is built on it, not
+instead of it.

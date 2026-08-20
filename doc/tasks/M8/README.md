@@ -7,8 +7,19 @@
 | **Spec** | [`../../specs/2026-08-16-setup-and-machines.md`](../../specs/2026-08-16-setup-and-machines.md) |
 | **Depends on** | — (every endpoint shipped in M3/M4) |
 | **Blocks** | M11. M10 soft-depends on it for the machines step's link target. |
-| **Status** | not started |
+| **Status** | 🟡 **partly done** — 01 and 04 landed 2026-08-18; 02, 03 and 05 held for the design-system rebuild. See the note below. |
 | **Open questions** | none |
+
+> **⚠️ The CLI currently names a page that does not exist.** `T-M8-04` landed
+> ahead of `T-M8-03`, which was always the plan, but 02/03 are held for the
+> design-system rebuild -- so `sparstrow pair` now says *"open Machines in the
+> sidebar"* while the only Machines surface is still the card in Settings ->
+> Workspace -> General. Pointing at the Settings card instead would have meant
+> editing all four strings twice inside one milestone; the hold is what makes
+> the window longer than the task assumed. The Knowledge Center still says
+> **Settings -> Machines**, which is correct today, and `T-M8-03` owns updating
+> it. Nothing is broken -- the pairing control works and is one tab away -- but
+> until 03 lands, the CLI's instruction is aspirational.
 
 ## The story this serves
 
@@ -70,10 +81,10 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
-| [T-M8-01 — `machineState()` in shared](T-M8-01-machine-state.md) | `[S]` | US1 | — | not started |
+| [T-M8-01 — `machineState()` in shared](T-M8-01-machine-state.md) | `[S]` | US1 | — | ✅ done (2026-08-18) |
 | [T-M8-02 — promote the card to a page](T-M8-02-machines-page.md) | `[S]` | US1 | 01 | not started |
 | [T-M8-03 — route, sidebar, nav metadata](T-M8-03-route-and-nav.md) | `[P]` | US1 | 02 | not started |
-| [T-M8-04 — fix the CLI's pairing path](T-M8-04-cli-path-strings.md) | `[P]` | US1 | — | not started |
+| [T-M8-04 — fix the CLI's pairing path](T-M8-04-cli-path-strings.md) | `[P]` | US1 | — | ✅ done (2026-08-18) |
 | [T-M8-05 — verification](T-M8-05-verification.md) | `[S]` | US1 | 01–04 | not started |
 
 01 is `[S]` because it defines the vocabulary 02 renders. 02 is `[S]` because it
