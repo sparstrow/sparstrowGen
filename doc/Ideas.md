@@ -130,3 +130,31 @@ photo whose EXIF carries GPS coordinates — the fix is a transform on upload.
 Supabase has an image transformation service on paid plans; a serverless
 re-encode is the alternative. Deliberately not built for one owner and two
 images.
+
+---
+
+## I-10 — Application settings & customization surface
+
+Every milestone so far built page after page — chat, projects, agents,
+machines, workspace/profile identity (M9), the setup guide (M10) — without a
+matching pass over the *application's own* settings and customization
+surface. What exists under Settings today is thin: mostly M9's
+workspace/profile forms and M4's per-runtime WIP-snapshot toggle.
+
+Raised as a representative list, not a scoped one — the owner's own words
+were "I just gave a random list, but we need to properly design the settings
+page": profile, preferences, keyboard shortcuts, issue tracking, chat
+notifications, update behavior, repository-level (project) settings, members
+and invites, task/status property customization, and MCP server
+configuration.
+
+Several of these — members/invites, task status properties — don't exist as
+concepts anywhere in the app yet and need real product decisions, not just a
+settings row for something already built. That's why this graduates to a
+`doc/specs/` entry and owner review before a plan, rather than being written
+straight from this list.
+
+*Raised 2026-08-22, by the owner, after M11 closed out the Machines/Setup
+work. See also I-8 above (workspace `context`/user `bio` unused) and
+[D-17](Deferred.md) (the theme picker) — both are settings-shaped work this
+idea would likely absorb rather than duplicate, once it's scoped.*

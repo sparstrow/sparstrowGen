@@ -221,6 +221,24 @@ PR into (Squash) ──► [development branch]
     - Load both together for anything Supabase-and-schema at once (e.g. an RLS-bearing migration) — one covers the platform, the other covers the SQL.
     - Load BEFORE writing the SQL or the migration, not after. M1 found three real defects this way — per-row RLS function calls, `SECURITY DEFINER` helpers reachable as public RPC endpoints, and 25 unindexed foreign keys — that a plausible-looking migration would otherwise have shipped uncaught to staging.
     - This is not satisfied by general Postgres knowledge or by a past session's memory of the rules. Invoke the skill in the turn where the work happens.
+14. **Check for a Settings surface, every feature**:
+    - Set 2026-08-22, by the owner, after noticing that M1–M11 built page after
+      page — chat, projects, agents, machines, workspace/profile identity —
+      without a matching pass over the application's own settings and
+      customization surface. Nothing forced that check feature by feature, so
+      it never happened. See [`doc/Ideas.md`](doc/Ideas.md) I-10 for the parked
+      design pass this gap opened.
+    - Before calling a feature complete, ask: does this introduce a behavior a
+      user might reasonably want to configure, toggle, or set a default for —
+      not just the feature's own function, but preferences around how it
+      works? If yes, build the settings entry for it in the same PR, next to
+      the feature. If the feature is a straight capability with no reasonable
+      configuration surface, it stays a straight feature — this is a required
+      check, not a mandate to invent settings that add no value (see rule 9's
+      no-over-engineering standard).
+    - This does not retroactively obligate settings UI for everything already
+      shipped without it — that backlog is I-10's, to be scoped as a spec, not
+      built piecemeal as a side effect of an unrelated PR.
 
 ---
 
