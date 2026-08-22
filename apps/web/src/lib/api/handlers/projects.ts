@@ -1,4 +1,5 @@
 import { registerRoute, ok, fail, noContent, HandlerContext } from "../router";
+import { slugify, withCollisionSuffix } from "./workspace";
 
 function generateId(prefix: string) {
   return `${prefix}${crypto.randomUUID().replace(/-/g, "")}`;
@@ -25,24 +26,36 @@ registerRoute({
   method: "POST",
   pattern: "/projects",
   handler: async ({ supabase, workspaceId, body }: HandlerContext) => {
-    const payload = {
-      ...body,
-      workspace_id: workspaceId,
-      id: body.id || generateId("prj_")
-    };
-    // rootDir is deprecated and not in schema
-    delete payload.rootDir;
-    delete payload.root_dir;
+    const id = body.id || generateId("prj_");
+    // `projects.slug` is `not null` with no DB default (same shape as
+    // teams.slug — BUG-2026-08-22-team-create-500-missing-slug). Neither the
+    // client nor this handler generated one, so every INSERT violated the
+    // constraint and 500'd. One retry with a random suffix on collision.
+    const baseSlug = typeof body.slug === "string" && body.slug.trim() ? body.slug : slugify(body.name ?? "");
+    const attempts = [baseSlug, withCollisionSuffix(baseSlug || "project")];
 
-    const { data, error } = await supabase
-      .from("projects")
-      .insert(payload)
-      .select()
-      .single();
-    if (error) throw error;
-    
-    const mapped = { ...data, rootDir: null, root_dir: null };
-    return ok(mapped);
+    for (let i = 0; i < attempts.length; i++) {
+      const payload = {
+        ...body,
+        workspace_id: workspaceId,
+        id,
+        slug: attempts[i],
+      };
+      // rootDir is deprecated and not in schema
+      delete payload.rootDir;
+      delete payload.root_dir;
+
+      const { data, error } = await supabase.from("projects").insert(payload).select().single();
+      if (error) {
+        if (error.code === "23505" && i < attempts.length - 1) continue;
+        throw error;
+      }
+      const mapped = { ...data, rootDir: null, root_dir: null };
+      return ok(mapped);
+    }
+
+    // Unreachable: the second attempt's random suffix cannot collide twice.
+    return fail(500, "Internal Server Error");
   }
 });
 

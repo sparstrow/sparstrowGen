@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-16-setup-and-machines.md`](../../specs/2026-08-16-setup-and-machines.md) |
 | **Depends on** | M8, M10, **and an owner action** (below) |
 | **Blocks** | nothing. This is the plan's last phase. |
-| **Status** | not started — blocked on the owner action |
+| **Status** | done-with-known-residue — 2026-08-22. See `T-M11-05`'s Result and `KnownGaps.md` (`G-12`/`G-13`/`G-16`/`G-27`) for exactly what remains |
 | **Open questions** | none |
 
 ## The stories this serves
@@ -37,11 +37,11 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
-| [T-M11-01 — a machine on staging, and both states](T-M11-01-machine-on-staging.md) | `[S]` | US1/US3 | owner action | not started |
-| [T-M11-02 — a run, live](T-M11-02-run-live.md) | `[C]` | US3 | 01 | not started |
-| [T-M11-03 — the four failure messages](T-M11-03-failure-messages.md) | `[C]` | US4 | 01 | not started |
-| [T-M11-04 — the desktop window](T-M11-04-desktop-window.md) | `[P]` | US5 | 01 | not started |
-| [T-M11-05 — reconcile the gaps](T-M11-05-gap-reconciliation.md) | `[S]` | US3–US5 | 01–04 | not started |
+| [T-M11-01 — a machine on staging, and both states](T-M11-01-machine-on-staging.md) | `[S]` | US1/US3 | owner action | ✅ done (2026-08-22) |
+| [T-M11-02 — a run, live](T-M11-02-run-live.md) | `[C]` | US3 | 01 | done except residue (2026-08-22) |
+| [T-M11-03 — the four failure messages](T-M11-03-failure-messages.md) | `[C]` | US4 | 01 | ✅ done (2026-08-22) |
+| [T-M11-04 — the desktop window](T-M11-04-desktop-window.md) | `[P]` | US5 | 01 | done except residue (2026-08-22) |
+| [T-M11-05 — reconcile the gaps](T-M11-05-gap-reconciliation.md) | `[S]` | US3–US5 | 01–04 | ✅ done (2026-08-22) |
 
 01 is `[S]` because nothing else can start without a machine paired to staging.
 02 and 03 are `[C]` — both drive the same machine and the same workspace, so

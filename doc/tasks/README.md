@@ -153,10 +153,10 @@ questions` header line is empty or points only to non-blocking entries.
 | M5 — transcripts (dual path) | 6 (`M5/`) | 01–05 done · 06 (verification) deferred to the owner — [`G-13`](../KnownGaps.md) |
 | M6 — memory sync | 5 (`M6/`) | 01–04 done 2026-08-12, 956 tests · 05 (verification) needs a second machine — [`G-15`](../KnownGaps.md) |
 | M7 — routes + Electron | 4 (`M7/`) | 01–03 done 2026-08-13, 981 tests · 04 (verification) not run — [`G-16`](../KnownGaps.md) |
-| **M8 — Machines menu** *(serves US1)* | 5 (`M8/`) | not started |
-| **M9 — workspace + profile identity** *(foundational)* | 6 (`M9/`) | not started |
-| **M10 — the setup guide** *(serves US2)* | 5 (`M10/`) | not started |
-| **M11 — walk the spec on staging** *(serves US3–US5)* | 5 (`M11/`) | blocked — needs a machine pointed at `staging.sparstrow.com` |
+| **M8 — Machines menu** *(serves US1)* | 5 (`M8/`) | ✅ done, verified live (`T-M8-05`, 2026-08-20 — localhost; staging half closed by M11) |
+| **M9 — workspace + profile identity** *(foundational)* | 6 (`M9/`) | ✅ done |
+| **M10 — the setup guide** *(serves US2)* | 5 (`M10/`) | ✅ done — scenario 11 and some form-level micro-behaviours residual, [`G-25`](../KnownGaps.md)/[`G-26`](../KnownGaps.md) |
+| **M11 — walk the spec on staging** *(serves US3–US5)* | 5 (`M11/`) | 01–04 done or done-except-residue (2026-08-22) · 05 (gap reconciliation) in progress — [`G-12`](../KnownGaps.md)/[`G-13`](../KnownGaps.md)/[`G-16`](../KnownGaps.md) rewritten down to residue |
 
 M8–M11 are the first phases in this repo derived from a **spec** rather than
 straight from a plan, and the first named after things the owner can open. M9 is

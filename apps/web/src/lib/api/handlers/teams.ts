@@ -1,4 +1,5 @@
 import { registerRoute, ok, fail, noContent, HandlerContext } from "../router";
+import { slugify, withCollisionSuffix } from "./workspace";
 
 function generateId(prefix: string) {
   return `${prefix}${crypto.randomUUID().replace(/-/g, "")}`;
@@ -22,18 +23,33 @@ registerRoute({
   method: "POST",
   pattern: "/teams",
   handler: async ({ supabase, workspaceId, body }: HandlerContext) => {
-    const payload = {
-      ...body,
-      workspace_id: workspaceId,
-      id: body.id || generateId("tem_")
-    };
-    const { data, error } = await supabase
-      .from("teams")
-      .insert(payload)
-      .select()
-      .single();
-    if (error) throw error;
-    return ok(data);
+    const id = body.id || generateId("tem_");
+    // `teams.slug` is `not null unique` per workspace, with no DB default —
+    // unlike an UPDATE (workspace.ts), this is an INSERT, so there is no
+    // existing value to fall back to if a slug is left out; omitting it
+    // isn't degraded service, it's a constraint violation and a 500
+    // (BUG-2026-08-22-team-create-500-missing-slug). One retry with a random
+    // suffix on collision, same pattern as the workspace slug.
+    const baseSlug = typeof body.slug === "string" && body.slug.trim() ? body.slug : slugify(body.name ?? "");
+    const attempts = [baseSlug, withCollisionSuffix(baseSlug || "team")];
+
+    for (let i = 0; i < attempts.length; i++) {
+      const payload = {
+        ...body,
+        workspace_id: workspaceId,
+        id,
+        slug: attempts[i],
+      };
+      const { data, error } = await supabase.from("teams").insert(payload).select().single();
+      if (error) {
+        if (error.code === "23505" && i < attempts.length - 1) continue;
+        throw error;
+      }
+      return ok(data);
+    }
+
+    // Unreachable: the second attempt's random suffix cannot collide twice.
+    return fail(500, "Internal Server Error");
   }
 });
 

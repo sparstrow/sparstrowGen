@@ -3,7 +3,7 @@ title: Limitations & gotchas
 section: Reference
 description: The honest list — what Sparstrowgen deliberately doesn't do, and the sharp edges to know about.
 order: 1
-updated: 2026-08-20
+updated: 2026-08-22
 ---
 
 Knowing the edges is part of knowing the tool. These are current and deliberate unless
@@ -56,8 +56,11 @@ marked otherwise.
   notes are quarantined; but the strict write-clamp that sandboxes get is not yet
   applied to every untrusted run. Treat delegated/web-touching runs' notes with the
   quarantine review they land in.
-- **Live run transcripts don't stream from the cloud yet.** A run's transcript fills in
-  as it's saved rather than arriving keystroke-by-keystroke.
+- **Live run transcripts stream from the cloud**, confirmed against a real
+  deployment — new content appears while the run is still going, not only once
+  it finishes. Whether it renders depends on which provider ran the agent;
+  some newer providers' output isn't drawn on screen yet even though it
+  arrives live, which reads as "nothing happening" rather than a stall.
 - **Cost is an estimate.** Prices come from static provider tables; new or local models
   may read as zero.
 - **Direct-API agents have a smaller tool set** than CLI agents (the curated registry) —

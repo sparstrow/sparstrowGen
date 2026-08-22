@@ -125,45 +125,51 @@ stops it: a run with the switch off produced no ref and logged nothing.*
 **Raised:** 2026-08-11 (M4, `T-M4-08`). The phase is otherwise verified live on
 staging; these are the corners that pass could not reach.
 
-- **The browser click-through pass never happened.** The Browser pane did not
-  composite frames in this environment, so screenshots and the accessibility
-  tree were both unavailable and nothing could be clicked. Every M4 endpoint
-  *was* exercised through a real signed-in session from the page's own `fetch`,
-  which is what found two of the phase's defects — but no rendered component was
-  seen or interacted with. The blocked-task affordance and the Machines-card
-  switch have never been looked at.
+**Closed 2026-08-22 (M11, `T-M11-01`/`T-M11-02`), the click-through bullet.**
+The Playwright MCP (not the in-app Browser pane) rendered and was clicked
+through repeatedly against `staging.sparstrow.com` this pass — `/machines` in
+both machine states, `/runs/<id>` live and after reload, `/teams`, `/projects`
+(list and detail), `/skills`, `/tasks`, `/imports`, `/terminals`, `/chat`. This
+is the same method M8/M10 used, now run specifically against staging rather
+than localhost, which is what this entry's residue (`G-24`) named as
+outstanding. Two things this pass found while doing it: `/chat`'s "start a new
+conversation" 404s outright
+([`BUG-2026-08-22-chat-new-session-404s`](bug/BUG-2026-08-22-chat-new-session-404s.md)),
+and `/teams` / `/teams/[teamId]` crash the instant a real team exists
+([`BUG-2026-08-22-teams-page-crashes-with-real-data`](bug/BUG-2026-08-22-teams-page-crashes-with-real-data.md))
+— exactly the class of defect this entry predicted only the click-through pass
+could catch.
+
+**Still open:**
+
 - **Lease recovery after a mid-claim kill**, two polls racing one row, and the
   five-attempt poison ceiling. All three are proved deterministically against a
   throwaway Postgres by
   `packages/shared/drizzle/policies/verify-command-spine.mjs`; none was
-  reproduced live, because each needs a timing window.
+  reproduced live, because each needs a timing window. M11 did not attempt
+  this either — still needs a dedicated timing-window pass.
 - **Reassign** needs a second paired machine, and **clone end-to-end** needs a
-  real remote. The routes exist and every clone guard is unit-tested, including
-  the non-empty-directory refusal.
-- **The unpaired local UI starting a run** was not re-proved. Core served its own
-  API throughout this pass, so the surface is not cold — but the specific claim
-  "an unpaired machine still works" rests on it being unchanged, not on a test.
+  real remote. M11 paired only one machine at a time (a revoke/re-pair cycle
+  during `T-M11-03` briefly produced two rows, but never two *simultaneously
+  active* machines) — reassign genuinely needs a second live daemon, still
+  unmet. Clone end-to-end still needs a real git remote, also unmet.
+- **The unpaired local UI starting a run** — `T-M11-04` scenario 2 put a real,
+  live local UI in front of an agent for the first time
+  (`SPARSTROW_APP_URL` unset → the window loads `http://127.0.0.1:<port>/`,
+  confirmed via log and window title) — closing the "does it load" half. **The
+  "starting a run from it" half remains unproved**: computer-use interaction
+  was unavailable that pass (see `T-M11-04`'s Result), so nothing was clicked
+  inside that window.
 
 - **If wrong:** the most likely failure is cosmetic — a control that renders
   wrong or an affordance that does not appear — because the data paths beneath
   all of them are exercised. The exception is the UI, where M2's browser pass
   found a hook-order crash and a whole class of missing Tailwind utilities that
-  no API-level test could see. That precedent is why this entry exists rather
-  than a shrug.
-- **Clears when:** someone runs the click-through pass in an environment where
-  the browser pane renders, and pairs a second machine for reassign.
-
-> **Update 2026-08-20 (M8, `T-M8-05`).** The premise underneath the first
-> bullet has changed. The in-app **Browser pane** still does not composite — a
-> page loaded into it reports `document.visibilityState === "hidden"` and is
-> throttled hard enough that React Query never issues its first fetch, so the
-> page sits on skeletons and reads as broken. The **Playwright MCP** is a
-> different browser and is unaffected: it renders, screenshots, takes real
-> keyboard input, and intercepts routes. M8's pass used it for a full rendered
-> click-through and found four defects that 1044 passing tests could not see.
-> **Nothing below is closed by this** — these assertions still have not been
-> run — but nothing is stopping them any more. Method:
-> [`runbooks/agent-browser-session.md`](runbooks/agent-browser-session.md).
+  no API-level test could see, and M11 just repeated that lesson twice more.
+- **Clears when:** the lease-recovery timing window is reproduced live, a
+  second machine is paired for reassign, a real remote is available for clone,
+  and someone with interactive (not headless-agent) access to the local UI
+  starts a run from it.
 
 
 ### G-13 — M5 (transcripts) is built and unit-tested, not verified live
@@ -173,36 +179,88 @@ are done — 886 tests green, `pnpm -r typecheck` clean — but `T-M5-06`
 (verification) was deferred to the owner rather than run, because most of what
 it checks needs things this environment does not have.
 
+**Closed 2026-08-22 (M11, `T-M11-02`): the durable-count comparison (§C) and
+the "any rendered pixel" bullet.** A real run dispatched from
+`staging.sparstrow.com` to a paired machine produced events whose cloud
+`run_events` count matched the machine's local SQLite count exactly — 3/3 for
+a normal `succeeded` run, 13/13 for one that errored — with matching `seq`
+sets on both sides, checked once mid-run (an honest in-progress snapshot, not
+a mismatch) and once after the run reached its terminal state. The Playwright
+MCP browser (not the in-app Browser pane, which still does not composite —
+see `G-12`) rendered `/runs/<id>` normally throughout.
+
+**Closed, live-streaming's *delivery* half — but not its *rendering* half,
+which turned out to be more complicated than "closed" or "open."** Polling
+`GET /runs/<id>/events` during execution returned each event only once it
+existed, at genuinely separate timestamps — the actual property this gap is
+about, now proved live rather than asserted. But watching it **rendered**
+split into three outcomes depending on provider: `claude-code`'s structured
+events are handled by `RunTranscript`'s `EventRow` (code-verified, matches
+its own unit tests) but could not be re-observed live this pass — the only
+`claude-code` install available had an expired OAuth token, unrelated to this
+gap (see the new entry below and `T-M11-02`'s Result); `antigravity`'s events
+arrive with the same real progressive-delivery guarantee but render as
+**nothing at all**, a genuine bug found by this pass and filed as
+[`BUG-2026-08-22-antigravity-transcript-not-rendered`](bug/BUG-2026-08-22-antigravity-transcript-not-rendered.md).
+So: the mechanism M5 built is proved; a rendered, scrolling, watched-live
+transcript on an actually-completed real task was not achieved, and the
+reason is now a known bug plus a known environment limitation rather than an
+unknown.
+
+**Still open:**
+
 - **Live streaming to a second device (T-M5-06 §A)** and **cross-workspace
   isolation on the subscribe side (§E)** both need a second real signed-in
   session — a browser session cannot be two independent workspace members at
-  once.
+  once. M11 did not supply one either (T-M11-03 does not create a second
+  account).
 - **The 60-second outage assertion (§B)** — the property M5 is actually judged
   on — needs the daemon's network cut for a minute. That is an OS-level,
   disruptive action on whatever machine runs core, correctly withheld pending
-  the owner's say-so rather than done unilaterally.
-- **Any rendered pixel.** As `G-12` recorded for M4, the Browser pane has not
-  composited frames in this environment; that has not changed. Every M5 UI
-  module (`live-events.ts`, `realtime-live-events.ts`, the pagination fix) is
-  unit-tested as extracted pure logic — 38 tests — but `run-detail.tsx`'s own
-  `useEffect` wiring has never been mounted, not once, in any environment.
-  `packages/ui` has no `@testing-library/react` or jsdom to mount it with even
-  if a browser did render.
-- Crash recovery (T-M5-06 §D) and the durable-count comparison (§C) **are**
-  solo-doable — this environment can start core, dispatch a real run, kill and
-  restart the process, and compare local SQLite against cloud Postgres counts
-  directly. Those were not run either, only because the owner asked to defer
-  the whole verification pass rather than a partial one.
+  the owner's say-so rather than done unilaterally. M11 did not run it either
+  — still the owner's call, per phase decision 4, not a missing capability.
+- Crash recovery (T-M5-06 §D) — starting a run, killing core mid-stream, and
+  confirming the cloud transcript backfills cleanly on restart. Not exercised
+  this pass; genuinely solo-doable, just not reached given everything else in
+  scope.
 
-- **If wrong:** the shape of failure is the same class T-M5-05's own Result
-  section names — the pure logic underneath is right, but nothing has proved
-  the framework glue calling it. `M2`'s browser pass found exactly this kind of
-  bug once (a hook-order crash, missing Tailwind utilities) that no unit test
-  could see, which is why this is a register entry and not a shrug.
-- **Clears when:** `T-M5-06` runs for real — a second device or account, a
-  genuine network cut on the daemon's machine, and (ideally) a browser pane
-  that composites. Full procedure in
+- **If wrong:** narrower now than before. The delivery mechanism is proved
+  live; what remains unproved is cross-device behavior, a genuine network
+  partition, and crash recovery — none of which change the shape of failure
+  M5's own Result section already named (pure logic right, framework glue
+  unverified) so much as narrow which specific piece of glue is still in
+  question.
+- **Clears when:** a second device/account is available, the owner authorizes
+  and someone runs the 60-second network cut, and crash recovery is exercised
+  once. Full procedure in
   [`tasks/M5/T-M5-06-verification.md`](tasks/M5/T-M5-06-verification.md).
+
+### G-27 — `claude-code`'s capability probe cannot tell "the binary runs" from "it can actually authenticate"
+
+**Raised:** 2026-08-22, `T-M11-01`/`T-M11-02`, found live rather than by
+inspection.
+
+`probeCapabilities()` (`packages/core/src/cloud/registration.ts`) calls each
+provider's `healthCheck()`, and `claude-code`'s implementation
+(`packages/core/src/providers/claude-code.ts`) runs `claude --version` and
+sets `authenticated: null` unconditionally — the field exists in
+`ProviderHealth` but this provider never actually determines it. On a
+machine whose OAuth token had genuinely expired, the capability badge still
+read `claude-code: true`, and a real run dispatched to it spawned correctly,
+then failed only after 3 minutes and 7 exponential-backoff retries with
+`"OAuth access token has expired."` — legible once it arrived, but slow, and
+exactly the shape of problem `T-M11-01`'s own checklist warned about ("a
+capability claimed here that is not really there becomes a run that dies at
+spawn") — except it didn't even die at spawn, which is arguably worse.
+
+- **If wrong:** every dispatch to a machine with a stale token burns ~3
+  minutes of retries before failing, on every run, until someone notices and
+  re-authenticates. Not a correctness bug — the eventual message is
+  accurate — but a real latency/UX cost with no visibility until it happens.
+- **Clears when:** `healthCheck()` gains a cheap real auth check (e.g. a
+  minimal authenticated API call with a short timeout, distinct from
+  `--version`) so `authenticated` is genuinely populated, and the capability
+  badge can distinguish "installed" from "installed and usable."
 
 ### G-15 — M6 (memory sync) is built and unit-tested; nothing has synced between two real machines
 
@@ -247,42 +305,62 @@ What is genuinely unproved, as opposed to merely untested-in-isolation:
 
 **Raised:** 2026-08-13, closing T-M7-01 … T-M7-03.
 
-981 tests pass and both halves are built. What has NOT happened:
+**Closed 2026-08-22 (M11), three of five bullets outright, one rewritten to
+what it actually found, one narrowed.**
 
-- **No one has looked at any of the five new pages.** They are registered —
-  `next build` lists `/imports`, `/teams/[teamId]`, `/projects/[projectId]`,
-  `/tasks/goals/[goalId]` and `/skills/[skillId]` as route handlers, which is
-  what decides 404 versus not — but registered is not rendered. The failure this
-  phase is most exposed to is a param that does not arrive: the page renders,
-  fetches `/teams/undefined`, and shows an empty state that reads like a data
-  problem. **Every one of the four detail pages is unproved against that.**
-- **A runtime check was attempted and could not be completed.** `next start` in
-  this worktree returns 503 for every path, including `/`, because there is no
-  `.env.local` here — the app's own "this deployment is not configured" guard,
-  working correctly. Getting past it means copying Supabase secrets into a
-  worktree, which is not worth doing for a routing check.
-- **The offline screen has never been seen.** Its content is asserted by 12
-  tests and the document parses (the browser pane reported the right `<title>`),
-  but the pane still cannot composite — the same limitation `G-12` and `G-13`
-  record. Nothing has confirmed it is legible rather than merely correct.
-- **The Electron shell has not been launched at all.** URL resolution is now a
-  tested pure function, so "unset behaves exactly as before" is proved as
-  logic — but no window has been opened, no `did-fail-load` has fired for real,
-  and retry has never been clicked.
-- **Everything behind a deployment.** `staging.sparstrow.com` has existed since
-  2026-08-16, but no machine's `SPARSTROW_CLOUD_URL`/`SPARSTROW_APP_URL` points
-  at it yet — every daemon still defaults to `localhost:3000` and the desktop
-  window still loads the local core's own UI. The hosted half of the desktop
-  app — sign-in in the window, the machine showing online from its own desktop
-  app, host-local features refusing as designed — remains untestable until
-  that's done. See [`runbooks/deploy-web-app.md`](runbooks/deploy-web-app.md).
+**"Everything behind a deployment" — closed.** `T-M11-01` paired a real
+machine to `staging.sparstrow.com` and kept it active through the rest of the
+phase; `T-M11-04` pointed the desktop shell's `SPARSTROW_APP_URL` at it too.
+Neither daemon default changed (deliberately — phase decision 2) but a real
+machine now genuinely points at staging.
 
-- **If wrong:** the routes half fails silently and looks like a data bug, which
-  is the worst shape for a user to report. The Electron half fails loudly and is
-  contained to the desktop shell — the web app is unaffected either way.
-- **Clears when:** [`T-M7-04`](tasks/M7/T-M7-04-verification.md) runs. Sections A
-  and C need a browser and a desktop build and can be done today; section D needs
-  the deployment.
+**The Electron shell — closed.** Launched three separate times
+(`T-M11-04`): once with `SPARSTROW_APP_URL` set to staging (log-confirmed
+loading `https://staging.sparstrow.com` → `/login`, real window title/handle),
+once unset (log-confirmed falling back to the local core UI, matching the
+tested pure function's prediction exactly), once pointed at a dead port — the
+window's own title bar read `"Sparstrowgen — can't reach the app"`, the
+offline screen's literal `<title>`, which can only be true if it genuinely
+rendered. `did-fail-load` fired for real, for the first time. **What did not
+close:** sign-in inside the window, the window's own machine appearing in
+`/machines` from inside itself, and clicking Retry — all three need
+interactive (not headless-agent) access to the window, which was unavailable
+this pass. See `T-M11-04`'s Result for the full breakdown and
+[`BUG-2026-08-22-desktop-servicemanager-health-check-times-out`](bug/BUG-2026-08-22-desktop-servicemanager-health-check-times-out.md),
+found along the way.
+
+**The runtime-check / `.env.local` bullet — already closed** by M8
+(`T-M8-05`, 2026-08-20); restated here only because the text above still
+described it as blocking.
+
+**The five routes — rewritten, not simply closed.** All five were reached
+live against real data this pass, not by typing a made-up id:
+`/imports` (from its own sidebar link — empty state, no crash);
+`/projects/[projectId]` (clicked from a real row — **renders correctly**,
+full content: task launcher, rules, memory/schedule/files tabs, git panel);
+`/skills` and `/tasks` (empty states, no crash — no existing skill/goal to
+click into a detail page with, so `/skills/[skillId]` and
+`/tasks/goals/[goalId]` specifically remain unclicked, genuine residue).
+**`/teams/[teamId]` — reached, and it crashes.** `GET /teams` and
+`GET /teams/:id` never join `team_members`/`team_projects`, so `team.members`
+is `undefined` against a frontend built on a schema that promises it always
+exists — invisible in every prior pass because they only ever saw the empty
+state. Filed as
+[`BUG-2026-08-22-teams-page-crashes-with-real-data`](bug/BUG-2026-08-22-teams-page-crashes-with-real-data.md).
+This is exactly the "renders wrong / shows real data" bar this entry always
+asked for — the answer for this one route turned out to be no, and now that
+is a filed, actionable defect instead of an open question. (A related defect
+found on the way there —
+[`BUG-2026-08-22-team-create-500-missing-slug`](bug/BUG-2026-08-22-team-create-500-missing-slug.md),
+which blocked creating a team at all — was fixed directly in this pass.)
+
+- **If wrong (residual):** `/skills/[skillId]` and `/tasks/goals/[goalId]`
+  are the only two of the five still genuinely unproved with real data —
+  same risk profile as before (a silent param-mismatch reading as a data
+  bug), now narrowed to two routes instead of four.
+- **Clears when:** a skill and a goal exist to click into, and someone with
+  interactive access to the Electron window signs in, sees the machine list
+  itself, and clicks Retry on the offline screen.
 
 > **Update 2026-08-20 (M8, `T-M8-05`).** Both of this entry's stated blockers
 > turned out to be soluble, and neither needed anything new to be built. The
