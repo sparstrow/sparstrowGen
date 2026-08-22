@@ -79,9 +79,17 @@ We enforce a strict 3-tier Git & deployment pipeline:
 
 ```
 [Agent Worktree: feature/*] ──► PR into (Squash) ──► [development branch]
-                                                         │ (Milestone complete)
+                                                         │ agent tests live against
+                                                         │ development.sparstrow.com,
+                                                         │ then opens the promotion PR
                                                          ▼
-[main branch (Production)] ◄── PR into ◄── [staging branch (User Review Gate)]
+                                                    [staging branch]
+                                                         │ (User Review Gate — owner
+                                                         │  approves, or gives feedback
+                                                         │  that loops back to more
+                                                         │  work on development)
+                                                         ▼
+[main branch (Production)] ◄── PR into (owner-approved only) ◄──┘
 ```
 
 ### Critical Branch Rules
@@ -89,9 +97,9 @@ We enforce a strict 3-tier Git & deployment pipeline:
    - You MUST create an isolated Git branch/worktree for your task: `feature/<task-name>`, `fix/<bug-name>`, or `task/<task-id>`.
    - **NEVER** edit files directly on `development`, `staging`, or `main`.
 2. **PR Target & Merge Strategy**:
-   - All agent pull requests MUST target `development`.
+   - All agent pull requests from a feature/fix/task worktree MUST target `development`.
    - PRs into `development` use **Squash and Merge** to maintain a clean history.
-   - **NEVER** push directly to `staging` or `main`.
+   - **NEVER** push directly to `staging` or `main` — both are reached only through a PR, never a raw push, even for the promotion step below.
 3. **Verification Before PR**:
    - You MUST run and pass all typechecks and unit tests locally before submitting a PR:
      ```bash
@@ -112,6 +120,11 @@ We enforce a strict 3-tier Git & deployment pipeline:
    - Once edits for a coherent unit of work are complete (a fix, a doc update, a task's checklist items), commit them on the current feature/worktree branch **without waiting for the user to say "commit this"** — this file is the standing, advance authorization for that.
    - Commit at the end of a logical change, not after every individual file edit: an in-progress multi-file change lands as one commit (or a few coherent ones) once it's actually done, not a commit per file touched or per half-finished edit.
    - This does not relax rule 3 (verification before PR) and does not change anything about opening or pushing PRs — those still follow rules 1, 2, and 5 above exactly as written. It only covers local commits to the agent's own branch.
+7. **Development → Staging Promotion (agent-initiated)**:
+   - Set 2026-08-20, by the owner, while verifying the Machines pairing flow: once work has landed on `development` and been **tested live against `development.sparstrow.com`** (not just typecheck/unit tests — see `doc/runbooks/agent-browser-session.md` for how an agent gets a signed-in session there without typing a password), the agent judges for itself whether it is complete and ready — it does not wait to be asked for this specific step.
+   - When ready, the agent opens the `development` → `staging` PR itself, same Squash-and-Merge convention as rule 2, and may auto-enqueue it per rule 5.
+   - `staging.sparstrow.com` is the **owner's review gate**. The owner either approves it (clearing the way for `staging` → `main`) or gives feedback, which sends the agent back to more work on `development` — this loops until the owner is satisfied. Nothing skips this review.
+   - `staging` → `main` remains a **hard, owner-only gate** — never opened or merged by an agent without an explicit "approved, ship it" in chat for that specific promotion. This is unchanged from rule 2's "never push directly to staging or main" and is not relaxed by this rule.
 
 ---
 
