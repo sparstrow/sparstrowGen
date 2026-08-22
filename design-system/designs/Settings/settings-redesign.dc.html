@@ -1,0 +1,1408 @@
+<!doctype html>
+<html class="dark" data-surface="paper" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings Redesign — Interactive Prototype</title>
+  <link rel="stylesheet" href="../../styles.css">
+  <style>
+    * { box-sizing: border-box; }
+
+    /* =========================================================
+       SURFACE THEME CONTRACT (DESIGN.md §2.2)
+       ========================================================= */
+    :root {
+      /* Base Typography & Transitions */
+      --font-sans: "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --transition-base: 140ms cubic-bezier(.4, 0, .2, 1);
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+
+      /* Status Colors (Fixed & Non-themeable per §2.1) */
+      --success: oklch(0.72 0.16 150);
+      --success-foreground: oklch(0.85 0.14 150);
+      --destructive: oklch(0.68 0.22 25);
+      --destructive-foreground: oklch(0.98 0 0);
+      --warning: oklch(0.78 0.16 75);
+      --warning-foreground: oklch(0.88 0.14 75);
+    }
+
+    /* 1. PAPER SURFACE (Default §2.2: Hue 85, Chroma 0.010 - Warm Linen Cast) */
+    html[data-surface="paper"].dark {
+      --background: oklch(0.145 0.010 85);       /* #1e1c18 warm charcoal */
+      --card: oklch(0.195 0.010 85);             /* #2a2822 warm card */
+      --accent: oklch(0.245 0.010 85);           /* #37342b raised surface */
+      --foreground: oklch(0.97 0 0);
+      --muted-foreground: oklch(0.68 0.010 85);
+      --border: oklch(1 0 0 / 11%);
+      --ring: oklch(0.78 0.15 70);               /* Warm Amber Brand */
+      --primary: oklch(0.78 0.15 70);
+      --primary-foreground: oklch(0.18 0.01 85);
+      --secondary: oklch(0.245 0.010 85);
+      --secondary-foreground: oklch(0.97 0 0);
+    }
+    html[data-surface="paper"].light {
+      --background: oklch(0.965 0.012 85);      /* #f5f3eb warm editorial paper */
+      --card: oklch(0.992 0.006 85);            /* #faf9f5 crisp card on warm bg */
+      --accent: oklch(0.935 0.014 85);          /* #ece8dc raised element */
+      --foreground: oklch(0.19 0.005 85);
+      --muted-foreground: oklch(0.48 0.012 85);
+      --border: oklch(0.2 0.01 85 / 12%);
+      --ring: oklch(0.528 0.15 70);              /* Amber calibrated for light */
+      --primary: oklch(0.528 0.15 70);
+      --primary-foreground: #ffffff;
+      --secondary: oklch(0.935 0.014 85);
+      --secondary-foreground: oklch(0.19 0 0);
+    }
+
+    /* 2. SLATE SURFACE (§2.2: Hue 250, Chroma 0.011 - Cool Blue-Grey) */
+    html[data-surface="slate"].dark {
+      --background: oklch(0.145 0.011 250);      /* #151922 cool blue-grey */
+      --card: oklch(0.195 0.011 250);            /* #1f2532 */
+      --accent: oklch(0.245 0.011 250);
+      --foreground: oklch(0.97 0 0);
+      --muted-foreground: oklch(0.68 0.011 250);
+      --border: oklch(1 0 0 / 11%);
+      --ring: oklch(0.78 0.16 250);              /* Blue Brand */
+      --primary: oklch(0.78 0.16 250);
+      --primary-foreground: oklch(0.15 0.01 250);
+      --secondary: oklch(0.245 0.011 250);
+      --secondary-foreground: oklch(0.97 0 0);
+    }
+    html[data-surface="slate"].light {
+      --background: oklch(0.965 0.011 250);      /* #edf1f7 clean cool slate */
+      --card: oklch(0.995 0.004 250);            /* #ffffff */
+      --accent: oklch(0.935 0.012 250);
+      --foreground: oklch(0.19 0.005 250);
+      --muted-foreground: oklch(0.48 0.011 250);
+      --border: oklch(0.2 0.01 250 / 12%);
+      --ring: oklch(0.520 0.16 250);
+      --primary: oklch(0.520 0.16 250);
+      --primary-foreground: #ffffff;
+      --secondary: oklch(0.935 0.012 250);
+      --secondary-foreground: oklch(0.19 0 0);
+    }
+
+    /* 3. SOFT SURFACE (§2.2: Hue 280, Chroma 0.007 - Lifted blacks & low contrast) */
+    html[data-surface="soft"].dark {
+      --background: oklch(0.190 0.007 280);      /* #232028 lifted dark */
+      --card: oklch(0.228 0.007 280);            /* #2b2832 */
+      --accent: oklch(0.268 0.007 280);
+      --foreground: oklch(0.97 0 0);
+      --muted-foreground: oklch(0.68 0.007 280);
+      --border: oklch(1 0 0 / 8%);
+      --ring: oklch(0.78 0.18 285);              /* Violet Brand */
+      --primary: oklch(0.78 0.18 285);
+      --primary-foreground: oklch(0.18 0 0);
+      --secondary: oklch(0.268 0.007 280);
+      --secondary-foreground: oklch(0.97 0 0);
+    }
+    html[data-surface="soft"].light {
+      --background: oklch(0.972 0.008 280);      /* #f6f3f8 gentle tone */
+      --card: oklch(0.995 0.003 280);
+      --accent: oklch(0.942 0.009 280);
+      --foreground: oklch(0.19 0 0);
+      --muted-foreground: oklch(0.48 0.008 280);
+      --border: oklch(0.2 0 0 / 10%);
+      --ring: oklch(0.538 0.18 285);
+      --primary: oklch(0.538 0.18 285);
+      --primary-foreground: #ffffff;
+      --secondary: oklch(0.942 0.009 280);
+      --secondary-foreground: oklch(0.19 0 0);
+    }
+
+    /* 4. MONO SURFACE (§2.2: Chroma 0 - Pure Monochrome) */
+    html[data-surface="mono"].dark {
+      --background: #09090b;
+      --card: #141416;
+      --accent: #222226;
+      --foreground: #fafafa;
+      --muted-foreground: #a1a1aa;
+      --border: rgba(255, 255, 255, 0.11);
+      --ring: #fafafa;
+      --primary: #fafafa;
+      --primary-foreground: #09090b;
+      --secondary: #222226;
+      --secondary-foreground: #fafafa;
+    }
+    html[data-surface="mono"].light {
+      --background: #f4f4f5;
+      --card: #ffffff;
+      --accent: #e4e4e7;
+      --foreground: #09090b;
+      --muted-foreground: #71717a;
+      --border: rgba(0, 0, 0, 0.11);
+      --ring: #09090b;
+      --primary: #09090b;
+      --primary-foreground: #ffffff;
+      --secondary: #e4e4e7;
+      --secondary-foreground: #09090b;
+    }
+
+    /* BRAND PRESETS (Doctrine §2.3) */
+    html[data-brand="amber"].dark { --primary: oklch(0.78 0.15 70); --ring: oklch(0.78 0.15 70); --primary-foreground: oklch(0.15 0 0); }
+    html[data-brand="amber"].light { --primary: oklch(0.528 0.15 70); --ring: oklch(0.528 0.15 70); --primary-foreground: #ffffff; }
+    
+    html[data-brand="violet"].dark { --primary: oklch(0.78 0.18 285); --ring: oklch(0.78 0.18 285); --primary-foreground: oklch(0.18 0 0); }
+    html[data-brand="violet"].light { --primary: oklch(0.538 0.18 285); --ring: oklch(0.538 0.18 285); --primary-foreground: #ffffff; }
+
+    html[data-brand="blue"].dark { --primary: oklch(0.78 0.16 250); --ring: oklch(0.78 0.16 250); --primary-foreground: oklch(0.16 0 0); }
+    html[data-brand="blue"].light { --primary: oklch(0.520 0.16 250); --ring: oklch(0.520 0.16 250); --primary-foreground: #ffffff; }
+
+    html[data-brand="teal"].dark { --primary: oklch(0.78 0.12 190); --ring: oklch(0.78 0.12 190); --primary-foreground: oklch(0.12 0 0); }
+    html[data-brand="teal"].light { --primary: oklch(0.496 0.12 190); --ring: oklch(0.496 0.12 190); --primary-foreground: #ffffff; }
+
+    html[data-brand="rose"].dark { --primary: oklch(0.78 0.16 15); --ring: oklch(0.78 0.16 15); --primary-foreground: oklch(0.16 0 0); }
+    html[data-brand="rose"].light { --primary: oklch(0.542 0.16 15); --ring: oklch(0.542 0.16 15); --primary-foreground: #ffffff; }
+
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--foreground);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color var(--transition-base), color var(--transition-base);
+    }
+
+    /* Top Reviewer Dev Bar */
+    .devbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 20px;
+      background: color-mix(in oklab, var(--background) 88%, transparent);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px dashed var(--border);
+    }
+    .devbar-group { display: flex; align-items: center; gap: 6px; }
+    .devbar .tag {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted-foreground);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-right: 4px;
+    }
+    .devbar button {
+      font: inherit;
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted-foreground);
+      cursor: pointer;
+      transition: all var(--transition-base);
+    }
+    .devbar button:hover {
+      background: var(--accent);
+      color: var(--foreground);
+    }
+    .devbar button.active {
+      background: var(--primary);
+      color: var(--primary-foreground);
+      border-color: transparent;
+      font-weight: 600;
+    }
+
+    /* Outer Shell */
+    .shell {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: var(--space-6) var(--space-5) 100px;
+    }
+
+    /* Page Header */
+    .page-header {
+      margin-bottom: var(--space-6);
+    }
+    .page-header h1 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .page-header p {
+      margin: 4px 0 0;
+      font-size: 13.5px;
+      color: var(--muted-foreground);
+    }
+
+    /* Fast Filter Search */
+    .filter-box {
+      margin-bottom: var(--space-5);
+      position: relative;
+      max-width: 380px;
+    }
+    .filter-input {
+      width: 100%;
+      height: 36px;
+      padding: 0 12px 0 34px;
+      border-radius: var(--radius-md);
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--foreground);
+      font-size: 13px;
+      outline: none;
+      transition: border-color var(--transition-base);
+    }
+    .filter-input:focus {
+      border-color: var(--ring);
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--ring) 25%, transparent);
+    }
+    .filter-icon {
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      color: var(--muted-foreground);
+      pointer-events: none;
+    }
+
+    /* =========================================================
+       LAYOUT 1: MASTER-DETAIL SIDEBAR (RECOMMENDED)
+       ========================================================= */
+    .layout-sidebar {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 32px;
+      align-items: start;
+    }
+    .settings-nav {
+      position: sticky;
+      top: 70px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      background: transparent;
+    }
+    .nav-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted-foreground);
+      margin-bottom: 6px;
+      padding-left: 12px;
+    }
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      color: var(--muted-foreground);
+      font-size: 13.5px;
+      font-weight: 500;
+      text-decoration: none;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all var(--transition-base);
+      background: transparent;
+      text-align: left;
+      width: 100%;
+    }
+    .nav-item:hover {
+      background: var(--accent);
+      color: var(--foreground);
+    }
+    .nav-item.active {
+      background: var(--card);
+      color: var(--foreground);
+      font-weight: 600;
+      border-color: var(--border);
+    }
+    .nav-item svg {
+      flex-shrink: 0;
+      opacity: 0.75;
+    }
+    .nav-item.active svg {
+      opacity: 1;
+      color: var(--primary);
+    }
+
+    /* =========================================================
+       LAYOUT 2: UNIFIED HORIZONTAL TABS
+       ========================================================= */
+    .layout-tabs-header {
+      margin-bottom: var(--space-6);
+      border-bottom: 1px solid var(--border);
+    }
+    .tabs-bar {
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+    .tab-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: var(--radius-md) var(--radius-md) 0 0;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--muted-foreground);
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      cursor: pointer;
+      transition: all var(--transition-base);
+      white-space: nowrap;
+    }
+    .tab-btn:hover {
+      color: var(--foreground);
+      background: color-mix(in oklab, var(--accent) 50%, transparent);
+    }
+    .tab-btn.active {
+      color: var(--foreground);
+      font-weight: 600;
+      border-bottom-color: var(--primary);
+      background: color-mix(in oklab, var(--accent) 35%, transparent);
+    }
+    .tab-btn.active svg {
+      color: var(--primary);
+    }
+
+    /* =========================================================
+       LAYOUT 3: CONTINUOUS SCROLL WITH STICKY TOC
+       ========================================================= */
+    .layout-continuous {
+      display: grid;
+      grid-template-columns: 1fr 210px;
+      gap: 36px;
+      align-items: start;
+    }
+    .toc-sticky {
+      position: sticky;
+      top: 70px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 14px 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+    }
+    .toc-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted-foreground);
+      margin-bottom: 6px;
+    }
+    .toc-link {
+      font-size: 12.5px;
+      color: var(--muted-foreground);
+      text-decoration: none;
+      padding: 5px 8px;
+      border-radius: var(--radius-sm);
+      transition: all var(--transition-base);
+    }
+    .toc-link:hover, .toc-link.active {
+      color: var(--foreground);
+      background: var(--accent);
+    }
+
+    /* =========================================================
+       SETTINGS CARDS & COMPONENTS
+       ========================================================= */
+    .cards-container {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      min-width: 0;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      transition: background-color var(--transition-base), border-color var(--transition-base);
+    }
+    .card-header {
+      margin-bottom: var(--space-4);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .card-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-title svg {
+      color: var(--muted-foreground);
+    }
+    .card-description {
+      margin: 4px 0 0;
+      font-size: 12.5px;
+      color: var(--muted-foreground);
+      line-height: 1.5;
+    }
+    .card-content {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Form Fields & Rows */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--foreground);
+    }
+    .hint {
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+    .input, .textarea {
+      width: 100%;
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 8px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--foreground);
+      outline: none;
+      transition: all var(--transition-base);
+    }
+    .input:focus, .textarea:focus {
+      border-color: var(--ring);
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--ring) 25%, transparent);
+    }
+    .textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    /* Avatar Row */
+    .avatar-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .avatar-circle {
+      width: 48px;
+      height: 48px;
+      border-radius: 999px;
+      background: var(--secondary);
+      color: var(--secondary-foreground);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    /* Info Table Rows */
+    .info-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 10px 0;
+      border-bottom: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
+    }
+    .info-row:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+    .info-label {
+      font-size: 13px;
+      color: var(--muted-foreground);
+    }
+    .info-val {
+      font-size: 13px;
+      font-weight: 500;
+      text-align: right;
+    }
+
+    /* Buttons & Badges */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 32px;
+      padding: 0 12px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all var(--transition-base);
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: var(--primary-foreground);
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-outline {
+      background: var(--background);
+      border-color: var(--border);
+      color: var(--foreground);
+    }
+    .btn-outline:hover { background: var(--accent); }
+    .btn-destructive {
+      background: color-mix(in oklab, var(--destructive) 15%, transparent);
+      border-color: color-mix(in oklab, var(--destructive) 40%, transparent);
+      color: var(--destructive);
+    }
+    .btn-destructive:hover {
+      background: var(--destructive);
+      color: var(--destructive-foreground);
+    }
+    .btn-sm {
+      height: 28px;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+    .badge-success {
+      background: color-mix(in oklab, var(--success) 20%, transparent);
+      color: var(--success-foreground);
+      border: 1px solid color-mix(in oklab, var(--success-foreground) 30%, transparent);
+    }
+    .badge-secondary {
+      background: var(--secondary);
+      color: var(--secondary-foreground);
+    }
+    .badge-destructive {
+      background: color-mix(in oklab, var(--destructive) 20%, transparent);
+      color: var(--destructive);
+      border: 1px solid color-mix(in oklab, var(--destructive) 30%, transparent);
+    }
+
+    /* Grid for Surface and Mode Options */
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+      gap: 12px;
+    }
+    .theme-option {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--background);
+      cursor: pointer;
+      text-align: left;
+      transition: all var(--transition-base);
+    }
+    .theme-option:hover {
+      border-color: var(--ring);
+    }
+    .theme-option.selected {
+      border-color: var(--primary);
+      background: color-mix(in oklab, var(--primary) 8%, var(--card));
+    }
+    .theme-swatch {
+      height: 36px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .theme-swatch.paper { background: #1e1c18; color: #d6d0c2; }
+    .theme-swatch.paper.light-preview { background: #f5f3eb; color: #3a3832; }
+    .theme-swatch.slate { background: #151922; color: #cbd5e1; }
+    .theme-swatch.soft { background: #232028; color: #ddd6fe; }
+    .theme-swatch.mono { background: #09090b; color: #ffffff; }
+
+    .brand-swatch {
+      height: 28px;
+      border-radius: 50px; /* Pill shape for brands */
+      margin: 4px auto 8px auto;
+      width: 48px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
+    }
+
+    /* Provider Grid */
+    .provider-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--background);
+    }
+    .provider-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .provider-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: var(--radius-sm);
+      background: var(--secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    /* Skeleton Loading State */
+    @keyframes sgPulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+    .sk {
+      height: 20px;
+      background: var(--muted-foreground);
+      opacity: 0.2;
+      border-radius: var(--radius-sm);
+      animation: sgPulse 1.4s ease infinite;
+    }
+    .sk-h40 { height: 40px; }
+    .sk-h80 { height: 80px; }
+
+    /* Error Banner */
+    .error-banner {
+      padding: 16px;
+      border-radius: var(--radius-lg);
+      background: color-mix(in oklab, var(--destructive) 12%, var(--card));
+      border: 1px solid color-mix(in oklab, var(--destructive) 40%, transparent);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      color: var(--foreground);
+    }
+    .error-banner svg {
+      color: var(--destructive);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    /* Danger Zone */
+    .danger-card {
+      border-color: color-mix(in oklab, var(--destructive) 35%, var(--border));
+      background: color-mix(in oklab, var(--destructive) 4%, var(--card));
+    }
+
+    /* Responsive */
+    @media (max-width: 800px) {
+      .layout-sidebar, .layout-continuous {
+        grid-template-columns: 1fr;
+      }
+      .settings-nav, .toc-sticky {
+        position: static;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- DEVBAR: Interactive Prototype Controller -->
+  <div class="devbar">
+    <div class="devbar-group">
+      <span class="tag">Navigation Layout:</span>
+      <button id="btn-layout-sidebar" class="active" onclick="switchLayout('sidebar')">1. Master-Detail Sidebar</button>
+      <button id="btn-layout-tabs" onclick="switchLayout('tabs')">2. Unified Single Tabs</button>
+      <button id="btn-layout-continuous" onclick="switchLayout('continuous')">3. All-in-One + TOC</button>
+    </div>
+    <div class="devbar-group">
+      <span class="tag">Surface Character:</span>
+      <button id="btn-surf-paper" class="active" onclick="setSurface('paper')">Paper (Warm)</button>
+      <button id="btn-surf-slate" onclick="setSurface('slate')">Slate (Cool)</button>
+      <button id="btn-surf-soft" onclick="setSurface('soft')">Soft (Lifted)</button>
+      <button id="btn-surf-mono" onclick="setSurface('mono')">Mono (Pure)</button>
+    </div>
+    <div class="devbar-group">
+      <span class="tag">Mode:</span>
+      <button id="btn-mode-dark" class="active" onclick="setMode('dark')">Dark</button>
+      <button id="btn-mode-light" onclick="setMode('light')">Light</button>
+    </div>
+    <div class="devbar-group">
+      <span class="tag">State:</span>
+      <button id="btn-state-populated" class="active" onclick="switchState('populated')">Populated</button>
+      <button id="btn-state-loading" onclick="switchState('loading')">Loading</button>
+      <button id="btn-state-error" onclick="switchState('error')">Error</button>
+    </div>
+  </div>
+
+  <div class="shell">
+    <div class="page-header">
+      <h1>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        Settings
+      </h1>
+      <p>Manage your account profile, workspace configuration, and AI providers.</p>
+    </div>
+
+    <!-- Quick Search Filter -->
+    <div class="filter-box">
+      <svg class="filter-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" id="filter-input" class="filter-input" placeholder="Search settings (e.g., GitHub, Theme, Anthropic, Factory)..." oninput="filterCards(this.value)">
+    </div>
+
+    <!-- ========================================================
+         PARADIGM 1: MASTER-DETAIL SIDEBAR CONTAINER (DEFAULT)
+         ======================================================== -->
+    <div id="container-sidebar" class="layout-sidebar">
+      <!-- Left Column: Clear Categorized Sub-Sidebar -->
+      <aside class="settings-nav">
+        <div>
+          <div class="nav-section-title">Personal</div>
+          <div class="nav-list">
+            <button class="nav-item active" onclick="selectCategory('profile', this)">
+              <!-- Profile Icon: User -->
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Profile & Identity
+            </button>
+            <button class="nav-item" onclick="selectCategory('appearance', this)">
+              <!-- Appearance Icon: Palette -->
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.563-2.512 5.563-5.563C22 6.5 17.5 2 12 2z"/></svg>
+              Appearance & Theme
+            </button>
+            <button class="nav-item" onclick="selectCategory('git', this)">
+              <!-- Git Credentials Icon: Official GitHub Octocat Logo -->
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+              Git Credentials
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div class="nav-section-title">Workspace</div>
+          <div class="nav-list">
+            <button class="nav-item" onclick="selectCategory('workspace', this)">
+              <!-- Workspace Icon: Building -->
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
+              Workspace General
+            </button>
+            <button class="nav-item" onclick="selectCategory('providers', this)">
+              <!-- AI Providers Icon: Key / Gateway -->
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+              AI Providers & Keys
+            </button>
+            <button class="nav-item" onclick="selectCategory('health', this)">
+              <!-- Factory Health Icon: Activity Pulse -->
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              Factory Health & Engine
+            </button>
+            <button class="nav-item" onclick="selectCategory('danger', this)" style="color: var(--destructive);">
+              <!-- Danger Zone Icon: Alert Triangle -->
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Danger Zone
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Right Column: Card Content -->
+      <main id="main-cards" class="cards-container"></main>
+    </div>
+
+    <!-- ========================================================
+         PARADIGM 2: UNIFIED HORIZONTAL TABS CONTAINER
+         ======================================================== -->
+    <div id="container-tabs" style="display: none;">
+      <div class="layout-tabs-header">
+        <div class="tabs-bar">
+          <button class="tab-btn active" onclick="selectTab('profile', this)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Profile
+          </button>
+          <button class="tab-btn" onclick="selectTab('appearance', this)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.563-2.512 5.563-5.563C22 6.5 17.5 2 12 2z"/></svg>
+            Appearance
+          </button>
+          <button class="tab-btn" onclick="selectTab('git', this)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            Git Credentials
+          </button>
+          <button class="tab-btn" onclick="selectTab('workspace', this)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/></svg>
+            Workspace
+          </button>
+          <button class="tab-btn" onclick="selectTab('providers', this)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5"/></svg>
+            AI Providers
+          </button>
+          <button class="tab-btn" onclick="selectTab('health', this)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            Factory Health
+          </button>
+          <button class="tab-btn" onclick="selectTab('danger', this)" style="color: var(--destructive);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/></svg>
+            Danger
+          </button>
+        </div>
+      </div>
+      <div id="tabs-cards" class="cards-container"></div>
+    </div>
+
+    <!-- ========================================================
+         PARADIGM 3: CONTINUOUS SCROLL WITH STICKY TOC
+         ======================================================== -->
+    <div id="container-continuous" class="layout-continuous" style="display: none;">
+      <div id="continuous-cards" class="cards-container"></div>
+      <aside class="toc-sticky">
+        <div class="toc-title">On this page</div>
+        <a href="#sec-profile" class="toc-link active">Profile & Identity</a>
+        <a href="#sec-appearance" class="toc-link">Appearance</a>
+        <a href="#sec-git" class="toc-link">Git Credentials</a>
+        <a href="#sec-workspace" class="toc-link">Workspace</a>
+        <a href="#sec-providers" class="toc-link">AI Providers</a>
+        <a href="#sec-health" class="toc-link">Factory Health</a>
+        <a href="#sec-danger" class="toc-link" style="color: var(--destructive);">Danger Zone</a>
+      </aside>
+    </div>
+
+  </div>
+
+  <!-- TEMPLATE CARDS REUSABLE DATA -->
+  <template id="tpl-cards">
+    <!-- 1. Profile & Identity -->
+    <section id="sec-profile" class="card" data-category="profile" data-keywords="profile email name avatar user id sign out">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Profile & Identity
+          </h2>
+          <p class="card-description">Your personal operator identity across this Sparstrowgen instance.</p>
+        </div>
+        <span class="badge badge-secondary">Personal</span>
+      </div>
+      <div class="card-content">
+        <div class="avatar-row">
+          <div class="avatar-circle">SH</div>
+          <div>
+            <button class="btn btn-outline btn-sm">Upload new avatar</button>
+            <div class="hint" style="margin-top: 4px;">PNG, JPEG or WebP, up to 2 MB.</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="label">Your name</label>
+          <input type="text" class="input" value="Sri Hari">
+        </div>
+        <div class="form-group">
+          <label class="label">About you</label>
+          <textarea class="textarea" placeholder="Read by agents working on your behalf...">Backend engineer (Go + Postgres). Prefer terse PRs and tests alongside the change.</textarea>
+          <div class="hint">Context injected into agent prompts to personalize code style and workflows.</div>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Email address</span>
+          <span class="info-val font-mono">domains@sparstrow.com</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Authentication method</span>
+          <span class="info-val"><span class="badge badge-secondary">Email & password</span></span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">User ID</span>
+          <span class="info-val font-mono text-xs text-muted-foreground">75973125-1c18-4970-8300-6d2d5e0a8e22</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 8px;">
+          <button class="btn btn-outline btn-sm">Sign out</button>
+          <button class="btn btn-primary btn-sm" onclick="alert('Profile changes saved!')">Save profile</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Appearance & Theme -->
+    <section id="sec-appearance" class="card" data-category="appearance" data-keywords="appearance theme dark light paper slate soft mono color accent">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.563-2.512 5.563-5.563C22 6.5 17.5 2 12 2z"/></svg>
+            Appearance & Theme
+          </h2>
+          <p class="card-description">Customize the surface character and palette according to DESIGN.md doctrine.</p>
+        </div>
+        <span class="badge badge-secondary">Personal</span>
+      </div>
+      <div class="card-content">
+        <div class="form-group">
+          <label class="label">Surface character (Neutral ramp doctrine §2.2)</label>
+          <div class="theme-grid">
+            <div class="theme-option selected" id="opt-surf-paper" onclick="setSurface('paper')">
+              <div class="theme-swatch paper">Paper Surface</div>
+              <div style="font-weight: 600; font-size: 12.5px;">Paper (Default)</div>
+              <div class="hint">Warm linen tone (Hue 85)</div>
+            </div>
+            <div class="theme-option" id="opt-surf-slate" onclick="setSurface('slate')">
+              <div class="theme-swatch slate">Slate Surface</div>
+              <div style="font-weight: 600; font-size: 12.5px;">Slate</div>
+              <div class="hint">Cool blue-grey (Hue 250)</div>
+            </div>
+            <div class="theme-option" id="opt-surf-soft" onclick="setSurface('soft')">
+              <div class="theme-swatch soft">Soft Surface</div>
+              <div style="font-weight: 600; font-size: 12.5px;">Soft</div>
+              <div class="hint">Lifted blacks (Hue 280)</div>
+            </div>
+            <div class="theme-option" id="opt-surf-mono" onclick="setSurface('mono')">
+              <div class="theme-swatch mono">Mono Surface</div>
+              <div style="font-weight: 600; font-size: 12.5px;">Mono</div>
+              <div class="hint">Pure zero-chroma neutral</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="form-group" style="padding-top: 10px;">
+          <label class="label">Brand accent (Doctrine §2.3)</label>
+          <div class="theme-grid" style="grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));">
+            <div class="theme-option selected" id="opt-brand-amber" onclick="setBrand('amber')">
+              <div class="brand-swatch" style="background: oklch(0.78 0.15 70)"></div>
+              <div style="font-weight: 600; font-size: 12.5px; text-align: center;">Amber</div>
+            </div>
+            <div class="theme-option" id="opt-brand-violet" onclick="setBrand('violet')">
+              <div class="brand-swatch" style="background: oklch(0.78 0.18 285)"></div>
+              <div style="font-weight: 600; font-size: 12.5px; text-align: center;">Violet</div>
+            </div>
+            <div class="theme-option" id="opt-brand-blue" onclick="setBrand('blue')">
+              <div class="brand-swatch" style="background: oklch(0.78 0.16 250)"></div>
+              <div style="font-weight: 600; font-size: 12.5px; text-align: center;">Blue</div>
+            </div>
+            <div class="theme-option" id="opt-brand-teal" onclick="setBrand('teal')">
+              <div class="brand-swatch" style="background: oklch(0.78 0.12 190)"></div>
+              <div style="font-weight: 600; font-size: 12.5px; text-align: center;">Teal</div>
+            </div>
+            <div class="theme-option" id="opt-brand-rose" onclick="setBrand('rose')">
+              <div class="brand-swatch" style="background: oklch(0.78 0.16 15)"></div>
+              <div style="font-weight: 600; font-size: 12.5px; text-align: center;">Rose</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group" style="padding-top: 10px;">
+          <label class="label">Light / Dark Expression</label>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-outline btn-sm active" id="card-mode-dark" onclick="setMode('dark')">Dark Expression</button>
+            <button class="btn btn-outline btn-sm" id="card-mode-light" onclick="setMode('light')">Light Expression</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Git Credentials -->
+    <section id="sec-git" class="card" data-category="git" data-keywords="git github pat token repository agent commits octocat">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            GitHub Credentials
+          </h2>
+          <p class="card-description">A fine-grained GitHub PAT for agents to fetch repositories and open automated PRs.</p>
+        </div>
+        <span class="badge badge-secondary">Personal</span>
+      </div>
+      <div class="card-content">
+        <div class="form-group">
+          <label class="label">Personal Access Token (PAT)</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="password" class="input" value="ghp_9843y75834927592837498234" readonly>
+            <button class="btn btn-outline btn-sm" onclick="alert('Cleared GitHub PAT')">Remove</button>
+            <button class="btn btn-primary btn-sm" onclick="alert('Update PAT modal opened')">Update</button>
+          </div>
+          <div class="hint">Stored encrypted outside agent workspace — never injected into runtime memory logs.</div>
+        </div>
+        <div class="info-row">
+          <span class="info-label">GitHub Token Status</span>
+          <span class="info-val"><span class="badge badge-success">✓ Verified Active</span></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Workspace General -->
+    <section id="sec-workspace" class="card" data-category="workspace" data-keywords="workspace slug name organization team members">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/></svg>
+            Workspace General
+          </h2>
+          <p class="card-description">Workspace identity, domain routing, and execution isolation boundary.</p>
+        </div>
+        <span class="badge badge-secondary">Workspace</span>
+      </div>
+      <div class="card-content">
+        <div class="form-group">
+          <label class="label">Workspace name</label>
+          <input type="text" class="input" value="Sparstrowgen Main">
+        </div>
+        <div class="form-group">
+          <label class="label">Workspace slug</label>
+          <input type="text" class="input font-mono" value="sparstrowgen">
+          <div class="hint">Used for cloud API endpoints, Realtime pub/sub channels, and daemon links.</div>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Workspace ID</span>
+          <span class="info-val font-mono text-xs text-muted-foreground">ws_7f98b1a4-92e1-4820-a751-24901f9ca7b1</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Members</span>
+          <span class="info-val">1 Owner · Sri Hari</span>
+        </div>
+        <div style="display: flex; justify-content: flex-end; padding-top: 8px;">
+          <button class="btn btn-primary btn-sm" onclick="alert('Workspace updated!')">Save workspace</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. AI Providers & Keys -->
+    <section id="sec-providers" class="card" data-category="providers" data-keywords="providers ai anthropic claude openai openrouter ollama keys">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5"/></svg>
+            AI Providers & Model Gateways
+          </h2>
+          <p class="card-description">Configure LLM providers and API keys used across agent swarms.</p>
+        </div>
+        <span class="badge badge-secondary">Workspace</span>
+      </div>
+      <div class="card-content">
+        <div class="provider-card">
+          <div class="provider-meta">
+            <div class="provider-icon" style="background: #d97706; color: white;">A</div>
+            <div>
+              <div style="font-weight: 600; font-size: 13.5px;">Anthropic (Claude)</div>
+              <div class="hint">Claude 3.7 Sonnet, Claude 3.5 Haiku</div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="badge badge-success">Configured</span>
+            <button class="btn btn-outline btn-sm">Edit Key</button>
+          </div>
+        </div>
+
+        <div class="provider-card">
+          <div class="provider-meta">
+            <div class="provider-icon" style="background: #2563eb; color: white;">G</div>
+            <div>
+              <div style="font-weight: 600; font-size: 13.5px;">Google Gemini / Vertex</div>
+              <div class="hint">Gemini 2.5 Pro, Flash Lite</div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="badge badge-success">Configured</span>
+            <button class="btn btn-outline btn-sm">Edit Key</button>
+          </div>
+        </div>
+
+        <div class="provider-card">
+          <div class="provider-meta">
+            <div class="provider-icon" style="background: #10b981; color: white;">O</div>
+            <div>
+              <div style="font-weight: 600; font-size: 13.5px;">OpenAI / OpenRouter</div>
+              <div class="hint">GPT-4.5, o3-mini, DeepSeek R1</div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="badge badge-secondary">Not configured</span>
+            <button class="btn btn-primary btn-sm">Add Key</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Factory Health & Engine -->
+    <section id="sec-health" class="card" data-category="health" data-keywords="factory health code graph engine sqlite-vec fastembed armed">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            Factory Health & Engine Subsystems
+          </h2>
+          <p class="card-description">Runtime integrity checks for daemon execution, fast embeddings, and code graphs.</p>
+        </div>
+        <span class="badge badge-success">Armed</span>
+      </div>
+      <div class="card-content">
+        <div class="info-row">
+          <span class="info-label">Code graph engine</span>
+          <span class="info-val flex items-center gap-2">
+            <span class="badge badge-success">v1.2.0 pinned</span>
+            <button class="btn btn-outline btn-sm">Index all projects</button>
+          </span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Vector Embeddings (FastEmbed)</span>
+          <span class="info-val"><span class="badge badge-success">384-dim (Local SQLite-Vec)</span></span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">WIP Snapshot Retention</span>
+          <span class="info-val">
+            <input type="number" class="input font-mono" style="width: 70px; display: inline-block; padding: 4px 8px; height: 28px;" value="5">
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Danger Zone -->
+    <section id="sec-danger" class="card danger-card" data-category="danger" data-keywords="danger delete account destroy wipe purge">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title" style="color: var(--destructive);">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/></svg>
+            Danger Zone
+          </h2>
+          <p class="card-description">Permanently delete your account and workspace data.</p>
+        </div>
+        <span class="badge badge-destructive">Irreversible</span>
+      </div>
+      <div class="card-content">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-weight: 600; font-size: 13px;">Delete Account</div>
+            <div class="hint">Destroys all agents, runs, memory notes, and workspace history.</div>
+          </div>
+          <button class="btn btn-destructive btn-sm" onclick="alert('Confirmation modal: type email to delete account.')">Delete account</button>
+        </div>
+      </div>
+    </section>
+  </template>
+
+  <!-- LOADING SKELETON TEMPLATE -->
+  <template id="tpl-skeleton">
+    <div class="card">
+      <div class="sk sk-h40" style="width: 40%; margin-bottom: 12px;"></div>
+      <div class="sk sk-h80" style="width: 100%; margin-bottom: 8px;"></div>
+      <div class="sk" style="width: 70%;"></div>
+    </div>
+    <div class="card">
+      <div class="sk sk-h40" style="width: 50%; margin-bottom: 12px;"></div>
+      <div class="sk sk-h80" style="width: 100%;"></div>
+    </div>
+  </template>
+
+  <!-- ERROR TEMPLATE -->
+  <template id="tpl-error">
+    <div class="error-banner">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div>
+        <div style="font-weight: 600; font-size: 14px;">Failed to load workspace settings</div>
+        <p style="margin: 4px 0 10px; font-size: 12.5px; color: var(--muted-foreground);">
+          Could not establish connection to the settings route handler. The local daemon or cloud API timed out.
+        </p>
+        <button class="btn btn-outline btn-sm" onclick="switchState('populated')">Retry Connection</button>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    let currentLayout = 'sidebar';
+    let currentState = 'populated';
+    let activeCategory = 'profile';
+    let currentSurface = 'paper';
+    let currentBrand = 'amber';
+    let currentMode = 'dark';
+
+    function init() {
+      applyTheme();
+      renderContent();
+    }
+
+    function switchLayout(mode) {
+      currentLayout = mode;
+      document.querySelectorAll('.devbar button[id^="btn-layout-"]').forEach(b => b.classList.remove('active'));
+      document.getElementById('btn-layout-' + mode).classList.add('active');
+
+      document.getElementById('container-sidebar').style.display = mode === 'sidebar' ? 'grid' : 'none';
+      document.getElementById('container-tabs').style.display = mode === 'tabs' ? 'block' : 'none';
+      document.getElementById('container-continuous').style.display = mode === 'continuous' ? 'grid' : 'none';
+
+      renderContent();
+    }
+
+    function switchState(state) {
+      currentState = state;
+      document.querySelectorAll('.devbar button[id^="btn-state-"]').forEach(b => b.classList.remove('active'));
+      document.getElementById('btn-state-' + state).classList.add('active');
+      renderContent();
+    }
+
+    function setSurface(surface) {
+      currentSurface = surface;
+      document.querySelectorAll('.devbar button[id^="btn-surf-"]').forEach(b => b.classList.remove('active'));
+      const activeDevBtn = document.getElementById('btn-surf-' + surface);
+      if (activeDevBtn) activeDevBtn.classList.add('active');
+
+      // Update card UI options
+      document.querySelectorAll('.theme-option[id^="opt-surf-"]').forEach(o => o.classList.remove('selected'));
+      const activeOpt = document.getElementById('opt-surf-' + surface);
+      if (activeOpt) activeOpt.classList.add('selected');
+
+      applyTheme();
+    }
+
+    function setBrand(brand) {
+      currentBrand = brand;
+      document.querySelectorAll('.theme-option[id^="opt-brand-"]').forEach(o => o.classList.remove('selected'));
+      const activeOpt = document.getElementById('opt-brand-' + brand);
+      if (activeOpt) activeOpt.classList.add('selected');
+      applyTheme();
+    }
+
+    function setMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll('.devbar button[id^="btn-mode-"]').forEach(b => b.classList.remove('active'));
+      const activeDevBtn = document.getElementById('btn-mode-' + mode);
+      if (activeDevBtn) activeDevBtn.classList.add('active');
+
+      applyTheme();
+    }
+
+    function applyTheme() {
+      const html = document.documentElement;
+      html.setAttribute('data-surface', currentSurface);
+      html.setAttribute('data-brand', currentBrand);
+      if (currentMode === 'dark') {
+        html.classList.add('dark');
+        html.classList.remove('light');
+      } else {
+        html.classList.add('light');
+        html.classList.remove('dark');
+      }
+    }
+
+    function renderContent() {
+      const mainSidebar = document.getElementById('main-cards');
+      const mainTabs = document.getElementById('tabs-cards');
+      const mainContinuous = document.getElementById('continuous-cards');
+
+      [mainSidebar, mainTabs, mainContinuous].forEach(el => el.innerHTML = '');
+
+      if (currentState === 'loading') {
+        const skel = document.getElementById('tpl-skeleton').content.cloneNode(true);
+        getActiveTarget().appendChild(skel);
+        return;
+      }
+
+      if (currentState === 'error') {
+        const err = document.getElementById('tpl-error').content.cloneNode(true);
+        getActiveTarget().appendChild(err);
+        return;
+      }
+
+      // Populated State
+      const tpl = document.getElementById('tpl-cards');
+      const cards = Array.from(tpl.content.querySelectorAll('.card'));
+
+      if (currentLayout === 'sidebar') {
+        cards.forEach(card => {
+          if (card.dataset.category === activeCategory) {
+            mainSidebar.appendChild(card.cloneNode(true));
+          }
+        });
+      } else if (currentLayout === 'tabs') {
+        cards.forEach(card => {
+          if (card.dataset.category === activeCategory) {
+            mainTabs.appendChild(card.cloneNode(true));
+          }
+        });
+      } else if (currentLayout === 'continuous') {
+        cards.forEach(card => {
+          mainContinuous.appendChild(card.cloneNode(true));
+        });
+      }
+
+      // Re-sync UI state on cards
+      const activeOpt = document.getElementById('opt-surf-' + currentSurface);
+      if (activeOpt) activeOpt.classList.add('selected');
+    }
+
+    function getActiveTarget() {
+      if (currentLayout === 'sidebar') return document.getElementById('main-cards');
+      if (currentLayout === 'tabs') return document.getElementById('tabs-cards');
+      return document.getElementById('continuous-cards');
+    }
+
+    function selectCategory(cat, btn) {
+      activeCategory = cat;
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderContent();
+    }
+
+    function selectTab(cat, btn) {
+      activeCategory = cat;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderContent();
+    }
+
+    function filterCards(query) {
+      const q = query.trim().toLowerCase();
+      if (!q) {
+        renderContent();
+        return;
+      }
+      const target = getActiveTarget();
+      target.innerHTML = '';
+      const tpl = document.getElementById('tpl-cards');
+      const cards = Array.from(tpl.content.querySelectorAll('.card'));
+      let matches = 0;
+      cards.forEach(card => {
+        const text = (card.dataset.keywords + ' ' + card.innerText).toLowerCase();
+        if (text.includes(q)) {
+          target.appendChild(card.cloneNode(true));
+          matches++;
+        }
+      });
+      if (matches === 0) {
+        target.innerHTML = '<div class="card" style="text-align:center; padding: 40px; color: var(--muted-foreground);">No settings matching "' + query + '" found.</div>';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
+
+
