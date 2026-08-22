@@ -24,15 +24,20 @@ import type { Team } from "@sparstrow/shared";
  * The team's delegation hierarchy at a glance: the first member (sort order —
  * set on the team detail page) leads, delegating to the workers underneath.
  */
-function TeamHierarchy({ members }: { members: { agentId: string; agentName: string }[] }) {
-  if (members.length === 0) {
+function TeamHierarchy({ members }: { members: { agentId: string; agentName: string }[] | undefined }) {
+  // Defensive floor, not the fix: the real contract is the backend actually
+  // populating `members` per teamIndexItemSchema (see
+  // BUG-2026-08-22-teams-page-crashes-with-real-data). This only guards
+  // against a future contract drift turning back into a hard crash.
+  const list = members ?? [];
+  if (list.length === 0) {
     return (
       <p className="py-3 text-center text-xs italic text-muted-foreground">
         No agents yet — add members on the team page.
       </p>
     );
   }
-  const [leader, ...workers] = members;
+  const [leader, ...workers] = list;
   return (
     <div className="flex flex-col items-center">
       <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-1.5">
@@ -193,7 +198,7 @@ export function TeamsPage() {
                 </div>
                 <Badge variant="secondary" className="flex items-center gap-1 shrink-0">
                   <Users className="size-3" />
-                  {team.memberCount}
+                  {team.memberCount ?? 0}
                 </Badge>
               </CardHeader>
               <CardContent className="space-y-3 flex-1">
@@ -204,7 +209,7 @@ export function TeamsPage() {
                 <TeamHierarchy members={team.members} />
 
                 <div className="flex items-center justify-between border-t pt-3">
-                  {team.projectCount > 0 ? (
+                  {(team.projectCount ?? 0) > 0 ? (
                     <Badge variant="outline" className="flex items-center gap-1 font-normal">
                       <FolderKanban className="size-3 text-muted-foreground" />
                       {team.projectCount} project{team.projectCount !== 1 && 's'}
@@ -213,7 +218,7 @@ export function TeamsPage() {
                     <span className="text-xs text-muted-foreground italic">No projects</span>
                   )}
                   <span className="text-xs text-muted-foreground">
-                    {team.memberCount} agent{team.memberCount !== 1 && "s"}
+                    {team.memberCount ?? 0} agent{team.memberCount !== 1 && "s"}
                   </span>
                 </div>
               </CardContent>

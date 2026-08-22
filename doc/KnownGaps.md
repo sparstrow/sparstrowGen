@@ -362,6 +362,21 @@ which blocked creating a team at all — was fixed directly in this pass.)
   interactive access to the Electron window signs in, sees the machine list
   itself, and clicks Retry on the offline screen.
 
+> **Update 2026-08-22 (`fix/teams-page-real-data`).** The `/teams/[teamId]`
+> crash above is fixed — `GET /teams` and `GET /teams/:id`
+> (`apps/web/src/lib/api/handlers/teams.ts`) now join `team_members`/
+> `team_projects` and return the shape `teamIndexItemSchema`/
+> `teamDetailSchema` declare, proved against those real Zod schemas in
+> `apps/web/src/lib/api/teams-routes.test.ts`. **Not re-walked live** — the
+> browser tooling available to the worktree that made this fix was bound to
+> a different agent's directory this pass (five bug-fix agents running in
+> parallel, one shared browser preview), so add `/teams/[teamId]` to the
+> residual list above alongside `/skills/[skillId]` and
+> `/tasks/goals/[goalId]` until someone actually clicks into a real team on
+> a running app and confirms it renders. See
+> [`BUG-2026-08-22-teams-page-crashes-with-real-data`](bug/BUG-2026-08-22-teams-page-crashes-with-real-data.md)'s
+> Resolution for the full account.
+
 > **Update 2026-08-20 (M8, `T-M8-05`).** Both of this entry's stated blockers
 > turned out to be soluble, and neither needed anything new to be built. The
 > `.env.local` bullet — "getting past it means copying Supabase secrets into a
