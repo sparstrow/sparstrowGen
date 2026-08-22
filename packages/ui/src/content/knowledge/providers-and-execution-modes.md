@@ -55,10 +55,10 @@ database:
   whole message budget on a single run's ~23 events and delivered each one twice).
   Events genuinely arrive while the run is still going, confirmed against a real
   deployment: polling a run mid-execution shows new events appearing one at a time, not
-  all at once when it finishes. **Whether they're drawn on screen depends on the
-  provider** — some providers' events render as a proper transcript today; others
-  arrive on schedule but aren't drawn yet, which can read as nothing happening even
-  though the run is progressing normally.
+  all at once when it finishes. **How rich the drawing is depends on the provider** —
+  Claude Code renders full turn-by-turn bubbles; Antigravity renders narration and
+  tool-call notices at a coarser grain. Both render live; neither reads as idle while
+  the run is actually progressing.
 
 > Memory search is **not** a cloud vector search. Every machine embeds locally with a
 > bundled model and searches its own index, which is why semantic search stays fast and
