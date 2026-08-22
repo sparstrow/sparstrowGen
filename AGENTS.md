@@ -75,13 +75,27 @@ assume it's present for another agent or machine unless it's in `.mcp.json` or
 
 ## 2. Mandatory Git & Branch Workflow
 
-We enforce a strict 3-tier Git & deployment pipeline:
+We enforce a strict 3-tier Git & deployment pipeline. Two hosts are involved before
+`development` even sees the code — set 2026-08-21, by the owner: **localhost** for
+day-to-day iteration on an individual task (fastest loop, no push needed), and **the
+feature branch's own Vercel preview** for the final verification pass once that whole
+milestone/task is complete — push the branch, verify live against its preview URL,
+*then* open the PR.
 
 ```
-[Agent Worktree: feature/*] ──► PR into (Squash) ──► [development branch]
-                                                         │ (Milestone complete)
-                                                         ▼
-[main branch (Production)] ◄── PR into ◄── [staging branch (User Review Gate)]
+localhost (fast iteration, per task — no push needed)
+        │
+        ▼  milestone/task complete → push the branch
+[Agent Worktree: feature/*]'s own Vercel preview ── final milestone verification
+        │
+        ▼
+PR into (Squash) ──► [development branch]
+        │  agent judges it production-ready, opens the promotion PR
+        ▼
+[staging branch] ── (User Review Gate — owner approves, or gives feedback
+        │              that loops back to more work on development)
+        ▼
+[main branch (Production)] ◄── PR into (owner-approved only)
 ```
 
 ### Critical Branch Rules
@@ -89,15 +103,23 @@ We enforce a strict 3-tier Git & deployment pipeline:
    - You MUST create an isolated Git branch/worktree for your task: `feature/<task-name>`, `fix/<bug-name>`, or `task/<task-id>`.
    - **NEVER** edit files directly on `development`, `staging`, or `main`.
 2. **PR Target & Merge Strategy**:
-   - All agent pull requests MUST target `development`.
+   - All agent pull requests from a feature/fix/task worktree MUST target `development`.
    - PRs into `development` use **Squash and Merge** to maintain a clean history.
-   - **NEVER** push directly to `staging` or `main`.
+   - **NEVER** push directly to `staging` or `main` — both are reached only through a PR, never a raw push, even for the promotion step below.
 3. **Verification Before PR**:
    - You MUST run and pass all typechecks and unit tests locally before submitting a PR:
      ```bash
      pnpm typecheck
      pnpm test
      ```
+   - For a change a browser can exercise, this is not sufficient on its own — see
+     rule 3.10 and the `frontend-verify` skill. **The live pass belongs on the
+     feature branch's own Vercel preview** (push, then verify against that
+     preview URL), done once the milestone/task is otherwise complete — not
+     against `development.sparstrow.com`, which stays reserved for confirming
+     the merge itself integrated cleanly. See
+     [`doc/runbooks/deploy-web-app.md`](doc/runbooks/deploy-web-app.md) §4 for
+     the exact URL pattern and the Supabase redirect-URL wildcard it depends on.
 4. **Worktree & Branch Cleanup Post-Merge**:
    - Once a PR is merged into `development` (and GitHub auto-deletes the remote feature branch), agents MUST prune and clean up local worktrees and branches:
      ```bash
@@ -112,6 +134,21 @@ We enforce a strict 3-tier Git & deployment pipeline:
    - Once edits for a coherent unit of work are complete (a fix, a doc update, a task's checklist items), commit them on the current feature/worktree branch **without waiting for the user to say "commit this"** — this file is the standing, advance authorization for that.
    - Commit at the end of a logical change, not after every individual file edit: an in-progress multi-file change lands as one commit (or a few coherent ones) once it's actually done, not a commit per file touched or per half-finished edit.
    - This does not relax rule 3 (verification before PR) and does not change anything about opening or pushing PRs — those still follow rules 1, 2, and 5 above exactly as written. It only covers local commits to the agent's own branch.
+7. **Development → Staging Promotion (agent-initiated)**:
+   - Set 2026-08-20, by the owner, while verifying the Machines pairing flow, and
+     refined 2026-08-21 once feature-branch previews became viable (rule 3): the
+     milestone's real live verification already happened pre-merge, on the
+     feature branch's own Vercel preview. Once that passed and the PR has landed
+     on `development`, the agent judges for itself whether the milestone is
+     complete and production-ready — it does not wait to be asked for this
+     specific step. A fresh pass against `development.sparstrow.com` is not a
+     required gate here; reach for it only if something about the merge itself
+     (multiple branches landing together) is in doubt (see
+     `doc/runbooks/agent-browser-session.md` for how an agent gets a signed-in
+     session on a deployed host without typing a password).
+   - When ready, the agent opens the `development` → `staging` PR itself, same Squash-and-Merge convention as rule 2, and may auto-enqueue it per rule 5.
+   - `staging.sparstrow.com` is the **owner's review gate**. The owner either approves it (clearing the way for `staging` → `main`) or gives feedback, which sends the agent back to more work on `development` — this loops until the owner is satisfied. Nothing skips this review.
+   - `staging` → `main` remains a **hard, owner-only gate** — never opened or merged by an agent without an explicit "approved, ship it" in chat for that specific promotion. This is unchanged from rule 2's "never push directly to staging or main" and is not relaxed by this rule.
 
 ---
 
