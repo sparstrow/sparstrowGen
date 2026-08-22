@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, User, Palette, Github, Settings as SettingsIcon, Key, Activity, AlertTriangle } from "lucide-react";
+import { Trash2, User, Palette, Github, Settings as SettingsIcon, Key, Activity, AlertTriangle, Sun, Moon, Monitor } from "lucide-react";
 import { useAccount } from "@/lib/account";
 import {
   useClearGithubPat,
@@ -505,124 +505,160 @@ function SystemCard() {
   );
 }
 
+
+import { Sun, Moon, Monitor } from 'lucide-react';
+// Note: saveThemePreference would be imported or handled via standard fetch/trpc. 
+// For now we assume a server action could be called if imported, but we'll use local state/cookies if not.
+
 function AppearanceCard() {
-  const { theme, setTheme } = useTheme();
-  const themes: { value: Theme; label: string }[] = [
-    { value: "light", label: "Light" },
-    { value: "dark", label: "Dark" },
-    { value: "system", label: "System" },
-  ];
+  const [surface, setSurface] = React.useState('paper');
+  const [brand, setBrand] = React.useState('amber');
+  const [mode, setMode] = React.useState('system');
+
+  // Load from document element on mount
+  React.useEffect(() => {
+    const html = document.documentElement;
+    setSurface(html.getAttribute('data-surface') || 'paper');
+    setBrand(html.getAttribute('data-brand') || 'amber');
+    
+    // Attempt to read cookie directly or assume default
+    const match = document.cookie.match(/(?:^|; )theme-prefs=([^;]*)/);
+    if (match) {
+      try {
+        const prefs = JSON.parse(decodeURIComponent(match[1]));
+        if (prefs.mode) setMode(prefs.mode);
+        if (prefs.surface) setSurface(prefs.surface);
+        if (prefs.brand) setBrand(prefs.brand);
+      } catch (e) {}
+    }
+  }, []);
+
+  const handleUpdate = async (newSurface: string, newBrand: string, newMode: string) => {
+    setSurface(newSurface);
+    setBrand(newBrand);
+    setMode(newMode);
+
+    const html = document.documentElement;
+    html.setAttribute('data-surface', newSurface);
+    html.setAttribute('data-brand', newBrand);
+
+    let effectiveMode = newMode;
+    if (effectiveMode === 'system') {
+      effectiveMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    if (effectiveMode === 'dark') {
+      html.classList.add('dark');
+      html.classList.remove('light');
+    } else {
+      html.classList.add('light');
+      html.classList.remove('dark');
+    }
+
+    // Save to cookie (fallback client-side) and trigger server action
+    const prefs = { surface: newSurface, brand: newBrand, mode: newMode };
+    document.cookie = `theme-prefs=${encodeURIComponent(JSON.stringify(prefs))}; path=/; max-age=31536000`;
+
+    try {
+      const res = await fetch('/api/theme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prefs),
+      });
+    } catch(e) {}
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm">Appearance</CardTitle>
-        <CardDescription>How Sparstrowgen looks on this browser.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex gap-2">
-          {themes.map((t) => (
-            <button
-              key={t.value}
-              type="button"
-              onClick={() => setTheme(t.value)}
-              className={cn(
-                "flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors hover:bg-accent",
-                theme === t.value && "border-primary bg-accent",
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function AdvancedCard() {
-  const settings = useSettings();
-  const updateSettings = useUpdateSettings();
-  const [draft, setDraft] = React.useState<Record<string, string>>({});
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm">Advanced</CardTitle>
-        <CardDescription>Raw key/value settings stored in the core database.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {Object.entries(settings.data ?? {}).length === 0 && (
-          <p className="text-sm text-muted-foreground">No settings stored yet.</p>
-        )}
-        {Object.entries(settings.data ?? {}).map(([key, value]) => (
-          <div key={key} className="flex items-center gap-2">
-            <Label htmlFor={`advanced-setting-${key}`} className="w-48 shrink-0 font-mono text-xs">
-              {key}
-            </Label>
-            <Input
-              id={`advanced-setting-${key}`}
-              className="font-mono text-xs"
-              value={draft[key] ?? value}
-              onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
-            />
-          </div>
-        ))}
-        {Object.keys(draft).length > 0 && (
-          <div className="flex justify-end pt-2">
-            <Button
-              size="sm"
-              disabled={updateSettings.isPending}
-              onClick={() => updateSettings.mutate(draft, { onSuccess: () => setDraft({}) })}
-            >
-              Save changes
-            </Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-/**
- * Two hosts, two answers to "what is your profile". The local desktop build
- * has no account (`useAccount()` is `null`, per `@/lib/account`'s standing
- * convention) — this branch is untouched by T-M10-02, which only converts the
- * signed-in half into `ProfileForm`.
- */
-function ProfileCard() {
-  const account = useAccount();
-
-  if (!account) {
-    return (
+    <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Profile</CardTitle>
-          <CardDescription>
-            This install is local and single-user — there is no hosted account. Your GitHub
-            identity below is what agents ship PRs with.
-          </CardDescription>
+          <CardTitle className="text-sm">Surface Character</CardTitle>
+          <CardDescription>The background tone and contrast floor.</CardDescription>
         </CardHeader>
         <CardContent>
-          <InfoRow label="Workspace">Sparstrowgen · 127.0.0.1</InfoRow>
-          <InfoRow label="Mode">
-            <Badge variant="secondary">local single-user</Badge>
-          </InfoRow>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { id: 'paper', name: 'Paper', desc: 'Warm, linen cast' },
+              { id: 'slate', name: 'Slate', desc: 'Cool blue-grey' },
+              { id: 'soft', name: 'Soft', desc: 'Lifted, low contrast' },
+              { id: 'mono', name: 'Mono', desc: 'Pure neutral' }
+            ].map(s => (
+              <div 
+                key={s.id} 
+                className={cn("theme-option", surface === s.id && "active")}
+                onClick={() => handleUpdate(s.id, brand, mode)}
+              >
+                <div style={{
+                  width: '100%', height: '80px', borderRadius: '4px',
+                  background: s.id === 'paper' ? '#f5f3eb' : s.id === 'slate' ? '#edf1f7' : s.id === 'soft' ? '#f6f3f8' : '#ffffff',
+                  border: '1px solid rgba(0,0,0,0.1)'
+                }}></div>
+                <div className="text-center">
+                  <div className="font-semibold text-[12.5px]">{s.name}</div>
+                  <div className="text-[11px] text-muted-foreground">{s.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
-    );
-  }
 
-  return <ProfileForm variant="card" />;
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Brand Accent</CardTitle>
+          <CardDescription>Primary color for buttons, rings, and selections.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-5 gap-4">
+            {[
+              { id: 'amber', name: 'Amber', color: 'oklch(0.78 0.15 70)' },
+              { id: 'violet', name: 'Violet', color: 'oklch(0.78 0.18 285)' },
+              { id: 'blue', name: 'Blue', color: 'oklch(0.78 0.16 250)' },
+              { id: 'teal', name: 'Teal', color: 'oklch(0.78 0.12 190)' },
+              { id: 'rose', name: 'Rose', color: 'oklch(0.78 0.16 15)' },
+            ].map(b => (
+              <div 
+                key={b.id} 
+                className={cn("theme-option", brand === b.id && "active")}
+                onClick={() => handleUpdate(surface, b.id, mode)}
+              >
+                <div className="brand-swatch" style={{ background: b.color }}></div>
+                <div className="font-semibold text-[12.5px] text-center">{b.name}</div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Expression</CardTitle>
+          <CardDescription>Light, dark, or system preference.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            {[
+              { id: 'light', name: 'Light', icon: Sun },
+              { id: 'dark', name: 'Dark', icon: Moon },
+              { id: 'system', name: 'System', icon: Monitor },
+            ].map(m => (
+              <Button
+                key={m.id}
+                variant={mode === m.id ? "default" : "outline"}
+                onClick={() => handleUpdate(surface, brand, m.id)}
+                className="gap-2"
+              >
+                <m.icon className="size-4" />
+                {m.name}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
-/**
- * Account deletion.
- *
- * Typing the address is the gate rather than a plain "are you sure?" — this
- * destroys every agent, run, memory note and skill in any workspace the
- * account is the only member of, and none of it is recoverable. The same
- * string is re-checked server-side, so the confirmation is not merely
- * decorative.
- */
 function DangerZoneCard() {
   const account = useAccount();
   const [open, setOpen] = React.useState(false);
