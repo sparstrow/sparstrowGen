@@ -125,6 +125,45 @@ The last two are sections C and D of
 [`../tasks/M7/T-M7-04-verification.md`](../tasks/M7/T-M7-04-verification.md),
 which cannot be completed until this has been.
 
+## 4 — Testing a feature branch's own Vercel preview (before merging into `development`)
+
+**2026-08-21.** Vercel deploys a live preview for every pushed branch automatically —
+not just `staging`/`development`/`main`. While narrowing the env-var scope below, this
+turned out to already work project-wide by accident:
+
+- **Env vars apply to every preview, any branch.** The five vars (`DATABASE_URL`,
+  `NEXT_PUBLIC_SUPABASE_URL`, the anon key, the service role key, `NODE_ENV`) are scoped
+  to `Preview` with no git-branch restriction — confirmed via `vercel env ls`. So a
+  feature branch's preview boots already configured, no per-branch setup needed.
+  (These vars were briefly scoped to `Preview, Production` — which would have silently
+  connected `main`/`sparstrow.com` to this same non-production Supabase project the
+  next time `main` deployed, exactly what [`../Deferred.md`](../Deferred.md) **D-15**
+  says not to do. Caught before `main` was ever redeployed against it and narrowed back
+  to `Preview`-only, 2026-08-21.)
+- **Auth still needs one more thing: a Supabase Redirect URL wildcard.** Supabase's
+  Auth → URL Configuration → Redirect URLs only allow-lists `staging.sparstrow.com`,
+  `development.sparstrow.com`, and the tracked `localhost` ports — not Vercel's preview
+  domains. Static pages load fine on a feature-branch preview without it; a magic-link
+  or password-reset redirect will not complete until it's added. **Owner action, one
+  time:** add `https://sparstrowgen-*-sparstrow.vercel.app/**` to that allow-list. It
+  covers every preview this project ever produces — both the per-deployment hash form
+  (`sparstrowgen-<hash>-sparstrow.vercel.app`) and the stable per-branch alias form
+  (`sparstrowgen-git-<branch>-sparstrow.vercel.app`) — scoped to just this
+  project+team, not a bare `*.vercel.app` that would also match unrelated projects.
+  **Not yet added as of this writing** — until it is, treat feature-branch preview
+  sign-in as unverified.
+
+**What this changes for testing, once the wildcard is in:** a feature branch can be
+verified live on its own preview *before* opening the PR into `development` — catching
+a bug pre-merge instead of merging first and finding it after (which is what happened
+2026-08-20, see the update note above). It does **not** replace the PR into
+`development` — that squash-merge is still how code actually lands there, per
+`AGENTS.md` §2 — nor does it change anything about `development`→`staging`→`main`.
+Use the branch's stable git-branch-alias URL (not the per-deployment hash URL, which
+changes on every push) as `SPARSTROW_CLOUD_URL` for this kind of test, and sign in via
+the same [`agent-browser-session.md`](agent-browser-session.md) magic-link procedure —
+no per-branch Supabase config, the wildcard already covers it.
+
 ## When `main` goes live
 
 Repeat steps 1–2 against `sparstrow.com`, once: `main` has real code, a
