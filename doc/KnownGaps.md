@@ -207,6 +207,20 @@ transcript on an actually-completed real task was not achieved, and the
 reason is now a known bug plus a known environment limitation rather than an
 unknown.
 
+**Update 2026-08-22 — the antigravity transcript bug is fixed at the code
+level, not yet re-verified live.** `buildHeadlessSpawn` now asks `agy` for
+`--output-format stream-json`, and `parseLine`/`extractResult` map its NDJSON
+into the same `system`/`assistant`/`user`/`result` shapes `claude-code`
+produces; `EventRow` also gained a `"raw"` case as a floor for any line that
+falls back to it. The mapping was verified against a **real** `agy` v1.1.18
+process (installed in the agent's environment; two real invocations
+captured, one plain text, one exercising `view_file`/`find_by_name`/
+`list_dir`/`run_command` including a permission-error path) and covered by
+27 unit tests in `antigravity.test.ts` using those real captures as
+fixtures. What is **not** re-verified: the full pipeline through a live
+`/runs/<id>` page in a browser (spawn → parseLine → durable event store →
+SSE/Realtime → `RunTranscript`) — see `G-29`, opened for that residual.
+
 **Still open:**
 
 - **Live streaming to a second device (T-M5-06 §A)** and **cross-workspace
@@ -261,6 +275,62 @@ spawn") — except it didn't even die at spawn, which is arguably worse.
   minimal authenticated API call with a short timeout, distinct from
   `--version`) so `authenticated` is genuinely populated, and the capability
   badge can distinguish "installed" from "installed and usable."
+
+### G-29 — Antigravity's fixed transcript rendering has not been walked live through a browser
+
+**Raised:** 2026-08-22, fixing
+[`BUG-2026-08-22-antigravity-transcript-not-rendered`](bug/BUG-2026-08-22-antigravity-transcript-not-rendered.md).
+
+The fix — `--output-format stream-json` on the spawn, `parseLine`/
+`extractResult` mapping agy's NDJSON into `system`/`assistant`/`user`/
+`result` `NormalizedEvent`s, and a `"raw"` floor case in `RunTranscript`'s
+`EventRow` — was verified two ways: against a **real** `agy` v1.1.18 process
+(not just `--help` text; two real invocations were captured and their exact
+NDJSON lines used as `antigravity.test.ts` fixtures), and by `pnpm -r
+typecheck` / `pnpm -r test` running clean. What was **not** re-walked: an
+antigravity run dispatched through the actual `POST /api/v1/runs` → spawn →
+durable event store → SSE/Realtime → `/runs/<id>` pipeline, watched live in a
+browser, the way `T-M11-02` originally found the bug.
+
+- **If wrong:** the most likely gap is a shape mismatch between what
+  `parseLine` produces and what `EventRow` expects that unit tests, which
+  construct `NormalizedEvent`s directly, wouldn't catch — e.g. a payload key
+  typo that survives because both sides of the fixture were written by the
+  same hand. The delivery pipeline itself (durable store, SSE/Realtime,
+  dedup-by-`seq`) is unchanged by this fix and was already proved live by
+  `G-13`'s M11 pass, so the risk is narrowly scoped to the new mapping code.
+- **Clears when:** a real antigravity-provider run is dispatched to a paired
+  machine and `/runs/<id>` is watched live, then reloaded after completion,
+  confirming narration/tool bubbles actually render — the same scenario
+  `BUG-2026-08-22-antigravity-transcript-not-rendered` describes, now with
+  the fix applied. `doc/runbooks/agent-browser-session.md` has the
+  scratch-machine pairing procedure.
+
+### G-28 — `POST /chat/sessions` is unit-tested against a fake Supabase client, not verified live
+
+**Raised:** 2026-08-22, fixing
+[`BUG-2026-08-22-chat-new-session-404s`](bug/BUG-2026-08-22-chat-new-session-404s.md).
+
+The new handler (`apps/web/src/lib/api/handlers/chat.ts`) follows the exact
+pattern five other POST handlers already use in production (`agents.ts`'s
+`POST /agents`, plain `supabase.from(...).insert()` under the table's
+existing workspace-scoped RLS policy), and `apps/web/src/lib/api/chat-routes.test.ts`
+exercises the real validation and row-shaping logic — every `kind`, the
+project/agent not-found paths, and the CLI-provider rejection — against a
+fake Supabase client that mimics the real query-builder shape. It was not
+clicked through on a staging/preview URL with a signed-in session, so a
+class of failure the unit tests cannot see (an RLS policy that behaves
+differently than `001_rls.sql` implies, a PostgREST quirk on the real
+`chat_sessions` table, an env/auth wiring issue) is not ruled out.
+
+- **If wrong:** the empty-chat composer's "Send message" still fails, but
+  with whatever error Supabase actually returns rather than the bare 404 this
+  fix targeted — likely still an improvement, but not the fix as designed.
+- **Clears when:** someone signs into `staging.sparstrow.com` (or this
+  branch's own Vercel preview) and creates a session from `/chat`'s empty
+  composer for each of the four `kind`s, confirming the row lands and the
+  next call (`POST /chat/sessions/:id/messages`) surfaces the legible M5
+  stub message rather than a 404.
 
 ### G-15 — M6 (memory sync) is built and unit-tested; nothing has synced between two real machines
 
