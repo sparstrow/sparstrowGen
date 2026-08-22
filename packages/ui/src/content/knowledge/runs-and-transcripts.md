@@ -20,10 +20,11 @@ project whose runs keep failing, a cron job that quietly stopped succeeding.
 - **Transcript** — the full conversation, streamed live while running: every assistant
   turn, every tool call and its result. Fenced code renders highlighted with one-click
   copy. Confirmed against a real deployment — new content appears while the run is
-  still going. Depth varies by provider: some newer providers stream their events on
-  schedule but the page doesn't draw them into readable turns yet, which shows as an
-  empty-looking transcript on an otherwise-healthy run — check the run's final Result
-  text if the transcript itself looks stuck.
+  still going. Depth varies by provider: Claude Code renders full turn-by-turn bubbles
+  (assistant text, tool calls, and their results); Antigravity renders narration and
+  tool-call notices at a coarser grain. Any event a provider emits that the page
+  doesn't recognize yet still shows as a plain line rather than disappearing — the
+  run's final Result text always has the complete output either way.
 - **Effective tools** — the *exact* tool policy the run was allowed, frozen at spawn.
   Even if the agent is edited mid-run, this run's powers don't change.
 - **Injected memory** — the precise set of vault notes the agent was shown, post-budget.
