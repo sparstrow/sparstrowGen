@@ -22,10 +22,13 @@ own subdomain of `sparstrow.com` (purchased and DNS-managed at Hostinger):
 | `staging` | `staging.sparstrow.com` | CNAME → Vercel | shared project (see below) |
 | `development` | `development.sparstrow.com` | CNAME → Vercel | shared project (see below) |
 
-**`staging` and `development` currently share one Supabase project** — same
-env vars, same backend, same database, fully configured on both branches.
-That project's Authentication → URL Configuration has the Site URL set to the
-staging domain, and Redirect URLs cover both `staging.sparstrow.com` and
+**`staging` and `development` share one Supabase project** — same backend,
+same database — but that did not mean the same env vars were actually set on
+both. As of 2026-08-20 they are: Vercel's env vars were scoped to `Preview
+(staging)` only (`development` served its own "not configured" guard until
+this was caught and fixed — see the update note below). That project's
+Authentication → URL Configuration has the Site URL set to the staging
+domain, and Redirect URLs cover both `staging.sparstrow.com` and
 `development.sparstrow.com`, plus the 11 `localhost:3000`–`3100` entries
 already tracked in [`README.md`](README.md)'s worktree-ports row.
 
@@ -43,18 +46,46 @@ launch.
 
 ## What's still open
 
-Everything below is unchanged from before this deployment landed:
-
-- **No machine points at a deployed URL yet.** `SPARSTROW_CLOUD_URL` is unset
-  on every paired machine, so every daemon still defaults to
-  `http://localhost:3000`. `SPARSTROW_APP_URL` is unset too, so the desktop
-  window still loads the local core's own UI.
+- **The owner's real machine still isn't pointed at a deployed URL.**
+  `SPARSTROW_CLOUD_URL`/`SPARSTROW_APP_URL` are unset on the owner's own
+  paired machine, so it still defaults to `http://localhost:3000` /the local
+  core UI. Pairing *against* a deployed URL is proven (see below); switching
+  the owner's day-to-day machine over is a separate, deliberate step.
 - **Agent/local testing is unaffected and should stay on localhost** — the 11
   redirect URLs above exist for exactly this; nothing here changes how an
   agent worktree tests auth.
-- The step 3 verification checklist below (pairing a machine against a
-  deployed URL, running a job from it, the desktop shell's online/offline
-  behavior) has not been exercised against `staging.sparstrow.com` yet.
+- **Running a real job from the deployed app, and the desktop shell's
+  online/offline behavior**, are still unexercised — steps 3's third and
+  fourth checklist items. Only pairing/sign-in/remove have been proven live.
+
+> **Update 2026-08-20.** Two blockers, previously undiscovered, stood between
+> this runbook and actually being followed:
+>
+> 1. **Vercel Deployment Protection** gated both `staging.sparstrow.com` and
+>    `development.sparstrow.com` behind a Vercel account login, in front of
+>    the app's own sign-in — nobody without Vercel project access could reach
+>    either host at all. Disabled project-wide: `vercel project protection
+>    disable sparstrowgen --sso`. Was [`OQ-5`](../OpenQuestions.md), closed.
+> 2. **`development`'s env vars were never actually set.** This file's "same
+>    env vars... fully configured on both branches" claim was wrong —
+>    `vercel env ls` showed all five vars (`DATABASE_URL`,
+>    `NEXT_PUBLIC_SUPABASE_URL`, the anon key, the service role key,
+>    `NODE_ENV`) scoped to `Preview (staging)` only. `development` had none,
+>    and served its own "this deployment is not configured" guard. Owner
+>    added the same values scoped to `development` too.
+>
+> With both fixed, the full pairing flow was run **live against
+> `development.sparstrow.com`, for the first time**: sign in (via the
+> `agent-browser-session.md` magic-link procedure, no password typed) → pair
+> a machine → confirm it reads **active** with real OS/hostname/provider
+> badges → remove it → confirm plain re-pair is correctly refused
+> ("already paired") → confirm `--force` re-pairs successfully. Every step
+> matched what `machines.md` documents, including the `--force` requirement
+> from [`BUG-2026-08-20-remove-machine-doesnt-clear-local-pairing`](../bug/BUG-2026-08-20-remove-machine-doesnt-clear-local-pairing.md).
+> No new friction surfaced beyond that already-fixed doc gap. Cleaned up
+> after: disposable `@sparstrow.test` account deleted, scratch core process
+> stopped, scratch secrets/data dirs removed — nothing paired against this
+> workspace was left behind.
 
 ## 1 — Point a machine at staging (when ready to test this)
 

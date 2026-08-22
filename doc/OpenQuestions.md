@@ -13,7 +13,109 @@ When one is answered, record the answer in the plan or task that consumes it and
 
 ---
 
-> **Nothing is currently open.**
+*OQ-5 (Vercel Deployment Protection blocking `development`/`staging`) was
+**answered by the owner on 2026-08-20** — option A. SSO protection disabled
+project-wide via `vercel project protection disable sparstrowgen --sso`; both
+hosts now reach the app's own sign-in directly. Recorded in
+[`runbooks/deploy-web-app.md`](runbooks/deploy-web-app.md).*
+
+<details>
+<summary>OQ-5 — Vercel Deployment Protection blocks reaching `development`/`staging` at all (closed)</summary>
+
+## OQ-5 — Vercel Deployment Protection blocks reaching `development`/`staging` at all
+
+**Raised:** 2026-08-20, attempting the live-host pairing test M11/G-16 have been
+waiting on.
+**Blocks:** testing the app as a regular user (or an agent) against a deployed
+URL — pairing, sign-in, anything. Does not block localhost work, which already
+has its own signed-in-session method (`runbooks/agent-browser-session.md`).
+
+### Context
+
+Asked to open `development.sparstrow.com` and pair/unpair a machine like a
+regular user would, to surface friction in the flow. Navigating there —
+and separately to `staging.sparstrow.com` — redirects to **Vercel's own login
+page** (`vercel.com/login?...next=/sso-api?url=https://development.sparstrow.com/machines`),
+before the app's own Supabase sign-in is ever reached. This is Vercel's
+**Deployment Protection** (aka Vercel Authentication) feature, gating the
+whole deployment behind membership in the Vercel team/project — a second,
+separate gate in front of the app's own auth.
+
+No bypass secret (`VERCEL_AUTOMATION_BYPASS_SECRET` or similar) is present in
+`apps/web/.env.local`, so there is currently no way through this at all,
+scripted or manual, without a Vercel account that has access to the project.
+
+### Scenario
+
+A teammate or early tester, with no Vercel account, is handed
+`development.sparstrow.com` (or `staging.sparstrow.com`) to try the app. They
+get a Vercel login screen asking for credentials to a project they've never
+heard of, before they ever see Sparstrowgen's own sign-in. From their side
+this reads as "the link is broken" or "I don't have access," not as an app
+issue — and no error on the app's own side gives any hint why.
+
+### Options
+
+**A — Disable Deployment Protection on `development` and `staging`**
+- **Pros:** Directly unblocks exactly what's being tested — reaching the app
+  in an ordinary browser, no Vercel account needed. These two branches exist
+  specifically as pre-launch test surfaces (per `deploy-web-app.md`, "for the
+  owner's own testing right now"); the app's own Supabase auth is already the
+  real gate once you're past this. One dashboard toggle, no code change,
+  fully reversible.
+- **Cons:** Anyone who finds the URL can load the sign-in screen and see the
+  app's unauthenticated shell (marketing-less, no data) before real launch.
+  Not indexed or publicized today, but no longer requires a Vercel login to
+  probe.
+- **Score:** 8/10
+- **Blast radius if wrong:** Low. Without a real Supabase session, an
+  outside visitor sees a login page and nothing behind it — no data, no RLS
+  boundary at risk. Reversible in one click.
+- **Caveats:** Scope this to `development`/`staging` only — `main` should stay
+  however it's configured today (dummy content per `Deferred.md` D-15) until
+  real launch decisions are made for it.
+
+**B — Keep protection on; generate a Protection Bypass for Automation secret**
+- **Pros:** No change to who can casually browse to the URL. Lets scripts/CI
+  get through with a header or query param.
+- **Cons:** Does not answer what was actually asked — testing *as a regular
+  user* specifically means without a bypass secret, since a real user won't
+  have one. Only helps scripted/agent testing, not the UX verification this
+  came up while doing. One more secret to generate, store, and avoid leaking
+  in a script or CI log.
+- **Score:** 4/10 for this goal (higher for a pure-CI use case)
+- **Blast radius if wrong:** Low technically; the secret leaking (e.g.
+  committed by accident) would let anyone through the same door, same as
+  option A but by mistake instead of by design.
+- **Caveats:** Worth adding later for CI regardless of what's chosen here —
+  doesn't substitute for A.
+
+**C — Grant the testing agent/service a Vercel account with project access**
+- **Pros:** No protection-config change.
+- **Cons:** Means an agent authenticating to a third-party account — outside
+  what this session is willing to do (no password entry, no account
+  creation, by standing rule) — and defeats the actual reason `development`
+  was chosen over `staging` in the first place (avoiding needing platform-
+  level access at all). Wrong shape besides: Vercel team membership controls
+  deploy permissions, not app-level testing.
+- **Score:** 2/10
+- **Blast radius if wrong:** High — grants deploy-level access for what only
+  needed page-load access.
+- **Caveats:** Not recommended.
+
+### Recommendation
+
+**A.** Turn off Deployment Protection for `development` (and `staging`, since
+it's explicitly meant for testing already) in Vercel's project settings —
+Settings → Deployment Protection, per-branch. This is the only option that
+actually lets a regular user, or this agent, reach the app the way the test
+requires, and it costs nothing but flipping a toggle you can flip back.
+
+</details>
+
+---
+
+> **Nothing else is currently open.**
 >
 > `OQ-4` (is code syntax highlighting a fifth colour role) was answered by the
 > owner on 2026-08-19 — **option A**. Recorded in `DESIGN.md` §2.1 and the new
