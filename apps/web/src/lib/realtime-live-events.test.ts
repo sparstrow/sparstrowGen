@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { RealtimeLiveEventSource } from "./realtime-live-events";
 
 /**
  * `RealtimeLiveEventSource` is `apps/web`'s live transport: Supabase Realtime
@@ -97,13 +98,23 @@ function flush(): Promise<void> {
 }
 
 describe("RealtimeLiveEventSource", () => {
+  // Each `RealtimeLiveEventSource` instance holds its own `workspaceIdPromise`
+  // (resolved once per instance, not module-wide — see the class's own doc
+  // comment) and the mocked `createClient()` returns a fresh object closing
+  // over the current `fake` on every call. Nothing here is module-singleton
+  // state, so there is nothing for a per-test module registry reset to
+  // protect — `resetFake()` alone is enough isolation between tests. The
+  // module is imported once, at the top of this file, instead of via a
+  // per-test dynamic `import()`: that used to charge the first test with the
+  // one-time cost of transforming the module and its import graph, which
+  // occasionally pushed it past vitest's 5s default `testTimeout` under
+  // `pnpm test`'s five-way turbo parallelism (see
+  // doc/bug/BUG-2026-08-20-flaky-realtime-live-events-test.md).
   beforeEach(() => {
     resetFake();
-    vi.resetModules();
   });
 
   it("subscribes on run:<workspaceId>:<runId>, private", async () => {
-    const { RealtimeLiveEventSource } = await import("./realtime-live-events");
     const source = new RealtimeLiveEventSource();
     source.subscribeRun("run_1", () => {});
     await flush();
@@ -114,7 +125,6 @@ describe("RealtimeLiveEventSource", () => {
   });
 
   it("delivers each event in a broadcast payload to onEvent", async () => {
-    const { RealtimeLiveEventSource } = await import("./realtime-live-events");
     const source = new RealtimeLiveEventSource();
     const received: number[] = [];
     source.subscribeRun("run_1", (e) => received.push(e.seq));
@@ -132,7 +142,6 @@ describe("RealtimeLiveEventSource", () => {
   });
 
   it("invalidates the run's events query when a broadcast reports an oversized event", async () => {
-    const { RealtimeLiveEventSource } = await import("./realtime-live-events");
     const invalidateQueries = vi.fn();
     const source = new RealtimeLiveEventSource({ invalidateQueries } as never);
     source.subscribeRun("run_1", () => {});
@@ -144,7 +153,6 @@ describe("RealtimeLiveEventSource", () => {
   });
 
   it("does not invalidate anything for an ordinary batch with nothing oversized", async () => {
-    const { RealtimeLiveEventSource } = await import("./realtime-live-events");
     const invalidateQueries = vi.fn();
     const source = new RealtimeLiveEventSource({ invalidateQueries } as never);
     source.subscribeRun("run_1", () => {});
@@ -159,7 +167,6 @@ describe("RealtimeLiveEventSource", () => {
   });
 
   it("does not throw when constructed without a query client and an oversized marker arrives", async () => {
-    const { RealtimeLiveEventSource } = await import("./realtime-live-events");
     const source = new RealtimeLiveEventSource(); // no queryClient
     source.subscribeRun("run_1", () => {});
     await flush();
@@ -170,7 +177,6 @@ describe("RealtimeLiveEventSource", () => {
   it("stamps the delivered event's runId from the subscription, not the payload", async () => {
     // Defence in depth: even if a payload were ever malformed, the caller's
     // own runId is the source of truth for which run these belong to.
-    const { RealtimeLiveEventSource } = await import("./realtime-live-events");
     const source = new RealtimeLiveEventSource();
     const received: string[] = [];
     source.subscribeRun("run_1", (e) => received.push(e.runId));
@@ -185,7 +191,6 @@ describe("RealtimeLiveEventSource", () => {
   });
 
   it("resolves the workspace id ONCE and reuses it across multiple runs", async () => {
-    const { RealtimeLiveEventSource } = await import("./realtime-live-events");
     const source = new RealtimeLiveEventSource();
     source.subscribeRun("run_1", () => {});
     source.subscribeRun("run_2", () => {});
@@ -197,7 +202,6 @@ describe("RealtimeLiveEventSource", () => {
   });
 
   it("removes the channel on unsubscribe", async () => {
-    const { RealtimeLiveEventSource } = await import("./realtime-live-events");
     const source = new RealtimeLiveEventSource();
     const unsubscribe = source.subscribeRun("run_1", () => {});
     await flush();
@@ -209,7 +213,6 @@ describe("RealtimeLiveEventSource", () => {
   });
 
   it("does not open a channel if unsubscribed before the workspace lookup resolves", async () => {
-    const { RealtimeLiveEventSource } = await import("./realtime-live-events");
     const source = new RealtimeLiveEventSource();
     const unsubscribe = source.subscribeRun("run_1", () => {});
     unsubscribe(); // before `await flush()` — the lookup promise hasn't settled yet
@@ -221,7 +224,6 @@ describe("RealtimeLiveEventSource", () => {
 
   it("does not open a channel when there is no signed-in user", async () => {
     resetFake({ userId: null });
-    const { RealtimeLiveEventSource } = await import("./realtime-live-events");
     const source = new RealtimeLiveEventSource();
     source.subscribeRun("run_1", () => {});
     await flush();
@@ -231,7 +233,6 @@ describe("RealtimeLiveEventSource", () => {
 
   it("does not open a channel when the user has no workspace membership", async () => {
     resetFake({ workspaceId: null });
-    const { RealtimeLiveEventSource } = await import("./realtime-live-events");
     const source = new RealtimeLiveEventSource();
     source.subscribeRun("run_1", () => {});
     await flush();
@@ -240,7 +241,6 @@ describe("RealtimeLiveEventSource", () => {
   });
 
   it("reports connected once a channel reaches SUBSCRIBED", async () => {
-    const { RealtimeLiveEventSource } = await import("./realtime-live-events");
     const source = new RealtimeLiveEventSource();
     expect(source.isConnected).toBe(false);
     source.subscribeRun("run_1", () => {});
@@ -249,7 +249,6 @@ describe("RealtimeLiveEventSource", () => {
   });
 
   it("notifies onStatusChange listeners of the transition", async () => {
-    const { RealtimeLiveEventSource } = await import("./realtime-live-events");
     const source = new RealtimeLiveEventSource();
     const seen: boolean[] = [];
     source.onStatusChange((c) => seen.push(c));
@@ -260,7 +259,6 @@ describe("RealtimeLiveEventSource", () => {
 
   it("does not report connected when the channel fails to subscribe", async () => {
     resetFake({ nextSubscribeStatus: "CHANNEL_ERROR" });
-    const { RealtimeLiveEventSource } = await import("./realtime-live-events");
     const source = new RealtimeLiveEventSource();
     source.subscribeRun("run_1", () => {});
     await flush();
