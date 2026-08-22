@@ -6,7 +6,7 @@
 | **Depends on** | T-M7-01 … T-M7-03 |
 | **Blocks** | — |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started — section D partially closed 2026-08-22 by [`T-M11-04`](../M11/T-M11-04-desktop-window.md), which also found and filed [`BUG-2026-08-22-desktop-servicemanager-health-check-times-out`](../../bug/BUG-2026-08-22-desktop-servicemanager-health-check-times-out.md). Sections A–C remain unreached |
+| **Status** | not started — section D partially closed 2026-08-22 by [`T-M11-04`](../M11/T-M11-04-desktop-window.md), which also found and filed [`BUG-2026-08-22-desktop-servicemanager-health-check-times-out`](../../bug/BUG-2026-08-22-desktop-servicemanager-health-check-times-out.md). Sections A–C remain unreached. The `/teams/[teamId]` row's hard crash on real data — [`BUG-2026-08-22-teams-page-crashes-with-real-data`](../../bug/BUG-2026-08-22-teams-page-crashes-with-real-data.md), found during an earlier M11 pass at this same checklist item — is fixed (`GET /teams`/`GET /teams/:id` now return the joined shape the page needs) and unit-tested, but not yet re-walked live, so this row of section A stays unticked |
 
 ## Objective
 

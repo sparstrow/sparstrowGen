@@ -1,6 +1,6 @@
 # BUG-2026-08-22-teams-page-crashes-with-real-data
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — found during T-M11-05 (M11 gap reconciliation), clicking into `/teams` and `/teams/[teamId]` right after fixing [`BUG-2026-08-22-team-create-500-missing-slug`](BUG-2026-08-22-team-create-500-missing-slug.md), the first time a team could be created at all
 **Reported:** 2026-08-22
 
@@ -85,9 +85,47 @@ AppShell, real data, no errors" fails on real data, not before it.
 
 ## Resolution
 
-<!-- Open — not fixed in this pass. This needs a real query design (a join
-     or a second round-trip aggregating team_members/team_projects into the
-     shape teamIndexItemSchema/teamDetailSchema already declare), which is
-     bigger than the mechanical slug fix and belongs in its own task rather
-     than a drive-by. GET /teams/:id/members and GET /teams/:id/projects
-     already have the join logic to crib from. -->
+Fixed in `fix/teams-page-real-data`.
+
+`apps/web/src/lib/api/handlers/teams.ts`:
+
+- `GET /teams` now fetches the bare `teams` rows, then does two round-trips
+  against `team_members` (joined to `agents(name)`) and `team_projects`,
+  filtered with `.in("team_id", teamIds)` across every team in the
+  workspace, and aggregates `memberCount`/`projectCount`/`members` per team
+  in JS — matching `teamIndexItemSchema` exactly. A team with zero members
+  and zero projects gets `memberCount: 0`, `projectCount: 0`, `members: []`
+  rather than the aggregation map lookup ever coming back `undefined`.
+- `GET /teams/:id` fetches the team row, then `team_members` (joined to
+  `agents(name, role)`) and `team_projects` (joined to
+  `projects(id, name, slug)`) filtered to that one team, and shapes
+  `members`/`projects` to match `teamDetailSchema` exactly (including the
+  member row's own `id`, distinct from `agentId`).
+- Both reuse the same join tables `GET /teams/:id/members` and
+  `GET /teams/:id/projects` already read — no new query shape invented, per
+  the investigation's crib-source pointer.
+
+`packages/ui/src/routes/pages/teams.tsx` and `team-detail.tsx` also got
+defensive `?? []` / `?? 0` fallbacks on `members`/`memberCount`/
+`projectCount`/`projects` — a floor against future contract drift, not the
+fix itself; the schema-shaped backend change above is what actually closes
+this.
+
+**Verified:** `apps/web/src/lib/api/teams-routes.test.ts` (new) exercises
+both handler bodies against a fake Supabase query builder and validates the
+response with the real `teamIndexItemSchema`/`teamDetailSchema` from
+`@sparstrow/shared` — not just a 200. Covers: a workspace with a populated
+team and an empty team side by side (the aggregation-map-miss case that
+used to crash `TeamHierarchy`), the zero-teams empty-array case, and a
+detail 404 for a missing/RLS-hidden id. All 7 cases pass. `pnpm -r
+typecheck` and `pnpm -r test` run clean from the worktree.
+
+**Not verified live** against a running app / staging in this pass — the
+in-session browser tooling available to this worktree is scoped to a
+different agent's directory (this session runs 5 parallel bug-fix agents,
+each in its own worktree, sharing one browser-preview tool bound to one of
+them), so driving a real signed-in `/teams` click-through was not reachable
+without touching another agent's territory. The unit-test proof above is
+what this fix rests on; a real click-through against the feature branch's
+Vercel preview (per `AGENTS.md` §2 rule 3) is fair residue for whoever
+verifies this PR, and is exactly what T-M7-04 §A still needs to close.
