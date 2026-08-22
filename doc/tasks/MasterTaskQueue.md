@@ -430,7 +430,7 @@ Unparks D-17 (Theme picker). Resolves the nested tabs layout into a cleaner Mast
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
 | 16.1 | [T-01 - Theme Infra](SettingsRedesign/T-01-ThemeInfra.md) | `[S]` | - | 🟢 done |
-| 16.2 | [T-02 - Unified Nav](SettingsRedesign/T-02-UnifiedNav.md) | `[P]` | - | not started |
+| 16.2 | [T-02 - Unified Nav](SettingsRedesign/T-02-UnifiedNav.md) | `[P]` | - | 🟢 done |
 | 16.3 | [T-03 - Appearance Picker](SettingsRedesign/T-03-AppearancePicker.md) | `[S]` | 16.1, 16.2 | not started |
 
 ## Blocked items

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2 } from "lucide-react";
+import { Trash2, User, Palette, Github, Settings as SettingsIcon, Key, Activity, AlertTriangle } from "lucide-react";
 import { useAccount } from "@/lib/account";
 import {
   useClearGithubPat,
@@ -717,59 +717,88 @@ function DangerZoneCard() {
  * Settings, grouped Multica-style into nested tabs:
  * Account (Profile, Preferences) and Workspace (General, Integrations).
  */
+
 export function SettingsPage() {
+  const [activeTab, setActiveTab] = React.useState('profile');
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab) setActiveTab(tab);
+  }, []);
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tabId);
+    window.history.replaceState({}, '', url);
+  };
+
+  const navGroups = [
+    {
+      title: 'PERSONAL',
+      items: [
+        { id: 'profile', label: 'Profile & Identity', icon: User },
+        { id: 'appearance', label: 'Appearance & Theme', icon: Palette },
+        { id: 'git', label: 'Git Credentials', icon: Github },
+      ]
+    },
+    {
+      title: 'WORKSPACE',
+      items: [
+        { id: 'workspace', label: 'Workspace General', icon: SettingsIcon },
+        { id: 'providers', label: 'AI Providers & Keys', icon: Key },
+        { id: 'health', label: 'Factory Health & Engine', icon: Activity },
+        { id: 'danger', label: 'Danger Zone', icon: AlertTriangle, danger: true },
+      ]
+    }
+  ];
+
   return (
-    <div className="max-w-3xl">
-      <Tabs defaultValue="account">
-        <div className="sticky -top-5 z-20 -mt-5 bg-background pt-5 pb-3">
-          <TabsList>
-            <TabsTrigger value="account">Account</TabsTrigger>
-            <TabsTrigger value="workspace">Workspace</TabsTrigger>
-          </TabsList>
-        </div>
+    <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 items-start">
+      {/* Sidebar Navigation */}
+      <nav className="w-full md:w-64 shrink-0 flex flex-col gap-6 sticky top-6">
+        {navGroups.map(group => (
+          <div key={group.title} className="flex flex-col gap-1">
+            <h3 className="text-xs font-semibold text-muted-foreground px-3 mb-1">{group.title}</h3>
+            {group.items.map(item => (
+              <button
+                key={item.id}
+                onClick={() => handleTabChange(item.id)}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                  activeTab === item.id 
+                    ? "bg-accent text-foreground font-medium" 
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  item.danger && activeTab !== item.id && "text-destructive hover:text-destructive/90 hover:bg-destructive/10",
+                  item.danger && activeTab === item.id && "bg-destructive/15 text-destructive"
+                )}
+              >
+                <item.icon className="size-4" />
+                {item.label}
+              </button>
+            ))}
+          </div>
+        ))}
+      </nav>
 
-        <TabsContent value="account" className="pt-0">
-          <Tabs defaultValue="profile">
-            <div className="sticky top-12 z-10 bg-background pb-3">
-              <TabsList>
-                <TabsTrigger value="profile">Profile</TabsTrigger>
-                <TabsTrigger value="preferences">Preferences</TabsTrigger>
-              </TabsList>
-            </div>
-            <TabsContent value="profile" className="space-y-5 pt-0">
-              <ProfileCard />
-              <GitCard />
-              {/* Renders nothing when there is no hosted account, so the local
-                  desktop build sees the profile tab exactly as it did before. */}
-              <DangerZoneCard />
-            </TabsContent>
-            <TabsContent value="preferences" className="space-y-5 pt-0">
-              <AppearanceCard />
-            </TabsContent>
-          </Tabs>
-        </TabsContent>
-
-        <TabsContent value="workspace" className="pt-0">
-          <Tabs defaultValue="general">
-            <div className="sticky top-12 z-10 bg-background pb-3">
-              <TabsList>
-                <TabsTrigger value="general">General</TabsTrigger>
-                <TabsTrigger value="integrations">Integrations</TabsTrigger>
-              </TabsList>
-            </div>
-            <TabsContent value="general" className="space-y-5 pt-0">
-              <WorkspaceForm variant="card" />
-              <FactoryHealthCard />
-              <WipSnapshotCard />
-              <SystemCard />
-              <AdvancedCard />
-            </TabsContent>
-            <TabsContent value="integrations" className="space-y-5 pt-0">
-              <ProvidersCard />
-            </TabsContent>
-          </Tabs>
-        </TabsContent>
-      </Tabs>
+      {/* Main Content Area */}
+      <div className="flex-1 min-w-0 flex flex-col gap-6">
+        {activeTab === 'profile' && <ProfileCard />}
+        {activeTab === 'appearance' && <AppearanceCard />}
+        {activeTab === 'git' && <GitCard />}
+        {activeTab === 'workspace' && <WorkspaceForm variant="card" />}
+        {activeTab === 'providers' && <ProvidersCard />}
+        {activeTab === 'health' && (
+          <>
+            <FactoryHealthCard />
+            <WipSnapshotCard />
+            <SystemCard />
+            <AdvancedCard />
+          </>
+        )}
+        {activeTab === 'danger' && <DangerZoneCard />}
+      </div>
     </div>
   );
 }
