@@ -1,5 +1,16 @@
 import * as React from "react";
-import { Check, Copy, Loader2, Monitor, Pencil, RefreshCw, Trash2, Unplug } from "lucide-react";
+import {
+  Check,
+  Clock,
+  Copy,
+  Loader2,
+  Monitor,
+  Pencil,
+  RefreshCw,
+  Trash2,
+  Unplug,
+  X,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -153,6 +164,75 @@ function PairingCodePanel({
   );
 }
 
+type PairOutcome = { kind: "paired"; name: string } | { kind: "expired" };
+
+/**
+ * The deliberate "something just happened" moment between a code being
+ * redeemed (or not) and the list settling back to normal.
+ *
+ * Sits in the exact spot `PairingCodePanel` just occupied — same border/bg
+ * treatment — so the eye doesn't have to travel to learn what happened to the
+ * code it was just looking at. Without this, redemption was silent: the code
+ * panel vanished and the full row (name, OS, capability badges) was simply
+ * already there, which read as the page skipping a step rather than a machine
+ * actually pairing. `onExpired` had the same silence in the other direction —
+ * a code could run out with nothing ever said about it.
+ */
+function PairingOutcomePanel({
+  outcome,
+  onDismiss,
+  onRetry,
+}: {
+  outcome: PairOutcome;
+  onDismiss: () => void;
+  onRetry: () => void;
+}) {
+  const isPaired = outcome.kind === "paired";
+
+  return (
+    <div
+      className="spg-turn flex items-start gap-3 rounded-lg border bg-muted/40 p-5"
+      role="status"
+    >
+      <span
+        className={cn(
+          "flex size-8 shrink-0 items-center justify-center rounded-full",
+          isPaired ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
+        )}
+        aria-hidden="true"
+      >
+        {isPaired ? <Check className="size-4" /> : <Clock className="size-4" />}
+      </span>
+
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="text-sm font-medium">
+          {isPaired ? `${outcome.name} is paired` : "Code expired — no machine connected"}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {isPaired
+            ? "Restart core on that machine if it was already running."
+            : "Nobody redeemed it within the 10-minute window. Generate a new one to try again."}
+        </p>
+        {isPaired ? null : (
+          <Button size="sm" variant="outline" className="mt-1" onClick={onRetry}>
+            Generate new code
+          </Button>
+        )}
+      </div>
+
+      <Button
+        size="icon"
+        variant="ghost"
+        className="size-7 shrink-0"
+        aria-label="Dismiss"
+        onClick={onDismiss}
+      >
+        <X className="size-3.5" />
+      </Button>
+    </div>
+  );
+}
+
 /**
  * The entity tile from `DESIGN.md` §6: the machine's semantic icon in a tile,
  * with its state as a dot on the corner. The dot is the ONLY thing on this
@@ -199,7 +279,14 @@ function RuntimeRow({ runtime }: { runtime: Runtime }) {
   }
 
   return (
-    <Item variant="outline" size="default" className="flex-wrap gap-x-3 gap-y-2 px-4 py-3">
+    // `spg-turn` only replays when this Item actually mounts (a genuinely new
+    // `key`), never on the 15s poll re-rendering an existing row — DESIGN.md
+    // §7 lists "Row insert" as the named Entrance case this fills.
+    <Item
+      variant="outline"
+      size="default"
+      className="spg-turn flex-wrap gap-x-3 gap-y-2 px-4 py-3"
+    >
       <MachineTile state={state} />
 
       <ItemContent>
@@ -474,41 +561,43 @@ export function MachinesPage() {
   const [issued, setIssued] = React.useState<{
     code: string;
     expiresAt: string;
-    machinesAtIssue: number;
+    knownIds: ReadonlySet<string>;
   } | null>(null);
-  const [justPaired, setJustPaired] = React.useState<string | null>(null);
+  const [pairOutcome, setPairOutcome] = React.useState<PairOutcome | null>(null);
 
   const machines = runtimes.data ?? [];
 
   /**
-   * Retire the code once it has actually been used.
+   * Detect the redeemed code by diffing ids, not by "the list got longer".
    *
-   * Expiry alone is not enough: a code dies the moment a machine redeems it,
-   * and the panel would otherwise keep counting down over a code that no
-   * longer works. Someone reads it onto a third machine and blames the CLI for
-   * saying "already used".
-   *
-   * A new machine appearing is the observable signal — the list already polls,
-   * so this costs no extra request and ties the panel's lifetime to the exact
-   * event it exists for.
+   * Length-plus-"assume it's the last element" breaks the moment the list is
+   * ever sorted by anything other than insertion order — a rename, a status
+   * change, a future sort control all reorder `machines` without a new
+   * machine existing. Diffing against the id set taken at issue time is
+   * correct regardless of order, and also survives two codes being issued
+   * back to back (each panel only reacts to ids it didn't already know about).
    */
   React.useEffect(() => {
     if (!issued) return;
-    if (machines.length <= issued.machinesAtIssue) return;
-    setJustPaired(machines[machines.length - 1]?.name ?? "A new machine");
+    const arrival = machines.find((m) => !issued.knownIds.has(m.id));
+    if (!arrival) return;
+    setPairOutcome({ kind: "paired", name: arrival.name });
     setIssued(null);
   }, [machines, issued]);
 
   React.useEffect(() => {
-    if (!justPaired) return;
-    const clear = setTimeout(() => setJustPaired(null), 8000);
+    if (!pairOutcome || pairOutcome.kind !== "paired") return;
+    const clear = setTimeout(() => setPairOutcome(null), 8000);
     return () => clearTimeout(clear);
-  }, [justPaired]);
+  }, [pairOutcome]);
 
-  const pair = () =>
+  const pair = () => {
+    setPairOutcome(null);
     createCode.mutate(undefined, {
-      onSuccess: (result) => setIssued({ ...result, machinesAtIssue: machines.length }),
+      onSuccess: (result) =>
+        setIssued({ ...result, knownIds: new Set(machines.map((m) => m.id)) }),
     });
+  };
 
   const PairButton = ({ variant }: { variant: "default" | "outline" }) => (
     <Button variant={variant} disabled={createCode.isPending} onClick={pair}>
@@ -537,7 +626,10 @@ export function MachinesPage() {
         <PairingCodePanel
           code={issued.code}
           expiresAt={issued.expiresAt}
-          onExpired={() => setIssued(null)}
+          onExpired={() => {
+            setIssued(null);
+            setPairOutcome({ kind: "expired" });
+          }}
         />
       ) : null}
 
@@ -547,11 +639,12 @@ export function MachinesPage() {
         </p>
       ) : null}
 
-      {justPaired ? (
-        <p className="spg-turn flex items-center gap-2 text-sm text-muted-foreground">
-          <Check className="size-4 text-success" />
-          {justPaired} is paired. Restart core on that machine if it is already running.
-        </p>
+      {pairOutcome ? (
+        <PairingOutcomePanel
+          outcome={pairOutcome}
+          onDismiss={() => setPairOutcome(null)}
+          onRetry={pair}
+        />
       ) : null}
 
       {/*

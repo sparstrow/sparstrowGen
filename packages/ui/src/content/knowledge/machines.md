@@ -49,12 +49,20 @@ with none reads **no providers**.
 is what that machine is called everywhere, including on the Runs page.
 
 **Revoke** cuts the machine off on its very next request. The row stays in the list;
-pairing it again with a fresh code restores access. Use it for a computer you no longer
-control.
+pairing it again with a fresh code restores access — but see the note below, the same
+computer needs `--force`. Use it for a computer you no longer control.
 
 **Remove** deletes the machine and its pairing from the workspace, along with anything
 recorded against it. The computer itself keeps its local data — pair it again to
-reconnect.
+reconnect, again with `--force` (see below).
+
+> **Re-pairing the same computer needs `--force`.** Revoking or removing a machine only
+> deletes its record in the workspace — nothing here can reach onto that computer's disk
+> and clear the token it already stored, so the CLI still sees itself as paired. Plain
+> `sparstrow pair <code>` is refused with "already paired"; run
+> `sparstrow pair <code> --force` instead. This is the CLI protecting against silently
+> moving a machine between workspaces, not a bug — it just means "pair it again" always
+> means "with `--force`" when it's the same computer.
 
 Both ask you to confirm, and the dialog says which of the two you're about to do.
 
