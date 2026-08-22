@@ -171,7 +171,12 @@ export function TeamDetailPage() {
                 <div className="flex items-center gap-3">
                   <h1 className="text-3xl font-bold tracking-tight">{team.name}</h1>
                   <Badge variant="secondary" className="flex items-center gap-1">
-                    <Users className="size-3" /> {team.members.length}
+                    {/* Defensive floor, not the fix: the real contract is the backend
+                        actually populating `members` per teamDetailSchema (see
+                        BUG-2026-08-22-teams-page-crashes-with-real-data). This only
+                        guards against a future contract drift turning back into a
+                        hard crash. */}
+                    <Users className="size-3" /> {(team.members ?? []).length}
                   </Badge>
                   {team.isEphemeral && (
                     <Badge variant="outline" className="border-info/40 text-info" title="Auto-created around a multi-assign task; archives itself when the task finishes.">
@@ -236,13 +241,13 @@ export function TeamDetailPage() {
         <TabsContent value="members">
           <div className="grid md:grid-cols-3 gap-8">
             <div className="md:col-span-2 space-y-6">
-              <MembersSection teamId={team.id} members={team.members} readOnly={team.isEphemeral} />
+              <MembersSection teamId={team.id} members={team.members ?? []} readOnly={team.isEphemeral} />
             </div>
             <div className="space-y-6">
-              <ProjectsSection teamId={team.id} assignedProjects={team.projects} readOnly={team.isEphemeral} />
+              <ProjectsSection teamId={team.id} assignedProjects={team.projects ?? []} readOnly={team.isEphemeral} />
               <ManagerChatPanel
                 teamId={team.id}
-                roster={team.members.map((m) => ({ id: m.agentId, name: m.agentName }))}
+                roster={(team.members ?? []).map((m) => ({ id: m.agentId, name: m.agentName }))}
               />
             </div>
           </div>
