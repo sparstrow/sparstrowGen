@@ -262,6 +262,32 @@ spawn") — except it didn't even die at spawn, which is arguably worse.
   `--version`) so `authenticated` is genuinely populated, and the capability
   badge can distinguish "installed" from "installed and usable."
 
+### G-28 — `POST /chat/sessions` is unit-tested against a fake Supabase client, not verified live
+
+**Raised:** 2026-08-22, fixing
+[`BUG-2026-08-22-chat-new-session-404s`](bug/BUG-2026-08-22-chat-new-session-404s.md).
+
+The new handler (`apps/web/src/lib/api/handlers/chat.ts`) follows the exact
+pattern five other POST handlers already use in production (`agents.ts`'s
+`POST /agents`, plain `supabase.from(...).insert()` under the table's
+existing workspace-scoped RLS policy), and `apps/web/src/lib/api/chat-routes.test.ts`
+exercises the real validation and row-shaping logic — every `kind`, the
+project/agent not-found paths, and the CLI-provider rejection — against a
+fake Supabase client that mimics the real query-builder shape. It was not
+clicked through on a staging/preview URL with a signed-in session, so a
+class of failure the unit tests cannot see (an RLS policy that behaves
+differently than `001_rls.sql` implies, a PostgREST quirk on the real
+`chat_sessions` table, an env/auth wiring issue) is not ruled out.
+
+- **If wrong:** the empty-chat composer's "Send message" still fails, but
+  with whatever error Supabase actually returns rather than the bare 404 this
+  fix targeted — likely still an improvement, but not the fix as designed.
+- **Clears when:** someone signs into `staging.sparstrow.com` (or this
+  branch's own Vercel preview) and creates a session from `/chat`'s empty
+  composer for each of the four `kind`s, confirming the row lands and the
+  next call (`POST /chat/sessions/:id/messages`) surfaces the legible M5
+  stub message rather than a 404.
+
 ### G-15 — M6 (memory sync) is built and unit-tested; nothing has synced between two real machines
 
 **Raised:** 2026-08-12, closing T-M6-01 … T-M6-04.
