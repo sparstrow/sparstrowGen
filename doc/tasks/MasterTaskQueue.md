@@ -334,11 +334,11 @@ on an owner action.**
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 13.1 | [T-M11-01 — a machine on staging, and both states](M11/T-M11-01-machine-on-staging.md) | `[S]` | owner action | blocked — owner action |
-| 13.2 | [T-M11-02 — a run, live](M11/T-M11-02-run-live.md) | `[C]` | 13.1 | queued |
-| 13.3 | [T-M11-03 — the four failure messages](M11/T-M11-03-failure-messages.md) | `[C]` | 13.1 | queued |
-| 13.4 | [T-M11-04 — the desktop window](M11/T-M11-04-desktop-window.md) | `[P]` | 13.1 | queued |
-| 13.5 | [T-M11-05 — reconcile the gaps](M11/T-M11-05-gap-reconciliation.md) | `[S]` | 13.1–13.4 | queued |
+| 13.1 | [T-M11-01 — a machine on staging, and both states](M11/T-M11-01-machine-on-staging.md) | `[S]` | owner action | ✅ done (2026-08-22) |
+| 13.2 | [T-M11-02 — a run, live](M11/T-M11-02-run-live.md) | `[C]` | 13.1 | done except residue (2026-08-22) |
+| 13.3 | [T-M11-03 — the four failure messages](M11/T-M11-03-failure-messages.md) | `[C]` | 13.1 | ✅ done (2026-08-22) |
+| 13.4 | [T-M11-04 — the desktop window](M11/T-M11-04-desktop-window.md) | `[P]` | 13.1 | done except residue (2026-08-22) |
+| 13.5 | [T-M11-05 — reconcile the gaps](M11/T-M11-05-gap-reconciliation.md) | `[S]` | 13.1–13.4 | ✅ done (2026-08-22) |
 
 13.2 and 13.3 are `[C]` rather than `[P]` because they drive the same machine
 and the same workspace — and **13.3 must run after 13.2**, since it revokes a
@@ -429,10 +429,10 @@ What it still needs is a `product-requirements` pass, not more mechanism.
 
 | Item | Blocked by | Effect |
 |---|---|---|
-| **M11 (band 13) in its entirety** | **Owner action** — the owner's own machine's `SPARSTROW_CLOUD_URL`/`SPARSTROW_APP_URL` pointed at a deployed host | No longer a hard block on *whether this works* — pairing/sign-in/remove were run live against `development.sparstrow.com` on 2026-08-20, after clearing two undiscovered blockers (Vercel Deployment Protection; `development`'s missing env vars — both fixed, see [`../runbooks/deploy-web-app.md`](../runbooks/deploy-web-app.md)'s update note). What remains is switching the owner's own day-to-day machine over, plus the still-unexercised pieces: running a real job from the deployed app, and the desktop shell's online/offline behavior (`G-16`'s Electron half, `T-M7-04` §D). |
+| ~~**M11 (band 13) in its entirety**~~ | ~~**Owner action**~~ | **Resolved 2026-08-22.** `T-M11-01` paired a scratch machine (its own secrets/data dirs, not the owner's `~/.sparstrow`) live against `staging.sparstrow.com`, and 13.1–13.4 ran against it — a real dispatched run, all four failure messages, the Electron shell launched three times. The owner's own day-to-day machine is still unswitched, which is fine: nothing in this band needed it. |
 | GitHub / Google sign-in | **Deferred → [D-8](../Deferred.md)** | Not blocked work — parked by the owner 2026-08-10. Code is complete and verified; the buttons render disabled and light up on their own once the providers are enabled. |
 | Leaked password protection | **Supabase plan** | Requires Pro; not available on the current plan (confirmed 2026-08-10). No SQL equivalent, so nothing in this repo can fix it. Verified off by signing up with `password123` and getting a session. Not an action item — the advisor will keep flagging it. |
-| `/runs/[runId]` transcript | M5 (7.6) | M4 made the page openable and the run row live; the transcript inside it is empty until M5 writes `run_events` to the cloud. |
+| ~~`/runs/[runId]` transcript~~ | ~~M5 (7.6)~~ | **Resolved 2026-08-22.** `T-M11-02` dispatched a real run and watched `/runs/[runId]` populate live — cloud/local `run_events` counts matched exactly (3/3 and 13/13 across two runs). Rendering the transcript for every provider is not fully closed — see [`BUG-2026-08-22-antigravity-transcript-not-rendered`](../bug/BUG-2026-08-22-antigravity-transcript-not-rendered.md) — but the page is no longer empty by construction. |
 | Realtime doorbell for dispatch | **Deferred → [D-12](../Deferred.md)** | Not blocked work. The 3s poll is correct and always-on; the doorbell is a latency improvement that M5's decision 1 declined to buy with a second daemon auth model. |
 | Agent definitions differ between cloud and machine | **Deferred → [D-9](../Deferred.md)** | Not blocked work. M4 resolves a cloud agent to a local one by slug and blocks legibly on a miss; syncing definitions is a separate feature with its own conflict model. |
 

@@ -3,7 +3,7 @@ title: First-run setup
 section: Getting started
 description: Connect a provider, arm the factory, and confirm everything is healthy.
 order: 2
-updated: 2026-08-20
+updated: 2026-08-22
 ---
 
 **A new account lands on a Setup guide, not an empty dashboard.** It walks your profile,
@@ -92,5 +92,11 @@ Full details: [Machines](/knowledge/machines).
   indistinguishable from one that was unplugged, which is deliberate.
 - **Providers are detected per machine.** A machine without the `claude` CLI installed
   reports it as unavailable no matter what the board shows elsewhere.
+- **A provider reading as available means the CLI is installed, not that it's
+  currently authenticated.** A run dispatched to a machine whose CLI login has
+  expired still starts, then fails after a few minutes of retries with a clear
+  auth error rather than failing instantly — if a run seems to hang before
+  failing, re-run `claude auth status` (or the equivalent for your provider)
+  on that machine.
 
 Next: [Create your first agent](/knowledge/create-your-first-agent).

@@ -6,7 +6,7 @@
 | **Depends on** | T-M5-01 … T-M5-05 |
 | **Blocks** | — |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | ⏸ deferred to the owner, 2026-08-12 — see [`G-13`](../../KnownGaps.md) |
+| **Status** | ⏸ deferred to the owner, 2026-08-12 — see [`G-13`](../../KnownGaps.md); sections A (single-device half) and C partially closed 2026-08-22 by [`T-M11-02`](../M11/T-M11-02-run-live.md), which also found a real transcript-rendering bug — see that task's Result |
 
 ## Objective
 
@@ -34,12 +34,28 @@ with what it would cost if the assumption is wrong. Do not tick it.
 
 **Assert:**
 
-- [ ] Events appear without a manual refresh, and keep appearing
-- [ ] The first event is visible within ~2 s of the run reaching `running`
-- [ ] The connection chip reads connected — and disconnecting the second device's
-      network makes it read disconnected
-- [ ] `seq` in the rendered transcript is contiguous from 0
-- [ ] No event is rendered twice
+- [x] Events appear without a manual refresh, and keep appearing — confirmed
+      **at the data layer** by `T-M11-02` (2026-08-22), single device: polling
+      `GET /runs/<id>/events` during execution returned each event only once
+      it existed, at genuinely separate timestamps, not batched at the end.
+      **Not confirmed as a rendered, visually-watched transcript** — the
+      antigravity run used for this had no visible transcript at all (a
+      distinct UI bug, filed as
+      [`BUG-2026-08-22-antigravity-transcript-not-rendered`](../../bug/BUG-2026-08-22-antigravity-transcript-not-rendered.md)),
+      and the provider whose events *do* render (`claude-code`) could not
+      complete a run on the available machine (expired OAuth token, an
+      environment condition — see `T-M11-02`'s Result)
+- [ ] The first event is visible within ~2 s of the run reaching `running` —
+      not measured precisely; the first event in `T-M11-02`'s run appeared
+      ~2.2s after `startedAt`, close but not isolated as its own assertion
+- [ ] The connection chip reads connected — and disconnecting the second
+      device's network makes it read disconnected — **not exercised**, needs
+      the second device this environment does not have
+- [x] `seq` in the rendered transcript is contiguous from 0 — confirmed **in
+      the API response** (`0, 1, 2`, no gap); not confirmed in the rendered
+      view since nothing rendered for the run used
+- [x] No event is rendered twice — no duplicate `seq` in either the cloud or
+      local copy (`T-M11-02`)
 
 ## B — The outage, which is the phase
 
@@ -67,10 +83,16 @@ with what it would cost if the assumption is wrong. Do not tick it.
 This is phase decision 4, and it is the assertion most likely to be skipped
 because the page looks right either way.
 
-- [ ] The **last** local event for a completed run is present in the cloud.
+- [x] The **last** local event for a completed run is present in the cloud.
       Compare `max(seq)` on both sides, for a run that ended normally and for one
-      that ended in an error.
-- [ ] A run that was cancelled from the browser also has its final events
+      that ended in an error. **Closed by `T-M11-02`** (2026-08-22), both
+      cases: a normal `succeeded` run matched `max(seq)=2` (3/3 events) on
+      both sides; the `claude-code` run that ended in an error (expired
+      OAuth token, 7 retries) matched `max(seq)=12` (13/13 events) on both
+      sides too — checked mid-run first (8/13, an in-progress snapshot, not
+      a mismatch) and again after it reached `failed`, where it was 13/13
+- [ ] A run that was cancelled from the browser also has its final events —
+      not exercised this pass
 
 ## D — Crash recovery
 
@@ -122,12 +144,13 @@ Both halves, because they are enforced by different mechanisms.
 
 Check these rather than assuming; a phase that can close a gap is required to try.
 
-- [ ] **`G-12`** — the browser click-through pass. M5 requires a rendered page
-      observed on a second device, which is most of what `G-12` asked for. If the
-      pane renders this time, do the full pass and close what it covers; if it
-      does not, say so and leave the entry.
-- [ ] **`G-2`** — the WIP snapshot card in the local UI. Test G boots the local UI
-      anyway. If it is up, look at the card and close the gap.
+- [x] **`G-12`** — the browser click-through pass. The Playwright MCP browser
+      renders correctly in this environment (per `agent-browser-session.md`'s
+      2026-08-20 update, reconfirmed by `T-M11-01`/`T-M11-02`). A full
+      rendered `/machines` and `/runs/<id>` pass was done; see `T-M11-05` for
+      the final reconciliation of what this closes
+- [ ] **`G-2`** — the WIP snapshot card in the local UI — not reached this
+      pass; see `T-M11-04`, which is the task that boots a local UI
 
 Neither is scope. Both are two minutes once the environment is already standing.
 

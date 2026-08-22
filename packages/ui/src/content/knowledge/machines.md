@@ -3,7 +3,7 @@ title: Machines
 section: Surfaces
 description: Pair a computer to your workspace, read whether it's reachable, and rename, revoke or remove it.
 order: 8
-updated: 2026-08-20
+updated: 2026-08-22
 ---
 
 **Machines** is in the sidebar, under **Workspace**, directly after Runs. It lists every
@@ -39,9 +39,13 @@ Each machine shows a tile with a status dot, its name, and a line of identity:
   it goes quiet it reads as unreachable like anything else.
 
 After the state comes the operating system, the hostname, and the core version. To the
-right are **capability badges**: the providers that machine actually has installed and
-usable, which is what the board uses to decide what it can be asked to do. A machine
-with none reads **no providers**.
+right are **capability badges**: the providers genuinely installed on that machine,
+which is what the board uses to decide what it can be asked to do. A machine with none
+reads **no providers**. A badge confirms the provider's CLI or key is present and
+runnable — not that it's currently authenticated. A CLI whose login has expired still
+shows as available; a run dispatched to it starts, then fails a few minutes later with a
+clear auth error rather than failing instantly. If a run seems to hang and then fail,
+check that provider's own login state on that machine.
 
 ## Rename, revoke, remove
 

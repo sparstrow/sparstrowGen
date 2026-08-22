@@ -3,7 +3,7 @@ title: Providers & execution modes
 section: Concepts
 description: CLI vs direct-API execution — what's different, what's identical, and how to choose.
 order: 1
-updated: 2026-08-10
+updated: 2026-08-22
 ---
 
 Every agent names a **provider**, and the provider determines its **execution mode**.
@@ -50,10 +50,15 @@ database:
   refreshes the affected views automatically — runs, tasks, task questions, goals,
   plan nodes, messages, chat sessions and messages, machines, project links, and memory
   contradictions. You don't need to reload a page to see an agent's progress.
-- **Live run transcripts are not on this path yet.** Run events deliberately don't
-  ride the database change feed: at ~23 events per run it would spend the entire
-  message budget on transcripts and deliver each one twice. Streaming transcripts get
-  their own channel in a later phase; today a run's transcript fills in as it's saved.
+- **Live run transcripts have their own channel, separate from that feed** — a private
+  Realtime broadcast per run, not the database change feed (which would have spent its
+  whole message budget on a single run's ~23 events and delivered each one twice).
+  Events genuinely arrive while the run is still going, confirmed against a real
+  deployment: polling a run mid-execution shows new events appearing one at a time, not
+  all at once when it finishes. **Whether they're drawn on screen depends on the
+  provider** — some providers' events render as a proper transcript today; others
+  arrive on schedule but aren't drawn yet, which can read as nothing happening even
+  though the run is progressing normally.
 
 > Memory search is **not** a cloud vector search. Every machine embeds locally with a
 > bundled model and searches its own index, which is why semantic search stays fast and
@@ -76,8 +81,10 @@ database:
 - **Sign-in emails are rate-limited** — roughly a handful per hour on the current
   plan. If you hit `Email rate limit exceeded` while testing sign-up or sign-in links,
   wait a few minutes; signing in with a password is unaffected.
-- **Live transcript streaming isn't on the cloud path yet** (see above). Run events
-  appear as they're written, not as a live stream.
+- **Live transcript streaming works over its own channel** (see above), confirmed
+  against a real deployment. Whether the events render depends on the provider that
+  produced the run — check [Runs](/knowledge/runs-and-transcripts) if a run's page
+  looks idle while you know it's still running.
 - **Auth, connection, and Realtime quotas are set by the hosting plan**, not by
   Sparstrowgen, and change when the plan does. Check the Supabase dashboard for the
   current numbers rather than trusting a figure written here.
