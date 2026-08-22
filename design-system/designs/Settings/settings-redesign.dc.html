@@ -764,6 +764,7 @@
       <span class="tag">Mode:</span>
       <button id="btn-mode-dark" class="active" onclick="setMode('dark')">Dark</button>
       <button id="btn-mode-light" onclick="setMode('light')">Light</button>
+      <button id="btn-mode-system" onclick="setMode('system')">System</button>
     </div>
     <div class="devbar-group">
       <span class="tag">State:</span>
@@ -1020,10 +1021,20 @@
         </div>
 
         <div class="form-group" style="padding-top: 10px;">
-          <label class="label">Light / Dark Expression</label>
+          <label class="label">Expression</label>
           <div style="display: flex; gap: 8px;">
-            <button class="btn btn-outline btn-sm active" id="card-mode-dark" onclick="setMode('dark')">Dark Expression</button>
-            <button class="btn btn-outline btn-sm" id="card-mode-light" onclick="setMode('light')">Light Expression</button>
+            <button class="btn btn-outline btn-sm" id="card-mode-light" onclick="setMode('light')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+              Light
+            </button>
+            <button class="btn btn-outline btn-sm active" id="card-mode-dark" onclick="setMode('dark')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+              Dark
+            </button>
+            <button class="btn btn-outline btn-sm" id="card-mode-system" onclick="setMode('system')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+              System
+            </button>
           </div>
         </div>
       </div>
@@ -1244,6 +1255,9 @@
     let currentMode = 'dark';
 
     function init() {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+        if (currentMode === 'system') applyTheme();
+      });
       applyTheme();
       renderContent();
     }
@@ -1291,9 +1305,16 @@
 
     function setMode(mode) {
       currentMode = mode;
+      
+      // Update devbar
       document.querySelectorAll('.devbar button[id^="btn-mode-"]').forEach(b => b.classList.remove('active'));
       const activeDevBtn = document.getElementById('btn-mode-' + mode);
       if (activeDevBtn) activeDevBtn.classList.add('active');
+
+      // Update card UI
+      document.querySelectorAll('button[id^="card-mode-"]').forEach(b => b.classList.remove('active'));
+      const activeCardBtn = document.getElementById('card-mode-' + mode);
+      if (activeCardBtn) activeCardBtn.classList.add('active');
 
       applyTheme();
     }
@@ -1302,7 +1323,13 @@
       const html = document.documentElement;
       html.setAttribute('data-surface', currentSurface);
       html.setAttribute('data-brand', currentBrand);
-      if (currentMode === 'dark') {
+      
+      let effectiveMode = currentMode;
+      if (effectiveMode === 'system') {
+        effectiveMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+
+      if (effectiveMode === 'dark') {
         html.classList.add('dark');
         html.classList.remove('light');
       } else {
