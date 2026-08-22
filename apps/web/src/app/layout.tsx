@@ -23,6 +23,8 @@ export const metadata: Metadata = {
   description: "Sparstrow AI OS",
 };
 
+import { cookies } from "next/headers";
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -38,11 +40,43 @@ export default async function RootLayout({
   } = await supabase.auth.getUser();
   const account = user ? toSnapshot(user) : null;
 
+  const cookieStore = await cookies();
+  const themeCookie = cookieStore.get("theme-prefs");
+  let themeObj = { surface: "paper", brand: "amber", mode: "system" };
+  if (themeCookie?.value) {
+    try {
+      themeObj = JSON.parse(themeCookie.value);
+    } catch (e) {}
+  }
+
+  // If mode is explicit dark or light, set it. If system, default to dark but the
+  // client script will correct it instantly before paint.
+  const defaultClass = themeObj.mode === "light" ? "light" : "dark";
+
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased ${defaultClass}`}
+      data-surface={themeObj.surface}
+      data-brand={themeObj.brand}
+      suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                let prefs = ${JSON.stringify(themeObj)};
+                if (prefs.mode === 'system') {
+                  let isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  document.documentElement.classList.remove('light', 'dark');
+                  document.documentElement.classList.add(isDark ? 'dark' : 'light');
+                }
+              } catch(e) {}
+            `,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <Providers account={account}>
           <Suspense fallback={null}>
