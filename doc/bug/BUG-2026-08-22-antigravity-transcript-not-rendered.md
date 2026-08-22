@@ -1,6 +1,6 @@
 # BUG-2026-08-22-antigravity-transcript-not-rendered
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — found during T-M11-02 (M11 live verification against `staging.sparstrow.com`), watching a live antigravity-provider run on `/runs/<id>`
 **Reported:** 2026-08-22
 
@@ -91,10 +91,77 @@ isolates the bug to rendering rather than delivery.
 
 ## Resolution
 
-<!-- Open. Two candidate fixes, not mutually exclusive: (1) have
-     buildHeadlessSpawn pass --output-format stream-json to agy and parse it
-     into the same NormalizedEvent shapes claude-code produces where agy's
-     JSON has an equivalent, or (2) give RunTranscript's EventRow a case for
-     "raw" that renders the line as plain narration text (lower-fidelity but
-     at least visible) as a floor under any future provider that only ever
-     emits raw output. -->
+Both candidate fixes landed, not just the floor.
+
+**Fix 1 — structured events from `agy`, empirically verified against a real
+process.** `agy` turned out to already be installed in the agent's
+environment (`C:\Users\gsrih\AppData\Local\agy\bin\agy.exe`, v1.1.18), so
+this was verified against real output, not just `agy --help` text.
+`packages/core/src/providers/antigravity.ts`'s `buildHeadlessSpawn` now adds
+`--output-format stream-json` (before `--print`, since `--print` must stay
+last — it consumes the next argv token as the prompt). Two real captures —
+`agy --model "Gemini 3.5 Flash (Low)" --output-format stream-json --print
+"What is 2 plus 2? Reply with just the number."` and a second prompt that
+exercised tool calls (`view_file`, `find_by_name`, `list_dir`, `run_command`,
+including one that failed with a permission error) — showed the NDJSON shape
+is `{"event": "init"|"step_update"|"result", ...}`:
+
+- `init` → carries `init.model`.
+- `step_update` → `step_type` of `"user_input"`/`"checkpoint"` (no visible
+  content), `"agent_response"` (incremental `text_delta` chunks, not
+  accumulated text), or `"tool"` (an `ACTIVE` line when the call starts,
+  carrying `tool_name`/`tool_info.parameters`, then a `DONE` or `ERROR` line
+  when it finishes, carrying `tool_info.output` or `tool_info.error.message`).
+- `result` → terminal event, `status: "SUCCESS"|"ERROR"`, `response`,
+  optional `error`, `num_turns`.
+
+`parseLine` now maps these into the same `NormalizedEvent` shapes
+`claude-code`'s provider produces (`system`/`assistant`/`user`/`result`), so
+`run-transcript.tsx`'s existing renderers apply unmodified: `init` → a
+`system`/`init` event, `agent_response` deltas → `assistant` text blocks,
+`tool` `ACTIVE` → an `assistant` `tool_use` block, `tool` `DONE`/`ERROR` → a
+`user` `tool_result` block, `result` → a `result` event. `extractResult` was
+rewritten to prefer the terminal `result` event's `response` text (falling
+back to the accumulated assistant deltas, and further back to the old
+raw-stdout-join path for any line that isn't valid JSON — e.g. if `agy` is
+ever invoked without `--output-format stream-json`), and now surfaces a real
+`isError` + `errorMessage` from `result.status`/`result.error` instead of
+only detecting empty stdout.
+
+One deliberate limitation, noted in `parseLine`'s doc comment: `agy` streams
+narration as incremental deltas, and the provider instance is a shared
+singleton across concurrent runs (`packages/core/src/providers/index.ts`) —
+`parseLine` has no per-run state to accumulate deltas across lines into one
+bubble per reasoning step. Each delta becomes its own small `assistant` text
+block instead. This still satisfies the "progressive" requirement (US3
+scenario 2 / G-13) — text appears as it streams — just in finer-grained
+pieces than `claude-code`'s per-turn messages.
+
+**Fix 2 — the UI floor.** `packages/ui/src/components/run-transcript.tsx`'s
+`EventRow` now has a `"raw"` case (plain muted text, matching the "narration"
+register) instead of falling through to `default: return null`. This is the
+floor under fix 1's own fallback path (an unparseable or unrecognized line)
+and under any future provider that only ever emits raw output.
+
+**Verification:**
+
+- Unit tests in `packages/core/src/providers/antigravity.test.ts`, using the
+  real captured NDJSON lines as fixtures (not hand-guessed from `--help`):
+  `--output-format stream-json` is present in the spawn args before
+  `--print`; `parseLine` mapping for `init`, `agent_response` deltas
+  (including the empty-delta and bookkeeping-step drop cases), `tool`
+  `ACTIVE`/`DONE`/`ERROR`, the terminal `result` event (both `SUCCESS` and
+  `ERROR`), non-JSON fallback, and an unrecognized `event` field; and
+  `extractResult` preferring the structured `result.response`, falling back
+  to accumulated deltas, surfacing the structured error, and preserving the
+  legacy raw-stdout-join path when no `result` event is present.
+- `pnpm -r typecheck` and `pnpm -r test` run clean (see PR).
+- **Not verified**: a live antigravity run against staging end-to-end through
+  `/runs/<id>` (i.e. confirming the Transcript card itself renders correctly
+  in the browser). The `agy` process output was captured and verified
+  directly at the CLI, and the mapping was written and tested against those
+  real captures, but the full pipeline (spawn → parseLine → durable event
+  store → live SSE → RunTranscript) was not re-walked end-to-end in a
+  browser. If this needs closing, follow
+  `doc/runbooks/agent-browser-session.md`'s scratch-machine pairing
+  procedure to dispatch a real antigravity run and watch `/runs/<id>`.
