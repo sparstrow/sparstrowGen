@@ -1,6 +1,6 @@
 # BUG-2026-08-22-chat-new-session-404s
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — found during T-M11-02 (M11 live verification against `staging.sparstrow.com`), while trying to start the first run of the phase from `/chat`
 **Reported:** 2026-08-22
 
@@ -82,6 +82,81 @@ against instead. `/chat`'s own dispatch path remains unverified and broken.
 
 ## Resolution
 
-<!-- Open. Needs either a real POST /chat/sessions handler or a fix to what
-     the composer calls, plus a decision on whether "send first message"
-     should go through /runs directly. -->
+**Chose (a): built a real `POST /chat/sessions` handler**, not a redirect to
+`/runs`. The evidence pointed at (a) decisively once traced through:
+
+- `packages/shared/src/db/schema.ts` (~line 765) has real `chat_sessions` /
+  `chat_messages` `pgTable`s with a doc comment that says outright: *"Chat is
+  cloud-canonical... Turns replay history rather than resuming a provider
+  session id... so a conversation carries no machine-local state and ANY
+  online runtime can continue a `free` or `agent` session."* That is a
+  deliberate architecture, not a stub schema.
+- `packages/core/src/chat/service.ts` + `packages/core/src/api/routes/chat.ts`
+  are a **complete, fully-tested** implementation of this exact API shape
+  (`createChatSession`, `postChatTurn`, `retryChatTurn`, all four routes) —
+  it's the daemon's local-SQLite twin of the same `chat_sessions`/
+  `chat_messages` tables (same columns, same `kind` enum, same validation).
+  `packages/core/src/chat/service.test.ts` already covers it.
+- `packages/ui/src/routes/pages/chat.tsx`'s `send()` (line ~236) already does
+  exactly the two-step flow: `useCreateChatSession().mutate(...)` on success
+  calls `postTo(session.id, content)` (`POST /chat/sessions/:id/messages`).
+  The frontend was never wired to `/runs` for this — it was built against a
+  session-first API that the web app's cloud-side handlers just never
+  finished implementing.
+- `chat_sessions`/`chat_messages` already carry a workspace-scoped RLS policy
+  (`packages/shared/drizzle/policies/001_rls.sql` line ~104, `for all to
+  authenticated`) — the same "plain CRUD, no RPC needed" shape as `agents` and
+  `projects`, unlike `runs` (which needs the `start_run` SECURITY DEFINER RPC
+  because it also has to pick a runtime and enqueue a dispatch command in one
+  transaction). Creating a chat session is metadata-only and needs none of
+  that, so a direct `supabase.from("chat_sessions").insert(...)` — the same
+  pattern `agents.ts`'s `POST /agents` already uses — is the correct amount of
+  machinery.
+- `apps/web/src/lib/case.ts`'s `OPAQUE_COLUMNS` already had a `chat_sessions:
+  ["draft"]` entry with nothing registered to use it — a second sign a POST
+  handler was intended here and just never landed.
+
+**What was built:** `apps/web/src/lib/api/handlers/chat.ts` now registers
+`POST /chat/sessions`, mirroring `createChatSession`'s validation from
+`packages/core/src/chat/service.ts` so the cloud and daemon implementations
+don't drift: `kind` must be one of `free | project | agent | agent-creator`;
+`project` requires `projectId` and 404s if it's not in the caller's
+workspace; `agent` requires `agentId`, 404s the same way, and — this mirrors
+`assertCliProvider` — 400s if the agent's own provider isn't CLI-capable
+(`executionModeForProvider` from `@sparstrow/shared`), then mirrors the
+agent's real provider/model onto the session rather than trusting the
+client's; `free`/`agent-creator` default to `claude-code`/`sonnet`. The
+inserted row's `id` follows the same `chs_<random>` shape core uses.
+
+**What was deliberately left alone:** `POST /chat/sessions/:id/messages` and
+`.../retry` stay exactly the legible 501s they already were in `stubs.ts`
+("... requires a paired machine. Pair one from Settings. Arriving in M5.").
+Actually running a turn needs real dispatch to a paired machine's daemon —
+that is a genuinely unbuilt M5 problem (streaming turns, the transcript
+replay, picking an online runtime), not a missing-route bug, and building it
+here would be exactly the over-engineering AGENTS.md §3.9 rules out for a
+404 fix. The practical effect: creating a session now succeeds, and the
+composer's very next call (posting the first message into it) surfaces the
+intended, legible M5 stub message instead of a bare `Not Found` — a real
+improvement even though sending still doesn't work end-to-end yet.
+
+**Verification:** Added `apps/web/src/lib/api/chat-routes.test.ts` — dispatch
+tests (route registered, not swallowed by a stub, the two adjacent M5 stubs
+still respond and still say "paired machine" / "M5") plus handler-body tests
+against a fake Supabase client covering all four `kind`s, the project/agent
+not-found and validation paths, and the CLI-provider rejection. `pnpm -r
+typecheck` is clean across all 7 packages. `pnpm --filter web test` is clean
+(the only failures are the pre-existing `realtime-live-events.test.ts`
+flakes, explicitly another agent's assigned bug this round, untouched by this
+change). `pnpm -r test` also surfaces pre-existing Windows-environment
+failures in `packages/core` (`graph-client.test.ts`, `graph-lifecycle.test.ts`,
+`host-fs.test.ts`, `skills.test.ts` — temp-dir `EPERM` on cleanup and
+timeouts) on files this change never touches; `git diff --stat` for this
+branch shows only `apps/web/src/lib/api/handlers/chat.ts` and the new test
+file. **Not verified live against a staging/preview URL** — this is a
+same-package, same-pattern addition next to five other POST handlers that
+already work this way (`agents.ts`, `runs.ts`, etc.), and the fake-Supabase
+unit tests exercise the actual validation and row-shaping logic directly, so
+a full staging pairing/sign-in pass didn't seem proportionate to a route-shape
+fix. Flagging this as the honest gap rather than claiming a live pass that
+didn't happen.
