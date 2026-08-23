@@ -7,6 +7,7 @@ import {
   type ChatMessageMeta,
   type ChatSession,
   type ChatSessionCreate,
+  type ChatSessionKind,
   type ChatSessionListQuery,
   type ChatSessionUpdate,
   type ChatTurn,
@@ -37,7 +38,9 @@ const TRANSCRIPT_WINDOW = 40;
  *  exceeds the budget, because dropping it would send a promptless turn. */
 const TRANSCRIPT_BUDGET_BYTES = 24_000;
 
-const TURN_TIMEOUT_MS = 120_000;
+/** Exported so the cloud dispatch path (`cloud/chat-turn.ts`) uses the SAME
+ *  ceiling rather than a second constant that can drift from this one. */
+export const TURN_TIMEOUT_MS = 120_000;
 
 const rowToSession = (row: typeof chatSessions.$inferSelect): ChatSession =>
   ({ ...row }) as unknown as ChatSession;
@@ -213,18 +216,26 @@ export function fallbackTarget(
 
 const ISO = "2026-01-01T00:00:00.000Z";
 
-/** Synthetic, non-persisted agent that drives free/project chat turns. Free
- *  chat gets no tools; project chat gets read-only repo access. */
-function chatAgent(
-  session: ChatSession,
+/**
+ * Synthetic, non-persisted agent that drives free/project chat turns. Free
+ * chat gets no tools; project chat gets read-only repo access.
+ *
+ * Takes the session KIND rather than a whole `ChatSession` so the cloud
+ * dispatch path (`packages/core/src/cloud/chat-turn.ts`, M12) can reuse this
+ * exact prompt-building logic without needing a local session row to exist —
+ * a cloud-dispatched turn's session lives in Postgres, not this machine's
+ * SQLite.
+ */
+export function chatAgent(
+  kind: ChatSessionKind,
   provider: ProviderId,
   model: string,
   project: { name: string; description: string; rootDir: string | null } | null,
 ): Agent {
   const base: Agent = {
-    id: `chat-${session.kind}`,
+    id: `chat-${kind}`,
     name: "Chat",
-    slug: `chat-${session.kind}`,
+    slug: `chat-${kind}`,
     role: "",
     systemPrompt:
       "You are a helpful assistant inside Sparstrowgen, a local-first agent factory. Answer the user's latest message directly and conversationally. Use markdown when it helps.",
@@ -251,7 +262,7 @@ function chatAgent(
     createdAt: ISO,
     updatedAt: ISO,
   };
-  if (session.kind === "project" && project) {
+  if (kind === "project" && project) {
     return {
       ...base,
       systemPrompt: `You are a project assistant inside Sparstrowgen, chatting about the project "${project.name}"${project.description ? ` — ${project.description}` : ""}. You have READ-ONLY access to the project's repository${project.rootDir ? ` at ${project.rootDir}` : ""}. Use Read/Grep/Glob to answer questions about the code truthfully — never guess when you can look. Never modify files. Answer the user's latest message directly.`,
@@ -262,7 +273,12 @@ function chatAgent(
   return base;
 }
 
-export function buildTranscriptPrompt(history: ChatMessage[]): string {
+/**
+ * `Pick`, not `ChatMessage[]` — the cloud dispatch path's transcript window
+ * (`ChatTurnStartPayload.messages`, M12) only ever carries `role`/`content`,
+ * never a local id or timestamp a cloud-sourced message doesn't have.
+ */
+export function buildTranscriptPrompt(history: Pick<ChatMessage, "role" | "content">[]): string {
   const lines = history
     .slice(-TRANSCRIPT_WINDOW)
     .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`);
@@ -393,7 +409,7 @@ async function runTurn(
     const project = session.projectId
       ? (db.select().from(projects).where(eq(projects.id, session.projectId)).get() ?? null)
       : null;
-    agent = chatAgent(session, target.provider, target.model, project);
+    agent = chatAgent(session.kind, target.provider, target.model, project);
   }
 
   const prompt = buildTranscriptPrompt(history);

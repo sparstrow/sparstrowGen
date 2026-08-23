@@ -683,6 +683,15 @@ export interface ChatTurnStartPayload {
   provider: string | null;
   model: string | null;
   attempt: number;
+  /**
+   * The last ~50 messages, oldest first, INCLUDING the user message this
+   * turn is answering. A daemon has no local copy of a cloud session's
+   * history to read instead — see `016_chat_turn_transcript.sql`. The
+   * daemon does its own count/byte windowing on top of this with the
+   * existing local `buildTranscriptPrompt`; this is deliberately a superset,
+   * not the final prompt window.
+   */
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
 /**

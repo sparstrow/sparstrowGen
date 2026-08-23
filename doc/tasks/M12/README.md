@@ -19,7 +19,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | [T-M12-01 — schema, RLS, enqueue/assign functions](T-M12-01-schema-and-dispatch-functions.md) | `[S]` | foundational | — | ✅ done 2026-08-23, verified live on staging |
 | [T-M12-02 — shared contracts and constants](T-M12-02-shared-contracts.md) | `[S]` | foundational | 12.1 | ✅ done 2026-08-23 |
 | [T-M12-03 — daemon-facing routes + broadcast policy](T-M12-03-daemon-routes-and-broadcast.md) | `[P]` | foundational | 12.2 | ✅ done 2026-08-23, SQL contract verified live on staging (HTTP-level pass deferred to T-M12-06) |
-| [T-M12-04 — core command-loop case + turn executor](T-M12-04-core-chat-turn-executor.md) | `[P]` | foundational | 12.2 | not started |
+| [T-M12-04 — core command-loop case + turn executor](T-M12-04-core-chat-turn-executor.md) | `[P]` | foundational | 12.2 | ✅ done 2026-08-23, dispatch chain verified live on staging (real HTTP pass deferred to T-M12-06, tracked as G-30) |
 | [T-M12-05 — `LiveEventSource.subscribeChat`](T-M12-05-live-event-source-chat.md) | `[S]` | foundational | 12.3 | not started |
 | [T-M12-06 — verification](T-M12-06-verification.md) | `[S]` | foundational | 12.1–12.5 | not started |
 
@@ -129,6 +129,7 @@ was actually used.
 | `packages/shared/drizzle/*` (new migration) | `chat_turns` table — delegated to `data-modeler`, task 12.1 |
 | `packages/shared/drizzle/policies/014_chat_turn_dispatch.sql` | new — RLS for `chat_turns`, task 12.1 |
 | `packages/shared/drizzle/policies/015_chat_broadcast.sql` | new — `realtime.messages` select-only policy for `chat:` topics, task 12.3 |
+| `packages/shared/drizzle/policies/016_chat_turn_transcript.sql` | new — `assign_or_park_chat_turn` embeds a windowed message-history array in the dispatched command payload, task 12.4 (discovered mid-task: `ChatTurnStartPayload` had no transcript field to give the daemon) |
 | `packages/shared/src/db/schema.ts` | edit — `chatTurns` Drizzle table, task 12.1 |
 | `packages/shared/src/cloud.ts` | edit — `chat.turn` command kind/payload types, wait-TTL constant, staleness-threshold constant and its derivation function, task 12.2 |
 | `packages/shared/src/schemas/chat.ts` | edit — ingest/result payload schemas for the daemon boundary, task 12.2 |

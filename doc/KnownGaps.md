@@ -276,6 +276,59 @@ spawn") — except it didn't even die at spawn, which is arguably worse.
   `--version`) so `authenticated` is genuinely populated, and the capability
   badge can distinguish "installed" from "installed and usable."
 
+### G-30 — Cloud chat turns stream at whole-message granularity, not token-level, and the executor's real HTTP path has never carried a real reply end to end
+
+**Raised:** 2026-08-23, building
+[`T-M12-04`](tasks/M12/T-M12-04-core-chat-turn-executor.md) (the daemon's
+executor for cloud-dispatched chat turns).
+
+**DD-5's probe, done and answered, not skipped.** The plan asked whether the
+installed `claude-code` CLI has a partial-message/delta output mode to opt
+the chat path into; if not, "degrade silently to whole-message granularity
+... and open a KnownGaps entry recording this plainly." The probe: every CLI
+provider's `parseLine` (`packages/core/src/providers/claude-code.ts` and
+siblings) normalizes the provider's own `stream_event` lines into an opaque
+`status` `NormalizedEvent` without extracting any partial text — the finest
+signal `extractResult` can ever derive from the event list is "a new complete
+assistant message arrived," which is exactly what `completeOnce`'s new
+`onEvent` hook (`packages/core/src/orchestrator/one-shot.ts`) surfaces. This
+is not a bug in the M12 wiring; it is the actual granularity available today,
+named rather than assumed.
+
+- **If wrong** (i.e., if this is treated as token-level streaming by anything
+  downstream): M13's UI would be built expecting smoother, more frequent
+  deltas than the pipe can ever deliver, and would need reworking once the
+  gap between "assistant message arrived" and "typing indicator" became
+  visible to a real user.
+- **Clears when:** a use case actually needs finer granularity, at which
+  point `claude-code.ts`'s `parseLine` would need to parse `stream_event`'s
+  own `content_block_delta` payloads (assuming the underlying CLI emits them
+  in some invocation mode — not yet confirmed either way) rather than
+  discarding them. Until then, whole-message is the documented contract, and
+  M13 should describe it as such rather than promising something finer.
+
+**A second, narrower gap from the same task:** `runChatTurnCommand`'s
+resolution logic, batching/flush behavior, and terminal-`seq`-must-exceed-
+every-streamed-`seq` invariant are all covered by real tests (`chat-turn.test.ts`,
+`commands.test.ts`, and a real-subprocess test in `one-shot.test.ts`), and the
+dispatch chain was proved live end to end against staging through
+`assign_or_park_chat_turn`'s SQL (a hand-enqueued turn correctly carried a
+`messages` payload to the real online scratch machine, which correctly
+rejected the still-unknown `chat.turn` kind exactly as before this build —
+expected, since the fix lives only in this branch, not deployed). What has
+**not** been exercised: the actual HTTP round trip from a running instance of
+this branch's `core` daemon through `POST /api/daemon/chat/turns/:id/events`
+and `.../result` with a real bearer token, because no build of this branch
+has been deployed anywhere yet. That pass is T-M12-06's.
+- **If wrong:** a mismatch between what `chat-turn.ts` sends and what
+  T-M12-03's routes expect (a header, a body-shape assumption, an auth
+  timing issue) would only surface once a real daemon build talks to a real
+  deployed instance — unit tests on both sides agree with each other by
+  construction, not with reality.
+- **Clears when:** T-M12-06 runs a real paired daemon on this branch against
+  its own Vercel preview and watches a hand-enqueued turn actually stream and
+  complete.
+
 ### G-29 — Antigravity's fixed transcript rendering has not been walked live through a browser
 
 **Raised:** 2026-08-22, fixing
