@@ -84,6 +84,15 @@ export class AntigravityCliProvider implements CliProvider {
       agent.model,
       "--output-format",
       "stream-json",
+      // A headless spawn has no TTY, so an unattended, machine-global skill
+      // installed under the operator's own ~/.claude/skills can never get
+      // the tool permission it needs -- agy denies it immediately (observed
+      // as "permission check failed for command …", see
+      // BUG-2026-08-23-headless-spawn-skill-leak.md), which reads as a
+      // provider failure that has nothing to do with the actual chat turn.
+      // Keeps the headless tool surface exactly what Sparstrowgen granted,
+      // same reasoning as claude-code's --disable-slash-commands.
+      "--disable-slash-commands",
       ...this.permissionArgs(agent.permissionMode),
       ...this.workspaceDirArgs(agent),
       ...agent.extraArgs,

@@ -311,12 +311,25 @@ named rather than assumed.
   discarding them. Until then, whole-message is the documented contract, and
   M13 should describe it as such rather than promising something finer.
 
-### G-31 — no usable Anthropic credentials in this sandbox means no chat turn has ever actually succeeded, and a second machine has never been reached
+### G-31 — no chat turn has ever actually succeeded in a real verification pass, and a second machine has never been reached
 
 **Raised:** 2026-08-23, closing [`T-M12-06`](tasks/M12/T-M12-06-verification.md).
 **Narrowed:** 2026-08-23, during [`T-M13-05`](tasks/M13/T-M13-05-verification.md) —
 two of the original three sub-gaps closed with live evidence; the title and
 scope below reflect what's actually still open.
+**Corrected:** 2026-08-23, when the owner ran the still-open sub-gap live on
+their own real, credentialed, paired machine. **The "no usable Anthropic
+credentials" diagnosis below was wrong** — a real CLI process spawned and took
+a real action, which only happens with working credentials. The actual cause
+was [`BUG-2026-08-23-headless-spawn-skill-leak`](bug/BUG-2026-08-23-headless-spawn-skill-leak.md):
+headless spawns inherited the operator's personal `~/.claude` config
+unisolated, and a personal preamble-tier skill installed there could never get
+the tool permission it wanted (no TTY), so every turn stalled or was denied —
+on ANY machine with such a skill installed, credentials notwithstanding. Fixed
+with `--disable-slash-commands` on every headless spawn; see that bug file for
+the full trace. This sandbox itself still has no real CLI credentials at all,
+so the sub-gaps below remain genuinely open here — only the REASON a real
+machine was failing has changed.
 
 **Closed by T-M13-05, with evidence — do not re-open without new evidence:**
 
@@ -347,16 +360,22 @@ scope below reflect what's actually still open.
 
 **Still open, unchanged in kind, narrower in scope:**
 
-- **No real `claude` CLI completion.** Confirmed AGAIN by T-M13-05, same
-  symptom as before: a real turn was dispatched to a real online paired
-  machine (this time via the actual browser Send button, not a hand-inserted
-  row), and it genuinely hit its 120s timeout with no successful reply ever
-  produced — this sandbox still has no usable Anthropic credentials for a
-  spawned headless `claude` process. This is the one gap every later
-  milestone's live pass has hit identically (M12, now M13), and it will keep
-  blocking SC-001's growing-reply proof, SC-004 (Project/Agent reply
+- **No real `claude` CLI completion — in THIS sandbox.** Confirmed AGAIN by
+  T-M13-05, same symptom as before: a real turn was dispatched to a real
+  online paired machine (this time via the actual browser Send button, not a
+  hand-inserted row), and it genuinely hit its 120s timeout with no successful
+  reply ever produced — this sandbox still has no usable Anthropic credentials
+  for a spawned headless `claude` process, which remains true and unchanged by
+  the correction above. What the correction changes: on the owner's OWN real
+  machine (which does have working credentials), the same symptom turned out
+  to have a different, fixable cause
+  ([`BUG-2026-08-23-headless-spawn-skill-leak`](bug/BUG-2026-08-23-headless-spawn-skill-leak.md)),
+  now shipped. This sandbox's own credential gap is orthogonal and still
+  blocks SC-001's growing-reply proof, SC-004 (Project/Agent reply
   distinctiveness), and US3.2 (retry landing a genuinely different reply on
-  a different model) until it clears.
+  a different model) from being proven FROM HERE — but the owner's own machine
+  is no longer blocked by anything this repo's code controls, pending their
+  live confirmation of the fix.
 - **The two-machine race remains unreached** — only one scratch machine was
   paired this pass too. Spec edge case 3 ("either of two online machines may
   answer") is still exactly where `G-15`/`G-24` left it.

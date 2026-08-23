@@ -1,5 +1,56 @@
+import os from "node:os";
 import { describe, expect, it } from "vitest";
-import { errorMessageFrom } from "./claude-code.js";
+import type { Agent } from "@sparstrow/shared";
+import { ClaudeCodeProvider, errorMessageFrom } from "./claude-code.js";
+import type { HeadlessSpawnOptions, InteractiveSpawnOptions } from "./types.js";
+
+function agentWith(overrides: Partial<Agent> = {}): Agent {
+  return {
+    id: "agt_1",
+    name: "Coder",
+    slug: "coder",
+    role: "writes code",
+    systemPrompt: "",
+    provider: "claude-code",
+    model: "sonnet",
+    permissionMode: "default",
+    allowedTools: [],
+    disallowedTools: [],
+    addDirs: [],
+    extraArgs: [],
+    mcpServers: {},
+    maxTurns: null,
+    cwd: null,
+    ...overrides,
+  } as unknown as Agent;
+}
+
+const headlessOpts: HeadlessSpawnOptions = {
+  runId: "run_1",
+  tempDir: os.tmpdir(),
+  sessionId: "sess_1",
+};
+
+// BUG-2026-08-23-headless-spawn-skill-leak: a headless spawn has no TTY, so a
+// machine-global skill (installed under the operator's own ~/.claude/skills,
+// unrelated to Sparstrowgen) can never get the tool permission it wants —
+// claude-code stalls waiting on it until the run's own timeout fires.
+describe("ClaudeCodeProvider — headless spawn skill isolation", () => {
+  const provider = new ClaudeCodeProvider();
+
+  it("disables skill expansion on a headless spawn, so a machine-global skill can't attach", () => {
+    const spec = provider.buildHeadlessSpawn(agentWith(), "hi", headlessOpts);
+    expect(spec.args).toContain("--disable-slash-commands");
+  });
+
+  it("keeps skills on for an interactive spawn — a real human is at the PTY", () => {
+    const spec = provider.buildInteractiveSpawn(agentWith(), {
+      tempDir: "/tmp/x",
+      extraEnv: {},
+    } as InteractiveSpawnOptions);
+    expect(spec.args).not.toContain("--disable-slash-commands");
+  });
+});
 
 /**
  * Found in M4 verification, against a machine whose Claude OAuth token had
