@@ -276,11 +276,15 @@ spawn") — except it didn't even die at spawn, which is arguably worse.
   `--version`) so `authenticated` is genuinely populated, and the capability
   badge can distinguish "installed" from "installed and usable."
 
-### G-30 — Cloud chat turns stream at whole-message granularity, not token-level, and the executor's real HTTP path has never carried a real reply end to end
+### G-30 — Cloud chat turns stream at whole-message granularity, not token-level
 
 **Raised:** 2026-08-23, building
 [`T-M12-04`](tasks/M12/T-M12-04-core-chat-turn-executor.md) (the daemon's
-executor for cloud-dispatched chat turns).
+executor for cloud-dispatched chat turns). Its sibling finding — the
+executor's real HTTP path had never carried a reply end to end — was closed
+by [`T-M12-06`](tasks/M12/T-M12-06-verification.md)'s live local pass; see
+that task's Result for what was actually run. What's left here is the
+granularity finding on its own, which that pass didn't change.
 
 **DD-5's probe, done and answered, not skipped.** The plan asked whether the
 installed `claude-code` CLI has a partial-message/delta output mode to opt
@@ -307,27 +311,60 @@ named rather than assumed.
   discarding them. Until then, whole-message is the documented contract, and
   M13 should describe it as such rather than promising something finer.
 
-**A second, narrower gap from the same task:** `runChatTurnCommand`'s
-resolution logic, batching/flush behavior, and terminal-`seq`-must-exceed-
-every-streamed-`seq` invariant are all covered by real tests (`chat-turn.test.ts`,
-`commands.test.ts`, and a real-subprocess test in `one-shot.test.ts`), and the
-dispatch chain was proved live end to end against staging through
-`assign_or_park_chat_turn`'s SQL (a hand-enqueued turn correctly carried a
-`messages` payload to the real online scratch machine, which correctly
-rejected the still-unknown `chat.turn` kind exactly as before this build —
-expected, since the fix lives only in this branch, not deployed). What has
-**not** been exercised: the actual HTTP round trip from a running instance of
-this branch's `core` daemon through `POST /api/daemon/chat/turns/:id/events`
-and `.../result` with a real bearer token, because no build of this branch
-has been deployed anywhere yet. That pass is T-M12-06's.
-- **If wrong:** a mismatch between what `chat-turn.ts` sends and what
-  T-M12-03's routes expect (a header, a body-shape assumption, an auth
-  timing issue) would only surface once a real daemon build talks to a real
-  deployed instance — unit tests on both sides agree with each other by
-  construction, not with reality.
-- **Clears when:** T-M12-06 runs a real paired daemon on this branch against
-  its own Vercel preview and watches a hand-enqueued turn actually stream and
-  complete.
+### G-31 — M12's live pass never saw a genuine successful AI completion, a live Realtime subscriber, or a second machine
+
+**Raised:** 2026-08-23, closing
+[`T-M12-06`](tasks/M12/T-M12-06-verification.md) (M12's own verification
+task).
+
+T-M12-06 ran a real local `apps/web` instance and a real local `core` daemon
+— both this branch's actual code, both talking to real staging Postgres —
+and proved the full dispatch/claim/ack/events/result/ack-fix/retry/
+containment chain over genuine HTTP (see that task's Result for the complete
+list). Three things it could NOT reach, all bounded and named rather than
+silently skipped:
+
+- **No real `claude` CLI completion.** The sandboxed shell this pass ran in
+  has no usable Anthropic credentials for a freshly spawned headless `claude
+  -p` call (confirmed directly: `authentication_failed`, retried with
+  exponential backoff, never recovering). The turn that exercised
+  `completeOnce` for real genuinely spawned the CLI and genuinely hit its
+  120s timeout — a real failure path, correctly handled — but the SUCCESS
+  path's `reply_text` growth and final `chat_messages` insert were instead
+  proven by POSTing to the events/result routes directly with the daemon's
+  real bearer token, simulating what a successful `completeOnce` would send.
+  This proves the ROUTES and the SQL are correct; it does not prove
+  `completeOnce`'s own real-CLI plumbing produces well-formed `onEvent` calls
+  for an actual multi-step answer (that plumbing itself — the `extractResult`
+  reuse in `one-shot.ts` — IS covered by `one-shot.test.ts`'s real-subprocess
+  test, just not through this end-to-end path).
+- **No live Realtime subscriber was watching.** `broadcastChatTurnEvents` was
+  called on every real write (proven by the routes returning `200` and the
+  DB reflecting each write), and it is the identical `send()`-to-Realtime
+  mechanism M5's already-proven `broadcastRunEvents` uses, parameterized
+  differently — not a new implementation. But no test client actually
+  subscribed to `chat:<workspaceId>:<sessionId>` and watched a message
+  arrive; doing so needs a real signed-in user JWT (Realtime private channels
+  require one, not just the anon key), which this pass did not have.
+- **`DD-4`'s "pair after a turn is already waiting" adoption, and the
+  two-machine race, are unreached** — the same two items T-M12-06's own
+  Section D already anticipated needing infrastructure this pass didn't have
+  (a second machine; a fresh pairing timed against an existing waiting turn).
+  The "waiting" state itself (`all_runtimes_offline`) WAS proven live this
+  pass — see T-M12-06's Result.
+
+- **If wrong:** the most likely failure mode is in `completeOnce`'s real-CLI
+  `onEvent` wiring specifically (a payload shape `extractResult` produces
+  that the events route's validator rejects, or a cadence that floods it) —
+  everything downstream of a well-formed `{seq, replyText}` call is now
+  proven. The Realtime and two-machine gaps are lower risk: both reuse
+  mechanisms (M5's broadcast, `pick_runtime_for`'s existing selection) this
+  repo already trusts elsewhere.
+- **Clears when:** M13 or M14's own verification exercises a real chat send
+  through a real browser with a real signed-in session and a machine that
+  can actually authenticate to Anthropic — at which point all three gaps
+  close in the same pass, since that is exactly the scenario that needs all
+  three working together.
 
 ### G-29 — Antigravity's fixed transcript rendering has not been walked live through a browser
 
