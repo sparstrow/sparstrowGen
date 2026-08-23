@@ -3,13 +3,15 @@ title: Chat & Inbox
 section: Surfaces
 description: Free-form sessions with agents, and the message inbox where agents reach you (and each other).
 order: 6
-updated: 2026-07-13
+updated: 2026-08-22
 ---
 
 ## Chat — talk to your agents
 
-**Chat** is the conversational surface: session-based, streaming, markdown-rendered.
-A session has a *context* that shapes what the agent sees:
+**Chat** is the conversational surface: session-based, markdown-rendered. You can
+create a session and it will hold its place in the sidebar, but sending a message
+into it requires a paired machine and is not available yet — see Known Limitations
+below. A session has a *context* that shapes what the agent sees:
 
 - **Free** — just you and the agent.
 - **Project** — the session runs inside a project: its directives, memory scope, and
@@ -37,8 +39,11 @@ be on the Dashboard, not just here.
 
 ## Known Limitations & Boundaries
 
-- Chat sessions use the same run machinery as everything else — each reply is a run
-  you'll find in [Runs](/knowledge/runs-and-transcripts), with the same cost and
-  provenance tracking.
+- **Sending a chat message requires a paired machine and does not work yet.**
+  Creating a session works today; posting into it returns "requires a paired
+  machine" until that lands.
+- Chat turns are their own history, separate from [Runs](/knowledge/runs-and-transcripts) —
+  they don't get a Runs entry, transcript, or cost/provenance tracking the way a
+  task run does.
 - Chat is one agent per session; to make several agents cooperate, use
   [Pipelines](/knowledge/pipelines) or [Goals](/knowledge/tasks-and-goals).
