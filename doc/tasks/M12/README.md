@@ -16,7 +16,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
-| [T-M12-01 — schema, RLS, enqueue/assign functions](T-M12-01-schema-and-dispatch-functions.md) | `[S]` | foundational | — | not started |
+| [T-M12-01 — schema, RLS, enqueue/assign functions](T-M12-01-schema-and-dispatch-functions.md) | `[S]` | foundational | — | ✅ done 2026-08-23, verified live on staging |
 | [T-M12-02 — shared contracts and constants](T-M12-02-shared-contracts.md) | `[S]` | foundational | 12.1 | ✅ done 2026-08-23 |
 | [T-M12-03 — daemon-facing routes + broadcast policy](T-M12-03-daemon-routes-and-broadcast.md) | `[P]` | foundational | 12.2 | not started |
 | [T-M12-04 — core command-loop case + turn executor](T-M12-04-core-chat-turn-executor.md) | `[P]` | foundational | 12.2 | not started |
