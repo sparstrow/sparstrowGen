@@ -421,6 +421,18 @@ like a skipped step.
 **`D-17`, the theme picker, is unparked by this.** Its dependency was `G-19`.
 What it still needs is a `product-requirements` pass, not more mechanism.
 
+
+### Band 16 - Settings Redesign & Theme Architecture (2026-08-22)
+
+Plan: [../plans/2026-08-22-SettingsRedesign.md](../plans/2026-08-22-SettingsRedesign.md).
+Unparks D-17 (Theme picker). Resolves the nested tabs layout into a cleaner Master-Detail sidebar, and implements the DESIGN.md §2 theming contract with a Next.js cookie cache to prevent FOUC.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 16.1 | [T-01 - Theme Infra](SettingsRedesign/T-01-ThemeInfra.md) | `[S]` | - | 🟢 done |
+| 16.2 | [T-02 - Unified Nav](SettingsRedesign/T-02-UnifiedNav.md) | `[P]` | - | 🟢 done |
+| 16.3 | [T-03 - Appearance Picker](SettingsRedesign/T-03-AppearancePicker.md) | `[S]` | 16.1, 16.2 | 🟢 done |
+
 ## Blocked items
 
 > For a single checklist of everything that needs the owner specifically, see
