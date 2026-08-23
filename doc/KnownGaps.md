@@ -640,26 +640,47 @@ and is still there today.
 **Raised:** 2026-08-20, by `T-M8-03` — found by rendering the page, not by
 reading the tree.
 
-`packages/ui/src/components/layout/app-shell.tsx` and
-`apps/web/src/components/layout/app-shell.tsx` are near-duplicates. The first is
-the vite/desktop shell; the second is what the hosted app actually renders. Each
-holds its own `NAV_GROUPS` literal. Registering a destination in the shared one
-alone produces **no sidebar entry in the browser at all**, with a green
-typecheck, a passing test suite, and a route manifest that lists the page.
+**Narrowed 2026-08-23 (`T-G23-01`).** `NAV_GROUPS` — which paths appear in
+the sidebar, in what order, under which heading — is now a single export in
+`packages/ui/src/lib/nav-meta.ts`, alongside the `NAV_META`/`sectionMeta()`
+this entry's own `breadcrumbs.tsx` fix already relied on. Both
+`app-shell.tsx` files render from it and no longer carry their own
+`{to, label, icon}` list. This closes the specific silent failure the gap
+led with: a destination added to the shared list now appears in both hosts
+by construction, not by someone remembering to edit two files.
+`pnpm --filter @sparstrow/ui --filter web typecheck` and `test` both green
+(51 + 246 tests). **Verified live in the Vite/Electron shell** — `pnpm
+--filter @sparstrow/ui dev` booted and the sidebar read correctly via the
+Playwright accessibility tree: all four groups, correct headings, order,
+labels, and `href`s, matching `NAV_GROUPS` exactly. **Not verified in
+`apps/web`** — that host needs Supabase credentials this environment lacks,
+same blocker as `G-22`. Since both shells render from the identical shared
+array via the identical `sectionMeta()` call, the residual risk is narrow
+(a Next-specific rendering quirk, not a data error), but it is unconfirmed.
+See
+[`doc/plans/2026-08-23-shared-nav-groups.md`](plans/2026-08-23-shared-nav-groups.md).
 
-`breadcrumbs.tsx` had a third copy of the same information — a private
-`SECTION_LABELS` map beside `nav-meta.ts`'s `NAV_META`, which calls itself "one
-source of truth for section label + icon". That one is **fixed**: breadcrumbs now
-read `NAV_META`. The two shells are not.
+**Still open — the full-shell-merge half.** `packages/ui/src/components/layout/app-shell.tsx`
+(the vite/desktop shell) and `apps/web/src/components/layout/app-shell.tsx`
+(what the hosted app actually renders) are otherwise still near-duplicates:
+same header, same command palette wiring, same collapse/mobile-drawer logic,
+independently maintained. They differ in live-event transport
+(`useLiveEvents()`/Realtime vs `wsHub`) and the footer text; the routing
+primitive is less of a blocker than originally thought, since
+`apps/web/src/lib/react-router-mock.tsx` already bridges
+`@tanstack/react-router` calls to Next's router for other shared components
+(`command-palette.tsx` already relies on it) — what's missing for a real
+merge is an `Outlet` equivalent, since Next's shell takes `children` rather
+than rendering a route outlet.
 
-- **If wrong:** the next destination anyone adds is invisible in the sidebar of
-  the only host real users have. The failure is silent in every automated check
-  this repo runs, so it is caught only by someone opening the app — which, until
-  M8, nobody had been able to do.
-- **Clears when:** the two shells share one `NAV_GROUPS` (the honest minimum), or
-  are merged (the real fix). Neither is small: the shells differ in routing
-  primitive (`next/link` vs TanStack `Link`), in live-event transport, and in the
-  footer they render. Worth its own task rather than a drive-by.
+- **If wrong (residual):** any *other* per-shell duplication this task didn't
+  touch — header markup, palette wiring, collapse behavior — can still drift
+  the two hosts apart the same way `NAV_GROUPS` did. Lower risk than before,
+  since the highest-value duplicate (what's actually in the sidebar) is gone.
+- **Clears when:** the two `AppShell` components are actually merged into
+  one, with the live-event-transport difference resolved deliberately rather
+  than dropped — a bigger, separate piece of work than this entry's original
+  "honest minimum" fix, which is now done.
 
 ### G-24 — M8 is proved on localhost, not on staging, and not with a second computer
 

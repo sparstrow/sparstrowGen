@@ -1,27 +1,6 @@
 import * as React from "react";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import {
-  BookOpen,
-  Bot,
-  Brain,
-  CalendarClock,
-  FolderKanban,
-  Inbox,
-  LayoutDashboard,
-  ListChecks,
-  Menu,
-  MessagesSquare,
-  Monitor,
-  PackagePlus,
-  Play,
-  Puzzle,
-  Search,
-  Settings,
-  TerminalSquare,
-  Users,
-  Workflow,
-  X,
-} from "lucide-react";
+import { Menu, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { UpdateBanner } from "@/components/update-banner";
@@ -34,51 +13,7 @@ import { PinnedItems } from "@/components/layout/pinned-items";
 import { TabStrip } from "@/components/layout/tab-strip";
 import { WorkspaceSwitcher } from "@/components/layout/workspace-switcher";
 import { useWorkspaceTabs } from "@/lib/workspace-tabs";
-
-interface NavItem {
-  to: string;
-  label: string;
-  icon: typeof LayoutDashboard;
-}
-
-/** Multica-style strict groupings: Personal / Workspace / Configure. */
-const NAV_GROUPS: { heading: string | null; items: NavItem[] }[] = [
-  {
-    heading: null,
-    items: [{ to: "/", label: "Dashboard", icon: LayoutDashboard }],
-  },
-  {
-    heading: "Personal",
-    items: [
-      { to: "/chat", label: "Chat", icon: MessagesSquare },
-      { to: "/messages", label: "Inbox", icon: Inbox },
-      { to: "/tasks", label: "Task Board", icon: ListChecks },
-      { to: "/memory", label: "Memory", icon: Brain },
-    ],
-  },
-  {
-    heading: "Workspace",
-    items: [
-      { to: "/agents", label: "Agents", icon: Bot },
-      { to: "/teams", label: "Teams", icon: Users },
-      { to: "/projects", label: "Projects", icon: FolderKanban },
-      { to: "/runs", label: "Runs", icon: Play },
-      { to: "/machines", label: "Machines", icon: Monitor },
-      { to: "/pipelines", label: "Pipelines", icon: Workflow },
-      { to: "/schedule", label: "Schedule", icon: CalendarClock },
-      { to: "/imports", label: "Imports", icon: PackagePlus },
-    ],
-  },
-  {
-    heading: "Configure",
-    items: [
-      { to: "/skills", label: "Skills", icon: Puzzle },
-      { to: "/terminals", label: "Terminals", icon: TerminalSquare },
-      { to: "/knowledge", label: "Knowledge Center", icon: BookOpen },
-      { to: "/settings", label: "Settings", icon: Settings },
-    ],
-  },
-];
+import { NAV_GROUPS, sectionMeta } from "@/lib/nav-meta";
 
 function useWsConnected(): boolean {
   const [connected, setConnected] = React.useState(wsHub.isConnected);
@@ -173,14 +108,14 @@ export function AppShell() {
                   </p>
                 )}
                 <div className="space-y-0.5">
-                  {group.items.map((item) => {
-                    const isActive =
-                      item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
+                  {group.items.map((to) => {
+                    const meta = sectionMeta(to);
+                    const isActive = to === "/" ? pathname === "/" : pathname.startsWith(to);
                     return (
                       <Link
-                        key={item.to}
-                        to={item.to}
-                        title={item.label}
+                        key={to}
+                        to={to}
+                        title={meta.label}
                         className={cn(
                           "flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                           collapsed && "md:justify-center md:px-0",
@@ -189,11 +124,11 @@ export function AppShell() {
                             : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
                         )}
                       >
-                        <item.icon className="size-4" />
+                        <meta.icon className="size-4" />
                         <span className={cn("flex-1", collapsed && "md:hidden")}>
-                          {item.label}
+                          {meta.label}
                         </span>
-                        {item.to === "/" && attentionCount > 0 ? (
+                        {to === "/" && attentionCount > 0 ? (
                           <span
                             className={cn(
                               "rounded-full bg-warning px-1.5 text-xs font-semibold text-white",

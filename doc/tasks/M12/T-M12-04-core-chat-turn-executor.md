@@ -151,7 +151,7 @@ not a detail to bury.
 
 ## On completion
 
-- [x] Tick 12.4 (17.4) in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 12.4 (18.4) in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
 - [x] Update this file's **Status** row
 - [x] Update the phase README's task table
 - [x] `KnownGaps.md` entry (`G-30`) — DD-5's probe found no delta mode; entry opened in this same change

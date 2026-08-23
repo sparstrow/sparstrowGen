@@ -141,7 +141,7 @@ covered and what isn't, and why.
 
 ## On completion
 
-- [x] Tick 12.1–12.6 (17.1–17.6) in [`../MasterTaskQueue.md`](../MasterTaskQueue.md) and mark the M12 band complete
+- [x] Tick 12.1–12.6 (18.1–18.6) in [`../MasterTaskQueue.md`](../MasterTaskQueue.md) and mark the M12 band complete
 - [x] Update the phase `README.md` status line and its task table
 - [x] Update the plan's own **Status** row to "M12 complete · M13 next"
 - [x] Knowledge Center pass — skipped for M12 per this task's own original

@@ -70,7 +70,7 @@ the kind of thing that "looks done" until someone's wifi hiccups.
 
 ## On completion
 
-- [x] Tick 12.5 (17.5) in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Tick 12.5 (18.5) in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
 - [x] Update this file's **Status** row
 - [x] Update the phase README's task table
 

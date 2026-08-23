@@ -433,7 +433,20 @@ Unparks D-17 (Theme picker). Resolves the nested tabs layout into a cleaner Mast
 | 16.2 | [T-02 - Unified Nav](SettingsRedesign/T-02-UnifiedNav.md) | `[P]` | - | 🟢 done |
 | 16.3 | [T-03 - Appearance Picker](SettingsRedesign/T-03-AppearancePicker.md) | `[S]` | 16.1, 16.2 | 🟢 done |
 
-### Band 17 — M12–M15 chat message sending (2026-08-23)
+### Band 17 — G23 shared sidebar nav groups (2026-08-23)
+
+Plan: [../plans/2026-08-23-shared-nav-groups.md](../plans/2026-08-23-shared-nav-groups.md).
+Narrows `G-23`: both app shells hardcoded their own `NAV_GROUPS` literal, so a
+destination added to one silently never appears in the other's sidebar — with
+a green typecheck and passing tests. Closes the silent-failure half of the
+gap by moving grouping/order into `nav-meta.ts`; the full-shell-merge half
+stays open.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 17.1 | [T-G23-01 — extract NAV_GROUPS into nav-meta.ts](G23/T-G23-01-shared-nav-groups.md) | `[S]` | — | ✅ done 2026-08-23 |
+
+### Band 18 — M12–M15 chat message sending (2026-08-23)
 
 Plan: [`../plans/2026-08-23-chat-message-sending.md`](../plans/2026-08-23-chat-message-sending.md).
 Spec: [`../specs/2026-08-23-chat-message-sending.md`](../specs/2026-08-23-chat-message-sending.md).
@@ -445,31 +458,38 @@ Reuses M4's command spine and M5's ingest-then-broadcast shape wholesale
 [D-12](../Deferred.md), which named "interactive chat turns" as a candidate
 trigger and deliberately did not become one.
 
-M12 is fully decomposed (6 tasks). M13/M14/M15 have phase specs but their
-individual tasks are intentionally not yet written — this repo's own
-precedent (M5's decomposition depended on what M4's dispatch actually turned
-out to look like) applies directly here, since M13–M15 all build on M12's
-actual shape.
+Renumbered from a first-drafted Band 17 to Band 18 when this branch merged
+`development`: Band 17 above (G-23) landed first and already owned that
+number — this note exists so a reader who remembers "chat was Band 17" from
+an earlier read of this file isn't confused by the shift; nothing about the
+work itself changed.
+
+M12 is fully decomposed (6 tasks) and **complete** — verified live locally
+against this branch's real code and real staging Postgres (T-M12-06).
+M13/M14/M15 have phase specs but their individual tasks are intentionally not
+yet written — this repo's own precedent (M5's decomposition depended on what
+M4's dispatch actually turned out to look like) applies directly here, since
+M13–M15 all build on M12's actual shape.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 17.1 | [T-M12-01 — schema, RLS, enqueue/assign functions](M12/T-M12-01-schema-and-dispatch-functions.md) | `[S]` | — | ✅ done 2026-08-23 — applied and verified live on staging (`pnymngoqseltgigcfevq`) via the Supabase MCP once the owner completed its OAuth login |
-| 17.2 | [T-M12-02 — shared contracts and constants](M12/T-M12-02-shared-contracts.md) | `[S]` | 17.1 | ✅ done 2026-08-23 (built against T-M12-01's fully-specified design ahead of that migration's live execution, which was blocked on Supabase MCP auth — pure TypeScript, no live DB dependency) |
-| 17.3 | [T-M12-03 — daemon-facing routes + broadcast policy](M12/T-M12-03-daemon-routes-and-broadcast.md) | `[P]` | 17.2 | ✅ done 2026-08-23 — SQL contract (ownership scoping, ingest, ack-route fix) verified live on staging; HTTP-level pass deferred to T-M12-06 |
-| 17.4 | [T-M12-04 — core command-loop case + turn executor](M12/T-M12-04-core-chat-turn-executor.md) | `[P]` | 17.2 | ✅ done 2026-08-23 — dispatch chain verified live on staging; real HTTP pass deferred to T-M12-06 (tracked as G-30) |
-| 17.5 | [T-M12-05 — `LiveEventSource.subscribeChat`](M12/T-M12-05-live-event-source-chat.md) | `[S]` | 17.3 | ✅ done 2026-08-23 |
-| 17.6 | [T-M12-06 — M12 verification](M12/T-M12-06-verification.md) | `[S]` | 17.1–17.5 | ✅ done 2026-08-23 — **M12 complete**, live-verified locally against this branch's real code + real staging Postgres; remaining gaps in `KnownGaps.md` `G-31` |
-| 17.7 | M13 tasks (US1 — send + streaming reply) | `[S]` | 17.6 | not decomposed — see [`M13/README.md`](M13/README.md) |
-| 17.8 | M14 tasks (US2 — nothing-can-answer states) | `[S]` | 17.7 | not decomposed — see [`M14/README.md`](M14/README.md) |
-| 17.9 | M15 tasks (US3 — retry) | `[S]` | 17.7 | not decomposed — see [`M15/README.md`](M15/README.md) |
+| 18.1 | [T-M12-01 — schema, RLS, enqueue/assign functions](M12/T-M12-01-schema-and-dispatch-functions.md) | `[S]` | — | ✅ done 2026-08-23 — applied and verified live on staging (`pnymngoqseltgigcfevq`) via the Supabase MCP once the owner completed its OAuth login |
+| 18.2 | [T-M12-02 — shared contracts and constants](M12/T-M12-02-shared-contracts.md) | `[S]` | 18.1 | ✅ done 2026-08-23 (built against T-M12-01's fully-specified design ahead of that migration's live execution, which was blocked on Supabase MCP auth — pure TypeScript, no live DB dependency) |
+| 18.3 | [T-M12-03 — daemon-facing routes + broadcast policy](M12/T-M12-03-daemon-routes-and-broadcast.md) | `[P]` | 18.2 | ✅ done 2026-08-23 — HTTP contract closed live by T-M12-06 |
+| 18.4 | [T-M12-04 — core command-loop case + turn executor](M12/T-M12-04-core-chat-turn-executor.md) | `[P]` | 18.2 | ✅ done 2026-08-23 — dispatch chain closed live by T-M12-06 (G-30) |
+| 18.5 | [T-M12-05 — `LiveEventSource.subscribeChat`](M12/T-M12-05-live-event-source-chat.md) | `[S]` | 18.3 | ✅ done 2026-08-23 |
+| 18.6 | [T-M12-06 — M12 verification](M12/T-M12-06-verification.md) | `[S]` | 18.1–18.5 | ✅ done 2026-08-23 — **M12 complete**, live-verified locally against this branch's real code + real staging Postgres; remaining gaps in `KnownGaps.md` `G-31` |
+| 18.7 | M13 tasks (US1 — send + streaming reply) | `[S]` | 18.6 | not decomposed — see [`M13/README.md`](M13/README.md) |
+| 18.8 | M14 tasks (US2 — nothing-can-answer states) | `[S]` | 18.7 | not decomposed — see [`M14/README.md`](M14/README.md) |
+| 18.9 | M15 tasks (US3 — retry) | `[S]` | 18.7 | not decomposed — see [`M15/README.md`](M15/README.md) |
 
-17.3 and 17.4 are `[P]`: 17.3 touches `apps/web/*` and a new SQL policy file,
-17.4 touches `packages/core/*` — zero file overlap, both need only 17.2's
+18.3 and 18.4 are `[P]`: 18.3 touches `apps/web/*` and a new SQL policy file,
+18.4 touches `packages/core/*` — zero file overlap, both need only 18.2's
 shared types. Everything else in the band is `[S]`: each subsequent piece
 needs the previous one's actual output, not just its intent, to be decomposed
 or implemented correctly.
 
-
+## Blocked items
 
 > For a single checklist of everything that needs the owner specifically, see
 > [`../runbooks/README.md`](../runbooks/README.md) — the rows below explain
