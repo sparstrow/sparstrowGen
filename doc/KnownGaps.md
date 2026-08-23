@@ -318,18 +318,25 @@ named rather than assumed.
 two of the original three sub-gaps closed with live evidence; the title and
 scope below reflect what's actually still open.
 **Corrected:** 2026-08-23, when the owner ran the still-open sub-gap live on
-their own real, credentialed, paired machine. **The "no usable Anthropic
-credentials" diagnosis below was wrong** — a real CLI process spawned and took
-a real action, which only happens with working credentials. The actual cause
-was [`BUG-2026-08-23-headless-spawn-skill-leak`](bug/BUG-2026-08-23-headless-spawn-skill-leak.md):
+their own real, credentialed, paired machine, in two rounds. Round 1: both
+providers failed, and the failure was NOT "no usable Anthropic credentials" —
+a real CLI process spawned and took a real action, which only happens with
+working credentials. That round's cause was
+[`BUG-2026-08-23-headless-spawn-skill-leak`](bug/BUG-2026-08-23-headless-spawn-skill-leak.md):
 headless spawns inherited the operator's personal `~/.claude` config
 unisolated, and a personal preamble-tier skill installed there could never get
-the tool permission it wanted (no TTY), so every turn stalled or was denied —
-on ANY machine with such a skill installed, credentials notwithstanding. Fixed
-with `--disable-slash-commands` on every headless spawn; see that bug file for
-the full trace. This sandbox itself still has no real CLI credentials at all,
-so the sub-gaps below remain genuinely open here — only the REASON a real
-machine was failing has changed.
+the tool permission it wanted (no TTY). Fixed with `--disable-slash-commands`
+on every headless spawn. Round 2, after that fix: **antigravity's retried turn
+completed successfully** — the first real, live-produced chat reply this
+gap has ever recorded. claude-code still failed, but a direct repro traced it
+to a genuine `401 authentication_failed` on that account's `claude` CLI login
+(`claude auth status` showed `loggedIn: true` but `subscriptionType: null`) —
+an account-side credential problem for the owner to fix by re-authenticating,
+unrelated to the skill-leak bug and outside this repo's code. This sandbox
+itself still has no real CLI credentials at all, so the sub-gaps below remain
+genuinely open HERE — but the underlying claim they were blocking on
+("nothing in this repo can produce a real completion") is no longer true in
+general, only in this specific sandbox.
 
 **Closed by T-M13-05, with evidence — do not re-open without new evidence:**
 
@@ -358,24 +365,33 @@ machine was failing has changed.
   in the same change, pinned with a new test (`json.session` asserted
   directly, not just sibling fields).
 
+**Partially closed, live, by the owner's round 2 (2026-08-23):** a real
+antigravity chat turn, on a real online paired machine, completed
+successfully — the first real reply this gap has ever recorded. Not yet
+confirmed from that evidence alone: whether the reply arrived as ≥2 broadcasts
+(SC-001's "growing" claim specifically, vs. one broadcast landing the whole
+text at once) — the owner reported success but this file wasn't shown the
+reply's own delivery shape. SC-004 (Project/Agent distinctiveness) and US3.2
+(retry landing a different reply on a different model) still need their own
+dedicated pass even with a working provider, since neither was exercised by a
+single Free-chat "hi". Re-check and tighten these claims with specific
+evidence next time any of them is actually walked, rather than inferring them
+from this one success.
+
 **Still open, unchanged in kind, narrower in scope:**
 
-- **No real `claude` CLI completion — in THIS sandbox.** Confirmed AGAIN by
-  T-M13-05, same symptom as before: a real turn was dispatched to a real
-  online paired machine (this time via the actual browser Send button, not a
-  hand-inserted row), and it genuinely hit its 120s timeout with no successful
-  reply ever produced — this sandbox still has no usable Anthropic credentials
-  for a spawned headless `claude` process, which remains true and unchanged by
-  the correction above. What the correction changes: on the owner's OWN real
-  machine (which does have working credentials), the same symptom turned out
-  to have a different, fixable cause
-  ([`BUG-2026-08-23-headless-spawn-skill-leak`](bug/BUG-2026-08-23-headless-spawn-skill-leak.md)),
-  now shipped. This sandbox's own credential gap is orthogonal and still
-  blocks SC-001's growing-reply proof, SC-004 (Project/Agent reply
-  distinctiveness), and US3.2 (retry landing a genuinely different reply on
-  a different model) from being proven FROM HERE — but the owner's own machine
-  is no longer blocked by anything this repo's code controls, pending their
-  live confirmation of the fix.
+- **No real `claude` CLI completion — in THIS sandbox, and now confirmed to
+  be a SEPARATE cause on the owner's machine too.** This sandbox still has no
+  usable Anthropic credentials for a spawned headless `claude` process — true
+  and unchanged. On the owner's own real machine, `claude-code` also still
+  fails, but NOT for a reason this repo's code controls: a direct repro
+  (`claude auth status`) showed `loggedIn: true` with `subscriptionType:
+  null`, and every real API call returns `401 authentication_failed` — a
+  stale/expired token or missing plan entitlement on that account's `claude`
+  CLI login. Antigravity's success on the SAME machine, SAME spawn path,
+  proves this isn't an isolation/environment problem — it's specific to that
+  one provider's credential state. Clears when the owner re-authenticates the
+  `claude` CLI; nothing in this repo can do that step.
 - **The two-machine race remains unreached** — only one scratch machine was
   paired this pass too. Spec edge case 3 ("either of two online machines may
   answer") is still exactly where `G-15`/`G-24` left it.

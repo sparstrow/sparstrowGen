@@ -1,6 +1,8 @@
 # BUG-2026-08-23-headless-spawn-skill-leak
 
-**Status:** 🟡 investigating — fix implemented and unit-tested, live confirmation pending
+**Status:** 🟢 resolved for antigravity, live-confirmed — claude-code's remaining
+failure on this machine is a SEPARATE, account-side auth issue, not this bug
+(see Resolution)
 **Reported by:** agent, while live-verifying M13's chat with the owner — they signed into the
 branch's Vercel preview, sent "hi" in a Free chat session, and both providers failed.
 **Reported:** 2026-08-23
@@ -116,12 +118,23 @@ Pinned with new tests: `claude-code.test.ts` and `antigravity.test.ts` each gain
 of tests asserting the flag is present on a headless spawn and absent on an interactive
 one. `pnpm typecheck` and the full `packages/core` suite (709+ tests) pass.
 
-**Verification, and its honest limit:** the fix is implemented and unit-tested, but a real
-chat turn completing successfully on the machine that surfaced this bug has not yet been
-confirmed as of this writing — the daemon was restarted with the fix immediately after
-landing it, and the owner was asked to retry. This entry stays 🟡 until that live
-confirmation lands; flip to 🟢 with the evidence once it does, per this repo's own
-discipline against claiming more than was actually run.
+**Verified live, same session.** The owner retried on the same real machine after the
+daemon restarted with the fix: **antigravity's turn completed successfully** — the exact
+`permission check failed for command "...gstack-slug"` failure is gone, confirming the
+fix actually closes the gap it targets. **claude-code still failed**, but a direct repro
+(`echo hi | claude -p --output-format stream-json --verbose --disable-slash-commands
+--model sonnet`, run on the same machine, same flags the daemon now uses) showed the real
+cause is unrelated to this bug: a genuine `401 authentication_failed` from the Anthropic
+API on every retry (`{"type":"system","subtype":"api_retry","attempt":1..7,"error_status":
+401,"error":"authentication_failed"}`), which the CLI retries with exponential backoff
+(0.5s → 36s) until Sparstrowgen's own 120s orchestrator timeout kills it — misreported as
+"the provider timed out," the same symptom this bug originally described, but a different
+cause. `claude auth status` on the same machine confirms `loggedIn: true` but
+`subscriptionType: null` — a stale/expired token or missing plan entitlement, not a skill
+leaking into the spawn. Auth never even got far enough to reach a tool-permission check at
+all in this repro. That's a separate, account-side problem for the owner to resolve
+(re-authenticate the `claude` CLI) — tracked nowhere in this repo since it isn't code this
+repo controls, and not filed as its own bug for the same reason.
 
 **Not addressed here, and deliberately out of scope:** whether Sparstrowgen should isolate
 spawned subprocesses from the operator's personal `~/.claude` config more broadly (e.g. a
