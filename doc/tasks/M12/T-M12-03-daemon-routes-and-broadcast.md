@@ -31,9 +31,13 @@ own broadcast topic/policy, select-only, not on `postgres_changes`).
 **`POST /api/daemon/chat/turns/[id]/events`** — streamed delta batch.
 Bearer-authenticated as the daemon (same middleware as the existing
 `/api/daemon/*` routes). Body: one or more `{ seq, replyText }` entries
-(strict parse per T-M12-02's schema — reject the whole batch on any
-malformed entry, do not store the valid subset, matching
-`parseEventBatch`'s existing rule). For each entry in order, call
+(`ChatTurnEventBatch`, T-M12-02's plain-interface shape — mirroring
+`RunEventPush`/`RunEventBatch`, not a zod schema, matching how the run-events
+boundary is validated today). **This task writes the strict-parse validator
+itself** — a new `apps/web/src/lib/daemon/chat-transcript.ts`, structured
+exactly like `apps/web/src/lib/daemon/transcript.ts`'s `parseEventBatch`
+(reject the whole batch on any malformed entry, do not store the valid
+subset — read that file before writing this one, don't reinvent its shape). For each entry in order, call
 `ingest_chat_turn_reply(turnId=[id], runtimeId=<from bearer>, seq, replyText, status='running')`.
 After the durable write(s) succeed, broadcast on topic
 `chat:<workspaceId>:<sessionId>` using the same `planBroadcast` byte-budgeted

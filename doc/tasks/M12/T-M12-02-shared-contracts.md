@@ -7,7 +7,7 @@
 | **Depends on** | T-M12-01 (table shape, SQLSTATE codes, and the TTL value are inputs here) |
 | **Blocks** | T-M12-03, T-M12-04 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-23 |
 
 ## Objective
 
@@ -64,8 +64,16 @@ export const CHAT_TURN_WAIT_TTL_MS = 24 * 60 * 60 * 1000;
 // threshold — the SQL side of T-M12-01 must carry a comment naming this
 // constant, per that task's Traps.
 export const CHAT_TURN_STALE_MS = 60_000; // no ingest call in 60s while in_progress = stale
-export function isChatTurnStale(turn: { status: string; updatedAt: string }): boolean {
-  return turn.status === "in_progress" && Date.now() - new Date(turn.updatedAt).getTime() > CHAT_TURN_STALE_MS;
+// `now` is injectable, matching isRuntimeOnline's convention exactly -- required for
+// deterministic tests, and caught by the tests when first written without it.
+export function isChatTurnStale(
+  turn: { status: string; updatedAt: string | Date },
+  now: number = Date.now(),
+): boolean {
+  if (turn.status !== "in_progress") return false;
+  const updated = turn.updatedAt instanceof Date ? turn.updatedAt : new Date(turn.updatedAt);
+  const age = now - updated.getTime();
+  return Number.isNaN(age) || age >= CHAT_TURN_STALE_MS;
 }
 ```
 
@@ -129,16 +137,16 @@ fields.
 
 ## Checklist
 
-- [ ] `CommandKind` includes `"chat.turn"`
-- [ ] `ChatTurnStartPayload` interface added
-- [ ] `ChatTurnWaitingReason` type added
-- [ ] `CHAT_TURN_ENQUEUE_ERRCODE_REASONS` map added, matching T-M12-01's SQLSTATEs exactly
-- [ ] `CHAT_TURN_WAIT_TTL_MS` added at the value T-M12-01 used
-- [ ] `CHAT_TURN_STALE_MS` + `isChatTurnStale()` added and exported
-- [ ] `chatTurnStateSchema` added to `packages/shared/src/schemas/chat.ts`
-- [ ] `chatTurnRequestSchema` gains the byte-ceiling clamp on `content`
-- [ ] Daemon-boundary ingest payload schema(s) added (events batch, result), strict parse
-- [ ] `packages/shared` typecheck and tests green
+- [x] `CommandKind` includes `"chat.turn"`
+- [x] `ChatTurnStartPayload` interface added
+- [x] `ChatTurnWaitingReason` type added
+- [x] `CHAT_TURN_ENQUEUE_ERRCODE_REASONS` map added, matching T-M12-01's SQLSTATEs exactly
+- [x] `CHAT_TURN_WAIT_TTL_MS` added at the value T-M12-01 used (24h)
+- [x] `CHAT_TURN_STALE_MS` + `isChatTurnStale()` added and exported
+- [x] `chatTurnStateSchema` added to `packages/shared/src/schemas/chat.ts`
+- [x] `chatTurnRequestSchema` gains the byte-ceiling clamp on `content`
+- [x] Daemon-boundary ingest payload types added (`ChatTurnEventPush`/`ChatTurnEventBatch`/`ChatTurnResultPayload`, plain interfaces in `cloud.ts` mirroring `RunEventPush`/`RunEventBatch` — the actual strict-parse *validator* function, mirroring `apps/web/src/lib/daemon/transcript.ts`'s `parseEventBatch`, is T-M12-03's job, since that file lives in `apps/web`, not `packages/shared`)
+- [x] `packages/shared` typecheck and tests green
 
 ## Traps
 
@@ -169,4 +177,34 @@ while the SQL still considers it live, or vice versa.
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+Landed in `packages/shared/src/cloud.ts` (new M12 section appended at the
+end of the file, `CommandKind` extended) and `packages/shared/src/schemas/chat.ts`.
+
+One correction found only by writing the test: `isChatTurnStale`'s first
+draft used bare `Date.now()` internally with no way to inject a fixed clock,
+unlike `isRuntimeOnline`. The first test run failed both boundary cases —
+not because the logic was wrong, but because the fixture timestamps were
+anchored to a fixed test-only "now" with no relationship to the real
+wall-clock `Date.now()` at test-run time. Fixed by adding the same
+`now: number = Date.now()` injectable parameter `isRuntimeOnline` already
+has; the function's actual staleness logic was correct throughout.
+
+`ChatTurnEventBatch`/`ChatTurnResultPayload` (daemon ingest boundary) were
+added as plain TypeScript interfaces in `cloud.ts`, not zod schemas in
+`schemas/chat.ts` — this mirrors exactly how `RunEventPush`/`RunEventBatch`
+are typed today; the actual strict-parse *validator* function
+(`parseEventBatch`'s pattern) belongs in `apps/web/src/lib/daemon/`, which is
+T-M12-03's scope, not this one's. Noted in T-M12-03's own file to keep the
+handoff explicit.
+
+**Verified:** `pnpm --filter shared typecheck` clean. `pnpm --filter shared test`
+— 279 tests green across 13 files, including 9 new tests in
+`schemas/chat.test.ts` (byte-ceiling clamp, multi-byte-content
+under-measurement check, `chatTurnStateSchema` acceptance/rejection cases)
+and 6 new tests in `cloud.test.ts` for `isChatTurnStale`. Also re-ran
+`pnpm --filter core typecheck`, `pnpm --filter web typecheck`, and
+`pnpm --filter ui typecheck` after extending `CommandKind` — all clean, no
+exhaustive-switch break anywhere downstream (the command loop is not
+exhaustively typed over `CommandKind`, so T-M12-04's new `case` is additive
+by the type system, not enforced by it — worth remembering when that task
+lands, since a missing case will not be a compile error).

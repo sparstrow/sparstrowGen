@@ -454,7 +454,7 @@ actual shape.
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
 | 17.1 | [T-M12-01 — schema, RLS, enqueue/assign functions](M12/T-M12-01-schema-and-dispatch-functions.md) | `[S]` | — | not started |
-| 17.2 | [T-M12-02 — shared contracts and constants](M12/T-M12-02-shared-contracts.md) | `[S]` | 17.1 | not started |
+| 17.2 | [T-M12-02 — shared contracts and constants](M12/T-M12-02-shared-contracts.md) | `[S]` | 17.1 | ✅ done 2026-08-23 (built against T-M12-01's fully-specified design ahead of that migration's live execution, which was blocked on Supabase MCP auth — pure TypeScript, no live DB dependency) |
 | 17.3 | [T-M12-03 — daemon-facing routes + broadcast policy](M12/T-M12-03-daemon-routes-and-broadcast.md) | `[P]` | 17.2 | not started |
 | 17.4 | [T-M12-04 — core command-loop case + turn executor](M12/T-M12-04-core-chat-turn-executor.md) | `[P]` | 17.2 | not started |
 | 17.5 | [T-M12-05 — `LiveEventSource.subscribeChat`](M12/T-M12-05-live-event-source-chat.md) | `[S]` | 17.3 | not started |
