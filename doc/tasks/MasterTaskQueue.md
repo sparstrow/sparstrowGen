@@ -492,8 +492,10 @@ seam M13 now has.
 | 18.9 | [T-M13-03 — hooks split, and `chat.tsx` renders a turn](M13/T-M13-03-chat-page-turn-rendering.md) | `[S]` | 18.7, 18.8 | ✅ done 2026-08-23 |
 | 18.10 | [T-M13-04 — Knowledge Center pass](M13/T-M13-04-knowledge-center.md) | `[P]` | 18.7, 18.9 | ✅ done 2026-08-23 |
 | 18.11 | [T-M13-05 — M13 verification](M13/T-M13-05-verification.md) | `[S]` | 18.7–18.10 | 🟡 done except credential-blocked pieces — [`G-31`](../KnownGaps.md) |
-| 18.12 | M14 tasks (US2 — nothing-can-answer states) | `[S]` | 18.11 | not decomposed — see [`M14/README.md`](M14/README.md) |
-| 18.13 | M15 tasks (US3 — retry) | `[S]` | 18.11 | not decomposed — see [`M15/README.md`](M15/README.md) |
+| 18.12 | [T-M14-01 — three waiting-reason cards, and TTL-expiry told apart from a real failure](M14/T-M14-01-waiting-reason-cards.md) | `[S]` | 18.11 | not started |
+| 18.13 | [T-M14-02 — the Knowledge Center names the specific waiting states and the 24h wait](M14/T-M14-02-knowledge-center.md) | `[P]` | 18.11 | not started |
+| 18.14 | [T-M14-03 — M14 verification](M14/T-M14-03-verification.md) | `[S]` | 18.12, 18.13 | not started |
+| 18.15 | M15 tasks (US3 — retry) | `[S]` | 18.14 | not decomposed — see [`M15/README.md`](M15/README.md) |
 
 18.3 and 18.4 are `[P]`: 18.3 touches `apps/web/*` and a new SQL policy file,
 18.4 touches `packages/core/*` — zero file overlap, both need only 18.2's
@@ -515,6 +517,16 @@ either.
 work out of M15. Decomposition also found that `agent-create.tsx` shares all
 three chat hooks with `chat.tsx`, which narrows the plan's DD-7; see
 [T-M13-02](M13/T-M13-02-local-host-turn-state.md) decision 1.
+
+**M14 decomposed 2026-08-23** (rows 18.12–18.14), which pushed M15 from 18.13
+to 18.15 — same resequencing rule as M13's decomposition above. M14 needed no
+new backend work at all: `waitingReason`'s three values were already computed
+by M12's `assign_or_park_chat_turn` and already on the wire, unused since
+M13 shipped only one generic waiting card — see
+[`M14/README.md`](M14/README.md)'s "shape of what was found". `chat.tsx` is
+still the file the `chat-context-menu-design-0eb2ff` worktree is rewriting
+(unmerged as of this decomposition) — same check-`development`-first caveat
+as 18.9 above applies to 18.12.
 
 ## Blocked items
 
