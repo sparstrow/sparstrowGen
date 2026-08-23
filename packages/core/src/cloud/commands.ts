@@ -2,6 +2,7 @@ import {
   COMMAND_POLL_INTERVAL_MS,
   DAEMON_SETTABLE_KEYS,
   type AckRequest,
+  type ChatTurnStartPayload,
   type ClaimResponse,
   type ClaimedCommand,
   type CommandFailureReason,
@@ -16,6 +17,7 @@ import { logger } from "../logger.js";
 import { runManager } from "../orchestrator/run-manager.js";
 import { CloudAuthError, cloudFetch, invalidatePairingCache, isPaired } from "./client.js";
 import { cloneProject } from "./bindings.js";
+import { runChatTurnCommand } from "./chat-turn.js";
 import { pullOnce } from "./memory-sync.js";
 import { reportSettings } from "./registration.js";
 import { resolveAgent } from "./resolve.js";
@@ -108,6 +110,13 @@ async function dispatch(command: ClaimedCommand): Promise<void> {
         return;
       case "run.cancel":
         await ackResult(command, cancelRun(command.payload as unknown as RunCancelPayload));
+        return;
+      case "chat.turn":
+        // M12: unlike every case above, this ack does NOT mean the work is
+        // done — only that it has started. Completion is reported through
+        // T-M12-03's own routes, the same split `run.start`'s ack/status
+        // reporting already has. See chat-turn.ts's own header comment.
+        await ackResult(command, runChatTurnCommand(command.payload as unknown as ChatTurnStartPayload));
         return;
       case "project.clone": {
         const result = await cloneProject(command.payload as unknown as ProjectClonePayload);

@@ -17,6 +17,21 @@ export interface CompleteOnceOptions {
   timeoutMs?: number;
   /** Resume an earlier provider session (multi-turn interview). */
   resumeSessionId?: string;
+  /**
+   * M12 — fired with the FULL accumulated reply text so far, each time a new
+   * stdout line changes it. Additive: every existing caller omits this and is
+   * unaffected. `seq` is a locally-assigned monotonic counter (one per call
+   * to this function), not anything from the provider's own wire format —
+   * callers that persist it (the cloud chat-turn executor) are the ones who
+   * give it meaning.
+   *
+   * Whole-message granularity, not token-level deltas: `parseLine` for every
+   * CLI provider today normalizes a provider's own `stream_event` lines into
+   * an opaque `status` event without extracting partial text, so the finest
+   * signal available is "a new complete assistant message arrived." See
+   * doc/tasks/M12/T-M12-04's Result section and KnownGaps G-30.
+   */
+  onEvent?: (delta: { seq: number; replyText: string }) => void;
 }
 
 export interface CompleteOnceResult {
@@ -98,9 +113,27 @@ export async function completeOnce(
       child.stdin.write(spec.stdinData);
       child.stdin.end();
     }
+    let lastEmitted: string | null = null;
+    let onEventSeq = 0;
+
     if (child.stdout) {
       readline.createInterface({ input: child.stdout }).on("line", (line) => {
         for (const ev of cli.parseLine(line)) events.push(ev);
+
+        if (!opts.onEvent) return;
+        // Reuses the provider's own result-extraction logic on the PARTIAL
+        // event list rather than re-deriving "the text so far" — before a
+        // terminal `result` event arrives this falls through to the last
+        // complete assistant message seen (see each provider's
+        // `extractResult`), which is exactly the progressive signal a chat
+        // subscriber wants. Only fires on a genuine change, so a run of
+        // system/status lines between two assistant messages does not spam
+        // the callback with the same text repeated.
+        const partial = cli.extractResult(events).resultText;
+        if (partial != null && partial !== lastEmitted) {
+          lastEmitted = partial;
+          opts.onEvent({ seq: ++onEventSeq, replyText: partial });
+        }
       });
     }
     if (child.stderr) {

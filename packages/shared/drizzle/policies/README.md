@@ -249,6 +249,26 @@ someone hunting for a typo in a code that was simply already used.
   two above: both resolve the caller from `auth.uid()` and check workspace
   membership internally, which is exactly why 009 grants them to `authenticated`
   while granting `claim_runtime_commands` and `ack_runtime_command` to nobody.
+- **`enqueue_chat_turn` and `retry_chat_turn` (014) are SECURITY DEFINER
+  functions callable by `authenticated`.** Added 2026-08-23, same shape as
+  `start_run`/`cancel_run` — both resolve membership from `auth.uid()`
+  internally via `private.current_workspace_ids()`. `ingest_chat_turn_reply`
+  (also 014) is **not** on this list and should never appear on it — like
+  `claim_runtime_commands`/`ack_runtime_command`, it is service-role only; if
+  it ever shows up here, a grant has been widened and a token for one
+  machine could forge a reply onto another machine's turn.
+- **`private.assign_or_park_chat_turn`, `private.rescan_waiting_chat_turns`,
+  and `private.pick_runtime_for` (014) are not flagged by this advisor at
+  all**, and that is expected, not a gap — the advisor only scans `public`.
+  Checked directly (2026-08-23): `assign_or_park_chat_turn` and
+  `rescan_waiting_chat_turns` carry the same default
+  `anon:true, auth:true` EXECUTE grant as `private.current_workspace_ids()`
+  and its siblings above — never explicitly revoked, because the actual
+  boundary is schema privacy: PostgREST only exposes `public`, so nothing in
+  `private` is reachable as a REST RPC regardless of its EXECUTE grants,
+  exactly per this file's "Why the helpers live in `private`" section.
+  `pick_runtime_for` was revoked anyway (belt-and-suspenders, not a
+  requirement) since it is `stable` and side-effect-free either way.
 
 `redeem_pairing_code` (008) is **not** on this list and should never appear on
 it. The advisor only flags `SECURITY DEFINER` functions reachable by

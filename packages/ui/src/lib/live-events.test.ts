@@ -96,4 +96,22 @@ describe("WsHubLiveEventSource", () => {
     setConnected(false);
     expect(seen).toEqual([true, false]);
   });
+
+  it("subscribeChat is a documented no-op on this host — never calls onUpdate", async () => {
+    // The local Fastify chat routes return a finished turn synchronously in
+    // one response; there is nothing asynchronous for this host to deliver.
+    const { wsHubLiveEventSource } = await import("./live-events");
+    const onUpdate = vi.fn();
+    wsHubLiveEventSource.subscribeChat("chs_1", onUpdate);
+
+    publish({ type: "run.event", runId: "run_1", event: runEvent("run_1", 0) });
+
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it("subscribeChat's unsubscribe function does not throw", async () => {
+    const { wsHubLiveEventSource } = await import("./live-events");
+    const unsubscribe = wsHubLiveEventSource.subscribeChat("chs_1", () => {});
+    expect(unsubscribe).not.toThrow();
+  });
 });

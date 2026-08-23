@@ -91,7 +91,11 @@ describe("dispatch", () => {
     expect(matchRoute("POST", "/chat/sessions")?.route.pattern).toBe("/chat/sessions");
   });
 
-  it("leaves the two adjacent M5 stubs exactly as legible as before", async () => {
+  it("leaves the two adjacent chat-turn stubs legible, without a false milestone promise", async () => {
+    // These used to say "Arriving in M5" -- fixed in
+    // BUG-2026-08-23-chat-stub-stale-m5-promise once M5 shipped
+    // (2026-08-11/12) without ever including chat turn-sending. Now scoped
+    // as its own feature: doc/specs/2026-08-23-chat-message-sending.md.
     for (const path of ["/chat/sessions/chs_1/messages", "/chat/sessions/chs_1/retry"]) {
       const matched = matchRoute("POST", path);
       expect(matched, path).not.toBeNull();
@@ -105,7 +109,8 @@ describe("dispatch", () => {
       expect(res.status, path).toBe(501);
       const json = await res.json();
       expect(json.error, path).toMatch(/paired machine/i);
-      expect(json.error, path).toMatch(/M5/);
+      expect(json.error, path).not.toMatch(/M5/);
+      expect(json.error, path).toMatch(/not scheduled yet/i);
     }
   });
 

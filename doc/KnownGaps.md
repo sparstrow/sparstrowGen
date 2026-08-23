@@ -276,6 +276,96 @@ spawn") — except it didn't even die at spawn, which is arguably worse.
   `--version`) so `authenticated` is genuinely populated, and the capability
   badge can distinguish "installed" from "installed and usable."
 
+### G-30 — Cloud chat turns stream at whole-message granularity, not token-level
+
+**Raised:** 2026-08-23, building
+[`T-M12-04`](tasks/M12/T-M12-04-core-chat-turn-executor.md) (the daemon's
+executor for cloud-dispatched chat turns). Its sibling finding — the
+executor's real HTTP path had never carried a reply end to end — was closed
+by [`T-M12-06`](tasks/M12/T-M12-06-verification.md)'s live local pass; see
+that task's Result for what was actually run. What's left here is the
+granularity finding on its own, which that pass didn't change.
+
+**DD-5's probe, done and answered, not skipped.** The plan asked whether the
+installed `claude-code` CLI has a partial-message/delta output mode to opt
+the chat path into; if not, "degrade silently to whole-message granularity
+... and open a KnownGaps entry recording this plainly." The probe: every CLI
+provider's `parseLine` (`packages/core/src/providers/claude-code.ts` and
+siblings) normalizes the provider's own `stream_event` lines into an opaque
+`status` `NormalizedEvent` without extracting any partial text — the finest
+signal `extractResult` can ever derive from the event list is "a new complete
+assistant message arrived," which is exactly what `completeOnce`'s new
+`onEvent` hook (`packages/core/src/orchestrator/one-shot.ts`) surfaces. This
+is not a bug in the M12 wiring; it is the actual granularity available today,
+named rather than assumed.
+
+- **If wrong** (i.e., if this is treated as token-level streaming by anything
+  downstream): M13's UI would be built expecting smoother, more frequent
+  deltas than the pipe can ever deliver, and would need reworking once the
+  gap between "assistant message arrived" and "typing indicator" became
+  visible to a real user.
+- **Clears when:** a use case actually needs finer granularity, at which
+  point `claude-code.ts`'s `parseLine` would need to parse `stream_event`'s
+  own `content_block_delta` payloads (assuming the underlying CLI emits them
+  in some invocation mode — not yet confirmed either way) rather than
+  discarding them. Until then, whole-message is the documented contract, and
+  M13 should describe it as such rather than promising something finer.
+
+### G-31 — M12's live pass never saw a genuine successful AI completion, a live Realtime subscriber, or a second machine
+
+**Raised:** 2026-08-23, closing
+[`T-M12-06`](tasks/M12/T-M12-06-verification.md) (M12's own verification
+task).
+
+T-M12-06 ran a real local `apps/web` instance and a real local `core` daemon
+— both this branch's actual code, both talking to real staging Postgres —
+and proved the full dispatch/claim/ack/events/result/ack-fix/retry/
+containment chain over genuine HTTP (see that task's Result for the complete
+list). Three things it could NOT reach, all bounded and named rather than
+silently skipped:
+
+- **No real `claude` CLI completion.** The sandboxed shell this pass ran in
+  has no usable Anthropic credentials for a freshly spawned headless `claude
+  -p` call (confirmed directly: `authentication_failed`, retried with
+  exponential backoff, never recovering). The turn that exercised
+  `completeOnce` for real genuinely spawned the CLI and genuinely hit its
+  120s timeout — a real failure path, correctly handled — but the SUCCESS
+  path's `reply_text` growth and final `chat_messages` insert were instead
+  proven by POSTing to the events/result routes directly with the daemon's
+  real bearer token, simulating what a successful `completeOnce` would send.
+  This proves the ROUTES and the SQL are correct; it does not prove
+  `completeOnce`'s own real-CLI plumbing produces well-formed `onEvent` calls
+  for an actual multi-step answer (that plumbing itself — the `extractResult`
+  reuse in `one-shot.ts` — IS covered by `one-shot.test.ts`'s real-subprocess
+  test, just not through this end-to-end path).
+- **No live Realtime subscriber was watching.** `broadcastChatTurnEvents` was
+  called on every real write (proven by the routes returning `200` and the
+  DB reflecting each write), and it is the identical `send()`-to-Realtime
+  mechanism M5's already-proven `broadcastRunEvents` uses, parameterized
+  differently — not a new implementation. But no test client actually
+  subscribed to `chat:<workspaceId>:<sessionId>` and watched a message
+  arrive; doing so needs a real signed-in user JWT (Realtime private channels
+  require one, not just the anon key), which this pass did not have.
+- **`DD-4`'s "pair after a turn is already waiting" adoption, and the
+  two-machine race, are unreached** — the same two items T-M12-06's own
+  Section D already anticipated needing infrastructure this pass didn't have
+  (a second machine; a fresh pairing timed against an existing waiting turn).
+  The "waiting" state itself (`all_runtimes_offline`) WAS proven live this
+  pass — see T-M12-06's Result.
+
+- **If wrong:** the most likely failure mode is in `completeOnce`'s real-CLI
+  `onEvent` wiring specifically (a payload shape `extractResult` produces
+  that the events route's validator rejects, or a cadence that floods it) —
+  everything downstream of a well-formed `{seq, replyText}` call is now
+  proven. The Realtime and two-machine gaps are lower risk: both reuse
+  mechanisms (M5's broadcast, `pick_runtime_for`'s existing selection) this
+  repo already trusts elsewhere.
+- **Clears when:** M13 or M14's own verification exercises a real chat send
+  through a real browser with a real signed-in session and a machine that
+  can actually authenticate to Anthropic — at which point all three gaps
+  close in the same pass, since that is exactly the scenario that needs all
+  three working together.
+
 ### G-29 — Antigravity's fixed transcript rendering has not been walked live through a browser
 
 **Raised:** 2026-08-22, fixing
