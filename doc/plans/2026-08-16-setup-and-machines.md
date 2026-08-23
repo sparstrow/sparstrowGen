@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | [`../specs/2026-08-16-setup-and-machines.md`](../specs/2026-08-16-setup-and-machines.md) (reviewed 2026-08-16, six decisions) |
-| **Status** | **M8 complete** · **M9 done except the HTTP half of its verification** · **M10 build complete, verification partly done** (2026-08-20 — 01–04 done and live-verified, closing two real bugs found in the process; 05 has scenario 11 and some form-level micro-behaviours still open as `G-25`/`G-26`) · M11 still blocked on an owner action — bands 10–13 in [`MasterTaskQueue.md`](../tasks/MasterTaskQueue.md) |
+| **Status** | **M8 complete** · **M9 done except the HTTP half of its verification** · **M10 build complete, verification partly done** (01–04 done and live-verified, closing two real bugs found in the process; 05 has scenario 11 and some form-level micro-behaviours still open as `G-25`/`G-26`) · **M11 done-with-known-residue, 2026-08-22** — the owner-action block cleared (a scratch machine paired live to `staging.sparstrow.com`), all five tasks ran, five real defects found (one fixed outright, four filed), `G-12`/`G-13`/`G-16` rewritten to their exact residue and a new gap (`G-27`) opened. **Not** `✅ Completed` — named residue remains (a second machine, a second account, the owner's 60s network-cut decision, and computer-use-gated Electron interaction); see this file's own Result section and `T-M11-05`'s |
 | **Trigger** | Owner, after deploying `staging.sparstrow.com`: a Machines menu of its own, and a setup guide that shows what is left |
 | **Depends on** | M1–M7 (all code-complete). One migration, in M9. |
 | **Touches** | `packages/ui/src/routes/pages/`, `packages/ui/src/components/`, `packages/ui/src/api/hooks.ts`, `apps/web/src/app/`, `apps/web/src/lib/api/handlers/`, `packages/shared/src/cloud.ts`, `packages/shared/src/db/schema.ts`, `packages/shared/drizzle/policies/`, `packages/core/src/cli/pair.ts` |
@@ -416,4 +416,89 @@ exactly what is still unproved (SC-007).
 
 ## Result
 
-<!-- Filled in as phases land. -->
+**M11 closed out 2026-08-22.** Full detail lives in
+[`tasks/M11/T-M11-05-gap-reconciliation.md`](../tasks/M11/T-M11-05-gap-reconciliation.md)'s
+Result section; this is the plan-level summary.
+
+**What the owner can actually do now, walked live against
+`staging.sparstrow.com` with a real scratch machine (never the owner's own
+`~/.sparstrow`):**
+
+- **US1 — pair, see status, rename, revoke, remove a machine** from
+  `/machines`, never opening Settings. Fully usable; both machine states
+  forced and timed correctly (active immediately, unreachable within the
+  90-second `HEARTBEAT_STALE_AFTER_MS` window, back to active within one
+  30-second heartbeat).
+- **US3 — start a run from the browser and watch it execute on the paired
+  machine.** Fully usable end to end — dispatch, real local execution
+  (confirmed via the machine's own process/log, not just a cloud row), and a
+  terminal status with correct metrics. Watching it live works at the data
+  layer for every provider (progressive delivery, exact local/cloud event-count
+  match) and renders correctly on screen for `claude-code`; for `antigravity`
+  specifically the transcript card shows nothing while the run genuinely
+  progresses — a real, filed rendering bug, not a delivery gap.
+- **US4 — tell which thing is wrong (code, network, machine).** Fully usable.
+  All four deliberate failures (revoked, unreachable control plane, code
+  already used, code expired) produce distinct, accurate messages and exit
+  codes, and the token is never printed anywhere.
+- **US5 — the desktop app shows the deployed product.** Partially usable. The
+  Electron shell was launched live for the first time ever, three separate
+  times: it genuinely loads the deployed app when `SPARSTROW_APP_URL` is set,
+  falls back to the local core UI exactly as before when unset, and shows a
+  real native offline screen (window-title-confirmed) when unreachable.
+  Signing in inside the window, and the closure of "a machine seeing itself"
+  in `/machines` from its own desktop app, remain unproved — this pass had no
+  interactive access to drive the window (computer-use returned `"user
+  interrupt"` on every attempt), which was the explicitly-flagged risk going
+  in.
+- **US2 — the setup guide**, from M10, is unaffected by anything M11 found.
+
+**Five real defects found, matching every prior phase's pattern of the plan
+meeting reality:**
+
+1. **Creating a team, project, or agent 500'd unconditionally on staging** —
+   the single most severe finding of this plan. All three tables have a
+   `NOT NULL` slug column that neither the client nor the handler ever
+   populated. **Fixed directly in this pass** (small, mechanical, identical
+   shape across three files, verified against the same staging database via
+   a local dev server) —
+   [`BUG-2026-08-22-team-create-500-missing-slug`](../bug/BUG-2026-08-22-team-create-500-missing-slug.md).
+2. **`/teams` and `/teams/[teamId]` crash outright once a team exists** —
+   `GET /teams`/`GET /teams/:id` never join the member/project data the
+   frontend's own schema promises. Invisible in every prior pass because they
+   only ever exercised the empty state. Filed, not fixed (real query-design
+   work) —
+   [`BUG-2026-08-22-teams-page-crashes-with-real-data`](../bug/BUG-2026-08-22-teams-page-crashes-with-real-data.md).
+3. **`/chat` cannot start a new conversation at all** — `POST /api/v1/chat/sessions`
+   has no route, real or stub. The single most discoverable "talk to an
+   agent" entry point in the product 404s on first use —
+   [`BUG-2026-08-22-chat-new-session-404s`](../bug/BUG-2026-08-22-chat-new-session-404s.md).
+4. **`antigravity`'s live transcript renders as nothing** despite streaming
+   correctly, because the shared transcript component has no case for its
+   event type —
+   [`BUG-2026-08-22-antigravity-transcript-not-rendered`](../bug/BUG-2026-08-22-antigravity-transcript-not-rendered.md).
+5. **The desktop shell's local supervisor reports its own core as unhealthy**
+   every time, even when the core's own log shows it became ready well
+   inside the deadline — cosmetic today, root cause not isolated —
+   [`BUG-2026-08-22-desktop-servicemanager-health-check-times-out`](../bug/BUG-2026-08-22-desktop-servicemanager-health-check-times-out.md).
+
+**Registers updated:** `KnownGaps.md`'s `G-12`, `G-13`, `G-16` rewritten to
+their exact residue (none fully closable — each still names real, specific
+work); `G-27` opened (the `claude-code` capability probe can't distinguish
+"binary installed" from "actually authenticated," found live when a run
+dispatched to a machine with an expired CLI login took three minutes of
+legible retries to fail rather than failing at spawn). Knowledge Center: six
+articles corrected — the four mandatory global-claim pages
+(`what-is-sparstrowgen.md` needed no change; `first-run-setup.md`,
+`limitations.md`, `providers-and-execution-modes.md` each had a real
+overclaim or a claim gone stale since it was written) plus two more
+(`runs-and-transcripts.md`, `machines.md`) whose specific sentences this
+pass's findings directly falsified.
+
+**Why the plan does not read `✅ Completed`:** real, named residue remains —
+a second paired machine (reassign, lease-recovery timing), a second
+workspace account (cross-device streaming, cross-workspace isolation), the
+owner's own decision on the 60-second network cut, and interactive access to
+drive the Electron window. None of these are unknowns any more — each is a
+specific, named thing in `KnownGaps.md` with what would close it — but
+"named residue" and "done" are different words for a reason.

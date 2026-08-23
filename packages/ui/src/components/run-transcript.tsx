@@ -133,6 +133,20 @@ function EventRow({ event }: { event: RunEvent }) {
           {String(event.payload)}
         </p>
       );
+    case "raw": {
+      // Floor renderer for providers whose parser can't produce a structured
+      // event — currently a fallback path for antigravity (its normal path
+      // maps agy's stream-json into system/assistant/user/result; "raw" is
+      // its escape hatch for anything unrecognized), and the default for any
+      // future provider that only ever emits plain text. Lower fidelity than
+      // the structured bubbles above, but infinitely better than the empty
+      // Transcript card this used to fall through to (see
+      // BUG-2026-08-22-antigravity-transcript-not-rendered.md).
+      const text =
+        typeof event.payload === "string" ? event.payload : JSON.stringify(event.payload, null, 2);
+      if (!text || text.trim().length === 0) return null;
+      return <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{text}</p>;
+    }
     default:
       return null;
   }

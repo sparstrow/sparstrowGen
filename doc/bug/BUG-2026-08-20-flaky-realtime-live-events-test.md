@@ -1,6 +1,6 @@
 # BUG-2026-08-20-flaky-realtime-live-events-test
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — surfaced during
 [`T-M8-05`](../tasks/M8/T-M8-05-verification.md)'s regression sweep, unrelated
 to the change under test
@@ -93,6 +93,51 @@ Two candidates, in order of preference:
 Either way the fix belongs with a repeat run of `pnpm test --force` (five or more
 times) as its evidence, since a single green run proves nothing about a flake
 that fires roughly two times in five.
+
+## Resolution
+
+Applied fix option 1 (preferred): moved the module import out of the test
+body entirely.
+
+**Root cause of the per-test `vi.resetModules()` + dynamic `import()`, once
+checked against the module's own code:** it was not protecting anything.
+`RealtimeLiveEventSource`'s `workspaceIdPromise` cache (the thing the original
+investigation suspected) is **instance-level** (`this.workspaceIdPromise`),
+not module-level — a fresh `new RealtimeLiveEventSource()` in every test
+already starts with no cache, module registry reset or not. The mocked
+`createClient()` factory (`vi.mock("@web/utils/supabase/client", ...)`) is
+likewise stateless: it returns a new object literal on every call, and its
+closures read the outer `fake` variable dynamically, which `resetFake()`
+already reassigns in `beforeEach`. There was no module-singleton state for
+`vi.resetModules()` to isolate between tests, so it was pure cost with no
+isolation benefit.
+
+**Change** (`apps/web/src/lib/realtime-live-events.test.ts`):
+- Added a single top-level `import { RealtimeLiveEventSource } from "./realtime-live-events";` (vitest hoists `vi.mock` calls above it, so the mock is already in effect).
+- Removed `vi.resetModules()` from `beforeEach` — only `resetFake()` remains, which is what actually provides per-test isolation.
+- Removed all 14 per-test `const { RealtimeLiveEventSource } = await import("./realtime-live-events");` lines, now redundant with the top-level import.
+- Added a comment on the `describe` block's `beforeEach` explaining why the reset was unnecessary, so a future reader doesn't reintroduce it "for safety."
+
+This gets the one-time module-transform cost off any individual test's 5s
+`testTimeout` clock — it's now paid once during collection instead, in the
+`import` phase vitest reports separately from `tests`.
+
+**Verification:**
+- `pnpm --filter web typecheck` — clean.
+- `pnpm --filter web exec vitest run src/lib/realtime-live-events.test.ts` — 14/14 passed, 3.94s total, `tests` phase only 112ms (the transform cost now lands in `import`, not charged to any test).
+- Repeat-run evidence, matching the bug's own reproduction method (`pnpm test --force` at the repo root, i.e. full five-way turbo parallelism — the only condition that ever reproduced the timeout): **5 consecutive full-suite runs** (`pnpm test --force --continue=always`), all 5 with `apps/web`'s suite at **224/224 passed, 16/16 test files passed**, `realtime-live-events.test.ts` (14 tests) landing at 453ms, 622ms, 82ms, and 64ms across the runs — no timeout in any run. The original bug reproduced in roughly 2 of 5 such runs; this fix saw 0 of 5.
+- `pnpm -r typecheck` and `pnpm -r test` — see Notes below for one caveat unrelated to this fix.
+
+**Caveat found while gathering the above evidence, filed separately rather
+than fixed here (out of this task's scope):** two of the five full-suite runs
+also hit unrelated timeout failures in `@sparstrow/core`'s test suite (up to
+25 tests across ten files — graph client/lifecycle/tools, viz-manager,
+run-manager finalize, git-status, host-fs), independent of this fix and of
+`apps/web`. Filed as
+[`BUG-2026-08-22-core-tests-flake-under-turbo-parallelism`](BUG-2026-08-22-core-tests-flake-under-turbo-parallelism.md).
+
+Landed on `fix/flaky-realtime-test`, based on `origin/development` at
+`17a1e81` (post-#105, post-#106).
 
 ## Notes
 

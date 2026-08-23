@@ -1,5 +1,6 @@
 import { registerRoute, ok, fail, noContent, HandlerContext } from "../router";
 import { OPAQUE_COLUMNS } from "../../case";
+import { slugify, withCollisionSuffix } from "./workspace";
 
 function generateId(prefix: string) {
   return `${prefix}${crypto.randomUUID().replace(/-/g, "")}`;
@@ -24,18 +25,32 @@ registerRoute({
   pattern: "/agents",
   opaqueKeys: OPAQUE_COLUMNS.agents as string[],
   handler: async ({ supabase, workspaceId, body }: HandlerContext) => {
-    const payload = {
-      ...body,
-      workspace_id: workspaceId,
-      id: body.id || generateId("agt_")
-    };
-    const { data, error } = await supabase
-      .from("agents")
-      .insert(payload)
-      .select()
-      .single();
-    if (error) throw error;
-    return ok(data, OPAQUE_COLUMNS.agents as string[]);
+    const id = body.id || generateId("agt_");
+    // `agents.slug` is `not null` with no DB default (same shape as
+    // teams.slug and projects.slug — BUG-2026-08-22-team-create-500-missing-slug).
+    // Neither the client nor this handler generated one, so every INSERT
+    // violated the constraint and 500'd. One retry with a random suffix on
+    // collision.
+    const baseSlug = typeof body.slug === "string" && body.slug.trim() ? body.slug : slugify(body.name ?? "");
+    const attempts = [baseSlug, withCollisionSuffix(baseSlug || "agent")];
+
+    for (let i = 0; i < attempts.length; i++) {
+      const payload = {
+        ...body,
+        workspace_id: workspaceId,
+        id,
+        slug: attempts[i],
+      };
+      const { data, error } = await supabase.from("agents").insert(payload).select().single();
+      if (error) {
+        if (error.code === "23505" && i < attempts.length - 1) continue;
+        throw error;
+      }
+      return ok(data, OPAQUE_COLUMNS.agents as string[]);
+    }
+
+    // Unreachable: the second attempt's random suffix cannot collide twice.
+    return fail(500, "Internal Server Error");
   }
 });
 

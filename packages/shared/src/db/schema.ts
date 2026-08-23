@@ -69,6 +69,9 @@ export const users = pgTable("users", {
   avatarUrl: text("avatar_url"),
   bio: text("bio").notNull().default(""),
   role: text("role").notNull().default("developer"), // admin | developer | viewer
+  themeSurface: text("theme_surface").notNull().default("paper"),
+  themeBrand: text("theme_brand").notNull().default("amber"),
+  themeMode: text("theme_mode").notNull().default("system"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
