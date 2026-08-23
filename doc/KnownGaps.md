@@ -311,60 +311,69 @@ named rather than assumed.
   discarding them. Until then, whole-message is the documented contract, and
   M13 should describe it as such rather than promising something finer.
 
-### G-31 — M12's live pass never saw a genuine successful AI completion, a live Realtime subscriber, or a second machine
+### G-31 — no usable Anthropic credentials in this sandbox means no chat turn has ever actually succeeded, and a second machine has never been reached
 
-**Raised:** 2026-08-23, closing
-[`T-M12-06`](tasks/M12/T-M12-06-verification.md) (M12's own verification
-task).
+**Raised:** 2026-08-23, closing [`T-M12-06`](tasks/M12/T-M12-06-verification.md).
+**Narrowed:** 2026-08-23, during [`T-M13-05`](tasks/M13/T-M13-05-verification.md) —
+two of the original three sub-gaps closed with live evidence; the title and
+scope below reflect what's actually still open.
 
-T-M12-06 ran a real local `apps/web` instance and a real local `core` daemon
-— both this branch's actual code, both talking to real staging Postgres —
-and proved the full dispatch/claim/ack/events/result/ack-fix/retry/
-containment chain over genuine HTTP (see that task's Result for the complete
-list). Three things it could NOT reach, all bounded and named rather than
-silently skipped:
+**Closed by T-M13-05, with evidence — do not re-open without new evidence:**
 
-- **No real `claude` CLI completion.** The sandboxed shell this pass ran in
-  has no usable Anthropic credentials for a freshly spawned headless `claude
-  -p` call (confirmed directly: `authentication_failed`, retried with
-  exponential backoff, never recovering). The turn that exercised
-  `completeOnce` for real genuinely spawned the CLI and genuinely hit its
-  120s timeout — a real failure path, correctly handled — but the SUCCESS
-  path's `reply_text` growth and final `chat_messages` insert were instead
-  proven by POSTing to the events/result routes directly with the daemon's
-  real bearer token, simulating what a successful `completeOnce` would send.
-  This proves the ROUTES and the SQL are correct; it does not prove
-  `completeOnce`'s own real-CLI plumbing produces well-formed `onEvent` calls
-  for an actual multi-step answer (that plumbing itself — the `extractResult`
-  reuse in `one-shot.ts` — IS covered by `one-shot.test.ts`'s real-subprocess
-  test, just not through this end-to-end path).
-- **No live Realtime subscriber was watching.** `broadcastChatTurnEvents` was
-  called on every real write (proven by the routes returning `200` and the
-  DB reflecting each write), and it is the identical `send()`-to-Realtime
-  mechanism M5's already-proven `broadcastRunEvents` uses, parameterized
-  differently — not a new implementation. But no test client actually
-  subscribed to `chat:<workspaceId>:<sessionId>` and watched a message
-  arrive; doing so needs a real signed-in user JWT (Realtime private channels
-  require one, not just the anon key), which this pass did not have.
-- **`DD-4`'s "pair after a turn is already waiting" adoption, and the
-  two-machine race, are unreached** — the same two items T-M12-06's own
-  Section D already anticipated needing infrastructure this pass didn't have
-  (a second machine; a fresh pairing timed against an existing waiting turn).
-  The "waiting" state itself (`all_runtimes_offline`) WAS proven live this
-  pass — see T-M12-06's Result.
+- **A live Realtime subscriber, watching.** T-M13-05 signed a real browser
+  tab into a real disposable account (the magic-link runbook), opened
+  `/chat`, and left that tab's `useLiveEvents().subscribeChat` subscription
+  running. After clicking Retry, the tab's UI updated from "in progress" to
+  "failed, 2 attempts" **without a page reload or re-navigation** — proof the
+  Realtime broadcast → `apps/web`'s `LiveEventsContext` → `chat.tsx`'s
+  `applyChatTurnBroadcast`/refetch chain works live, with a real signed-in
+  JWT, not simulated. What's still NOT proven is a *successful, growing*
+  reply arriving as ≥2 broadcasts (SC-001's multi-message case) — that still
+  needs a turn that actually completes, which needs the credential this gap
+  is about.
+- **T-M13-05 also found and fixed a genuinely blocking defect this way** —
+  not a residual gap, but worth recording here because live-clicking a real
+  cloud session is *what found it*: `GET /chat/sessions/:id`
+  (`apps/web/src/lib/api/handlers/chat.ts`) was returning the session's own
+  columns spread onto the response's top level (`{...session, messages}`)
+  instead of nested under `session` — `ChatSessionDetail`'s actual contract,
+  which every consumer (`chat.tsx`, `agent-create.tsx`) reads
+  (`detail.data.session.id`). The cloud chat UI could not render **any**
+  session, for any kind, until this shipped. No prior pass caught it because
+  every earlier verification (M11, T-M12-06) proved the pipe via direct
+  HTTP/SQL rather than the browser's own session-hydration code path. Fixed
+  in the same change, pinned with a new test (`json.session` asserted
+  directly, not just sibling fields).
 
-- **If wrong:** the most likely failure mode is in `completeOnce`'s real-CLI
-  `onEvent` wiring specifically (a payload shape `extractResult` produces
-  that the events route's validator rejects, or a cadence that floods it) —
-  everything downstream of a well-formed `{seq, replyText}` call is now
-  proven. The Realtime and two-machine gaps are lower risk: both reuse
-  mechanisms (M5's broadcast, `pick_runtime_for`'s existing selection) this
-  repo already trusts elsewhere.
-- **Clears when:** M13 or M14's own verification exercises a real chat send
-  through a real browser with a real signed-in session and a machine that
-  can actually authenticate to Anthropic — at which point all three gaps
-  close in the same pass, since that is exactly the scenario that needs all
-  three working together.
+**Still open, unchanged in kind, narrower in scope:**
+
+- **No real `claude` CLI completion.** Confirmed AGAIN by T-M13-05, same
+  symptom as before: a real turn was dispatched to a real online paired
+  machine (this time via the actual browser Send button, not a hand-inserted
+  row), and it genuinely hit its 120s timeout with no successful reply ever
+  produced — this sandbox still has no usable Anthropic credentials for a
+  spawned headless `claude` process. This is the one gap every later
+  milestone's live pass has hit identically (M12, now M13), and it will keep
+  blocking SC-001's growing-reply proof, SC-004 (Project/Agent reply
+  distinctiveness), and US3.2 (retry landing a genuinely different reply on
+  a different model) until it clears.
+- **The two-machine race remains unreached** — only one scratch machine was
+  paired this pass too. Spec edge case 3 ("either of two online machines may
+  answer") is still exactly where `G-15`/`G-24` left it.
+
+- **If wrong:** the CLI-completion risk is unchanged from the original
+  entry — the most likely failure mode is in `completeOnce`'s real-CLI
+  `onEvent` wiring (a payload shape `extractResult` produces that the events
+  route's validator rejects, or a flooding cadence), since everything
+  downstream of a well-formed `{seq, replyText}` call is now proven twice
+  over (M12's simulated write, M13's live Realtime delivery). The
+  two-machine risk is lower: it reuses `pick_runtime_for`'s existing
+  selection logic, already trusted elsewhere.
+- **Clears when:** a verification pass runs somewhere with real Anthropic
+  credentials available to a spawned CLI — a machine outside this sandbox,
+  or credentials added to it. That single unblock closes SC-001's full
+  claim, SC-004, and US3.2 in one pass, since all three need nothing else
+  this repo doesn't already have working.
 
 ### G-29 — Antigravity's fixed transcript rendering has not been walked live through a browser
 

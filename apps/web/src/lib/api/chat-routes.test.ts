@@ -475,8 +475,25 @@ describe("POST /chat/sessions/:id/retry", () => {
   });
 });
 
-describe("GET /chat/sessions/:id — activeTurn", () => {
-  it("is null when the session has never had a turn", async () => {
+describe("GET /chat/sessions/:id", () => {
+  it("nests the session under `session`, matching ChatSessionDetail -- not spread onto the top level", async () => {
+    // Regression pin: the handler used to return `{...session, messages}`
+    // (session's own columns spread flat), while ChatSessionDetail --
+    // and every consumer, packages/ui's chat.tsx/agent-create.tsx alike --
+    // reads `detail.data.session.id`. Undetected by any prior test because
+    // nothing here asserted on `json.session` at all; only caught by
+    // actually walking a real cloud session through the browser (T-M13-05).
+    const { json } = await callRoute("GET", "/chat/sessions/chs_1", {
+      sessions: [{ ...FREE_SESSION, status: "active", draft: null, provider: "claude-code", model: "sonnet" }],
+      turns: [],
+      messages: [],
+    });
+    expect(json.session).toMatchObject({ id: "chs_1", kind: "free", status: "active" });
+    expect(json.id).toBeUndefined();
+    expect(json.kind).toBeUndefined();
+  });
+
+  it("activeTurn is null when the session has never had a turn", async () => {
     const { json } = await callRoute("GET", "/chat/sessions/chs_1", {
       sessions: [{ ...FREE_SESSION, status: "active", draft: null, provider: "claude-code", model: "sonnet" }],
       turns: [],
