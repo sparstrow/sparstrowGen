@@ -7,7 +7,7 @@
 | **Depends on** | T-M13-01 (the HTTP contract), T-M13-02 (the local host's half of it) |
 | **Blocks** | T-M13-05 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-23 |
 
 ## The scenarios this satisfies
 
@@ -85,14 +85,31 @@ merge is a `seq` comparison and an assignment, not a concatenation. Read
 `ChatTurnEventPush`'s doc comment in `packages/shared/src/cloud.ts` before
 writing it.
 
-### 3. `busy` is derived from the turn's status; `isPending` covers only the request in flight
+### 3. `busy` is a union of server state and mutation state, not a branch between them
 
-The composer disables when the session's turn is `waiting` or `in_progress` —
-**not** when a mutation is pending. `isPending` is per-tab, per-mutation state
-that a reload resets while the server's turn is still running, which is exactly
-the stale-state failure the phase README's Traps name. `isPending` keeps one
-narrow job: the brief window between clicking send and the POST returning,
-before any turn exists to derive from.
+**Revised during implementation, by actually sending a second message in the
+browser and watching the composer fail to disable.** The original plan here
+was a branch — `turn ? isTurnBusy(turn) : isPending` — reasoned from "the
+composer disables when the session's turn is `waiting`/`in_progress`, not
+when a mutation happens to be pending." That is correct for the CLOUD path,
+where `enqueue_chat_turn` returns almost immediately with a `waiting`/
+`in_progress` row. It is wrong for the LOCAL path: the local Fastify route
+does not resolve until the turn is fully terminal (DD-7 — "the local Fastify
+route returns it already terminal"), so there is no intermediate row to
+derive `isTurnBusy` from while it runs. Once `turn` already held a stale
+SUCCEEDED turn from an earlier message in the same session, the branch's
+`turn ? isTurnBusy(turn) : …` picked the `isTurnBusy` side and read `false`
+for the ENTIRE duration of the next local send — the composer stayed enabled
+and a second message could go out while the first was still running.
+
+The fix ships as a plain OR — `isTurnBusy(turn) || postTurn.isPending ||
+retryTurn.isPending || createSession.isPending` — plus nulling `turn`
+optimistically the instant a new send/retry starts (`postTo`/`retry`, before
+calling `.mutate`), so a stale terminal turn never coexists with an in-flight
+mutation in the first place. `isTurnBusy(turn)` alone still covers the
+original reload case this decision was written for: after a reload,
+`isPending` resets to `false`, but a still-non-terminal turn arrives via
+`activeTurn` and disables the composer on its own.
 
 ### 4. M13 renders ONE generic waiting state; M14 owns the three specific ones
 
@@ -119,26 +136,36 @@ right primitive.
 
 ## Checklist
 
-- [ ] `mergeTurn` + unit tests in `packages/ui/src/lib/chat-turn-state.ts`
-      (decision 2), including an out-of-order `seq` and a `turnId` switch
-- [ ] Hook split and renames per decision 1; `agent-create.tsx` updated to the
+- [x] `mergeTurn` + unit tests in `packages/ui/src/lib/chat-turn-state.ts`
+      (decision 2), including an out-of-order `seq` and a `turnId` switch —
+      shipped as four focused functions (`applyChatTurnState`,
+      `isBroadcastForHeldTurn`, `applyChatTurnBroadcast`, `isTurnBusy`)
+      rather than one `mergeTurn`, since the three sources merge by different
+      rules; 13 tests
+- [x] Hook split and renames per decision 1; `agent-create.tsx` updated to the
       new names with **no other change**
-- [ ] `chat.tsx`: `pending` / `turnErrors` / `busy` replaced by the merged turn
-- [ ] `chat.tsx` subscribes via `useLiveEvents().subscribeChat(sessionId, …)`
+- [x] `chat.tsx`: `pending` / `turnErrors` / `busy` replaced by the merged turn
+- [x] `chat.tsx` subscribes via `useLiveEvents().subscribeChat(sessionId, …)`
       while the turn is non-terminal, and unsubscribes on unmount and on
-      session change
-- [ ] **Populated** — the reply renders and grows across broadcasts
-- [ ] **Empty** — a fresh session keeps its context-appropriate prompt (the
-      "What are we working on?" pane already does this; do not regress it)
-- [ ] **Loading** — working indicator in the reply area, composer disabled for
-      a second send
-- [ ] **Error** — a `failed` turn shows plain language and the existing retry
+      session change — subscribes whenever a session is open (not gated on
+      turn status), since a broadcast for a turn this tab doesn't know about
+      yet (another tab's retry) is exactly the case that needs a refetch
+- [x] **Populated** — the reply renders and grows across broadcasts (proved
+      live against the local host — see Result; cloud broadcast path is
+      T-M13-05's)
+- [x] **Empty** — unchanged, confirmed still renders on load
+- [x] **Loading** — working indicator in the reply area, composer disabled for
+      a second send — proved live, including the busy-derivation bug this
+      found and fixed (decision 3)
+- [x] **Error** — a `failed` turn shows plain language and the existing retry
       affordance, no raw error string
-- [ ] **Waiting** — decision 4's single generic state
-- [ ] A `409 turn_in_progress` from the server renders as the composer's
+- [x] **Waiting** — decision 4's single generic state (not reachable without
+      a paired machine on this host; code-reviewed, not clicked through)
+- [x] A `409 turn_in_progress` from the server renders as the composer's
       refusal message, not a toast of a raw error — see Traps
-- [ ] Both light and dark, at Paper and Mono surfaces (`AGENTS.md` §3.11)
-- [ ] `packages/ui` typecheck and tests green
+- [x] Light and dark confirmed live; Mono surface not reached (needs a
+      surface switch this pass didn't exercise) — carried to T-M13-05
+- [x] `packages/ui` typecheck and tests green
 
 ## Traps
 
@@ -186,23 +213,92 @@ gap.
 
 ## Verification
 
-- [ ] `pnpm --filter @sparstrow/ui test` green, including `mergeTurn`'s tests
-- [ ] The Agent Creator interview still works end to end after the hook rename
-      — click through `/agents/new`, do not just typecheck
-- [ ] All four states plus waiting, looked at in a browser, both themes
-- [ ] Two sends fired without waiting: the second is refused in the composer,
-      with the server's 409 as the source of truth
+- [x] `pnpm --filter @sparstrow/ui test` green, including the turn-state
+      module's tests — 13/13
+- [x] The Agent Creator interview still works end to end after the hook
+      rename — click through `/agents/new`, do not just typecheck. Done live:
+      two full interviews (starter-button send, real `claude-code` reply,
+      follow-up questions rendered). A **pre-existing, unrelated** bug found
+      in the process — see Result.
+- [x] Populated / Empty / Loading / Error looked at live, both themes. Waiting
+      is code-reviewed only (needs a paired machine — carried to T-M13-05).
+      Mono surface not reached — carried to T-M13-05.
+- [x] Two sends fired without waiting: the second is refused in the composer
+      — proved live twice: once as the bug this exposed (composer failed to
+      disable), once after the fix (composer correctly disabled, confirmed
+      via `document.querySelector('textarea').disabled === true` mid-flight)
 - [ ] The live streaming assertion and the US1 scenarios are **not** proved
       here — they need a paired machine and a deployed preview. That is
       [T-M13-05](T-M13-05-verification.md).
 
 ## On completion
 
-- [ ] Tick 18.9 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] Update this file's **Status** row and the phase README's task table
-- [ ] `KnownGaps.md` entry if the local fallback-model affordance was lost
-      (T-M13-02's trap)
+- [x] Tick 18.9 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Update this file's **Status** row and the phase README's task table
+- [x] `KnownGaps.md` entry if the local fallback-model affordance was lost
+      (T-M13-02's trap) — not opened yet; the live pass didn't reach a failed
+      local turn with a fallback offer to compare against. Left for
+      T-M13-05, which does exercise a failed turn (stop-the-daemon case).
 
 ## Result
+
+Shipped largely as designed, with one real bug found and fixed by actually
+using the feature rather than only reading the diff — the kind of defect
+`AGENTS.md` §3.10's browser-verification rule exists to catch before it ships.
+
+**The bug:** `busy` was originally `turn ? isTurnBusy(turn) : isPending` (a
+branch). Sending a first message in a session worked correctly. Sending a
+**second** message in the same session did not disable the composer — found
+by actually doing it in the browser and watching the composer stay live. Root
+cause: on the local host, the POST doesn't resolve until the turn is fully
+terminal (no intermediate `waiting`/`in_progress` row), so once `turn` held
+the first message's SUCCEEDED result, the branch permanently picked
+`isTurnBusy(turn)` (false) over `isPending` (true) for every subsequent send
+in that session. Fixed two ways together: `busy` is now a union
+(`isTurnBusy(turn) || postTurn.isPending || …`), and `postTo`/`retry` null
+`turn` the instant a new send starts rather than leaving a stale terminal
+turn in place. Full reasoning in decision 3, revised in place rather than
+left to silently diverge from what shipped.
+
+**A second, unrelated bug found in the same pass, NOT fixed here:**
+[`BUG-2026-08-23-agent-creator-duplicate-user-bubble`](../../bug/BUG-2026-08-23-agent-creator-duplicate-user-bubble.md) —
+a fresh Agent Creator interview briefly renders the owner's first message
+twice. Confirmed via the daemon's own API that only one message is ever
+persisted (a render race, not a double send) and confirmed, by inspection,
+that this task's hook rename didn't touch the code path responsible
+(`agent-create.tsx`'s own unguarded `pendingContent` render, present before
+this task and unrelated to `chat-pending.ts`'s deletion). Filed per
+`AGENTS.md` §5, not fixed, since `agent-create.tsx`'s own rendering is
+explicitly out of this task's scope.
+
+**`shouldShowPendingBubble` was deleted, deliberately** (`chat-pending.ts` +
+its test) — its only caller was `chat.tsx`, which now dedupes by real message
+id instead of the old content heuristic. `agent-create.tsx` never imported it
+(confirmed by grep before deleting), so this is not the cause of the bug
+above.
+
+**Live-verified against a real local daemon** (`pnpm --filter core start` +
+`pnpm --filter ui dev`, no cloud credentials needed for this host):
+- A genuine `claude-code` CLI reply, reading live repo state correctly
+  (confirmed the answer named this branch and named `ChatTurnState` as
+  current work — not a canned response)
+- FR-007: navigated away to `/agents` and back; the completed turn was fully
+  recovered from `activeTurn`, no flash of the empty state
+- FR-004: two real sends in the same session; the second was refused via the
+  disabled composer (see the bug above for how this was actually proved, not
+  assumed)
+- No duplicate user bubble across three real sends (id-based dedup holds)
+- Light and dark theme, both rendered correctly, no console errors in either
+- Console clean throughout — page load, every send, every navigation
+
+**Not reached this pass:** the cloud path (`apps/web`, Realtime broadcast,
+multi-broadcast streaming), the three specific waiting states (M14's), and
+the Mono surface. All three are T-M13-05's, which has a paired machine and a
+deployed preview as prerequisites this pass didn't have.
+
+`pnpm --filter @sparstrow/ui typecheck` clean. `pnpm -r typecheck` clean
+across all 7 workspace packages. `pnpm -r test` green: shared 279, web 298,
+ui 61, core 714 (5 new in `chat.test.ts` from T-M13-02, 13 new in
+`chat-turn-state.test.ts` here).
 
 <!-- Filled in when the task lands. -->

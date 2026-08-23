@@ -29,13 +29,13 @@ import {
 } from "@/components/agent-form";
 import { ChatTurnView, ThinkingDots, TurnErrorBanner } from "@/components/chat/chat-bits";
 import {
+  useAgentDraftTurn,
   useAgents,
   useChatSession,
   useChatSessions,
   useCreateAgent,
   useCreateChatSession,
-  usePostChatTurn,
-  useRetryChatTurn,
+  useRetryAgentDraftTurn,
   useUpdateChatSession,
 } from "@/api/hooks";
 import { formatDate } from "@/lib/format";
@@ -81,8 +81,8 @@ export function AgentCreatePage() {
   const sessions = useChatSessions({ kind: "agent-creator" });
   const createSession = useCreateChatSession();
   const updateSession = useUpdateChatSession();
-  const postTurn = usePostChatTurn();
-  const retryTurn = useRetryChatTurn();
+  const postTurn = useAgentDraftTurn();
+  const retryTurn = useRetryAgentDraftTurn();
 
   const [sessionId, setSessionId] = React.useState<string | null>(null);
   const detail = useChatSession(sessionId);
