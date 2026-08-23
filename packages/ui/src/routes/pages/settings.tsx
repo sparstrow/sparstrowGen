@@ -871,9 +871,9 @@ export function SettingsPage() {
   ];
 
   return (
-    <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 items-start">
+    <div className="w-full max-w-6xl flex flex-col md:flex-row gap-8 lg:gap-12 items-start">
       {/* Sidebar Navigation */}
-      <nav className="w-full md:w-64 shrink-0 flex flex-col gap-6 sticky top-6">
+      <nav className="w-full md:w-56 lg:w-64 shrink-0 flex flex-col gap-6 sticky top-6">
         {navGroups.map(group => (
           <div key={group.title} className="flex flex-col gap-1">
             <h3 className="text-xs font-semibold text-muted-foreground px-3 mb-1">{group.title}</h3>
