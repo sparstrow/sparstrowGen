@@ -466,12 +466,18 @@ work itself changed.
 
 M12 is fully decomposed (6 tasks) and **complete** — verified live locally
 against this branch's real code and real staging Postgres (T-M12-06). **M13 is
-now decomposed too** (5 tasks, 2026-08-23), written against M12's actual
-shipped shape rather than the plan's outline — which is what this repo's own
-precedent asks for (M5's decomposition depended on what M4's dispatch actually
-turned out to look like) and which is why it waited. M14 and M15 stay outlined
-only, for the same reason applied one level down: both build on the rendering
-seam M13 has not yet built.
+now built and verified too** (5 tasks, 2026-08-23), written against M12's
+actual shipped shape rather than the plan's outline — which is what this
+repo's own precedent asks for (M5's decomposition depended on what M4's
+dispatch actually turned out to look like) and which is why it waited. T-M13-05
+found and fixed a defect that had made the entire cloud chat UI non-functional
+(`GET /chat/sessions/:id`'s response shape didn't match what `chat.tsx` reads)
+— caught only because that pass walked a real session through the actual
+browser rather than proving the pipe via HTTP/SQL the way M11 and T-M12-06 had
+to. M13 is done except the pieces a real successful AI completion would prove
+(`G-31` — no usable Anthropic credentials in this sandbox, the same blocker
+M12's own pass hit). M14 and M15 stay outlined only, building on the rendering
+seam M13 now has.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
@@ -485,7 +491,7 @@ seam M13 has not yet built.
 | 18.8 | [T-M13-02 — the local host answers in the same shape](M13/T-M13-02-local-host-turn-state.md) | `[P]` | 18.6 | ✅ done 2026-08-23 |
 | 18.9 | [T-M13-03 — hooks split, and `chat.tsx` renders a turn](M13/T-M13-03-chat-page-turn-rendering.md) | `[S]` | 18.7, 18.8 | ✅ done 2026-08-23 |
 | 18.10 | [T-M13-04 — Knowledge Center pass](M13/T-M13-04-knowledge-center.md) | `[P]` | 18.7, 18.9 | ✅ done 2026-08-23 |
-| 18.11 | [T-M13-05 — M13 verification](M13/T-M13-05-verification.md) | `[S]` | 18.7–18.10 | queued |
+| 18.11 | [T-M13-05 — M13 verification](M13/T-M13-05-verification.md) | `[S]` | 18.7–18.10 | 🟡 done except credential-blocked pieces — [`G-31`](../KnownGaps.md) |
 | 18.12 | M14 tasks (US2 — nothing-can-answer states) | `[S]` | 18.11 | not decomposed — see [`M14/README.md`](M14/README.md) |
 | 18.13 | M15 tasks (US3 — retry) | `[S]` | 18.11 | not decomposed — see [`M15/README.md`](M15/README.md) |
 

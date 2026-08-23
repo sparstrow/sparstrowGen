@@ -7,7 +7,7 @@
 | **Spec** | [doc/specs/2026-08-23-chat-message-sending.md](../../specs/2026-08-23-chat-message-sending.md) |
 | **Depends on** | M12 (dispatch spine), verified |
 | **Blocks** | M14 (overlaps its UI seam), M15 |
-| **Status** | decomposed 2026-08-23 into 5 tasks — none started |
+| **Status** | 🟡 done 2026-08-23, except the credential-blocked pieces — [`G-31`](../../KnownGaps.md). US1 scenario 4, FR-004, cross-workspace isolation, and all four states except a real successful reply are live-proven; a real CLI completion has never succeeded in this sandbox. |
 | **Open questions** | none |
 
 ## The story this serves
@@ -58,7 +58,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | [T-M13-02 — the local host answers in the same shape](T-M13-02-local-host-turn-state.md) | `[P]` | US1 | — | ✅ done 2026-08-23 |
 | [T-M13-03 — hooks split, and `chat.tsx` renders a turn](T-M13-03-chat-page-turn-rendering.md) | `[S]` | US1 | 13.1, 13.2 | ✅ done 2026-08-23 |
 | [T-M13-04 — the Knowledge Center stops saying chat doesn't work](T-M13-04-knowledge-center.md) | `[P]` | US1 | 13.1, 13.3 | ✅ done 2026-08-23 |
-| [T-M13-05 — verification](T-M13-05-verification.md) | `[S]` | US1 | 13.1–13.4 | not started |
+| [T-M13-05 — verification](T-M13-05-verification.md) | `[S]` | US1 | 13.1–13.4 | 🟡 done except credential-blocked pieces — [`G-31`](../../KnownGaps.md) |
 
 13.1 and 13.2 are genuinely parallel: 13.1 is `apps/web/*` plus the
 `ChatSessionDetail` change in `packages/shared`, 13.2 is `packages/core/*`,
@@ -137,11 +137,15 @@ token-level streaming beyond what the provider emits (DD-5).
 
 ## The owner action this phase cannot do for itself
 
-Verification needs a real paired machine on the feature branch's own Vercel
-preview — the same scratch-account pattern M11 used. No new runbook row;
-[`doc/runbooks/agent-browser-session.md`](../../runbooks/agent-browser-session.md)
-already covers how an agent gets a signed-in session and pairs a scratch
-machine.
+**Narrower than expected.** T-M13-05 found that an agent *can* do the
+signed-in-session-plus-scratch-machine half entirely on its own — the
+runbook covers it, and it worked. What genuinely needs the owner (or a
+machine outside this sandbox) is **Anthropic credentials for a spawned
+`claude` CLI to actually authenticate** — every real turn dispatched in this
+sandbox, across M12 and M13 alike, has hit the same wall
+([`G-31`](../../KnownGaps.md)). Until that clears somewhere, no chat reply
+has ever actually been produced by this repo's own verification passes —
+only dispatched, assigned, and correctly failed.
 
 ## Traps
 
@@ -159,5 +163,8 @@ should render that gracefully rather than as an unexplained failure.
 
 ## Verification
 
-Full procedure in the phase's verification task, once decomposed. Graded
-against the spec's SC-001 and SC-004.
+Full procedure and Result in [T-M13-05](T-M13-05-verification.md). SC-001 and
+SC-004 both need a successful CLI completion this sandbox cannot produce —
+see `G-31` — so neither is graded as passing here; everything reachable
+without one (dispatch, assignment, FR-004 under a genuine race,
+cross-workspace isolation, three of the four states) is live-proven.
