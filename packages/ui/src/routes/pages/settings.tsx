@@ -525,7 +525,7 @@ function AppearanceCard() {
     const match = document.cookie.match(/(?:^|; )theme-prefs=([^;]*)/);
     if (match) {
       try {
-        const prefs = JSON.parse(decodeURIComponent(match[1]));
+        const prefs = JSON.parse(decodeURIComponent(match[1] || "{}"));
         if (prefs.mode) setMode(prefs.mode);
         if (prefs.surface) setSurface(prefs.surface);
         if (prefs.brand) setBrand(prefs.brand);
@@ -661,6 +661,57 @@ function AppearanceCard() {
     </div>
   );
 }
+
+
+function AdvancedCard() {
+  const settings = useSettings();
+  const updateSettings = useUpdateSettings();
+  const [draft, setDraft] = React.useState<Record<string, string>>({});
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Advanced</CardTitle>
+        <CardDescription>Raw key/value settings stored in the core database.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {Object.entries(settings.data ?? {}).length === 0 && (
+          <p className="text-sm text-muted-foreground">No settings stored yet.</p>
+        )}
+        {Object.entries(settings.data ?? {}).map(([key, value]) => (
+          <div key={key} className="flex items-center gap-2">
+            <Label htmlFor={`advanced-setting-${key}`} className="w-48 shrink-0 font-mono text-xs">
+              {key}
+            </Label>
+            <Input
+              id={`advanced-setting-${key}`}
+              className="font-mono text-xs"
+              value={draft[key] ?? value}
+              onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+            />
+          </div>
+        ))}
+        {Object.keys(draft).length > 0 && (
+          <div className="flex justify-end pt-2">
+            <Button
+              size="sm"
+              disabled={updateSettings.isPending}
+              onClick={() => updateSettings.mutate(draft, { onSuccess: () => setDraft({}) })}
+            >
+              Save changes
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Two hosts, two answers to "what is your profile". The local desktop build
+ * has no account (`useAccount()` is `null`, per `@/lib/account`'s standing
+ * convention) — this branch is untouched by T-M10-02, which only converts the
+ * signed-in half into `ProfileForm`.
+ */
 
 function ProfileCard() {
   const account = useAccount();
