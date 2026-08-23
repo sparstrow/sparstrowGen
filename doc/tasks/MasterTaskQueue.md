@@ -484,7 +484,7 @@ seam M13 has not yet built.
 | 18.7 | [T-M13-01 — `ChatTurnState` at the browser boundary](M13/T-M13-01-turn-state-and-v1-routes.md) | `[S]` | 18.6 | ✅ done 2026-08-23 |
 | 18.8 | [T-M13-02 — the local host answers in the same shape](M13/T-M13-02-local-host-turn-state.md) | `[P]` | 18.6 | ✅ done 2026-08-23 |
 | 18.9 | [T-M13-03 — hooks split, and `chat.tsx` renders a turn](M13/T-M13-03-chat-page-turn-rendering.md) | `[S]` | 18.7, 18.8 | ✅ done 2026-08-23 |
-| 18.10 | [T-M13-04 — Knowledge Center pass](M13/T-M13-04-knowledge-center.md) | `[P]` | 18.7, 18.9 | queued |
+| 18.10 | [T-M13-04 — Knowledge Center pass](M13/T-M13-04-knowledge-center.md) | `[P]` | 18.7, 18.9 | ✅ done 2026-08-23 |
 | 18.11 | [T-M13-05 — M13 verification](M13/T-M13-05-verification.md) | `[S]` | 18.7–18.10 | queued |
 | 18.12 | M14 tasks (US2 — nothing-can-answer states) | `[S]` | 18.11 | not decomposed — see [`M14/README.md`](M14/README.md) |
 | 18.13 | M15 tasks (US3 — retry) | `[S]` | 18.11 | not decomposed — see [`M15/README.md`](M15/README.md) |

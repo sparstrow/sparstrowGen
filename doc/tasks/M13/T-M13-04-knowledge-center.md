@@ -7,7 +7,7 @@
 | **Depends on** | T-M13-01, T-M13-03 — write what shipped, not what was planned |
 | **Blocks** | T-M13-05 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-23 |
 
 ## Objective
 
@@ -60,18 +60,21 @@ whose content actually changed.
 
 ## Checklist
 
-- [ ] `chat-and-inbox.md` — the intro paragraph (line ~11) no longer says
+- [x] `chat-and-inbox.md` — the intro paragraph (line ~11) no longer says
       sending "is not available yet"
-- [ ] `chat-and-inbox.md` — the first **Known Limitations & Boundaries** bullet
+- [x] `chat-and-inbox.md` — the first **Known Limitations & Boundaries** bullet
       rewritten: sending works; it needs a paired, online machine; one reply at
-      a time per session
-- [ ] `chat-and-inbox.md` — the "separate from Runs" and "one agent per
+      a time per session — split into three separate bullets (paired-machine
+      requirement, one-at-a-time, and granularity) rather than one, since each
+      is independently checkable against the code
+- [x] `chat-and-inbox.md` — the "separate from Runs" and "one agent per
       session" bullets kept; both are still true
-- [ ] Streaming described per decision 1
-- [ ] `updated:` bumped to the landing date on every file whose content changed
-- [ ] The four global-claim pages re-read; changes made where needed, and the
+- [x] Streaming described per decision 1
+- [x] `updated:` bumped to 2026-08-23 on `chat-and-inbox.md` — the only file
+      whose content changed (see below)
+- [x] The four global-claim pages re-read; changes made where needed, and the
       no-change outcome recorded in Result
-- [ ] Every article edited still has its `## Known Limitations & Boundaries`
+- [x] Every article edited still has its `## Known Limitations & Boundaries`
       section (`AGENTS.md` §3.2 requires one on every article)
 
 ## Traps
@@ -91,20 +94,56 @@ short.
 
 ## Verification
 
-- [ ] `grep -rin "does not work yet\|not available yet" packages/ui/src/content/knowledge/`
-      returns nothing about chat sending
-- [ ] The rendered article is read in the running app at `/knowledge/chat-and-inbox`,
-      not just in the markdown source — it is a product surface
-- [ ] Every claim in the edited article is checked against the shipped code, per
-      `AGENTS.md` §3.2's "verify a capability in the code or schema before
-      describing it"
+- [x] `grep -rin "does not work yet\|not available yet" packages/ui/src/content/knowledge/`
+      returns nothing
+- [x] The rendered article is read in the running app at `/knowledge/chat-and-inbox`,
+      not just in the markdown source — confirmed live, including the
+      "Updated 2026-08-23" freshness stamp
+- [x] Every claim in the edited article is checked against the shipped code —
+      each bullet traces to a specific T-M13-01/02/03 mechanism, listed in
+      Result
 
 ## On completion
 
-- [ ] Tick 18.10 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] Update this file's **Status** row and the phase README's task table
+- [x] Tick 18.10 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Update this file's **Status** row and the phase README's task table
 
 ## Result
 
-<!-- Filled in when the task lands. Record the four global-claim pages'
-     outcome explicitly, including "read, no change needed". -->
+`chat-and-inbox.md` is the only file changed. The intro paragraph now
+describes sending as working, needing an online paired machine, and streaming
+"in complete steps" (decision 1 — never "word by word", per `G-30`). The
+first Known Limitations bullet became three, each traced to a specific
+mechanism rather than one paragraph asserting several things at once:
+
+| Bullet | Traces to |
+|---|---|
+| Needs an online paired machine, told plainly otherwise | `enqueue_chat_turn`'s `waiting_reason` (M12) — the generic version M13 renders (T-M13-03 decision 4); the three *specific* wordings are M14's, not promised here |
+| One reply at a time per session, refused while one is in progress | The partial unique index + `SPG16`/`chatTurnFailureFrom` (T-M13-01), rendered as the composer's refusal (T-M13-03) |
+| Message-by-message, not word-by-word | `G-30` verbatim |
+
+**The four global-claim pages, re-read, changed nothing — verified by content,
+not by memory of a prior grep:**
+
+- **`what-is-sparstrowgen.md`** — no mention of chat at all; its architecture
+  diagram and "core ideas" describe agents/runs/tasks generically, none of
+  which chat's arrival contradicts.
+- **`first-run-setup.md`** — no mention of chat; describes provider setup and
+  machine pairing, both unchanged by this feature.
+- **`limitations.md`** — no mention of chat; its "by design" and "current
+  sharp edges" lists are about runs/machines/sign-in generically.
+- **`providers-and-execution-modes.md`** — two incidental mentions
+  ("chat-style agents" as an Anthropic API use case; "chat sessions and
+  messages" in the live-updates list), both still accurate. Considered adding
+  a description of the new `chat:<workspace>:<session>` broadcast channel
+  alongside the existing run-transcript-channel writeup, since the two are
+  now architecturally parallel — decided against it as scope creep for this
+  task: it would be an addition, not a correction, and the task's own
+  decision 2 says "no more" than what's listed above.
+
+Verified live: `pnpm --filter ui dev`, navigated to
+`/knowledge/chat-and-inbox`, read the rendered page (not the source),
+confirmed no console errors from the article itself (the page showed the
+usual `ws://localhost:5173/ws` / API 500 noise from `core` not being started
+for this check — pre-existing infrastructure noise, unrelated to markdown
+content, reproducible on any KC article regardless of this change).
