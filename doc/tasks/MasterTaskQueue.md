@@ -433,6 +433,19 @@ Unparks D-17 (Theme picker). Resolves the nested tabs layout into a cleaner Mast
 | 16.2 | [T-02 - Unified Nav](SettingsRedesign/T-02-UnifiedNav.md) | `[P]` | - | 🟢 done |
 | 16.3 | [T-03 - Appearance Picker](SettingsRedesign/T-03-AppearancePicker.md) | `[S]` | 16.1, 16.2 | 🟢 done |
 
+### Band 17 — G23 shared sidebar nav groups (2026-08-23)
+
+Plan: [../plans/2026-08-23-shared-nav-groups.md](../plans/2026-08-23-shared-nav-groups.md).
+Narrows `G-23`: both app shells hardcoded their own `NAV_GROUPS` literal, so a
+destination added to one silently never appears in the other's sidebar — with
+a green typecheck and passing tests. Closes the silent-failure half of the
+gap by moving grouping/order into `nav-meta.ts`; the full-shell-merge half
+stays open.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 17.1 | [T-G23-01 — extract NAV_GROUPS into nav-meta.ts](G23/T-G23-01-shared-nav-groups.md) | `[S]` | — | ✅ done 2026-08-23 |
+
 ## Blocked items
 
 > For a single checklist of everything that needs the owner specifically, see
