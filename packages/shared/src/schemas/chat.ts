@@ -151,6 +151,15 @@ export interface ChatTurn {
 export interface ChatSessionDetail {
   session: ChatSession;
   messages: ChatMessage[];
+  /**
+   * M13 — the session's most recent turn, terminal or not; `status`
+   * distinguishes them. `null` if no turn was ever sent. This is what makes a
+   * turn recoverable after a reload (FR-007): the mutation response is gone
+   * once the page remounts, and this field is the only source left. The local
+   * host always reports a terminal turn here, or `null` if the local `ChatTurn`
+   * shape doesn't apply (agent-creator sessions).
+   */
+  activeTurn: ChatTurnState | null;
 }
 
 // ─── M12 — one async contract for both hosts ────────────────────────────────

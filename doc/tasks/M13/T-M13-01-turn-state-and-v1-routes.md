@@ -7,7 +7,7 @@
 | **Depends on** | — (M12 landed everything this calls) |
 | **Blocks** | T-M13-03, T-M13-05 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-23 |
 
 ## The scenario this satisfies
 
@@ -226,4 +226,40 @@ partial unique index on `session_id` is the guard (M12 phase trap; M2's defect
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+Shipped as designed, with one extra fix folded in. `chatTurnFailureFrom` +
+`CHAT_STATUS_BY_REASON` landed in `apps/web/src/lib/api/enqueue.ts` beside
+`enqueueFailureFrom`, with 7 unit tests covering all four SQLSTATEs, the 404
+vs 409 split, message passthrough/fallback, and rethrow-on-unrecognised.
+`ChatSessionDetail.activeTurn` landed in `packages/shared/src/schemas/chat.ts`.
+`turnStateRow` in `apps/web/src/lib/api/handlers/chat.ts` is the single
+mapper `GET /chat/sessions/:id`, `POST .../messages` and `POST .../retry` all
+call. Both stub entries removed from `stubs.ts`; `/teams/:id/manager/chat`
+untouched.
+
+**Folded in, not deferred**: `GET /chat/sessions/:id` was calling `ok()` with
+no opaque keys at all (confirmed by reading the pre-existing code, not
+assumed), so `chat_sessions.draft` and every `chat_messages.meta` were being
+key-camelized inside their own jsonb payloads on every session read. Fixing
+this was unavoidable to ship `activeTurn` correctly (a turn nests a
+`userMessage`/`assistantMessage`, each with a `meta`), so `CHAT_TURN_OPAQUE_KEYS`
+covers both `chat_sessions` and `chat_messages`' opaque columns and now also
+protects the plain session read.
+
+**Verified:** `pnpm --filter @sparstrow/shared test` (279 tests, all green),
+`pnpm --filter @sparstrow/shared typecheck` (clean), `pnpm --filter web test`
+(298 tests, all green — 15 new: 6 for `chatTurnFailureFrom`, 9 for the two
+routes + `activeTurn`), `pnpm --filter web typecheck` (clean). New tests
+built a small filter/order/limit/`.single()`/`.maybeSingle()`/thenable fake
+table plus an `rpc()` mock, extending the existing `fakeSupabase` pattern in
+`chat-routes.test.ts` rather than mocking the real client.
+
+**Not run:** anything against a real Postgres/RPC call — that is
+[T-M13-05](T-M13-05-verification.md)'s job, which needs a paired machine and
+a deployed preview. This task proves the contract shape and the error mapping
+in isolation, not the live round trip.
+
+**Found but not built here**: nothing — the two decisions flagged in the task
+doc (agent-creator guard, retry-by-turn-id-not-session-id) were both
+implemented as specified and are covered by dedicated tests
+(`refuses an agent-creator session without calling enqueue_chat_turn`,
+`resolves the session's latest turn and passes ITS id to retry_chat_turn`).
