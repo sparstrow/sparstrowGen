@@ -251,6 +251,16 @@ merely react faster — live HITL approvals, interactive chat turns, or a cancel
 that must land inside 100 ms. At that point the JWT is load-bearing rather than
 an optimisation, and the doorbell comes along with it for nearly nothing.
 
+**Update 2026-08-23:** chat turns — named above as a candidate trigger — were
+scoped in
+[`doc/specs/2026-08-23-chat-message-sending.md`](specs/2026-08-23-chat-message-sending.md)
+and deliberately did *not* unpark this. The owner chose to reuse the poll +
+broadcast-back pattern M4/M5 already proved, on the grounds that a chat reply
+is not meaningfully worse for arriving within a few seconds instead of
+instantly — the same latency tradeoff the app already accepts for starting a
+run. The doorbell stays parked; the remaining named triggers (live HITL
+approvals, a sub-100ms cancel) are unaffected.
+
 ---
 
 ## D-13 — Memory sync: delete propagation and contradiction sync
