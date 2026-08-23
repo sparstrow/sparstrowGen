@@ -11,6 +11,22 @@ guidance: `.claude/skills/design-system/references/decision-log.md`.
 
 ---
 
+## DD-014 - Settings: Appearance & Theme Architecture
+
+**Date:** 2026-08-22 - **Asked by:** settings redesign - **Surface:** Settings Appearance
+
+**Situation:** The Settings redesign required final product logic for how the theme picker operates under the hood before moving to implementation.
+
+**Decision:**
+1. **Sync:** Synced to Account (Cloud DB). The theme is a portable user preference that travels across devices.
+2. **Application:** Instant (Reactive). Clicking a theme applies it to the DOM immediately for preview, without requiring a Save click.
+3. **FOUC Prevention:** Cookie Cache (Server-Side Rendering). Because DB fetches on every page load add latency, the Next.js server reads a local cookie to inject the CSS classes on the first byte. The cookie acts as a fast-cache for the Cloud DB.
+4. **Density:** Rejected. We stick to one highly-tuned monitoring density (13px body, tight padding) rather than shipping a Compact/Regular toggle.
+
+**Generalises to:** Any future user-level preferences will follow the Cloud DB + Local Cookie Cache pattern to guarantee zero-flash fast loads.
+
+**Status:** **locked**
+
 ## DD-013 — Actor identity is a neutral chip with a coloured mark, not a coloured chip
 
 **Date:** 2026-08-19 · **Asked by:** found while solving §2.5's missing values · **Surface:** every avatar, board column, and actor label

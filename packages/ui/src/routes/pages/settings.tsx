@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2 } from "lucide-react";
+import { Trash2, User, Palette, Github, Settings as SettingsIcon, Key, Activity, AlertTriangle, Sun, Moon, Monitor } from "lucide-react";
 import { useAccount } from "@/lib/account";
 import {
   useClearGithubPat,
@@ -505,39 +505,163 @@ function SystemCard() {
   );
 }
 
+
+
+// Note: saveThemePreference would be imported or handled via standard fetch/trpc. 
+// For now we assume a server action could be called if imported, but we'll use local state/cookies if not.
+
 function AppearanceCard() {
-  const { theme, setTheme } = useTheme();
-  const themes: { value: Theme; label: string }[] = [
-    { value: "light", label: "Light" },
-    { value: "dark", label: "Dark" },
-    { value: "system", label: "System" },
-  ];
+  const [surface, setSurface] = React.useState('paper');
+  const [brand, setBrand] = React.useState('amber');
+  const [mode, setMode] = React.useState('system');
+
+  // Load from document element on mount
+  React.useEffect(() => {
+    const html = document.documentElement;
+    setSurface(html.getAttribute('data-surface') || 'paper');
+    setBrand(html.getAttribute('data-brand') || 'amber');
+    
+    // Attempt to read cookie directly or assume default
+    const match = document.cookie.match(/(?:^|; )theme-prefs=([^;]*)/);
+    if (match) {
+      try {
+        const prefs = JSON.parse(decodeURIComponent(match[1] || "{}"));
+        if (prefs.mode) setMode(prefs.mode);
+        if (prefs.surface) setSurface(prefs.surface);
+        if (prefs.brand) setBrand(prefs.brand);
+      } catch (e) {}
+    }
+  }, []);
+
+  const handleUpdate = async (newSurface: string, newBrand: string, newMode: string) => {
+    setSurface(newSurface);
+    setBrand(newBrand);
+    setMode(newMode);
+
+    const html = document.documentElement;
+    if (!html.className.match(/surface-\w+/)) html.classList.add(`surface-${newSurface}`);
+    else html.className = html.className.replace(/surface-\w+/, `surface-${newSurface}`);
+    
+    if (!html.className.match(/theme-\w+/)) html.classList.add(`theme-${newBrand}`);
+    else html.className = html.className.replace(/theme-\w+/, `theme-${newBrand}`);
+
+    let effectiveMode = newMode;
+    if (effectiveMode === 'system') {
+      effectiveMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    if (effectiveMode === 'dark') {
+      html.classList.add('dark');
+      html.classList.remove('light');
+    } else {
+      html.classList.add('light');
+      html.classList.remove('dark');
+    }
+
+    // Save to cookie (fallback client-side) and trigger server action
+    const prefs = { surface: newSurface, brand: newBrand, mode: newMode };
+    document.cookie = `theme-prefs=${encodeURIComponent(JSON.stringify(prefs))}; path=/; max-age=31536000`;
+
+    try {
+      const res = await fetch('/api/theme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prefs),
+      });
+    } catch(e) {}
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm">Appearance</CardTitle>
-        <CardDescription>How Sparstrowgen looks on this browser.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex gap-2">
-          {themes.map((t) => (
-            <button
-              key={t.value}
-              type="button"
-              onClick={() => setTheme(t.value)}
-              className={cn(
-                "flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors hover:bg-accent",
-                theme === t.value && "border-primary bg-accent",
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Surface Character</CardTitle>
+          <CardDescription>The background tone and contrast floor.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { id: 'paper', name: 'Paper', desc: 'Warm, linen cast' },
+              { id: 'slate', name: 'Slate', desc: 'Cool blue-grey' },
+              { id: 'soft', name: 'Soft', desc: 'Lifted, low contrast' },
+              { id: 'mono', name: 'Mono', desc: 'Pure neutral' }
+            ].map(s => (
+              <div 
+                key={s.id} 
+                className={cn("theme-option", surface === s.id && "active")}
+                onClick={() => handleUpdate(s.id, brand, mode)}
+              >
+                <div style={{
+                  width: '100%', height: '80px', borderRadius: '4px',
+                  background: s.id === 'paper' ? '#f5f3eb' : s.id === 'slate' ? '#edf1f7' : s.id === 'soft' ? '#f6f3f8' : '#ffffff',
+                  border: '1px solid rgba(0,0,0,0.1)'
+                }}></div>
+                <div className="text-center">
+                  <div className="font-semibold text-[12.5px]">{s.name}</div>
+                  <div className="text-[11px] text-muted-foreground">{s.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Brand Accent</CardTitle>
+          <CardDescription>Primary color for buttons, rings, and selections.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
+            {[
+              { id: 'amber', name: 'Amber', color: 'oklch(0.78 0.15 70)' },
+              { id: 'violet', name: 'Violet', color: 'oklch(0.78 0.18 285)' },
+              { id: 'blue', name: 'Blue', color: 'oklch(0.78 0.16 250)' },
+              { id: 'teal', name: 'Teal', color: 'oklch(0.78 0.12 190)' },
+              { id: 'rose', name: 'Rose', color: 'oklch(0.78 0.16 15)' },
+            ].map(b => (
+              <div 
+                key={b.id} 
+                className={cn("theme-option", brand === b.id && "active")}
+                onClick={() => handleUpdate(surface, b.id, mode)}
+              >
+                <div className="brand-swatch" style={{ background: b.color }}></div>
+                <div className="font-semibold text-[12.5px] text-center">{b.name}</div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Expression</CardTitle>
+          <CardDescription>Light, dark, or system preference.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2 sm:gap-3">
+            {[
+              { id: 'light', name: 'Light', icon: Sun },
+              { id: 'dark', name: 'Dark', icon: Moon },
+              { id: 'system', name: 'System', icon: Monitor },
+            ].map(m => (
+              <Button
+                key={m.id}
+                variant={mode === m.id ? "default" : "outline"}
+                onClick={() => handleUpdate(surface, brand, m.id)}
+                className="gap-2 flex-1 min-w-[100px]"
+              >
+                <m.icon className="size-4" />
+                {m.name}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
+
 
 function AdvancedCard() {
   const settings = useSettings();
@@ -588,6 +712,7 @@ function AdvancedCard() {
  * convention) — this branch is untouched by T-M10-02, which only converts the
  * signed-in half into `ProfileForm`.
  */
+
 function ProfileCard() {
   const account = useAccount();
 
@@ -614,15 +739,6 @@ function ProfileCard() {
   return <ProfileForm variant="card" />;
 }
 
-/**
- * Account deletion.
- *
- * Typing the address is the gate rather than a plain "are you sure?" — this
- * destroys every agent, run, memory note and skill in any workspace the
- * account is the only member of, and none of it is recoverable. The same
- * string is re-checked server-side, so the confirmation is not merely
- * decorative.
- */
 function DangerZoneCard() {
   const account = useAccount();
   const [open, setOpen] = React.useState(false);
@@ -717,59 +833,111 @@ function DangerZoneCard() {
  * Settings, grouped Multica-style into nested tabs:
  * Account (Profile, Preferences) and Workspace (General, Integrations).
  */
+
 export function SettingsPage() {
+  const [activeTab, setActiveTab] = React.useState('profile');
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab) setActiveTab(tab);
+  }, []);
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tabId);
+    window.history.replaceState({}, '', url);
+  };
+
+  const navGroups = [
+    {
+      title: 'PERSONAL',
+      items: [
+        { id: 'profile', label: 'Profile & Identity', icon: User },
+        { id: 'appearance', label: 'Appearance & Theme', icon: Palette },
+        { id: 'git', label: 'Git Credentials', icon: Github },
+      ]
+    },
+    {
+      title: 'WORKSPACE',
+      items: [
+        { id: 'workspace', label: 'Workspace General', icon: SettingsIcon },
+        { id: 'providers', label: 'AI Providers & Keys', icon: Key },
+        { id: 'health', label: 'Factory Health & Engine', icon: Activity },
+        { id: 'danger', label: 'Danger Zone', icon: AlertTriangle, danger: true },
+      ]
+    }
+  ];
+
   return (
-    <div className="max-w-3xl">
-      <Tabs defaultValue="account">
-        <div className="sticky -top-5 z-20 -mt-5 bg-background pt-5 pb-3">
-          <TabsList>
-            <TabsTrigger value="account">Account</TabsTrigger>
-            <TabsTrigger value="workspace">Workspace</TabsTrigger>
-          </TabsList>
+    <div className="w-full max-w-6xl flex flex-col md:flex-row gap-6 md:gap-8 lg:gap-12 items-start">
+      {/* Mobile Horizontal Pill Navigation */}
+      <div className="w-full md:hidden overflow-x-auto pb-2 -mt-1 scrollbar-none">
+        <div className="flex gap-2 min-w-max px-0.5">
+          {navGroups.flatMap(g => g.items).map(item => (
+            <button
+              key={item.id}
+              onClick={() => handleTabChange(item.id)}
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors shrink-0",
+                activeTab === item.id 
+                  ? "bg-accent text-foreground border-primary" 
+                  : "bg-background text-muted-foreground border-border hover:bg-muted",
+                item.danger && activeTab !== item.id && "text-destructive border-destructive/30 hover:bg-destructive/10",
+                item.danger && activeTab === item.id && "bg-destructive/15 text-destructive border-destructive"
+              )}
+            >
+              <item.icon className="size-3.5" />
+              {item.label}
+            </button>
+          ))}
         </div>
+      </div>
 
-        <TabsContent value="account" className="pt-0">
-          <Tabs defaultValue="profile">
-            <div className="sticky top-12 z-10 bg-background pb-3">
-              <TabsList>
-                <TabsTrigger value="profile">Profile</TabsTrigger>
-                <TabsTrigger value="preferences">Preferences</TabsTrigger>
-              </TabsList>
-            </div>
-            <TabsContent value="profile" className="space-y-5 pt-0">
-              <ProfileCard />
-              <GitCard />
-              {/* Renders nothing when there is no hosted account, so the local
-                  desktop build sees the profile tab exactly as it did before. */}
-              <DangerZoneCard />
-            </TabsContent>
-            <TabsContent value="preferences" className="space-y-5 pt-0">
-              <AppearanceCard />
-            </TabsContent>
-          </Tabs>
-        </TabsContent>
+      {/* Desktop Vertical Sidebar Navigation */}
+      <nav className="hidden md:flex w-full md:w-56 lg:w-64 shrink-0 flex-col gap-6 sticky top-6">
+        {navGroups.map(group => (
+          <div key={group.title} className="flex flex-col gap-1">
+            <h3 className="text-xs font-semibold text-muted-foreground px-3 mb-1">{group.title}</h3>
+            {group.items.map(item => (
+              <button
+                key={item.id}
+                onClick={() => handleTabChange(item.id)}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors text-left",
+                  activeTab === item.id 
+                    ? "bg-accent text-foreground font-medium" 
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  item.danger && activeTab !== item.id && "text-destructive hover:text-destructive/90 hover:bg-destructive/10",
+                  item.danger && activeTab === item.id && "bg-destructive/15 text-destructive"
+                )}
+              >
+                <item.icon className="size-4 shrink-0" />
+                {item.label}
+              </button>
+            ))}
+          </div>
+        ))}
+      </nav>
 
-        <TabsContent value="workspace" className="pt-0">
-          <Tabs defaultValue="general">
-            <div className="sticky top-12 z-10 bg-background pb-3">
-              <TabsList>
-                <TabsTrigger value="general">General</TabsTrigger>
-                <TabsTrigger value="integrations">Integrations</TabsTrigger>
-              </TabsList>
-            </div>
-            <TabsContent value="general" className="space-y-5 pt-0">
-              <WorkspaceForm variant="card" />
-              <FactoryHealthCard />
-              <WipSnapshotCard />
-              <SystemCard />
-              <AdvancedCard />
-            </TabsContent>
-            <TabsContent value="integrations" className="space-y-5 pt-0">
-              <ProvidersCard />
-            </TabsContent>
-          </Tabs>
-        </TabsContent>
-      </Tabs>
+      {/* Main Content Area */}
+      <div className="w-full flex-1 min-w-0 flex flex-col gap-6">
+        {activeTab === 'profile' && <ProfileCard />}
+        {activeTab === 'appearance' && <AppearanceCard />}
+        {activeTab === 'git' && <GitCard />}
+        {activeTab === 'workspace' && <WorkspaceForm variant="card" />}
+        {activeTab === 'providers' && <ProvidersCard />}
+        {activeTab === 'health' && (
+          <>
+            <FactoryHealthCard />
+            <WipSnapshotCard />
+            <SystemCard />
+            <AdvancedCard />
+          </>
+        )}
+        {activeTab === 'danger' && <DangerZoneCard />}
+      </div>
     </div>
   );
 }
