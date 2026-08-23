@@ -612,7 +612,7 @@ function AppearanceCard() {
           <CardDescription>Primary color for buttons, rings, and selections.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
             {[
               { id: 'amber', name: 'Amber', color: 'oklch(0.78 0.15 70)' },
               { id: 'violet', name: 'Violet', color: 'oklch(0.78 0.18 285)' },
@@ -639,7 +639,7 @@ function AppearanceCard() {
           <CardDescription>Light, dark, or system preference.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             {[
               { id: 'light', name: 'Light', icon: Sun },
               { id: 'dark', name: 'Dark', icon: Moon },
@@ -649,7 +649,7 @@ function AppearanceCard() {
                 key={m.id}
                 variant={mode === m.id ? "default" : "outline"}
                 onClick={() => handleUpdate(surface, brand, m.id)}
-                className="gap-2"
+                className="gap-2 flex-1 min-w-[100px]"
               >
                 <m.icon className="size-4" />
                 {m.name}
@@ -871,9 +871,32 @@ export function SettingsPage() {
   ];
 
   return (
-    <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 items-start">
-      {/* Sidebar Navigation */}
-      <nav className="w-full md:w-64 shrink-0 flex flex-col gap-6 sticky top-6">
+    <div className="w-full max-w-6xl flex flex-col md:flex-row gap-6 md:gap-8 lg:gap-12 items-start">
+      {/* Mobile Horizontal Pill Navigation */}
+      <div className="w-full md:hidden overflow-x-auto pb-2 -mt-1 scrollbar-none">
+        <div className="flex gap-2 min-w-max px-0.5">
+          {navGroups.flatMap(g => g.items).map(item => (
+            <button
+              key={item.id}
+              onClick={() => handleTabChange(item.id)}
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors shrink-0",
+                activeTab === item.id 
+                  ? "bg-accent text-foreground border-primary" 
+                  : "bg-background text-muted-foreground border-border hover:bg-muted",
+                item.danger && activeTab !== item.id && "text-destructive border-destructive/30 hover:bg-destructive/10",
+                item.danger && activeTab === item.id && "bg-destructive/15 text-destructive border-destructive"
+              )}
+            >
+              <item.icon className="size-3.5" />
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Desktop Vertical Sidebar Navigation */}
+      <nav className="hidden md:flex w-full md:w-56 lg:w-64 shrink-0 flex-col gap-6 sticky top-6">
         {navGroups.map(group => (
           <div key={group.title} className="flex flex-col gap-1">
             <h3 className="text-xs font-semibold text-muted-foreground px-3 mb-1">{group.title}</h3>
@@ -882,7 +905,7 @@ export function SettingsPage() {
                 key={item.id}
                 onClick={() => handleTabChange(item.id)}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors text-left",
                   activeTab === item.id 
                     ? "bg-accent text-foreground font-medium" 
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -890,7 +913,7 @@ export function SettingsPage() {
                   item.danger && activeTab === item.id && "bg-destructive/15 text-destructive"
                 )}
               >
-                <item.icon className="size-4" />
+                <item.icon className="size-4 shrink-0" />
                 {item.label}
               </button>
             ))}
@@ -899,7 +922,7 @@ export function SettingsPage() {
       </nav>
 
       {/* Main Content Area */}
-      <div className="flex-1 min-w-0 flex flex-col gap-6">
+      <div className="w-full flex-1 min-w-0 flex flex-col gap-6">
         {activeTab === 'profile' && <ProfileCard />}
         {activeTab === 'appearance' && <AppearanceCard />}
         {activeTab === 'git' && <GitCard />}
