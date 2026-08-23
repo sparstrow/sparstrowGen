@@ -57,3 +57,43 @@ export function sectionMeta(path: string): NavMeta {
   if (path.startsWith("/agents/create")) return AGENT_CREATOR_META;
   return NAV_META[section] ?? { label: section, icon: LayoutDashboard };
 }
+
+export interface NavGroup {
+  heading: string | null;
+  items: string[];
+}
+
+/**
+ * One source of truth for sidebar membership, order, and grouping — shared by
+ * both app shells (`packages/ui`'s Vite/Electron build and `apps/web`'s
+ * Next.js build). Each entry is a path; label and icon come from `NAV_META`
+ * via `sectionMeta`, so a shell never carries its own copy of either.
+ *
+ * A path can exist in `NAV_META` without appearing here — "setup" is
+ * deliberately absent (no permanent sidebar row, T-M10-03 phase decision),
+ * reached only from the dashboard card and its own breadcrumb.
+ */
+export const NAV_GROUPS: NavGroup[] = [
+  { heading: null, items: ["/"] },
+  {
+    heading: "Personal",
+    items: ["/chat", "/messages", "/tasks", "/memory"],
+  },
+  {
+    heading: "Workspace",
+    items: [
+      "/agents",
+      "/teams",
+      "/projects",
+      "/runs",
+      "/machines",
+      "/pipelines",
+      "/schedule",
+      "/imports",
+    ],
+  },
+  {
+    heading: "Configure",
+    items: ["/skills", "/terminals", "/knowledge", "/settings"],
+  },
+];
