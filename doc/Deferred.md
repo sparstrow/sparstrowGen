@@ -590,3 +590,34 @@ notes the way a run does — at that point this needs its own scoping (does
 every turn re-run retrieval, or only the first in a session; does injected
 memory count toward `buildMemoryBlock`'s existing budget; does a Free or
 Agent-only session get anything at all).
+
+## D-21 — Owner runs `claude setup-token` on the real machine
+
+**Parked:** 2026-08-23, by the owner — "I am deferring to do this right now,"
+after live-verifying M13's chat feature turned up
+[`G-32`](KnownGaps.md#g-32--claude-logins-interactive-re-authentication-does-not-extend-to-headless--p-invocations-at-all).
+
+`claude login`'s interactive re-authentication does not extend to `-p`
+(headless) invocations — confirmed live, twice, on the owner's own real
+machine, before and after they re-authenticated interactively. The daemon's
+headless `claude-code` spawns still get a genuine `401 authentication_failed`
+from Anthropic on every attempt. `claude --help` documents the actual fix as
+its own distinct step: `setup-token — Set up a long-lived authentication
+token (requires Claude subscription)`. This is not something an agent runs —
+it mutates the owner's real auth state and (per `claude auth status`'s
+`authMethod: "claude.ai"`) is tied to their actual subscription.
+
+Until this is done, every real chat turn on that machine that lands on
+`claude-code` fails with "the provider timed out" after burning the full
+120s orchestrator timeout on retries — `antigravity` on the same machine
+already works, since [`BUG-2026-08-23-headless-spawn-skill-leak`](bug/BUG-2026-08-23-headless-spawn-skill-leak.md)'s
+fix covered that provider's separate, now-closed issue. Nothing in
+Sparstrowgen's code is blocked by this; only live verification of
+`claude-code` chat turns is.
+
+**Unpark when:** the owner runs `claude setup-token` on that machine and
+confirms it — either the next real chat-turn attempt on `claude-code`
+succeeds, or a direct repro (`echo hi | claude -p --output-format
+stream-json --model sonnet`, the same command `G-32` used to diagnose this)
+stops returning `401`. At that point, close `G-32` with that evidence and
+delete this entry.
