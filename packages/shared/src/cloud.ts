@@ -773,3 +773,33 @@ export interface ChatTurnResultPayload {
   status: "succeeded" | "failed";
   error?: string | null;
 }
+
+/**
+ * The Realtime topic a chat turn's live deltas are broadcast on — per
+ * SESSION, not per turn, so a subscriber opened once for a session sees every
+ * turn sent in it without re-subscribing between them. Same reasoning as
+ * `runTranscriptTopic`; the RLS policy on `realtime.messages` this must match
+ * is `015_chat_broadcast.sql`, not this function — a non-member who guesses
+ * the topic is refused at subscribe, same as the run topic.
+ */
+export function chatTurnTopic(workspaceId: string, sessionId: string): string {
+  return `chat:${workspaceId}:${sessionId}`;
+}
+
+/** The broadcast event name carried inside that topic. */
+export const CHAT_TURN_BROADCAST_EVENT = "turn";
+
+/**
+ * What a subscriber receives — mirrors `TranscriptBroadcast`'s shape
+ * deliberately (an `events` array, chunked the same way by `planBroadcast`)
+ * rather than a single snapshot, so a batch of several deltas still renders
+ * progressively instead of jumping straight to its final text. `status`
+ * describes the turn as of this message; only the terminal call sets it to
+ * `succeeded`/`failed`, and only then is `error` meaningful.
+ */
+export interface ChatTurnBroadcast {
+  turnId: string;
+  events: ChatTurnEventPush[];
+  status: "running" | "succeeded" | "failed";
+  error?: string | null;
+}
