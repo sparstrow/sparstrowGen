@@ -565,3 +565,28 @@ rewrite of history.
   i.e. exactly the moment `AGENTS.md` §4 currently says "don't create
   `packages/daemon/` speculatively" stops applying. Do the rename as part of
   that same body of work, not as a separate later pass.
+
+---
+
+## D-20 — Memory injection on the chat path
+
+**Parked:** 2026-08-23, during planning for
+[chat message-sending](plans/2026-08-23-chat-message-sending.md) — the owner
+confirmed the lighter scope (DD-6 in that plan) over full memory injection for
+the first build.
+
+The spec's US1.2 says a Project or Agent chat reply should reflect "that
+project's directives and memory the same way a task run already does." What
+ships in M13 is the lighter half: the project's system prompt, its read-only
+repository tools, and its directives, carried to whichever machine picks up
+the turn. What does not ship is a memory block — `RunManager` injects one via
+`buildMemoryBlock` behind an actual `runs` row; the chat path runs through
+`completeOnce`, documented as *"NO run row, NO memory injection,"* and pulling
+memory retrieval into a chat turn is a second feature, not a corollary of
+message dispatch.
+
+**Unpark when:** the owner wants a chat reply to draw on the project's memory
+notes the way a run does — at that point this needs its own scoping (does
+every turn re-run retrieval, or only the first in a session; does injected
+memory count toward `buildMemoryBlock`'s existing budget; does a Free or
+Agent-only session get anything at all).

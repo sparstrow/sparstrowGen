@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Status** | Draft |
+| **Status** | Owner-reviewed 2026-08-23 |
 | **Created** | 2026-08-23 |
 | **Trigger** | Surfaced while discussing Settings & customization (I-10). The owner asked whether chat's "requires a paired machine, arriving in M5" message needed anything from them to build — investigation found M5 had already shipped (2026-08-11/12) without it, so the promise is now stale, and the owner decided (2026-08-23) to scope this properly rather than leave it dangling. |
-| **Plan** | not planned yet |
+| **Plan** | doc/plans/2026-08-23-chat-message-sending.md, once written |
 | **Open questions** | none |
 
 ## The experience today
@@ -129,4 +129,4 @@ The owner opens a chat session, types a message, and presses send. If a machine 
 
 ## Owner review
 
-**Reviewed:** _pending_
+**Reviewed:** 2026-08-23 — accepted, no changes requested.

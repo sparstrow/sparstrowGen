@@ -433,7 +433,43 @@ Unparks D-17 (Theme picker). Resolves the nested tabs layout into a cleaner Mast
 | 16.2 | [T-02 - Unified Nav](SettingsRedesign/T-02-UnifiedNav.md) | `[P]` | - | 🟢 done |
 | 16.3 | [T-03 - Appearance Picker](SettingsRedesign/T-03-AppearancePicker.md) | `[S]` | 16.1, 16.2 | 🟢 done |
 
-## Blocked items
+### Band 17 — M12–M15 chat message sending (2026-08-23)
+
+Plan: [`../plans/2026-08-23-chat-message-sending.md`](../plans/2026-08-23-chat-message-sending.md).
+Spec: [`../specs/2026-08-23-chat-message-sending.md`](../specs/2026-08-23-chat-message-sending.md).
+Fixes the stale "Arriving in M5" stub promise on `POST /chat/sessions/:id/messages`
+and `.../retry` by actually scoping and building the feature — see
+[`BUG-2026-08-23-chat-stub-stale-m5-promise`](../bug/BUG-2026-08-23-chat-stub-stale-m5-promise.md).
+Reuses M4's command spine and M5's ingest-then-broadcast shape wholesale
+(DD-1); does **not** build the push-based Realtime doorbell parked in
+[D-12](../Deferred.md), which named "interactive chat turns" as a candidate
+trigger and deliberately did not become one.
+
+M12 is fully decomposed (6 tasks). M13/M14/M15 have phase specs but their
+individual tasks are intentionally not yet written — this repo's own
+precedent (M5's decomposition depended on what M4's dispatch actually turned
+out to look like) applies directly here, since M13–M15 all build on M12's
+actual shape.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 17.1 | [T-M12-01 — schema, RLS, enqueue/assign functions](M12/T-M12-01-schema-and-dispatch-functions.md) | `[S]` | — | not started |
+| 17.2 | [T-M12-02 — shared contracts and constants](M12/T-M12-02-shared-contracts.md) | `[S]` | 17.1 | not started |
+| 17.3 | [T-M12-03 — daemon-facing routes + broadcast policy](M12/T-M12-03-daemon-routes-and-broadcast.md) | `[P]` | 17.2 | not started |
+| 17.4 | [T-M12-04 — core command-loop case + turn executor](M12/T-M12-04-core-chat-turn-executor.md) | `[P]` | 17.2 | not started |
+| 17.5 | [T-M12-05 — `LiveEventSource.subscribeChat`](M12/T-M12-05-live-event-source-chat.md) | `[S]` | 17.3 | not started |
+| 17.6 | [T-M12-06 — M12 verification](M12/T-M12-06-verification.md) | `[S]` | 17.1–17.5 | not started |
+| 17.7 | M13 tasks (US1 — send + streaming reply) | `[S]` | 17.6 | not decomposed — see [`M13/README.md`](M13/README.md) |
+| 17.8 | M14 tasks (US2 — nothing-can-answer states) | `[S]` | 17.7 | not decomposed — see [`M14/README.md`](M14/README.md) |
+| 17.9 | M15 tasks (US3 — retry) | `[S]` | 17.7 | not decomposed — see [`M15/README.md`](M15/README.md) |
+
+17.3 and 17.4 are `[P]`: 17.3 touches `apps/web/*` and a new SQL policy file,
+17.4 touches `packages/core/*` — zero file overlap, both need only 17.2's
+shared types. Everything else in the band is `[S]`: each subsequent piece
+needs the previous one's actual output, not just its intent, to be decomposed
+or implemented correctly.
+
+
 
 > For a single checklist of everything that needs the owner specifically, see
 > [`../runbooks/README.md`](../runbooks/README.md) — the rows below explain
