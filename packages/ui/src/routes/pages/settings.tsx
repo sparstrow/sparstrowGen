@@ -506,7 +506,7 @@ function SystemCard() {
 }
 
 
-import { Sun, Moon, Monitor } from 'lucide-react';
+
 // Note: saveThemePreference would be imported or handled via standard fetch/trpc. 
 // For now we assume a server action could be called if imported, but we'll use local state/cookies if not.
 
@@ -539,8 +539,11 @@ function AppearanceCard() {
     setMode(newMode);
 
     const html = document.documentElement;
-    html.setAttribute('data-surface', newSurface);
-    html.setAttribute('data-brand', newBrand);
+    if (!html.className.match(/surface-\w+/)) html.classList.add(`surface-${newSurface}`);
+    else html.className = html.className.replace(/surface-\w+/, `surface-${newSurface}`);
+    
+    if (!html.className.match(/theme-\w+/)) html.classList.add(`theme-${newBrand}`);
+    else html.className = html.className.replace(/theme-\w+/, `theme-${newBrand}`);
 
     let effectiveMode = newMode;
     if (effectiveMode === 'system') {
@@ -657,6 +660,32 @@ function AppearanceCard() {
       </Card>
     </div>
   );
+}
+
+function ProfileCard() {
+  const account = useAccount();
+
+  if (!account) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Profile</CardTitle>
+          <CardDescription>
+            This install is local and single-user — there is no hosted account. Your GitHub
+            identity below is what agents ship PRs with.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <InfoRow label="Workspace">Sparstrowgen · 127.0.0.1</InfoRow>
+          <InfoRow label="Mode">
+            <Badge variant="secondary">local single-user</Badge>
+          </InfoRow>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return <ProfileForm variant="card" />;
 }
 
 function DangerZoneCard() {

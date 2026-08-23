@@ -56,9 +56,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased ${defaultClass}`}
-      data-surface={themeObj.surface}
-      data-brand={themeObj.brand}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased ${defaultClass} surface-${themeObj.surface} theme-${themeObj.brand}`}
       suppressHydrationWarning
     >
       <head>
