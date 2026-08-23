@@ -1,6 +1,6 @@
 # BUG-2026-08-22-core-tests-flake-under-turbo-parallelism
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — surfaced while gathering repeat-run evidence for
 [`BUG-2026-08-20-flaky-realtime-live-events-test`](BUG-2026-08-20-flaky-realtime-live-events-test.md)
 on `fix/flaky-realtime-test`; unrelated to that fix or to `apps/web`
@@ -63,4 +63,28 @@ evidence before opening a PR.
 
 ## Resolution
 
-Not started.
+Confirmed the inference in Investigation: this is resource contention, not a
+logic bug. One file already carried the evidence —
+`src/api/routes/host-fs.test.ts` had independently opted itself into a 30s
+timeout with a comment explaining why: "buildServer pulls in the core's whole
+module graph; the first one costs a few seconds and more under full-suite
+load. That is boot cost, not a hang." The other nine affected files were
+hitting the same class of slowdown (real child-process spawns and real
+filesystem I/O — graph client pool, viz-manager, git-status, host-fs — getting
+starved of CPU/disk when `turbo run test` runs all five workspace suites
+concurrently) but were still on vitest's un-overridden 5000ms default, so any
+run unlucky enough to land those operations during peak five-way contention
+timed out instead of just running slow.
+
+Fixed by setting `testTimeout: 20_000` and `hookTimeout: 20_000` once, at the
+package level, in `packages/core/vitest.config.ts` — matching the fix already
+proven for `host-fs.test.ts`, rather than adding a per-file override to each
+of the other nine files one at a time. `host-fs.test.ts`'s own 30s override is
+still more generous than the new 20s default, so it was left as-is rather than
+removed.
+
+Verified: `pnpm --filter core typecheck` clean; three consecutive
+`pnpm test --force --continue=always` runs from the repo root (the exact
+reproduction command from this report) all green — 81/81 `@sparstrow/core`
+test files, 692/692 non-skipped tests, no timeouts, across all five
+workspaces each time.
