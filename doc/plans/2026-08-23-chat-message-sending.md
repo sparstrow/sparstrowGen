@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | [`../specs/2026-08-23-chat-message-sending.md`](../specs/2026-08-23-chat-message-sending.md) (Owner-reviewed 2026-08-23) |
-| **Status** | M12 complete · M13 next — M13/M14/M15 remain decomposed in outline only; fine-grained tasks for M13 are the next thing to write, now that M12's actual shape is known |
+| **Status** | M12 complete · **M13 decomposed 2026-08-23** (5 tasks, none started) · M14/M15 still outlined only, pending M13's rendering seam |
 | **Trigger** | The stub behind Chat's send button promised "arriving in M5"; M5 shipped without it (2026-08-11/12) and the promise went stale. The owner scoped it properly on 2026-08-23 rather than leave it dangling. |
 | **Depends on** | M4 (command spine — poll/claim/lease/ack) and M5 (daemon → cloud ingest + server-side Realtime broadcast), both code-complete. No new dependency. |
 | **Touches** | `packages/shared/src/db/schema.ts`, `packages/shared/drizzle/policies/014_chat_turn_dispatch.sql`, `packages/shared/drizzle/policies/015_chat_broadcast.sql`, `packages/shared/src/cloud.ts`, `packages/shared/src/schemas/chat.ts`, `apps/web/src/lib/api/handlers/chat.ts`, `apps/web/src/lib/api/handlers/stubs.ts`, `apps/web/src/app/api/daemon/chat/turns/[id]/events/route.ts`, `apps/web/src/app/api/daemon/chat/turns/[id]/result/route.ts`, `apps/web/src/lib/daemon/broadcast.ts`, `apps/web/src/lib/case.ts`, `apps/web/src/lib/realtime-live-events.ts`, `packages/core/src/cloud/commands.ts`, `packages/core/src/cloud/chat-turn.ts` (new), `packages/core/src/chat/service.ts`, `packages/core/src/orchestrator/one-shot.ts`, `packages/ui/src/lib/live-events.ts`, `packages/ui/src/routes/pages/chat.tsx`, `packages/ui/src/api/hooks.ts`, `packages/ui/src/content/knowledge/chat-and-inbox.md` (+ the four global-claim articles per `AGENTS.md` §3.2) |
@@ -261,6 +261,19 @@ Per the shared-contracts skill: schemas change in
 core's Fastify chat routes, and `packages/ui`'s hooks — **all updated in the
 same change**, since there is no independent deploy and no version flag.
 `chatTurnRequestSchema` / `chatRetryRequestSchema` keep their fields.
+
+> **Narrowed during M13's decomposition (2026-08-23), not overturned.** "One
+> async shape used by both" turns out to break the Agent Creator:
+> `packages/ui/src/routes/pages/agent-create.tsx` shares all three chat hooks
+> with `chat.tsx` and reads `draftTurn` off the response — a field
+> `ChatTurnState` has no business growing, since agent-creator sessions keep
+> the local path by this plan's own Scope boundaries. The narrowing: `free` /
+> `project` / `agent` sessions use `ChatTurnState` on **both** hosts;
+> `agent-creator` keeps `ChatTurn` locally and its 501 in the cloud. DD-7's
+> actual property is preserved — no component asks "am I hosted?", because the
+> split is by session kind, which each page knows statically. Full reasoning:
+> [`doc/tasks/M13/T-M13-02`](../tasks/M13/T-M13-02-local-host-turn-state.md)
+> decision 1.
 
 ### DD-8 — Validation posture: pass-through for the browser, strict parse for the daemon
 

@@ -465,11 +465,13 @@ an earlier read of this file isn't confused by the shift; nothing about the
 work itself changed.
 
 M12 is fully decomposed (6 tasks) and **complete** — verified live locally
-against this branch's real code and real staging Postgres (T-M12-06).
-M13/M14/M15 have phase specs but their individual tasks are intentionally not
-yet written — this repo's own precedent (M5's decomposition depended on what
-M4's dispatch actually turned out to look like) applies directly here, since
-M13–M15 all build on M12's actual shape.
+against this branch's real code and real staging Postgres (T-M12-06). **M13 is
+now decomposed too** (5 tasks, 2026-08-23), written against M12's actual
+shipped shape rather than the plan's outline — which is what this repo's own
+precedent asks for (M5's decomposition depended on what M4's dispatch actually
+turned out to look like) and which is why it waited. M14 and M15 stay outlined
+only, for the same reason applied one level down: both build on the rendering
+seam M13 has not yet built.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
@@ -479,15 +481,34 @@ M13–M15 all build on M12's actual shape.
 | 18.4 | [T-M12-04 — core command-loop case + turn executor](M12/T-M12-04-core-chat-turn-executor.md) | `[P]` | 18.2 | ✅ done 2026-08-23 — dispatch chain closed live by T-M12-06 (G-30) |
 | 18.5 | [T-M12-05 — `LiveEventSource.subscribeChat`](M12/T-M12-05-live-event-source-chat.md) | `[S]` | 18.3 | ✅ done 2026-08-23 |
 | 18.6 | [T-M12-06 — M12 verification](M12/T-M12-06-verification.md) | `[S]` | 18.1–18.5 | ✅ done 2026-08-23 — **M12 complete**, live-verified locally against this branch's real code + real staging Postgres; remaining gaps in `KnownGaps.md` `G-31` |
-| 18.7 | M13 tasks (US1 — send + streaming reply) | `[S]` | 18.6 | not decomposed — see [`M13/README.md`](M13/README.md) |
-| 18.8 | M14 tasks (US2 — nothing-can-answer states) | `[S]` | 18.7 | not decomposed — see [`M14/README.md`](M14/README.md) |
-| 18.9 | M15 tasks (US3 — retry) | `[S]` | 18.7 | not decomposed — see [`M15/README.md`](M15/README.md) |
+| 18.7 | [T-M13-01 — `ChatTurnState` at the browser boundary](M13/T-M13-01-turn-state-and-v1-routes.md) | `[S]` | 18.6 | queued |
+| 18.8 | [T-M13-02 — the local host answers in the same shape](M13/T-M13-02-local-host-turn-state.md) | `[P]` | 18.6 | queued |
+| 18.9 | [T-M13-03 — hooks split, and `chat.tsx` renders a turn](M13/T-M13-03-chat-page-turn-rendering.md) | `[S]` | 18.7, 18.8 | queued |
+| 18.10 | [T-M13-04 — Knowledge Center pass](M13/T-M13-04-knowledge-center.md) | `[P]` | 18.7, 18.9 | queued |
+| 18.11 | [T-M13-05 — M13 verification](M13/T-M13-05-verification.md) | `[S]` | 18.7–18.10 | queued |
+| 18.12 | M14 tasks (US2 — nothing-can-answer states) | `[S]` | 18.11 | not decomposed — see [`M14/README.md`](M14/README.md) |
+| 18.13 | M15 tasks (US3 — retry) | `[S]` | 18.11 | not decomposed — see [`M15/README.md`](M15/README.md) |
 
 18.3 and 18.4 are `[P]`: 18.3 touches `apps/web/*` and a new SQL policy file,
 18.4 touches `packages/core/*` — zero file overlap, both need only 18.2's
-shared types. Everything else in the band is `[S]`: each subsequent piece
-needs the previous one's actual output, not just its intent, to be decomposed
-or implemented correctly.
+shared types.
+
+**M13 decomposed 2026-08-23** (rows 18.7–18.11), which pushed M14 and M15 from
+18.8/18.9 to 18.12/18.13 — both were still `queued` and undecomposed, so
+resequencing them is exactly what this file's own "regenerated, not appended"
+rule asks for. 18.7 and 18.8 are `[P]` against each other for the same reason
+18.3/18.4 were: `apps/web/*` versus `packages/core/*`, both compiling against
+shared types that already exist. 18.9 is `[S]` because it edits `hooks.ts` and
+`chat.tsx` — and `chat.tsx` is **concurrently being rewritten** in the
+`chat-context-menu-design-0eb2ff` worktree (~205 lines), which also touches
+`chat-and-inbox.md` that 18.10 edits. Check `development` before starting
+either.
+
+**M13 retires both chat stubs, not just `/messages`** — the reasoning is in
+[`M13/README.md`](M13/README.md), and it does **not** move retry's user-facing
+work out of M15. Decomposition also found that `agent-create.tsx` shares all
+three chat hooks with `chat.tsx`, which narrows the plan's DD-7; see
+[T-M13-02](M13/T-M13-02-local-host-turn-state.md) decision 1.
 
 ## Blocked items
 
