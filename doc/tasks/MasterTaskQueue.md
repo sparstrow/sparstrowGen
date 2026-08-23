@@ -482,7 +482,7 @@ seam M13 has not yet built.
 | 18.5 | [T-M12-05 — `LiveEventSource.subscribeChat`](M12/T-M12-05-live-event-source-chat.md) | `[S]` | 18.3 | ✅ done 2026-08-23 |
 | 18.6 | [T-M12-06 — M12 verification](M12/T-M12-06-verification.md) | `[S]` | 18.1–18.5 | ✅ done 2026-08-23 — **M12 complete**, live-verified locally against this branch's real code + real staging Postgres; remaining gaps in `KnownGaps.md` `G-31` |
 | 18.7 | [T-M13-01 — `ChatTurnState` at the browser boundary](M13/T-M13-01-turn-state-and-v1-routes.md) | `[S]` | 18.6 | ✅ done 2026-08-23 |
-| 18.8 | [T-M13-02 — the local host answers in the same shape](M13/T-M13-02-local-host-turn-state.md) | `[P]` | 18.6 | queued |
+| 18.8 | [T-M13-02 — the local host answers in the same shape](M13/T-M13-02-local-host-turn-state.md) | `[P]` | 18.6 | ✅ done 2026-08-23 |
 | 18.9 | [T-M13-03 — hooks split, and `chat.tsx` renders a turn](M13/T-M13-03-chat-page-turn-rendering.md) | `[S]` | 18.7, 18.8 | queued |
 | 18.10 | [T-M13-04 — Knowledge Center pass](M13/T-M13-04-knowledge-center.md) | `[P]` | 18.7, 18.9 | queued |
 | 18.11 | [T-M13-05 — M13 verification](M13/T-M13-05-verification.md) | `[S]` | 18.7–18.10 | queued |

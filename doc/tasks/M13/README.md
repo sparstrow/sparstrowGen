@@ -55,7 +55,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
 | [T-M13-01 — `ChatTurnState` at the browser boundary](T-M13-01-turn-state-and-v1-routes.md) | `[S]` | US1 | — | ✅ done 2026-08-23 |
-| [T-M13-02 — the local host answers in the same shape](T-M13-02-local-host-turn-state.md) | `[P]` | US1 | — | not started |
+| [T-M13-02 — the local host answers in the same shape](T-M13-02-local-host-turn-state.md) | `[P]` | US1 | — | ✅ done 2026-08-23 |
 | [T-M13-03 — hooks split, and `chat.tsx` renders a turn](T-M13-03-chat-page-turn-rendering.md) | `[S]` | US1 | 13.1, 13.2 | not started |
 | [T-M13-04 — the Knowledge Center stops saying chat doesn't work](T-M13-04-knowledge-center.md) | `[P]` | US1 | 13.1, 13.3 | not started |
 | [T-M13-05 — verification](T-M13-05-verification.md) | `[S]` | US1 | 13.1–13.4 | not started |

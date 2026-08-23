@@ -7,7 +7,7 @@
 | **Depends on** | — (`chatTurnStateSchema` already exists; M12-02 landed it) |
 | **Blocks** | T-M13-03, T-M13-05 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-23 |
 
 ## Objective
 
@@ -161,4 +161,35 @@ a `chat.*` member to `WsServerEvent` — a terminal response needs no stream.
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+Shipped as designed. `asTurnState` + `respondWithTurn` in
+`packages/core/src/api/routes/chat.ts`, both exported for direct unit testing
+(the repo's existing pattern for pure mapping functions, e.g.
+`chatTurnFailureFrom`). `POST /chat/sessions/:id/messages` and `.../retry`
+now both call `respondWithTurn(await postChatTurn/retryChatTurn(...))`, and
+`GET /chat/sessions/:id` returns `activeTurn: null`.
+
+`respondWithTurn` branches on `turn.session.kind === "agent-creator"` and
+returns the original `ChatTurn` object **by reference** for that branch — the
+new `chat.test.ts` asserts `toBe(turn)`, not just deep-equality, specifically
+to prove `asTurnState` is never reached for that session kind and the Agent
+Creator's `draftTurn` field survives untouched.
+
+**Verified:** `pnpm --filter @sparstrow/core test` (714 tests, all green,
+including the 5 new ones and `agents/draft-service.test.ts` unedited) and
+`pnpm --filter @sparstrow/core typecheck` (clean, after fixing one test fixture
+that used a provider id — `"codex"` — not in `ProviderId`'s actual union).
+`chat/service.test.ts` (the file that asserts `draftTurn` at the lines this
+task's doc named) was not edited and still passes.
+
+**Not run:** clicking through `/agents/new` against a live local daemon — that
+needs a running daemon and browser, and belongs to
+[T-M13-05](T-M13-05-verification.md). This task's own checklist item for it is
+therefore carried into that verification pass rather than ticked here on
+weaker evidence.
+
+**Trap avoided, not just noted:** `ChatTurnError`'s `fallback` field really is
+dropped by the flattening to `error: reason` — confirmed by writing the failed-turn
+test, which shows `state.error` is a plain string with no way to carry
+`fallback`. No `KnownGaps.md` entry opened yet: T-M13-03 is what will show
+whether the local secondary-model retry button visibly regresses, per this
+task's own On-completion note.
