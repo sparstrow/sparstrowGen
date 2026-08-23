@@ -410,6 +410,54 @@ from this one success.
   claim, SC-004, and US3.2 in one pass, since all three need nothing else
   this repo doesn't already have working.
 
+### G-32 — `claude login`'s interactive re-authentication does not extend to headless (`-p`) invocations at all
+
+**Raised:** 2026-08-23, chasing `claude-code`'s continued failure on the
+owner's real machine after [`G-31`](#g-31--no-chat-turn-has-ever-actually-succeeded-in-a-real-verification-pass-and-a-second-machine-has-never-been-reached)'s
+`BUG-2026-08-23-headless-spawn-skill-leak` fix shipped and antigravity
+started working on the same machine.
+
+The owner re-authenticated (`claude login`, or equivalent interactive flow)
+and confirmed their own interactive `claude` terminal session works. The
+daemon's headless spawn — the exact same account, same machine, same
+`claude` binary — kept failing identically. A direct repro run twice, once
+before and once immediately after the owner's re-authentication, both times
+against the daemon's own exact flags
+(`claude -p --output-format stream-json --verbose --disable-slash-commands
+--model sonnet`, prompt on stdin), both times produced the SAME real
+`401 authentication_failed` from the Anthropic API on every retry, unchanged
+by the re-authentication. `claude auth status` reports `loggedIn: true`,
+`authMethod: "claude.ai"`, `subscriptionType: null`.
+
+`claude --help` lists the actual mechanism for this: `setup-token — Set up a
+long-lived authentication token (requires Claude subscription)`, described
+as its own distinct step from `claude login`/interactive OAuth. The working
+theory is that `-p`/headless/programmatic invocations need this long-lived
+token specifically — the interactive OAuth session `claude login` refreshes
+does not cover it — but this has not been directly confirmed by actually
+running `claude setup-token` and re-testing, since that command mutates the
+owner's real auth state and this agent does not do that without the owner
+running it themselves.
+
+Related to, but distinct from,
+[`G-27`](#g-27--claude-codes-capability-probe-cannot-tell-the-binary-runs-from-it-can-actually-authenticate):
+G-27 is about Sparstrowgen's own `healthCheck()` never verifying real auth
+ahead of a run; this gap is about which *kind* of re-authentication actually
+fixes a failing headless spawn once one is already failing. Both produce the
+identical-looking symptom (a multi-minute exponential-backoff retry storm
+ending in an auth error, misread as a generic timeout by anything that only
+sees Sparstrowgen's own 120s orchestrator cutoff).
+
+- **If wrong:** if `setup-token` turns out not to be the fix, the remaining
+  candidates are a genuinely revoked/unentitled account (needs the owner's
+  own Anthropic account dashboard, not this repo) or a client-side credential
+  file Sparstrowgen's spawn reads from the wrong location — the second would
+  actually be a real code bug, unlike the first.
+- **Clears when:** the owner runs `claude setup-token` themselves, then
+  either the daemon's own next chat-turn attempt succeeds, or a direct
+  `echo hi | claude -p --output-format stream-json --model sonnet` repro
+  (same command used to diagnose this) stops returning `401`.
+
 ### G-29 — Antigravity's fixed transcript rendering has not been walked live through a browser
 
 **Raised:** 2026-08-22, fixing

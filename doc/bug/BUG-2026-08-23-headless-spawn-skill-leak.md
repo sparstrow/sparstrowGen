@@ -125,16 +125,14 @@ fix actually closes the gap it targets. **claude-code still failed**, but a dire
 (`echo hi | claude -p --output-format stream-json --verbose --disable-slash-commands
 --model sonnet`, run on the same machine, same flags the daemon now uses) showed the real
 cause is unrelated to this bug: a genuine `401 authentication_failed` from the Anthropic
-API on every retry (`{"type":"system","subtype":"api_retry","attempt":1..7,"error_status":
-401,"error":"authentication_failed"}`), which the CLI retries with exponential backoff
-(0.5s → 36s) until Sparstrowgen's own 120s orchestrator timeout kills it — misreported as
-"the provider timed out," the same symptom this bug originally described, but a different
-cause. `claude auth status` on the same machine confirms `loggedIn: true` but
-`subscriptionType: null` — a stale/expired token or missing plan entitlement, not a skill
-leaking into the spawn. Auth never even got far enough to reach a tool-permission check at
-all in this repro. That's a separate, account-side problem for the owner to resolve
-(re-authenticate the `claude` CLI) — tracked nowhere in this repo since it isn't code this
-repo controls, and not filed as its own bug for the same reason.
+API on every retry, which the CLI retries with exponential backoff (0.5s → 36s) until
+Sparstrowgen's own 120s orchestrator timeout kills it — misreported as "the provider timed
+out," the same symptom this bug originally described, but a different cause. Auth never
+even got far enough to reach a tool-permission check in this repro. See
+[`G-32`](../KnownGaps.md) for the full trace of that separate, now precisely diagnosed
+issue — `claude login`'s interactive re-authentication does not extend to `-p`/headless
+invocations at all; `claude setup-token` is the actual fix, unrelated to this bug and not
+this repo's code to control.
 
 **Not addressed here, and deliberately out of scope:** whether Sparstrowgen should isolate
 spawned subprocesses from the operator's personal `~/.claude` config more broadly (e.g. a
