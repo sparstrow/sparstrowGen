@@ -20,7 +20,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | [T-M12-02 — shared contracts and constants](T-M12-02-shared-contracts.md) | `[S]` | foundational | 12.1 | ✅ done 2026-08-23 |
 | [T-M12-03 — daemon-facing routes + broadcast policy](T-M12-03-daemon-routes-and-broadcast.md) | `[P]` | foundational | 12.2 | ✅ done 2026-08-23, SQL contract verified live on staging (HTTP-level pass deferred to T-M12-06) |
 | [T-M12-04 — core command-loop case + turn executor](T-M12-04-core-chat-turn-executor.md) | `[P]` | foundational | 12.2 | ✅ done 2026-08-23, dispatch chain verified live on staging (real HTTP pass deferred to T-M12-06, tracked as G-30) |
-| [T-M12-05 — `LiveEventSource.subscribeChat`](T-M12-05-live-event-source-chat.md) | `[S]` | foundational | 12.3 | not started |
+| [T-M12-05 — `LiveEventSource.subscribeChat`](T-M12-05-live-event-source-chat.md) | `[S]` | foundational | 12.3 | ✅ done 2026-08-23 |
 | [T-M12-06 — verification](T-M12-06-verification.md) | `[S]` | foundational | 12.1–12.5 | not started |
 
 12.3 and 12.4 are `[P]` against each other: 12.3 touches `apps/web/*` and a

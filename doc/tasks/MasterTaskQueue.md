@@ -457,7 +457,7 @@ actual shape.
 | 17.2 | [T-M12-02 — shared contracts and constants](M12/T-M12-02-shared-contracts.md) | `[S]` | 17.1 | ✅ done 2026-08-23 (built against T-M12-01's fully-specified design ahead of that migration's live execution, which was blocked on Supabase MCP auth — pure TypeScript, no live DB dependency) |
 | 17.3 | [T-M12-03 — daemon-facing routes + broadcast policy](M12/T-M12-03-daemon-routes-and-broadcast.md) | `[P]` | 17.2 | ✅ done 2026-08-23 — SQL contract (ownership scoping, ingest, ack-route fix) verified live on staging; HTTP-level pass deferred to T-M12-06 |
 | 17.4 | [T-M12-04 — core command-loop case + turn executor](M12/T-M12-04-core-chat-turn-executor.md) | `[P]` | 17.2 | ✅ done 2026-08-23 — dispatch chain verified live on staging; real HTTP pass deferred to T-M12-06 (tracked as G-30) |
-| 17.5 | [T-M12-05 — `LiveEventSource.subscribeChat`](M12/T-M12-05-live-event-source-chat.md) | `[S]` | 17.3 | not started |
+| 17.5 | [T-M12-05 — `LiveEventSource.subscribeChat`](M12/T-M12-05-live-event-source-chat.md) | `[S]` | 17.3 | ✅ done 2026-08-23 |
 | 17.6 | [T-M12-06 — M12 verification](M12/T-M12-06-verification.md) | `[S]` | 17.1–17.5 | not started |
 | 17.7 | M13 tasks (US1 — send + streaming reply) | `[S]` | 17.6 | not decomposed — see [`M13/README.md`](M13/README.md) |
 | 17.8 | M14 tasks (US2 — nothing-can-answer states) | `[S]` | 17.7 | not decomposed — see [`M14/README.md`](M14/README.md) |
