@@ -1,6 +1,6 @@
 # BUG-2026-08-22-chat-kc-article-overstates-capability
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — found while fixing
 [`BUG-2026-08-22-chat-new-session-404s`](BUG-2026-08-22-chat-new-session-404s.md)
 and checking `packages/ui/src/content/knowledge/chat-and-inbox.md` per
@@ -67,12 +67,25 @@ overstating problem AGENTS.md flags as "the dangerous direction."
 
 ## Resolution
 
-<!-- Open. Needs: (1) settle whether "streaming" / "each reply is a run" was
-     ever accurate or is aspirational, by checking the chat feature's
-     originating plan/tasks; (2) rewrite the article to describe current
-     behavior only, and explicitly note streaming replies / run-based
-     provenance tracking as not yet available if that's confirmed
-     aspirational, per AGENTS.md's "never document what is not built" rule;
-     (3) consider whether this note belongs folded into M5's own task instead
-     of a standalone doc fix, since the article will need a second pass once
-     M5 actually ships turn-sending. -->
+Confirmed aspirational, not carried-over-and-then-broken: `chat_sessions` and
+`chat_messages` were designed as their own tables, separate from `runs`/
+`run_events`, from the very first cloud-schema plan
+([`doc/plans/2026-08-09-daemon-cloud-control-plane.md`](../plans/2026-08-09-daemon-cloud-control-plane.md)
+lines 58-62, 181-185) — "each reply is a run" was never true at any point in
+this app's history. "Streaming" was never true either; sending a chat message
+is a deliberate 501 stub (`apps/web/src/lib/api/handlers/stubs.ts`,
+`POST /chat/sessions/:id/messages`, `when: "M5"`).
+
+Rewrote `packages/ui/src/content/knowledge/chat-and-inbox.md`:
+- Dropped the "streaming" claim from the intro and added a sentence noting a
+  session can be created today but sending into it needs a paired machine and
+  isn't available yet.
+- Replaced the "each reply is a run... cost and provenance tracking" claim in
+  Known Limitations with the actual behavior: chat turns are their own
+  history, separate from Runs, with no transcript/cost/provenance entry the
+  way a task run gets.
+- Bumped `updated:` to 2026-08-22.
+
+Left as a standalone doc fix rather than folding into M5 — the article will
+need a second pass once M5 ships turn-sending regardless, and there's no M5
+task yet to fold it into.
