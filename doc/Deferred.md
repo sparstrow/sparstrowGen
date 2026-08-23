@@ -505,3 +505,53 @@ working code rather than new work.
   tokens to exist) and Machines gets a `product-requirements` pass — it is still
   outside `specs/2026-08-16-setup-and-machines.md`, whose "profile" means the
   *user's* profile, not a machine's. Recorded as `DD-003`/`DD-008`.
+
+---
+
+## D-19 — Rename `@sparstrow/daemon` back to `@sparstrow/core`
+
+**Parked:** 2026-08-22, by the owner — "I like the word core than daemon, at
+the end of complete development when we have to discard the old core folder,
+let's rename the daemon to core in all places and remove any references."
+
+**Why "daemon" exists at all.** Before 2026-08-09, `@sparstrow/core` was the
+whole single-machine runtime — a Fastify server + Vite SPA, no cloud/local
+split — and there was no need for a second name. The word "daemon" was
+introduced the same day as the Next.js migration (`67bd615`) and the Postgres
+control-plane split (`b1891cb`), in
+[`doc/plans/2026-08-09-daemon-cloud-control-plane.md`](plans/2026-08-09-daemon-cloud-control-plane.md),
+which explicitly frames the new per-machine role as **"the Multica model"** —
+a competitor studied for its architecture, not its skin (see `DESIGN.md` §14).
+"Daemon" was borrowed terminology for that role, not an organic repo name.
+
+**Current state.** Per `AGENTS.md` §4, the `@sparstrow/daemon` split from
+`@sparstrow/core` is a **planned goal, not yet built** — there is no
+`packages/daemon/` directory today (confirmed on disk 2026-08-22). Everything
+that would live there — pairing, heartbeat, run execution, command polling —
+currently lives in and runs as `@sparstrow/core`. So "daemon" today is a role
+name used in docs/plans/AGENTS.md, not a package.
+
+**The decision.** When that split is eventually done for real — i.e. when the
+current `packages/core/` folder is discarded/replaced by whatever the daemon
+work produces — do **not** create `packages/daemon/`. Instead, name the new
+per-machine execution package `@sparstrow/core` (reusing the name once the old
+folder is gone) and sweep every "daemon" reference back to "core": package
+name, import paths, `AGENTS.md`'s directory layout and §4 environment section,
+plan/task docs that use the word going forward, code comments, route names
+(e.g. `/api/daemon/*`), and schema identifiers where renaming is still cheap
+(`daemon_tokens`, etc. — evaluate case by case, since some of these are already
+live in Postgres and a rename there is a migration, not a find-replace).
+Historical docs (`doc/plans/2026-08-09-daemon-cloud-control-plane.md`, this
+entry, closed `doc/tasks/` records) keep the word "daemon" as the accurate
+historical record of what happened — this is a go-forward rename, not a
+rewrite of history.
+
+- **If wrong (i.e. left undone):** no functional harm — "daemon" is a naming
+  preference, not a correctness issue. The cost of leaving it is purely
+  cognitive: the codebase carries two names for the same concept
+  indefinitely, and the terminology mismatch this very conversation started
+  from recurs for every future agent or contributor.
+- **Unpark when:** the `@sparstrow/daemon` package split actually begins —
+  i.e. exactly the moment `AGENTS.md` §4 currently says "don't create
+  `packages/daemon/` speculatively" stops applying. Do the rename as part of
+  that same body of work, not as a separate later pass.
