@@ -100,6 +100,18 @@ export function AgentCreatePage() {
 
   const messages: ChatMessage[] = detail.data?.messages ?? [];
   const busy = postTurn.isPending || retryTurn.isPending || createSession.isPending;
+  // Intake 0008's bug, on this page: the server persists the user row before
+  // running the model, and a refetch racing that window (near-certain right
+  // after createSession's onSuccess sets sessionId) returns a transcript that
+  // already contains the message `pendingContent` is still showing
+  // optimistically. Once `messages` already ends with that exact user turn,
+  // stop rendering the optimistic bubble on top of it — see
+  // doc/bug/BUG-2026-08-23-agent-creator-duplicate-user-bubble.md.
+  const lastMessage = messages[messages.length - 1];
+  const pendingAlreadyPersisted =
+    pendingContent != null &&
+    lastMessage?.role === "user" &&
+    lastMessage.content === pendingContent;
 
   // Rehydrate a resumed session: draft → form values, last assistant turn →
   // followups/matches. Runs once per selected session.
@@ -278,7 +290,7 @@ export function AgentCreatePage() {
             ) : (
               messages.map((m) => <ChatTurnView key={m.id} message={m} />)
             )}
-            {pendingContent && (
+            {pendingContent && !pendingAlreadyPersisted && (
               <ChatTurnView message={{ role: "user", content: pendingContent, meta: null }} />
             )}
             {busy && <ThinkingDots />}

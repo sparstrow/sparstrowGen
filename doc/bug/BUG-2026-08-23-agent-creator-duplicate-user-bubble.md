@@ -1,6 +1,6 @@
 # BUG-2026-08-23-agent-creator-duplicate-user-bubble
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — found while running the browser-verification pass for
 [T-M13-03](../tasks/M13/T-M13-03-chat-page-turn-rendering.md)'s regression
 check ("the Agent Creator still completes an interview, on the local host").
@@ -106,14 +106,33 @@ blocks the interview from proceeding correctly.
 
 ## Resolution
 
-Not fixed here — out of scope for M13, which explicitly keeps the Agent
-Creator page's own logic unchanged (per the M13 plan's Scope boundaries: "The
-local, core-served UI's chat is not re-architected"). The fix is
-small and known: give `agent-create.tsx`'s `pendingContent` the same
-id-aware guard `chat.tsx` now uses (drop the bubble once `messages` already
-contains a user row with matching content/position — or the cheaper fix,
-reuse `shouldShowPendingBubble`'s content-heuristic form before concluding
-it's obsolete everywhere, since this page's session id is momentarily fresher
-than `chat.tsx`'s ever was). Whoever picks this up should open a small task
-in `doc/tasks/` linked back to this id rather than folding it into an
-unrelated change.
+Fixed 2026-08-23 in `packages/ui/src/routes/pages/agent-create.tsx` — the
+cheaper of the two options this file originally proposed: a content-heuristic
+guard rather than a full id-aware rewrite, since `pendingContent` has no id to
+key on (it's set before the POST even starts).
+
+```tsx
+const lastMessage = messages[messages.length - 1];
+const pendingAlreadyPersisted =
+  pendingContent != null &&
+  lastMessage?.role === "user" &&
+  lastMessage.content === pendingContent;
+```
+
+...and the render guard changed from `{pendingContent && (...)}` to
+`{pendingContent && !pendingAlreadyPersisted && (...)}`. Once a refetch lands
+the persisted user row that matches what the optimistic bubble is already
+showing, the optimistic bubble stops rendering instead of stacking on top of
+it — the same resolution `chat.tsx` reached for its own turn overlay in
+T-M13-03, just id-based there because that page's `turn.userMessage` always
+carries a real id.
+
+**Verification, and its honest limit:** `pnpm typecheck` and `pnpm test`
+(`@sparstrow/ui`, 61 tests) both pass clean with this change, and the fix
+mirrors a pattern already live-verified for `chat.tsx` in the same sandbox.
+What could **not** be re-verified live here is the actual race this bug
+describes — reproducing it needs a real, slow CLI completion racing an early
+refetch, and this sandbox has no Anthropic credentials for a spawned `claude`
+CLI ([`G-31`](../KnownGaps.md)), the same blocker T-M13-05 hit for M13
+itself. No task was opened for this — the fix was small enough to land
+directly rather than round-trip through `doc/tasks/`.
