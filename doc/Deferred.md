@@ -641,3 +641,48 @@ very next chat message — no restart, no terminal, no leaving the app.
 friction from the manual env-var-plus-restart mechanics above becomes
 actively painful enough to prioritize. Not urgent — that manual path works
 today, just with more friction than this would have.
+
+---
+
+## D-23 — Rewrite browser-tool guidance for Claude Code agents specifically
+
+**Parked:** 2026-08-24, by the owner — "defer task on this instruction on
+guidance on which browser to use later," while asking whether the Playwright
+MCP should be replaced by Claude's own native browser tools (the in-app
+Claude Browser preview pane, `mcp__Claude_Browser__*`, and Claude in Chrome,
+`mcp__claude-in-chrome__*`) across `AGENTS.md`, `doc/runbooks/agent-browser-session.md`,
+and the `frontend-verify` skill, since Playwright is generic MCP tooling
+built for any coding agent, not Claude Code specifically.
+
+**Why this isn't a same-day rewrite.** Checked live before parking, not
+assumed: the Claude Browser pane still has the exact bug
+`agent-browser-session.md` already documents as the reason Playwright was
+adopted — it reports `document.visibilityState === "hidden"` on a fresh,
+foregrounded navigation, which starves any page whose data fetching gates on
+visibility (React Query, used throughout this app). See
+[`bug/BUG-2026-08-24-claude-browser-pane-reports-hidden-visibility`](bug/BUG-2026-08-24-claude-browser-pane-reports-hidden-visibility.md).
+Claude in Chrome would sidestep that (it drives a real browser window, not
+an emulated pane) but isn't usable here either: `list_connected_browsers`
+returned empty and the extension reported unreachable in this session. The
+owner confirmed this is expected — they manually swap Chrome between two
+accounts, so the extension isn't kept signed in standing, and reconnecting
+it just for this isn't worth doing right now.
+
+So both named alternatives have a real reason they can't simply replace
+Playwright today: one has an open bug, the other isn't connected. Rewriting
+the guidance now would either bake in a regression or point at a tool that
+doesn't work in this environment.
+
+- **If wrong (i.e. left unparked with stale guidance):** no functional
+  harm — `AGENTS.md`/the runbook/`frontend-verify` still correctly point at
+  Playwright, which works. The cost of leaving this parked is purely that
+  Claude Code agents keep using the generic tool instead of a potentially
+  better-integrated native one, once native tooling is actually ready.
+- **Unpark when:** `BUG-2026-08-24-claude-browser-pane-reports-hidden-visibility`
+  is fixed (or a workaround is found), **and** the owner wants Claude in
+  Chrome set up and kept connected (or a per-session reconnect step is
+  judged worth the friction). At that point, rewrite `AGENTS.md`'s MCP
+  server description, `doc/runbooks/agent-browser-session.md`'s "Getting a
+  browser that actually renders" section, and the `frontend-verify` skill to
+  prefer the native tool(s), with Playwright kept as the documented fallback
+  for environments where they aren't available.
