@@ -27,7 +27,7 @@ import {
   formToPayload,
   type AgentFormValues,
 } from "@/components/agent-form";
-import { ChatTurnView, ThinkingDots, TurnErrorBanner } from "@/components/chat/chat-bits";
+import { ChatTurnView, ThinkingDots, TurnErrorBanner } from "@web/components/chat/chat-bits";
 import {
   useAgentDraftTurn,
   useAgents,

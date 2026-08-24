@@ -7,7 +7,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { Markdown, stripMarkdown } from "@/components/chat/markdown";
+import { Markdown, stripMarkdown } from "./markdown";
 
 function copyToClipboard(text: string): void {
   void navigator.clipboard.writeText(text);

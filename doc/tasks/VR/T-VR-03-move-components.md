@@ -7,7 +7,7 @@
 | **Depends on** | T-VR-02 — every importer must already be in `apps/web` |
 | **Blocks** | T-VR-04 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-24 |
 
 ## Objective
 
@@ -60,23 +60,23 @@ by reading import paths.
 
 ## Checklist
 
-- [ ] `git mv` the ten files into `apps/web/src/components/`, preserving
+- [x] `git mv` the ten files into `apps/web/src/components/`, preserving
       `layout/` and `chat/` subdirectories
-- [ ] Repoint the five imports in `apps/web/src/components/layout/app-shell.tsx`
+- [x] Repoint the five imports in `apps/web/src/components/layout/app-shell.tsx`
       that name `@sparstrow/ui/components/layout/*` (`breadcrumbs`,
       `command-palette`, `pinned-items`, `tab-strip`, `workspace-switcher`) at
       their new `@web/components/layout/*` locations
-- [ ] Repoint every other importer per the table above, re-derived by search
+- [x] Repoint every other importer per the table above, re-derived by search
       rather than trusted from this document
-- [ ] Confirm nothing left in `packages/ui` imports any of the ten — this is
+- [x] Confirm nothing left in `packages/ui` imports any of the ten — this is
       the check that proves the dependency direction is intact
-- [ ] Prune `packages/ui`'s now-unused dependencies. As of T-VR-02 that is
+- [x] Prune `packages/ui`'s now-unused dependencies. As of T-VR-02 that is
       `@xterm/xterm`, `@xterm/addon-fit` and `react-resizable-panels` (zero
       users); re-derive the list after this task's moves rather than trusting
       it, and add any dependency the ten moved files need to `apps/web`
-- [ ] `pnpm typecheck` green
-- [ ] `pnpm test` green
-- [ ] `pnpm --filter web build` green — typecheck cannot see a client-boundary
+- [x] `pnpm typecheck` green
+- [x] `pnpm test` green
+- [x] `pnpm --filter web build` green — typecheck cannot see a client-boundary
       error and this move creates them
 
 ## Traps
@@ -98,4 +98,66 @@ proves nothing needs them.
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+**Done 2026-08-24.** All ten moved; `packages/ui/src/components/chat/` is gone
+and `layout/` holds only `page-container.tsx`. Fifteen import sites rewritten.
+The importer table in this document was re-derived by search before moving, as
+its own checklist demanded, and matched.
+
+### Dependencies, both directions
+
+Added to `apps/web` (the moved code needs them there):
+`@dnd-kit/sortable`, `@dnd-kit/utilities`, `react-markdown`,
+`rehype-highlight`, `remark-gfm` — at the versions `packages/ui` already
+pinned, not freshly resolved.
+
+Removed from `packages/ui` (zero remaining importers, re-derived rather than
+trusted): `@tanstack/react-router`, `@xterm/xterm`, `@xterm/addon-fit`,
+`react-markdown`, `rehype-highlight`, `remark-gfm`, `react-resizable-panels`,
+`zod`.
+
+**`@tanstack/react-router` came out here, not in T-VR-04.** That task's
+checklist expects to remove it; it is already gone, because moving the last
+router-importing file out of `packages/ui` made the dependency unused. The
+shim itself and `apps/web`'s two aliases are untouched and remain T-VR-04's.
+
+**`@fontsource-variable/inter` was deliberately NOT pruned** despite being
+unimported — see below.
+
+**`cmdk` correctly stays.** `command-palette.tsx` moved, but `cmdk` is used by
+`components/ui/command.tsx`, a shadcn primitive that is design system.
+
+### Found while doing it, and filed
+
+**[`BUG-2026-08-24-hosted-app-never-loads-its-typeface`](../../bug/BUG-2026-08-24-hosted-app-never-loads-its-typeface.md).**
+`DESIGN.md` §3 mandates Inter Variable, `globals.css` sets
+`--font-sans: "Inter Variable"`, and `apps/web` loads *Geist* via
+`next/font/google` under different variable names that nothing references. So
+the hosted app has always rendered in the `ui-sans-serif` fallback, and Geist
+is downloaded on every cold load and used by nothing. Not caused by this
+phase — Inter was imported by the Vite entry, so it was right in the Vite app
+and never right in `apps/web`. T-VR-01 removed the last importer and made it
+total. Not fixed here: typography needs a browser to verify, and choosing
+between "load Inter" and "adopt Geist and amend the doctrine" is a design
+decision.
+
+### The plan's P3 claim was wrong, and is corrected
+
+P3 said what remained after this task would be the design system. It is not.
+`packages/ui` still holds ~17 app composites, five feature directories,
+`api/hooks.ts`, half of `lib/`, and the Knowledge Center markdown. They stayed
+because none imports the router — and the narrowing was never a router problem.
+Opened as **T-VR-07**, which needs a stated rule for what the design system
+*is* before it can move anything.
+
+### Verification
+
+- `pnpm typecheck` — **green, 7/7 packages**
+- `pnpm test` — **green, 1,385 passing across 5 packages** (core 718, shared
+  279, web 299, ui 61, desktop 28)
+- `pnpm --filter web build` — **compiled successfully**
+
+The build's 5 `Dynamic filesystem access` warnings are unchanged in count from
+before this task, which is the first real evidence they are pre-existing rather
+than introduced — T-VR-02 could only infer it from the source.
+
+**Not verified:** nothing rendered in a browser. That is T-VR-06.

@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChatTurnView, ThinkingDots, TurnErrorBanner } from "@/components/chat/chat-bits";
+import { ChatTurnView, ThinkingDots, TurnErrorBanner } from "@web/components/chat/chat-bits";
 import {
   useAgents,
   useChatSession,

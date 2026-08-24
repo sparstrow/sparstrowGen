@@ -35,7 +35,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { WorkLauncher } from "@/components/work-launcher";
+import { WorkLauncher } from "@web/components/work-launcher";
 import { GoalCard } from "./goals/[goalId]/goal-detail";
 import {
   useAgents,

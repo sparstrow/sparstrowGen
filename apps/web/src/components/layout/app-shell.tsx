@@ -10,11 +10,11 @@ import { UpdateBanner } from "@sparstrow/ui/components/update-banner";
 import { useLiveEvents } from "@sparstrow/ui/lib/live-events";
 import { useAttentionQueue } from "@sparstrow/ui/api/hooks";
 import { ThemeToggle } from "@sparstrow/ui/theme/theme-toggle";
-import { Breadcrumbs } from "@sparstrow/ui/components/layout/breadcrumbs";
-import { CommandPalette } from "@sparstrow/ui/components/layout/command-palette";
-import { PinnedItems } from "@sparstrow/ui/components/layout/pinned-items";
-import { TabStrip } from "@sparstrow/ui/components/layout/tab-strip";
-import { WorkspaceSwitcher } from "@sparstrow/ui/components/layout/workspace-switcher";
+import { Breadcrumbs } from "@web/components/layout/breadcrumbs";
+import { CommandPalette } from "@web/components/layout/command-palette";
+import { PinnedItems } from "@web/components/layout/pinned-items";
+import { TabStrip } from "@web/components/layout/tab-strip";
+import { WorkspaceSwitcher } from "@web/components/layout/workspace-switcher";
 import { useWorkspaceTabs } from "@sparstrow/ui/lib/workspace-tabs";
 import { NAV_GROUPS, sectionMeta } from "@sparstrow/ui/lib/nav-meta";
 

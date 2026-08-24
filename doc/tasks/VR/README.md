@@ -4,7 +4,7 @@
 |---|---|
 | **Plan** | [`../../plans/2026-08-24-retire-the-vite-app.md`](../../plans/2026-08-24-retire-the-vite-app.md) |
 | **Spec** | n/a (internal) |
-| **Status** | in progress — P1, P2 done 2026-08-24; P3 next |
+| **Status** | in progress — P1–P3 done 2026-08-24; P4 next |
 | **Serves** | foundational throughout — no user story exists, nothing the owner can see is meant to change |
 
 Executes [`D-24`](../../Deferred.md): one Next.js UI, Electron as a shell,
@@ -31,10 +31,11 @@ Removing it first shrinks everything after it.
 |---|---|---|---|---|
 | 1 | [T-VR-01 — delete the Vite host](T-VR-01-delete-vite-host.md) | `[S]` | — | ✅ done (2026-08-24) |
 | 2 | [T-VR-02 — move the pages](T-VR-02-move-pages.md) | `[S]` | 1 | ✅ done (2026-08-24) |
-| 3 | [T-VR-03 — move the app-code components](T-VR-03-move-components.md) | `[S]` | 2 | not started |
+| 3 | [T-VR-03 — move the app-code components](T-VR-03-move-components.md) | `[S]` | 2 | ✅ done (2026-08-24) |
 | 4 | [T-VR-04 — un-shim, and delete the shim](T-VR-04-unshim.md) | `[S]` | 3 | not started |
 | 5 | [T-VR-05 — one worked Server Component](T-VR-05-server-component.md) | `[S]` | 4 | not started |
-| 6 | [T-VR-06 — verification](T-VR-06-verification.md) | `[S]` | 1–5 | not started |
+| 6 | [T-VR-06 — verification](T-VR-06-verification.md) | `[S]` | 1–5, 7 | not started |
+| 7 | [T-VR-07 — finish narrowing `packages/ui`](T-VR-07-narrow-packages-ui.md) | `[S]` | 4 | not started |
 
 **Fully decomposed 2026-08-24.** An earlier draft of this file deferred writing
 tasks 2–6 until their predecessor landed. The owner asked for the whole phase

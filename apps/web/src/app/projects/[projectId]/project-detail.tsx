@@ -28,7 +28,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { WorkLauncher } from "@/components/work-launcher";
+import { WorkLauncher } from "@web/components/work-launcher";
 import {
   useAgents,
   useCreateDirective,
@@ -61,7 +61,7 @@ import {
   type DirEntry,
 } from "@/api/hooks";
 import { useMemoryNotes } from "@/api/hooks";
-import { PrRow, ProfileBadge } from "@/components/pr-queue";
+import { PrRow, ProfileBadge } from "@web/components/pr-queue";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 

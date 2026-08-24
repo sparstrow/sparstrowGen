@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | n/a (internal) — no user-visible change is intended; this moves files between packages and removes a second host. The one behaviour change it *does* cause is a capability loss, handled under Decisions below rather than by writing a spec for a deletion |
-| **Status** | **In progress — P1, P2 done 2026-08-24; P3 next** |
+| **Status** | **In progress — P1–P3 done 2026-08-24; P4 next** |
 | **Trigger** | Owner, 2026-08-24: "our priority right now is transitioning to the next.js app from the vite app and clearing that out. That's the priority, then we can work new feature or access" |
 | **Depends on** | — |
 | **Touches** | `packages/ui/` (all of it), `apps/web/src/app/`, `apps/web/src/lib/react-router-mock.tsx`, `apps/web/next.config.ts`, `apps/web/tsconfig.json`, `packages/core/src/api/server.ts`, `packages/desktop/src/urls.ts` |
@@ -177,7 +177,14 @@ Ten components into `apps/web/src/components/`: the nine that import the router
 (`app-shell` was the tenth such and went in P1), plus `chat/chat-bits.tsx`,
 which imports `markdown` and would otherwise strand a `packages/ui` →
 `apps/web` import. By this point every remaining importer is already in
-`apps/web`. What is left in `packages/ui` after this is the design system.
+`apps/web`.
+
+**This does not leave `packages/ui` as a design system** — a claim this phase
+made and T-VR-03 disproved on landing. ~17 app composites, five feature
+directories, `api/hooks.ts` and the Knowledge Center markdown remain, because
+none of them imports the router and the narrowing was never a router problem.
+Finishing it is **P7**, and it needs a stated rule for what the design system
+is before it can move anything.
 
 ### P4 — Un-shim and delete it (foundational)
 
@@ -191,6 +198,12 @@ and `packages/ui`'s TanStack dependency deleted together.
 One or two moved pages converted, as the pattern `apps/web/CLAUDE.md` already
 mandates for new surfaces. Done when the converted page renders with data on
 first paint rather than a skeleton.
+
+### P7 — Finish narrowing `packages/ui` (foundational)
+
+The app code left behind by P3, classified against a written rule and moved.
+Ordered after P4 because un-shimming changes which files count as app code.
+See `T-VR-07` — this is the phase that stops being mechanical.
 
 ### P6 — Verification (foundational)
 

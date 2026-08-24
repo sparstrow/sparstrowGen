@@ -19,7 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { Markdown } from "@/components/chat/markdown";
+import { Markdown } from "@web/components/chat/markdown";
 import {
   useAgents,
   useDeleteSkill,

@@ -14,9 +14,9 @@ import {
   TableRow,
 } from "@sparstrow/ui/components/ui/table";
 import { RunStatusBadge } from "@sparstrow/ui/components/run-status-badge";
-import { AttentionQueue } from "@sparstrow/ui/components/attention-queue";
+import { AttentionQueue } from "@web/components/attention-queue";
 import { SetupCard } from "@sparstrow/ui/components/setup-card";
-import { PrQueueCard } from "@sparstrow/ui/components/pr-queue";
+import { PrQueueCard } from "@web/components/pr-queue";
 import { useAgents, useHealth, useProjects, useRuns } from "@sparstrow/ui/api/hooks";
 import { formatCost, formatDate, formatDuration } from "@sparstrow/ui/lib/format";
 
