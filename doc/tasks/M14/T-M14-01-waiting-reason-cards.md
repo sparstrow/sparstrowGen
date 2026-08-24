@@ -201,10 +201,9 @@ check why the one you have is offline." Collapsing them into one generic
 - [x] An expired turn (forced via the Traps section's SQL update, not a real
       24h wait) renders `TurnExpiredNotice`, distinct in appearance from
       `TurnErrorBanner`
-- [~] The offline case (scenario 2) still resolves on its own once the
-      machine reconnects within the TTL — full walk belongs to
-      [T-M14-03](T-M14-03-verification.md), not repeated here; not attempted
-      in this pass (see Result and T-M14-03)
+- [x] The offline case (scenario 2) still resolves on its own once the
+      machine reconnects within the TTL — closed live 2026-08-24 in a
+      follow-up pass, see Result and T-M14-03
 
 ## On completion
 
@@ -254,22 +253,22 @@ regression check confirms `TurnErrorBanner` still uses
 `border-destructive/30 bg-destructive/5` (red) — three genuinely different
 visual languages, not one card reworded.
 
-**What was NOT verified live, and why:** scenario 2b, the "comes back online
-and the turn resolves on its own" transition. First attempt was to pair a
-real throwaway daemon (its own `SPARSTROW_SECRETS_DIR`/`SPARSTROW_DATA_DIR`,
-per the runbook) to the disposable workspace and stop it before sending a
-message — but the pairing endpoint sets the new runtime's status to `online`
-with a fresh heartbeat immediately on pairing, before any daemon process
-ever connects, so the turn it produced went straight to `in_progress`
-against a runtime that was never actually running, rather than landing in
-`waiting`/`all_runtimes_offline` the way a genuinely-stopped machine would.
-That is a real, if narrow, product behavior worth someone's attention on its
-own (a machine can show "online" for up to ~90 seconds — per
-`limitations.md`'s existing staleness window — purely from having been
-paired, never having run at all), but it made this specific pairing
-unsuitable for a clean before/after "offline → online" walk without a lot
-more staging around it than this task's scope justifies. Recorded as a
-`KnownGaps.md` entry rather than silently skipped; T-M14-03 inherits it.
+**Scenario 2b, closed in a follow-up pass, 2026-08-24.** The first attempt
+(this pass) was to pair a real throwaway daemon (its own
+`SPARSTROW_SECRETS_DIR`/`SPARSTROW_DATA_DIR`, per the runbook) to the
+disposable workspace and stop it before sending a message — but the pairing
+endpoint sets the new runtime's status to `online` with a fresh heartbeat
+immediately on pairing, before any daemon process ever connects, so the
+turn it produced went straight to `in_progress` against a runtime that was
+never actually running, rather than landing in `waiting`/`all_runtimes_offline`
+the way a genuinely-stopped machine would. That made this specific pairing
+unsuitable for a clean before/after "offline → online" walk. The real
+fix wasn't a better pairing setup — it was testing against the OWNER'S
+already-paired, already-proven-real machine instead of a fresh throwaway
+one: stop it (a machine that has run before has a real, aging heartbeat,
+no optimistic-online window), send a message, confirm `AllOfflineNotice`,
+restart it, confirm the same turn resolves with no resend. Full evidence in
+`KnownGaps.md`'s `G-31` "Closed, live, 2026-08-24" note.
 
 **Cleanup note:** the disposable account
 (`uipass-1787532059883@sparstrow.test`, workspace

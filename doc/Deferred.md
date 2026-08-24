@@ -591,71 +591,26 @@ every turn re-run retrieval, or only the first in a session; does injected
 memory count toward `buildMemoryBlock`'s existing budget; does a Free or
 Agent-only session get anything at all).
 
-## D-21 — Owner runs `claude setup-token` on the real machine
-
-**Parked:** 2026-08-23, by the owner — "I am deferring to do this right now,"
-after live-verifying M13's chat feature turned up
-[`G-32`](KnownGaps.md#g-32--claude-logins-interactive-re-authentication-does-not-extend-to-headless--p-invocations-at-all).
-
-`claude login`'s interactive re-authentication does not extend to `-p`
-(headless) invocations — confirmed live, twice, on the owner's own real
-machine, before and after they re-authenticated interactively. The daemon's
-headless `claude-code` spawns still get a genuine `401 authentication_failed`
-from Anthropic on every attempt. `claude --help` documents the actual fix as
-its own distinct step: `setup-token — Set up a long-lived authentication
-token (requires Claude subscription)`. This is not something an agent runs —
-it mutates the owner's real auth state and (per `claude auth status`'s
-`authMethod: "claude.ai"`) is tied to their actual subscription.
-
-Until this is done, every real chat turn on that machine that lands on
-`claude-code` fails with "the provider timed out" after burning the full
-120s orchestrator timeout on retries — `antigravity` on the same machine
-already works, since [`BUG-2026-08-23-headless-spawn-skill-leak`](bug/BUG-2026-08-23-headless-spawn-skill-leak.md)'s
-fix covered that provider's separate, now-closed issue. Nothing in
-Sparstrowgen's code is blocked by this; only live verification of
-`claude-code` chat turns is.
-
-**The mechanics, for an owner who switches between two Claude accounts.**
-`claude setup-token` prints a token to the terminal and does **not** save
-it anywhere itself — it must be exported as `CLAUDE_CODE_OAUTH_TOKEN` for
-whatever process should use it. That token is bound to whichever account
-was active in the browser OAuth flow at the moment it was created, and
-switching the *interactive* session to the other account afterward (`/login`
-or the desktop app's switcher) does **not** change or invalidate it — the
-two are decoupled. Practically, this cuts a specific way for Sparstrowgen:
-setting `CLAUDE_CODE_OAUTH_TOKEN` once, in whatever environment actually
-launches the daemon process (persistently — a shell profile, service
-config, or `.env` the daemon reads — not just the current terminal), locks
-headless `claude-code` chat turns to *that one* account regardless of which
-account is active interactively afterward. That is almost certainly the
-desired behavior here (a stable identity for the daemon), not something to
-route around — but it does mean re-running `setup-token` and updating that
-persisted env var is the only way to point the daemon's headless spawns at
-the *other* account later, and the daemon needs restarting to pick up a
-changed value.
-
-**Unpark when:** the owner runs `claude setup-token` on that machine and
-confirms it — either the next real chat-turn attempt on `claude-code`
-succeeds, or a direct repro (`echo hi | claude -p --output-format
-stream-json --model sonnet`, the same command `G-32` used to diagnose this)
-stops returning `401`. At that point, close `G-32` with that evidence and
-delete this entry.
-
 ## D-22 — Settings-managed `claude-code` OAuth token, hot-reloaded per spawn
 
 **Parked:** 2026-08-23, by the owner — "I like the idea, but... save the
-idea... We can build that later," while getting `D-21`'s token set up.
-Raised while explaining why the in-app Terminal can't be used as a shortcut
-for `claude setup-token` (it spawns a genuinely separate OS process; nothing
-typed there reaches the daemon).
+idea... We can build that later," while getting a `claude setup-token`
+credential set up (that step, tracked as `D-21`, is done — the owner ran
+it, and this agent confirmed live that headless `claude-code` chat turns
+work; `G-31`/`KnownGaps.md` has the evidence). Raised while explaining why
+the in-app Terminal can't be used as a shortcut for `claude setup-token`
+(it spawns a genuinely separate OS process; nothing typed there reaches the
+daemon).
 
 The owner switches between two Claude accounts and wants Sparstrowgen's
 headless `claude-code` chat turns to use whichever account they currently
 consider active — without leaving the app, and without restarting the
 daemon each time. Today's only working mechanism
-(`CLAUDE_CODE_OAUTH_TOKEN`, see `D-21`) is an OS env var read once at
-daemon startup, so switching means re-exporting it in whatever launches the
-daemon and restarting — real friction, and not what was asked for.
+(`CLAUDE_CODE_OAUTH_TOKEN`) is an OS env var, bound to whichever account was
+active when `claude setup-token` created it and decoupled from any later
+interactive account switch, read once at daemon startup — so switching
+means re-running `setup-token`, re-exporting it in whatever launches the
+daemon, and restarting — real friction, and not what was asked for.
 
 **The fix already has ~90% of its plumbing built**, reusing an existing
 pattern rather than inventing one:
@@ -683,6 +638,6 @@ Pasting a new `claude setup-token` output there would take effect on the
 very next chat message — no restart, no terminal, no leaving the app.
 
 **Unpark when:** the owner asks for it, or the two-account switching
-friction from `D-21`'s mechanics becomes actively painful enough to
-prioritize. Not urgent — `D-21`'s manual env-var-plus-restart path works
+friction from the manual env-var-plus-restart mechanics above becomes
+actively painful enough to prioritize. Not urgent — that manual path works
 today, just with more friction than this would have.

@@ -6,7 +6,7 @@
 | **Depends on** | T-M14-01, T-M14-02 |
 | **Blocks** | — |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | 🟡 mostly done 2026-08-23 — 2b and the two-machine race not reached |
+| **Status** | 🟢 done — scenario 2b closed live 2026-08-24; the two-machine race remains genuinely out of scope (`G-15`/`G-24`) |
 
 ## Objective
 
@@ -18,13 +18,11 @@ branch's own feature-preview URL** (not `development.sparstrow.com`, which
 doesn't have M13's or M14's code yet), signed in via the magic-link runbook
 (`doc/runbooks/agent-browser-session.md`), same pattern T-M13-05 used. It
 needs a real paired machine reachable from that preview and a genuine chat
-completion to walk scenario 2's "resolves on its own" half — if
-[`G-32`](../../KnownGaps.md) (headless `claude-code` auth) or
-[`D-21`](../../Deferred.md) (the owner's deferred `setup-token` step) is
-still open when this task runs, use `antigravity` for the live-completion
-half of scenario 2 instead of `claude-code` — the waiting/offline/expired
-states themselves don't need a successful completion at all, only the
-"comes back online" transition does.
+completion to walk scenario 2's "resolves on its own" half — originally
+written with an `antigravity` fallback in mind in case headless
+`claude-code` auth was still broken (`D-21`/former `G-32`; it was, at
+first). The owner fixed it before this scenario was actually walked, so
+`claude-code` was used directly — see the "Closed, live" note below.
 
 ## A — The acceptance scenarios
 
@@ -37,12 +35,13 @@ states themselves don't need a successful completion at all, only the
       Then they see "waiting for a machine to come online," and the message
       is not lost (rendered via a real `waiting`/`all_runtimes_offline` row
       rather than an actually-stopped daemon — see T-M14-01's Result for why)
-- [~] **US2 scenario 2b (comes back online)** — NOT reached. See T-M14-01's
-      Result and `G-33` (`../../KnownGaps.md`): pairing a throwaway machine
-      sets it `online` immediately, before any daemon connects, which made
-      the clean "genuinely offline, then genuinely comes online" transition
-      this scenario needs unsafe to construct in the time this task had.
-      Needs a purpose-built setup, not a quick follow-up.
+- [x] **US2 scenario 2b (comes back online)** — closed live 2026-08-24, after
+      the credential fix (`D-21`/former `G-32`) unblocked a real provider.
+      The real daemon was stopped, a message sent while it was genuinely
+      down landed `waiting`/`all_runtimes_offline`, and after the daemon
+      restarted the SAME turn resolved to a real reply on its own, no
+      resend — confirmed in the database and by reloading the browser.
+      See `KnownGaps.md`'s `G-31` "Closed, live, 2026-08-24" note.
 - [x] **US2 scenario 3** — Given a Project-context session where no paired
       machine has that project checked out locally, When the owner sends a
       message, Then they're told this project isn't available on any online
@@ -82,10 +81,10 @@ a waiting-reason card. Verify instead:
 ## C — What can be verified today
 
 - [x] All three waiting-reason scenarios, and the TTL-expiry case, per
-      section A — nothing in this phase depends on `G-32`/`D-21` clearing
-- [ ] Scenario 2b's "comes back online" transition, using whichever provider
-      (`antigravity` or `claude-code`, per the Objective's note) actually
-      completes on this pass — not reached, see section A and `G-33`
+      section A — nothing in this phase depended on the credential fix
+- [x] Scenario 2b's "comes back online" transition — closed live 2026-08-24
+      using `claude-code` directly, once the credential fix landed; see
+      section A
 
 ## D — What needs something that doesn't exist yet
 
@@ -128,10 +127,14 @@ one thing that didn't go as planned). Summary here:
   just Paper), the "real failure still shows `TurnErrorBanner`" regression,
   zero console errors throughout, and the full monorepo typecheck/test
   suite green.
-- **Not reached**: scenario 2b (offline → online transition) and the
-  two-online-machines race (section D, out of scope by design — unchanged
-  from `G-15`/`G-24`/`G-31`). Both written up as `KnownGaps.md` entries
-  (`G-33` for 2b) rather than left silent.
+- **Closed in a follow-up pass, 2026-08-24**: scenario 2b (offline → online
+  transition), once the owner's `claude setup-token` fix (`D-21`, formerly
+  `G-32`) unblocked a real provider. Walked with the real daemon and real
+  account — stopped, sent a message, confirmed `AllOfflineNotice`, restarted,
+  confirmed the same turn resolved on its own with no resend. See
+  `KnownGaps.md`'s `G-31` "Closed, live" note for the full evidence.
+- **Not reached**: the two-online-machines race (section D, out of scope by
+  design — unchanged from `G-15`/`G-24`).
 - **Not independently re-verified**: SC-001/SC-004's Realtime/isolation/race
   guarantees from T-M13-05 — the relevant code in `chat.tsx` was untouched
   by this phase's diff, so risk is judged low, but "untouched" was

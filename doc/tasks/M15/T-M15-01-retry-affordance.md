@@ -199,13 +199,8 @@ position in the tree with the same component type across turns), add a
       before — T-M14-01/T-M13's existing behavior, unchanged
 - [x] After a successful retry, the ORIGINAL reply is still visible above
       the new one, in `messages` — never overwritten in place
-- [~] Retrying twice in a row (retry, wait for the new succeeded turn, retry
-      again with a different model) — not exercised: the verification
-      workspace has no genuinely online provider (same constraint T-M14-03
-      hit), so the retried turn never actually reaches a second `succeeded`
-      state to retry again from. `RetryControls`'s `key={turn.id}` remount
-      guarantee was reasoned through in code review rather than observed
-      twice in sequence — see Result.
+- [x] Retrying twice in a row (retry, wait for the new succeeded turn, retry
+      again with a different model) — closed live 2026-08-24, see Result
 
 ## On completion
 
@@ -245,13 +240,17 @@ A failed turn's plain `TurnErrorBanner` retry was checked separately (a
 synthetic `failed`/`waiting_reason: null` turn) and renders identically to
 before — no picker, same red-toned card, same single Retry button.
 
-**Not reached:** retrying twice in sequence to observe `RetryControls`
-correctly resetting its local provider/model state between two DIFFERENT
-succeeded turns (the Traps section's stated risk). No genuinely-online
-provider was available in this pass to produce a second real completion —
-same constraint T-M14-03 documented for scenario 2b. The `key={turn.id}`
-prop (forcing a fresh mount, and therefore fresh `useState` initial values,
-per turn) is a standard, low-risk React pattern rather than a novel one,
-so this is judged low-risk to leave unobserved rather than worth its own
-`KnownGaps.md` entry — but it is exactly the kind of thing T-M15-03's live
-pass should still walk once a real second completion is available.
+**Retrying twice in sequence, closed in a follow-up pass, 2026-08-24.** Once
+the owner's `claude setup-token` fix unblocked a real provider, a real turn
+on the owner's own real account was retried twice: sonnet → haiku → opus,
+three genuine completions. `RetryControls` correctly defaulted to `haiku`
+after the first retry (not the original `sonnet`) and to `opus` after the
+second (not `haiku`), confirmed by screenshot at each step — the
+`key={turn.id}` remount reasoning held under a real sequence, not just in
+code review. Database confirms the full chain: `ct_d2974b8fcd6245f1`
+(sonnet) → `ct_952d70047e3b46d1` (haiku, `retry_of_turn_id` → the first) →
+`ct_fc658b0ca5f14d85` (opus, `retry_of_turn_id` → the second), all three
+`status: succeeded`. Full account in `KnownGaps.md`'s `G-31` "Closed, live"
+note. Cross-session state isolation was not separately re-tested — still
+an inference (no plausible sharing mechanism exists between independent
+component instances), judged low-risk enough not to block this.

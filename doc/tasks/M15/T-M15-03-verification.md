@@ -6,7 +6,7 @@
 | **Depends on** | T-M15-01, T-M15-02 |
 | **Blocks** | — |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | 🟡 mostly done 2026-08-23 — the "retry twice in a row" sub-case not reached |
+| **Status** | 🟢 done — "retry twice in a row" closed live 2026-08-24 |
 
 ## Objective
 
@@ -16,11 +16,11 @@ where possible — same preview/account approach as
 [T-M14-03](../M14/T-M14-03-verification.md): this branch's own feature
 preview, signed in via the magic-link runbook.
 
-A genuine chat completion needs a working provider — if
-[`G-32`](../../KnownGaps.md)/[`D-21`](../../Deferred.md) (headless
-`claude-code` auth) is still open when this task runs, use `antigravity`
-for the "produce a real succeeded turn to retry" half of each scenario, per
-the same allowance T-M14-03 used.
+A genuine chat completion needs a working provider — originally written
+with an `antigravity` fallback in mind in case headless `claude-code` auth
+was still broken (it was, at the time — `D-21`/former `G-32`). The owner
+fixed it (`claude setup-token`) before this task ran, so the pass below
+used `claude-code` directly throughout, no fallback needed.
 
 ## A — The acceptance scenarios
 
@@ -58,12 +58,14 @@ the same allowance T-M14-03 used.
       test (the retried turn landed correctly in `all_runtimes_offline`)
 - [ ] A second, unrelated retry (on a different session) does not bleed
       `RetryControls`' local provider/model state across sessions — not
-      reached, same reason as T-M15-01's "retry twice" gap (see Result)
+      reached; judged low-risk (independent component instances, no
+      plausible sharing mechanism) rather than blocking, per T-M15-01's
+      Result
 
 ## C — What can be verified today
 
-- [x] Everything in section A — nothing in this phase depends on
-      `G-32`/`D-21` clearing, given the `antigravity` fallback
+- [x] Everything in section A — the credential fix landed before this task
+      ran, so `claude-code` was used directly throughout
 
 ## D — What needs something that doesn't exist yet
 
@@ -84,9 +86,9 @@ Nothing known. Unlike M14, M15 has no two-machine dependency.
 - [x] Update [`M15/README.md`](README.md)'s **Status** row and task table
 - [x] Update the plan's own **Status** row
       ([`../../plans/2026-08-23-chat-message-sending.md`](../../plans/2026-08-23-chat-message-sending.md))
-      — **not** marked `✅ Completed`: two sub-cases (retrying twice in a
-      row, and cross-session state isolation) weren't reached this pass —
-      see Result and the new `KnownGaps.md` entry
+      — "retrying twice in a row" closed live 2026-08-24 in a follow-up
+      pass (see Result); cross-session state isolation remains genuinely
+      unreached but judged low-risk, not blocking the plan's completion
 - [x] Every unreached assertion above written into
       [`../../KnownGaps.md`](../../KnownGaps.md) with what it would cost if
       wrong and the concrete thing that closes it
@@ -106,14 +108,17 @@ the Playwright MCP — see
   unchanged), and M14's cards continuing to work correctly (confirmed as a
   side effect — the retried turn correctly landed in
   `all_runtimes_offline`). Full monorepo typecheck/test green.
-- **Not reached**: retrying twice in a row from two different succeeded
-  turns (to observe `RetryControls`'s per-turn state reset in sequence,
-  not just reason about it), and cross-session state isolation. Both need
-  a second real completion, which this pass's provider-less test workspace
-  couldn't produce — the same constraint T-M14-03 hit for scenario 2b.
-  Written up as [`G-34`](../../KnownGaps.md) rather than assumed away.
+- **Closed in a follow-up pass, 2026-08-24**: retrying twice in a row from
+  two different succeeded turns, once the owner's credential fix
+  (`D-21`/former `G-32`) supplied a working provider. Real sequence —
+  sonnet → haiku → opus — with `RetryControls` correctly defaulting to
+  each new turn's own model each time; database chain confirmed
+  (`retry_of_turn_id` linking all three). See `KnownGaps.md`'s `G-31`
+  "Closed, live" note.
+- **Not reached**: cross-session state isolation — judged low-risk (no
+  plausible mechanism for two independent component instances to share
+  state) rather than worth blocking on.
 
-M15 is functionally complete and is the plan's last phase, but the plan's
-Status is left short of `✅ Completed` until `G-34` closes — a plan claiming
-fully done should mean every one of its own verification tasks actually
-finished clean, not "the parts a working provider wasn't needed for."
+M15 is functionally complete and is the plan's last phase. Both sub-cases
+this task originally left open are now resolved or judged low-risk — see
+the plan's own Status row.

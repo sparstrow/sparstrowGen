@@ -7,7 +7,7 @@
 | **Spec** | [doc/specs/2026-08-23-chat-message-sending.md](../../specs/2026-08-23-chat-message-sending.md) |
 | **Depends on** | M12 (dispatch spine); overlaps M13's UI work — decompose after M13's rendering seam exists rather than alongside it |
 | **Blocks** | M15 (retry needs a failed/expired turn to retry, which this phase is what produces honestly) |
-| **Status** | 🟢 built and live-verified 2026-08-23 — scenario 2b deferred, [`G-33`](../../KnownGaps.md) |
+| **Status** | 🟢 built and fully live-verified — scenario 2b closed live 2026-08-24 (see [`KnownGaps.md`](../../KnownGaps.md)'s `G-31` "Closed, live" note) |
 | **Open questions** | none |
 
 ## The story this serves
@@ -55,7 +55,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 |---|---|---|---|---|
 | [T-M14-01 — three waiting-reason cards, and TTL-expiry told apart from a real failure](T-M14-01-waiting-reason-cards.md) | `[S]` | US2 | — | 🟢 done |
 | [T-M14-02 — the Knowledge Center names the specific waiting states and the 24h wait](T-M14-02-knowledge-center.md) | `[P]` | US2 | — | 🟢 done |
-| [T-M14-03 — verification](T-M14-03-verification.md) | `[S]` | US2 | 14.1, 14.2 | 🟡 mostly done — scenario 2b not reached, [`G-33`](../../KnownGaps.md) |
+| [T-M14-03 — verification](T-M14-03-verification.md) | `[S]` | US2 | 14.1, 14.2 | 🟢 done — scenario 2b closed live 2026-08-24 |
 
 T-M14-01 and T-M14-02 are genuinely parallel: one is `packages/ui/src/routes/pages/chat.tsx`,
 the other is a single Knowledge Center markdown file, zero overlap.

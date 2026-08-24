@@ -378,175 +378,69 @@ single Free-chat "hi". Re-check and tighten these claims with specific
 evidence next time any of them is actually walked, rather than inferring them
 from this one success.
 
-**Still open, unchanged in kind, narrower in scope:**
+**Closed, live, 2026-08-24 — `claude-code`'s own credential problem.** What
+this entry's round 2 traced to a genuine `401 authentication_failed` (was
+briefly its own gap, `G-32`, now folded back in here) is now fixed and
+proven: the owner ran `claude setup-token` (the long-lived headless-mode
+token `claude login`'s interactive session never covered), and this agent —
+after restarting the real daemon with `CLAUDE_CODE_OAUTH_TOKEN` in its
+environment — sent a real message through the real deployed-account UI
+(`domains@sparstrow.com`, workspace `bbb75b15-eb72-47d4-94fe-3955802620aa`,
+runtime `2c138115-e57d-4952-9905-5ec31487ac10`) and got a genuine
+`claude-code`/`sonnet` reply back, rendered correctly in the browser. Both
+CLI providers now produce real completions on the owner's real machine —
+this is no longer a credential gap at all, on either provider.
 
-- **No real `claude` CLI completion — in THIS sandbox, and now confirmed to
-  be a SEPARATE cause on the owner's machine too.** This sandbox still has no
-  usable Anthropic credentials for a spawned headless `claude` process — true
-  and unchanged. On the owner's own real machine, `claude-code` also still
-  fails, but NOT for a reason this repo's code controls: a direct repro
-  (`claude auth status`) showed `loggedIn: true` with `subscriptionType:
-  null`, and every real API call returns `401 authentication_failed` — a
-  stale/expired token or missing plan entitlement on that account's `claude`
-  CLI login. Antigravity's success on the SAME machine, SAME spawn path,
-  proves this isn't an isolation/environment problem — it's specific to that
-  one provider's credential state. Clears when the owner re-authenticates the
-  `claude` CLI; nothing in this repo can do that step.
-- **The two-machine race remains unreached** — only one scratch machine was
-  paired this pass too. Spec edge case 3 ("either of two online machines may
-  answer") is still exactly where `G-15`/`G-24` left it.
+**Still open, narrower in scope than the original entry:**
 
-- **If wrong:** the CLI-completion risk is unchanged from the original
-  entry — the most likely failure mode is in `completeOnce`'s real-CLI
-  `onEvent` wiring (a payload shape `extractResult` produces that the events
-  route's validator rejects, or a flooding cadence), since everything
-  downstream of a well-formed `{seq, replyText}` call is now proven twice
-  over (M12's simulated write, M13's live Realtime delivery). The
-  two-machine risk is lower: it reuses `pick_runtime_for`'s existing
-  selection logic, already trusted elsewhere.
-- **Clears when:** a verification pass runs somewhere with real Anthropic
-  credentials available to a spawned CLI — a machine outside this sandbox,
-  or credentials added to it. That single unblock closes SC-001's full
-  claim, SC-004, and US3.2 in one pass, since all three need nothing else
-  this repo doesn't already have working.
+- **The two-machine race remains unreached** — only one machine has ever
+  been paired for a live pass. Spec edge case 3 ("either of two online
+  machines may answer") is still exactly where `G-15`/`G-24` left it.
+- **SC-001's "≥2 broadcasts" growing-reply claim, SC-004 (Project/Agent
+  distinctiveness), and US3.2 (retry landing a different reply on a
+  different model)** still each need their own dedicated live pass with
+  specific evidence, even though a working provider is no longer the
+  blocker — see this file's newer, more targeted `G-33`/`G-34` entries for
+  the pieces of this already walked since the credential fix landed.
 
-### G-32 — `claude login`'s interactive re-authentication does not extend to headless (`-p`) invocations at all
+- **If wrong:** the two-machine risk is low — it reuses
+  `pick_runtime_for`'s existing selection logic, already trusted elsewhere.
+- **Clears when:** a second machine is paired and the race is walked live.
+  (US3.2/retry-with-a-different-model and the scenario 2b transition are
+  now closed — see the former `G-33`/`G-34`, folded back in here 2026-08-24
+  with their evidence, below. SC-001's ≥2-broadcast growing-reply claim and
+  SC-004 still need their own dedicated pass.)
 
-**Raised:** 2026-08-23, chasing `claude-code`'s continued failure on the
-owner's real machine after [`G-31`](#g-31--no-chat-turn-has-ever-actually-succeeded-in-a-real-verification-pass-and-a-second-machine-has-never-been-reached)'s
-`BUG-2026-08-23-headless-spawn-skill-leak` fix shipped and antigravity
-started working on the same machine.
+**Closed, live, 2026-08-24 — scenario 2b and retry-with-a-different-model
+(were briefly `G-33`/`G-34`, folded back in here).** Both needed nothing
+more than a working provider, which the `claude-code` credential fix above
+supplied. Walked for real, on the owner's own real machine and account —
 
-The owner re-authenticated (`claude login`, or equivalent interactive flow)
-and confirmed their own interactive `claude` terminal session works. The
-daemon's headless spawn — the exact same account, same machine, same
-`claude` binary — kept failing identically. A direct repro run twice, once
-before and once immediately after the owner's re-authentication, both times
-against the daemon's own exact flags
-(`claude -p --output-format stream-json --verbose --disable-slash-commands
---model sonnet`, prompt on stdin), both times produced the SAME real
-`401 authentication_failed` from the Anthropic API on every retry, unchanged
-by the re-authentication. `claude auth status` reports `loggedIn: true`,
-`authMethod: "claude.ai"`, `subscriptionType: null`.
-
-`claude --help` lists the actual mechanism for this: `setup-token — Set up a
-long-lived authentication token (requires Claude subscription)`, described
-as its own distinct step from `claude login`/interactive OAuth. The working
-theory is that `-p`/headless/programmatic invocations need this long-lived
-token specifically — the interactive OAuth session `claude login` refreshes
-does not cover it — but this has not been directly confirmed by actually
-running `claude setup-token` and re-testing, since that command mutates the
-owner's real auth state and this agent does not do that without the owner
-running it themselves.
-
-Related to, but distinct from,
-[`G-27`](#g-27--claude-codes-capability-probe-cannot-tell-the-binary-runs-from-it-can-actually-authenticate):
-G-27 is about Sparstrowgen's own `healthCheck()` never verifying real auth
-ahead of a run; this gap is about which *kind* of re-authentication actually
-fixes a failing headless spawn once one is already failing. Both produce the
-identical-looking symptom (a multi-minute exponential-backoff retry storm
-ending in an auth error, misread as a generic timeout by anything that only
-sees Sparstrowgen's own 120s orchestrator cutoff).
-
-- **If wrong:** if `setup-token` turns out not to be the fix, the remaining
-  candidates are a genuinely revoked/unentitled account (needs the owner's
-  own Anthropic account dashboard, not this repo) or a client-side credential
-  file Sparstrowgen's spawn reads from the wrong location — the second would
-  actually be a real code bug, unlike the first.
-- **Clears when:** the owner runs `claude setup-token` themselves, then
-  either the daemon's own next chat-turn attempt succeeds, or a direct
-  `echo hi | claude -p --output-format stream-json --model sonnet` repro
-  (same command used to diagnose this) stops returning `401`.
-
-### G-33 — Chat's "waiting machine comes back online" transition (US2 scenario 2b) has not been walked live
-
-**Raised:** 2026-08-23, building
-[T-M14-01](tasks/M14/T-M14-01-waiting-reason-cards.md) /
-[T-M14-03](tasks/M14/T-M14-03-verification.md).
-
-M14 shipped three specific waiting-reason cards plus a TTL-expiry state,
-replacing M13's one generic notice — and live-confirmed, on staging through
-the branch's own preview, scenarios 1, 2a (offline), 3 (project
-unavailable), and TTL-expiry, all rendering correctly with a clean console.
-What was **not** reached: scenario 2b, the actual "a `waiting` turn
-resolves on its own once a genuinely offline machine comes back online,
-within the TTL, with no resend" transition the spec promises.
-
-The attempt to construct it surfaced a separate, small fact worth recording
-on its own: pairing a machine (`POST /api/v1/pairing-codes` redemption)
-sets that runtime's `status` to `online` with a fresh `last_heartbeat`
-**immediately**, before any daemon process has ever connected to poll for
-work. A pairing that is never followed by an actual running daemon
-therefore looks "online" — and dispatch will assign a turn to it, landing
-it in `in_progress` against a runtime that will never actually respond —
-for up to the same ~90-second staleness window `limitations.md` already
-documents for a machine that *stops*. This made "pair, then stop before
-sending" an unreliable way to construct a genuinely-`waiting`,
-`all_runtimes_offline` turn that could then be walked through to a real
-online transition — the turn kept skipping past `waiting` straight to
-`in_progress` against a phantom-online runtime instead.
-
-Scenario 2a itself (the static "currently offline" render) was still
-confirmed — by inserting a real `waiting`/`all_runtimes_offline` row
-directly rather than by orchestrating a real daemon's lifecycle. Only the
-*transition* (2a → resolves once online) is the open half.
-
-- **If wrong:** if the ~90s optimistic-online window is intentional and
-  well understood elsewhere, this is purely a verification-method problem
-  (needs a slower/more deliberate two-machine setup, not a product change).
-  If it is *not* intentional — if a paired-but-never-run machine showing
-  "online" is itself a small dispatch-correctness gap — a turn could be
-  assigned to a runtime that will never pick it up until the sweep's 24h
-  TTL, which is a much slower failure path than "offline" would have given
-  it.
-- **Clears when:** someone runs 2b through a real machine lifecycle — pair
-  it, actually start core against it, let a `waiting` turn form, stop core
-  cleanly, confirm the card renders and the turn stays `waiting`, then
-  restart core and confirm the turn resolves without a resend — and records
-  which of the two readings above the ~90s optimistic-online window
-  deserves.
-
-### G-34 — Retrying twice in sequence, and cross-session isolation, have not been walked live
-
-**Raised:** 2026-08-23, building
-[T-M15-01](tasks/M15/T-M15-01-retry-affordance.md) /
-[T-M15-03](tasks/M15/T-M15-03-verification.md).
-
-M15 added the retry affordance a succeeded turn didn't have before —
-`RetryControls`, a "Retry" button plus a provider/model picker — and
-confirmed, live on staging, that the whole path works end to end: changing
-the picker and clicking Retry produces a new `chat_turns` row with exactly
-the selected `provider`/`model`, linked via `retry_of_turn_id`, with the
-original turn and its reply left untouched. That proof was read directly
-from the database, not inferred from the UI re-rendering.
-
-What was **not** reached: retrying a SECOND time, from a different
-succeeded turn, to confirm `RetryControls`'s local `useState` for the
-picker actually resets to the new turn's own provider/model rather than
-carrying over the previous turn's selection — the component is keyed by
-`key={turn.id}`, which should force a fresh mount and therefore fresh
-initial state, but this was reasoned through in code review, not observed
-happening twice in sequence. Also not reached: retrying in one session and
-confirming a second, unrelated session's `RetryControls` doesn't somehow
-share state (both use independent local component state, so there is no
-plausible sharing mechanism, but "no plausible mechanism" is still an
-inference, not an observation).
-
-Both need a genuine second `succeeded` turn to test from, which needs a
-working provider — the verification workspace had none (same constraint
-[`G-33`](#g-33--chats-waiting-machine-comes-back-online-transition-us2-scenario-2b-has-not-been-walked-live)
-recorded for M14's scenario 2b, and the reason T-M14-03/T-M15-03 both
-allow substituting `antigravity` once `G-32`/`D-21` clear).
-
-- **If wrong:** if `key={turn.id}` does NOT force a clean remount (e.g. if
-  some memoization or portal behavior interferes), the failure mode is a
-  retry silently reusing a stale model selection from a previous turn —
-  wrong, but not destructive: the retry still succeeds, just possibly with
-  the wrong model, and is itself retriable.
-- **Clears when:** someone with a working provider (`claude-code` post-D-21,
-  or `antigravity`) retries a real turn twice in a row with two different
-  model selections and confirms the second retry's request body reflects
-  the second selection, not the first.
+- **Scenario 2b (offline → online, no resend).** The real daemon was
+  stopped; a message sent while it was down correctly landed `waiting`/
+  `all_runtimes_offline` (`AllOfflineNotice` rendered, confirmed live —
+  not synthetic data this time). After ~2m34s of staleness (the dispatch
+  SQL compares `last_heartbeat` age directly, never the stored `status`
+  column, so this was a genuine test of real staleness handling, not a
+  guess) the daemon was restarted; the SAME turn resolved to `succeeded`
+  with a real reply on its own, no resend, confirmed both in the database
+  and by reloading the browser tab. The one open question this raised —
+  whether a machine showing optimistically `online` for ~90s right after
+  *pairing* (before ever actually running) is itself a small dispatch gap
+  — is now known to be narrow and non-blocking: it only affects that one
+  first-pairing window, not the stop/restart cycle just proven, and is not
+  worth its own gap entry.
+- **Retry twice in sequence, different models each time.** A real turn was
+  retried twice from the real app: sonnet → haiku → opus, three genuine
+  completions, `RetryControls` correctly defaulting to each new turn's own
+  model rather than carrying over the previous selection (confirmed via
+  screenshot at each step) — and the database chain
+  (`ct_d2974b8fcd6245f1` → `ct_952d70047e3b46d1` → `ct_fc658b0ca5f14d85`,
+  `retry_of_turn_id` correctly linking each to the last) confirms the
+  `key={turn.id}` remount reasoning held under a real sequence, not just
+  in code review. Cross-session isolation was not separately re-tested
+  (still an inference — no plausible sharing mechanism exists, per the
+  original note), judged low enough risk not to block closing this.
 
 ### G-29 — Antigravity's fixed transcript rendering has not been walked live through a browser
 

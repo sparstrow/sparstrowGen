@@ -128,11 +128,13 @@ cause is unrelated to this bug: a genuine `401 authentication_failed` from the A
 API on every retry, which the CLI retries with exponential backoff (0.5s → 36s) until
 Sparstrowgen's own 120s orchestrator timeout kills it — misreported as "the provider timed
 out," the same symptom this bug originally described, but a different cause. Auth never
-even got far enough to reach a tool-permission check in this repro. See
-[`G-32`](../KnownGaps.md) for the full trace of that separate, now precisely diagnosed
-issue — `claude login`'s interactive re-authentication does not extend to `-p`/headless
-invocations at all; `claude setup-token` is the actual fix, unrelated to this bug and not
-this repo's code to control.
+even got far enough to reach a tool-permission check in this repro. That separate issue —
+`claude login`'s interactive re-authentication does not extend to `-p`/headless
+invocations at all — was traced fully, then **closed live 2026-08-24**: the owner ran
+`claude setup-token`, and a real chat turn through the real app produced a genuine
+`claude-code`/`sonnet` reply. See [`G-31`](../KnownGaps.md#g-31--no-chat-turn-has-ever-actually-succeeded-in-a-real-verification-pass-and-a-second-machine-has-never-been-reached)'s
+"Closed, live" note for the evidence; this bug's own fix (the skill-leak isolation) and
+that separate credential issue are now both resolved, on both providers.
 
 **Not addressed here, and deliberately out of scope:** whether Sparstrowgen should isolate
 spawned subprocesses from the operator's personal `~/.claude` config more broadly (e.g. a

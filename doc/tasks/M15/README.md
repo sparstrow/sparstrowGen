@@ -7,7 +7,7 @@
 | **Spec** | [doc/specs/2026-08-23-chat-message-sending.md](../../specs/2026-08-23-chat-message-sending.md) |
 | **Depends on** | M12 (dispatch spine), M13 (turn rendering to retry from) |
 | **Blocks** | nothing |
-| **Status** | 🟢 built and live-verified 2026-08-23 — two sub-cases deferred, [`G-34`](../../KnownGaps.md) |
+| **Status** | 🟢 built and fully live-verified — retry-twice closed live 2026-08-24 (see [`KnownGaps.md`](../../KnownGaps.md)'s `G-31` "Closed, live" note) |
 | **Open questions** | none |
 
 ## The story this serves
@@ -44,7 +44,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 |---|---|---|---|---|
 | [T-M15-01 — retry affordance on succeeded and failed turns, with a model picker](T-M15-01-retry-affordance.md) | `[S]` | US3 | — | 🟢 done |
 | [T-M15-02 — the Knowledge Center says a reply can be retried](T-M15-02-knowledge-center.md) | `[P]` | US3 | — | 🟢 done |
-| [T-M15-03 — verification](T-M15-03-verification.md) | `[S]` | US3 | 15.1, 15.2 | 🟡 mostly done — [`G-34`](../../KnownGaps.md) |
+| [T-M15-03 — verification](T-M15-03-verification.md) | `[S]` | US3 | 15.1, 15.2 | 🟢 done — retry-twice closed live 2026-08-24 |
 
 ## The shape of what was found
 

@@ -494,10 +494,10 @@ seam M13 now has.
 | 18.11 | [T-M13-05 — M13 verification](M13/T-M13-05-verification.md) | `[S]` | 18.7–18.10 | 🟡 done except credential-blocked pieces — [`G-31`](../KnownGaps.md) |
 | 18.12 | [T-M14-01 — three waiting-reason cards, and TTL-expiry told apart from a real failure](M14/T-M14-01-waiting-reason-cards.md) | `[S]` | 18.11 | ✅ done 2026-08-23 |
 | 18.13 | [T-M14-02 — the Knowledge Center names the specific waiting states and the 24h wait](M14/T-M14-02-knowledge-center.md) | `[P]` | 18.11 | ✅ done 2026-08-23 |
-| 18.14 | [T-M14-03 — M14 verification](M14/T-M14-03-verification.md) | `[S]` | 18.12, 18.13 | 🟡 done except scenario 2b — [`G-33`](../KnownGaps.md) |
+| 18.14 | [T-M14-03 — M14 verification](M14/T-M14-03-verification.md) | `[S]` | 18.12, 18.13 | ✅ done 2026-08-24 (scenario 2b closed live) |
 | 18.16 | [T-M15-01 — retry affordance on succeeded and failed turns, with a model picker](M15/T-M15-01-retry-affordance.md) | `[S]` | 18.14 | ✅ done 2026-08-23 |
 | 18.17 | [T-M15-02 — the Knowledge Center says a reply can be retried](M15/T-M15-02-knowledge-center.md) | `[P]` | 18.14 | ✅ done 2026-08-23 |
-| 18.18 | [T-M15-03 — M15 verification](M15/T-M15-03-verification.md) | `[S]` | 18.16, 18.17 | 🟡 done except two sub-cases — [`G-34`](../KnownGaps.md) |
+| 18.18 | [T-M15-03 — M15 verification](M15/T-M15-03-verification.md) | `[S]` | 18.16, 18.17 | ✅ done 2026-08-24 (retry-twice closed live) |
 
 18.3 and 18.4 are `[P]`: 18.3 touches `apps/web/*` and a new SQL policy file,
 18.4 touches `packages/core/*` — zero file overlap, both need only 18.2's
@@ -535,8 +535,7 @@ staging through this branch's own preview and the Playwright MCP — all four
 card states (three waiting reasons plus TTL-expiry) confirmed rendering
 correctly with a clean console, in light/dark and Paper/Mono. One scenario
 (2b, a waiting turn resolving once a genuinely-offline machine comes back
-online) was not reached; see [`G-33`](../KnownGaps.md), opened rather than
-left silent.
+online) needed a working credential to close; see below.
 
 **M15 decomposed AND built 2026-08-23** (rows 18.16–18.18), which
 renumbered from the single placeholder row 18.15. Same finding pattern as
@@ -548,16 +547,20 @@ phase added the missing UI piece: `RetryControls`, a retry affordance on a
 `TurnErrorBanner`'s existing `fallback` field is dead on the cloud path.
 Live-verified end to end on staging, including reading the resulting DB row
 back to confirm the picker's selection actually reached `retry_chat_turn`,
-not just that the UI re-rendered. Two sub-cases (retry twice in a row;
-cross-session state isolation) need a second real completion this pass's
-test workspace couldn't produce — see [`G-34`](../KnownGaps.md). See
-[`M15/README.md`](M15/README.md)'s "shape of what was found". `chat.tsx`
-was still the contended file at build time (same
-`chat-context-menu-design-0eb2ff` caveat as 18.12 above).
+not just that the UI re-rendered. See [`M15/README.md`](M15/README.md)'s
+"shape of what was found". `chat.tsx` was still the contended file at
+build time (same `chat-context-menu-design-0eb2ff` caveat as 18.12 above).
 
-This plan's last phase is now built; its Status stays short of
-`✅ Completed` only because of `G-34`, per
-[T-M15-03](M15/T-M15-03-verification.md)'s Result.
+**Credential fix closed both remaining gaps live, 2026-08-24.** The owner
+ran `claude setup-token` (`D-21`, formerly tracked as `G-32`), and this
+agent restarted the real daemon with the resulting token and confirmed,
+through the real app on the owner's real account: a genuine chat
+completion, retry with a different model twice in sequence (M15's
+remaining gap, formerly `G-34`), and the offline→online transition (M14's
+scenario 2b, formerly `G-33`) — the real daemon was stopped, a message sent
+while it was down, then restarted, and the SAME turn resolved automatically
+with no resend. Full evidence in `KnownGaps.md`'s `G-31` "Closed, live"
+note. Both phases' plans are now fully built and verified.
 
 ## Blocked items
 
