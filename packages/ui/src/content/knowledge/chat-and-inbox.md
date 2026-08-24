@@ -27,6 +27,11 @@ current one finishes. Use chat for exploratory work ("look at this and tell me w
 you think") where a formal task would be overkill; you can always graduate an
 outcome into a task later.
 
+Didn't like a reply, or it failed? **Retry** re-asks without retyping —
+picking a different model first, if you want the second attempt to use one.
+The original reply stays in the conversation; retry adds a new one rather
+than replacing it.
+
 [Try in App — Start a Chat](/chat)
 
 ## Inbox — messages that wait for you
@@ -51,7 +56,7 @@ be on the Dashboard, not just here.
   three it is and pointed at pairing rather than left with a dead end.
 - **An unanswered message waits up to 24 hours**, then is marked as having
   taken too long rather than left waiting silently forever; retry is offered
-  once M15 ships it.
+  — see above.
 - **Only one reply at a time, per session.** Sending while a reply is already
   in progress is refused — wait for it to finish, or use retry once it has.
 - **A reply reflects the provider's own message-by-message output, not a

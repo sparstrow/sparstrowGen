@@ -495,7 +495,9 @@ seam M13 now has.
 | 18.12 | [T-M14-01 — three waiting-reason cards, and TTL-expiry told apart from a real failure](M14/T-M14-01-waiting-reason-cards.md) | `[S]` | 18.11 | ✅ done 2026-08-23 |
 | 18.13 | [T-M14-02 — the Knowledge Center names the specific waiting states and the 24h wait](M14/T-M14-02-knowledge-center.md) | `[P]` | 18.11 | ✅ done 2026-08-23 |
 | 18.14 | [T-M14-03 — M14 verification](M14/T-M14-03-verification.md) | `[S]` | 18.12, 18.13 | 🟡 done except scenario 2b — [`G-33`](../KnownGaps.md) |
-| 18.15 | M15 tasks (US3 — retry) | `[S]` | 18.14 | not decomposed — see [`M15/README.md`](M15/README.md) |
+| 18.16 | [T-M15-01 — retry affordance on succeeded and failed turns, with a model picker](M15/T-M15-01-retry-affordance.md) | `[S]` | 18.14 | ✅ done 2026-08-23 |
+| 18.17 | [T-M15-02 — the Knowledge Center says a reply can be retried](M15/T-M15-02-knowledge-center.md) | `[P]` | 18.14 | ✅ done 2026-08-23 |
+| 18.18 | [T-M15-03 — M15 verification](M15/T-M15-03-verification.md) | `[S]` | 18.16, 18.17 | 🟡 done except two sub-cases — [`G-34`](../KnownGaps.md) |
 
 18.3 and 18.4 are `[P]`: 18.3 touches `apps/web/*` and a new SQL policy file,
 18.4 touches `packages/core/*` — zero file overlap, both need only 18.2's
@@ -535,6 +537,27 @@ correctly with a clean console, in light/dark and Paper/Mono. One scenario
 (2b, a waiting turn resolving once a genuinely-offline machine comes back
 online) was not reached; see [`G-33`](../KnownGaps.md), opened rather than
 left silent.
+
+**M15 decomposed AND built 2026-08-23** (rows 18.16–18.18), which
+renumbered from the single placeholder row 18.15. Same finding pattern as
+M13 and M14: no new backend work needed — `retry_chat_turn` already
+supports both source statuses and an optional provider/model override, and
+already preserves the original reply by always inserting a new row. This
+phase added the missing UI piece: `RetryControls`, a retry affordance on a
+*succeeded* turn (none existed before) with a real model picker, since
+`TurnErrorBanner`'s existing `fallback` field is dead on the cloud path.
+Live-verified end to end on staging, including reading the resulting DB row
+back to confirm the picker's selection actually reached `retry_chat_turn`,
+not just that the UI re-rendered. Two sub-cases (retry twice in a row;
+cross-session state isolation) need a second real completion this pass's
+test workspace couldn't produce — see [`G-34`](../KnownGaps.md). See
+[`M15/README.md`](M15/README.md)'s "shape of what was found". `chat.tsx`
+was still the contended file at build time (same
+`chat-context-menu-design-0eb2ff` caveat as 18.12 above).
+
+This plan's last phase is now built; its Status stays short of
+`✅ Completed` only because of `G-34`, per
+[T-M15-03](M15/T-M15-03-verification.md)'s Result.
 
 ## Blocked items
 

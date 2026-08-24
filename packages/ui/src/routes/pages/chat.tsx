@@ -11,6 +11,7 @@ import {
   MonitorPlay,
   PanelRight,
   Plus,
+  RefreshCw,
   Sparkles,
 } from "lucide-react";
 import {
@@ -236,6 +237,63 @@ function turnErrorFromState(turn: ChatTurnState): ChatTurnError {
     attempts: turn.attempt,
     fallback: null,
   };
+}
+
+/**
+ * M15 — the retry affordance a succeeded turn didn't have before: re-ask
+ * without retyping (T-M12's `retry_chat_turn`), optionally on a different
+ * model. `TurnErrorBanner`'s own one-click retry (failed turns) is
+ * untouched; this is the new picker US3 scenario 2 needs, since
+ * `TurnErrorBanner`'s `fallback` field is always null on the cloud path.
+ */
+function RetryControls({
+  provider,
+  model,
+  busy,
+  onRetry,
+}: {
+  provider: ProviderId;
+  model: string;
+  busy: boolean;
+  onRetry: (override: { provider: string; model: string }) => void;
+}) {
+  const [p, setP] = React.useState(provider);
+  const [m, setM] = React.useState(model);
+  return (
+    <div className="spg-turn flex items-center gap-1.5">
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={busy}
+        onClick={() => onRetry({ provider: p, model: m })}
+        className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+      >
+        <RefreshCw className="size-3.5" /> Retry
+      </Button>
+      <GhostSelect
+        title="Provider"
+        value={p}
+        onValueChange={(v) => {
+          const next = v as ProviderId;
+          setP(next);
+          setM(KNOWN_MODELS[next]?.[0] ?? "");
+        }}
+      >
+        {CLI_PROVIDERS.map((cp) => (
+          <SelectItem key={cp} value={cp}>
+            {cp}
+          </SelectItem>
+        ))}
+      </GhostSelect>
+      <GhostSelect title="Model" value={m} onValueChange={setM}>
+        {(KNOWN_MODELS[p] ?? []).map((mm) => (
+          <SelectItem key={mm} value={mm}>
+            {mm}
+          </SelectItem>
+        ))}
+      </GhostSelect>
+    </div>
+  );
 }
 
 export function ChatPage() {
@@ -766,6 +824,25 @@ export function ChatPage() {
                       ) : turn.status === "in_progress" ? (
                         <ThinkingDots label={turn.model ?? session.model ?? undefined} />
                       ) : null)}
+                    {turn?.status === "succeeded" &&
+                      (() => {
+                        const retryProvider: ProviderId =
+                          turn.provider ?? session.provider ?? "claude-code";
+                        return (
+                          <RetryControls
+                            key={turn.id}
+                            provider={retryProvider}
+                            model={
+                              turn.model ??
+                              session.model ??
+                              KNOWN_MODELS[retryProvider]?.[0] ??
+                              ""
+                            }
+                            busy={busy}
+                            onRetry={retry}
+                          />
+                        );
+                      })()}
                     {/* TTL-expired must be checked BEFORE the generic failed
                         branch below — both match `status === "failed"`, and
                         only the expired turn's own non-null `waitingReason`

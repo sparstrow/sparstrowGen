@@ -506,6 +506,48 @@ directly rather than by orchestrating a real daemon's lifecycle. Only the
   which of the two readings above the ~90s optimistic-online window
   deserves.
 
+### G-34 — Retrying twice in sequence, and cross-session isolation, have not been walked live
+
+**Raised:** 2026-08-23, building
+[T-M15-01](tasks/M15/T-M15-01-retry-affordance.md) /
+[T-M15-03](tasks/M15/T-M15-03-verification.md).
+
+M15 added the retry affordance a succeeded turn didn't have before —
+`RetryControls`, a "Retry" button plus a provider/model picker — and
+confirmed, live on staging, that the whole path works end to end: changing
+the picker and clicking Retry produces a new `chat_turns` row with exactly
+the selected `provider`/`model`, linked via `retry_of_turn_id`, with the
+original turn and its reply left untouched. That proof was read directly
+from the database, not inferred from the UI re-rendering.
+
+What was **not** reached: retrying a SECOND time, from a different
+succeeded turn, to confirm `RetryControls`'s local `useState` for the
+picker actually resets to the new turn's own provider/model rather than
+carrying over the previous turn's selection — the component is keyed by
+`key={turn.id}`, which should force a fresh mount and therefore fresh
+initial state, but this was reasoned through in code review, not observed
+happening twice in sequence. Also not reached: retrying in one session and
+confirming a second, unrelated session's `RetryControls` doesn't somehow
+share state (both use independent local component state, so there is no
+plausible sharing mechanism, but "no plausible mechanism" is still an
+inference, not an observation).
+
+Both need a genuine second `succeeded` turn to test from, which needs a
+working provider — the verification workspace had none (same constraint
+[`G-33`](#g-33--chats-waiting-machine-comes-back-online-transition-us2-scenario-2b-has-not-been-walked-live)
+recorded for M14's scenario 2b, and the reason T-M14-03/T-M15-03 both
+allow substituting `antigravity` once `G-32`/`D-21` clear).
+
+- **If wrong:** if `key={turn.id}` does NOT force a clean remount (e.g. if
+  some memoization or portal behavior interferes), the failure mode is a
+  retry silently reusing a stale model selection from a previous turn —
+  wrong, but not destructive: the retry still succeeds, just possibly with
+  the wrong model, and is itself retriable.
+- **Clears when:** someone with a working provider (`claude-code` post-D-21,
+  or `antigravity`) retries a real turn twice in a row with two different
+  model selections and confirms the second retry's request body reflects
+  the second selection, not the first.
+
 ### G-29 — Antigravity's fixed transcript rendering has not been walked live through a browser
 
 **Raised:** 2026-08-22, fixing
