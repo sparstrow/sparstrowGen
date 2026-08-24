@@ -732,21 +732,26 @@ runs are cloud-canonical (`AGENTS.md` §4), it cannot do the work anyway.
 Keeping it as a fallback preserves a *different, older product*, not a degraded
 version of the current one.
 
-**Nothing is left to port.** All 25 pages in `packages/ui/src/routes/pages/`
-have a counterpart in `apps/web/src/app/` (diffed 2026-08-24; route parity
-shipped in M7, `ec66a1a`).
+**Nothing is left to port, and less is duplicated than it looks.** The page
+components in `packages/ui/src/routes/pages/` are **shared, not Vite-only** —
+almost every route in `apps/web/src/app/` is a 7-line re-export of one
+(verified 2026-08-24). Route parity shipped in M7 (`ec66a1a`) by sharing the
+pages, not by copying them.
 
-**What gets deleted when this is done.** `packages/ui` itself **stays** — it is
-the component library `apps/web` imports from. What ends is its second life as
-an app:
+**What gets deleted when this is done.** `packages/ui` itself **stays**, and so
+do its `routes/pages/*` — `apps/web` renders them. What ends is only the Vite
+*host*:
 
-- `packages/ui/src/routes/pages/*` and the Vite app entry (`vite dev` /
-  `vite build`)
+- `packages/ui/index.html`, `vite.config.ts`, `src/main.tsx`, `src/router.tsx`
+  and the `dev`/`build` scripts in `packages/ui/package.json`
 - `packages/ui/src/components/layout/app-shell.tsx` — the Vite/desktop shell
 - the `fastifyStatic` / SPA-fallback block in
-  [`packages/core/src/api/server.ts:138`](../packages/core/src/api/server.ts:138)
-- `resolveLocalUiUrl` and the `SPARSTROW_DEV`/`SPARSTROW_UI_URL` fallback in
+  [`packages/core/src/api/server.ts`](../packages/core/src/api/server.ts)
+- `resolveLocalUiUrl` and the `SPARSTROW_DEV` fallback in
   [`packages/desktop/src/urls.ts`](../packages/desktop/src/urls.ts)
+
+`src/routes/` should then lose the `routes/` name, since nothing routes
+through it any more — it is a page-component library at that point.
 
 **This supersedes [`G-23`](KnownGaps.md)'s remaining half.** G-23 asks for the
 two `AppShell` components to be merged — including building an `Outlet`
@@ -758,6 +763,12 @@ entry is executed, close G-23 by deletion rather than by merge.
 This is a real product decision and should be taken deliberately, not absorbed
 silently — though in substance it is already true, since every canonical
 surface is cloud-side and the local SPA cannot authenticate.
+
+**Confirmed 2026-08-24.** The owner accepted Electron-as-shell and online-only
+for now: "I am fine with the electron app being a shell and online only until I
+have all the required features and functionality. Then we can build an electron
+packaged app." So packaging is explicitly *after* feature completeness, and the
+offline loss above is an accepted cost rather than an open question.
 
 **Sequencing.** [`D-10`](#d-10--headless-non-electron-core-distribution)
 (headless core distribution) is the prerequisite and *is* component 3 — until
