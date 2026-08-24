@@ -1,4 +1,9 @@
-import { ENQUEUE_ERRCODE_REASONS, type EnqueueFailureReason } from "@sparstrow/shared";
+import {
+  CHAT_TURN_ENQUEUE_ERRCODE_REASONS,
+  ENQUEUE_ERRCODE_REASONS,
+  type ChatTurnEnqueueFailureReason,
+  type EnqueueFailureReason,
+} from "@sparstrow/shared";
 
 /**
  * Translating `start_run`'s error contract into HTTP.
@@ -64,4 +69,52 @@ export function enqueueFailureFrom(error: unknown): EnqueueFailure | null {
     typeof raw === "string" && raw.trim() ? raw.trim() : "That run could not be started.";
 
   return { status: STATUS_BY_REASON[reason], reason, message };
+}
+
+// ─── M13 — the same job, for enqueue_chat_turn / retry_chat_turn ───────────
+
+export interface ChatTurnFailure {
+  status: number;
+  reason: ChatTurnEnqueueFailureReason;
+  message: string;
+}
+
+/**
+ * 409 for both "in progress" and "not retryable yet" — nothing about either
+ * request is malformed, and the fix is an action the caller takes (wait, or
+ * retry once it's terminal). 404 for "does not exist", same rule as above.
+ *
+ * `turn_in_progress` is what FR-004's second-send refusal renders as. Unlike
+ * `no_runtime_available`, `enqueue_chat_turn` never raises for "nothing is
+ * online" at all — DD-3 has it return a `waiting` row instead, so there is no
+ * "no chat runtime available" reason to map here.
+ */
+const CHAT_STATUS_BY_REASON: Record<ChatTurnEnqueueFailureReason, number> = {
+  turn_in_progress: 409,
+  session_not_found: 404,
+  turn_not_found: 404,
+  turn_not_retryable: 409,
+};
+
+/**
+ * Recognise an error raised by `enqueue_chat_turn` / `retry_chat_turn`.
+ *
+ * Returns null for anything else, which the caller must rethrow — same rule
+ * as `enqueueFailureFrom`: a connection failure laundered into a tidy 409
+ * would tell the owner their session is busy when the truth is the database
+ * is down.
+ */
+export function chatTurnFailureFrom(error: unknown): ChatTurnFailure | null {
+  if (!error || typeof error !== "object") return null;
+  const code = (error as { code?: unknown }).code;
+  if (typeof code !== "string") return null;
+
+  const reason = CHAT_TURN_ENQUEUE_ERRCODE_REASONS[code];
+  if (!reason) return null;
+
+  const raw = (error as { message?: unknown }).message;
+  const message =
+    typeof raw === "string" && raw.trim() ? raw.trim() : "That chat turn could not be sent.";
+
+  return { status: CHAT_STATUS_BY_REASON[reason], reason, message };
 }

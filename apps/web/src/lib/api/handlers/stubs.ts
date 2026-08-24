@@ -63,11 +63,9 @@ for (const { p, f } of hostLocalPatterns) {
 // Leaving a stub registered alongside a real handler is how M2's defect 5
 // happened: `POST /goals` had both, and the stub won depending on import order.
 const needsRuntimePatterns = [
-  // Chat over the spine needs a daemon-dispatched turn, which M5 (transcripts)
-  // never actually included — see doc/tasks/M5/README.md's own "M5 does not
-  // build ... chat streaming" and doc/specs/2026-08-23-chat-message-sending.md.
-  { m: "POST", p: "/chat/sessions/:id/messages", f: "Sending a chat message", when: null },
-  { m: "POST", p: "/chat/sessions/:id/retry", f: "Retrying chat", when: null },
+  // Chat message sending/retry are real handlers now (handlers/chat.ts, M13
+  // — doc/specs/2026-08-23-chat-message-sending.md). Team manager chat is a
+  // separate, explicitly out-of-scope stub — see that spec's Assumptions.
   { m: "POST", p: "/teams/:id/manager/chat", f: "Team manager chat", when: null },
   // Each of these is a multi-step orchestration with its own progress model.
   { m: "POST", p: "/pipelines/:id/run", f: "Running a pipeline", when: null },

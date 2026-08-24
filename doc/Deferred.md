@@ -590,3 +590,99 @@ notes the way a run does — at that point this needs its own scoping (does
 every turn re-run retrieval, or only the first in a session; does injected
 memory count toward `buildMemoryBlock`'s existing budget; does a Free or
 Agent-only session get anything at all).
+
+## D-22 — Settings-managed `claude-code` OAuth token, hot-reloaded per spawn
+
+**Parked:** 2026-08-23, by the owner — "I like the idea, but... save the
+idea... We can build that later," while getting a `claude setup-token`
+credential set up (that step, tracked as `D-21`, is done — the owner ran
+it, and this agent confirmed live that headless `claude-code` chat turns
+work; `G-31`/`KnownGaps.md` has the evidence). Raised while explaining why
+the in-app Terminal can't be used as a shortcut for `claude setup-token`
+(it spawns a genuinely separate OS process; nothing typed there reaches the
+daemon).
+
+The owner switches between two Claude accounts and wants Sparstrowgen's
+headless `claude-code` chat turns to use whichever account they currently
+consider active — without leaving the app, and without restarting the
+daemon each time. Today's only working mechanism
+(`CLAUDE_CODE_OAUTH_TOKEN`) is an OS env var, bound to whichever account was
+active when `claude setup-token` created it and decoupled from any later
+interactive account switch, read once at daemon startup — so switching
+means re-running `setup-token`, re-exporting it in whatever launches the
+daemon, and restarting — real friction, and not what was asked for.
+
+**The fix already has ~90% of its plumbing built**, reusing an existing
+pattern rather than inventing one:
+
+- `packages/core/src/secrets/secret-store.ts` already stores direct-API
+  provider keys (`SECRET_ANTHROPIC_API_KEY`, `SECRET_GEMINI_API_KEY`)
+  AES-256-GCM-encrypted on disk, read fresh via `getSecret()` on every
+  call — no caching, no restart needed to pick up a change.
+- `packages/core/src/api/routes/providers.ts` already exposes
+  `GET/PUT/DELETE /providers/:id/key` for exactly this kind of credential,
+  with a masked-hint-only read path.
+- `packages/ui/src/routes/pages/settings.tsx`'s `ProviderKeyInput` already
+  renders a Save/Replace key field per provider card in Settings.
+
+All three currently gate on `provider.kind === "direct_api"` —
+`requireDirectProvider` in `providers.ts` explicitly excludes CLI providers
+("ollama + CLI providers need no stored key"), which was a correct
+assumption until this need existed. The work is: add
+`SECRET_CLAUDE_CODE_OAUTH_TOKEN`, let `claude-code` opt into the existing
+key-storage route without becoming a `direct_api` provider (a CLI provider
+with an optional stored credential, not a new provider kind), wire
+`buildHeadlessSpawn`'s `extraEnv` (`packages/core/src/providers/claude-code.ts`)
+to read it via `getSecret()` at spawn time, and show the input in Settings.
+Pasting a new `claude setup-token` output there would take effect on the
+very next chat message — no restart, no terminal, no leaving the app.
+
+**Unpark when:** the owner asks for it, or the two-account switching
+friction from the manual env-var-plus-restart mechanics above becomes
+actively painful enough to prioritize. Not urgent — that manual path works
+today, just with more friction than this would have.
+
+---
+
+## D-23 — Rewrite browser-tool guidance for Claude Code agents specifically
+
+**Parked:** 2026-08-24, by the owner — "defer task on this instruction on
+guidance on which browser to use later," while asking whether the Playwright
+MCP should be replaced by Claude's own native browser tools (the in-app
+Claude Browser preview pane, `mcp__Claude_Browser__*`, and Claude in Chrome,
+`mcp__claude-in-chrome__*`) across `AGENTS.md`, `doc/runbooks/agent-browser-session.md`,
+and the `frontend-verify` skill, since Playwright is generic MCP tooling
+built for any coding agent, not Claude Code specifically.
+
+**Why this isn't a same-day rewrite.** Checked live before parking, not
+assumed: the Claude Browser pane still has the exact bug
+`agent-browser-session.md` already documents as the reason Playwright was
+adopted — it reports `document.visibilityState === "hidden"` on a fresh,
+foregrounded navigation, which starves any page whose data fetching gates on
+visibility (React Query, used throughout this app). See
+[`bug/BUG-2026-08-24-claude-browser-pane-reports-hidden-visibility`](bug/BUG-2026-08-24-claude-browser-pane-reports-hidden-visibility.md).
+Claude in Chrome would sidestep that (it drives a real browser window, not
+an emulated pane) but isn't usable here either: `list_connected_browsers`
+returned empty and the extension reported unreachable in this session. The
+owner confirmed this is expected — they manually swap Chrome between two
+accounts, so the extension isn't kept signed in standing, and reconnecting
+it just for this isn't worth doing right now.
+
+So both named alternatives have a real reason they can't simply replace
+Playwright today: one has an open bug, the other isn't connected. Rewriting
+the guidance now would either bake in a regression or point at a tool that
+doesn't work in this environment.
+
+- **If wrong (i.e. left unparked with stale guidance):** no functional
+  harm — `AGENTS.md`/the runbook/`frontend-verify` still correctly point at
+  Playwright, which works. The cost of leaving this parked is purely that
+  Claude Code agents keep using the generic tool instead of a potentially
+  better-integrated native one, once native tooling is actually ready.
+- **Unpark when:** `BUG-2026-08-24-claude-browser-pane-reports-hidden-visibility`
+  is fixed (or a workaround is found), **and** the owner wants Claude in
+  Chrome set up and kept connected (or a per-session reconnect step is
+  judged worth the friction). At that point, rewrite `AGENTS.md`'s MCP
+  server description, `doc/runbooks/agent-browser-session.md`'s "Getting a
+  browser that actually renders" section, and the `frontend-verify` skill to
+  prefer the native tool(s), with Playwright kept as the documented fallback
+  for environments where they aren't available.

@@ -92,6 +92,23 @@ describe("AntigravityCliProvider — headless spawn", () => {
     expect(dirs).toContain(config.vaultPath);
   });
 
+  // BUG-2026-08-23-headless-spawn-skill-leak: a headless spawn has no TTY, so
+  // a machine-global skill (installed under the operator's own
+  // ~/.claude/skills, unrelated to Sparstrowgen) can never get the tool
+  // permission it wants and denies the whole turn instead.
+  it("disables skill expansion on a headless spawn, so a machine-global skill can't attach", () => {
+    const spec = provider.buildHeadlessSpawn(agentWith(), "hi", headlessOpts);
+    expect(spec.args).toContain("--disable-slash-commands");
+  });
+
+  it("keeps skills on for an interactive spawn — a real human is at the PTY", () => {
+    const spec = provider.buildInteractiveSpawn(agentWith(), {
+      tempDir: "/tmp/x",
+      extraEnv: {},
+    } as never);
+    expect(spec.args).not.toContain("--disable-slash-commands");
+  });
+
   it("maps every PermissionMode exhaustively", () => {
     const flagsFor = (mode: PermissionMode) =>
       provider.buildHeadlessSpawn(agentWith({ permissionMode: mode }), "hi", headlessOpts).args;

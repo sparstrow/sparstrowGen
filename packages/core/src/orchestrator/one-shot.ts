@@ -143,13 +143,21 @@ export async function completeOnce(
     }
 
     child.on("error", (err) => {
-      logger.warn({ err }, "draft turn spawn error");
+      // Not draft-specific despite the historical name: this is completeOnce,
+      // shared by the Agent Creator's draft flow AND M12's cloud chat turn
+      // executor (packages/core/src/cloud/chat-turn.ts). A caller-neutral
+      // message here is what a chat turn's TurnErrorBanner actually renders
+      // to the owner -- "draft turn spawn error"/"draft turn timed out" read
+      // as a bug report copy-pasted from the wrong feature when a Free/
+      // Project/Agent session's reply fails, which is what happened before
+      // this was caught live (T-M13-05).
+      logger.warn({ err }, "completeOnce: provider process failed to start");
       finish({ text: null, sessionId, isError: true, errorMessage: err.message });
     });
 
     child.on("close", () => {
       if (timedOut) {
-        finish({ text: null, sessionId, isError: true, errorMessage: "draft turn timed out" });
+        finish({ text: null, sessionId, isError: true, errorMessage: "the provider timed out" });
         return;
       }
       const result = cli.extractResult(events);

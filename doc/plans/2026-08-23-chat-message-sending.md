@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | [`../specs/2026-08-23-chat-message-sending.md`](../specs/2026-08-23-chat-message-sending.md) (Owner-reviewed 2026-08-23) |
-| **Status** | M12 complete · M13 next — M13/M14/M15 remain decomposed in outline only; fine-grained tasks for M13 are the next thing to write, now that M12's actual shape is known |
+| **Status** | ✅ Completed. M12, M13, M14, M15 all built and live-verified. The credential gap that blocked full verification (headless `claude-code` auth) was closed live 2026-08-24 — the owner ran `claude setup-token`, and this agent confirmed real chat completions, retries, and the offline→online transition through the real app on the owner's real account. All four of the plan's own verification criteria are now closed live: SC-002/SC-003 (waiting states, retry) earlier in M14/M15's own passes, and SC-001 (≥2-broadcast growing reply) / SC-004 (Project/Agent distinctiveness) on 2026-08-24 with a purpose-built scratch project and agent, cleaned up after (`G-31`'s "Closed, live" notes have the full evidence). **One accepted residual, not a blocker**: the two-online-machines race (spec edge case 3) remains unreached — needs a second paired machine, unchanged from `G-15`/`G-24`, tracked in `G-31`. |
 | **Trigger** | The stub behind Chat's send button promised "arriving in M5"; M5 shipped without it (2026-08-11/12) and the promise went stale. The owner scoped it properly on 2026-08-23 rather than leave it dangling. |
 | **Depends on** | M4 (command spine — poll/claim/lease/ack) and M5 (daemon → cloud ingest + server-side Realtime broadcast), both code-complete. No new dependency. |
 | **Touches** | `packages/shared/src/db/schema.ts`, `packages/shared/drizzle/policies/014_chat_turn_dispatch.sql`, `packages/shared/drizzle/policies/015_chat_broadcast.sql`, `packages/shared/src/cloud.ts`, `packages/shared/src/schemas/chat.ts`, `apps/web/src/lib/api/handlers/chat.ts`, `apps/web/src/lib/api/handlers/stubs.ts`, `apps/web/src/app/api/daemon/chat/turns/[id]/events/route.ts`, `apps/web/src/app/api/daemon/chat/turns/[id]/result/route.ts`, `apps/web/src/lib/daemon/broadcast.ts`, `apps/web/src/lib/case.ts`, `apps/web/src/lib/realtime-live-events.ts`, `packages/core/src/cloud/commands.ts`, `packages/core/src/cloud/chat-turn.ts` (new), `packages/core/src/chat/service.ts`, `packages/core/src/orchestrator/one-shot.ts`, `packages/ui/src/lib/live-events.ts`, `packages/ui/src/routes/pages/chat.tsx`, `packages/ui/src/api/hooks.ts`, `packages/ui/src/content/knowledge/chat-and-inbox.md` (+ the four global-claim articles per `AGENTS.md` §3.2) |
@@ -262,6 +262,19 @@ core's Fastify chat routes, and `packages/ui`'s hooks — **all updated in the
 same change**, since there is no independent deploy and no version flag.
 `chatTurnRequestSchema` / `chatRetryRequestSchema` keep their fields.
 
+> **Narrowed during M13's decomposition (2026-08-23), not overturned.** "One
+> async shape used by both" turns out to break the Agent Creator:
+> `packages/ui/src/routes/pages/agent-create.tsx` shares all three chat hooks
+> with `chat.tsx` and reads `draftTurn` off the response — a field
+> `ChatTurnState` has no business growing, since agent-creator sessions keep
+> the local path by this plan's own Scope boundaries. The narrowing: `free` /
+> `project` / `agent` sessions use `ChatTurnState` on **both** hosts;
+> `agent-creator` keeps `ChatTurn` locally and its 501 in the cloud. DD-7's
+> actual property is preserved — no component asks "am I hosted?", because the
+> split is by session kind, which each page knows statically. Full reasoning:
+> [`doc/tasks/M13/T-M13-02`](../tasks/M13/T-M13-02-local-host-turn-state.md)
+> decision 1.
+
 ### DD-8 — Validation posture: pass-through for the browser, strict parse for the daemon
 
 Two boundaries, two postures, chosen deliberately:
@@ -436,4 +449,33 @@ carry. It gets a `KnownGaps` entry rather than a ticked box.
 
 ## Result
 
-<!-- Filled in as the phases land. -->
+All four phases (M12–M15) built and live-verified against real staging
+Postgres, a real paired machine, and — once the owner closed the headless
+`claude-code` credential gap (`claude setup-token`, 2026-08-24) — real model
+completions. Every one of the plan's own verification criteria is closed
+live: SC-001 (≥2-broadcast growing reply), SC-002 (zero-online-machines
+never dead-ends, all three waiting-reason cards plus TTL expiry), SC-003
+(retry never requires retyping, including a real model-picker override),
+and SC-004 (Project/Agent replies observably distinctive — a Project session
+cites real repository content a parallel Free session provably can't know,
+and an agent's own configured model shows up in the recorded turn, not the
+session default). Full evidence for each is in `doc/KnownGaps.md`'s `G-31`
+entry and its phase-level task Results (`T-M12-06`, `T-M13-05`, `T-M14-03`,
+`T-M15-03`).
+
+**Two real defects were caught by verification, not by review**, both fixed
+in the same pass they were found: `GET /chat/sessions/:id` was returning the
+session's columns spread onto the response's top level instead of nested
+under `session`, which made the cloud chat UI render as permanently empty
+for every session kind until a real browser session-hydration pass caught
+it (`T-M13-05`); and headless CLI spawns inherited the operator's personal
+`~/.claude` config unisolated, which broke every headless turn on a machine
+with a certain class of personal skill installed
+(`BUG-2026-08-23-headless-spawn-skill-leak`).
+
+**One accepted residual, tracked and not a blocker:** the two-online-machines
+race (spec edge case 3) has never been reached — it needs a second paired
+machine, which doesn't exist in this environment. Same shape of limitation
+as `G-15`/`G-24` from earlier milestones, which this repo has shipped
+through before. `G-31` carries the full record and clears when a second
+machine is available to walk it live.

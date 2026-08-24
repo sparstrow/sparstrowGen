@@ -7,7 +7,7 @@
 | **Spec** | [doc/specs/2026-08-23-chat-message-sending.md](../../specs/2026-08-23-chat-message-sending.md) |
 | **Depends on** | M12 (dispatch spine); overlaps M13's UI work — decompose after M13's rendering seam exists rather than alongside it |
 | **Blocks** | M15 (retry needs a failed/expired turn to retry, which this phase is what produces honestly) |
-| **Status** | not started |
+| **Status** | 🟢 built and fully live-verified — scenario 2b closed live 2026-08-24 (see [`KnownGaps.md`](../../KnownGaps.md)'s `G-31` "Closed, live" note) |
 | **Open questions** | none |
 
 ## The story this serves
@@ -49,13 +49,39 @@ already has a slot for.
 
 ## Tasks
 
-Decomposed once M12 lands and M13's rendering seam exists. Expected shape,
-from the plan's Work breakdown:
+Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.md).
 
-- Waiting-reason rendering: three distinct cards for `no_runtime_paired` / `all_runtimes_offline` / `project_not_available`, each with a real link to Machines/Settings pairing
-- Wait-TTL expiry state: a turn that reaches `status='failed'` via T-M12-01's TTL sweep (rather than a provider error) is distinguished in the UI as "took too long" rather than a generic failure
-- `project_not_available` reuses `runtime_projects`'s binding state and `start_run`'s existing wording (US2.3) — not a new copy of the same message
-- Verification task `[S]`, walking US2's three acceptance scenarios, including the offline-then-comes-back-within-TTL case
+| Task | Tag | Serves | Depends on | Status |
+|---|---|---|---|---|
+| [T-M14-01 — three waiting-reason cards, and TTL-expiry told apart from a real failure](T-M14-01-waiting-reason-cards.md) | `[S]` | US2 | — | 🟢 done |
+| [T-M14-02 — the Knowledge Center names the specific waiting states and the 24h wait](T-M14-02-knowledge-center.md) | `[P]` | US2 | — | 🟢 done |
+| [T-M14-03 — verification](T-M14-03-verification.md) | `[S]` | US2 | 14.1, 14.2 | 🟢 done — scenario 2b closed live 2026-08-24 |
+
+T-M14-01 and T-M14-02 are genuinely parallel: one is `packages/ui/src/routes/pages/chat.tsx`,
+the other is a single Knowledge Center markdown file, zero overlap.
+
+## The shape of what was found
+
+Reading the actual shipped M12/M13 code (not the plan's abstract outline)
+before decomposing turned up two things worth naming.
+
+**M14 needs no new backend at all.** `waitingReason`'s three values are
+already computed by `assign_or_park_chat_turn` and already ride the wire on
+every `ChatTurnState`, unused by the UI since M13 shipped only the one
+generic waiting card. This phase is a rendering change end to end — see
+T-M14-01 decision 1.
+
+**There is no `'expired'` status, and there doesn't need to be one.** The
+TTL sweep (`rescan_waiting_chat_turns`) marks an overdue turn `status =
+'failed'` with a fixed error string, not a new status value. What makes it
+distinguishable from a genuine provider failure is that the sweep never
+clears `waiting_reason`, while every path to a REAL failure only runs after
+a turn was assigned — and assignment always nulls `waiting_reason` first.
+`status === "failed" && waitingReason !== null` is therefore already,
+today, the signal T-M14-01 needs — inferred from reading the SQL, and since
+confirmed live on staging (forced a real turn past its TTL, ran the actual
+sweep function, read the row back, then rendered it in the browser): the
+signal holds exactly as predicted.
 
 ## Objective
 
@@ -93,5 +119,5 @@ should rarely see.
 
 ## Verification
 
-Full procedure in the phase's verification task, once decomposed. Graded
+Full procedure and Result in [T-M14-03](T-M14-03-verification.md). Graded
 against the spec's SC-002.

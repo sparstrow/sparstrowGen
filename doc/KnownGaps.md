@@ -311,60 +311,171 @@ named rather than assumed.
   discarding them. Until then, whole-message is the documented contract, and
   M13 should describe it as such rather than promising something finer.
 
-### G-31 — M12's live pass never saw a genuine successful AI completion, a live Realtime subscriber, or a second machine
+### G-31 — no chat turn has ever actually succeeded in a real verification pass, and a second machine has never been reached
 
-**Raised:** 2026-08-23, closing
-[`T-M12-06`](tasks/M12/T-M12-06-verification.md) (M12's own verification
-task).
+**Raised:** 2026-08-23, closing [`T-M12-06`](tasks/M12/T-M12-06-verification.md).
+**Narrowed:** 2026-08-23, during [`T-M13-05`](tasks/M13/T-M13-05-verification.md) —
+two of the original three sub-gaps closed with live evidence; the title and
+scope below reflect what's actually still open.
+**Corrected:** 2026-08-23, when the owner ran the still-open sub-gap live on
+their own real, credentialed, paired machine, in two rounds. Round 1: both
+providers failed, and the failure was NOT "no usable Anthropic credentials" —
+a real CLI process spawned and took a real action, which only happens with
+working credentials. That round's cause was
+[`BUG-2026-08-23-headless-spawn-skill-leak`](bug/BUG-2026-08-23-headless-spawn-skill-leak.md):
+headless spawns inherited the operator's personal `~/.claude` config
+unisolated, and a personal preamble-tier skill installed there could never get
+the tool permission it wanted (no TTY). Fixed with `--disable-slash-commands`
+on every headless spawn. Round 2, after that fix: **antigravity's retried turn
+completed successfully** — the first real, live-produced chat reply this
+gap has ever recorded. claude-code still failed, but a direct repro traced it
+to a genuine `401 authentication_failed` on that account's `claude` CLI login
+(`claude auth status` showed `loggedIn: true` but `subscriptionType: null`) —
+an account-side credential problem for the owner to fix by re-authenticating,
+unrelated to the skill-leak bug and outside this repo's code. This sandbox
+itself still has no real CLI credentials at all, so the sub-gaps below remain
+genuinely open HERE — but the underlying claim they were blocking on
+("nothing in this repo can produce a real completion") is no longer true in
+general, only in this specific sandbox.
 
-T-M12-06 ran a real local `apps/web` instance and a real local `core` daemon
-— both this branch's actual code, both talking to real staging Postgres —
-and proved the full dispatch/claim/ack/events/result/ack-fix/retry/
-containment chain over genuine HTTP (see that task's Result for the complete
-list). Three things it could NOT reach, all bounded and named rather than
-silently skipped:
+**Closed by T-M13-05, with evidence — do not re-open without new evidence:**
 
-- **No real `claude` CLI completion.** The sandboxed shell this pass ran in
-  has no usable Anthropic credentials for a freshly spawned headless `claude
-  -p` call (confirmed directly: `authentication_failed`, retried with
-  exponential backoff, never recovering). The turn that exercised
-  `completeOnce` for real genuinely spawned the CLI and genuinely hit its
-  120s timeout — a real failure path, correctly handled — but the SUCCESS
-  path's `reply_text` growth and final `chat_messages` insert were instead
-  proven by POSTing to the events/result routes directly with the daemon's
-  real bearer token, simulating what a successful `completeOnce` would send.
-  This proves the ROUTES and the SQL are correct; it does not prove
-  `completeOnce`'s own real-CLI plumbing produces well-formed `onEvent` calls
-  for an actual multi-step answer (that plumbing itself — the `extractResult`
-  reuse in `one-shot.ts` — IS covered by `one-shot.test.ts`'s real-subprocess
-  test, just not through this end-to-end path).
-- **No live Realtime subscriber was watching.** `broadcastChatTurnEvents` was
-  called on every real write (proven by the routes returning `200` and the
-  DB reflecting each write), and it is the identical `send()`-to-Realtime
-  mechanism M5's already-proven `broadcastRunEvents` uses, parameterized
-  differently — not a new implementation. But no test client actually
-  subscribed to `chat:<workspaceId>:<sessionId>` and watched a message
-  arrive; doing so needs a real signed-in user JWT (Realtime private channels
-  require one, not just the anon key), which this pass did not have.
-- **`DD-4`'s "pair after a turn is already waiting" adoption, and the
-  two-machine race, are unreached** — the same two items T-M12-06's own
-  Section D already anticipated needing infrastructure this pass didn't have
-  (a second machine; a fresh pairing timed against an existing waiting turn).
-  The "waiting" state itself (`all_runtimes_offline`) WAS proven live this
-  pass — see T-M12-06's Result.
+- **A live Realtime subscriber, watching.** T-M13-05 signed a real browser
+  tab into a real disposable account (the magic-link runbook), opened
+  `/chat`, and left that tab's `useLiveEvents().subscribeChat` subscription
+  running. After clicking Retry, the tab's UI updated from "in progress" to
+  "failed, 2 attempts" **without a page reload or re-navigation** — proof the
+  Realtime broadcast → `apps/web`'s `LiveEventsContext` → `chat.tsx`'s
+  `applyChatTurnBroadcast`/refetch chain works live, with a real signed-in
+  JWT, not simulated. What's still NOT proven is a *successful, growing*
+  reply arriving as ≥2 broadcasts (SC-001's multi-message case) — that still
+  needs a turn that actually completes, which needs the credential this gap
+  is about.
+- **T-M13-05 also found and fixed a genuinely blocking defect this way** —
+  not a residual gap, but worth recording here because live-clicking a real
+  cloud session is *what found it*: `GET /chat/sessions/:id`
+  (`apps/web/src/lib/api/handlers/chat.ts`) was returning the session's own
+  columns spread onto the response's top level (`{...session, messages}`)
+  instead of nested under `session` — `ChatSessionDetail`'s actual contract,
+  which every consumer (`chat.tsx`, `agent-create.tsx`) reads
+  (`detail.data.session.id`). The cloud chat UI could not render **any**
+  session, for any kind, until this shipped. No prior pass caught it because
+  every earlier verification (M11, T-M12-06) proved the pipe via direct
+  HTTP/SQL rather than the browser's own session-hydration code path. Fixed
+  in the same change, pinned with a new test (`json.session` asserted
+  directly, not just sibling fields).
 
-- **If wrong:** the most likely failure mode is in `completeOnce`'s real-CLI
-  `onEvent` wiring specifically (a payload shape `extractResult` produces
-  that the events route's validator rejects, or a cadence that floods it) —
-  everything downstream of a well-formed `{seq, replyText}` call is now
-  proven. The Realtime and two-machine gaps are lower risk: both reuse
-  mechanisms (M5's broadcast, `pick_runtime_for`'s existing selection) this
-  repo already trusts elsewhere.
-- **Clears when:** M13 or M14's own verification exercises a real chat send
-  through a real browser with a real signed-in session and a machine that
-  can actually authenticate to Anthropic — at which point all three gaps
-  close in the same pass, since that is exactly the scenario that needs all
-  three working together.
+**Partially closed, live, by the owner's round 2 (2026-08-23):** a real
+antigravity chat turn, on a real online paired machine, completed
+successfully — the first real reply this gap has ever recorded. Not yet
+confirmed from that evidence alone: whether the reply arrived as ≥2 broadcasts
+(SC-001's "growing" claim specifically, vs. one broadcast landing the whole
+text at once) — the owner reported success but this file wasn't shown the
+reply's own delivery shape. SC-004 (Project/Agent distinctiveness) and US3.2
+(retry landing a different reply on a different model) still need their own
+dedicated pass even with a working provider, since neither was exercised by a
+single Free-chat "hi". Re-check and tighten these claims with specific
+evidence next time any of them is actually walked, rather than inferring them
+from this one success.
+
+**Closed, live, 2026-08-24 — `claude-code`'s own credential problem.** What
+this entry's round 2 traced to a genuine `401 authentication_failed` (was
+briefly its own gap, `G-32`, now folded back in here) is now fixed and
+proven: the owner ran `claude setup-token` (the long-lived headless-mode
+token `claude login`'s interactive session never covered), and this agent —
+after restarting the real daemon with `CLAUDE_CODE_OAUTH_TOKEN` in its
+environment — sent a real message through the real deployed-account UI
+(`domains@sparstrow.com`, workspace `bbb75b15-eb72-47d4-94fe-3955802620aa`,
+runtime `2c138115-e57d-4952-9905-5ec31487ac10`) and got a genuine
+`claude-code`/`sonnet` reply back, rendered correctly in the browser. Both
+CLI providers now produce real completions on the owner's real machine —
+this is no longer a credential gap at all, on either provider.
+
+**Still open, narrower in scope than the original entry:**
+
+- **The two-machine race remains unreached** — only one machine has ever
+  been paired for a live pass. Spec edge case 3 ("either of two online
+  machines may answer") is still exactly where `G-15`/`G-24` left it. This
+  is now the ONLY item left in this entry — see the two closures below for
+  everything else.
+
+- **If wrong:** the two-machine risk is low — it reuses
+  `pick_runtime_for`'s existing selection logic, already trusted elsewhere.
+- **Clears when:** a second machine is paired and the race is walked live.
+
+**Closed, live, 2026-08-24 — scenario 2b and retry-with-a-different-model
+(were briefly `G-33`/`G-34`, folded back in here).** Both needed nothing
+more than a working provider, which the `claude-code` credential fix above
+supplied. Walked for real, on the owner's own real machine and account —
+
+- **Scenario 2b (offline → online, no resend).** The real daemon was
+  stopped; a message sent while it was down correctly landed `waiting`/
+  `all_runtimes_offline` (`AllOfflineNotice` rendered, confirmed live —
+  not synthetic data this time). After ~2m34s of staleness (the dispatch
+  SQL compares `last_heartbeat` age directly, never the stored `status`
+  column, so this was a genuine test of real staleness handling, not a
+  guess) the daemon was restarted; the SAME turn resolved to `succeeded`
+  with a real reply on its own, no resend, confirmed both in the database
+  and by reloading the browser tab. The one open question this raised —
+  whether a machine showing optimistically `online` for ~90s right after
+  *pairing* (before ever actually running) is itself a small dispatch gap
+  — is now known to be narrow and non-blocking: it only affects that one
+  first-pairing window, not the stop/restart cycle just proven, and is not
+  worth its own gap entry.
+- **Retry twice in sequence, different models each time.** A real turn was
+  retried twice from the real app: sonnet → haiku → opus, three genuine
+  completions, `RetryControls` correctly defaulting to each new turn's own
+  model rather than carrying over the previous selection (confirmed via
+  screenshot at each step) — and the database chain
+  (`ct_d2974b8fcd6245f1` → `ct_952d70047e3b46d1` → `ct_fc658b0ca5f14d85`,
+  `retry_of_turn_id` correctly linking each to the last) confirms the
+  `key={turn.id}` remount reasoning held under a real sequence, not just
+  in code review. Cross-session isolation was not separately re-tested
+  (still an inference — no plausible sharing mechanism exists, per the
+  original note), judged low enough risk not to block closing this.
+
+**Closed, live, 2026-08-24 — SC-001 (growing reply, ≥2 broadcasts) and
+SC-004 (Project/Agent distinctiveness).** Walked with a purpose-built
+scratch project (`sc-verify-scratch`, a real local directory bound to the
+real runtime, containing two files each with a distinctive, unguessable
+marker fact) and a purpose-built agent (`captain-zephyrbeard`, a pirate
+persona on `model: opus` — deliberately not the session default `sonnet`),
+both created and cleaned up in this pass, in the real account
+(`domains@sparstrow.com`).
+
+One trap found and fixed along the way, worth recording: this pass first
+ran with the daemon's `SPARSTROW_CLOUD_URL` pointed at
+`staging.sparstrow.com` (the durable fix from earlier the same day) — but
+staging's deployed code doesn't have this branch's chat work yet, so the
+daemon's result-posting calls 404'd (HTML, not JSON) and turns sat stuck
+`in_progress`. Repointed the daemon at `localhost:3000` (this worktree's
+own code, same staging Postgres) for the verification pass itself, per the
+plan's own stated method — then restored `staging.sparstrow.com` afterward.
+Separately, the first two attempts after that repoint also failed
+(`the provider timed out`) because the shell that restarted the daemon
+never had `CLAUDE_CODE_OAUTH_TOKEN` in its own environment (a different
+shell than the one it was set in pre-compaction) — fixed by reading the
+persisted token and launching the daemon with it explicitly injected.
+Neither issue is a defect in this plan's code; both are recorded here
+because the next person restarting this daemon mid-session will hit the
+same two traps otherwise.
+
+- **SC-001.** Sent a Project-session message forcing two sequential file
+  reads. `chat_turns.reply_seq` advanced 1 → 3 and `reply_text` grew from
+  142 to 327 characters between polls — a real, multi-broadcast, visibly
+  growing reply, not a single delayed block.
+- **SC-004, Project vs. Free.** The identical question ("what is
+  `SPARSTROW_SC_MARKER_ALPHA`?") got "I don't know" in a Free session and
+  the exact correct value in the Project session — the Project reply cited
+  real repository content the Free session provably could not know.
+- **SC-004, Agent.** A message to the pirate-persona agent came back
+  correctly in character ("Arrr, I be doin' fine...") and `chat_turns`
+  recorded `provider: claude-code, model: opus` — the agent's own
+  configured model, not the session default.
+
+All test artifacts (the scratch project, its local directory, the agent,
+and all six chat sessions created during this pass) were deleted/archived
+afterward; the real workspace carries no residue from this verification.
 
 ### G-29 — Antigravity's fixed transcript rendering has not been walked live through a browser
 
