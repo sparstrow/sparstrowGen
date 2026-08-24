@@ -796,6 +796,18 @@ have all the required features and functionality. Then we can build an electron
 packaged app." So packaging is explicitly *after* feature completeness, and the
 offline loss above is an accepted cost rather than an open question.
 
+> **Unparked 2026-08-24** — the owner made this the current priority ("our
+> priority right now is transitioning to the next.js app from the vite app and
+> clearing that out"), ahead of the D-10 trigger below. Planned as
+> [`plans/2026-08-24-retire-the-vite-app.md`](plans/2026-08-24-retire-the-vite-app.md).
+>
+> **That plan found a cost this entry did not know about.** Core implements 31
+> handlers — terminals, folder browsing, project git, the code graph, provider
+> settings, local skill import — that `apps/web` stubs with a 501. Retiring the
+> Vite app therefore *removes working features*, it is not only a duplication
+> cleanup. The owner accepted that loss deliberately; see the plan's decision 1
+> for the reasoning and the condition that would reverse it.
+
 **Sequencing.** [`D-10`](#d-10--headless-non-electron-core-distribution)
 (headless core distribution) is the prerequisite and *is* component 3 — until
 it exists, "I don't want Electron" has no answer. It is already sequenced to
