@@ -615,6 +615,25 @@ fix covered that provider's separate, now-closed issue. Nothing in
 Sparstrowgen's code is blocked by this; only live verification of
 `claude-code` chat turns is.
 
+**The mechanics, for an owner who switches between two Claude accounts.**
+`claude setup-token` prints a token to the terminal and does **not** save
+it anywhere itself — it must be exported as `CLAUDE_CODE_OAUTH_TOKEN` for
+whatever process should use it. That token is bound to whichever account
+was active in the browser OAuth flow at the moment it was created, and
+switching the *interactive* session to the other account afterward (`/login`
+or the desktop app's switcher) does **not** change or invalidate it — the
+two are decoupled. Practically, this cuts a specific way for Sparstrowgen:
+setting `CLAUDE_CODE_OAUTH_TOKEN` once, in whatever environment actually
+launches the daemon process (persistently — a shell profile, service
+config, or `.env` the daemon reads — not just the current terminal), locks
+headless `claude-code` chat turns to *that one* account regardless of which
+account is active interactively afterward. That is almost certainly the
+desired behavior here (a stable identity for the daemon), not something to
+route around — but it does mean re-running `setup-token` and updating that
+persisted env var is the only way to point the daemon's headless spawns at
+the *other* account later, and the daemon needs restarting to pick up a
+changed value.
+
 **Unpark when:** the owner runs `claude setup-token` on that machine and
 confirms it — either the next real chat-turn attempt on `claude-code`
 succeeds, or a direct repro (`echo hi | claude -p --output-format
