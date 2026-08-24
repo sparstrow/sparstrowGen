@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import Link from "next/link";
 import { GitPullRequest } from "lucide-react";
 import type { ProjectPrGroup, PullRequestSummary } from "@sparstrow/shared";
 import { Badge } from "@/components/ui/badge";
@@ -47,8 +47,7 @@ export function PrGroup({ group }: { group: ProjectPrGroup }) {
     <div className="space-y-1.5">
       <div className="flex items-center gap-2">
         <Link
-          to="/projects/$projectId"
-          params={{ projectId: group.projectId }}
+          href={`/projects/${group.projectId}`}
           className="text-sm font-semibold hover:underline"
         >
           {group.projectName}
@@ -89,7 +88,7 @@ export function PrQueueCard() {
             <Badge variant="secondary">{queue.data.totalOpen}</Badge>
           )}
         </CardTitle>
-        <Link to="/settings" className="text-xs text-muted-foreground hover:underline">
+        <Link href="/settings" className="text-xs text-muted-foreground hover:underline">
           Git settings
         </Link>
       </CardHeader>
@@ -101,7 +100,7 @@ export function PrQueueCard() {
         ) : !queue.data.patConfigured ? (
           <p className="text-sm text-muted-foreground">
             No GitHub PAT configured — add one in{" "}
-            <Link to="/settings" className="underline">
+            <Link href="/settings" className="underline">
               Settings → Git
             </Link>{" "}
             to see open pull requests here.

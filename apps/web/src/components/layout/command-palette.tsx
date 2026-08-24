@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useRouter } from "next/navigation";
 import {
   BookOpen,
   Bot,
@@ -63,7 +63,7 @@ export function CommandPalette({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const agents = useAgents();
   const teams = useTeams();
   const projects = useProjects();
@@ -79,9 +79,15 @@ export function CommandPalette({
     return () => document.removeEventListener("keydown", down);
   }, [open, onOpenChange]);
 
+  // `to` still carries TanStack's `$param` placeholders, because PAGES and the
+  // entity lists below are written that way. Substituting here keeps those
+  // call sites untouched; they are plain data, not routing.
   const go = (to: string, params?: Record<string, string>) => {
     onOpenChange(false);
-    void navigate({ to, params });
+    const href = params
+      ? Object.entries(params).reduce((acc, [k, v]) => acc.replace(`$${k}`, v), to)
+      : to;
+    router.push(href);
   };
 
   return (

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Crown, FolderKanban, Plus, Users } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
+import { useRouter } from "next/navigation";
 import { ActorAvatar } from "@/components/actor-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -75,7 +75,7 @@ function TeamHierarchy({ members }: { members: { agentId: string; agentName: str
 }
 
 export function TeamsPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const teamsQuery = useTeams();
   const projectsQuery = useProjects();
   const createTeam = useCreateTeam();
@@ -168,11 +168,11 @@ export function TeamsPage() {
               className="cursor-pointer hover:border-primary/50 transition-colors flex flex-col group"
               role="button"
               tabIndex={0}
-              onClick={() => navigate({ to: "/teams/$teamId", params: { teamId: team.id } })}
+              onClick={() => router.push(`/teams/${team.id}`)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  navigate({ to: "/teams/$teamId", params: { teamId: team.id } });
+                  router.push(`/teams/${team.id}`);
                 }
               }}
             >

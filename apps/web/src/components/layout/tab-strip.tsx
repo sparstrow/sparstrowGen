@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useRouter, useRouterState } from "@tanstack/react-router";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, PanelLeft, Plus, X } from "lucide-react";
 import { useProjects, useTeams } from "@/api/hooks";
 import { getArticle } from "@/lib/knowledge";
@@ -88,8 +88,10 @@ function Tab({
  */
 export function TabStrip() {
   const router = useRouter();
-  const location = useRouterState({ select: (s) => s.location });
-  const currentPath = location.pathname + (location.searchStr || "");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const qs = searchParams.toString();
+  const currentPath = pathname + (qs ? `?${qs}` : "");
   const { tabs, activeId, syncActivePath, activate, openTab, closeTab, toggleSidebar } =
     useWorkspaceTabs();
 
@@ -98,7 +100,7 @@ export function TabStrip() {
     syncActivePath(currentPath);
   }, [currentPath, syncActivePath]);
 
-  const go = (path: string) => router.history.push(path);
+  const go = (path: string) => router.push(path);
 
   return (
     <div className="hidden h-10 shrink-0 items-end gap-1 border-b bg-muted/40 px-2 pt-1.5 md:flex">
@@ -113,7 +115,7 @@ export function TabStrip() {
         </button>
         <button
           type="button"
-          onClick={() => router.history.back()}
+          onClick={() => router.back()}
           title="Back"
           className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none"
         >
@@ -121,7 +123,7 @@ export function TabStrip() {
         </button>
         <button
           type="button"
-          onClick={() => router.history.forward()}
+          onClick={() => router.forward()}
           title="Forward"
           className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none"
         >

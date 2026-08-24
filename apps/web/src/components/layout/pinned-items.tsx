@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Link } from "@tanstack/react-router";
+import Link from "next/link";
 import {
   DndContext,
   KeyboardSensor,
@@ -52,7 +52,7 @@ function SortablePin({ item }: { item: PinnedItem }) {
         <GripVertical className="size-3.5" />
       </button>
       <Link
-        to={item.to}
+        href={item.to}
         className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-sidebar-accent-foreground"
       >
         <Icon className="size-4 shrink-0" />
@@ -99,7 +99,7 @@ export function PinnedItems({ collapsed = false }: { collapsed?: boolean }) {
           return (
             <Link
               key={p.key}
-              to={p.to}
+              href={p.to}
               title={p.label}
               className="flex items-center justify-center rounded-md py-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
             >

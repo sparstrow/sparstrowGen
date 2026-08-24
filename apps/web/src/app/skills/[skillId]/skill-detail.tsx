@@ -1,5 +1,6 @@
 import * as React from "react";
-import { useParams, useNavigate, Link } from "@tanstack/react-router";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import type { SkillDetail } from "@sparstrow/shared";
 import {
   ArrowLeft,
@@ -131,8 +132,8 @@ const ORIGIN_LABEL: Record<SkillDetail["sourceType"], { label: string; icon: typ
 };
 
 export function SkillDetailPage() {
-  const { skillId } = useParams({ strict: false }) as { skillId: string };
-  const navigate = useNavigate();
+  const { skillId } = useParams<{ skillId: string }>();
+  const router = useRouter();
   const skillQuery = useSkill(skillId);
   const agents = useAgents();
   const assignments = useSkillAssignments();
@@ -166,7 +167,7 @@ export function SkillDetailPage() {
   if (skillQuery.isError || !skill) {
     return (
       <div className="space-y-4">
-        <Link to="/skills" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/skills" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-4" /> Skills
         </Link>
         <div className="rounded-xl border border-dashed py-16 text-center">
@@ -189,7 +190,7 @@ export function SkillDetailPage() {
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
           <Link
-            to="/skills"
+            href="/skills"
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="size-4" /> Skills
@@ -214,7 +215,7 @@ export function SkillDetailPage() {
             />
             {skill.enabled ? "Enabled" : "Disabled"}
           </label>
-          <Button variant="outline" size="sm" onClick={() => navigate({ to: "/skills" })}>
+          <Button variant="outline" size="sm" onClick={() => router.push("/skills")}>
             <Pencil className="size-3.5" /> Edit
           </Button>
           <Button
@@ -307,7 +308,7 @@ export function SkillDetailPage() {
               {users.length === 0 ? (
                 <p className="text-muted-foreground">
                   Unassigned — assign it to agents from the{" "}
-                  <Link to="/agents" className="underline underline-offset-2">
+                  <Link href="/agents" className="underline underline-offset-2">
                     Agents
                   </Link>{" "}
                   page.
@@ -345,7 +346,7 @@ export function SkillDetailPage() {
         pending={deleteSkill.isPending}
         pendingLabel="Deleting…"
         onConfirm={() =>
-          deleteSkill.mutate(skill.id, { onSuccess: () => navigate({ to: "/skills" }) })
+          deleteSkill.mutate(skill.id, { onSuccess: () => router.push("/skills") })
         }
       />
     </div>

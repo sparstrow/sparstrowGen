@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import {
@@ -171,7 +172,7 @@ function NoRuntimePairedNotice() {
   return (
     <div className="spg-turn rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
       This workspace has no paired machine yet — your message is saved.{" "}
-      <Link to="/machines" className="underline underline-offset-2">
+      <Link href="/machines" className="underline underline-offset-2">
         Pair a machine
       </Link>{" "}
       to get a reply.
@@ -184,7 +185,7 @@ function AllOfflineNotice() {
     <div className="spg-turn rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
       Waiting for a machine to come online — your message is saved, and the reply arrives
       automatically once one does.{" "}
-      <Link to="/machines" className="underline underline-offset-2">
+      <Link href="/machines" className="underline underline-offset-2">
         Check Machines
       </Link>
     </div>
@@ -195,7 +196,7 @@ function ProjectNotAvailableNotice() {
   return (
     <div className="spg-turn rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
       No online machine has this project on disk. Pair or start the machine that has it, or{" "}
-      <Link to="/machines" className="underline underline-offset-2">
+      <Link href="/machines" className="underline underline-offset-2">
         check Machines
       </Link>
       .
@@ -317,17 +318,16 @@ export function ChatPage() {
 
   // The active session is URL state (?session=id): linkable, survives reload,
   // and back/forward moves between conversations.
-  const navigate = useNavigate({ from: "/chat" });
-  const search = useSearch({ from: "/chat" });
-  const selectedId = search.session ?? null;
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedId = searchParams.get("session");
   const setSelectedId = React.useCallback(
     (id: string | null) => {
-      void navigate({
-        search: id ? { session: id } : {},
-        replace: false,
-      });
+      // Push rather than replace, so back/forward walks the conversation
+      // history — the behaviour the comment above promises.
+      router.push(id ? `/chat?session=${encodeURIComponent(id)}` : "/chat");
     },
-    [navigate],
+    [router],
   );
   const detail = useChatSession(selectedId);
   const session = detail.data?.session ?? null;
@@ -962,7 +962,7 @@ export function ChatPage() {
                 <p className="text-sm font-medium">{projectName(session.projectId)}</p>
                 <p className="text-xs leading-relaxed text-muted-foreground">
                   Running the app from chat lands in a follow-up. For now,{" "}
-                  <Link to="/terminals" className="underline underline-offset-2">
+                  <Link href="/terminals" className="underline underline-offset-2">
                     open a terminal
                   </Link>{" "}
                   to run it manually.

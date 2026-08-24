@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Link, useParams } from "@tanstack/react-router";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import type { EffectiveTools, RunEvent } from "@sparstrow/shared";
 import { ArrowLeft, ChevronRight, OctagonX } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { formatCost, formatDate, formatDuration } from "@/lib/format";
 
 export function RunDetailPage() {
-  const { runId } = useParams({ from: "/runs/$runId" });
+  const { runId } = useParams<{ runId: string }>();
   const run = useRun(runId);
   const agents = useAgents();
   const fetchedEvents = useRunEvents(runId);
@@ -56,7 +57,7 @@ export function RunDetailPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="icon" asChild>
-          <Link to="/runs">
+          <Link href="/runs">
             <ArrowLeft className="size-4" />
           </Link>
         </Button>

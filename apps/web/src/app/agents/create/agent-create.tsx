@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useRouter } from "next/navigation";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { ArrowLeft, ArrowRight, History, Plus, Sparkles } from "lucide-react";
 import type {
@@ -75,7 +75,7 @@ function applyDraft(v: AgentFormValues, d: AgentDraft): AgentFormValues {
  * a "Create agent" button; after creation a "View agent" button appears.
  */
 export function AgentCreatePage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const agents = useAgents();
   const createAgent = useCreateAgent();
   const sessions = useChatSessions({ kind: "agent-creator" });
@@ -227,7 +227,7 @@ export function AgentCreatePage() {
     <div className="flex h-[calc(100vh-7.5rem)] min-h-0 flex-col overflow-hidden rounded-xl border">
       <div className="flex items-center justify-between gap-3 border-b px-4 py-2.5">
         <div className="flex min-w-0 items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/agents" })}>
+          <Button variant="ghost" size="sm" onClick={() => router.push("/agents")}>
             <ArrowLeft className="size-4" /> Agents
           </Button>
           <p className="flex items-center gap-2 text-sm font-semibold">
@@ -327,7 +327,7 @@ export function AgentCreatePage() {
                         {mm.role && <span className="text-muted-foreground"> — {mm.role}</span>}
                       </span>
                       {agents.data?.some((a) => a.id === mm.id) && (
-                        <Button size="sm" variant="outline" onClick={() => navigate({ to: "/agents" })}>
+                        <Button size="sm" variant="outline" onClick={() => router.push("/agents")}>
                           Open
                         </Button>
                       )}
@@ -387,7 +387,7 @@ export function AgentCreatePage() {
           </div>
           <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
             {created ? (
-              <Button onClick={() => navigate({ to: "/agents" })}>
+              <Button onClick={() => router.push("/agents")}>
                 View agent <ArrowRight className="size-4" />
               </Button>
             ) : (

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Link } from "@tanstack/react-router";
+import Link from "next/link";
 import type { Skill } from "@sparstrow/shared";
 import {
   Bot,
@@ -256,8 +256,7 @@ export function SkillsPage() {
                     <TableRow key={skill.id}>
                       <TableCell>
                         <Link
-                          to="/skills/$skillId"
-                          params={{ skillId: skill.id }}
+                          href={`/skills/${skill.id}`}
                           className="flex items-start gap-2.5 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted">

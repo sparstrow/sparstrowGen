@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useRouter } from "next/navigation";
 import type { Agent } from "@sparstrow/shared";
 import {
   ArrowDownWideNarrow,
@@ -63,7 +63,7 @@ import {
 import { formatDate } from "@/lib/format";
 
 export function AgentsPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const agents = useAgents();
   const createAgent = useCreateAgent();
   const updateAgent = useUpdateAgent();
@@ -103,7 +103,7 @@ export function AgentsPage() {
   // Intake 0001: the Agent Creator is a dedicated full page (session-backed).
   const openCreator = () => {
     createAgent.reset();
-    void navigate({ to: "/agents/create" });
+    void router.push("/agents/create");
   };
   const openViewer = (agent: Agent, edit = false) => {
     updateAgent.reset();
@@ -332,10 +332,7 @@ export function AgentsPage() {
                           onSelect={() =>
                             testSpawn.mutate(agent.id, {
                               onSuccess: (run) =>
-                                void navigate({
-                                  to: "/runs/$runId",
-                                  params: { runId: run.id },
-                                }),
+                                void router.push(`/runs/${run.id}`),
                             })
                           }
                         >

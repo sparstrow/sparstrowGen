@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router";
+import { useRouter } from "next/navigation";
 import { Bot, BookOpen, ChevronsUpDown, LogOut, Settings, UserPlus, User } from "lucide-react";
 import {
   DropdownMenu,
@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
  * an empty string and the line would silently vanish.
  */
 export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const account = useAccount();
   const workspace = useWorkspace(Boolean(account));
 
@@ -83,10 +83,10 @@ export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => void navigate({ to: "/settings" })}>
+        <DropdownMenuItem onClick={() => void router.push("/settings")}>
           <User className="size-4" /> Profile &amp; settings
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => void navigate({ to: "/knowledge" })}>
+        <DropdownMenuItem onClick={() => void router.push("/knowledge")}>
           <BookOpen className="size-4" /> Knowledge Center
         </DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -109,7 +109,7 @@ export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => void navigate({ to: "/settings" })}>
+        <DropdownMenuItem onClick={() => void router.push("/settings")}>
           <Settings className="size-4" /> Workspace settings
         </DropdownMenuItem>
       </DropdownMenuContent>

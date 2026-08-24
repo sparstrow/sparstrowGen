@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useRouter } from "next/navigation";
 import { Bot, Target, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -131,7 +131,7 @@ function TaskMode({ projectId }: { projectId: string | null }) {
 function GoalMode({ projectId }: { projectId: string | null }) {
   const teams = useTeams();
   const createGoal = useCreateGoal();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [prompt, setPrompt] = React.useState("");
   const [teamId, setTeamId] = React.useState("");
 
@@ -143,7 +143,7 @@ function GoalMode({ projectId }: { projectId: string | null }) {
         onSuccess: (goal) => {
           setPrompt("");
           setTeamId("");
-          void navigate({ to: "/tasks/goals/$goalId", params: { goalId: goal.id } });
+          void router.push(`/tasks/goals/${goal.id}`);
         },
       },
     );

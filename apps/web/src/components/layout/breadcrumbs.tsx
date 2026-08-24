@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -24,7 +25,7 @@ interface Crumb {
  * list queries — no extra fetches.
  */
 export function Breadcrumbs() {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pathname = usePathname();
   const projects = useProjects();
   const teams = useTeams();
 
@@ -86,10 +87,12 @@ export function Breadcrumbs() {
               <BreadcrumbItem className="min-w-0">
                 {c.to && !last ? (
                   <BreadcrumbLink asChild className="shrink-0">
-                    {/* exact: a parent crumb prefix-matches the current path, and
-                        without this the router marks it aria-current="page" too —
-                        two current-page markers in one breadcrumb trail. */}
-                    <Link to={c.to} activeOptions={{ exact: true }}>
+                    {/* No aria-current here, deliberately. Only the last crumb
+                        is the current page and it renders as BreadcrumbPage, so
+                        the trail carries exactly one marker. The old router set
+                        aria-current on any prefix match, which is why this used
+                        to need an explicit exact-match opt-out. */}
+                    <Link href={c.to}>
                       {c.label}
                     </Link>
                   </BreadcrumbLink>

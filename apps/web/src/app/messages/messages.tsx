@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Link } from "@tanstack/react-router";
+import Link from "next/link";
 import { ArrowRight, AtSign, Bell, Bot, Inbox, MailOpen, Send, User } from "lucide-react";
 import type { Message } from "@sparstrow/shared";
 import { Badge } from "@/components/ui/badge";
@@ -344,8 +344,7 @@ export function MessagesPage() {
                   {selected.spawnedRunId && (
                     <Button asChild variant="outline" size="sm">
                       <Link
-                        to="/runs/$runId"
-                        params={{ runId: selected.spawnedRunId }}
+                        href={`/runs/${selected.spawnedRunId}`}
                         onClick={() => setSelected(null)}
                       >
                         View spawned run <ArrowRight className="size-3.5" />

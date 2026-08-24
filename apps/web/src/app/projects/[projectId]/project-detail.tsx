@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Link, useParams } from "@tanstack/react-router";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   Bot,
@@ -66,7 +67,7 @@ import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export function ProjectWorkspacePage() {
-  const { projectId } = useParams({ from: "/projects/$projectId" });
+  const { projectId } = useParams<{ projectId: string }>();
   const project = useProject(projectId);
   const projects = useProjects();
   const git = useProjectGitState(projectId);
@@ -77,7 +78,7 @@ export function ProjectWorkspacePage() {
   if (!project.data) {
     return (
       <div className="mx-auto max-w-5xl p-6">
-        <Link to="/projects" className="text-sm text-primary hover:underline">
+        <Link href="/projects" className="text-sm text-primary hover:underline">
           ← Projects
         </Link>
         <p className="mt-6 text-sm text-muted-foreground">Project not found.</p>
@@ -92,7 +93,7 @@ export function ProjectWorkspacePage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
-      <Link to="/projects" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link href="/projects" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" /> Projects
       </Link>
 
@@ -109,8 +110,7 @@ export function ProjectWorkspacePage() {
           )}
           {parent && (
             <Link
-              to="/projects/$projectId"
-              params={{ projectId: parent.id }}
+              href={`/projects/${parent.id}`}
               className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent"
               title="Client variant of"
             >
@@ -313,7 +313,7 @@ function ActivityFeed({ projectId }: { projectId: string }) {
                 size="sm"
                 title={agentName(t.assignedAgentId) ?? "Unassigned"}
               />
-              <Link to="/tasks" className="min-w-0 flex-1 truncate hover:underline">
+              <Link href="/tasks" className="min-w-0 flex-1 truncate hover:underline">
                 {t.title}
               </Link>
               <Badge variant="outline" className="shrink-0 text-[10px]">
@@ -327,11 +327,11 @@ function ActivityFeed({ projectId }: { projectId: string }) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
-                    <Link to="/tasks">Open Task Board</Link>
+                    <Link href="/tasks">Open Task Board</Link>
                   </DropdownMenuItem>
                   {t.runId && (
                     <DropdownMenuItem asChild>
-                      <Link to="/runs/$runId" params={{ runId: t.runId }}>
+                      <Link href={`/runs/${t.runId}`}>
                         View run
                       </Link>
                     </DropdownMenuItem>
@@ -436,7 +436,7 @@ function MemoryPanel({ projectSlug }: { projectSlug: string }) {
         rows.map((n) => (
           <Link
             key={n.id}
-            to="/memory"
+            href="/memory"
             className="flex items-center gap-2 rounded-md px-1 py-1.5 text-xs transition-colors hover:bg-accent"
           >
             <FileText className="size-3.5 shrink-0 text-muted-foreground" />
@@ -639,7 +639,7 @@ function CodeGraphPanel({
       {!engineInstalled ? (
         <p className="text-xs text-muted-foreground">
           Graph engine not installed —{" "}
-          <Link to="/settings" className="underline underline-offset-2 hover:text-foreground">
+          <Link href="/settings" className="underline underline-offset-2 hover:text-foreground">
             install it in Settings
           </Link>{" "}
           to give agents structure-aware code search.
@@ -845,8 +845,7 @@ function VariantList({ rows }: { rows: { id: string; name: string }[] }) {
       {rows.map((v) => (
         <Link
           key={v.id}
-          to="/projects/$projectId"
-          params={{ projectId: v.id }}
+          href={`/projects/${v.id}`}
           className="block truncate rounded px-1 py-1 text-xs transition-colors hover:bg-accent"
         >
           {v.name}

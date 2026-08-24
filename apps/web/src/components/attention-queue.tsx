@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Link } from "@tanstack/react-router";
+import Link from "next/link";
 import { AlertCircle, ArrowRightLeft, CheckCircle2, ClipboardCheck, GitCompareArrows, ShieldCheck } from "lucide-react";
 import type { Task, TaskQuestion } from "@sparstrow/shared";
 import { Badge } from "@/components/ui/badge";
@@ -51,7 +51,7 @@ function QuestionCard({ row, agentName }: { row: TaskAttentionRow; agentName: st
     <div className="rounded-lg border border-warning/30 bg-warning/5 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <Link to="/tasks" className="text-sm font-semibold hover:underline">
+          <Link href="/tasks" className="text-sm font-semibold hover:underline">
             {row.task.title}
           </Link>
           <p className="text-xs text-muted-foreground">
@@ -245,11 +245,11 @@ function ContradictionCard({ row }: { row: AttentionRow }) {
       </div>
       {c.axis && <p className="mt-2 text-sm">{c.axis}</p>}
       <p className="mt-1 text-xs text-muted-foreground">
-        <Link to="/memory" className="font-medium hover:underline">
+        <Link href="/memory" className="font-medium hover:underline">
           "{c.noteATitle}"
         </Link>{" "}
         vs{" "}
-        <Link to="/memory" className="font-medium hover:underline">
+        <Link href="/memory" className="font-medium hover:underline">
           "{c.noteBTitle}"
         </Link>{" "}
         — open Memory to edit or archive the stale side; nothing is auto-resolved.
@@ -272,7 +272,7 @@ function ContradictionCard({ row }: { row: AttentionRow }) {
 function ReviewRow({ row }: { row: TaskAttentionRow }) {
   return (
     <Link
-      to="/tasks"
+      href="/tasks"
       className="flex items-center justify-between rounded-lg border px-3 py-2 transition-colors hover:bg-accent"
     >
       <div className="flex items-center gap-2">

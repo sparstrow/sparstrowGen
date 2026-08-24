@@ -1,5 +1,6 @@
 import * as React from "react";
-import { useParams, useNavigate, Link } from "@tanstack/react-router";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import { 
   ArrowLeft, 
   Trash2, 
@@ -60,8 +61,8 @@ function getInitials(name: string) {
 }
 
 export function TeamDetailPage() {
-  const { teamId } = useParams({ strict: false }) as { teamId: string };
-  const navigate = useNavigate();
+  const { teamId } = useParams<{ teamId: string }>();
+  const router = useRouter();
 
   const teamQuery = useTeam(teamId);
   const updateTeam = useUpdateTeam();
@@ -117,7 +118,7 @@ export function TeamDetailPage() {
       <div className="p-6">
         <p className="text-destructive">Team not found.</p>
         <Button variant="link" className="mt-4 px-0" asChild>
-          <Link to="/teams"><ArrowLeft className="mr-2 size-4" /> Back to Teams</Link>
+          <Link href="/teams"><ArrowLeft className="mr-2 size-4" /> Back to Teams</Link>
         </Button>
       </div>
     );
@@ -127,7 +128,7 @@ export function TeamDetailPage() {
     <div className="flex h-full flex-col p-6 max-w-5xl mx-auto space-y-8">
       <div>
         <Button variant="link" className="px-0 text-muted-foreground mb-4 h-auto py-0" asChild>
-          <Link to="/teams"><ArrowLeft className="mr-2 size-4" /> Teams</Link>
+          <Link href="/teams"><ArrowLeft className="mr-2 size-4" /> Teams</Link>
         </Button>
 
         <div className="flex items-start justify-between gap-4">
@@ -268,7 +269,7 @@ export function TeamDetailPage() {
             <Button 
               variant="destructive" 
               disabled={deleteTeam.isPending}
-              onClick={() => deleteTeam.mutate(team.id, { onSuccess: () => navigate({ to: "/teams" }) })}
+              onClick={() => deleteTeam.mutate(team.id, { onSuccess: () => router.push("/teams") })}
             >
               {deleteTeam.isPending ? "Deleting..." : "Delete Team"}
             </Button>

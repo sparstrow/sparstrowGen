@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Link } from "@tanstack/react-router";
+import Link from "next/link";
 import {
   DndContext,
   PointerSensor,
@@ -295,7 +295,7 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
         <TabsContent value="board" className="flex min-h-0 flex-1 flex-col gap-4">
       {needsAttention.length > 0 && (
         <Link
-          to="/"
+          href="/"
           className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-sm transition-colors hover:bg-warning/10"
         >
           <span className="rounded-full bg-warning px-1.5 text-xs font-semibold text-white">
@@ -665,8 +665,7 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
                     <>
                       <span>·</span>
                       <Link
-                        to="/runs/$runId"
-                        params={{ runId: selected.runId }}
+                        href={`/runs/${selected.runId}`}
                         className="inline-flex items-center gap-1 text-primary hover:underline"
                         onClick={() => setSelected(null)}
                       >

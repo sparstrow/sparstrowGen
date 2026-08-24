@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Project, ProjectCreateMode } from "@sparstrow/shared";
 import {
   ArrowDown,
@@ -60,7 +61,7 @@ const MODES: { mode: ProjectCreateMode; label: string; icon: React.ReactNode; hi
 type ProjectSortKey = "name" | "createdAt";
 
 export function ProjectsPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const projects = useProjects();
   const provision = useProvisionProject();
   const pins = usePins();
@@ -256,14 +257,13 @@ export function ProjectsPage() {
                     key={project.id}
                     className="cursor-pointer text-xs"
                     onClick={() =>
-                      void navigate({ to: "/projects/$projectId", params: { projectId: project.id } })
+                      void router.push(`/projects/${project.id}`)
                     }
                   >
                     <TableCell>
                       <span className="flex items-center gap-2">
                         <Link
-                          to="/projects/$projectId"
-                          params={{ projectId: project.id }}
+                          href={`/projects/${project.id}`}
                           className="font-medium hover:underline"
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -298,10 +298,7 @@ export function ProjectsPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
                             onClick={() =>
-                              void navigate({
-                                to: "/projects/$projectId",
-                                params: { projectId: project.id },
-                              })
+                              void router.push(`/projects/${project.id}`)
                             }
                           >
                             Open workspace

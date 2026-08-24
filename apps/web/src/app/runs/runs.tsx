@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, ArrowUpDown, Plus, Search, X } from "lucide-react";
 import type { Run, RunStatus } from "@sparstrow/shared";
 import { Input } from "@/components/ui/input";
@@ -69,7 +70,7 @@ function SortHeader({
 }
 
 export function RunsPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [agentFilter, setAgentFilter] = React.useState<string>("");
   const [statusFilter, setStatusFilter] = React.useState<string>("");
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -127,7 +128,7 @@ export function RunsPage() {
         onSuccess: (run) => {
           setDialogOpen(false);
           setNewPrompt("");
-          void navigate({ to: "/runs/$runId", params: { runId: run.id } });
+          void router.push(`/runs/${run.id}`);
         },
       },
     );
@@ -237,8 +238,7 @@ export function RunsPage() {
                   <TableRow key={run.id} className="text-xs">
                     <TableCell className="font-mono">
                       <Link
-                        to="/runs/$runId"
-                        params={{ runId: run.id }}
+                        href={`/runs/${run.id}`}
                         className="hover:underline"
                       >
                         {shortId(run.id)}

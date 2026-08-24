@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Link } from "@tanstack/react-router";
+import Link from "next/link";
 import { CheckCircle2, ChevronRight, CircleAlert, Monitor, PartyPopper } from "lucide-react";
 import { useProfile, useRuntimes, useWorkspace } from "@/api/hooks";
 import { type StepId, type StepState, isSetupComplete, setupSteps } from "@/lib/setup";
@@ -133,7 +133,7 @@ function MachineStepBody({
           : "Pairing a machine needs a checkout of this repository today — sparstrow is not published as an installable package yet."}
       </p>
       <Button asChild size="sm" variant={state === "done" ? "outline" : "default"}>
-        <Link to="/machines">
+        <Link href="/machines">
           <Monitor className="size-4" /> {state === "done" ? "Manage machines" : "Pair a machine"}
         </Link>
       </Button>

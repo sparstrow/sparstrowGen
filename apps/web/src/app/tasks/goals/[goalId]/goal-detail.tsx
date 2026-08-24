@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Link, useParams } from "@tanstack/react-router";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   Ban,
@@ -48,7 +49,7 @@ const GOAL_BADGE: Record<GoalStatus, string> = {
 };
 
 export function GoalDetailPage() {
-  const { goalId } = useParams({ from: "/tasks/goals/$goalId" });
+  const { goalId } = useParams<{ goalId: string }>();
   const detail = useGoalDetail(goalId);
   const agents = useAgents();
   const projects = useProjects();
@@ -238,7 +239,7 @@ export function GoalDetailPage() {
                 {selectedNode.taskId && (
                   <p className="text-xs text-muted-foreground">
                     Task <span className="font-mono">{selectedNode.taskId}</span> — find it on the{" "}
-                    <Link to="/tasks" className="text-primary hover:underline">
+                    <Link href="/tasks" className="text-primary hover:underline">
                       board
                     </Link>
                     .
@@ -287,7 +288,7 @@ export function GoalDetailPage() {
 function BackLink() {
   return (
     <Link
-      to="/tasks"
+      href="/tasks"
       className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
     >
       <ArrowLeft className="size-4" /> Tasks
@@ -299,8 +300,7 @@ function BackLink() {
 export function GoalCard({ goal, projectName }: { goal: Goal; projectName: string | null }) {
   return (
     <Link
-      to="/tasks/goals/$goalId"
-      params={{ goalId: goal.id }}
+      href={`/tasks/goals/${goal.id}`}
       className="flex flex-col gap-2 rounded-xl border bg-background p-3 text-left shadow-sm transition-colors hover:border-primary/40"
     >
       <p className="line-clamp-2 text-sm font-medium leading-snug">{goal.prompt}</p>

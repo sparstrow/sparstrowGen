@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Link } from "@tanstack/react-router";
+import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -111,7 +111,7 @@ export function Markdown({ content }: { content: string }) {
               return (
                 <span className="my-2 inline-block">
                   <Link
-                    to={href || "/"}
+                    href={href || "/"}
                     className="inline-flex items-center gap-2 rounded-md bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <Play className="size-3 fill-current" />
@@ -123,7 +123,7 @@ export function Markdown({ content }: { content: string }) {
 
             return href?.startsWith("/") ? (
               <Link
-                to={href}
+                href={href}
                 className="font-medium underline underline-offset-2 hover:text-muted-foreground"
               >
                 {children}
