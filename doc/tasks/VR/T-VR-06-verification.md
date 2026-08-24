@@ -206,10 +206,14 @@ anything is written. Filed as
 **Confirmed unrelated to this plan** — the route and the dialog both predate
 `T-VR-*` untouched; this is a pre-existing defect this pass happened to
 exercise. **Deliberately not fixed here**, per this task's own Traps section
-and its Status line ("nothing else should be landing while it runs"). It is
-severe enough to flag clearly: project creation, the primary path into the
-app's core object, is currently a complete no-op for every user. Left as an
-open bug for its own task.
+and its Status line ("nothing else should be landing while it runs"). It was
+severe enough to flag clearly at the time: project creation, the primary
+path into the app's core object, was a complete no-op for every user.
+
+**Fixed in a follow-up turn, after this task closed** — the owner asked for
+it directly. See the bug file's own Resolution section for the fix and its
+independent live verification; not detailed again here since it landed
+after, not as part of, this task.
 
 ### Housekeeping found stale while closing this task
 
@@ -224,8 +228,8 @@ produced by a disposable-account pass.
 
 ### What this does NOT close
 
-- **`BUG-2026-08-24-project-provision-always-400s`** — open, needs its own
-  task before anyone fixes it.
+- **`BUG-2026-08-24-project-provision-always-400s`** — 🟢 resolved, in a
+  follow-up turn after this task closed.
 - **`G-36`** (new) — Electron's offline screen was typechecked in `T-VR-01`,
   never rendered; this agent has no display to launch Electron with. Recorded
   as an accepted limitation of `D-24`'s architecture, not a regression.

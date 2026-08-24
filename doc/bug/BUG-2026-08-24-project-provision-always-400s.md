@@ -1,6 +1,6 @@
 # BUG-2026-08-24-project-provision-always-400s
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved 2026-08-24
 **Reported by:** agent — found live on the feature branch's Vercel preview
 while running `T-VR-06`'s browser verification pass
 **Reported:** 2026-08-24
@@ -88,13 +88,47 @@ this preview's schema state, was not checked — the schema definition itself
 anywhere, so this should reproduce identically on any environment running
 current code.
 
-## Resolution
+## Resolution — 2026-08-24
 
-<!-- Not fixed here — see the note below. -->
+**Fixed.** `apps/web/src/lib/api/handlers/projects.ts`'s `POST /projects/provision`
+handler now mirrors the sibling `POST /projects` handler's already-proven
+fix: strip every client-only field before the insert (`mode`, `rootDir` /
+`root_dir`, `gitUrl` / `git_url`, `gitInit` / `git_init` — one more found
+while fixing than the Investigation section's original two: `gitUrl` has the
+exact same problem for the "Import from GitHub" mode, sent as the client's
+camelCase name with no `git_remote`-mapped column to land in), and derive a
+`slug` from `name` with a collision retry, matching
+[`BUG-2026-08-22-team-create-500-missing-slug`](BUG-2026-08-22-team-create-500-missing-slug.md)'s
+pattern exactly.
 
-Deliberately not fixed as part of `T-VR-06`, per that task's own Traps
-section ("do not fix what this finds, silently") and its Status line
-("nothing else should be landing while it runs"). Needs a task in
-`doc/tasks/` before anyone picks it up: strip `mode`/`gitInit` (and confirm
-no other client-only fields leak the same way) plus give `/provision` the
-same slug-generation fix `/projects` already has.
+**Scope check before writing the fix, not after.** `packages/shared/src/schemas/project.ts`'s
+own doc comment says each creation mode is supposed to "map to a filesystem
+action before the project row is inserted" — mkdir, validate, or clone — and
+`packages/core/src/projects/provision.ts` is real daemon-side code that does
+exactly that. The cloud handler this bug lives in does none of it, by
+design: `projects` is identity-only (see the table's own doc comment in
+`schema.ts`), the per-machine path lives in `runtime_projects`, and a
+`runtime_projects` row needs a live paired `runtimeId` to bind to — which a
+fresh workspace, or one with no paired machine, genuinely does not have.
+Building daemon dispatch + a binding-creation flow here would have been
+inventing a feature nobody asked for to fix a 400; the honest scope of this
+bug is "the identity-only insert should work," and it does now. What the
+dialog does *not* yet do — actually create the directory / clone the repo
+via a paired machine — is real, but it is the same category of limitation as
+the six already-accepted host-local gaps this plan's `T-VR-06` verified,
+not a new one this fix should absorb.
+
+**Verified with a second, independent live pass** — a fresh disposable
+account (not the one that found the bug), on the same feature-branch
+preview: a direct `fetch()` to `/api/v1/projects/provision` returned **200**
+with a generated slug, and the actual "New project" dialog — fill name, fill
+directory, click Create — closed successfully and the new project appeared
+in the real list, no console errors. Cleaned up after (1 workspace, 1
+profile, 1 auth user removed, cascading both test projects with it).
+
+**Tests added**, not just live-checked: `apps/web/src/lib/api/projects-routes.test.ts`,
+5 cases against a fake insert chain — a typical scratch-mode payload
+succeeds, none of the six stripped field names reach the insert while a real
+column (`isSandbox`) survives, the slug derives from `name`, a `23505`
+collision retries and succeeds, and an explicit client-sent `slug` is
+honored. `pnpm typecheck` and `pnpm test` both green, 7/7 and 5/5 packages.

@@ -620,15 +620,18 @@ is total.
 **Band complete 2026-08-24.** 19.6 ran the full pass against the feature
 branch's own Vercel preview with real credentials — all 26 routes, all six
 switched-off areas, the T-VR-05 Server Component's SSR delivery confirmed by
-`curl`ing the raw HTML with the session cookie. **19.6 filed
-[`BUG-2026-08-24-project-provision-always-400s`](../bug/BUG-2026-08-24-project-provision-always-400s.md)**
-(🔴 open) — pre-existing, unrelated to this band, found while trying to seed
-a real project for the verification walk: every "New project" creation path
-400s unconditionally, so a fresh workspace cannot create its first project at
-all. Needs its own task before anyone picks it up. 19.6 also closed
-[`G-23`](../KnownGaps.md) (both remaining halves resolved by this band) and
-opened [`G-36`](../KnownGaps.md) (Electron's offline screen typechecked,
-never rendered — no display environment available to verify it live).
+`curl`ing the raw HTML with the session cookie. **19.6 filed, then fixed
+outside the band, [`BUG-2026-08-24-project-provision-always-400s`](../bug/BUG-2026-08-24-project-provision-always-400s.md)**
+(🟢 resolved) — pre-existing, unrelated to this band, found while trying to
+seed a real project for the verification walk: every "New project" creation
+path 400s unconditionally. `POST /projects/provision` spread client-only
+fields into the DB insert and never generated a `slug`, the exact gap
+`BUG-2026-08-22-team-create-500-missing-slug` fixed on the sibling handler
+but not this one; fixed by mirroring that fix, verified live end-to-end
+through the actual dialog. 19.6 also closed [`G-23`](../KnownGaps.md) (both
+remaining halves resolved by this band) and opened [`G-36`](../KnownGaps.md)
+(Electron's offline screen typechecked, never rendered — no display
+environment available to verify it live).
 
 **19.1 partially fixed [`BUG-2026-08-22-core-tests-flake-under-turbo-parallelism`](../bug/BUG-2026-08-22-core-tests-flake-under-turbo-parallelism.md)**,
 which was marked resolved: the package-level timeout fix does not cover a file

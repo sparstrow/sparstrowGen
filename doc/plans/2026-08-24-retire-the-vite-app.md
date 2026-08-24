@@ -279,12 +279,13 @@ and `BUG-2026-08-24-knowledge-breadcrumb-title-silently-blank`
 were exposed by it, because deleting the Vite host removed the one place
 each was still (accidentally) working.
 
-**Found and deliberately not fixed here:** `BUG-2026-08-24-project-provision-always-400s`,
-discovered live during `T-VR-06`. Pre-existing, unrelated to this plan's file
-moves, and severe — the "New project" dialog cannot create a project at all,
-in any mode. Left as an open bug with its own task still to be opened,
-consistent with `T-VR-06`'s Traps section ("do not fix what this finds,
-silently").
+**Found live during `T-VR-06`, deliberately not fixed there, fixed in a
+follow-up turn at the owner's request:** `BUG-2026-08-24-project-provision-always-400s`.
+Pre-existing, unrelated to this plan's file moves — the "New project" dialog
+could not create a project at all, in any mode. Fixed by mirroring
+`BUG-2026-08-22-team-create-500-missing-slug`'s already-proven pattern on the
+one insert path that never got it; verified live end-to-end and with 5 new
+unit tests. Full detail in the bug file's Resolution section.
 
 **What this plan does not cover:** `doc/Ideas.md` I-12 (a stale two-host
 premise in three files, found and deliberately not touched during `T-VR-07`'s
