@@ -200,10 +200,18 @@ on the spot. Two cheap things fall out of it immediately and need no
 enforcement work: resolving `users.role` (`G-35`), and recording B as what the
 model says about a machine's shared locations.
 
-**This needs a spec and owner elicitation** — it is exactly the kind of product
-decision I-10 already says graduates to `doc/specs/` rather than being written
-from a list. It should be scoped as *the access model*, not as a settings page;
-the settings UI is what renders it afterward.
+**Scoped and written, 2026-08-24**, as
+[`specs/2026-08-24-what-an-agent-is-allowed-to-do.md`](specs/2026-08-24-what-an-agent-is-allowed-to-do.md)
+— the access model, agents-first, at the owner's direction. People as subjects
+are designed for throughout and deliberately built last, since the owner is the
+only person using the app today.
+
+**That spec is not this idea.** It decides what access *means*; I-10 remains
+open as the settings and customization surface that will later render it,
+alongside profile, preferences, shortcuts, notifications, update behavior,
+task/status properties and MCP configuration. Members and invites — the one
+item on I-10's original list that is squarely access-shaped — is where the two
+meet, and belongs to the people half that spec defers.
 
 ---
 

@@ -39,9 +39,17 @@ at all.
 > invented answers in that grid, plus a fifth that is decorative
 > ([`G-35`](KnownGaps.md)). Adding a sixth by hand is the thing to avoid.
 >
-> **This entry closes when the access model is decided** ([`I-10`](Ideas.md))
-> and B is recorded as what that model says about this cell — not before. It
-> continues to block only US1/US2's scope in the meantime, exactly as above.
+> **Scoped 2026-08-24.** The owner directed the model be scoped agents-first,
+> people last: "right now, I'll be the only one using the app … human scope
+> can be built at the very end, but all other things should be planned and
+> built expecting that human access will be built in future." Written as
+> [`specs/2026-08-24-what-an-agent-is-allowed-to-do.md`](specs/2026-08-24-what-an-agent-is-allowed-to-do.md),
+> where **this question is US4** and B is its answer.
+>
+> **This entry closes when that spec is owner-reviewed** and B is recorded as
+> what the model says about this cell — not before. It continues to block only
+> US1/US2's scope of the machine-reaching spec in the meantime, exactly as
+> above.
 
 ### Context
 

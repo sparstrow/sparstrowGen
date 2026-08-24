@@ -1096,7 +1096,7 @@ write on all workspace content.** There is no viewer, and no read-only anything.
   no enforcement behind it at all. The narrow scope of the *real* role is the
   same trap in reverse: "we have roles" is true and misleading in the same
   breath.
-- **Clears when:** the access model is decided (see [`I-10`](Ideas.md)) and
+- **Clears when:** the access model is decided (see [`specs/2026-08-24-what-an-agent-is-allowed-to-do.md`](specs/2026-08-24-what-an-agent-is-allowed-to-do.md), FR-013) and
   `users.role` is either given a meaning and enforced, or dropped. Dropping it
   is the cheaper half and does not need the full model — it needs only the
   decision that a person's level lives on their workspace membership, not on
