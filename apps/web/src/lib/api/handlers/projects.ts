@@ -145,24 +145,45 @@ registerRoute({
   method: "POST",
   pattern: "/projects/provision",
   handler: async ({ supabase, workspaceId, body }: HandlerContext) => {
-    // Just creates a project row
-    const payload = {
-      ...body,
-      workspace_id: workspaceId,
-      id: body.id || generateId("prj_")
-    };
-    delete payload.rootDir;
-    delete payload.root_dir;
+    // Just creates a project row — `projects` is identity only (see the
+    // doc comment on the table below), and there is no paired-machine
+    // dispatch here to act on `mode`/`gitInit`/`gitUrl`/`rootDir` yet, so
+    // none of them are real columns. BUG-2026-08-24-project-provision-always-400s:
+    // this handler used to spread them straight into the insert, which
+    // PostgREST rejected outright. `projects.slug` is also `NOT NULL` with
+    // no DB default (same shape as the sibling `POST /projects` handler
+    // above — BUG-2026-08-22-team-create-500-missing-slug); this route
+    // never got that fix either.
+    const id = body.id || generateId("prj_");
+    const baseSlug = typeof body.slug === "string" && body.slug.trim() ? body.slug : slugify(body.name ?? "");
+    const attempts = [baseSlug, withCollisionSuffix(baseSlug || "project")];
 
-    const { data, error } = await supabase
-      .from("projects")
-      .insert(payload)
-      .select()
-      .single();
-    if (error) throw error;
-    
-    const mapped = { ...data, rootDir: null, root_dir: null };
-    return ok(mapped);
+    for (let i = 0; i < attempts.length; i++) {
+      const payload = {
+        ...body,
+        workspace_id: workspaceId,
+        id,
+        slug: attempts[i],
+      };
+      delete payload.mode;
+      delete payload.rootDir;
+      delete payload.root_dir;
+      delete payload.gitUrl;
+      delete payload.git_url;
+      delete payload.gitInit;
+      delete payload.git_init;
+
+      const { data, error } = await supabase.from("projects").insert(payload).select().single();
+      if (error) {
+        if (error.code === "23505" && i < attempts.length - 1) continue;
+        throw error;
+      }
+      const mapped = { ...data, rootDir: null, root_dir: null };
+      return ok(mapped);
+    }
+
+    // Unreachable: the second attempt's random suffix cannot collide twice.
+    return fail(500, "Internal Server Error");
   }
 });
 
