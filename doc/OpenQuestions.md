@@ -51,60 +51,82 @@ set of locations you nominated when you set the machine up?
 
 ### Options
 
+Each option replays the same moment from the scenario above — **the contractor
+presses Browse** — so the three can be compared on what actually happens
+rather than on how they sound.
+
 **A — Anything the machine's own account can read**
 
-- **Pros:** Nothing to configure and nothing to explain; the picker behaves
-  exactly like a file dialog on that computer, which is what people expect
-  from a Browse button. Zero friction for the single-user case, which is
-  today's only case.
-- **Cons:** Every workspace member gets read access to the whole user profile
-  on that machine — documents, downloads, SSH keys, browser profiles, other
-  clients' code. The blast radius of a single over-broad invite is the whole
-  disk. It also makes the machine's exposure invisible: nothing in the app
-  shows the owner what they have shared, so there is no moment at which they
+- **What this is:** The machine answers any folder question about anything the
+  account it runs under can read. Nothing to configure, no setup step, no
+  list to maintain. The Browse dialog behaves exactly like a file dialog on
+  that computer.
+- **The contractor presses Browse:** They see your drives. `C:\`, then
+  `Users\you\`, and from there `Documents`, `Desktop`, `.ssh`, your tax
+  returns, and the repositories belonging to your other clients. Nothing
+  stops them opening any of it. Nothing in the app records that they did, and
+  nothing ever shows you what is exposed — so there is no moment at which you
   would notice.
+- **Pros:** Nothing to configure and nothing to explain; the picker is what
+  people expect from a Browse button. Zero friction for the single-user case,
+  which is today's only case.
+- **Cons:** Every workspace member gets read access to the whole user profile
+  on that machine. A single over-broad invite has the whole disk as its blast
+  radius. The exposure is invisible by construction.
 - **Score: 4/10**
-- **Blast radius if wrong:** Severe and silent. A workspace member, or anyone
-  who compromises one member's session, can read arbitrary files off the
-  owner's computer. Recoverable only by unpairing the machine, and there is
-  no audit trail of what was read.
+- **Blast radius if wrong:** Severe and silent. A workspace member — or
+  anyone who compromises one member's session — can read arbitrary files off
+  your computer. Recoverable only by unpairing the machine, and there is no
+  record of what was read.
 - **Caveats:** Only defensible while the workspace is provably one person, and
   nothing enforces that it stays that way.
 
 **B — Nominated locations, chosen when the machine is set up**
 
-- **Pros:** The owner states once what this machine shares — typically the
-  parent folder they keep code in — and everything works normally inside it.
-  The exposure is a thing the owner chose, can see, and can change. It scales
-  correctly to a second workspace member without revisiting the decision, and
-  it makes the picker honest: it opens at the shared locations rather than
-  pretending to be a full file dialog.
-- **Cons:** One more thing to set up, and a new failure mode to explain — "I
-  can't find my folder" when a project lives outside the nominated set. Needs
-  a sensible default so first-run isn't a configuration exercise, and needs a
-  clear way to add a location later.
+- **What this is:** At pairing, the machine is told which folders it may
+  answer about, defaulting to the parent folder your projects already live
+  in. Browse opens at those locations. Adding another later is a visible
+  action on that machine's page in the app, and the list is visible there
+  whether or not you ever change it.
+- **The contractor presses Browse:** They see one entry — `D:\Sparstrow` —
+  and navigate freely inside it, which is everything they need. `Documents`
+  and `.ssh` are not merely hidden from the dialog: the machine will not
+  answer questions about them at all. You can see that same list yourself, on
+  the machine's page, without asking anyone what you shared.
+- **Pros:** You state once what this machine shares, and everything works
+  normally inside it. The exposure is something you chose, can see, and can
+  change. It scales to a second workspace member without revisiting the
+  decision, and it makes the picker honest — it opens at the shared locations
+  rather than pretending to be a full file dialog.
+- **Cons:** One more thing at setup, and a new failure mode to explain — "I
+  can't find my folder" when a project lives outside the nominated set.
 - **Score: 8/10**
 - **Blast radius if wrong:** Contained by construction — what leaks is what
   was nominated. The likelier failure is the annoying one: too narrow a
   default sends people to settings before they can add their first project.
-- **Caveats:** The default matters more than the mechanism. It should cover
-  the ordinary case (the folder projects already live in) on first pair, so
-  most people never see this feature.
+- **Caveats:** The default matters more than the mechanism. It must cover the
+  ordinary case on first pair, so most people never meet this feature at all.
 
 **C — Registered project roots only**
 
-- **Pros:** Tightest boundary, and it needs no configuration at all — the app
-  already knows where each project is.
-- **Cons:** **It cannot serve the folder picker**, whose entire job is to
-  find a folder that is not yet a project. Adding a project would stay a
-  typed-path operation forever, which is one of the two things the spec set
-  out to fix. Reading a project's files (US1) would work fine.
+- **What this is:** The machine answers only about folders inside projects
+  already registered with it. Nothing to configure — the app knows where
+  every project is, so the boundary maintains itself.
+- **The contractor presses Browse:** Nothing useful happens. The dialog can
+  only show folders inside projects that already exist, and the entire reason
+  to press Browse is to find a folder that is not a project yet. Adding a
+  project stays a typed-path operation, exactly as it is today. Their *other*
+  task — opening an existing project and reading its files — works perfectly.
+- **Pros:** Tightest boundary of the three, and it needs no configuration and
+  no new setup step at all.
+- **Cons:** **It cannot serve the folder picker.** US2 stays broken
+  permanently, which is one of the two things the spec set out to fix.
 - **Score: 5/10**
 - **Blast radius if wrong:** Smallest of the three. The cost is capability,
-  not safety — US2 stays broken.
-- **Caveats:** Viable only if the owner is content for Browse to remain
-  unavailable, in which case US2 should be cut from the spec rather than left
-  looking buildable.
+  not safety.
+- **Caveats:** Viable only if you are content for Browse to remain
+  unavailable — in which case US2 should be cut from the spec rather than
+  left looking buildable.
 
 ### Recommendation
 

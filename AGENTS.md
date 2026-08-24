@@ -221,6 +221,8 @@ PR into (Squash) ──► [development branch]
    - When the question is answered, unblock that item, finish it, and delete the entry from `OpenQuestions.md`.
    - When presenting open questions to the user, always structure each question with full context, a simple user-side scenario, and concrete options.
    - For every option presented, provide:
+     - **Its own context** — what this option actually *is*, concretely enough to tell it apart from its neighbours: what gets built or configured, what the user has to do, what changes
+     - **Its own user scenario** — **the question's scenario replayed under this option**, so the reader compares outcomes side by side instead of reasoning about each in the abstract. Same person, same moment, different result. This is the field that makes options answerable; a set of options that all describe *different* situations cannot be compared at all
      - Pros and Cons
      - Score out of 10
      - Blast radius if chosen wrong
