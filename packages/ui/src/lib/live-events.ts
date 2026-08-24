@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { RunEvent, WsServerEvent } from "@sparstrow/shared";
+import type { ChatTurnBroadcast, RunEvent, WsServerEvent } from "@sparstrow/shared";
 import { wsHub } from "./ws";
 
 /**
@@ -19,6 +19,21 @@ import { wsHub } from "./ws";
 export interface LiveEventSource {
   /** Subscribe to one run's live events. Returns an unsubscribe function. */
   subscribeRun(runId: string, onEvent: (event: RunEvent) => void): () => void;
+  /**
+   * M12 — subscribe to one chat SESSION's live turn deltas (a session, not a
+   * turn: a session outlives any single turn, so subscribing once per
+   * session covers every turn sent in it, matching
+   * `chatTurnTopic`/`015_chat_broadcast.sql`'s own per-session topic).
+   * `onUpdate` receives the broadcast as sent — an `events` batch plus the
+   * turn's `status` as of that message, mirroring `subscribeRun`'s own
+   * "deliver raw events, let the consumer merge" shape rather than a
+   * synthesized full turn state. Returns an unsubscribe function.
+   *
+   * The LOCAL (non-cloud) host has nothing asynchronous to deliver here —
+   * see `WsHubLiveEventSource`'s own doc comment on why this is a
+   * documented no-op there, not an unimplemented gap.
+   */
+  subscribeChat(sessionId: string, onUpdate: (delta: ChatTurnBroadcast) => void): () => void;
   /** Subscribe to this source's own connection state. Returns an unsubscribe function. */
   onStatusChange(fn: (connected: boolean) => void): () => void;
   readonly isConnected: boolean;
@@ -35,6 +50,20 @@ class WsHubLiveEventSource implements LiveEventSource {
     return wsHub.subscribe((event: WsServerEvent) => {
       if (event.type === "run.event" && event.runId === runId) onEvent(event.event);
     });
+  }
+
+  /**
+   * Documented no-op, not an unimplemented gap. The local Fastify chat
+   * routes (`POST /chat/sessions/:id/messages`, `.../retry`) already run the
+   * turn to completion and return it in ONE response — there is no
+   * asynchronous delta to deliver on this host, and no `chat.*` member ever
+   * existed on `WsServerEvent` for that reason. M13 should not need to call
+   * this for the local host at all (the response it already gets back is
+   * already terminal), but every `LiveEventSource` must satisfy the
+   * interface, so this exists rather than throwing if something does call it.
+   */
+  subscribeChat(): () => void {
+    return () => {};
   }
 
   onStatusChange(fn: (connected: boolean) => void): () => void {

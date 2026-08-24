@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import {
   Archive,
@@ -10,6 +11,7 @@ import {
   MonitorPlay,
   PanelRight,
   Plus,
+  RefreshCw,
   Sparkles,
 } from "lucide-react";
 import {
@@ -18,6 +20,7 @@ import {
   type ChatSession,
   type ChatSessionKind,
   type ChatTurnError,
+  type ChatTurnState,
   type ProviderId,
 } from "@sparstrow/shared";
 import { Button } from "@/components/ui/button";
@@ -40,7 +43,13 @@ import {
   useRetryChatTurn,
   useUpdateChatSession,
 } from "@/api/hooks";
-import { shouldShowPendingBubble } from "@/lib/chat-pending";
+import { useLiveEvents } from "@/lib/live-events";
+import {
+  applyChatTurnBroadcast,
+  applyChatTurnState,
+  isBroadcastForHeldTurn,
+  isTurnBusy,
+} from "@/lib/chat-turn-state";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -151,6 +160,142 @@ function Composer({
   );
 }
 
+/**
+ * M14 — the three `waitingReason` values (T-M12-02), each a distinct,
+ * actionable card rather than one generic "waiting" notice: scenario 1
+ * (never paired anything) and scenario 2 (paired, but off right now) need
+ * different next steps from the owner, and scenario 3 (project unavailable)
+ * reuses `start_run`'s own SPG13 wording verbatim.
+ */
+function NoRuntimePairedNotice() {
+  return (
+    <div className="spg-turn rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+      This workspace has no paired machine yet — your message is saved.{" "}
+      <Link to="/machines" className="underline underline-offset-2">
+        Pair a machine
+      </Link>{" "}
+      to get a reply.
+    </div>
+  );
+}
+
+function AllOfflineNotice() {
+  return (
+    <div className="spg-turn rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+      Waiting for a machine to come online — your message is saved, and the reply arrives
+      automatically once one does.{" "}
+      <Link to="/machines" className="underline underline-offset-2">
+        Check Machines
+      </Link>
+    </div>
+  );
+}
+
+function ProjectNotAvailableNotice() {
+  return (
+    <div className="spg-turn rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+      No online machine has this project on disk. Pair or start the machine that has it, or{" "}
+      <Link to="/machines" className="underline underline-offset-2">
+        check Machines
+      </Link>
+      .
+    </div>
+  );
+}
+
+/**
+ * A TTL-expired turn (`rescan_waiting_chat_turns`'s sweep) never went
+ * through assignment, so `waitingReason` is still non-null on an otherwise
+ * `failed` turn — the signal this card keys off, distinct from a real
+ * provider failure (`TurnErrorBanner`) so US2's "not lost" promise doesn't
+ * read as broken once the wait ends.
+ */
+function TurnExpiredNotice({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="spg-turn rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-foreground">
+      <p className="font-medium">Took too long</p>
+      <p className="mt-1 text-muted-foreground">
+        No machine picked this up within 24 hours — your message is still here, but the wait
+        ended.
+      </p>
+      <Button size="sm" variant="outline" className="mt-2" onClick={onRetry}>
+        Retry
+      </Button>
+    </div>
+  );
+}
+
+/** `ChatTurnState.error` is a plain string (DD-7's one shared shape);
+ *  `TurnErrorBanner` wants the richer `ChatTurnError` the local host used to
+ *  return directly. `fallback: null` is honest here, not a regression — the
+ *  cloud path never had a secondary-model suggestion to carry, and see
+ *  T-M13-02's Result for the one place this narrowing does cost something. */
+function turnErrorFromState(turn: ChatTurnState): ChatTurnError {
+  return {
+    kind: "unknown",
+    reason: turn.error ?? "The model failed.",
+    attempts: turn.attempt,
+    fallback: null,
+  };
+}
+
+/**
+ * M15 — the retry affordance a succeeded turn didn't have before: re-ask
+ * without retyping (T-M12's `retry_chat_turn`), optionally on a different
+ * model. `TurnErrorBanner`'s own one-click retry (failed turns) is
+ * untouched; this is the new picker US3 scenario 2 needs, since
+ * `TurnErrorBanner`'s `fallback` field is always null on the cloud path.
+ */
+function RetryControls({
+  provider,
+  model,
+  busy,
+  onRetry,
+}: {
+  provider: ProviderId;
+  model: string;
+  busy: boolean;
+  onRetry: (override: { provider: string; model: string }) => void;
+}) {
+  const [p, setP] = React.useState(provider);
+  const [m, setM] = React.useState(model);
+  return (
+    <div className="spg-turn flex items-center gap-1.5">
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={busy}
+        onClick={() => onRetry({ provider: p, model: m })}
+        className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+      >
+        <RefreshCw className="size-3.5" /> Retry
+      </Button>
+      <GhostSelect
+        title="Provider"
+        value={p}
+        onValueChange={(v) => {
+          const next = v as ProviderId;
+          setP(next);
+          setM(KNOWN_MODELS[next]?.[0] ?? "");
+        }}
+      >
+        {CLI_PROVIDERS.map((cp) => (
+          <SelectItem key={cp} value={cp}>
+            {cp}
+          </SelectItem>
+        ))}
+      </GhostSelect>
+      <GhostSelect title="Model" value={m} onValueChange={setM}>
+        {(KNOWN_MODELS[p] ?? []).map((mm) => (
+          <SelectItem key={mm} value={mm}>
+            {mm}
+          </SelectItem>
+        ))}
+      </GhostSelect>
+    </div>
+  );
+}
+
 export function ChatPage() {
   const projects = useProjects();
   const agents = useAgents();
@@ -196,39 +341,126 @@ export function ChatPage() {
   const [draftModel, setDraftModel] = React.useState("sonnet");
 
   const [input, setInput] = React.useState("");
-  const [pending, setPending] = React.useState<{ sessionId: string; content: string } | null>(null);
-  const [turnErrors, setTurnErrors] = React.useState<Record<string, ChatTurnError>>({});
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const liveEvents = useLiveEvents();
+  const queryClient = useQueryClient();
+
+  // M13 — the turn arrives from three sources (the send/retry response, the
+  // session read's `activeTurn`, and live broadcasts) and this is the one
+  // piece of state they all write into. `turnRef` mirrors it so the
+  // broadcast subscription below can read the CURRENT turn without being
+  // re-created on every delta (chat-turn-state.ts's own Traps note: the
+  // subscription must not be keyed on turn id).
+  const [turn, setTurnState] = React.useState<ChatTurnState | null>(null);
+  const turnRef = React.useRef<ChatTurnState | null>(null);
+  const updateTurn = React.useCallback(
+    (updater: (current: ChatTurnState | null) => ChatTurnState | null) => {
+      setTurnState((current) => {
+        const next = updater(current);
+        turnRef.current = next;
+        return next;
+      });
+    },
+    [],
+  );
+  // Two DISTINCT notices, not one: a 409 refusal (FR-004, expected and
+  // legible) reads very differently from a genuine send failure, and a
+  // failed session CREATE has no turn to attach an error to at all (there is
+  // no session id yet) -- collapsing either into `turn`'s own failed state
+  // would be wrong.
+  const [composerNotice, setComposerNotice] = React.useState<
+    { kind: "refusal" | "error"; message: string } | null
+  >(null);
+  const [createError, setCreateError] = React.useState<string | null>(null);
 
   const messages = detail.data?.messages ?? [];
-  const busy = postTurn.isPending || retryTurn.isPending || createSession.isPending;
-  const turnError = selectedId ? turnErrors[selectedId] : undefined;
+  const messageIds = React.useMemo(() => new Set(messages.map((m) => m.id)), [messages]);
+  // A union, not a branch on whether a turn exists yet (found by actually
+  // sending a second local message: the LOCAL host's POST doesn't resolve
+  // until the turn is fully terminal -- there is no intermediate `waiting`/
+  // `in_progress` row to derive from mid-flight, so `isTurnBusy(turn)` alone
+  // stays false for the whole duration once `turn` already holds a stale
+  // SUCCEEDED turn from a previous send). `isTurnBusy(turn)` still covers the
+  // reload case on its own (decision 3's original point): after a reload,
+  // `isPending` resets to false, but a still-non-terminal server turn keeps
+  // disabling the composer via `activeTurn`.
+  const busy =
+    isTurnBusy(turn) || postTurn.isPending || retryTurn.isPending || createSession.isPending;
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages.length, pending, selectedId]);
+  }, [messages.length, turn?.replyText, selectedId]);
 
-  const applyTurn = (sessionId: string, error: ChatTurnError | null) => {
-    setPending(null);
-    setTurnErrors((prev) => {
-      const next = { ...prev };
-      if (error) next[sessionId] = error;
-      else delete next[sessionId];
-      return next;
+  // A turn from the PREVIOUS session must never bleed into this one.
+  React.useEffect(() => {
+    updateTurn(() => null);
+    setComposerNotice(null);
+  }, [selectedId, updateTurn]);
+
+  // FR-007 — recover a turn on mount, on any refetch, and when the owner
+  // navigates away mid-turn and comes back. The session read is the only
+  // source once the mutation response that started it is gone.
+  React.useEffect(() => {
+    const active = detail.data?.activeTurn;
+    if (active) updateTurn((current) => applyChatTurnState(current, active));
+  }, [detail.data?.activeTurn, updateTurn]);
+
+  // Subscribe to this session's broadcast topic (per SESSION, not per turn —
+  // chatTurnTopic's own doc comment) while it's open. A delta for a turn
+  // OTHER than the one held has no userMessage to build a turn from, so it
+  // triggers a refetch instead, which lands back through the effect above;
+  // a terminal delta for OUR turn also refetches, once, so the canonical
+  // persisted message (with its real id and model attribution) replaces the
+  // in-memory reply text rather than leaving it permanently synthetic.
+  React.useEffect(() => {
+    if (!selectedId) return;
+    return liveEvents.subscribeChat(selectedId, (delta) => {
+      if (isBroadcastForHeldTurn(turnRef.current, delta)) {
+        updateTurn((current) => applyChatTurnBroadcast(current, delta));
+        if (delta.status !== "running") {
+          void queryClient.invalidateQueries({ queryKey: ["chat-session", selectedId] });
+        }
+      } else {
+        void queryClient.invalidateQueries({ queryKey: ["chat-session", selectedId] });
+      }
     });
+  }, [selectedId, liveEvents, queryClient, updateTurn]);
+
+  const notifyFailure = (sessionId: string, err: { reason: string | null; message: string }) => {
+    if (err.reason === "turn_in_progress") {
+      // Another tab (or a race in this one) already has a turn in flight.
+      // The server is the source of truth here — refetch rather than guess
+      // at what that turn's state is.
+      setComposerNotice({
+        kind: "refusal",
+        message: "Wait for the current reply, or send after it finishes.",
+      });
+      void queryClient.invalidateQueries({ queryKey: ["chat-session", sessionId] });
+    } else {
+      setComposerNotice({ kind: "error", message: err.message });
+    }
   };
 
-  const failLocal = (sessionId: string, message: string) =>
-    applyTurn(sessionId, { kind: "unknown", reason: message, attempts: 0, fallback: null });
-
   const postTo = (sessionId: string, content: string) => {
-    setPending({ sessionId, content });
+    // Null the held turn BEFORE the request starts, not after it resolves.
+    // Found by actually sending a second message in the browser: without
+    // this, `turn` keeps pointing at the PREVIOUS (terminal) turn for the
+    // whole duration of a new local-host send -- which never emits an
+    // intermediate `waiting`/`in_progress` row to replace it with, since the
+    // local POST doesn't resolve until the turn is fully done. Every render
+    // branch below keys off `turn` alone, so this one line is what keeps
+    // them honest instead of each needing its own "is this turn actually
+    // CURRENT" guard.
+    updateTurn(() => null);
     postTurn.mutate(
       { sessionId, content },
       {
-        onSuccess: (turn) => applyTurn(sessionId, turn.error),
-        onError: (err) => failLocal(sessionId, err.message),
+        onSuccess: (state) => updateTurn((current) => applyChatTurnState(current, state)),
+        onError: (err) => {
+          setInput(content);
+          notifyFailure(sessionId, err);
+        },
       },
     );
   };
@@ -237,6 +469,8 @@ export function ChatPage() {
     const content = input.trim();
     if (!content || busy) return;
     setInput("");
+    setComposerNotice(null);
+    setCreateError(null);
     if (selectedId) {
       postTo(selectedId, content);
       return;
@@ -257,7 +491,7 @@ export function ChatPage() {
         },
         onError: (err) => {
           setInput(content);
-          failLocal("", err.message);
+          setCreateError(err.message);
         },
       },
     );
@@ -265,7 +499,8 @@ export function ChatPage() {
 
   const retry = (override?: { provider: string; model: string }) => {
     if (!selectedId || busy) return;
-    setPending({ sessionId: selectedId, content: "" });
+    setComposerNotice(null);
+    updateTurn(() => null); // same reason as postTo above
     retryTurn.mutate(
       {
         sessionId: selectedId,
@@ -273,8 +508,8 @@ export function ChatPage() {
         model: override?.model,
       },
       {
-        onSuccess: (turn) => applyTurn(selectedId, turn.error),
-        onError: (err) => failLocal(selectedId, err.message),
+        onSuccess: (state) => updateTurn((current) => applyChatTurnState(current, state)),
+        onError: (err) => notifyFailure(selectedId, err),
       },
     );
   };
@@ -555,22 +790,79 @@ export function ChatPage() {
                     <Skeleton className="h-20 w-5/6" />
                   </>
                 ) : (
-                  messages.map((m) => <ChatTurnView key={m.id} message={m} />)
-                )}
-                {pending?.sessionId === session.id &&
-                  shouldShowPendingBubble(messages, pending.content) && (
-                    <ChatTurnView
-                      message={{ role: "user", content: pending.content, meta: null }}
-                    />
-                  )}
-                {busy && <ThinkingDots label={session.model ?? undefined} />}
-                {turnError && !busy && (
-                  <TurnErrorBanner
-                    error={turnError}
-                    retrying={busy}
-                    onRetryPrimary={() => retry()}
-                    onRetrySecondary={(t) => retry(t)}
-                  />
+                  <>
+                    {messages.map((m) => <ChatTurnView key={m.id} message={m} />)}
+                    {/* The turn overlay below renders ONLY what `messages` doesn't
+                        have yet, keyed by real message id -- once a refetch lands
+                        the canonical row, the matching overlay piece stops
+                        rendering on its own rather than needing to be torn down. */}
+                    {turn && !messageIds.has(turn.userMessage.id) && (
+                      <ChatTurnView message={turn.userMessage} />
+                    )}
+                    {turn?.status === "waiting" && turn.waitingReason === "no_runtime_paired" && (
+                      <NoRuntimePairedNotice />
+                    )}
+                    {turn?.status === "waiting" &&
+                      turn.waitingReason === "all_runtimes_offline" && <AllOfflineNotice />}
+                    {turn?.status === "waiting" &&
+                      turn.waitingReason === "project_not_available" && (
+                        <ProjectNotAvailableNotice />
+                      )}
+                    {turn &&
+                      (turn.status === "in_progress" || turn.status === "succeeded") &&
+                      !messageIds.has(turn.assistantMessage?.id ?? "") &&
+                      (turn.replyText ? (
+                        <ChatTurnView
+                          message={{
+                            role: "assistant",
+                            content: turn.replyText,
+                            meta: turn.model
+                              ? { provider: turn.provider ?? undefined, model: turn.model }
+                              : null,
+                          }}
+                        />
+                      ) : turn.status === "in_progress" ? (
+                        <ThinkingDots label={turn.model ?? session.model ?? undefined} />
+                      ) : null)}
+                    {turn?.status === "succeeded" &&
+                      (() => {
+                        const retryProvider: ProviderId =
+                          turn.provider ?? session.provider ?? "claude-code";
+                        return (
+                          <RetryControls
+                            key={turn.id}
+                            provider={retryProvider}
+                            model={
+                              turn.model ??
+                              session.model ??
+                              KNOWN_MODELS[retryProvider]?.[0] ??
+                              ""
+                            }
+                            busy={busy}
+                            onRetry={retry}
+                          />
+                        );
+                      })()}
+                    {/* TTL-expired must be checked BEFORE the generic failed
+                        branch below — both match `status === "failed"`, and
+                        only the expired turn's own non-null `waitingReason`
+                        (never cleared by the sweep, since it never reached
+                        assignment) tells the two apart. */}
+                    {turn?.status === "failed" && turn.waitingReason !== null && (
+                      <TurnExpiredNotice onRetry={() => retry()} />
+                    )}
+                    {turn?.status === "failed" && turn.waitingReason === null && (
+                      <TurnErrorBanner
+                        error={turnErrorFromState(turn)}
+                        retrying={busy}
+                        onRetryPrimary={() => retry()}
+                        onRetrySecondary={(t) => retry(t)}
+                      />
+                    )}
+                    {/* The narrow pre-turn window: a send/retry POST is in
+                        flight but no turn exists yet to derive a state from. */}
+                    {busy && !turn && <ThinkingDots label={session.model ?? undefined} />}
+                  </>
                 )}
               </div>
             </div>
@@ -582,18 +874,32 @@ export function ChatPage() {
                     This session is archived and read-only.
                   </p>
                 ) : (
-                  <Composer
-                    value={input}
-                    onChange={setInput}
-                    onSend={send}
-                    disabled={busy}
-                    placeholder={`Message ${
-                      session.kind === "agent"
-                        ? (agentName(session.agentId) ?? "the agent")
-                        : (session.model ?? "the model")
-                    }…`}
-                    controls={modelControls}
-                  />
+                  <>
+                    <Composer
+                      value={input}
+                      onChange={setInput}
+                      onSend={send}
+                      disabled={busy}
+                      placeholder={`Message ${
+                        session.kind === "agent"
+                          ? (agentName(session.agentId) ?? "the agent")
+                          : (session.model ?? "the model")
+                      }…`}
+                      controls={modelControls}
+                    />
+                    {composerNotice && (
+                      <p
+                        className={cn(
+                          "mt-2 px-1 text-xs",
+                          composerNotice.kind === "refusal"
+                            ? "text-muted-foreground"
+                            : "text-destructive",
+                        )}
+                      >
+                        {composerNotice.message}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -628,15 +934,8 @@ export function ChatPage() {
                   controls={modelControls}
                 />
               </div>
-              {turnErrors[""] && !busy && (
-                <div className="mt-4">
-                  <TurnErrorBanner
-                    error={turnErrors[""]!}
-                    retrying={busy}
-                    onRetryPrimary={() => {}}
-                    onRetrySecondary={() => {}}
-                  />
-                </div>
+              {createError && !busy && (
+                <p className="mt-4 text-center text-xs text-destructive">{createError}</p>
               )}
               {busy && (
                 <div className="mt-4 flex justify-center">

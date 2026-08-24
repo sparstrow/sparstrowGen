@@ -266,3 +266,103 @@ describe("RealtimeLiveEventSource", () => {
     expect(source.isConnected).toBe(false);
   });
 });
+
+describe("RealtimeLiveEventSource — subscribeChat (M12)", () => {
+  // Same lifecycle as subscribeRun above, by construction (the method mirrors
+  // it deliberately) -- this suite covers the parts that actually differ:
+  // the topic shape and the payload delivered as-is, rather than re-testing
+  // workspace-id caching/teardown a second time.
+  beforeEach(() => {
+    resetFake();
+  });
+
+  it("subscribes on chat:<workspaceId>:<sessionId>, private", async () => {
+    const source = new RealtimeLiveEventSource();
+    source.subscribeChat("chs_1", () => {});
+    await flush();
+
+    expect(fake.channels).toHaveLength(1);
+    expect(fake.channels[0]?.topic).toBe("chat:ws_1:chs_1");
+    expect(fake.channels[0]?.config).toEqual({ config: { private: true } });
+  });
+
+  it("delivers the broadcast payload to onUpdate as sent, not reshaped", async () => {
+    const source = new RealtimeLiveEventSource();
+    const received: unknown[] = [];
+    source.subscribeChat("chs_1", (delta) => received.push(delta));
+    await flush();
+
+    const payload = { turnId: "ct_1", events: [{ seq: 1, replyText: "Hel" }], status: "running" };
+    fake.channels[0]?.emit("turn", payload);
+
+    expect(received).toEqual([payload]);
+  });
+
+  it("delivers a terminal status message the same way", async () => {
+    const source = new RealtimeLiveEventSource();
+    const received: unknown[] = [];
+    source.subscribeChat("chs_1", (delta) => received.push(delta));
+    await flush();
+
+    const payload = {
+      turnId: "ct_1",
+      events: [{ seq: 3, replyText: "Hello there!" }],
+      status: "succeeded",
+    };
+    fake.channels[0]?.emit("turn", payload);
+
+    expect(received).toEqual([payload]);
+  });
+
+  it("removes the channel on unsubscribe", async () => {
+    const source = new RealtimeLiveEventSource();
+    const unsubscribe = source.subscribeChat("chs_1", () => {});
+    await flush();
+    const channel = fake.channels[0];
+
+    unsubscribe();
+
+    expect(removeChannelSpy).toHaveBeenCalledWith(channel);
+  });
+
+  it("does not open a channel if unsubscribed before the workspace lookup resolves", async () => {
+    const source = new RealtimeLiveEventSource();
+    const unsubscribe = source.subscribeChat("chs_1", () => {});
+    unsubscribe();
+    await flush();
+
+    expect(fake.channels).toHaveLength(0);
+    expect(removeChannelSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not open a channel when there is no signed-in user", async () => {
+    resetFake({ userId: null });
+    const source = new RealtimeLiveEventSource();
+    source.subscribeChat("chs_1", () => {});
+    await flush();
+
+    expect(fake.channels).toHaveLength(0);
+  });
+
+  it("reports connected once the channel reaches SUBSCRIBED", async () => {
+    const source = new RealtimeLiveEventSource();
+    expect(source.isConnected).toBe(false);
+    source.subscribeChat("chs_1", () => {});
+    await flush();
+    expect(source.isConnected).toBe(true);
+  });
+
+  it("resolves the workspace id ONCE and reuses it across a run subscription and a chat subscription", async () => {
+    // subscribeRun and subscribeChat share the same cached workspaceId()
+    // promise -- proving that here, rather than only within each method's
+    // own suite, is the point of this test.
+    const source = new RealtimeLiveEventSource();
+    source.subscribeRun("run_1", () => {});
+    source.subscribeChat("chs_1", () => {});
+    await flush();
+
+    expect(fake.getUserCalls).toBe(1);
+    expect(fake.workspaceLookupCalls).toBe(1);
+    expect(fake.channels.map((c) => c.topic).sort()).toEqual(["chat:ws_1:chs_1", "run:ws_1:run_1"]);
+  });
+});

@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TRANSCRIPT_BROADCAST_EVENT, runTranscriptTopic, type RunEventPush } from "@sparstrow/shared";
-import { broadcastRunEvents, planBroadcast } from "./broadcast";
+import {
+  CHAT_TURN_BROADCAST_EVENT,
+  TRANSCRIPT_BROADCAST_EVENT,
+  chatTurnTopic,
+  runTranscriptTopic,
+  type ChatTurnEventPush,
+  type RunEventPush,
+} from "@sparstrow/shared";
+import { broadcastChatTurnEvents, broadcastRunEvents, planBroadcast } from "./broadcast";
 
 /**
  * The live half. Two properties matter here and neither is about latency:
@@ -174,6 +181,99 @@ describe("broadcastRunEvents", () => {
     await broadcastRunEvents("ws_1", "run_1", [
       { ...event(0), payload: { secret: "sk-do-not-log-me" } },
     ]);
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("sk-do-not-log-me");
+  });
+});
+
+describe("broadcastChatTurnEvents", () => {
+  const fetchMock = vi.fn();
+
+  function chatEvent(seq: number, size = 10): ChatTurnEventPush {
+    return { seq, replyText: "x".repeat(size) };
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "service-role-key");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue({ ok: true, status: 202 });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("sends to the session's private topic with the chat event name", async () => {
+    await broadcastChatTurnEvents("ws_1", "chs_1", "ct_1", [chatEvent(0)], "running");
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.messages[0].topic).toBe(chatTurnTopic("ws_1", "chs_1"));
+    expect(body.messages[0].event).toBe(CHAT_TURN_BROADCAST_EVENT);
+    expect(body.messages[0].private).toBe(true);
+    expect(body.messages[0].payload.turnId).toBe("ct_1");
+  });
+
+  it("reports a non-terminal chunk as running even on a terminal call", async () => {
+    const events = Array.from({ length: 40 }, (_, i) => chatEvent(i, 8_000));
+    await broadcastChatTurnEvents("ws_1", "chs_1", "ct_1", events, "succeeded");
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(1);
+
+    const bodies = fetchMock.mock.calls.map(
+      (call) => JSON.parse((call[1] as RequestInit).body as string).messages[0].payload,
+    );
+    for (const payload of bodies.slice(0, -1)) expect(payload.status).toBe("running");
+    expect(bodies.at(-1).status).toBe("succeeded");
+  });
+
+  it("carries the error only on the terminal message", async () => {
+    await broadcastChatTurnEvents("ws_1", "chs_1", "ct_1", [chatEvent(0)], "failed", "boom");
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.messages[0].payload.status).toBe("failed");
+    expect(body.messages[0].payload.error).toBe("boom");
+  });
+
+  it("still delivers a terminal status with zero events", async () => {
+    await broadcastChatTurnEvents("ws_1", "chs_1", "ct_1", [], "failed", "spawn failed");
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.messages[0].payload.status).toBe("failed");
+  });
+
+  it("builds the topic from the caller's arguments, not from anything in the events", async () => {
+    await broadcastChatTurnEvents("ws_mine", "chs_1", "ct_1", [chatEvent(0)], "running");
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.messages[0].topic).toBe("chat:ws_mine:chs_1");
+  });
+
+  it("does not throw when Realtime rejects the message", async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 500 });
+    await expect(
+      broadcastChatTurnEvents("ws_1", "chs_1", "ct_1", [chatEvent(0)], "running"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("does not throw when the network is down", async () => {
+    fetchMock.mockRejectedValue(new Error("ECONNREFUSED"));
+    await expect(
+      broadcastChatTurnEvents("ws_1", "chs_1", "ct_1", [chatEvent(0)], "running"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("never logs the reply text", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    fetchMock.mockRejectedValue(new Error("ECONNREFUSED"));
+    await broadcastChatTurnEvents(
+      "ws_1",
+      "chs_1",
+      "ct_1",
+      [{ seq: 0, replyText: "sk-do-not-log-me" }],
+      "running",
+    );
     expect(JSON.stringify(warn.mock.calls)).not.toContain("sk-do-not-log-me");
   });
 });

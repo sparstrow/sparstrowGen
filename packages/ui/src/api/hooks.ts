@@ -86,6 +86,7 @@ import type {
   ChatSessionUpdate,
   ChatTurn,
   ChatTurnRequest,
+  ChatTurnState,
 } from "@sparstrow/shared";
 import { api, type ApiError } from "@/lib/api";
 
@@ -1161,7 +1162,63 @@ export function useUpdateChatSession(): UseMutationResult<
   });
 }
 
+/**
+ * M13 (DD-7, narrowed) -- `POST /chat/sessions/:id/messages` for free /
+ * project / agent sessions, on BOTH hosts. The cloud route returns the turn
+ * non-terminal (usually `waiting` or `in_progress`); the local Fastify route
+ * returns it already terminal. `chat.tsx` renders the turn and subscribes
+ * via `useLiveEvents().subscribeChat` only while it isn't.
+ *
+ * NOT for agent-creator sessions -- see `useAgentDraftTurn` below. The split
+ * exists because `agent-create.tsx` reads `draftTurn` off the response,
+ * which `ChatTurnState` deliberately does not carry (a draft is a local-only,
+ * non-dispatched concern; see doc/tasks/M13/T-M13-02's decision 1).
+ */
 export function usePostChatTurn(): UseMutationResult<
+  ChatTurnState,
+  ApiError,
+  { sessionId: string } & ChatTurnRequest
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sessionId, ...body }) =>
+      api<ChatTurnState>(`/chat/sessions/${sessionId}/messages`, { method: "POST", body }),
+    onSuccess: (_turn, { sessionId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+      void queryClient.invalidateQueries({ queryKey: ["chat-session", sessionId] });
+    },
+  });
+}
+
+/** M13 -- retry (US3), same host split as `usePostChatTurn` above. */
+export function useRetryChatTurn(): UseMutationResult<
+  ChatTurnState,
+  ApiError,
+  { sessionId: string } & ChatRetryRequest
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sessionId, ...body }) =>
+      api<ChatTurnState>(`/chat/sessions/${sessionId}/retry`, { method: "POST", body }),
+    onSuccess: (_turn, { sessionId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+      void queryClient.invalidateQueries({ queryKey: ["chat-session", sessionId] });
+    },
+  });
+}
+
+/**
+ * The Agent Creator's own send/retry, kept on the ORIGINAL synchronous
+ * `ChatTurn` shape (`draftTurn` and all) -- agent-creator sessions stay on
+ * the local, non-dispatched path entirely (M13 plan's Scope boundaries) and
+ * always answer in one request on both hosts, so there is nothing async to
+ * represent. Same URLs as `usePostChatTurn`/`useRetryChatTurn`; the name
+ * describes the caller's intent, not the endpoint. Renamed rather than left
+ * ambiguous under the general names, so the compiler visits every call site
+ * on a shape change instead of silently type-checking against one it no
+ * longer receives.
+ */
+export function useAgentDraftTurn(): UseMutationResult<
   ChatTurn,
   ApiError,
   { sessionId: string } & ChatTurnRequest
@@ -1177,7 +1234,7 @@ export function usePostChatTurn(): UseMutationResult<
   });
 }
 
-export function useRetryChatTurn(): UseMutationResult<
+export function useRetryAgentDraftTurn(): UseMutationResult<
   ChatTurn,
   ApiError,
   { sessionId: string } & ChatRetryRequest

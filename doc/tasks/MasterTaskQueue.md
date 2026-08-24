@@ -433,6 +433,149 @@ Unparks D-17 (Theme picker). Resolves the nested tabs layout into a cleaner Mast
 | 16.2 | [T-02 - Unified Nav](SettingsRedesign/T-02-UnifiedNav.md) | `[P]` | - | 🟢 done |
 | 16.3 | [T-03 - Appearance Picker](SettingsRedesign/T-03-AppearancePicker.md) | `[S]` | 16.1, 16.2 | 🟢 done |
 
+### Band 17 — G23 shared sidebar nav groups (2026-08-23)
+
+Plan: [../plans/2026-08-23-shared-nav-groups.md](../plans/2026-08-23-shared-nav-groups.md).
+Narrows `G-23`: both app shells hardcoded their own `NAV_GROUPS` literal, so a
+destination added to one silently never appears in the other's sidebar — with
+a green typecheck and passing tests. Closes the silent-failure half of the
+gap by moving grouping/order into `nav-meta.ts`; the full-shell-merge half
+stays open.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 17.1 | [T-G23-01 — extract NAV_GROUPS into nav-meta.ts](G23/T-G23-01-shared-nav-groups.md) | `[S]` | — | ✅ done 2026-08-23 |
+
+### Band 18 — M12–M15 chat message sending (2026-08-23)
+
+Plan: [`../plans/2026-08-23-chat-message-sending.md`](../plans/2026-08-23-chat-message-sending.md).
+Spec: [`../specs/2026-08-23-chat-message-sending.md`](../specs/2026-08-23-chat-message-sending.md).
+Fixes the stale "Arriving in M5" stub promise on `POST /chat/sessions/:id/messages`
+and `.../retry` by actually scoping and building the feature — see
+[`BUG-2026-08-23-chat-stub-stale-m5-promise`](../bug/BUG-2026-08-23-chat-stub-stale-m5-promise.md).
+Reuses M4's command spine and M5's ingest-then-broadcast shape wholesale
+(DD-1); does **not** build the push-based Realtime doorbell parked in
+[D-12](../Deferred.md), which named "interactive chat turns" as a candidate
+trigger and deliberately did not become one.
+
+Renumbered from a first-drafted Band 17 to Band 18 when this branch merged
+`development`: Band 17 above (G-23) landed first and already owned that
+number — this note exists so a reader who remembers "chat was Band 17" from
+an earlier read of this file isn't confused by the shift; nothing about the
+work itself changed.
+
+M12 is fully decomposed (6 tasks) and **complete** — verified live locally
+against this branch's real code and real staging Postgres (T-M12-06). **M13 is
+now built and verified too** (5 tasks, 2026-08-23), written against M12's
+actual shipped shape rather than the plan's outline — which is what this
+repo's own precedent asks for (M5's decomposition depended on what M4's
+dispatch actually turned out to look like) and which is why it waited. T-M13-05
+found and fixed a defect that had made the entire cloud chat UI non-functional
+(`GET /chat/sessions/:id`'s response shape didn't match what `chat.tsx` reads)
+— caught only because that pass walked a real session through the actual
+browser rather than proving the pipe via HTTP/SQL the way M11 and T-M12-06 had
+to. M13 is done except the pieces a real successful AI completion would prove
+(`G-31` — no usable Anthropic credentials in this sandbox, the same blocker
+M12's own pass hit). M14 and M15 stay outlined only, building on the rendering
+seam M13 now has.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 18.1 | [T-M12-01 — schema, RLS, enqueue/assign functions](M12/T-M12-01-schema-and-dispatch-functions.md) | `[S]` | — | ✅ done 2026-08-23 — applied and verified live on staging (`pnymngoqseltgigcfevq`) via the Supabase MCP once the owner completed its OAuth login |
+| 18.2 | [T-M12-02 — shared contracts and constants](M12/T-M12-02-shared-contracts.md) | `[S]` | 18.1 | ✅ done 2026-08-23 (built against T-M12-01's fully-specified design ahead of that migration's live execution, which was blocked on Supabase MCP auth — pure TypeScript, no live DB dependency) |
+| 18.3 | [T-M12-03 — daemon-facing routes + broadcast policy](M12/T-M12-03-daemon-routes-and-broadcast.md) | `[P]` | 18.2 | ✅ done 2026-08-23 — HTTP contract closed live by T-M12-06 |
+| 18.4 | [T-M12-04 — core command-loop case + turn executor](M12/T-M12-04-core-chat-turn-executor.md) | `[P]` | 18.2 | ✅ done 2026-08-23 — dispatch chain closed live by T-M12-06 (G-30) |
+| 18.5 | [T-M12-05 — `LiveEventSource.subscribeChat`](M12/T-M12-05-live-event-source-chat.md) | `[S]` | 18.3 | ✅ done 2026-08-23 |
+| 18.6 | [T-M12-06 — M12 verification](M12/T-M12-06-verification.md) | `[S]` | 18.1–18.5 | ✅ done 2026-08-23 — **M12 complete**, live-verified locally against this branch's real code + real staging Postgres; remaining gaps in `KnownGaps.md` `G-31` |
+| 18.7 | [T-M13-01 — `ChatTurnState` at the browser boundary](M13/T-M13-01-turn-state-and-v1-routes.md) | `[S]` | 18.6 | ✅ done 2026-08-23 |
+| 18.8 | [T-M13-02 — the local host answers in the same shape](M13/T-M13-02-local-host-turn-state.md) | `[P]` | 18.6 | ✅ done 2026-08-23 |
+| 18.9 | [T-M13-03 — hooks split, and `chat.tsx` renders a turn](M13/T-M13-03-chat-page-turn-rendering.md) | `[S]` | 18.7, 18.8 | ✅ done 2026-08-23 |
+| 18.10 | [T-M13-04 — Knowledge Center pass](M13/T-M13-04-knowledge-center.md) | `[P]` | 18.7, 18.9 | ✅ done 2026-08-23 |
+| 18.11 | [T-M13-05 — M13 verification](M13/T-M13-05-verification.md) | `[S]` | 18.7–18.10 | ✅ done 2026-08-24 — SC-001/SC-004 closed live, last credential-blocked pieces — [`G-31`](../KnownGaps.md) |
+| 18.12 | [T-M14-01 — three waiting-reason cards, and TTL-expiry told apart from a real failure](M14/T-M14-01-waiting-reason-cards.md) | `[S]` | 18.11 | ✅ done 2026-08-23 |
+| 18.13 | [T-M14-02 — the Knowledge Center names the specific waiting states and the 24h wait](M14/T-M14-02-knowledge-center.md) | `[P]` | 18.11 | ✅ done 2026-08-23 |
+| 18.14 | [T-M14-03 — M14 verification](M14/T-M14-03-verification.md) | `[S]` | 18.12, 18.13 | ✅ done 2026-08-24 (scenario 2b closed live) |
+| 18.16 | [T-M15-01 — retry affordance on succeeded and failed turns, with a model picker](M15/T-M15-01-retry-affordance.md) | `[S]` | 18.14 | ✅ done 2026-08-23 |
+| 18.17 | [T-M15-02 — the Knowledge Center says a reply can be retried](M15/T-M15-02-knowledge-center.md) | `[P]` | 18.14 | ✅ done 2026-08-23 |
+| 18.18 | [T-M15-03 — M15 verification](M15/T-M15-03-verification.md) | `[S]` | 18.16, 18.17 | ✅ done 2026-08-24 (retry-twice closed live) |
+
+18.3 and 18.4 are `[P]`: 18.3 touches `apps/web/*` and a new SQL policy file,
+18.4 touches `packages/core/*` — zero file overlap, both need only 18.2's
+shared types.
+
+**M13 decomposed 2026-08-23** (rows 18.7–18.11), which pushed M14 and M15 from
+18.8/18.9 to 18.12/18.13 — both were still `queued` and undecomposed, so
+resequencing them is exactly what this file's own "regenerated, not appended"
+rule asks for. 18.7 and 18.8 are `[P]` against each other for the same reason
+18.3/18.4 were: `apps/web/*` versus `packages/core/*`, both compiling against
+shared types that already exist. 18.9 is `[S]` because it edits `hooks.ts` and
+`chat.tsx` — and `chat.tsx` is **concurrently being rewritten** in the
+`chat-context-menu-design-0eb2ff` worktree (~205 lines), which also touches
+`chat-and-inbox.md` that 18.10 edits. Check `development` before starting
+either.
+
+**M13 retires both chat stubs, not just `/messages`** — the reasoning is in
+[`M13/README.md`](M13/README.md), and it does **not** move retry's user-facing
+work out of M15. Decomposition also found that `agent-create.tsx` shares all
+three chat hooks with `chat.tsx`, which narrows the plan's DD-7; see
+[T-M13-02](M13/T-M13-02-local-host-turn-state.md) decision 1.
+
+**M14 decomposed 2026-08-23** (rows 18.12–18.14), which pushed M15 from 18.13
+to 18.15 — same resequencing rule as M13's decomposition above. M14 needed no
+new backend work at all: `waitingReason`'s three values were already computed
+by M12's `assign_or_park_chat_turn` and already on the wire, unused since
+M13 shipped only one generic waiting card — see
+[`M14/README.md`](M14/README.md)'s "shape of what was found". `chat.tsx` is
+still the file the `chat-context-menu-design-0eb2ff` worktree is rewriting
+(unmerged as of this decomposition) — same check-`development`-first caveat
+as 18.9 above applies to 18.12.
+
+**M14 built and live-verified 2026-08-23** (rows 18.12–18.14), against
+staging through this branch's own preview and the Playwright MCP — all four
+card states (three waiting reasons plus TTL-expiry) confirmed rendering
+correctly with a clean console, in light/dark and Paper/Mono. One scenario
+(2b, a waiting turn resolving once a genuinely-offline machine comes back
+online) needed a working credential to close; see below.
+
+**M15 decomposed AND built 2026-08-23** (rows 18.16–18.18), which
+renumbered from the single placeholder row 18.15. Same finding pattern as
+M13 and M14: no new backend work needed — `retry_chat_turn` already
+supports both source statuses and an optional provider/model override, and
+already preserves the original reply by always inserting a new row. This
+phase added the missing UI piece: `RetryControls`, a retry affordance on a
+*succeeded* turn (none existed before) with a real model picker, since
+`TurnErrorBanner`'s existing `fallback` field is dead on the cloud path.
+Live-verified end to end on staging, including reading the resulting DB row
+back to confirm the picker's selection actually reached `retry_chat_turn`,
+not just that the UI re-rendered. See [`M15/README.md`](M15/README.md)'s
+"shape of what was found". `chat.tsx` was still the contended file at
+build time (same `chat-context-menu-design-0eb2ff` caveat as 18.12 above).
+
+**Credential fix closed both remaining gaps live, 2026-08-24.** The owner
+ran `claude setup-token` (`D-21`, formerly tracked as `G-32`), and this
+agent restarted the real daemon with the resulting token and confirmed,
+through the real app on the owner's real account: a genuine chat
+completion, retry with a different model twice in sequence (M15's
+remaining gap, formerly `G-34`), and the offline→online transition (M14's
+scenario 2b, formerly `G-33`) — the real daemon was stopped, a message sent
+while it was down, then restarted, and the SAME turn resolved automatically
+with no resend. Full evidence in `KnownGaps.md`'s `G-31` "Closed, live"
+note. Both phases' plans are now fully built and verified.
+
+**SC-001 and SC-004 closed live, 2026-08-24, completing the plan.** The two
+verification criteria still open after the credential fix — a visibly
+growing reply across ≥2 broadcasts, and Project/Agent replies being
+observably distinctive rather than generic — were walked with a
+purpose-built scratch project and agent in the real account, both cleaned
+up afterward. `reply_seq` advanced 1→3 with the text growing 142→327 chars
+in one turn; a Project session correctly cited two marker facts a parallel
+Free session couldn't know; an agent on a non-default model (`opus`)
+replied correctly in its configured persona and `chat_turns` recorded that
+model, not the session default. Full evidence in `KnownGaps.md`'s `G-31`.
+The plan's own Status is now `✅ Completed` — the only thing left in `G-31`
+is the two-online-machines race, an accepted residual shared with
+`G-15`/`G-24`, not a blocker.
+
 ## Blocked items
 
 > For a single checklist of everything that needs the owner specifically, see

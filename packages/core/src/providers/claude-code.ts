@@ -70,7 +70,22 @@ export class ClaudeCodeProvider implements CliProvider {
   }
 
   buildHeadlessSpawn(agent: Agent, prompt: string, opts: HeadlessSpawnOptions): SpawnSpec {
-    const args: string[] = ["-p", "--output-format", "stream-json", "--verbose"];
+    // A headless spawn has no TTY, so an unattended, machine-global skill
+    // installed under the operator's OWN ~/.claude/skills (e.g. one with a
+    // preamble that expects to run first every session) can never get the
+    // tool permission it needs -- the run just stalls until it times out.
+    // `--disable-slash-commands` ("Disable all skills") keeps every headless
+    // run's tool surface exactly what `allowedTools`/`disallowedTools` grant,
+    // independent of whatever the machine it happens to run on has installed.
+    // Interactive spawns (a real human at the PTY, e.g. Terminals) keep skills
+    // on -- there, the operator's own skills are the point.
+    const args: string[] = [
+      "-p",
+      "--output-format",
+      "stream-json",
+      "--verbose",
+      "--disable-slash-commands",
+    ];
     if (opts.resumeSessionId) args.push("--resume", opts.resumeSessionId);
     else args.push("--session-id", opts.sessionId);
     if (agent.maxTurns != null) args.push("--max-turns", String(agent.maxTurns));

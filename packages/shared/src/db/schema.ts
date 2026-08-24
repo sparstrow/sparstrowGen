@@ -804,11 +804,85 @@ export const chatMessages = pgTable(
     role: text("role").notNull(),
     content: text("content").notNull(),
     meta: jsonb("meta").$type<Record<string, unknown> | null>(),
+    // M12. SET NULL, not CASCADE: message history is the durable record and
+    // must outlive an administratively cleaned-up turn row. Every turn owns
+    // 0-2 messages via this FK (the user message, eagerly; the assistant
+    // message, only on `succeeded`). See doc/tasks/M12/T-M12-01.
+    turnId: text("turn_id").references(() => chatTurns.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("idx_chat_messages_session").on(t.sessionId, t.createdAt),
     index("idx_chat_messages_workspace").on(t.workspaceId),
+    index("idx_chat_messages_turn").on(t.turnId),
+  ],
+);
+
+/**
+ * M12 — cloud-only chat-turn dispatch state. No local SQLite mirror: local
+ * chat is synchronous and single-machine, with no dispatch state to track.
+ *
+ * `chat_sessions.kind`/`projectId`/`agentId` are deliberately NOT copied
+ * here — the assignment path joins `chat_sessions` by indexed PK at low
+ * frequency, and copying risks drift (session's binding changes, turn's
+ * copy doesn't) for no measured benefit.
+ *
+ * `replyText` is ALWAYS the full accumulated reply as of `replySeq`, never a
+ * delta — chat has no replayable event trace to reassemble, only a growing
+ * block of plain text, which is what makes ingest trivially idempotent under
+ * a replayed batch: one seq comparison, no gap handling. See
+ * doc/plans/2026-08-23-chat-message-sending.md DD-2.
+ *
+ * All writes go through SECURITY DEFINER functions
+ * (packages/shared/drizzle/policies/014_chat_turn_dispatch.sql) — RLS grants
+ * `authenticated` read-only. A member with raw UPDATE could set
+ * status='succeeded' and reply_text to anything and it would render as a
+ * real assistant reply, the same forgery risk 010_transcript_broadcast.sql
+ * calls out for run_events.
+ */
+export const chatTurns = pgTable(
+  "chat_turns",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => chatSessions.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("waiting"), // waiting | in_progress | succeeded | failed
+    // Populated only while status = 'waiting'; recomputed by the same
+    // assignment pass claim_runtime_commands runs on every poll (no new job).
+    waitingReason: text("waiting_reason"), // no_runtime_paired | all_runtimes_offline | project_not_available
+    assignedRuntimeId: text("assigned_runtime_id").references(() => runtimes.id, { onDelete: "set null" }),
+    commandId: text("command_id").references(() => runtimeCommands.id, { onDelete: "set null" }),
+    provider: text("provider"), // null = inherit session/agent default
+    model: text("model"),
+    attempt: integer("attempt").notNull().default(1),
+    // Code-enforced, NOT a DB FK -- mirrors tasks.parentTaskId's existing convention.
+    retryOfTurnId: text("retry_of_turn_id"),
+    replyText: text("reply_text").notNull().default(""),
+    replySeq: integer("reply_seq").notNull().default(0),
+    error: text("error"),
+    // Set ONCE at creation (`coalesce` in the assignment function), never
+    // pushed out by a later recompute.
+    waitExpiresAt: timestamp("wait_expires_at", { withTimezone: true }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_chat_turns_workspace").on(t.workspaceId),
+    index("idx_chat_turns_session").on(t.sessionId, t.createdAt),
+    index("idx_chat_turns_assigned_runtime").on(t.assignedRuntimeId),
+    index("idx_chat_turns_command").on(t.commandId),
+    index("idx_chat_turns_retry_of").on(t.retryOfTurnId),
+    // FR-004's in-flight guard (at most one non-terminal turn per session) is
+    // a partial UNIQUE index, added in 014_chat_turn_dispatch.sql rather than
+    // here -- Drizzle's pgTable index builder does not express a `where`
+    // predicate on a unique index the way the raw SQL policy file needs to,
+    // and enqueue_chat_turn relies on `ON CONFLICT` targeting it by name.
   ],
 );
 

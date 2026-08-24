@@ -276,6 +276,207 @@ spawn") — except it didn't even die at spawn, which is arguably worse.
   `--version`) so `authenticated` is genuinely populated, and the capability
   badge can distinguish "installed" from "installed and usable."
 
+### G-30 — Cloud chat turns stream at whole-message granularity, not token-level
+
+**Raised:** 2026-08-23, building
+[`T-M12-04`](tasks/M12/T-M12-04-core-chat-turn-executor.md) (the daemon's
+executor for cloud-dispatched chat turns). Its sibling finding — the
+executor's real HTTP path had never carried a reply end to end — was closed
+by [`T-M12-06`](tasks/M12/T-M12-06-verification.md)'s live local pass; see
+that task's Result for what was actually run. What's left here is the
+granularity finding on its own, which that pass didn't change.
+
+**DD-5's probe, done and answered, not skipped.** The plan asked whether the
+installed `claude-code` CLI has a partial-message/delta output mode to opt
+the chat path into; if not, "degrade silently to whole-message granularity
+... and open a KnownGaps entry recording this plainly." The probe: every CLI
+provider's `parseLine` (`packages/core/src/providers/claude-code.ts` and
+siblings) normalizes the provider's own `stream_event` lines into an opaque
+`status` `NormalizedEvent` without extracting any partial text — the finest
+signal `extractResult` can ever derive from the event list is "a new complete
+assistant message arrived," which is exactly what `completeOnce`'s new
+`onEvent` hook (`packages/core/src/orchestrator/one-shot.ts`) surfaces. This
+is not a bug in the M12 wiring; it is the actual granularity available today,
+named rather than assumed.
+
+- **If wrong** (i.e., if this is treated as token-level streaming by anything
+  downstream): M13's UI would be built expecting smoother, more frequent
+  deltas than the pipe can ever deliver, and would need reworking once the
+  gap between "assistant message arrived" and "typing indicator" became
+  visible to a real user.
+- **Clears when:** a use case actually needs finer granularity, at which
+  point `claude-code.ts`'s `parseLine` would need to parse `stream_event`'s
+  own `content_block_delta` payloads (assuming the underlying CLI emits them
+  in some invocation mode — not yet confirmed either way) rather than
+  discarding them. Until then, whole-message is the documented contract, and
+  M13 should describe it as such rather than promising something finer.
+
+### G-31 — no chat turn has ever actually succeeded in a real verification pass, and a second machine has never been reached
+
+**Raised:** 2026-08-23, closing [`T-M12-06`](tasks/M12/T-M12-06-verification.md).
+**Narrowed:** 2026-08-23, during [`T-M13-05`](tasks/M13/T-M13-05-verification.md) —
+two of the original three sub-gaps closed with live evidence; the title and
+scope below reflect what's actually still open.
+**Corrected:** 2026-08-23, when the owner ran the still-open sub-gap live on
+their own real, credentialed, paired machine, in two rounds. Round 1: both
+providers failed, and the failure was NOT "no usable Anthropic credentials" —
+a real CLI process spawned and took a real action, which only happens with
+working credentials. That round's cause was
+[`BUG-2026-08-23-headless-spawn-skill-leak`](bug/BUG-2026-08-23-headless-spawn-skill-leak.md):
+headless spawns inherited the operator's personal `~/.claude` config
+unisolated, and a personal preamble-tier skill installed there could never get
+the tool permission it wanted (no TTY). Fixed with `--disable-slash-commands`
+on every headless spawn. Round 2, after that fix: **antigravity's retried turn
+completed successfully** — the first real, live-produced chat reply this
+gap has ever recorded. claude-code still failed, but a direct repro traced it
+to a genuine `401 authentication_failed` on that account's `claude` CLI login
+(`claude auth status` showed `loggedIn: true` but `subscriptionType: null`) —
+an account-side credential problem for the owner to fix by re-authenticating,
+unrelated to the skill-leak bug and outside this repo's code. This sandbox
+itself still has no real CLI credentials at all, so the sub-gaps below remain
+genuinely open HERE — but the underlying claim they were blocking on
+("nothing in this repo can produce a real completion") is no longer true in
+general, only in this specific sandbox.
+
+**Closed by T-M13-05, with evidence — do not re-open without new evidence:**
+
+- **A live Realtime subscriber, watching.** T-M13-05 signed a real browser
+  tab into a real disposable account (the magic-link runbook), opened
+  `/chat`, and left that tab's `useLiveEvents().subscribeChat` subscription
+  running. After clicking Retry, the tab's UI updated from "in progress" to
+  "failed, 2 attempts" **without a page reload or re-navigation** — proof the
+  Realtime broadcast → `apps/web`'s `LiveEventsContext` → `chat.tsx`'s
+  `applyChatTurnBroadcast`/refetch chain works live, with a real signed-in
+  JWT, not simulated. What's still NOT proven is a *successful, growing*
+  reply arriving as ≥2 broadcasts (SC-001's multi-message case) — that still
+  needs a turn that actually completes, which needs the credential this gap
+  is about.
+- **T-M13-05 also found and fixed a genuinely blocking defect this way** —
+  not a residual gap, but worth recording here because live-clicking a real
+  cloud session is *what found it*: `GET /chat/sessions/:id`
+  (`apps/web/src/lib/api/handlers/chat.ts`) was returning the session's own
+  columns spread onto the response's top level (`{...session, messages}`)
+  instead of nested under `session` — `ChatSessionDetail`'s actual contract,
+  which every consumer (`chat.tsx`, `agent-create.tsx`) reads
+  (`detail.data.session.id`). The cloud chat UI could not render **any**
+  session, for any kind, until this shipped. No prior pass caught it because
+  every earlier verification (M11, T-M12-06) proved the pipe via direct
+  HTTP/SQL rather than the browser's own session-hydration code path. Fixed
+  in the same change, pinned with a new test (`json.session` asserted
+  directly, not just sibling fields).
+
+**Partially closed, live, by the owner's round 2 (2026-08-23):** a real
+antigravity chat turn, on a real online paired machine, completed
+successfully — the first real reply this gap has ever recorded. Not yet
+confirmed from that evidence alone: whether the reply arrived as ≥2 broadcasts
+(SC-001's "growing" claim specifically, vs. one broadcast landing the whole
+text at once) — the owner reported success but this file wasn't shown the
+reply's own delivery shape. SC-004 (Project/Agent distinctiveness) and US3.2
+(retry landing a different reply on a different model) still need their own
+dedicated pass even with a working provider, since neither was exercised by a
+single Free-chat "hi". Re-check and tighten these claims with specific
+evidence next time any of them is actually walked, rather than inferring them
+from this one success.
+
+**Closed, live, 2026-08-24 — `claude-code`'s own credential problem.** What
+this entry's round 2 traced to a genuine `401 authentication_failed` (was
+briefly its own gap, `G-32`, now folded back in here) is now fixed and
+proven: the owner ran `claude setup-token` (the long-lived headless-mode
+token `claude login`'s interactive session never covered), and this agent —
+after restarting the real daemon with `CLAUDE_CODE_OAUTH_TOKEN` in its
+environment — sent a real message through the real deployed-account UI
+(`domains@sparstrow.com`, workspace `bbb75b15-eb72-47d4-94fe-3955802620aa`,
+runtime `2c138115-e57d-4952-9905-5ec31487ac10`) and got a genuine
+`claude-code`/`sonnet` reply back, rendered correctly in the browser. Both
+CLI providers now produce real completions on the owner's real machine —
+this is no longer a credential gap at all, on either provider.
+
+**Still open, narrower in scope than the original entry:**
+
+- **The two-machine race remains unreached** — only one machine has ever
+  been paired for a live pass. Spec edge case 3 ("either of two online
+  machines may answer") is still exactly where `G-15`/`G-24` left it. This
+  is now the ONLY item left in this entry — see the two closures below for
+  everything else.
+
+- **If wrong:** the two-machine risk is low — it reuses
+  `pick_runtime_for`'s existing selection logic, already trusted elsewhere.
+- **Clears when:** a second machine is paired and the race is walked live.
+
+**Closed, live, 2026-08-24 — scenario 2b and retry-with-a-different-model
+(were briefly `G-33`/`G-34`, folded back in here).** Both needed nothing
+more than a working provider, which the `claude-code` credential fix above
+supplied. Walked for real, on the owner's own real machine and account —
+
+- **Scenario 2b (offline → online, no resend).** The real daemon was
+  stopped; a message sent while it was down correctly landed `waiting`/
+  `all_runtimes_offline` (`AllOfflineNotice` rendered, confirmed live —
+  not synthetic data this time). After ~2m34s of staleness (the dispatch
+  SQL compares `last_heartbeat` age directly, never the stored `status`
+  column, so this was a genuine test of real staleness handling, not a
+  guess) the daemon was restarted; the SAME turn resolved to `succeeded`
+  with a real reply on its own, no resend, confirmed both in the database
+  and by reloading the browser tab. The one open question this raised —
+  whether a machine showing optimistically `online` for ~90s right after
+  *pairing* (before ever actually running) is itself a small dispatch gap
+  — is now known to be narrow and non-blocking: it only affects that one
+  first-pairing window, not the stop/restart cycle just proven, and is not
+  worth its own gap entry.
+- **Retry twice in sequence, different models each time.** A real turn was
+  retried twice from the real app: sonnet → haiku → opus, three genuine
+  completions, `RetryControls` correctly defaulting to each new turn's own
+  model rather than carrying over the previous selection (confirmed via
+  screenshot at each step) — and the database chain
+  (`ct_d2974b8fcd6245f1` → `ct_952d70047e3b46d1` → `ct_fc658b0ca5f14d85`,
+  `retry_of_turn_id` correctly linking each to the last) confirms the
+  `key={turn.id}` remount reasoning held under a real sequence, not just
+  in code review. Cross-session isolation was not separately re-tested
+  (still an inference — no plausible sharing mechanism exists, per the
+  original note), judged low enough risk not to block closing this.
+
+**Closed, live, 2026-08-24 — SC-001 (growing reply, ≥2 broadcasts) and
+SC-004 (Project/Agent distinctiveness).** Walked with a purpose-built
+scratch project (`sc-verify-scratch`, a real local directory bound to the
+real runtime, containing two files each with a distinctive, unguessable
+marker fact) and a purpose-built agent (`captain-zephyrbeard`, a pirate
+persona on `model: opus` — deliberately not the session default `sonnet`),
+both created and cleaned up in this pass, in the real account
+(`domains@sparstrow.com`).
+
+One trap found and fixed along the way, worth recording: this pass first
+ran with the daemon's `SPARSTROW_CLOUD_URL` pointed at
+`staging.sparstrow.com` (the durable fix from earlier the same day) — but
+staging's deployed code doesn't have this branch's chat work yet, so the
+daemon's result-posting calls 404'd (HTML, not JSON) and turns sat stuck
+`in_progress`. Repointed the daemon at `localhost:3000` (this worktree's
+own code, same staging Postgres) for the verification pass itself, per the
+plan's own stated method — then restored `staging.sparstrow.com` afterward.
+Separately, the first two attempts after that repoint also failed
+(`the provider timed out`) because the shell that restarted the daemon
+never had `CLAUDE_CODE_OAUTH_TOKEN` in its own environment (a different
+shell than the one it was set in pre-compaction) — fixed by reading the
+persisted token and launching the daemon with it explicitly injected.
+Neither issue is a defect in this plan's code; both are recorded here
+because the next person restarting this daemon mid-session will hit the
+same two traps otherwise.
+
+- **SC-001.** Sent a Project-session message forcing two sequential file
+  reads. `chat_turns.reply_seq` advanced 1 → 3 and `reply_text` grew from
+  142 to 327 characters between polls — a real, multi-broadcast, visibly
+  growing reply, not a single delayed block.
+- **SC-004, Project vs. Free.** The identical question ("what is
+  `SPARSTROW_SC_MARKER_ALPHA`?") got "I don't know" in a Free session and
+  the exact correct value in the Project session — the Project reply cited
+  real repository content the Free session provably could not know.
+- **SC-004, Agent.** A message to the pirate-persona agent came back
+  correctly in character ("Arrr, I be doin' fine...") and `chat_turns`
+  recorded `provider: claude-code, model: opus` — the agent's own
+  configured model, not the session default.
+
+All test artifacts (the scratch project, its local directory, the agent,
+and all six chat sessions created during this pass) were deleted/archived
+afterward; the real workspace carries no residue from this verification.
+
 ### G-29 — Antigravity's fixed transcript rendering has not been walked live through a browser
 
 **Raised:** 2026-08-22, fixing
@@ -550,26 +751,47 @@ and is still there today.
 **Raised:** 2026-08-20, by `T-M8-03` — found by rendering the page, not by
 reading the tree.
 
-`packages/ui/src/components/layout/app-shell.tsx` and
-`apps/web/src/components/layout/app-shell.tsx` are near-duplicates. The first is
-the vite/desktop shell; the second is what the hosted app actually renders. Each
-holds its own `NAV_GROUPS` literal. Registering a destination in the shared one
-alone produces **no sidebar entry in the browser at all**, with a green
-typecheck, a passing test suite, and a route manifest that lists the page.
+**Narrowed 2026-08-23 (`T-G23-01`).** `NAV_GROUPS` — which paths appear in
+the sidebar, in what order, under which heading — is now a single export in
+`packages/ui/src/lib/nav-meta.ts`, alongside the `NAV_META`/`sectionMeta()`
+this entry's own `breadcrumbs.tsx` fix already relied on. Both
+`app-shell.tsx` files render from it and no longer carry their own
+`{to, label, icon}` list. This closes the specific silent failure the gap
+led with: a destination added to the shared list now appears in both hosts
+by construction, not by someone remembering to edit two files.
+`pnpm --filter @sparstrow/ui --filter web typecheck` and `test` both green
+(51 + 246 tests). **Verified live in the Vite/Electron shell** — `pnpm
+--filter @sparstrow/ui dev` booted and the sidebar read correctly via the
+Playwright accessibility tree: all four groups, correct headings, order,
+labels, and `href`s, matching `NAV_GROUPS` exactly. **Not verified in
+`apps/web`** — that host needs Supabase credentials this environment lacks,
+same blocker as `G-22`. Since both shells render from the identical shared
+array via the identical `sectionMeta()` call, the residual risk is narrow
+(a Next-specific rendering quirk, not a data error), but it is unconfirmed.
+See
+[`doc/plans/2026-08-23-shared-nav-groups.md`](plans/2026-08-23-shared-nav-groups.md).
 
-`breadcrumbs.tsx` had a third copy of the same information — a private
-`SECTION_LABELS` map beside `nav-meta.ts`'s `NAV_META`, which calls itself "one
-source of truth for section label + icon". That one is **fixed**: breadcrumbs now
-read `NAV_META`. The two shells are not.
+**Still open — the full-shell-merge half.** `packages/ui/src/components/layout/app-shell.tsx`
+(the vite/desktop shell) and `apps/web/src/components/layout/app-shell.tsx`
+(what the hosted app actually renders) are otherwise still near-duplicates:
+same header, same command palette wiring, same collapse/mobile-drawer logic,
+independently maintained. They differ in live-event transport
+(`useLiveEvents()`/Realtime vs `wsHub`) and the footer text; the routing
+primitive is less of a blocker than originally thought, since
+`apps/web/src/lib/react-router-mock.tsx` already bridges
+`@tanstack/react-router` calls to Next's router for other shared components
+(`command-palette.tsx` already relies on it) — what's missing for a real
+merge is an `Outlet` equivalent, since Next's shell takes `children` rather
+than rendering a route outlet.
 
-- **If wrong:** the next destination anyone adds is invisible in the sidebar of
-  the only host real users have. The failure is silent in every automated check
-  this repo runs, so it is caught only by someone opening the app — which, until
-  M8, nobody had been able to do.
-- **Clears when:** the two shells share one `NAV_GROUPS` (the honest minimum), or
-  are merged (the real fix). Neither is small: the shells differ in routing
-  primitive (`next/link` vs TanStack `Link`), in live-event transport, and in the
-  footer they render. Worth its own task rather than a drive-by.
+- **If wrong (residual):** any *other* per-shell duplication this task didn't
+  touch — header markup, palette wiring, collapse behavior — can still drift
+  the two hosts apart the same way `NAV_GROUPS` did. Lower risk than before,
+  since the highest-value duplicate (what's actually in the sidebar) is gone.
+- **Clears when:** the two `AppShell` components are actually merged into
+  one, with the live-event-transport difference resolved deliberately rather
+  than dropped — a bigger, separate piece of work than this entry's original
+  "honest minimum" fix, which is now done.
 
 ### G-24 — M8 is proved on localhost, not on staging, and not with a second computer
 

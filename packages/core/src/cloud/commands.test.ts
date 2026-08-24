@@ -8,10 +8,19 @@ import { config } from "../config.js";
 import { closeDb, getDb, openDb } from "../db/connection.js";
 import { agents, settings } from "../db/schema.js";
 import { runManager } from "../orchestrator/run-manager.js";
+import { resetChatTurnInFlight } from "./chat-turn.js";
 import { invalidatePairingCache, savePairing } from "./client.js";
 import { startCommandLoop, stopCommandLoop } from "./commands.js";
 import { resetMemorySync, startMemorySync } from "./memory-sync.js";
 import { resetDispatched } from "./run-reporter.js";
+
+vi.mock("../logger.js", () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), child: vi.fn() },
+}));
+
+vi.mock("../orchestrator/one-shot.js", () => ({
+  completeOnce: vi.fn().mockReturnValue(new Promise(() => {})),
+}));
 
 const now = "2026-08-10T00:00:00Z";
 
@@ -70,6 +79,7 @@ describe("command loop", () => {
     invalidatePairingCache();
     resetDispatched();
     resetMemorySync();
+    resetChatTurnInFlight();
 
     closeDb();
     openDb(":memory:");
@@ -90,6 +100,7 @@ describe("command loop", () => {
   afterEach(() => {
     stopCommandLoop();
     resetMemorySync();
+    resetChatTurnInFlight();
     vi.useRealTimers();
     vi.restoreAllMocks();
     config.secretsDir = originalSecretsDir;
@@ -252,6 +263,92 @@ describe("command loop", () => {
 
     const ack = fetchMock.mock.calls.find(([url]) => String(url).includes("/ack"));
     expect(JSON.parse(String((ack?.[1] as RequestInit).body))).toMatchObject({ status: "done" });
+  });
+
+  it("dispatches chat.turn and acks done as soon as it starts, not once it finishes", async () => {
+    // The ack means "accepted, running" -- same split run.start's own ack vs.
+    // /runs/:id/status reporting already has. completeOnce is mocked to a
+    // promise that never resolves in this file's top-level mock, so a `done`
+    // ack here can only be explained by the dispatch not waiting on it.
+    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+
+    let claimed = false;
+    const fetchMock = routeFetch({
+      "/commands/cmd_1/ack": () => jsonResponse(200, { ok: true }),
+      "/commands": () => {
+        if (claimed) return jsonResponse(200, { commands: [] });
+        claimed = true;
+        return jsonResponse(200, {
+          commands: [
+            command({
+              kind: "chat.turn",
+              payload: {
+                turnId: "ct_1",
+                sessionId: "chs_1",
+                sessionKind: "free",
+                projectId: null,
+                projectSlug: null,
+                agentId: null,
+                agentSlug: null,
+                provider: "claude-code",
+                model: "sonnet",
+                attempt: 1,
+                messages: [{ role: "user", content: "hi" }],
+              },
+            }),
+          ],
+        });
+      },
+    });
+
+    startCommandLoop();
+    await vi.advanceTimersByTimeAsync(0);
+
+    const ack = fetchMock.mock.calls.find(([url]) => String(url).includes("/ack"));
+    expect(ack).toBeDefined();
+    expect(JSON.parse(String((ack?.[1] as RequestInit).body))).toMatchObject({ status: "done" });
+  });
+
+  it("acks a chat.turn with an unresolvable agent as failed with agent_not_available", async () => {
+    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+
+    let claimed = false;
+    const fetchMock = routeFetch({
+      "/ack": () => jsonResponse(200, { ok: true }),
+      "/commands": () => {
+        if (claimed) return jsonResponse(200, { commands: [] });
+        claimed = true;
+        return jsonResponse(200, {
+          commands: [
+            command({
+              kind: "chat.turn",
+              payload: {
+                turnId: "ct_2",
+                sessionId: "chs_1",
+                sessionKind: "agent",
+                projectId: null,
+                projectSlug: null,
+                agentId: "cloud_agt_missing",
+                agentSlug: "no-such-agent",
+                provider: null,
+                model: null,
+                attempt: 1,
+                messages: [{ role: "user", content: "hi" }],
+              },
+            }),
+          ],
+        });
+      },
+    });
+
+    startCommandLoop();
+    await vi.advanceTimersByTimeAsync(0);
+
+    const ack = fetchMock.mock.calls.find(([url]) => String(url).includes("/ack"));
+    expect(JSON.parse(String((ack?.[1] as RequestInit).body))).toMatchObject({
+      status: "failed",
+      reason: "agent_not_available",
+    });
   });
 
   it("applies an allowlisted setting", async () => {

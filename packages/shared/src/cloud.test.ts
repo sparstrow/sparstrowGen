@@ -4,6 +4,8 @@ import {
   HEARTBEAT_STALE_AFTER_MS,
   isRuntimeOnline,
   machineState,
+  CHAT_TURN_STALE_MS,
+  isChatTurnStale,
 } from "./cloud";
 
 describe("heartbeat constants", () => {
@@ -135,5 +137,48 @@ describe("machineState", () => {
     // this fails loudly when the branch is added, which is when the renderer
     // needs updating too.
     expect(machineState("sleeping", fresh, now)).toBe("active");
+  });
+});
+
+describe("isChatTurnStale", () => {
+  const now = Date.UTC(2026, 7, 23, 12, 0, 0);
+  const agoIso = (ms: number) => new Date(now - ms).toISOString();
+
+  it("is not stale immediately after an ingest call", () => {
+    expect(isChatTurnStale({ status: "in_progress", updatedAt: agoIso(0) }, now)).toBe(false);
+  });
+
+  it("goes stale once the threshold passes", () => {
+    expect(
+      isChatTurnStale({ status: "in_progress", updatedAt: agoIso(CHAT_TURN_STALE_MS + 1) }, now),
+    ).toBe(true);
+  });
+
+  it("treats the boundary itself as stale, matching isRuntimeOnline's convention", () => {
+    expect(isChatTurnStale({ status: "in_progress", updatedAt: agoIso(CHAT_TURN_STALE_MS) }, now)).toBe(
+      true,
+    );
+  });
+
+  it("is never stale for a terminal or waiting status, regardless of age", () => {
+    // A `succeeded`/`failed` turn's updatedAt is its completion time, which is
+    // expected to be old — staleness only describes an in_progress turn whose
+    // daemon may have died. A `waiting` turn is governed by CHAT_TURN_WAIT_TTL_MS
+    // instead, a completely different mechanism (T-M12-01's SQL sweep).
+    for (const status of ["waiting", "succeeded", "failed"]) {
+      expect(isChatTurnStale({ status, updatedAt: agoIso(CHAT_TURN_STALE_MS * 100) }, now)).toBe(false);
+    }
+  });
+
+  it("treats an unparseable timestamp as stale, not fresh", () => {
+    // Same fail-safe direction as isRuntimeOnline, deliberately inverted: an
+    // unreachable RUNTIME should read offline (fail safe against dispatch), and
+    // a corrupt-timestamp TURN should read stale (fail safe toward "something
+    // is wrong, let the UI offer retry" rather than silently waiting forever).
+    expect(isChatTurnStale({ status: "in_progress", updatedAt: "not a date" }, now)).toBe(true);
+  });
+
+  it("accepts a Date as well as a string", () => {
+    expect(isChatTurnStale({ status: "in_progress", updatedAt: new Date(now - 1000) }, now)).toBe(false);
   });
 });
