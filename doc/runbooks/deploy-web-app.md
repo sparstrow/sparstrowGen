@@ -46,11 +46,6 @@ launch.
 
 ## What's still open
 
-- **The owner's real machine still isn't pointed at a deployed URL.**
-  `SPARSTROW_CLOUD_URL`/`SPARSTROW_APP_URL` are unset on the owner's own
-  paired machine, so it still defaults to `http://localhost:3000` /the local
-  core UI. Pairing *against* a deployed URL is proven (see below); switching
-  the owner's day-to-day machine over is a separate, deliberate step.
 - **Agent/local testing is unaffected and should stay on localhost** — the 11
   redirect URLs above exist for exactly this; nothing here changes how an
   agent worktree tests auth.
@@ -96,6 +91,26 @@ SPARSTROW_CLOUD_URL=https://staging.sparstrow.com
 Then restart core. A machine that was paired against `localhost:3000` keeps
 its token — the token is scoped to a workspace and a runtime, not to a
 hostname — so it reconnects without re-pairing.
+
+**Windows gotcha:** setting the var persistently
+(`[Environment]::SetEnvironmentVariable(..., 'User')`, or the System
+Properties dialog) only reaches processes started *after* that call, from a
+process tree that re-reads the updated registry value — a fresh terminal, the
+desktop app, or a reboot. A terminal/daemon that was already running when you
+set it keeps its old environment and will not pick up the change until it's
+closed and reopened; restarting core *inside that same stale shell* silently
+keeps using the old value. To apply the change to an already-running daemon
+immediately, restart it with the variable passed inline for that one command
+(`SPARSTROW_CLOUD_URL=https://staging.sparstrow.com npx tsx src/index.ts`)
+rather than relying on the persisted value being visible yet.
+
+**Done for the owner's own machine, 2026-08-24.** Set persistently
+(`SPARSTROW_CLOUD_URL`/`SPARSTROW_APP_URL` = `https://staging.sparstrow.com`,
+`User` scope) and applied immediately per the gotcha above. Confirmed via
+`sparstrow pair --status` (`Control plane https://staging.sparstrow.com`,
+same workspace/runtime, no re-pairing needed) and a direct read of the
+`runtimes` row in Supabase showing a fresh heartbeat after the restart —
+proving the daemon reached the real deployed app, not `localhost:3000`.
 
 ## 2 — Point the desktop shell at it
 
