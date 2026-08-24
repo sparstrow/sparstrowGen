@@ -492,9 +492,9 @@ seam M13 now has.
 | 18.9 | [T-M13-03 — hooks split, and `chat.tsx` renders a turn](M13/T-M13-03-chat-page-turn-rendering.md) | `[S]` | 18.7, 18.8 | ✅ done 2026-08-23 |
 | 18.10 | [T-M13-04 — Knowledge Center pass](M13/T-M13-04-knowledge-center.md) | `[P]` | 18.7, 18.9 | ✅ done 2026-08-23 |
 | 18.11 | [T-M13-05 — M13 verification](M13/T-M13-05-verification.md) | `[S]` | 18.7–18.10 | 🟡 done except credential-blocked pieces — [`G-31`](../KnownGaps.md) |
-| 18.12 | [T-M14-01 — three waiting-reason cards, and TTL-expiry told apart from a real failure](M14/T-M14-01-waiting-reason-cards.md) | `[S]` | 18.11 | not started |
-| 18.13 | [T-M14-02 — the Knowledge Center names the specific waiting states and the 24h wait](M14/T-M14-02-knowledge-center.md) | `[P]` | 18.11 | not started |
-| 18.14 | [T-M14-03 — M14 verification](M14/T-M14-03-verification.md) | `[S]` | 18.12, 18.13 | not started |
+| 18.12 | [T-M14-01 — three waiting-reason cards, and TTL-expiry told apart from a real failure](M14/T-M14-01-waiting-reason-cards.md) | `[S]` | 18.11 | ✅ done 2026-08-23 |
+| 18.13 | [T-M14-02 — the Knowledge Center names the specific waiting states and the 24h wait](M14/T-M14-02-knowledge-center.md) | `[P]` | 18.11 | ✅ done 2026-08-23 |
+| 18.14 | [T-M14-03 — M14 verification](M14/T-M14-03-verification.md) | `[S]` | 18.12, 18.13 | 🟡 done except scenario 2b — [`G-33`](../KnownGaps.md) |
 | 18.15 | M15 tasks (US3 — retry) | `[S]` | 18.14 | not decomposed — see [`M15/README.md`](M15/README.md) |
 
 18.3 and 18.4 are `[P]`: 18.3 touches `apps/web/*` and a new SQL policy file,
@@ -527,6 +527,14 @@ M13 shipped only one generic waiting card — see
 still the file the `chat-context-menu-design-0eb2ff` worktree is rewriting
 (unmerged as of this decomposition) — same check-`development`-first caveat
 as 18.9 above applies to 18.12.
+
+**M14 built and live-verified 2026-08-23** (rows 18.12–18.14), against
+staging through this branch's own preview and the Playwright MCP — all four
+card states (three waiting reasons plus TTL-expiry) confirmed rendering
+correctly with a clean console, in light/dark and Paper/Mono. One scenario
+(2b, a waiting turn resolving once a genuinely-offline machine comes back
+online) was not reached; see [`G-33`](../KnownGaps.md), opened rather than
+left silent.
 
 ## Blocked items
 

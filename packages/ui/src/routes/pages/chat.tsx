@@ -160,17 +160,66 @@ function Composer({
 }
 
 /**
- * M13 — one generic, legible "nothing can answer yet" state for a `waiting`
- * turn: the message is not lost, and the reply arrives once a machine picks
- * it up (DD-3). The three SPECIFIC states (no machine ever paired / all
- * offline / project not available anywhere) are M14's, keyed off
- * `turn.waitingReason` — deliberately not built here.
+ * M14 — the three `waitingReason` values (T-M12-02), each a distinct,
+ * actionable card rather than one generic "waiting" notice: scenario 1
+ * (never paired anything) and scenario 2 (paired, but off right now) need
+ * different next steps from the owner, and scenario 3 (project unavailable)
+ * reuses `start_run`'s own SPG13 wording verbatim.
  */
-function WaitingNotice() {
+function NoRuntimePairedNotice() {
   return (
     <div className="spg-turn rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
-      Waiting for a machine to pick this up — your message is saved, and the reply will appear
-      automatically once one does.
+      This workspace has no paired machine yet — your message is saved.{" "}
+      <Link to="/machines" className="underline underline-offset-2">
+        Pair a machine
+      </Link>{" "}
+      to get a reply.
+    </div>
+  );
+}
+
+function AllOfflineNotice() {
+  return (
+    <div className="spg-turn rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+      Waiting for a machine to come online — your message is saved, and the reply arrives
+      automatically once one does.{" "}
+      <Link to="/machines" className="underline underline-offset-2">
+        Check Machines
+      </Link>
+    </div>
+  );
+}
+
+function ProjectNotAvailableNotice() {
+  return (
+    <div className="spg-turn rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+      No online machine has this project on disk. Pair or start the machine that has it, or{" "}
+      <Link to="/machines" className="underline underline-offset-2">
+        check Machines
+      </Link>
+      .
+    </div>
+  );
+}
+
+/**
+ * A TTL-expired turn (`rescan_waiting_chat_turns`'s sweep) never went
+ * through assignment, so `waitingReason` is still non-null on an otherwise
+ * `failed` turn — the signal this card keys off, distinct from a real
+ * provider failure (`TurnErrorBanner`) so US2's "not lost" promise doesn't
+ * read as broken once the wait ends.
+ */
+function TurnExpiredNotice({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="spg-turn rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-foreground">
+      <p className="font-medium">Took too long</p>
+      <p className="mt-1 text-muted-foreground">
+        No machine picked this up within 24 hours — your message is still here, but the wait
+        ended.
+      </p>
+      <Button size="sm" variant="outline" className="mt-2" onClick={onRetry}>
+        Retry
+      </Button>
     </div>
   );
 }
@@ -692,7 +741,15 @@ export function ChatPage() {
                     {turn && !messageIds.has(turn.userMessage.id) && (
                       <ChatTurnView message={turn.userMessage} />
                     )}
-                    {turn?.status === "waiting" && <WaitingNotice />}
+                    {turn?.status === "waiting" && turn.waitingReason === "no_runtime_paired" && (
+                      <NoRuntimePairedNotice />
+                    )}
+                    {turn?.status === "waiting" &&
+                      turn.waitingReason === "all_runtimes_offline" && <AllOfflineNotice />}
+                    {turn?.status === "waiting" &&
+                      turn.waitingReason === "project_not_available" && (
+                        <ProjectNotAvailableNotice />
+                      )}
                     {turn &&
                       (turn.status === "in_progress" || turn.status === "succeeded") &&
                       !messageIds.has(turn.assistantMessage?.id ?? "") &&
@@ -709,7 +766,15 @@ export function ChatPage() {
                       ) : turn.status === "in_progress" ? (
                         <ThinkingDots label={turn.model ?? session.model ?? undefined} />
                       ) : null)}
-                    {turn?.status === "failed" && (
+                    {/* TTL-expired must be checked BEFORE the generic failed
+                        branch below — both match `status === "failed"`, and
+                        only the expired turn's own non-null `waitingReason`
+                        (never cleared by the sweep, since it never reached
+                        assignment) tells the two apart. */}
+                    {turn?.status === "failed" && turn.waitingReason !== null && (
+                      <TurnExpiredNotice onRetry={() => retry()} />
+                    )}
+                    {turn?.status === "failed" && turn.waitingReason === null && (
                       <TurnErrorBanner
                         error={turnErrorFromState(turn)}
                         retrying={busy}

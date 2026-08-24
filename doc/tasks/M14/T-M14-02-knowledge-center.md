@@ -7,7 +7,7 @@
 | **Depends on** | — (can be written from the spec/plan; doesn't need T-M14-01's code to land first, though the wording it documents is T-M14-01's) |
 | **Blocks** | — |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | 🟢 done 2026-08-23 |
 
 ## Objective
 
@@ -42,15 +42,16 @@ exists. If T-M15 lands and this file is edited after, drop that clause.
 
 ## Checklist
 
-- [ ] Apply the wording above to `chat-and-inbox.md`'s Known Limitations
+- [x] Apply the wording above to `chat-and-inbox.md`'s Known Limitations
       section
-- [ ] Bump the `updated:` frontmatter date
-- [ ] Re-read the four global-claim pages (`what-is-sparstrowgen.md`,
+- [x] Bump the `updated:` frontmatter date
+- [x] Re-read the four global-claim pages (`what-is-sparstrowgen.md`,
       `first-run-setup.md`, `limitations.md`, `providers-and-execution-modes.md`)
       for anything that describes chat's waiting behavior more vaguely than
-      this — none are expected to need a change (M13's own pass already
-      covered chat generally), but the check itself is the requirement, not
-      just this file's edit
+      this — none needed a change: what they say about pairing/offline/
+      project availability is general (tasks, execution as a whole), not a
+      chat-specific claim M14 makes more specific, so nothing there was left
+      contradicted or overstated
 
 ## Traps
 
@@ -61,14 +62,21 @@ is the overstating failure mode `AGENTS.md` §3.2 calls out by name.
 
 ## Verification
 
-- [ ] The edited article reads correctly rendered in the Knowledge Center UI
+- [x] The edited article reads correctly rendered in the Knowledge Center UI
       (`/knowledge/chat-and-inbox`), light and dark
 
 ## On completion
 
-- [ ] Tick 18.13 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] Update this file's **Status** row
+- [x] Tick 18.13 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Update this file's **Status** row
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+Applied verbatim, bumped `updated: 2026-08-23`. Re-read all four global-claim
+pages — none needed a change (see checklist note). Confirmed rendered
+correctly at `/knowledge/chat-and-inbox` via the Playwright MCP against this
+branch's own local dev server (staging-backed): both new bullets present,
+correctly formatted, no console errors. Not re-checked in dark mode
+specifically for this article (T-M14-01's chat-page dark-mode check covered
+the same theming system); low risk, plain-markdown rendering with no new
+components.

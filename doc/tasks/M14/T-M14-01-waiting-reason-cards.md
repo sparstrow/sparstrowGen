@@ -7,7 +7,7 @@
 | **Depends on** | M13 (done) — `ChatTurnState.waitingReason` and the generic `WaitingNotice` this task replaces |
 | **Blocks** | T-M14-03 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | 🟢 done 2026-08-23 |
 
 ## The scenarios this satisfies
 
@@ -140,20 +140,25 @@ function TurnExpiredNotice({ onRetry }: { onRetry: () => void }) {
 
 ## Checklist
 
-- [ ] Replace `chat.tsx`'s `WaitingNotice` with `NoRuntimePairedNotice`,
+- [x] Replace `chat.tsx`'s `WaitingNotice` with `NoRuntimePairedNotice`,
       `AllOfflineNotice`, `ProjectNotAvailableNotice`, `TurnExpiredNotice`
       (decision 4)
-- [ ] Update the turn-rendering block (`chat.tsx`, currently
+- [x] Update the turn-rendering block (`chat.tsx`, currently
       `{turn?.status === "waiting" && <WaitingNotice />}`) to switch on
       `turn.waitingReason` for the three waiting cards
-- [ ] Add the `status === "failed" && waitingReason !== null` branch
-      (decision 3), rendering `TurnExpiredNotice` — this must come BEFORE
-      the existing generic `TurnErrorBanner` branch for `failed`, since both
-      match `status === "failed"` and only one should render
-- [ ] Confirm decision 3's signal live against one real expired turn (see
+- [x] Add the `status === "failed" && waitingReason !== null` branch
+      (decision 3), rendering `TurnExpiredNotice`. Implemented as two
+      mutually exclusive conditions (`waitingReason !== null` /
+      `waitingReason === null`) rather than relying on JSX order to pick a
+      winner — functionally the same "only one renders" guarantee the Traps
+      section asks for, without depending on which branch is written first.
+- [x] Confirm decision 3's signal live against one real expired turn (see
       Traps) before shipping it as the distinguishing check — not just by
-      reading the SQL
-- [ ] `packages/ui` typecheck and tests green
+      reading the SQL. **Done**, staging, twice: once via `execute_sql`
+      alone (DB row only), once through the actual browser after a page
+      reload — both showed `status='failed'`, `waiting_reason` untouched by
+      the sweep, exactly as decision 3 predicted.
+- [x] `packages/ui` typecheck and tests green
 
 ## Traps
 
@@ -186,24 +191,92 @@ check why the one you have is offline." Collapsing them into one generic
 
 ## Verification
 
-- [ ] Zero machines ever paired in a fresh workspace → `NoRuntimePairedNotice`
+- [x] Zero machines ever paired in a fresh workspace → `NoRuntimePairedNotice`
       renders, its link reaches `/machines`
-- [ ] A paired machine stopped (daemon killed) → `AllOfflineNotice` renders
-- [ ] A Project session bound to a project no online machine has checked out
+- [x] A paired machine stopped (daemon killed) → `AllOfflineNotice` renders
+      — verified by rendering a real `waiting`/`all_runtimes_offline` turn
+      row rather than by actually killing a daemon (see Result)
+- [x] A Project session bound to a project no online machine has checked out
       → `ProjectNotAvailableNotice` renders with the exact `start_run` wording
-- [ ] An expired turn (forced via the Traps section's SQL update, not a real
+- [x] An expired turn (forced via the Traps section's SQL update, not a real
       24h wait) renders `TurnExpiredNotice`, distinct in appearance from
       `TurnErrorBanner`
-- [ ] The offline case (scenario 2) still resolves on its own once the
+- [~] The offline case (scenario 2) still resolves on its own once the
       machine reconnects within the TTL — full walk belongs to
-      [T-M14-03](T-M14-03-verification.md), not repeated here
+      [T-M14-03](T-M14-03-verification.md), not repeated here; not attempted
+      in this pass (see Result and T-M14-03)
 
 ## On completion
 
-- [ ] Tick 18.12 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] Update this file's **Status** row
-- [ ] Update [`M14/README.md`](README.md)'s task table
+- [x] Tick 18.12 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Update this file's **Status** row
+- [x] Update [`M14/README.md`](README.md)'s task table
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+Built and verified live against **staging** (`pnymngoqseltgigcfevq`), through
+this branch's own local dev server (`apps/web`, pointed at staging's
+Supabase project) plus the Playwright MCP, per
+`doc/runbooks/agent-browser-session.md`. Used a fresh disposable
+`%@sparstrow.test` account rather than a real workspace.
+
+**Verified live, in the browser, with a screenshot and a clean console for
+each:**
+
+- Scenario 1 (`no_runtime_paired`) — sent a real message in a brand-new,
+  never-paired workspace. `NoRuntimePairedNotice` rendered with the exact
+  copy from decision 4 and a working `/machines` link (confirmed via the
+  anchor's `href`, not just visually).
+- TTL expiry — forced a real `waiting` turn's `wait_expires_at` into the
+  past and called `private.rescan_waiting_chat_turns` directly (the same
+  function `claim_runtime_commands`'s poll loop calls), then reloaded the
+  page. `status` became `failed`, `waiting_reason` stayed non-null
+  (untouched by the sweep), and `TurnExpiredNotice` rendered — confirming
+  decision 3's signal both at the DB layer and through the actual render
+  path, in light and dark theme.
+- Scenario 2 (`all_runtimes_offline`) and scenario 3
+  (`project_not_available`) — rather than pairing and then stopping a real
+  daemon (attempted first; see the note below on why that path was
+  abandoned), inserted a `chat_turns`/`chat_messages` row pair directly with
+  each `waiting_reason` value and loaded the session. Both
+  `AllOfflineNotice` and `ProjectNotAvailableNotice` rendered with the
+  correct copy, the correct links, and no console errors.
+- Regression (checklist item B in T-M14-03) — inserted a `status: 'failed'`,
+  `waiting_reason: null` turn with a real-looking error message.
+  `TurnErrorBanner` rendered exactly as before (red/destructive tone),
+  confirming the new `waitingReason !== null` branch does not swallow a
+  genuine failure.
+
+All four card states are visually distinct: the three waiting cards share a
+muted dashed-border treatment but differ in text and the action offered;
+`TurnExpiredNotice` uses `border-warning/40 bg-warning/10` (amber); the
+regression check confirms `TurnErrorBanner` still uses
+`border-destructive/30 bg-destructive/5` (red) — three genuinely different
+visual languages, not one card reworded.
+
+**What was NOT verified live, and why:** scenario 2b, the "comes back online
+and the turn resolves on its own" transition. First attempt was to pair a
+real throwaway daemon (its own `SPARSTROW_SECRETS_DIR`/`SPARSTROW_DATA_DIR`,
+per the runbook) to the disposable workspace and stop it before sending a
+message — but the pairing endpoint sets the new runtime's status to `online`
+with a fresh heartbeat immediately on pairing, before any daemon process
+ever connects, so the turn it produced went straight to `in_progress`
+against a runtime that was never actually running, rather than landing in
+`waiting`/`all_runtimes_offline` the way a genuinely-stopped machine would.
+That is a real, if narrow, product behavior worth someone's attention on its
+own (a machine can show "online" for up to ~90 seconds — per
+`limitations.md`'s existing staleness window — purely from having been
+paired, never having run at all), but it made this specific pairing
+unsuitable for a clean before/after "offline → online" walk without a lot
+more staging around it than this task's scope justifies. Recorded as a
+`KnownGaps.md` entry rather than silently skipped; T-M14-03 inherits it.
+
+**Cleanup note:** the disposable account
+(`uipass-1787532059883@sparstrow.test`, workspace
+`100362a2-ed1e-4730-b713-ee9d15c77366`) and its throwaway paired runtime
+(`m14-test-machine`, id `7cb9432a-d2c6-49f2-83b4-fa7feaa425a3`) were **not**
+deleted — the runbook's standard cleanup query was blocked by this session's
+own auto-mode permission classifier as a destructive DB operation. Left in
+place on staging; harmless (isolated, no real user data) but should be
+swept the next time someone runs the runbook's cleanup query with
+permission to do so.

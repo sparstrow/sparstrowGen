@@ -458,6 +458,54 @@ sees Sparstrowgen's own 120s orchestrator cutoff).
   `echo hi | claude -p --output-format stream-json --model sonnet` repro
   (same command used to diagnose this) stops returning `401`.
 
+### G-33 — Chat's "waiting machine comes back online" transition (US2 scenario 2b) has not been walked live
+
+**Raised:** 2026-08-23, building
+[T-M14-01](tasks/M14/T-M14-01-waiting-reason-cards.md) /
+[T-M14-03](tasks/M14/T-M14-03-verification.md).
+
+M14 shipped three specific waiting-reason cards plus a TTL-expiry state,
+replacing M13's one generic notice — and live-confirmed, on staging through
+the branch's own preview, scenarios 1, 2a (offline), 3 (project
+unavailable), and TTL-expiry, all rendering correctly with a clean console.
+What was **not** reached: scenario 2b, the actual "a `waiting` turn
+resolves on its own once a genuinely offline machine comes back online,
+within the TTL, with no resend" transition the spec promises.
+
+The attempt to construct it surfaced a separate, small fact worth recording
+on its own: pairing a machine (`POST /api/v1/pairing-codes` redemption)
+sets that runtime's `status` to `online` with a fresh `last_heartbeat`
+**immediately**, before any daemon process has ever connected to poll for
+work. A pairing that is never followed by an actual running daemon
+therefore looks "online" — and dispatch will assign a turn to it, landing
+it in `in_progress` against a runtime that will never actually respond —
+for up to the same ~90-second staleness window `limitations.md` already
+documents for a machine that *stops*. This made "pair, then stop before
+sending" an unreliable way to construct a genuinely-`waiting`,
+`all_runtimes_offline` turn that could then be walked through to a real
+online transition — the turn kept skipping past `waiting` straight to
+`in_progress` against a phantom-online runtime instead.
+
+Scenario 2a itself (the static "currently offline" render) was still
+confirmed — by inserting a real `waiting`/`all_runtimes_offline` row
+directly rather than by orchestrating a real daemon's lifecycle. Only the
+*transition* (2a → resolves once online) is the open half.
+
+- **If wrong:** if the ~90s optimistic-online window is intentional and
+  well understood elsewhere, this is purely a verification-method problem
+  (needs a slower/more deliberate two-machine setup, not a product change).
+  If it is *not* intentional — if a paired-but-never-run machine showing
+  "online" is itself a small dispatch-correctness gap — a turn could be
+  assigned to a runtime that will never pick it up until the sweep's 24h
+  TTL, which is a much slower failure path than "offline" would have given
+  it.
+- **Clears when:** someone runs 2b through a real machine lifecycle — pair
+  it, actually start core against it, let a `waiting` turn form, stop core
+  cleanly, confirm the card renders and the turn stays `waiting`, then
+  restart core and confirm the turn resolves without a resend — and records
+  which of the two readings above the ~90s optimistic-online window
+  deserves.
+
 ### G-29 — Antigravity's fixed transcript rendering has not been walked live through a browser
 
 **Raised:** 2026-08-22, fixing

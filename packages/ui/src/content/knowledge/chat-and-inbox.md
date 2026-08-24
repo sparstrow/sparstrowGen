@@ -44,9 +44,14 @@ be on the Dashboard, not just here.
 
 ## Known Limitations & Boundaries
 
-- **Sending needs at least one paired machine that's currently online.** With
-  none paired, or all paired machines offline, you're told plainly and pointed
-  at pairing rather than left with a dead end.
+- **Sending needs at least one paired machine that's currently online, and —
+  for a Project session — that machine needs the project checked out
+  locally.** With none paired, all paired machines offline, or the right
+  project unavailable anywhere online, you're told plainly which of the
+  three it is and pointed at pairing rather than left with a dead end.
+- **An unanswered message waits up to 24 hours**, then is marked as having
+  taken too long rather than left waiting silently forever; retry is offered
+  once M15 ships it.
 - **Only one reply at a time, per session.** Sending while a reply is already
   in progress is refused — wait for it to finish, or use retry once it has.
 - **A reply reflects the provider's own message-by-message output, not a
