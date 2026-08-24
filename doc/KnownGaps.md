@@ -788,10 +788,12 @@ than rendering a route outlet.
   touch — header markup, palette wiring, collapse behavior — can still drift
   the two hosts apart the same way `NAV_GROUPS` did. Lower risk than before,
   since the highest-value duplicate (what's actually in the sidebar) is gone.
-- **Clears when:** the two `AppShell` components are actually merged into
-  one, with the live-event-transport difference resolved deliberately rather
-  than dropped — a bigger, separate piece of work than this entry's original
-  "honest minimum" fix, which is now done.
+- **Clears when:** ~~the two `AppShell` components are actually merged into
+  one~~ — **superseded 2026-08-24 by [`D-24`](Deferred.md)**, which deletes the
+  Vite/desktop shell rather than merging it. Do not build the `Outlet`
+  equivalent or reconcile the two live-event transports; that is work on a host
+  that is slated for removal. This entry closes by deletion when D-24 is
+  executed.
 
 ### G-24 — M8 is proved on localhost, not on staging, and not with a second computer
 

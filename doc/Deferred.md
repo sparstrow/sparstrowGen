@@ -218,6 +218,12 @@ comfortable cloning a monorepo.
 > setup-and-machines work lands**, which is the concrete trigger this
 > deferral previously lacked.
 
+> **Promoted 2026-08-24.** This entry is now the prerequisite for
+> [`D-24`](#d-24--collapse-to-three-components-one-nextjs-ui-electron-as-a-shell-headless-core)
+> — it *is* the third of the owner's three components (headless daemon +
+> browser, for users who don't want Electron). Shipping it is what unparks
+> D-24.
+
 ---
 
 ## D-12 — Realtime doorbell for command dispatch
@@ -686,3 +692,87 @@ doesn't work in this environment.
   browser that actually renders" section, and the `frontend-verify` skill to
   prefer the native tool(s), with Playwright kept as the documented fallback
   for environments where they aren't available.
+
+---
+
+## D-24 — Collapse to three components: one Next.js UI, Electron as a shell, headless core
+
+**Parked:** 2026-08-24, by the owner — "My expectation is to have one webapp
+next.js and same app in electron app for desktop. If the people don't want to
+use electron app, then daemon service installed on the machine and people can
+use it from web. This is my three apps component idea."
+
+**The target shape.** Three components, each with one job:
+
+| Component | What it is | What it uniquely provides |
+|---|---|---|
+| `apps/web` (Next.js) | The one and only UI | Everything visible |
+| `packages/desktop` (Electron) | A window pointed at that UI, plus a daemon supervisor | Bundles and supervises the daemon, tray, auto-update, survives reboot — the user never registers a service by hand |
+| `packages/core` headless service | Daemon-only install, no GUI | For users who skip Electron and drive the app from a browser |
+
+The decisive rename is **Electron is a shell, not a second UI**. Today it is
+ambiguous: it ships a window *and* a UI.
+
+**Current state — the old Vite app was never removed.** `apps/web` was created
+fresh as Next.js App Router in `67bd615` (2026-08-09) and is where all
+subsequent work landed. But the pre-migration Vite SPA is still built
+(`packages/ui`'s `vite build`), still served as static files with SPA fallback
+by the daemon's own Fastify server
+([`server.ts:138`](../packages/core/src/api/server.ts:138)), and is still what
+a packaged Electron build loads **by default**:
+[`urls.ts:43`](../packages/desktop/src/urls.ts:43) loads `SPARSTROW_APP_URL`
+only when it is set, and nothing sets it. So the desktop app's out-of-the-box
+experience is currently the old app.
+
+**Why the Vite SPA is not an offline mode.** `packages/ui` contains no Supabase
+code at all (verified by search 2026-08-24) — it is the pre-cloud, pre-auth,
+single-machine UI, talking to local core over `wsHub`. It has no concept of an
+account, a workspace, or cloud dispatch. Since dispatch, chat, projects and
+runs are cloud-canonical (`AGENTS.md` §4), it cannot do the work anyway.
+Keeping it as a fallback preserves a *different, older product*, not a degraded
+version of the current one.
+
+**Nothing is left to port.** All 25 pages in `packages/ui/src/routes/pages/`
+have a counterpart in `apps/web/src/app/` (diffed 2026-08-24; route parity
+shipped in M7, `ec66a1a`).
+
+**What gets deleted when this is done.** `packages/ui` itself **stays** — it is
+the component library `apps/web` imports from. What ends is its second life as
+an app:
+
+- `packages/ui/src/routes/pages/*` and the Vite app entry (`vite dev` /
+  `vite build`)
+- `packages/ui/src/components/layout/app-shell.tsx` — the Vite/desktop shell
+- the `fastifyStatic` / SPA-fallback block in
+  [`packages/core/src/api/server.ts:138`](../packages/core/src/api/server.ts:138)
+- `resolveLocalUiUrl` and the `SPARSTROW_DEV`/`SPARSTROW_UI_URL` fallback in
+  [`packages/desktop/src/urls.ts`](../packages/desktop/src/urls.ts)
+
+**This supersedes [`G-23`](KnownGaps.md)'s remaining half.** G-23 asks for the
+two `AppShell` components to be merged — including building an `Outlet`
+equivalent for Next's `children`-based shell. If one of the two shells is being
+deleted, that merge is work that should not be done. Do not start it. When this
+entry is executed, close G-23 by deletion rather than by merge.
+
+**What is genuinely lost.** The desktop app stops working without internet.
+This is a real product decision and should be taken deliberately, not absorbed
+silently — though in substance it is already true, since every canonical
+surface is cloud-side and the local SPA cannot authenticate.
+
+**Sequencing.** [`D-10`](#d-10--headless-non-electron-core-distribution)
+(headless core distribution) is the prerequisite and *is* component 3 — until
+it exists, "I don't want Electron" has no answer. It is already sequenced to
+get its own spec once `specs/2026-08-16-setup-and-machines.md` lands. Then:
+repoint Electron's default to the hosted app; verify a packaged build loading
+it; delete the Vite app last.
+
+- **If wrong (i.e. left parked):** the repo carries two UIs indefinitely, one
+  of which predates authentication. The concrete risk is not drift between
+  them — it is that anyone installing the packaged desktop app today gets the
+  pre-cloud UI as their first impression, with no account and no workspace.
+  Cost also compounds: every shared component change is weighed against a host
+  that is slated for deletion.
+- **Unpark when:** `D-10` ships a headless core distribution — at that point
+  all three components exist and only the repoint-and-delete remains. Bring it
+  forward if a packaged Electron build is put in anyone else's hands before
+  then, since that is the moment the old-UI default becomes user-visible.
