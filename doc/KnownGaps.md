@@ -395,21 +395,13 @@ this is no longer a credential gap at all, on either provider.
 
 - **The two-machine race remains unreached** — only one machine has ever
   been paired for a live pass. Spec edge case 3 ("either of two online
-  machines may answer") is still exactly where `G-15`/`G-24` left it.
-- **SC-001's "≥2 broadcasts" growing-reply claim, SC-004 (Project/Agent
-  distinctiveness), and US3.2 (retry landing a different reply on a
-  different model)** still each need their own dedicated live pass with
-  specific evidence, even though a working provider is no longer the
-  blocker — see this file's newer, more targeted `G-33`/`G-34` entries for
-  the pieces of this already walked since the credential fix landed.
+  machines may answer") is still exactly where `G-15`/`G-24` left it. This
+  is now the ONLY item left in this entry — see the two closures below for
+  everything else.
 
 - **If wrong:** the two-machine risk is low — it reuses
   `pick_runtime_for`'s existing selection logic, already trusted elsewhere.
 - **Clears when:** a second machine is paired and the race is walked live.
-  (US3.2/retry-with-a-different-model and the scenario 2b transition are
-  now closed — see the former `G-33`/`G-34`, folded back in here 2026-08-24
-  with their evidence, below. SC-001's ≥2-broadcast growing-reply claim and
-  SC-004 still need their own dedicated pass.)
 
 **Closed, live, 2026-08-24 — scenario 2b and retry-with-a-different-model
 (were briefly `G-33`/`G-34`, folded back in here).** Both needed nothing
@@ -441,6 +433,49 @@ supplied. Walked for real, on the owner's own real machine and account —
   in code review. Cross-session isolation was not separately re-tested
   (still an inference — no plausible sharing mechanism exists, per the
   original note), judged low enough risk not to block closing this.
+
+**Closed, live, 2026-08-24 — SC-001 (growing reply, ≥2 broadcasts) and
+SC-004 (Project/Agent distinctiveness).** Walked with a purpose-built
+scratch project (`sc-verify-scratch`, a real local directory bound to the
+real runtime, containing two files each with a distinctive, unguessable
+marker fact) and a purpose-built agent (`captain-zephyrbeard`, a pirate
+persona on `model: opus` — deliberately not the session default `sonnet`),
+both created and cleaned up in this pass, in the real account
+(`domains@sparstrow.com`).
+
+One trap found and fixed along the way, worth recording: this pass first
+ran with the daemon's `SPARSTROW_CLOUD_URL` pointed at
+`staging.sparstrow.com` (the durable fix from earlier the same day) — but
+staging's deployed code doesn't have this branch's chat work yet, so the
+daemon's result-posting calls 404'd (HTML, not JSON) and turns sat stuck
+`in_progress`. Repointed the daemon at `localhost:3000` (this worktree's
+own code, same staging Postgres) for the verification pass itself, per the
+plan's own stated method — then restored `staging.sparstrow.com` afterward.
+Separately, the first two attempts after that repoint also failed
+(`the provider timed out`) because the shell that restarted the daemon
+never had `CLAUDE_CODE_OAUTH_TOKEN` in its own environment (a different
+shell than the one it was set in pre-compaction) — fixed by reading the
+persisted token and launching the daemon with it explicitly injected.
+Neither issue is a defect in this plan's code; both are recorded here
+because the next person restarting this daemon mid-session will hit the
+same two traps otherwise.
+
+- **SC-001.** Sent a Project-session message forcing two sequential file
+  reads. `chat_turns.reply_seq` advanced 1 → 3 and `reply_text` grew from
+  142 to 327 characters between polls — a real, multi-broadcast, visibly
+  growing reply, not a single delayed block.
+- **SC-004, Project vs. Free.** The identical question ("what is
+  `SPARSTROW_SC_MARKER_ALPHA`?") got "I don't know" in a Free session and
+  the exact correct value in the Project session — the Project reply cited
+  real repository content the Free session provably could not know.
+- **SC-004, Agent.** A message to the pirate-persona agent came back
+  correctly in character ("Arrr, I be doin' fine...") and `chat_turns`
+  recorded `provider: claude-code, model: opus` — the agent's own
+  configured model, not the session default.
+
+All test artifacts (the scratch project, its local directory, the agent,
+and all six chat sessions created during this pass) were deleted/archived
+afterward; the real workspace carries no residue from this verification.
 
 ### G-29 — Antigravity's fixed transcript rendering has not been walked live through a browser
 

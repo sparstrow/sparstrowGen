@@ -6,7 +6,7 @@
 | **Depends on** | T-M13-01, T-M13-02, T-M13-03, T-M13-04 |
 | **Blocks** | M14, M15 decomposition |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | 🟡 done except the credential-blocked pieces — see Result and `G-31` |
+| **Status** | ✅ done — SC-001/SC-004 closed live 2026-08-24, see Result and `G-31` |
 
 ## Objective
 
@@ -89,13 +89,16 @@ short of a successful completion, can prove.
 
 ### SC-001 — a visibly growing reply
 
-- [ ] **Not reached.** Needs a turn that actually produces ≥2 broadcasts of
-      real content, which needs the credential this environment doesn't have.
-      Recorded in `G-31`, not silently skipped.
+- [x] **Closed live 2026-08-24.** A Project-session message forcing two
+      sequential file reads produced `reply_seq` 1 → 3 with `reply_text`
+      growing 142 → 327 characters between polls. See `G-31`.
 
 ### SC-004 — Project/Agent replies are observably not generic
 
-- [ ] **Not reached**, same blocker. `G-31`.
+- [x] **Closed live 2026-08-24.** A Project session correctly cited two
+      marker facts a parallel Free session answered "I don't know" to; an
+      agent on a non-default model (`opus`) replied in its configured
+      persona and `chat_turns` recorded that model. See `G-31`.
 
 ## A2 — The four states
 
@@ -193,10 +196,14 @@ Every one looked at deliberately, in a browser, at Paper **and Mono** surfaces
 - [ ] Spec edge case 3 — either of two online machines may answer a Free
       session, and the owner neither knows nor cares which did
 
-**Needs Anthropic credentials this sandbox doesn't have** — see `G-31`.
+**Needed Anthropic credentials this sandbox didn't have — resolved 2026-08-24.**
 
-- [ ] SC-001 (growing reply), SC-004 (Project/Agent distinctiveness), US1
-      scenarios 1–3, US3.2 (retry landing on a genuinely different reply)
+- [x] SC-001 (growing reply) and SC-004 (Project/Agent distinctiveness) —
+      closed live once the credential fix landed; see section A2 above and
+      `G-31`.
+- [x] US1 scenarios 1–3 and US3.2 (retry landing on a genuinely different
+      reply) — closed live earlier the same day (`G-31`'s round-2/round-3
+      notes), covered by this file's own Result addendum below.
 
 ## E — Regression surface
 
@@ -293,11 +300,29 @@ were never updated for the second caller. Renamed to caller-neutral text.
 commit's Vercel check is `success`; the deployed preview's sign-in page was
 loaded directly and screenshotted.
 
-**Not reached, all recorded in [`G-31`](../../KnownGaps.md), none silently
-skipped:** a successful CLI completion (so SC-001, SC-004, and US1 scenarios
-1–3 stay unticked), the two-machine race (spec edge case 3), Mono-surface and
-keyboard-navigation checks, and a handful of narrower gaps named inline above
-(the `composerNotice` UI banner specifically, `WaitingNotice`'s actual
-on-screen paint, a literal reload-mid-turn on the cloud host). None of these
-block M14/M15's own decomposition — they build on the rendering seam this
-task proved works, not on the pieces still blocked by a missing credential.
+**Not reached at the time, all recorded in [`G-31`](../../KnownGaps.md), none
+silently skipped:** a successful CLI completion (so SC-001, SC-004, and US1
+scenarios 1–3 stayed unticked), the two-machine race (spec edge case 3),
+Mono-surface and keyboard-navigation checks, and a handful of narrower gaps
+named inline above (the `composerNotice` UI banner specifically,
+`WaitingNotice`'s actual on-screen paint, a literal reload-mid-turn on the
+cloud host). None of these blocked M14/M15's own decomposition — they build
+on the rendering seam this task proved works, not on the pieces blocked by a
+missing credential.
+
+**Addendum, 2026-08-24 — SC-001 and SC-004 closed live, once the credential
+gap closed.** With `claude setup-token` fixed (`G-31`'s "Closed, live" note),
+this task's last two open acceptance criteria were walked for real: a
+purpose-built scratch project (two files, each with a distinctive marker
+fact) proved SC-001 (`reply_seq` 1 → 3, text growing 142 → 327 chars in one
+turn) and half of SC-004 (the Project session correctly cited both markers;
+a parallel Free session answered "I don't know" to the identical question —
+observably not generic, by direct comparison). A purpose-built agent (a
+pirate persona on `model: opus`, deliberately not the session default
+`sonnet`) proved SC-004's other half: the reply matched the persona and
+`chat_turns.model` recorded `opus`, not the default. All test fixtures
+(project, agent, local directory, all chat sessions from this pass) were
+deleted/archived afterward — the real workspace carries no residue. Mono
+surface and keyboard-navigation checks remain genuinely unreached; the
+two-machine race remains `G-31`'s only open item. Full evidence in
+`KnownGaps.md`'s `G-31`.

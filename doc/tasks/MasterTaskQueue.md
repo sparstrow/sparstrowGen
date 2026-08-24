@@ -491,7 +491,7 @@ seam M13 now has.
 | 18.8 | [T-M13-02 — the local host answers in the same shape](M13/T-M13-02-local-host-turn-state.md) | `[P]` | 18.6 | ✅ done 2026-08-23 |
 | 18.9 | [T-M13-03 — hooks split, and `chat.tsx` renders a turn](M13/T-M13-03-chat-page-turn-rendering.md) | `[S]` | 18.7, 18.8 | ✅ done 2026-08-23 |
 | 18.10 | [T-M13-04 — Knowledge Center pass](M13/T-M13-04-knowledge-center.md) | `[P]` | 18.7, 18.9 | ✅ done 2026-08-23 |
-| 18.11 | [T-M13-05 — M13 verification](M13/T-M13-05-verification.md) | `[S]` | 18.7–18.10 | 🟡 done except credential-blocked pieces — [`G-31`](../KnownGaps.md) |
+| 18.11 | [T-M13-05 — M13 verification](M13/T-M13-05-verification.md) | `[S]` | 18.7–18.10 | ✅ done 2026-08-24 — SC-001/SC-004 closed live, last credential-blocked pieces — [`G-31`](../KnownGaps.md) |
 | 18.12 | [T-M14-01 — three waiting-reason cards, and TTL-expiry told apart from a real failure](M14/T-M14-01-waiting-reason-cards.md) | `[S]` | 18.11 | ✅ done 2026-08-23 |
 | 18.13 | [T-M14-02 — the Knowledge Center names the specific waiting states and the 24h wait](M14/T-M14-02-knowledge-center.md) | `[P]` | 18.11 | ✅ done 2026-08-23 |
 | 18.14 | [T-M14-03 — M14 verification](M14/T-M14-03-verification.md) | `[S]` | 18.12, 18.13 | ✅ done 2026-08-24 (scenario 2b closed live) |
@@ -561,6 +561,20 @@ scenario 2b, formerly `G-33`) — the real daemon was stopped, a message sent
 while it was down, then restarted, and the SAME turn resolved automatically
 with no resend. Full evidence in `KnownGaps.md`'s `G-31` "Closed, live"
 note. Both phases' plans are now fully built and verified.
+
+**SC-001 and SC-004 closed live, 2026-08-24, completing the plan.** The two
+verification criteria still open after the credential fix — a visibly
+growing reply across ≥2 broadcasts, and Project/Agent replies being
+observably distinctive rather than generic — were walked with a
+purpose-built scratch project and agent in the real account, both cleaned
+up afterward. `reply_seq` advanced 1→3 with the text growing 142→327 chars
+in one turn; a Project session correctly cited two marker facts a parallel
+Free session couldn't know; an agent on a non-default model (`opus`)
+replied correctly in its configured persona and `chat_turns` recorded that
+model, not the session default. Full evidence in `KnownGaps.md`'s `G-31`.
+The plan's own Status is now `✅ Completed` — the only thing left in `G-31`
+is the two-online-machines race, an accepted residual shared with
+`G-15`/`G-24`, not a blocker.
 
 ## Blocked items
 
