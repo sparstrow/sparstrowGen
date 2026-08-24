@@ -32,7 +32,11 @@ update the blueprint; only touch this section for the wiring detail below, which
 blueprint deliberately doesn't carry (file paths, provider specifics — not "what tech
 are we on").
 
-- **Router Adapter**: Custom Next.js navigation adapter (`apps/web/src/lib/react-router-mock.tsx`) intercepting TanStack Router calls.
+- **Router**: Plain `next/link` / `next/navigation`, direct — no adapter.
+  `react-router-mock.tsx` and the `@tanstack/react-router` dependency it
+  shimmed are both gone (`T-VR-04`, `D-24`); every navigation call site was
+  moved to the real Next.js APIs rather than kept behind a compatibility
+  layer.
 - **Design doctrine**: `DESIGN.md` — written 2026-08-18 with the owner via the `design-brief` skill, replacing generic tool output nobody had chosen. Read it before any UI work. It defines a **theming contract** (user-selectable brand accent + surface character, with contrast floors) rather than a fixed palette, so never hardcode a colour.
 - **Authentication**: `@supabase/ssr` (Passwordless Magic Link, Email & Password, GitHub OAuth, Google OAuth) + Next.js Middleware Session Guard (`apps/web/src/middleware.ts`).
 - **Realtime Cloud Sync**: Supabase Realtime Postgres event channel streaming (`apps/web/src/components/providers.tsx`) bridging into live React Query cache invalidation.
