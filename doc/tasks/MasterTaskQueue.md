@@ -576,6 +576,46 @@ The plan's own Status is now `✅ Completed` — the only thing left in `G-31`
 is the two-online-machines race, an accepted residual shared with
 `G-15`/`G-24`, not a blocker.
 
+### Band 19 — VR retire the Vite app (2026-08-24)
+
+Plan: [`../plans/2026-08-24-retire-the-vite-app.md`](../plans/2026-08-24-retire-the-vite-app.md).
+Spec: n/a (internal). Phase spec: [`VR/README.md`](VR/README.md).
+
+The owner's stated current priority, ahead of new features and the access
+model. Executes [`D-24`](../Deferred.md): one Next.js UI, Electron as a shell,
+`packages/ui` narrowed to a design system.
+
+**This band removes working features, deliberately.** Core implements 31
+handlers — terminals, folder browsing, project git, the code graph, provider
+settings, local skill import — that `apps/web` stubs with a 501, and the Vite
+app is the only UI that can reach them. The plan's decision 1 records why that
+loss is accepted and the condition that would reverse it. The rebuild is
+[`specs/2026-08-24-reaching-my-machine-from-the-browser.md`](../specs/2026-08-24-reaching-my-machine-from-the-browser.md),
+pending owner review — **not** part of this band.
+
+Every task is `[S]`. This is one sequence through one set of files: each task's
+shape depends on what its predecessor left behind, and two agents in
+`packages/ui` at once would conflict on nearly every file. Tasks 02–05 are
+written as their predecessor lands rather than up front, for the same reason.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 19.1 | [T-VR-01 — delete the Vite host](VR/T-VR-01-delete-vite-host.md) | `[S]` | — | ✅ done (2026-08-24) |
+| 19.2 | T-VR-02 — un-shim the components and pages | `[S]` | 19.1 | not written |
+| 19.3 | T-VR-03 — move the files into `apps/web` | `[S]` | 19.2 | not written |
+| 19.4 | T-VR-04 — one worked Server Component | `[S]` | 19.3 | not written |
+| 19.5 | T-VR-05 — verification | `[S]` | 19.1–19.4 | not written |
+
+**Runs against nothing else.** Band 18 is complete, and the two open specs
+(machine-reaching, access model) are both pre-review, so nothing is in flight
+to conflict with. Any new work touching `packages/ui` or `apps/web/src/app`
+must wait for this band rather than run `[P]` alongside it — the file overlap
+is total.
+
+**19.1 reopened [`BUG-2026-08-22-core-tests-flake-under-turbo-parallelism`](../bug/BUG-2026-08-22-core-tests-flake-under-turbo-parallelism.md)**,
+which was marked resolved: the package-level timeout fix does not cover a file
+that sets its own *lower* per-test timeout. Not fixed in this band.
+
 ## Blocked items
 
 > For a single checklist of everything that needs the owner specifically, see

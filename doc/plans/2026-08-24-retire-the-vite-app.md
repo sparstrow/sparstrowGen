@@ -3,11 +3,11 @@
 | | |
 |---|---|
 | **Spec** | n/a (internal) — no user-visible change is intended; this moves files between packages and removes a second host. The one behaviour change it *does* cause is a capability loss, handled under Decisions below rather than by writing a spec for a deletion |
-| **Status** | **Draft — not decomposed** |
+| **Status** | **In progress — P1 done 2026-08-24, P2 next** |
 | **Trigger** | Owner, 2026-08-24: "our priority right now is transitioning to the next.js app from the vite app and clearing that out. That's the priority, then we can work new feature or access" |
 | **Depends on** | — |
 | **Touches** | `packages/ui/` (all of it), `apps/web/src/app/`, `apps/web/src/lib/react-router-mock.tsx`, `apps/web/next.config.ts`, `apps/web/tsconfig.json`, `packages/core/src/api/server.ts`, `packages/desktop/src/urls.ts` |
-| **Tasks** | not decomposed yet |
+| **Tasks** | [`../tasks/VR/`](../tasks/VR/) — band 19; `T-VR-01` done, 02–05 written as their predecessor lands |
 | **Open questions** | none — the one real decision (accepting the capability loss) is taken below, not deferred |
 
 ## Summary
@@ -76,11 +76,16 @@ cloud-brokered, working from any browser rather than only at the machine.
 the UI that could reach them goes. Nothing has to be rewritten if the decision
 turns out to be wrong — a host would have to be restored, which is a revert.
 
-**The condition that would reverse it:** the owner actively using terminals or
-folder browsing from the local Electron app today. That was put to them
-directly when this plan was proposed; this decision records their answer as
-"proceed". If that changes, `host-fs` and `terminal` are the two to fill first,
-in that order — the picker is smaller and on the entry path.
+**The condition that would reverse it — asked and answered.** The reversing
+condition was the owner actively using terminals or folder browsing from the
+local Electron app. Put to them directly, 2026-08-24: *"right now I am not
+using electron. I will only use electron once everything is configured and
+working in webapp as we want. Electron is the final step."*
+
+So nothing is in use that this removes, and the plan runs as written. Should
+that change before the machine-reaching spec is built, `host-fs` and
+`terminal` are the two to fill first, in that order — the picker is smaller
+and on the entry path.
 
 ### 2. Move the pages; do not convert them
 
@@ -116,26 +121,47 @@ loads; it does not produce a release.
 
 ## Phases
 
-### P1 — Move the components (foundational)
+> **Order revised 2026-08-24, before decomposition**, on tracing the actual
+> dependencies. The original order (move → move → delete) assumed the move was
+> the hard part. It is not, and delete-first is both safer and smaller:
+>
+> - `packages/ui/src/components/layout/app-shell.tsx` is imported by exactly
+>   one file — `packages/ui/src/router.tsx`, the Vite router. `apps/web` uses
+>   its own shell. So the entire Vite host is a closed set nothing else
+>   reaches.
+> - **The move needs almost no import rewriting.** `apps/web/tsconfig.json`
+>   already maps `@/*` to `packages/ui/src/*`, and no page uses a relative
+>   import. A moved page keeps resolving as-is.
+> - While the Vite host exists, every shared component must satisfy *two*
+>   routers, which is the only reason the shim exists. Deleting the host first
+>   removes that constraint before the un-shimming rather than during it.
 
-The 10 non-page components that import the router shim, moved into `apps/web`
-and switched to Next's router directly. Done first because every page depends
-on some of them, and doing it second would mean touching the same files twice.
-Done when `apps/web` typechecks and tests pass with no component in
-`packages/ui` importing `@tanstack/react-router`.
+### P1 — Delete the Vite host (foundational)
 
-### P2 — Move the pages (foundational)
+The closed set nothing else imports: `index.html`, `vite.config.ts`,
+`src/main.tsx`, `src/router.tsx`, `src/components/layout/app-shell.tsx`, the
+`dev`/`build` scripts and Vite dependencies. Plus the three things that exist
+only to serve its output — core's `fastifyStatic` block and `SPARSTROW_UI_DIST`,
+the desktop packaging step's `ui/` staging, and Electron's `resolveLocalUiUrl`
+/ `SPARSTROW_DEV` fallback, whose default becomes the hosted app.
 
-The 26 pages, in batches, each batch deleting its 7-line re-export as it lands.
-Done when no `packages/ui/src/routes/` remains and every route still renders.
-This is the phase where the Vite host stops building — expected, and the reason
-P3 follows immediately rather than being scheduled separately.
+Done when nothing builds or serves a Vite bundle, `apps/web` still typechecks
+and every route still renders.
 
-### P3 — Delete the hosts (foundational)
+### P2 — Un-shim (foundational)
 
-The Vite entry, core's static serving, Electron's fallback, the shim and its
-aliases. Done when `packages/ui` has no `dev`/`build` script, core serves only
-its API, and Electron's default is the hosted app.
+The 10 non-page components and 26 pages rewritten from
+`@tanstack/react-router` to Next's router directly, then
+`react-router-mock.tsx` and both build aliases (`next.config.ts`,
+`tsconfig.json`) deleted. Second because P1 removes the second router that
+made the shim necessary.
+
+### P3 — Move the files (foundational)
+
+Pages into `apps/web/src/app/<route>/` beside their `page.tsx`, re-exports
+deleted, then `packages/ui` narrowed to the design system and `routes/` dropped
+as a name. Last because it is the largest diff and the least risky — by this
+point it is file movement with the semantics already settled.
 
 ### P4 — One worked Server Component (foundational, per decision 3)
 

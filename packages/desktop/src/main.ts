@@ -7,7 +7,7 @@ import { configureCoreClient } from "./core-client";
 import { setupUpdater } from "./updater";
 import { createTray } from "./tray";
 import { offlineScreenUrl } from "./offline";
-import { isLocalFallback, resolveAppUrl } from "./urls";
+import { resolveAppUrl } from "./urls";
 
 /**
  * Where the window points. Resolution lives in `urls.ts` so it can be tested —
@@ -21,7 +21,6 @@ import { isLocalFallback, resolveAppUrl } from "./urls";
  * staging a code change. See doc/tasks/M7/README.md decision 6.
  */
 const APP_URL = resolveAppUrl(process.env);
-const USING_LOCAL_FALLBACK = isLocalFallback(process.env);
 
 // 0004 Phase 0: in packaged mode, point every data path at persistent
 // userData and every resource at the install dir BEFORE the supervisor spawns
@@ -131,19 +130,31 @@ function openWindow(): void {
         console.error(`[main] the offline screen itself failed to load: ${errorDescription}`);
         return;
       }
-      console.warn(`[main] window failed to load ${APP_URL}: ${errorDescription} (${errorCode})`);
+      // `validatedURL` rather than APP_URL: it is what actually failed, which
+      // after an in-app navigation is not necessarily where the window started.
+      const failed = validatedURL || APP_URL || "the app";
+      console.warn(`[main] window failed to load ${failed}: ${errorDescription} (${errorCode})`);
       // Rebuilt per failure rather than cached, so the error named on screen is
-      // the current one. Retry is a plain link back to APP_URL: it either
-      // succeeds, or fails and lands right back here with a fresh message.
-      void mainWindow?.loadURL(offlineScreenUrl({ intendedUrl: APP_URL, errorDescription }));
+      // the current one. Retry is a plain link back: it either succeeds, or
+      // fails and lands right back here with a fresh message.
+      void mainWindow?.loadURL(offlineScreenUrl({ intendedUrl: failed, errorDescription }));
     },
   );
 
   // One line, so a support question is a log lookup rather than a guess about
-  // which of two URLs this build was pointed at.
-  console.log(
-    `[main] loading window: ${APP_URL}${USING_LOCAL_FALLBACK ? " (local — SPARSTROW_APP_URL is unset)" : ""}`,
-  );
+  // where this build was pointed.
+  if (APP_URL === null) {
+    console.warn("[main] SPARSTROW_APP_URL is not set — nothing to load");
+    void mainWindow.loadURL(
+      offlineScreenUrl({
+        intendedUrl: "no app URL configured",
+        errorDescription:
+          "SPARSTROW_APP_URL is not set. Set it to the Sparstrowgen web app this machine should open.",
+      }),
+    );
+    return;
+  }
+  console.log(`[main] loading window: ${APP_URL}`);
   void mainWindow.loadURL(APP_URL);
 }
 
