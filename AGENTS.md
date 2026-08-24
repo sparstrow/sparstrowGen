@@ -24,7 +24,8 @@ Welcome agent! This file defines the mandatory workflow, safety rules, and engin
 ### Locked Technology Stack
 
 **`.sparstrowgen/blueprint.yaml` is the single source of truth for the stack,
-commands, and MCP server roster — read it, don't restate its facts here.** It's
+commands, MCP server roster, and CLI tool roster — read it, don't restate its
+facts here.** It's
 loaded every session same as this file, so duplicating its content in prose here
 would just be two places to keep in sync instead of one. When the stack changes,
 update the blueprint; only touch this section for the wiring detail below, which the
@@ -56,8 +57,43 @@ posture, what pairs with what):
 - **`github`**: PR/issue management and repo search against this project's
   GitHub remote. OAuth on first connect (run `/mcp` to authorize), same pattern
   as `supabase` — no token ever belongs in `.mcp.json` or an agent's hands.
-- **`playwright`**: browser automation, backing the end-to-end visual/runtime
-  testing loop mandated in §3.10.
+- **`playwright`**: browser automation. As of 2026-08-24, the end-to-end
+  visual/runtime testing loop mandated in §3.10 defaults to the `agent-browser`
+  CLI tool instead (see below) — it drives Chrome directly over CDP and
+  doesn't share the Claude Browser pane's `document.visibilityState` bug.
+  `playwright` is kept connected only for the one thing `agent-browser` can't
+  do yet: forcing a specific non-2xx HTTP status or an artificially delayed
+  response via route mocking. Full rationale and the command-by-command
+  walkthrough:
+  [`doc/runbooks/agent-browser-session.md`](doc/runbooks/agent-browser-session.md#getting-a-browser-that-actually-renders--added-2026-08-20-revised-2026-08-24).
+
+### Connected CLI Tools
+
+The roster is `blueprint.yaml`'s `cli_tools` list — plain executables invoked
+via Bash, not MCP servers, so there's no `.mcp.json` entry and none is
+guaranteed present on a fresh machine. What follows is why each is there and
+how to get it if it's missing:
+
+- **`agent-browser`**: the default browser-automation tool for the §3.10
+  verification loop (see the `playwright` bullet above for why it replaced
+  Playwright as the default). Install: `npm install -g agent-browser &&
+  agent-browser install` — the second command fetches Chrome for Testing
+  once. Full walkthrough:
+  [`doc/runbooks/agent-browser-session.md`](doc/runbooks/agent-browser-session.md).
+- **`gh`**: GitHub CLI. Required for the auto-merge step in the Critical
+  Branch Rules (`gh pr merge <pr_number> --auto --squash`) and for reading
+  PR/worktree state (`gh pr view --json state,mergedAt,headRefName`) — see
+  `worktree-orchestration`. Install: https://cli.github.com (not an npm
+  package).
+- **`vercel`**: inspects and manages deployment config — env var scoping,
+  project protection — per
+  [`doc/runbooks/deploy-web-app.md`](doc/runbooks/deploy-web-app.md). Install:
+  `npm install -g vercel`.
+- **`supabase`**: local migration workflow — `db advisors`, `migration new`,
+  `db pull` / `migration list` — documented in `.agents/skills/supabase/SKILL.md`,
+  falling back to the `supabase` MCP server's equivalents (`get_advisors`,
+  `execute_sql`) on older CLI versions per that skill's "Known gotchas".
+  Install: `npm install -g supabase`.
 
 **`impeccable` Skill**: Production-grade UI design commands (`audit`, `adapt`,
 `polish`, `craft`, `shape`, `distill`, `harden`). Personal/user-level, not declared

@@ -35,3 +35,8 @@ commands:
   typecheck: "turbo run typecheck"
 
 mcp_servers: [supabase, context7, shadcn, github, playwright]
+
+# Plain CLI executables invoked via Bash, not MCP servers — no .mcp.json
+# entry, may be absent on a fresh machine. Purpose/install for each is in
+# AGENTS.md's "Connected CLI Tools".
+cli_tools: [agent-browser, gh, vercel, supabase]
