@@ -33,7 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TasksPage } from "../../tasks/tasks";
 import { PipelinesPage } from "../../pipelines/pipelines";
 import { SchedulePage } from "../../schedule/schedule";
-import { PipelineCanvas } from "@/components/pipelines/pipeline-canvas";
+import { PipelineCanvas } from "@web/components/pipelines/pipeline-canvas";
 import { 
   useTeam, 
   useUpdateTeam, 
@@ -46,8 +46,8 @@ import {
   useRemoveTeamMember,
   useTeamManagerChat,
   useCreatePipeline
-} from "@/api/hooks";
-import { ManagerChatPanel } from "@/components/team/manager-chat-panel";
+} from "@web/api/hooks";
+import { ManagerChatPanel } from "@web/components/team/manager-chat-panel";
 import { cn } from "@/lib/utils";
 import {
   validateDraftForPublish,

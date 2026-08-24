@@ -14,4 +14,13 @@ export default defineConfig({
       "@": path.resolve(here, "src"),
     },
   },
+  test: {
+    // T-VR-07 moved every test file this package had (all six) to apps/web
+    // along with the app code they tested. What remains here is presentational
+    // design-system primitives with no tests of their own — a legitimate state
+    // for this package, not a gap — and vitest's default of failing when zero
+    // test files exist would otherwise turn "no tests to write yet" into a
+    // permanently red `pnpm test`.
+    passWithNoTests: true,
+  },
 });

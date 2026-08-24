@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { useAgents, useMarkMessageRead, useMessages, useSendMessage } from "@/api/hooks";
+import { useAgents, useMarkMessageRead, useMessages, useSendMessage } from "@web/api/hooks";
 import { formatDate, shortId } from "@/lib/format";
 import { cn } from "@/lib/utils";
 

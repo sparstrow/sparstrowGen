@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useAgents, useCreateGoal, useCreateTask, useTeams } from "@/api/hooks";
+import { useAgents, useCreateGoal, useCreateTask, useTeams } from "@web/api/hooks";
 import { cn } from "@/lib/utils";
 
 /**

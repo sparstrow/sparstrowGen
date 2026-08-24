@@ -11,7 +11,7 @@ import {
   useRuntimes,
   useUnbindProject,
   useUpdateTask,
-} from "@/api/hooks";
+} from "@web/api/hooks";
 
 /**
  * M4 — what to do about a task blocked on a project the machine does not have.

@@ -15,8 +15,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCreateHostDir, useHostDir, useHostVolumes } from "@/api/hooks";
-import { canCreateFolder, isSingleSegment } from "@/lib/directory-picker";
+import { useCreateHostDir, useHostDir, useHostVolumes } from "@web/api/hooks";
+import { canCreateFolder, isSingleSegment } from "@web/lib/directory-picker";
 
 /**
  * 001 User Stories 2 and 3 — the in-app directory browser.

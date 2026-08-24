@@ -19,7 +19,7 @@ import {
   useKillTerminalSession,
   useTerminalSessions,
   type TerminalSession,
-} from "@/api/hooks";
+} from "@web/api/hooks";
 import { PageContainer } from "@/components/layout/page-container";
 import { formatDate, shortId } from "@/lib/format";
 import { cn } from "@/lib/utils";

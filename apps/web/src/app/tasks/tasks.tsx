@@ -10,10 +10,10 @@ import {
 } from "@dnd-kit/core";
 import { ArrowRight, Bot, CornerDownRight, Play, Plus, Trash2, User, Users } from "lucide-react";
 import type { Task, TaskStatus } from "@sparstrow/shared";
-import { BoardCard } from "@/components/board/board-card";
-import { BoardColumn } from "@/components/board/board-column";
+import { BoardCard } from "@web/components/board/board-card";
+import { BoardColumn } from "@web/components/board/board-column";
 import { Badge } from "@/components/ui/badge";
-import { BlockedProjectActions } from "@/components/blocked-project-actions";
+import { BlockedProjectActions } from "@web/components/blocked-project-actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -46,7 +46,7 @@ import {
   useRunTask,
   useTasks,
   useUpdateTask,
-} from "@/api/hooks";
+} from "@web/api/hooks";
 import { formatDate, shortId } from "@/lib/format";
 import { cn } from "@/lib/utils";
 

@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import { createClient } from "@web/utils/supabase/client";
-import { AccountProvider, type Account } from "@sparstrow/ui/lib/account";
-import { ImageUploaderProvider } from "@sparstrow/ui/lib/image-upload";
+import { AccountProvider, type Account } from "@web/lib/account";
+import { ImageUploaderProvider } from "@web/lib/image-upload";
 import { toSnapshot, type AccountSnapshot } from "@web/lib/auth/account-snapshot";
 import { createSupabaseImageUploader } from "@web/lib/storage/image-uploader";
 

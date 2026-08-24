@@ -57,7 +57,7 @@ import {
   useSkillAssignments,
   useSkills,
   useUpdateSkill,
-} from "@/api/hooks";
+} from "@web/api/hooks";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 

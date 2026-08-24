@@ -1,15 +1,15 @@
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, PanelLeft, Plus, X } from "lucide-react";
-import { useProjects, useTeams } from "@/api/hooks";
-import { getArticle } from "@/lib/knowledge";
+import { useProjects, useTeams } from "@web/api/hooks";
 import { shortId } from "@/lib/format";
-import { sectionMeta } from "@/lib/nav-meta";
-import { useWorkspaceTabs, type WorkspaceTab } from "@/lib/workspace-tabs";
+import { sectionMeta } from "@web/lib/nav-meta";
+import type { KnowledgeIndexEntry } from "@web/lib/knowledge.server";
+import { useWorkspaceTabs, type WorkspaceTab } from "@web/lib/workspace-tabs";
 import { cn } from "@/lib/utils";
 
 /** Human label for a tab: the section, sharpened to the entity for detail paths. */
-function useTabLabel(path: string): string {
+function useTabLabel(path: string, knowledgeIndex: KnowledgeIndexEntry[]): string {
   const projects = useProjects();
   const teams = useTeams();
   const pathname = path.split("?")[0]!;
@@ -25,7 +25,7 @@ function useTabLabel(path: string): string {
     case "runs":
       return `Run ${shortId(id!)}`;
     case "knowledge":
-      return getArticle(id!)?.title ?? meta.label;
+      return knowledgeIndex.find((a) => a.slug === id)?.title ?? meta.label;
     default:
       return meta.label;
   }
@@ -37,14 +37,16 @@ function Tab({
   closable,
   onActivate,
   onClose,
+  knowledgeIndex,
 }: {
   tab: WorkspaceTab;
   active: boolean;
   closable: boolean;
   onActivate: () => void;
   onClose: () => void;
+  knowledgeIndex: KnowledgeIndexEntry[];
 }) {
-  const label = useTabLabel(tab.path);
+  const label = useTabLabel(tab.path, knowledgeIndex);
   const Icon = sectionMeta(tab.path).icon;
   return (
     <div
@@ -86,7 +88,7 @@ function Tab({
  * inside the app; navigation follows the active tab, + opens another one.
  * Desktop-only (hidden below md, where the drawer nav takes over).
  */
-export function TabStrip() {
+export function TabStrip({ knowledgeIndex }: { knowledgeIndex: KnowledgeIndexEntry[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -138,6 +140,7 @@ export function TabStrip() {
             tab={t}
             active={t.id === activeId}
             closable={tabs.length > 1}
+            knowledgeIndex={knowledgeIndex}
             onActivate={() => {
               const tab = activate(t.id);
               if (tab) go(tab.path);

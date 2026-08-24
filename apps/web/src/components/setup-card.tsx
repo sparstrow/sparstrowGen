@@ -1,6 +1,6 @@
 import { Compass } from "lucide-react";
-import { useProfile, useRuntimes, useWorkspace } from "@/api/hooks";
-import { type StepId, isSetupComplete, setupSteps } from "@/lib/setup";
+import { useProfile, useRuntimes, useWorkspace } from "@web/api/hooks";
+import { type StepId, isSetupComplete, setupSteps } from "@web/lib/setup";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 

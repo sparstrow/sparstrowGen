@@ -60,8 +60,8 @@ import {
   useTasks,
   useUpdateDirective,
   type DirEntry,
-} from "@/api/hooks";
-import { useMemoryNotes } from "@/api/hooks";
+} from "@web/api/hooks";
+import { useMemoryNotes } from "@web/api/hooks";
 import { PrRow, ProfileBadge } from "@web/components/pr-queue";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";

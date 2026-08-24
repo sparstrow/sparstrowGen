@@ -2,7 +2,7 @@ import * as React from "react";
 import { Loader2 } from "lucide-react";
 import { checkImageFile } from "@sparstrow/shared";
 import { Button } from "@/components/ui/button";
-import { useImageUploader } from "@/lib/image-upload";
+import { useImageUploader } from "@web/lib/image-upload";
 import { cn } from "@/lib/utils";
 
 /**

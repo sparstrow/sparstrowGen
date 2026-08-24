@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateTeam, useSetTeamProjects } from "@/api/hooks";
+import { useCreateTeam, useSetTeamProjects } from "@web/api/hooks";
 
 /**
  * The interactive island `page.tsx` reads server-side data around. Owns the

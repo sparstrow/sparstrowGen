@@ -43,7 +43,7 @@ import {
   useRuntimes,
   useSetRuntimeSetting,
   type Runtime,
-} from "@/api/hooks";
+} from "@web/api/hooks";
 import {
   DEFAULT_WIP_SNAPSHOT_KEEP,
   SETTING_WIP_SNAPSHOT,

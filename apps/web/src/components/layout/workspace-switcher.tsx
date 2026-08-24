@@ -8,8 +8,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useWorkspace } from "@/api/hooks";
-import { useAccount } from "@/lib/account";
+import { useWorkspace } from "@web/api/hooks";
+import { useAccount } from "@web/lib/account";
 import { cn } from "@/lib/utils";
 
 /**

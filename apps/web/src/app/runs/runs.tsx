@@ -31,8 +31,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { RunStatusBadge } from "@/components/run-status-badge";
-import { useAgents, useCreateRun, useProjects, useRuns } from "@/api/hooks";
+import { RunStatusBadge } from "@web/components/run-status-badge";
+import { useAgents, useCreateRun, useProjects, useRuns } from "@web/api/hooks";
 import { formatCost, formatDate, formatDuration, shortId } from "@/lib/format";
 
 const STATUSES: RunStatus[] = ["queued", "running", "succeeded", "failed", "cancelled", "timeout"];

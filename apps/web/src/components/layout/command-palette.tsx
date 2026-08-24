@@ -29,7 +29,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { useAgents, useProjects, useTeams } from "@/api/hooks";
+import { useAgents, useProjects, useTeams } from "@web/api/hooks";
 
 const PAGES = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },

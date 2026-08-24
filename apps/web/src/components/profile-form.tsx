@@ -1,12 +1,12 @@
 import { LogOut } from "lucide-react";
-import { useProfile, useUpdateProfile } from "@/api/hooks";
-import { useAccount } from "@/lib/account";
+import { useProfile, useUpdateProfile } from "@web/api/hooks";
+import { useAccount } from "@web/lib/account";
 import { ActorAvatar } from "@/components/actor-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ImageUploadField } from "@/components/image-upload-field";
+import { ImageUploadField } from "@web/components/image-upload-field";
 import { LongTextField, SingleLineField } from "@/components/form-field";
 
 const PROVIDER_LABELS: Record<string, string> = {

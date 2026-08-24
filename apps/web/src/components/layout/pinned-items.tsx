@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Bot, FolderKanban, GripVertical, Pin, Play, Users, X } from "lucide-react";
-import { usePins, type PinnedItem } from "@/lib/pins";
+import { usePins, type PinnedItem } from "@web/lib/pins";
 import { cn } from "@/lib/utils";
 
 const KIND_ICONS: Record<PinnedItem["kind"], typeof Pin> = {

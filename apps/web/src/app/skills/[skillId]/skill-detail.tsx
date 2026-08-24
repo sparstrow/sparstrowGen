@@ -27,7 +27,7 @@ import {
   useSkill,
   useSkillAssignments,
   useUpdateSkill,
-} from "@/api/hooks";
+} from "@web/api/hooks";
 import { formatDate, shortId } from "@/lib/format";
 import { cn } from "@/lib/utils";
 

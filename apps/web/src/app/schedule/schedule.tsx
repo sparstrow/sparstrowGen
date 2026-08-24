@@ -40,7 +40,7 @@ import {
   usePipelines,
   useRunCronJobNow,
   useUpdateCronJob,
-} from "@/api/hooks";
+} from "@web/api/hooks";
 import { formatDate, shortId } from "@/lib/format";
 
 const PRESETS: { label: string; expr: string }[] = [

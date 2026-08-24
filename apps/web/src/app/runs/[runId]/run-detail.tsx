@@ -6,11 +6,11 @@ import { ArrowLeft, ChevronRight, OctagonX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RunStatusBadge } from "@/components/run-status-badge";
-import { RunTranscript } from "@/components/run-transcript";
-import { useAgents, useCancelRun, useRun, useRunEvents } from "@/api/hooks";
-import { useLiveEvents } from "@/lib/live-events";
-import { mergeRunEvents } from "@/lib/merge-run-events";
+import { RunStatusBadge } from "@web/components/run-status-badge";
+import { RunTranscript } from "@web/components/run-transcript";
+import { useAgents, useCancelRun, useRun, useRunEvents } from "@web/api/hooks";
+import { useLiveEvents } from "@web/lib/live-events";
+import { mergeRunEvents } from "@web/lib/merge-run-events";
 import { cn } from "@/lib/utils";
 import { formatCost, formatDate, formatDuration } from "@/lib/format";
 

@@ -43,14 +43,14 @@ import {
   useProjects,
   useRetryChatTurn,
   useUpdateChatSession,
-} from "@/api/hooks";
-import { useLiveEvents } from "@/lib/live-events";
+} from "@web/api/hooks";
+import { useLiveEvents } from "@web/lib/live-events";
 import {
   applyChatTurnBroadcast,
   applyChatTurnState,
   isBroadcastForHeldTurn,
   isTurnBusy,
-} from "@/lib/chat-turn-state";
+} from "@web/lib/chat-turn-state";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 

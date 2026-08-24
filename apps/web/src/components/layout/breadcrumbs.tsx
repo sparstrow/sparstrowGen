@@ -9,9 +9,9 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { useProjects, useTeams } from "@/api/hooks";
-import { getArticle } from "@/lib/knowledge";
-import { NAV_META } from "@/lib/nav-meta";
+import { useProjects, useTeams } from "@web/api/hooks";
+import { NAV_META } from "@web/lib/nav-meta";
+import type { KnowledgeIndexEntry } from "@web/lib/knowledge.server";
 import { shortId } from "@/lib/format";
 
 interface Crumb {
@@ -24,7 +24,7 @@ interface Crumb {
  * segments resolve to real entity names (Projects / My App) via the cached
  * list queries — no extra fetches.
  */
-export function Breadcrumbs() {
+export function Breadcrumbs({ knowledgeIndex }: { knowledgeIndex: KnowledgeIndexEntry[] }) {
   const pathname = usePathname();
   const projects = useProjects();
   const teams = useTeams();
@@ -62,7 +62,9 @@ export function Breadcrumbs() {
         out.push({ label: rest[0] === "create" ? "Agent Creator" : shortId(rest[0]!) });
         break;
       case "knowledge":
-        out.push({ label: getArticle(rest[0]!)?.title ?? rest[0]! });
+        out.push({
+          label: knowledgeIndex.find((a) => a.slug === rest[0])?.title ?? rest[0]!,
+        });
         break;
       case "tasks":
         if (rest[0] === "goals" && rest[1]) out.push({ label: `Goal ${shortId(rest[1])}` });
@@ -72,7 +74,7 @@ export function Breadcrumbs() {
         out.push({ label: rest.join("/") });
     }
     return out;
-  }, [pathname, projects.data, teams.data]);
+  }, [pathname, projects.data, teams.data, knowledgeIndex]);
 
   return (
     <Breadcrumb className="min-w-0">

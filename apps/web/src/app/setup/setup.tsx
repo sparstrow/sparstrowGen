@@ -1,10 +1,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { CheckCircle2, ChevronRight, CircleAlert, Monitor, PartyPopper } from "lucide-react";
-import { useProfile, useRuntimes, useWorkspace } from "@/api/hooks";
-import { type StepId, type StepState, isSetupComplete, setupSteps } from "@/lib/setup";
-import { ProfileForm } from "@/components/profile-form";
-import { WorkspaceForm } from "@/components/workspace-form";
+import { useProfile, useRuntimes, useWorkspace } from "@web/api/hooks";
+import { type StepId, type StepState, isSetupComplete, setupSteps } from "@web/lib/setup";
+import { ProfileForm } from "@web/components/profile-form";
+import { WorkspaceForm } from "@web/components/workspace-form";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";

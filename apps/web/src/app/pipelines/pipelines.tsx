@@ -24,7 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { RunStatusBadge } from "@/components/run-status-badge";
+import { RunStatusBadge } from "@web/components/run-status-badge";
 import {
   useAgents,
   useCreatePipeline,
@@ -35,8 +35,8 @@ import {
   useRunPipeline,
   useUpdatePipeline,
   useTeam,
-} from "@/api/hooks";
-import { ManagerChatPanel } from "@/components/team/manager-chat-panel";
+} from "@web/api/hooks";
+import { ManagerChatPanel } from "@web/components/team/manager-chat-panel";
 import { formatDate, shortId } from "@/lib/format";
 
 interface StepDraft {

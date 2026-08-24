@@ -24,7 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { GoalGraph } from "@/components/goals/goal-graph";
+import { GoalGraph } from "@web/components/goals/goal-graph";
 import {
   useAgents,
   useCancelGoal,
@@ -35,7 +35,7 @@ import {
   useReplanGoal,
   useResumeGoal,
   useRetryNode,
-} from "@/api/hooks";
+} from "@web/api/hooks";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 

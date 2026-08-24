@@ -4,7 +4,7 @@ import type { ProjectPrGroup, PullRequestSummary } from "@sparstrow/shared";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { usePrQueue } from "@/api/hooks";
+import { usePrQueue } from "@web/api/hooks";
 import { formatDate } from "@/lib/format";
 
 /** One PR row — repo/branch context, checks-less GitHub link (the founder's #2 surface). */

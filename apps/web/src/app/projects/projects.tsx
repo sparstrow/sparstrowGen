@@ -46,11 +46,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { DirectoryPickerDialog } from "@/components/directory-picker-dialog";
-import { useProjects, useProvisionProject } from "@/api/hooks";
-import { nativePickerAvailable, pickDirectoryNative } from "@/lib/directory-picker";
+import { DirectoryPickerDialog } from "@web/components/directory-picker-dialog";
+import { useProjects, useProvisionProject } from "@web/api/hooks";
+import { nativePickerAvailable, pickDirectoryNative } from "@web/lib/directory-picker";
 import { formatDate } from "@/lib/format";
-import { pinKey, usePins } from "@/lib/pins";
+import { pinKey, usePins } from "@web/lib/pins";
 
 const MODES: { mode: ProjectCreateMode; label: string; icon: React.ReactNode; hint: string }[] = [
   { mode: "scratch", label: "Start from scratch", icon: <FolderPlus className="size-4" />, hint: "Create a new empty folder." },

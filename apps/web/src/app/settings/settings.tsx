@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trash2, User, Palette, Github, Settings as SettingsIcon, Key, Activity, AlertTriangle, Sun, Moon, Monitor } from "lucide-react";
-import { useAccount } from "@/lib/account";
+import { useAccount } from "@web/lib/account";
 import {
   useClearGithubPat,
   useClearProviderKey,
@@ -26,7 +26,7 @@ import {
   useSetProviderKey,
   useSettings,
   useUpdateSettings,
-} from "@/api/hooks";
+} from "@web/api/hooks";
 import {
   DEFAULT_WIP_SNAPSHOT_KEEP,
   SETTING_WIP_SNAPSHOT,
@@ -38,8 +38,8 @@ import {
 import { useTheme, type Theme } from "@/theme/theme-provider";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { ProfileForm } from "@/components/profile-form";
-import { WorkspaceForm } from "@/components/workspace-form";
+import { ProfileForm } from "@web/components/profile-form";
+import { WorkspaceForm } from "@web/components/workspace-form";
 
 /**
  * P5 (design F4): ONE engine-level row — per-project index state lives on each

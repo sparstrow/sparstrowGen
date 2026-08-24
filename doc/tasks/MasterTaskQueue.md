@@ -605,7 +605,7 @@ decomposed 2026-08-24 — six tasks, all written.
 | 19.4 | [T-VR-04 — un-shim, and delete the shim](VR/T-VR-04-unshim.md) | `[S]` | 19.3 | ✅ done (2026-08-24) |
 | 19.5 | [T-VR-05 — one worked Server Component](VR/T-VR-05-server-component.md) | `[S]` | 19.4 | ✅ done (2026-08-24) |
 | 19.6 | [T-VR-06 — verification](VR/T-VR-06-verification.md) | `[S]` | 19.1–19.5, 19.7 | not started |
-| 19.7 | [T-VR-07 — finish narrowing `packages/ui`](VR/T-VR-07-narrow-packages-ui.md) | `[S]` | 19.4 | not started |
+| 19.7 | [T-VR-07 — finish narrowing `packages/ui`](VR/T-VR-07-narrow-packages-ui.md) | `[S]` | 19.4 | ✅ done (2026-08-24) |
 
 **Runs against nothing else.** Band 18 is complete, and the two open specs
 (machine-reaching, access model) are both pre-review, so nothing is in flight
@@ -613,11 +613,15 @@ to conflict with. Any new work touching `packages/ui` or `apps/web/src/app`
 must wait for this band rather than run `[P]` alongside it — the file overlap
 is total.
 
-**19.3 filed [`BUG-2026-08-24-hosted-app-never-loads-its-typeface`](../bug/BUG-2026-08-24-hosted-app-never-loads-its-typeface.md)** — the hosted app has never loaded the typeface `DESIGN.md` mandates. Pre-existing, not fixed in this band.
+**19.3 filed, 19.7 resolved [`BUG-2026-08-24-hosted-app-never-loads-its-typeface`](../bug/BUG-2026-08-24-hosted-app-never-loads-its-typeface.md)** — the hosted app never loaded the typeface `DESIGN.md` mandates. Pre-existing; fixed once the correct import location settled at `T-VR-07`.
 
-**19.1 reopened [`BUG-2026-08-22-core-tests-flake-under-turbo-parallelism`](../bug/BUG-2026-08-22-core-tests-flake-under-turbo-parallelism.md)**,
+**19.7 filed and fixed [`BUG-2026-08-24-knowledge-breadcrumb-title-silently-blank`](../bug/BUG-2026-08-24-knowledge-breadcrumb-title-silently-blank.md)** — the same failure shape as the typeface bug, found while classifying `packages/ui`: `lib/knowledge.ts`'s Vite-only `import.meta.glob` had silently returned an empty registry since `T-VR-01`, so Knowledge Center breadcrumbs/tabs showed a raw slug instead of the article title.
+
+**19.1 partially fixed [`BUG-2026-08-22-core-tests-flake-under-turbo-parallelism`](../bug/BUG-2026-08-22-core-tests-flake-under-turbo-parallelism.md)**,
 which was marked resolved: the package-level timeout fix does not cover a file
-that sets its own *lower* per-test timeout. Not fixed in this band.
+that sets its own *lower* per-test timeout. That override is removed; the
+underlying CPU-oversubscription cause (five suites' worker pools contending
+under `turbo run test`) is deliberately left open — see the bug for why.
 
 ## Blocked items
 

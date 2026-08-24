@@ -26,7 +26,7 @@ import {
   agentToForm,
   formToPayload,
   type AgentFormValues,
-} from "@/components/agent-form";
+} from "@web/components/agent-form";
 import { ChatTurnView, ThinkingDots, TurnErrorBanner } from "@web/components/chat/chat-bits";
 import {
   useAgentDraftTurn,
@@ -37,7 +37,7 @@ import {
   useCreateChatSession,
   useRetryAgentDraftTurn,
   useUpdateChatSession,
-} from "@/api/hooks";
+} from "@web/api/hooks";
 import { formatDate } from "@/lib/format";
 
 const STARTERS = [

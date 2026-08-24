@@ -47,9 +47,9 @@ import {
   agentToForm,
   formToPayload,
   type AgentFormValues,
-} from "@/components/agent-form";
-import { NewAgentButton } from "@/components/new-agent-button";
-import { SkillViewer } from "@/components/skill-viewer";
+} from "@web/components/agent-form";
+import { NewAgentButton } from "@web/components/new-agent-button";
+import { SkillViewer } from "@web/components/skill-viewer";
 import {
   useAgents,
   useCreateAgent,
@@ -59,7 +59,7 @@ import {
   useSkills,
   useTestSpawnAgent,
   useUpdateAgent,
-} from "@/api/hooks";
+} from "@web/api/hooks";
 import { formatDate } from "@/lib/format";
 
 export function AgentsPage() {

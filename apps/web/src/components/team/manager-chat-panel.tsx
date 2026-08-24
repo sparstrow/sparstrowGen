@@ -12,10 +12,10 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useTeamManagerChat, useCreatePipeline } from "@/api/hooks";
+import { useTeamManagerChat, useCreatePipeline } from "@web/api/hooks";
 import { cn } from "@/lib/utils";
-import { PipelineCanvas } from "@/components/pipelines/pipeline-canvas";
-import { PipelineList } from "@/components/pipelines/pipeline-list";
+import { PipelineCanvas } from "@web/components/pipelines/pipeline-canvas";
+import { PipelineList } from "@web/components/pipelines/pipeline-list";
 
 export function ManagerChatPanel({
   teamId,

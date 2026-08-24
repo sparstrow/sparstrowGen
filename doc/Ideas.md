@@ -232,3 +232,22 @@ not sitting in front of — so none is a mechanical follow-on. Worth picking up
 individually, by whichever the owner misses first, rather than as one batch.
 
 *Surfaced while scoping that spec's Assumptions.*
+
+---
+
+## I-12 — Retire the "two hosts disagree about accounts" branch in three files
+
+`account.tsx`, `image-upload.tsx` and `directory-picker.ts` (now in
+`apps/web/src/lib/`) each carry a branch built when two UI hosts genuinely
+disagreed about what existed: the web app authenticated against Supabase, the
+local desktop build had no account or workspace to speak of. `D-24` retired
+that second host — Electron now just points a window at the hosted app. The
+branch's premise is gone, but the branch itself is still there, since removing
+it is behavioural surgery, not something a file-organization pass
+(`T-VR-07`) should also be doing.
+
+Found and recorded in full in `design-system/DECISIONS.md` `DD-015`, which is
+where the reasoning lives. This entry exists only so it surfaces to someone
+scanning ideas rather than only to someone who happens to open that file.
+
+*Surfaced while classifying `packages/ui` files for `T-VR-07`.*

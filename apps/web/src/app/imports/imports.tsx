@@ -11,7 +11,7 @@ import {
   useSkillImportDetail,
   useSkillImports,
   useStartSkillImport,
-} from "@/api/hooks";
+} from "@web/api/hooks";
 
 function repoLabel(url: string): string {
   return (

@@ -15,7 +15,7 @@ import {
   useDenyTask,
   useResolveContradiction,
   type AttentionRow,
-} from "@/api/hooks";
+} from "@web/api/hooks";
 
 /** Task-backed rows (question/approval/review) always carry a task; the P5
  *  contradiction row is the task-null variant. */

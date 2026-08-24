@@ -6,7 +6,7 @@ import {
   chatTurnTopic,
   runTranscriptTopic,
 } from "@sparstrow/shared";
-import type { LiveEventSource } from "@sparstrow/ui/lib/live-events";
+import type { LiveEventSource } from "@web/lib/live-events";
 import { createClient } from "@web/utils/supabase/client";
 
 /**

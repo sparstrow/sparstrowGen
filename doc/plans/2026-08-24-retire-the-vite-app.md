@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | n/a (internal) — no user-visible change is intended; this moves files between packages and removes a second host. The one behaviour change it *does* cause is a capability loss, handled under Decisions below rather than by writing a spec for a deletion |
-| **Status** | **In progress — P1–P5 done 2026-08-24; P6/P7 next** |
+| **Status** | **In progress — P1–P5 and P7 done 2026-08-24; P6 (verification) next** |
 | **Trigger** | Owner, 2026-08-24: "our priority right now is transitioning to the next.js app from the vite app and clearing that out. That's the priority, then we can work new feature or access" |
 | **Depends on** | — |
 | **Touches** | `packages/ui/` (all of it), `apps/web/src/app/`, `apps/web/src/lib/react-router-mock.tsx`, `apps/web/next.config.ts`, `apps/web/tsconfig.json`, `packages/core/src/api/server.ts`, `packages/desktop/src/urls.ts` |

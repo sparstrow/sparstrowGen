@@ -13,7 +13,7 @@ import {
   formToPayload,
   type AgentFormValues,
   type SetField,
-} from "@/components/agent-form";
+} from "@web/components/agent-form";
 import { formatDate } from "@/lib/format";
 
 function ReadRow({ label, children }: { label: string; children: React.ReactNode }) {

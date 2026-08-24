@@ -1,12 +1,12 @@
 import { Building2 } from "lucide-react";
-import { useUpdateWorkspace, useWorkspace } from "@/api/hooks";
-import { useAccount } from "@/lib/account";
+import { useUpdateWorkspace, useWorkspace } from "@web/api/hooks";
+import { useAccount } from "@web/lib/account";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ImageUploadField } from "@/components/image-upload-field";
+import { ImageUploadField } from "@web/components/image-upload-field";
 import { LongTextField, SingleLineField } from "@/components/form-field";
 
 /**

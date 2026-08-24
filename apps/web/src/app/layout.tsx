@@ -12,6 +12,7 @@ import { AppShell } from "@web/components/layout/app-shell";
 import { Providers } from "@web/components/providers";
 import { toSnapshot } from "@web/lib/auth/account-snapshot";
 import { createClient } from "@web/utils/supabase/server";
+import { getKnowledgeIndex } from "@web/lib/knowledge.server";
 
 export const metadata: Metadata = {
   title: "Sparstrowgen",
@@ -34,6 +35,10 @@ export default async function RootLayout({
     data: { user },
   } = await supabase.auth.getUser();
   const account = user ? toSnapshot(user) : null;
+  // Static repo content, not user data — read once here rather than a second
+  // client-side fetch. See getKnowledgeIndex's own comment for why this
+  // can't just be imported directly by breadcrumbs.tsx/tab-strip.tsx.
+  const knowledgeIndex = getKnowledgeIndex();
 
   const cookieStore = await cookies();
   const themeCookie = cookieStore.get("theme-prefs");
@@ -73,7 +78,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col">
         <Providers account={account}>
           <Suspense fallback={null}>
-            <AppShell>{children}</AppShell>
+            <AppShell knowledgeIndex={knowledgeIndex}>{children}</AppShell>
           </Suspense>
         </Providers>
       </body>

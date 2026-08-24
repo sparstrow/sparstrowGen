@@ -88,7 +88,7 @@ import type {
   ChatTurnRequest,
   ChatTurnState,
 } from "@sparstrow/shared";
-import { api, type ApiError } from "@/lib/api";
+import { api, type ApiError } from "@web/lib/api-client";
 
 /** Builds a query string from defined params; returns "" when empty. */
 function qs(params: Record<string, string | number | undefined | null>): string {
