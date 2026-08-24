@@ -179,6 +179,154 @@ decision to drop US2.
 
 ---
 
+## OQ-7 — When a page's write gets converted too, not just its read: Server Action, or keep the existing mutation?
+
+**Raised:** 2026-08-24, closing out
+[`T-VR-05`](../tasks/VR/T-VR-05-server-component.md), the phase's first
+Server Component conversion.
+**Blocks:** nothing in flight. `T-VR-06` and `T-VR-07` do not depend on this.
+It will block the *next* page conversion that includes a write — whichever of
+[`D-25`](../Deferred.md)'s opportunistic per-route conversions, or one of the
+still-stubbed modules in
+[`stubs.ts`](../../apps/web/src/lib/api/handlers/stubs.ts), gets picked up
+next.
+
+### Context
+
+`apps/web/CLAUDE.md` already states a rule: *"Ordinary writes are Server
+Actions with `revalidatePath`, not a POST to `/api/v1` followed by a React
+Query invalidation."* `T-VR-05` did not follow it. Converting `teams`, its
+create-team button was left exactly as it was — still calling the existing
+`POST /api/v1/teams` through the existing `useCreateTeam()` React Query hook
+— with `router.refresh()` added afterward to make the server-rendered list
+catch up. That was the right scope call for a *first* example: rewriting a
+working mutation was not what that task was proving. But nothing stops the
+next page conversion from copying it as precedent instead of as a deliberate
+exception, and the two situations it will be copied into are genuinely
+different:
+
+- **The 21 already-converted-read pages** each have a *working* React Query
+  mutation sitting right there. Rewriting it costs real effort and real
+  regression risk for no change a user would ever see.
+- **The still-stubbed modules** (host-fs, terminals, goals, agent draft, and
+  the rest — see [`I-11`](../Ideas.md)) have **no existing mutation to
+  reuse**. There is nothing to disrupt by building them the way the doctrine
+  already says to.
+
+Left undecided, the fork gets resolved by accident the moment someone builds
+the first new button by copying whatever pattern is already on screen —
+which, today, is `teams`'s. That would settle the question as "keep the old
+way forever" without anyone actually choosing it.
+
+**In plain terms**, for whoever reads this without the surrounding code
+context: today, saving something and updating what you see afterward are two
+separate steps — one request to save, a second, separate instruction telling
+the page to go re-check what it should show. The doctrine's target pattern
+folds both into one step. The question is not *whether* new work eventually
+does it the one-step way — the doctrine already says so — it's whether
+*already-working* buttons get rewritten to match, and when.
+
+### Scenario
+
+You're on the Teams page. It's empty. You click "New team," type a name, hit
+Create. Today, that click saves the team, and then — as a second, separate
+step — the page re-checks what it should show and your new team appears.
+Two things happen in sequence; you don't notice a gap, but there are two
+steps behind the one thing you did.
+
+### Options
+
+Each replays that same click.
+
+**A — Rewrite every existing write to the one-step way, right now**
+
+- **What this is:** Every button on every page — renaming a machine, adding a
+  skill, creating a pipeline, all 20 pages this hasn't touched yet — gets its
+  save-and-refresh rebuilt as a single server-side step, whether or not
+  anyone is otherwise touching that page.
+- **You click Create:** Same result on screen, same team appears. Nothing
+  about what you experience changes. Behind the scenes, a large amount of
+  code that already works today gets rewritten for that identical, invisible
+  outcome.
+- **Pros:** Fully matches the stated doctrine, everywhere, immediately. One
+  write pattern in the codebase, not two, from this point forward.
+- **Cons:** Retrofits ~20 pages that were not otherwise being touched, each
+  one a real rewrite with its own regression risk — the exact "escaped
+  decision 2" scope `T-VR-05`'s own ceiling warned against, just arriving on
+  page 2 instead of page 1. `settings.tsx` alone has 12 separate writes.
+- **Score: 4/10**
+- **Blast radius if wrong:** Every future page conversion becomes two tasks
+  (the read, then a full write rewrite) instead of one, and each rewrite is a
+  new place a mutation that worked yesterday can break today for no
+  user-visible reason.
+- **Caveats:** Only sensible if the cost of ~20 rewrites is genuinely small
+  relative to the app. It measurably is not.
+
+**B — Keep the two-step way everywhere, including for buttons that don't exist yet**
+
+- **What this is:** `router.refresh()` after a React Query mutation becomes
+  the standing pattern for all future work too. When Terminals or the folder
+  picker finally get built, they get a new `/api/v1` handler and a new React
+  Query hook, exactly like every page before them.
+- **You click Create:** Identical outcome again. But the day someone builds
+  the "start a terminal session" button for the first time, it is built the
+  two-step way as well — even though there was never an existing mutation
+  there worth preserving.
+- **Pros:** Zero new patterns to learn, maximum consistency with every
+  existing page, fastest to ship anything, old or new.
+- **Cons:** Never converges on the doctrine's stated target at all — every
+  new write reinforces the exact thing this phase exists to move away from.
+  `apps/web/CLAUDE.md`'s write rule becomes a sentence nobody follows.
+- **Score: 3/10**
+- **Blast radius if wrong:** Low immediate risk to any one page, but the
+  written instructions stop matching what actually gets built — the same
+  failure `AGENTS.md` names for a duplicated doctrine that keeps enforcing
+  itself after the original changed underneath it.
+- **Caveats:** Only defensible as a deliberate decision to walk back the
+  doctrine's write rule outright — not as something that happens by nobody
+  deciding otherwise.
+
+**C — New writes follow the doctrine; existing writes convert only when something else is already touching them**
+
+- **What this is:** A write that has no existing mutation to reuse — every
+  one of the stubbed modules — is built as a Server Action from the start,
+  matching `apps/web/CLAUDE.md` exactly, since there is nothing old to
+  preserve. A write on a page whose *read* is being converted, but which
+  already has a working mutation, stays exactly as it is — `router.refresh()`
+  closing the loop, precisely what `T-VR-05` did — until that specific write
+  is being changed for some other reason of its own.
+- **You click Create on `teams`:** Nothing changes; this is exactly what
+  exists today. **You click "start a terminal" on the rebuilt Terminals
+  page:** that save-and-refresh is one step, a Server Action, because there
+  was never a `useMutation` hook there to keep.
+- **Pros:** Matches the doctrine everywhere it costs nothing to (all new
+  work), forces no unrequested rewrites of things that already work, and
+  every future write still moves toward the target pattern rather than away
+  from it.
+- **Cons:** Two write patterns coexist in the codebase for a while — a real,
+  visible inconsistency, though a shallow one: which pattern applies is a
+  single yes/no question (does a mutation already exist for this?), not a
+  judgment call made fresh per page.
+- **Score: 8/10**
+- **Blast radius if wrong:** Small. A page left on the "old" write pattern
+  still works correctly; it converts the next time that specific write is
+  touched for its own reasons, not left broken in the meantime.
+- **Caveats:** Only holds if the one-line rule is actually written down
+  somewhere the next person converting a page will read *before* guessing —
+  otherwise it silently decays into Option B, since "keep what's already
+  there" is always the path of least resistance and nobody has to choose it
+  on purpose.
+
+### Recommendation
+
+**C.** It is the only option that neither burns a large amount of unrequested
+rework (A) nor quietly abandons a rule that is already written down (B). When
+this is decided, the rule belongs directly in `apps/web/CLAUDE.md`, next to
+the sentence `T-VR-05` did not follow — that is exactly what a future agent
+needs to read *before* converting the next write, not after.
+
+---
+
 *OQ-5 (Vercel Deployment Protection blocking `development`/`staging`) was
 **answered by the owner on 2026-08-20** — option A. SSO protection disabled
 project-wide via `vercel project protection disable sparstrowgen --sso`; both

@@ -196,6 +196,10 @@ or assuming the code was wrong; the second start was clean.
   the smallest possible first example. Whoever converts the next page with a
   real write should treat that as a live choice, not inherit
   `router.refresh()` + React Query as the established pattern by default.
+  Raised to the owner as [`OQ-7`](../../OpenQuestions.md), parked pending a
+  decision -- recommendation is to keep this pattern for existing writes and
+  use Server Actions only for genuinely new ones (the stubbed modules), but
+  that is not yet decided.
 - **The candidate list in this task's own header (`machines`, `runs`,
   `imports`) does not describe any page in this codebase.** Corrected here so
   the next reader does not re-discover the same dead end.
