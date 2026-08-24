@@ -593,18 +593,18 @@ loss is accepted and the condition that would reverse it. The rebuild is
 [`specs/2026-08-24-reaching-my-machine-from-the-browser.md`](../specs/2026-08-24-reaching-my-machine-from-the-browser.md),
 pending owner review — **not** part of this band.
 
-Every task is `[S]`. This is one sequence through one set of files: each task's
-shape depends on what its predecessor left behind, and two agents in
-`packages/ui` at once would conflict on nearly every file. Tasks 02–05 are
-written as their predecessor lands rather than up front, for the same reason.
+Every task is `[S]`. This is one sequence through one set of files, and two
+agents in `packages/ui` at once would conflict on nearly every file. Fully
+decomposed 2026-08-24 — six tasks, all written.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
 | 19.1 | [T-VR-01 — delete the Vite host](VR/T-VR-01-delete-vite-host.md) | `[S]` | — | ✅ done (2026-08-24) |
-| 19.2 | T-VR-02 — un-shim the components and pages | `[S]` | 19.1 | not written |
-| 19.3 | T-VR-03 — move the files into `apps/web` | `[S]` | 19.2 | not written |
-| 19.4 | T-VR-04 — one worked Server Component | `[S]` | 19.3 | not written |
-| 19.5 | T-VR-05 — verification | `[S]` | 19.1–19.4 | not written |
+| 19.2 | [T-VR-02 — move the router-using components](VR/T-VR-02-move-components.md) | `[S]` | 19.1 | not started |
+| 19.3 | [T-VR-03 — move the pages](VR/T-VR-03-move-pages.md) | `[S]` | 19.2 | not started |
+| 19.4 | [T-VR-04 — un-shim, and delete the shim](VR/T-VR-04-unshim.md) | `[S]` | 19.3 | not started |
+| 19.5 | [T-VR-05 — one worked Server Component](VR/T-VR-05-server-component.md) | `[S]` | 19.4 | not started |
+| 19.6 | [T-VR-06 — verification](VR/T-VR-06-verification.md) | `[S]` | 19.1–19.5 | not started |
 
 **Runs against nothing else.** Band 18 is complete, and the two open specs
 (machine-reaching, access model) are both pre-review, so nothing is in flight

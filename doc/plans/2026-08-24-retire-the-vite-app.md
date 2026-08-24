@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | n/a (internal) — no user-visible change is intended; this moves files between packages and removes a second host. The one behaviour change it *does* cause is a capability loss, handled under Decisions below rather than by writing a spec for a deletion |
-| **Status** | **In progress — P1 done 2026-08-24, P2 next** |
+| **Status** | **In progress — P1 done 2026-08-24; P2–P6 decomposed, P2 next** |
 | **Trigger** | Owner, 2026-08-24: "our priority right now is transitioning to the next.js app from the vite app and clearing that out. That's the priority, then we can work new feature or access" |
 | **Depends on** | — |
 | **Touches** | `packages/ui/` (all of it), `apps/web/src/app/`, `apps/web/src/lib/react-router-mock.tsx`, `apps/web/next.config.ts`, `apps/web/tsconfig.json`, `packages/core/src/api/server.ts`, `packages/desktop/src/urls.ts` |
@@ -148,26 +148,50 @@ the desktop packaging step's `ui/` staging, and Electron's `resolveLocalUiUrl`
 Done when nothing builds or serves a Vite bundle, `apps/web` still typechecks
 and every route still renders.
 
-### P2 — Un-shim (foundational)
+> **Order revised a second time, 2026-08-24**, during decomposition. Move now
+> comes *before* un-shim, on a constraint the first revision missed:
+> **`packages/ui` cannot import from `apps/web`** — the dependency runs the
+> other way. Any owned navigation module the un-shimming needs has to live in
+> `apps/web`, so the files must already be there to use it. Moving first is
+> also safe in a way that was not obvious: `apps/web` aliases
+> `@tanstack/react-router` to the shim, so a moved file keeps working
+> unchanged until it is un-shimmed deliberately.
 
-The 10 non-page components and 26 pages rewritten from
-`@tanstack/react-router` to Next's router directly, then
-`react-router-mock.tsx` and both build aliases (`next.config.ts`,
-`tsconfig.json`) deleted. Second because P1 removes the second router that
-made the shim necessary.
+### P2 — Move the components (foundational)
 
-### P3 — Move the files (foundational)
+The 9 remaining components that import the router (`app-shell` was the tenth
+and went in P1) into `apps/web/src/components/`, with the five imports in
+`apps/web`'s own `app-shell.tsx` repointed. They keep importing the shim; only
+their location changes.
 
-Pages into `apps/web/src/app/<route>/` beside their `page.tsx`, re-exports
-deleted, then `packages/ui` narrowed to the design system and `routes/` dropped
-as a name. Last because it is the largest diff and the least risky — by this
-point it is file movement with the semantics already settled.
+### P3 — Move the pages (foundational)
 
-### P4 — One worked Server Component (foundational, per decision 3)
+22 pages into `apps/web/src/app/<route>/`, re-exports deleted. Four are **not**
+moved but deleted — `dashboard.tsx`, `knowledge.tsx`, `knowledge-article.tsx`
+and `placeholder.tsx` are orphaned by P1, since `apps/web` already has its own
+implementations of the first three and the fourth existed only for the Vite
+router. Pages import each other (`team-detail` → `tasks`/`pipelines`/`schedule`,
+`tasks` → `goal-detail`), so they move as one batch rather than one at a time.
+
+### P4 — Un-shim and delete it (foundational)
+
+An owned navigation module in `apps/web` — a real `NavLink` carrying the
+active-state behaviour Next has no equivalent for — then all 27 files rewritten
+off `@tanstack/react-router`, then `react-router-mock.tsx`, both build aliases
+and `packages/ui`'s TanStack dependency deleted together.
+
+### P5 — One worked Server Component (foundational, per decision 3)
 
 One or two moved pages converted, as the pattern `apps/web/CLAUDE.md` already
 mandates for new surfaces. Done when the converted page renders with data on
 first paint rather than a skeleton.
+
+### P6 — Verification (foundational)
+
+The browser pass the other phases defer: all routes walked against the feature
+branch's own Vercel preview, per `AGENTS.md` §2 rule 3. Separate from the
+phases that produce the change, because it is the only one that needs a
+deployed host and it grades the whole plan rather than any single phase.
 
 ## Scope boundaries
 
