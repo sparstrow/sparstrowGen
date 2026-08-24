@@ -13,6 +13,121 @@ When one is answered, record the answer in the plan or task that consumes it and
 
 ---
 
+## OQ-6 — How much of a machine may a signed-in person look at?
+
+**Raised:** 2026-08-24, writing
+[`specs/2026-08-24-reaching-my-machine-from-the-browser.md`](specs/2026-08-24-reaching-my-machine-from-the-browser.md).
+**Blocks:** US1's and US2's folder-browsing scope, and FR-002. It does **not**
+block US3 (terminals), which is bounded by the shell's own permissions rather
+than by this decision, nor the underlying ability to ask a machine a question
+at all.
+
+### Context
+
+The spec asks for browsing folders on a paired machine from a browser. That
+raises a question the app has never had to answer, because until now the
+person browsing was sitting at the machine: **when the app asks a machine
+"what is in this folder", what may the machine agree to answer about?**
+
+Two facts make this sharper than it first looks. First, the folder picker for
+adding a project needs to start somewhere *above* any project — that is the
+whole point of it, so "projects only" cannot be the answer for that surface
+without breaking it. Second, a workspace can eventually have more than one
+member, and machines belong to a workspace, not to a person. So the boundary
+cannot be "whatever the owner can see", because the owner is not necessarily
+the only one asking.
+
+This is a decision about the machine's own posture, not about permissions in
+the app. It is worth taking deliberately once, because loosening it later is
+easy and tightening it later breaks someone's working setup.
+
+### Scenario
+
+You pair your work laptop. Six months later you invite a contractor into the
+workspace so they can watch a project's runs. They open the Add Project
+dialog and press Browse. What do they see — your whole drive, including
+`Documents` and `Desktop`? Only the folders that already hold projects? Or a
+set of locations you nominated when you set the machine up?
+
+### Options
+
+**A — Anything the machine's own account can read**
+
+- **Pros:** Nothing to configure and nothing to explain; the picker behaves
+  exactly like a file dialog on that computer, which is what people expect
+  from a Browse button. Zero friction for the single-user case, which is
+  today's only case.
+- **Cons:** Every workspace member gets read access to the whole user profile
+  on that machine — documents, downloads, SSH keys, browser profiles, other
+  clients' code. The blast radius of a single over-broad invite is the whole
+  disk. It also makes the machine's exposure invisible: nothing in the app
+  shows the owner what they have shared, so there is no moment at which they
+  would notice.
+- **Score: 4/10**
+- **Blast radius if wrong:** Severe and silent. A workspace member, or anyone
+  who compromises one member's session, can read arbitrary files off the
+  owner's computer. Recoverable only by unpairing the machine, and there is
+  no audit trail of what was read.
+- **Caveats:** Only defensible while the workspace is provably one person, and
+  nothing enforces that it stays that way.
+
+**B — Nominated locations, chosen when the machine is set up**
+
+- **Pros:** The owner states once what this machine shares — typically the
+  parent folder they keep code in — and everything works normally inside it.
+  The exposure is a thing the owner chose, can see, and can change. It scales
+  correctly to a second workspace member without revisiting the decision, and
+  it makes the picker honest: it opens at the shared locations rather than
+  pretending to be a full file dialog.
+- **Cons:** One more thing to set up, and a new failure mode to explain — "I
+  can't find my folder" when a project lives outside the nominated set. Needs
+  a sensible default so first-run isn't a configuration exercise, and needs a
+  clear way to add a location later.
+- **Score: 8/10**
+- **Blast radius if wrong:** Contained by construction — what leaks is what
+  was nominated. The likelier failure is the annoying one: too narrow a
+  default sends people to settings before they can add their first project.
+- **Caveats:** The default matters more than the mechanism. It should cover
+  the ordinary case (the folder projects already live in) on first pair, so
+  most people never see this feature.
+
+**C — Registered project roots only**
+
+- **Pros:** Tightest boundary, and it needs no configuration at all — the app
+  already knows where each project is.
+- **Cons:** **It cannot serve the folder picker**, whose entire job is to
+  find a folder that is not yet a project. Adding a project would stay a
+  typed-path operation forever, which is one of the two things the spec set
+  out to fix. Reading a project's files (US1) would work fine.
+- **Score: 5/10**
+- **Blast radius if wrong:** Smallest of the three. The cost is capability,
+  not safety — US2 stays broken.
+- **Caveats:** Viable only if the owner is content for Browse to remain
+  unavailable, in which case US2 should be cut from the spec rather than left
+  looking buildable.
+
+### Recommendation
+
+**B, with the default doing the work.** When a machine pairs, nominate the
+parent folder it already keeps projects in, so the common case needs no
+decision and the picker opens somewhere useful. Show the nominated list on the
+machine's own page in the app so the exposure is visible rather than implied,
+and allow adding a location from there.
+
+Two narrowings I would take with it: nominated locations grant **reading only**
+— nothing in this spec needs to write outside a project — and terminals are
+explicitly *not* bounded by them, since a shell can go anywhere its account
+can and pretending otherwise would be security theatre. That asymmetry should
+be stated plainly to the owner rather than hidden, because it means US3 is a
+bigger grant than US1 and US2, and it is reasonable to want the two decided
+separately.
+
+A is the honest choice only if the workspace is guaranteed to stay
+single-person, and nothing enforces that. C should be chosen only alongside a
+decision to drop US2.
+
+---
+
 *OQ-5 (Vercel Deployment Protection blocking `development`/`staging`) was
 **answered by the owner on 2026-08-20** — option A. SSO protection disabled
 project-wide via `vercel project protection disable sparstrowgen --sso`; both

@@ -158,3 +158,23 @@ straight from this list.
 work. See also I-8 above (workspace `context`/user `bio` unused) and
 [D-17](Deferred.md) (the theme picker) — both are settings-shaped work this
 idea would likely absorb rather than duplicate, once it's scoped.*
+
+---
+
+## I-11 — The rest of the machine-reaching surfaces
+
+[`specs/2026-08-24-reaching-my-machine-from-the-browser.md`](specs/2026-08-24-reaching-my-machine-from-the-browser.md)
+specifies three surfaces — project files, folder browsing, terminals. Seven
+more are switched off in the browser for exactly the same reason and were left
+out of that spec deliberately, to keep it demoable rather than exhaustive:
+provider settings, importing a skill that lives on the machine, re-scanning
+memory, reading a memory note in its original form, the code graph, a
+project's git state and pull requests, and the project briefing.
+
+Each should become much cheaper once the app can ask a machine a question at
+all, but each carries its own interface questions — what a provider list means
+when two machines disagree, what a git state looks like for a project you are
+not sitting in front of — so none is a mechanical follow-on. Worth picking up
+individually, by whichever the owner misses first, rather than as one batch.
+
+*Surfaced while scoping that spec's Assumptions.*
