@@ -159,6 +159,52 @@ work. See also I-8 above (workspace `context`/user `bio` unused) and
 [D-17](Deferred.md) (the theme picker) — both are settings-shaped work this
 idea would likely absorb rather than duplicate, once it's scoped.*
 
+### Access and permissions is the dimension of this that is already leaking
+
+**Added 2026-08-24, by the owner**, on being asked to decide a machine's
+file-sharing boundary in isolation ([`OQ-6`](OpenQuestions.md)): "we should not
+just think and [be] bound to only one access. We should [design] project access
+settings for users, agents on what level they can access and configure."
+
+The point is correct and evidenced. Access is not one decision that OQ-6 needs;
+it is a grid — **who** (a person, an agent, a machine) may do **what** (see,
+use, configure, administer) to **which thing** (workspace, project, machine,
+agent, secret, run, chat) — and the app has been filling cells in it one at a
+time, by hand, without the grid existing. What is in the tree today:
+
+| Mechanism | Where | What it actually covers |
+|---|---|---|
+| `workspace_members.role` | RLS, [`001_rls.sql`](../packages/shared/drizzle/policies/001_rls.sql) | Real, but only 4 things: workspace rename/delete, daemon tokens, others' pairing codes, runtime-command update |
+| The generic member policy | [`001_rls.sql:124`](../packages/shared/drizzle/policies/001_rls.sql:124) | Everything else. **Any member = full read/write on all content.** No viewer, no read-only |
+| `effectiveTools` clamp | `packages/core`, at spawn | What tools an *agent* gets — the only per-agent capability control that exists |
+| Untrusted-run badging | [`G-5`](KnownGaps.md) | Badges, does not clamp writes. An access control that was started and not finished |
+| `users.role` | [`schema.ts:71`](../packages/shared/src/db/schema.ts:71) | **Nothing.** Decorative — see [`G-35`](KnownGaps.md) |
+| HITL gates | [`D-1`](Deferred.md) | Parked. The approval half of the same problem |
+
+**The half that is urgent is not the half that feels urgent.** Multi-user is
+the familiar frame, and it is genuinely coming — but there is one person on
+this workspace today, and there are already autonomous agents running commands
+on that person's machine right now, governed by a partial tool clamp and an
+unfinished write clamp. Agents are the subject with real exposure today;
+people are the subject with real exposure later. A model that treats agents as
+an afterthought to a people-permissions system would get the ordering exactly
+backwards.
+
+**Decide the grid; build almost none of it.** The model is cheap and the
+enforcement is expensive, and `AGENTS.md` §9's no-over-engineering rule points
+straight at not building a permissions product for a one-person workspace. The
+deliverable is a written model that says what the cells *are* and what the
+default is for each, so that each feature's access question — OQ-6's included
+— is answered by looking it up rather than by inventing a rule and a vocabulary
+on the spot. Two cheap things fall out of it immediately and need no
+enforcement work: resolving `users.role` (`G-35`), and recording B as what the
+model says about a machine's shared locations.
+
+**This needs a spec and owner elicitation** — it is exactly the kind of product
+decision I-10 already says graduates to `doc/specs/` rather than being written
+from a list. It should be scoped as *the access model*, not as a settings page;
+the settings UI is what renders it afterward.
+
 ---
 
 ## I-11 — The rest of the machine-reaching surfaces

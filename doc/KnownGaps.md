@@ -1059,3 +1059,45 @@ dashboard", which is true and useful. That is a correct answer, not a complete o
   current plan and written down with that provenance. Cheap; worth doing next time
   the dashboard is open anyway.
 
+
+### G-35 — The app has two role vocabularies for a person; only one of them does anything
+
+**Raised:** 2026-08-24, auditing what access decisions already exist before
+answering [`OQ-6`](OpenQuestions.md).
+
+Two columns describe a person's role, with different vocabularies:
+
+| Column | Vocabulary | Enforced? |
+|---|---|---|
+| `workspace_members.role` | `owner \| admin \| member` | **Yes** — by RLS, via `private.current_admin_workspace_ids()` |
+| `users.role` | `admin \| developer \| viewer` | **No** — nowhere, in any policy or handler |
+
+`users.role` ([`schema.ts:71`](../packages/shared/src/db/schema.ts:71)) carries a
+documented three-value vocabulary suggesting a permission level. Nothing reads
+it. No RLS policy references it, no handler branches on it, and the profile
+route deliberately strips it from its response — there is a test asserting
+exactly that
+([`profile-routes.test.ts:258`](../apps/web/src/lib/api/profile-routes.test.ts:258)).
+It is inert.
+
+**And the enforced one is narrower than it looks.** `workspace_members.role`
+gates four things only: renaming or deleting a workspace, daemon tokens,
+deleting someone else's pairing code, and updating a runtime command. Every
+content table — projects, tasks, agents, runs, chat, memory — is governed by
+the generic member policy applied in the loop at
+[`001_rls.sql:124`](../packages/shared/drizzle/policies/001_rls.sql:124), which
+asks only *are you a member of this workspace*. **Any member has full read and
+write on all workspace content.** There is no viewer, and no read-only anything.
+
+- **If wrong:** the danger is not a bypass — nothing is being circumvented,
+  because `users.role` was never a control. The danger is that it reads like
+  one. An agent (or a person) adding a feature "for viewers" would find a
+  column that appears to support it, build against it, and ship something with
+  no enforcement behind it at all. The narrow scope of the *real* role is the
+  same trap in reverse: "we have roles" is true and misleading in the same
+  breath.
+- **Clears when:** the access model is decided (see [`I-10`](Ideas.md)) and
+  `users.role` is either given a meaning and enforced, or dropped. Dropping it
+  is the cheaper half and does not need the full model — it needs only the
+  decision that a person's level lives on their workspace membership, not on
+  their profile.

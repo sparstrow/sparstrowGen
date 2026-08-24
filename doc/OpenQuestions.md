@@ -22,6 +22,27 @@ block US3 (terminals), which is bounded by the shell's own permissions rather
 than by this decision, nor the underlying ability to ask a machine a question
 at all.
 
+> **Answered in preference, 2026-08-24, by the owner: option B.** Left open
+> deliberately rather than closed, because the owner's reply reframed the
+> question in a way that changes what "answered" means here:
+>
+> > "This is regarding the access right … since we have multiple users, we
+> > [are] thinking of access right now. But we should not just think and [be]
+> > bound to only one access. We should [design] project access settings for
+> > users, agents on what level they can access and configure."
+>
+> B stands as the intended answer. What is no longer wanted is B *as a
+> bespoke rule for folder browsing*. A machine's shared locations are one cell
+> of a grid — **who** (person, agent, machine) may do **what** (see, use,
+> configure, administer) to **which thing** (workspace, project, machine,
+> agent, secret) — and this app already has four partial, independently
+> invented answers in that grid, plus a fifth that is decorative
+> ([`G-35`](KnownGaps.md)). Adding a sixth by hand is the thing to avoid.
+>
+> **This entry closes when the access model is decided** ([`I-10`](Ideas.md))
+> and B is recorded as what that model says about this cell — not before. It
+> continues to block only US1/US2's scope in the meantime, exactly as above.
+
 ### Context
 
 The spec asks for browsing folders on a paired machine from a browser. That
