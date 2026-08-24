@@ -1,6 +1,6 @@
 # BUG-2026-08-24-hosted-app-never-loads-its-typeface
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved 2026-08-24
 **Reported by:** agent — surfaced while pruning dependencies in `T-VR-03`,
 unrelated to that task's change
 **Reported:** 2026-08-24
@@ -83,3 +83,32 @@ deliberately rather than by whoever touches `layout.tsx` next:
 Whichever is chosen, the mismatch must end with `--font-sans` naming a family
 that is actually loaded, verified by reading the computed style in a browser —
 not by reading the CSS.
+
+## Resolution — 2026-08-24
+
+**Option 1, and it needed no doctrine change.** `apps/web/src/app/layout.tsx`
+now imports `@fontsource-variable/inter` — the exact package `DESIGN.md` §3
+names — and the Geist / Geist Mono `next/font/google` loaders are gone, along
+with the `--font-geist-*` variables on `<html>` that nothing referenced.
+`@fontsource-variable/inter` moved from being an unimported dependency of
+`packages/ui` to a declared, used dependency of `apps/web`.
+
+`next/font/google`'s `Inter` was the alternative and was **not** taken. It is
+arguably the better delivery mechanism in Next — build-time self-hosting,
+preload hints, no layout shift — but it would have made the code disagree with
+the doctrine's stated parenthetical for a benefit nobody had asked for. If it
+is ever wanted, it is a `DESIGN.md` §3 edit plus a `design-system/DECISIONS.md`
+entry, not a quiet swap.
+
+**Verified in a browser, since that is the only place this is visible:**
+
+```js
+getComputedStyle(document.body).fontFamily
+// => "Inter Variable", ui-sans-serif, system-ui, sans-serif
+[...document.fonts].filter(f => f.family === "Inter Variable").length
+// => 7   (was 0)
+```
+
+The two `__nextjs-Geist*` families still listed in `document.fonts` on a dev
+server belong to Next's own error overlay, not to application code — they do
+not appear in a production build.

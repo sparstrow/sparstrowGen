@@ -150,6 +150,11 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
                         key={to}
                         href={to}
                         title={meta.label}
+                        // `isActive` was spent entirely on className until
+                        // 2026-08-24, so the active destination was visible and
+                        // silent. DESIGN.md §9 requires the landmark answer
+                        // "where am I" for assistive tech too.
+                        aria-current={isActive ? "page" : undefined}
                         className={cn(
                           "flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                           collapsed && "md:justify-center md:px-0",

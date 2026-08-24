@@ -1,6 +1,6 @@
 # BUG-2026-08-24-sidebar-nav-has-no-aria-current
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved 2026-08-24
 **Reported by:** agent — found during `T-VR-04`'s browser verification, by
 querying the DOM rather than reading the diff
 **Reported:** 2026-08-24
@@ -75,3 +75,26 @@ small enough to take on its own at any time.
 **When fixing, re-verify in a browser, not by reading the diff.** The reason
 this survived is that it is invisible in source review: the `isActive` variable
 is right there and looks used.
+
+## Resolution — 2026-08-24
+
+One attribute on the sidebar `Link` in `app-shell.tsx`:
+
+```tsx
+aria-current={isActive ? "page" : undefined}
+```
+
+**Verified in a browser, on two routes:**
+
+| Route | `aria-current` in nav | Visual active |
+|---|---|---|
+| `/machines` | `["/machines"]` | `["/machines"]` |
+| `/` | `["/"]` | `["/"]` |
+
+Exactly one of 17 links in each case, matching the styled item, and the
+`to === "/"` guard still holds — Dashboard is not current on `/machines`.
+
+The root page carries **two** `aria-current="page"` markers in total: the
+sidebar link and the breadcrumb's trailing `<span>`. That is correct rather
+than a duplicate — they are separate navigation landmarks, and each marks the
+current page within its own.

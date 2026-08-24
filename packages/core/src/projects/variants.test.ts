@@ -121,5 +121,12 @@ describe("client variants (P4 §7)", () => {
     expect(fs.existsSync(path.join(variantDir, "README.md"))).toBe(true);
     // The base's project note was copied into the variant scope.
     expect(db.select().from(memoryNotes).where(eq(memoryNotes.projectSlug, "clinic-a")).all()).toHaveLength(1);
-  }, 15000);
+    // No per-test timeout here, deliberately. This used to carry 15000, which
+    // is BELOW the package's own 20s `testTimeout` and therefore silently
+    // opted out of the fix for
+    // doc/bug/BUG-2026-08-22-core-tests-flake-under-turbo-parallelism.md —
+    // a per-test argument wins over the config. It timed out again on
+    // 2026-08-24 for exactly that reason. Inheriting the package floor is the
+    // point; do not reintroduce a number here.
+  });
 });
