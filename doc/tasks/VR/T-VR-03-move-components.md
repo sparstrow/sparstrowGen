@@ -70,8 +70,14 @@ by reading import paths.
       rather than trusted from this document
 - [ ] Confirm nothing left in `packages/ui` imports any of the ten — this is
       the check that proves the dependency direction is intact
+- [ ] Prune `packages/ui`'s now-unused dependencies. As of T-VR-02 that is
+      `@xterm/xterm`, `@xterm/addon-fit` and `react-resizable-panels` (zero
+      users); re-derive the list after this task's moves rather than trusting
+      it, and add any dependency the ten moved files need to `apps/web`
 - [ ] `pnpm typecheck` green
 - [ ] `pnpm test` green
+- [ ] `pnpm --filter web build` green — typecheck cannot see a client-boundary
+      error and this move creates them
 
 ## Traps
 

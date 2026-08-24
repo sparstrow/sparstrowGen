@@ -600,7 +600,7 @@ decomposed 2026-08-24 — six tasks, all written.
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
 | 19.1 | [T-VR-01 — delete the Vite host](VR/T-VR-01-delete-vite-host.md) | `[S]` | — | ✅ done (2026-08-24) |
-| 19.2 | [T-VR-02 — move the pages](VR/T-VR-02-move-pages.md) | `[S]` | 19.1 | in progress |
+| 19.2 | [T-VR-02 — move the pages](VR/T-VR-02-move-pages.md) | `[S]` | 19.1 | ✅ done (2026-08-24) |
 | 19.3 | [T-VR-03 — move the app-code components](VR/T-VR-03-move-components.md) | `[S]` | 19.2 | not started |
 | 19.4 | [T-VR-04 — un-shim, and delete the shim](VR/T-VR-04-unshim.md) | `[S]` | 19.3 | not started |
 | 19.5 | [T-VR-05 — one worked Server Component](VR/T-VR-05-server-component.md) | `[S]` | 19.4 | not started |

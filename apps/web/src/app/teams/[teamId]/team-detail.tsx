@@ -29,9 +29,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TasksPage } from "@/routes/pages/tasks";
-import { PipelinesPage } from "@/routes/pages/pipelines";
-import { SchedulePage } from "@/routes/pages/schedule";
+import { TasksPage } from "../../tasks/tasks";
+import { PipelinesPage } from "../../pipelines/pipelines";
+import { SchedulePage } from "../../schedule/schedule";
 import { PipelineCanvas } from "@/components/pipelines/pipeline-canvas";
 import { 
   useTeam, 

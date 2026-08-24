@@ -1,6 +1,6 @@
 "use client";
 
-import { TeamsPage } from "@sparstrow/ui/routes/pages/teams";
+import { TeamsPage } from "./teams";
 
 export default function Page() {
   return <TeamsPage />;

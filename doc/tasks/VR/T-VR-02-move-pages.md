@@ -7,7 +7,7 @@
 | **Depends on** | T-VR-01 |
 | **Blocks** | T-VR-03 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-24 |
 
 ## Objective
 
@@ -55,21 +55,21 @@ in `apps/web`, `@/routes/pages/tasks` no longer resolves — `@/*` points at
 
 ## Checklist
 
-- [ ] Delete the four orphans listed above; re-verify each has no importer
+- [x] Delete the four orphans listed above; re-verify each has no importer
       immediately before deleting rather than trusting this document
-- [ ] Move the remaining 22 into their route directories, keeping every
+- [x] Move the remaining 22 into their route directories, keeping every
       component export name unchanged
-- [ ] Rewrite the cross-page imports (`team-detail` → `tasks`, `pipelines`,
+- [x] Rewrite the cross-page imports (`team-detail` → `tasks`, `pipelines`,
       `schedule`; `tasks` → `goal-detail`) to their new locations
-- [ ] Replace each 7-line `page.tsx` re-export with a direct import of the
+- [x] Replace each 7-line `page.tsx` re-export with a direct import of the
       moved component
-- [ ] `terminals/page.tsx` uses `next/dynamic` rather than a plain re-export —
+- [x] `terminals/page.tsx` uses `next/dynamic` rather than a plain re-export —
       keep that wrapper, repoint its import
-- [ ] Delete `packages/ui/src/routes/` once empty
-- [ ] Confirm nothing anywhere still imports `@/routes/` or
+- [x] Delete `packages/ui/src/routes/` once empty
+- [x] Confirm nothing anywhere still imports `@/routes/` or
       `@sparstrow/ui/routes/`
-- [ ] `pnpm typecheck` green
-- [ ] `pnpm test` green
+- [x] `pnpm typecheck` green
+- [x] `pnpm test` green
 
 ## Traps
 
@@ -95,4 +95,51 @@ them, and a rename here would break silently at runtime rather than at compile.
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+**Done 2026-08-24.** 22 pages moved into their route directories, 4 orphans
+deleted, `packages/ui/src/routes/` gone.
+
+Each page kept its original filename inside the route directory
+(`app/agents/agents.tsx` beside `app/agents/page.tsx`) rather than being
+renamed. `git mv` then reports a rename rather than a delete plus an add, which
+is what keeps the diff reviewable — the whole point of plan decision 2.
+
+### Not in the checklist, found by doing it
+
+**Four dependencies had to move to `apps/web`.** The pages import
+`react-resizable-panels`, `@dnd-kit/core`, `@xterm/xterm` and
+`@xterm/addon-fit`, which were `packages/ui` dependencies. Once the importing
+code lives in `apps/web`, that package needs them declared. Caught by
+typecheck, fixed by adding all four at the versions `packages/ui` already
+pinned rather than resolving fresh ranges.
+
+**Three of them are now dead weight in `packages/ui`** — `@xterm/xterm`,
+`@xterm/addon-fit` and `react-resizable-panels` have zero remaining users
+there (`@dnd-kit` still has five). Deliberately **not** removed here: T-VR-03
+moves ten more files and will change that package's dependency surface again,
+so the pruning is done once, afterwards, rather than twice. Added to T-VR-03's
+checklist so it cannot be forgotten.
+
+**The `"use client"` trap did not fire, and the task overstated it.** A module
+imported by a `"use client"` file joins the client graph automatically; only
+route files themselves default to server. Each `page.tsx` keeps the directive
+and the moved component inherits it. The trap as written would have had someone
+add 22 redundant directives.
+
+### Verification
+
+- `pnpm typecheck` — **green, 7/7 packages**
+- `pnpm test` — **green, 718 passing / 4 skipped, 84 files, 5/5 packages**
+- `pnpm --filter web build` — **compiled successfully**, and this is the check
+  that mattered: typecheck cannot see a client-boundary error, only a build
+  can. All 22 moved routes appear in the route manifest, including
+  `/agents/create`, `/tasks/goals/[goalId]` and `/terminals`.
+
+The build emits 5 `Dynamic filesystem access causes tracing of the whole
+project` warnings. They come from `apps/web/src/lib/knowledge.server.ts`'s
+`readdirSync`/`readFileSync` over the Knowledge Center markdown, which this
+task did not touch and which no moved page calls. Not baselined against the
+previous commit, so "pre-existing" is inference from the source rather than a
+measured comparison — stated that way deliberately.
+
+**Not verified:** nothing rendered in a browser. That is T-VR-06, against the
+branch's Vercel preview.

@@ -13,7 +13,7 @@ const STEP_LABEL: Record<StepId, string> = {
 /**
  * T-M10-04 — the dashboard's entry point into `/setup`. Web-only, and placed
  * in `apps/web/src/app/page.tsx` specifically, not the shared
- * `packages/ui/src/routes/pages/dashboard.tsx` — the web dashboard is its own
+ * `apps/web/src/app/page.tsx` — the web dashboard is its own
  * implementation, so a card added to the shared page would be shown to
  * nobody on the web (this phase's headline trap).
  *
