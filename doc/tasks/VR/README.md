@@ -30,8 +30,8 @@ Removing it first shrinks everything after it.
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
 | 1 | [T-VR-01 — delete the Vite host](T-VR-01-delete-vite-host.md) | `[S]` | — | ✅ done (2026-08-24) |
-| 2 | [T-VR-02 — move the router-using components](T-VR-02-move-components.md) | `[S]` | 1 | not started |
-| 3 | [T-VR-03 — move the pages](T-VR-03-move-pages.md) | `[S]` | 2 | not started |
+| 2 | [T-VR-02 — move the pages](T-VR-02-move-pages.md) | `[S]` | 1 | in progress |
+| 3 | [T-VR-03 — move the app-code components](T-VR-03-move-components.md) | `[S]` | 2 | not started |
 | 4 | [T-VR-04 — un-shim, and delete the shim](T-VR-04-unshim.md) | `[S]` | 3 | not started |
 | 5 | [T-VR-05 — one worked Server Component](T-VR-05-server-component.md) | `[S]` | 4 | not started |
 | 6 | [T-VR-06 — verification](T-VR-06-verification.md) | `[S]` | 1–5 | not started |
@@ -42,3 +42,11 @@ decomposed up front instead, and doing it surfaced two things a
 write-as-you-go approach would have hit late and expensively: `packages/ui`
 cannot import from `apps/web`, which reverses move and un-shim; and T-VR-01
 orphaned four pages that are deletions rather than moves.
+
+**Move order corrected 2026-08-24, on contact.** Components were briefly
+scheduled before pages. Moving them first breaks every page still in
+`packages/ui`; moving pages first breaks nothing, because a page in `apps/web`
+still resolves `@/components/*` back to `packages/ui`. The attempt was reverted
+and the two tasks swapped. It also grew T-VR-03 from nine files to ten —
+`chat-bits.tsx` imports `markdown` and would otherwise have stranded a
+`packages/ui` → `apps/web` import.

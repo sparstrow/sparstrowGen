@@ -1,11 +1,11 @@
-# T-VR-03 — move the pages into `apps/web/src/app/`
+# T-VR-02 — move the pages into `apps/web/src/app/`
 
-| # | |
+| | |
 |---|---|
 | **Tag** | `[S]` — the pages cross-import, so they move as one batch |
 | **Serves** | foundational — completes `packages/ui`'s narrowing to a design system |
-| **Depends on** | T-VR-02 |
-| **Blocks** | T-VR-04 |
+| **Depends on** | T-VR-01 |
+| **Blocks** | T-VR-03 |
 | **Phase spec** | [README.md](README.md) |
 | **Status** | not started |
 
@@ -27,6 +27,16 @@ search, nothing references any of them:
 | `knowledge.tsx` | `apps/web/src/app/knowledge/page.tsx` is its own SSG implementation |
 | `knowledge-article.tsx` | `apps/web/src/app/knowledge/[articleId]/page.tsx` likewise |
 | `placeholder.tsx` | Existed only for the Vite router, which P1 deleted |
+
+**Pages move BEFORE the components they use, not after.** Swapped 2026-08-24
+on contact — the first attempt moved components first and broke every page
+still sitting in `packages/ui`, since `@/components/attention-queue` stops
+resolving the moment that file leaves. The reverse is free: a page that lands
+in `apps/web` keeps resolving `@/components/*` to `packages/ui`, because
+`apps/web/tsconfig.json` maps `@/*` there. So this task moves pages while
+their imports still point at a directory that still has the files, and
+T-VR-03 moves the components afterwards, when every remaining importer is
+already in `apps/web`.
 
 **They move as one batch, not one per commit.** Pages import each other —
 `team-detail` imports `TasksPage`, `PipelinesPage` and `SchedulePage`; `tasks`

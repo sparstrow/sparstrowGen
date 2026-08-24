@@ -157,21 +157,27 @@ and every route still renders.
 > `@tanstack/react-router` to the shim, so a moved file keeps working
 > unchanged until it is un-shimmed deliberately.
 
-### P2 — Move the components (foundational)
-
-The 9 remaining components that import the router (`app-shell` was the tenth
-and went in P1) into `apps/web/src/components/`, with the five imports in
-`apps/web`'s own `app-shell.tsx` repointed. They keep importing the shim; only
-their location changes.
-
-### P3 — Move the pages (foundational)
+### P2 — Move the pages (foundational)
 
 22 pages into `apps/web/src/app/<route>/`, re-exports deleted. Four are **not**
 moved but deleted — `dashboard.tsx`, `knowledge.tsx`, `knowledge-article.tsx`
 and `placeholder.tsx` are orphaned by P1, since `apps/web` already has its own
 implementations of the first three and the fourth existed only for the Vite
 router. Pages import each other (`team-detail` → `tasks`/`pipelines`/`schedule`,
-`tasks` → `goal-detail`), so they move as one batch rather than one at a time.
+`tasks` → `goal-detail`), so they move as one batch.
+
+**Before the components, not after** — corrected on contact, 2026-08-24. Moving
+components first breaks every page still in `packages/ui`; moving pages first
+breaks nothing, because a page in `apps/web` still resolves `@/components/*`
+back to `packages/ui`.
+
+### P3 — Move the app-code components (foundational)
+
+Ten components into `apps/web/src/components/`: the nine that import the router
+(`app-shell` was the tenth such and went in P1), plus `chat/chat-bits.tsx`,
+which imports `markdown` and would otherwise strand a `packages/ui` →
+`apps/web` import. By this point every remaining importer is already in
+`apps/web`. What is left in `packages/ui` after this is the design system.
 
 ### P4 — Un-shim and delete it (foundational)
 
