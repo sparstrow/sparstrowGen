@@ -56,8 +56,15 @@ posture, what pairs with what):
 - **`github`**: PR/issue management and repo search against this project's
   GitHub remote. OAuth on first connect (run `/mcp` to authorize), same pattern
   as `supabase` — no token ever belongs in `.mcp.json` or an agent's hands.
-- **`playwright`**: browser automation, backing the end-to-end visual/runtime
-  testing loop mandated in §3.10.
+- **`playwright`**: browser automation. As of 2026-08-24, the end-to-end
+  visual/runtime testing loop mandated in §3.10 defaults to the `agent-browser`
+  CLI instead (`npm install -g agent-browser`, not an MCP server — invoked via
+  Bash) — it drives Chrome directly over CDP and doesn't share the Claude
+  Browser pane's `document.visibilityState` bug. `playwright` is kept
+  connected only for the one thing `agent-browser` can't do yet: forcing a
+  specific non-2xx HTTP status or an artificially delayed response via route
+  mocking. Full rationale and the command-by-command walkthrough:
+  [`doc/runbooks/agent-browser-session.md`](doc/runbooks/agent-browser-session.md#getting-a-browser-that-actually-renders--added-2026-08-20-revised-2026-08-24).
 
 **`impeccable` Skill**: Production-grade UI design commands (`audit`, `adapt`,
 `polish`, `craft`, `shape`, `distill`, `harden`). Personal/user-level, not declared
