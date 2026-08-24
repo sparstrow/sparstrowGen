@@ -640,3 +640,49 @@ succeeds, or a direct repro (`echo hi | claude -p --output-format
 stream-json --model sonnet`, the same command `G-32` used to diagnose this)
 stops returning `401`. At that point, close `G-32` with that evidence and
 delete this entry.
+
+## D-22 — Settings-managed `claude-code` OAuth token, hot-reloaded per spawn
+
+**Parked:** 2026-08-23, by the owner — "I like the idea, but... save the
+idea... We can build that later," while getting `D-21`'s token set up.
+Raised while explaining why the in-app Terminal can't be used as a shortcut
+for `claude setup-token` (it spawns a genuinely separate OS process; nothing
+typed there reaches the daemon).
+
+The owner switches between two Claude accounts and wants Sparstrowgen's
+headless `claude-code` chat turns to use whichever account they currently
+consider active — without leaving the app, and without restarting the
+daemon each time. Today's only working mechanism
+(`CLAUDE_CODE_OAUTH_TOKEN`, see `D-21`) is an OS env var read once at
+daemon startup, so switching means re-exporting it in whatever launches the
+daemon and restarting — real friction, and not what was asked for.
+
+**The fix already has ~90% of its plumbing built**, reusing an existing
+pattern rather than inventing one:
+
+- `packages/core/src/secrets/secret-store.ts` already stores direct-API
+  provider keys (`SECRET_ANTHROPIC_API_KEY`, `SECRET_GEMINI_API_KEY`)
+  AES-256-GCM-encrypted on disk, read fresh via `getSecret()` on every
+  call — no caching, no restart needed to pick up a change.
+- `packages/core/src/api/routes/providers.ts` already exposes
+  `GET/PUT/DELETE /providers/:id/key` for exactly this kind of credential,
+  with a masked-hint-only read path.
+- `packages/ui/src/routes/pages/settings.tsx`'s `ProviderKeyInput` already
+  renders a Save/Replace key field per provider card in Settings.
+
+All three currently gate on `provider.kind === "direct_api"` —
+`requireDirectProvider` in `providers.ts` explicitly excludes CLI providers
+("ollama + CLI providers need no stored key"), which was a correct
+assumption until this need existed. The work is: add
+`SECRET_CLAUDE_CODE_OAUTH_TOKEN`, let `claude-code` opt into the existing
+key-storage route without becoming a `direct_api` provider (a CLI provider
+with an optional stored credential, not a new provider kind), wire
+`buildHeadlessSpawn`'s `extraEnv` (`packages/core/src/providers/claude-code.ts`)
+to read it via `getSecret()` at spawn time, and show the input in Settings.
+Pasting a new `claude setup-token` output there would take effect on the
+very next chat message — no restart, no terminal, no leaving the app.
+
+**Unpark when:** the owner asks for it, or the two-account switching
+friction from `D-21`'s mechanics becomes actively painful enough to
+prioritize. Not urgent — `D-21`'s manual env-var-plus-restart path works
+today, just with more friction than this would have.
