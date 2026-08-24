@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | n/a (internal) — no user-visible change is intended; this moves files between packages and removes a second host. The one behaviour change it *does* cause is a capability loss, handled under Decisions below rather than by writing a spec for a deletion |
-| **Status** | **In progress — P1–P5 and P7 done 2026-08-24; P6 (verification) next** |
+| **Status** | ✅ **Completed 2026-08-24** — P1–P7 all done |
 | **Trigger** | Owner, 2026-08-24: "our priority right now is transitioning to the next.js app from the vite app and clearing that out. That's the priority, then we can work new feature or access" |
 | **Depends on** | — |
 | **Touches** | `packages/ui/` (all of it), `apps/web/src/app/`, `apps/web/src/lib/react-router-mock.tsx`, `apps/web/next.config.ts`, `apps/web/tsconfig.json`, `packages/core/src/api/server.ts`, `packages/desktop/src/urls.ts` |
@@ -254,4 +254,39 @@ than a ticked box.
 
 ## Result
 
-<!-- Filled in as the plan lands. -->
+**Completed 2026-08-24.** All seven phases done; the app now has exactly the
+three components the plan set out to leave: one Next.js web app, Electron as
+a thin shell pointed at it, and core as an API. Full task-level evidence
+lives in `doc/tasks/VR/T-VR-01` through `T-VR-07`; this section is the
+plan-level rollup against the Verification table above.
+
+| Verification row | Result |
+|---|---|
+| Every route still renders | All 26 routes (19 static + 6 detail + `/login`'s redirect) walked live on the feature branch's own Vercel preview with a real signed-in session — 200, no page errors, no console errors, on every one (`T-VR-06`) |
+| No behaviour changed by the move | `T-VR-04`'s interim pass compared every router-adapter behaviour before/after; `T-VR-06` re-confirmed sidebar/breadcrumb `aria-current` and the T-VR-05 SSR page against real data |
+| The shim is genuinely gone | `packages/ui`'s Vite entry, config, and shell deleted in `T-VR-01`; `@tanstack/react-router` now used only by the router-mock adapter itself, per design |
+| Core is an API again | `fastifyStatic` block, `SPARSTROW_UI_DIST`, and the SPA fallback removed in `T-VR-01`; a plain 404 JSON handler replaces it |
+| Electron loads the hosted app | `resolveAppUrl` returns `string \| null`, no local-UI fallback (`T-VR-01`). The window opening on the configured URL is typechecked/tested; the offline screen itself was **not** rendered — no display environment available to this agent. Recorded as [`G-36`](../KnownGaps.md) rather than assumed |
+| The capability loss is the expected one | All six switched-off areas (terminals, host-fs/Browse, project git, code graph, providers, local skill import) confirmed failing with their existing stub messages, zero crashes (`T-VR-06`) |
+
+**Found along the way, not by design review:** two silent Vite-only
+degradations of the exact same shape — code that compiled, ran, and quietly
+did nothing, because Turbopack doesn't implement (and doesn't error on) a
+Vite-only API. `BUG-2026-08-24-hosted-app-never-loads-its-typeface`
+(`next/font` scaffolding never reconciled with `@fontsource-variable/inter`)
+and `BUG-2026-08-24-knowledge-breadcrumb-title-silently-blank`
+(`import.meta.glob`). Both resolved. Neither was caused by this plan; both
+were exposed by it, because deleting the Vite host removed the one place
+each was still (accidentally) working.
+
+**Found and deliberately not fixed here:** `BUG-2026-08-24-project-provision-always-400s`,
+discovered live during `T-VR-06`. Pre-existing, unrelated to this plan's file
+moves, and severe — the "New project" dialog cannot create a project at all,
+in any mode. Left as an open bug with its own task still to be opened,
+consistent with `T-VR-06`'s Traps section ("do not fix what this finds,
+silently").
+
+**What this plan does not cover:** `doc/Ideas.md` I-12 (a stale two-host
+premise in three files, found and deliberately not touched during `T-VR-07`'s
+classification pass) and `G-36` above are both real, both intentionally left
+for someone else's turn.

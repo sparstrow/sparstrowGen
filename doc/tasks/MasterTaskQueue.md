@@ -604,7 +604,7 @@ decomposed 2026-08-24 — six tasks, all written.
 | 19.3 | [T-VR-03 — move the app-code components](VR/T-VR-03-move-components.md) | `[S]` | 19.2 | ✅ done (2026-08-24) |
 | 19.4 | [T-VR-04 — un-shim, and delete the shim](VR/T-VR-04-unshim.md) | `[S]` | 19.3 | ✅ done (2026-08-24) |
 | 19.5 | [T-VR-05 — one worked Server Component](VR/T-VR-05-server-component.md) | `[S]` | 19.4 | ✅ done (2026-08-24) |
-| 19.6 | [T-VR-06 — verification](VR/T-VR-06-verification.md) | `[S]` | 19.1–19.5, 19.7 | not started |
+| 19.6 | [T-VR-06 — verification](VR/T-VR-06-verification.md) | `[S]` | 19.1–19.5, 19.7 | ✅ done (2026-08-24) |
 | 19.7 | [T-VR-07 — finish narrowing `packages/ui`](VR/T-VR-07-narrow-packages-ui.md) | `[S]` | 19.4 | ✅ done (2026-08-24) |
 
 **Runs against nothing else.** Band 18 is complete, and the two open specs
@@ -616,6 +616,19 @@ is total.
 **19.3 filed, 19.7 resolved [`BUG-2026-08-24-hosted-app-never-loads-its-typeface`](../bug/BUG-2026-08-24-hosted-app-never-loads-its-typeface.md)** — the hosted app never loaded the typeface `DESIGN.md` mandates. Pre-existing; fixed once the correct import location settled at `T-VR-07`.
 
 **19.7 filed and fixed [`BUG-2026-08-24-knowledge-breadcrumb-title-silently-blank`](../bug/BUG-2026-08-24-knowledge-breadcrumb-title-silently-blank.md)** — the same failure shape as the typeface bug, found while classifying `packages/ui`: `lib/knowledge.ts`'s Vite-only `import.meta.glob` had silently returned an empty registry since `T-VR-01`, so Knowledge Center breadcrumbs/tabs showed a raw slug instead of the article title.
+
+**Band complete 2026-08-24.** 19.6 ran the full pass against the feature
+branch's own Vercel preview with real credentials — all 26 routes, all six
+switched-off areas, the T-VR-05 Server Component's SSR delivery confirmed by
+`curl`ing the raw HTML with the session cookie. **19.6 filed
+[`BUG-2026-08-24-project-provision-always-400s`](../bug/BUG-2026-08-24-project-provision-always-400s.md)**
+(🔴 open) — pre-existing, unrelated to this band, found while trying to seed
+a real project for the verification walk: every "New project" creation path
+400s unconditionally, so a fresh workspace cannot create its first project at
+all. Needs its own task before anyone picks it up. 19.6 also closed
+[`G-23`](../KnownGaps.md) (both remaining halves resolved by this band) and
+opened [`G-36`](../KnownGaps.md) (Electron's offline screen typechecked,
+never rendered — no display environment available to verify it live).
 
 **19.1 partially fixed [`BUG-2026-08-22-core-tests-flake-under-turbo-parallelism`](../bug/BUG-2026-08-22-core-tests-flake-under-turbo-parallelism.md)**,
 which was marked resolved: the package-level timeout fix does not cover a file

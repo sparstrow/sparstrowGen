@@ -4,7 +4,7 @@
 |---|---|
 | **Plan** | [`../../plans/2026-08-24-retire-the-vite-app.md`](../../plans/2026-08-24-retire-the-vite-app.md) |
 | **Spec** | n/a (internal) |
-| **Status** | in progress — P1, P2, P3, P4, P5, P7 done 2026-08-24; P6 (verification) next |
+| **Status** | ✅ done — all seven tasks complete 2026-08-24 |
 | **Serves** | foundational throughout — no user story exists, nothing the owner can see is meant to change |
 
 Executes [`D-24`](../../Deferred.md): one Next.js UI, Electron as a shell,
@@ -34,7 +34,7 @@ Removing it first shrinks everything after it.
 | 3 | [T-VR-03 — move the app-code components](T-VR-03-move-components.md) | `[S]` | 2 | ✅ done (2026-08-24) |
 | 4 | [T-VR-04 — un-shim, and delete the shim](T-VR-04-unshim.md) | `[S]` | 3 | ✅ done (2026-08-24) |
 | 5 | [T-VR-05 — one worked Server Component](T-VR-05-server-component.md) | `[S]` | 4 | ✅ done (2026-08-24) |
-| 6 | [T-VR-06 — verification](T-VR-06-verification.md) | `[S]` | 1–5, 7 | not started |
+| 6 | [T-VR-06 — verification](T-VR-06-verification.md) | `[S]` | 1–5, 7 | ✅ done (2026-08-24) |
 | 7 | [T-VR-07 — finish narrowing `packages/ui`](T-VR-07-narrow-packages-ui.md) | `[S]` | 4 | ✅ done (2026-08-24) |
 
 **Fully decomposed 2026-08-24.** An earlier draft of this file deferred writing

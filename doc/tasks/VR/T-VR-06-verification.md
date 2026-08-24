@@ -7,7 +7,7 @@
 | **Depends on** | T-VR-01 – T-VR-05 |
 | **Blocks** | — |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | partially run 2026-08-24 — behaviour pass done on localhost; full pass still owed |
+| **Status** | ✅ done 2026-08-24 |
 
 ## Objective
 
@@ -89,24 +89,24 @@ half it could reach.
 
 ## Checklist
 
-- [ ] Push the branch; confirm the Vercel preview builds
-- [ ] `pnpm typecheck` and `pnpm test` green on the final tree
-- [ ] Walk all 22 moved routes in a browser against the preview; for each,
+- [x] Push the branch; confirm the Vercel preview builds
+- [x] `pnpm typecheck` and `pnpm test` green on the final tree
+- [x] Walk all 22 moved routes in a browser against the preview; for each,
       confirm it renders and its primary content loads
-- [ ] Confirm the four deleted orphan pages have no route that 404s as a result
-- [ ] Confirm the six switched-off areas (terminals, host-fs/Browse, project
+- [x] Confirm the four deleted orphan pages have no route that 404s as a result
+- [x] Confirm the six switched-off areas (terminals, host-fs/Browse, project
       git, code graph, providers, local skill import) fail with their existing
       stub messages rather than crashing — the *expected* capability loss, not
       a new one
-- [ ] Confirm no console errors introduced by the move — compare against the
+- [x] Confirm no console errors introduced by the move — compare against the
       pre-plan baseline rather than assuming zero
-- [ ] Confirm `NavLink`'s active state: the sidebar highlights exactly one
+- [x] Confirm `NavLink`'s active state: the sidebar highlights exactly one
       destination, and the dashboard link is not permanently active
-- [ ] Confirm the converted Server Component page (T-VR-05) delivers data in
+- [x] Confirm the converted Server Component page (T-VR-05) delivers data in
       its initial HTML
-- [ ] Open a `KnownGaps.md` entry recording the removed capability and what
+- [x] Open a `KnownGaps.md` entry recording the removed capability and what
       restores it, per the plan's Verification table
-- [ ] Fill in the plan's Result section
+- [x] Fill in the plan's Result section
 
 ## Traps
 
@@ -126,4 +126,112 @@ its own.
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+**Done 2026-08-24.** The full pass this task's interim section left owed —
+against the feature branch's own Vercel preview, with real Supabase
+credentials, per `AGENTS.md` §2 rule 3 — is complete. The plan's claim holds:
+the app does exactly what it did before, minus the removed host.
+
+### The "no credentials" premise, checked again and confirmed still wrong
+
+Same finding as the interim pass: `apps/web/.env.local` has all four
+variables set in this worktree. Pushed `claude/nextjs-app-status-migration-fd2a49`,
+confirmed the Vercel preview built (`sparstrowgen-git-claude-nextjs-app-status-migr-b76d2e-sparstrow.vercel.app`),
+minted a disposable `@sparstrow.test` magic-link session against it via the
+runbook procedure, and drove it with `agent-browser` — a real Chrome over
+CDP, not the pane. Cleaned up afterward with the runbook's SQL: 1 workspace,
+1 profile row, 1 auth user removed, none orphaned.
+
+### `pnpm typecheck` / `pnpm test` on the final tree
+
+- `pnpm typecheck` — green, 7/7 packages
+- `pnpm test` — green, 5/5 packages (`@sparstrow/core`: 84 files / 718 passing
+  + 4 skipped)
+
+### All 26 routes walked live
+
+19 non-parameterised + 6 detail routes (synthetic ids, since the provisioning
+bug below blocks seeding most entity types) + `/login`'s signed-in redirect.
+Every one: **200, no page errors, no console errors or warnings** (checked
+via `agent-browser errors`/`console` after every navigation, and again as a
+full-session sweep at the end — empty throughout). The four deleted orphan
+pages (`dashboard.tsx`, `knowledge.tsx`, `knowledge-article.tsx`,
+`placeholder.tsx`) needed no separate check beyond this: `apps/web` already
+owns `/`, `/knowledge`, and `/knowledge/[articleId]` natively, all three
+confirmed rendering; `placeholder.tsx` was never a route.
+
+**Went further than synthetic ids for the one page that matters most for
+this plan.** Created a real team (`VR Verification Team`) through the actual
+UI — the empty-state "New team" trigger, confirming last session's
+double-dialog-mount fix holds — and fetched `/teams` with `curl` using the
+session's own cookie, **bypassing JS entirely**. The raw server response
+contained "VR Verification Team" twice: proof `T-VR-05`'s Server Component
+genuinely delivers data in initial HTML, not a client fetch that happens to
+resolve fast. Also confirmed on `/teams/tem_…` with the real id: sidebar
+`aria-current="page"` on exactly one link (`Teams`), breadcrumb's last crumb
+is `<span aria-current="page">` (not a link), both matching the interim
+pass's finding on synthetic data.
+
+### The six switched-off areas — all six checked, not five
+
+- **Terminals** — page renders, "offline" badge, "No terminal attached"
+- **Host-fs/Browse** — the New Project dialog's folder picker: "Cannot open
+  this folder — Local filesystem access runs on the local daemon and is not
+  available from the web app."
+- **Local skill import** — "Copy from runtime" dialog: "Local skills runs on
+  the local daemon and is not available from the web app."
+- **Project git** — `GET /api/v1/projects/:id/git` → 501, confirmed via
+  network log; page did not crash
+- **Code graph** — `GET /api/v1/projects/:id/graph` → 501, confirmed by
+  direct `fetch()` (no real project exists to reach the UI tab through — see
+  below)
+- **Providers** — `GET /api/v1/providers` → 501, confirmed by direct
+  `fetch()`; the Settings → AI Providers panel itself renders cleanly with no
+  crash, just no list, since it never issues the call without an active
+  machine to scope it to
+
+All six: expected stub, zero crashes. This matches `apps/web/src/lib/api/handlers/stubs.ts`'s
+existing `hostLocalError`/`needsRuntimeError` pattern exactly — nothing here
+is new; the check is that the Vite retirement didn't accidentally change it.
+
+### Found while walking the create-project flow, not by looking for it: a real, severe bug
+
+Attempting to create a real project (to reach the git/code-graph tabs with a
+live entity instead of a 404 stub) failed every time — silently, no toast, no
+console line, dialog just sat there. Traced to `POST /api/v1/projects/provision`
+spreading two client-only fields (`mode`, `gitInit`) straight into the
+`projects` table insert; neither is a real column, so PostgREST 400s before
+anything is written. Filed as
+[`BUG-2026-08-24-project-provision-always-400s`](../../bug/BUG-2026-08-24-project-provision-always-400s.md).
+
+**Confirmed unrelated to this plan** — the route and the dialog both predate
+`T-VR-*` untouched; this is a pre-existing defect this pass happened to
+exercise. **Deliberately not fixed here**, per this task's own Traps section
+and its Status line ("nothing else should be landing while it runs"). It is
+severe enough to flag clearly: project creation, the primary path into the
+app's core object, is currently a complete no-op for every user. Left as an
+open bug for its own task.
+
+### Housekeeping found stale while closing this task
+
+Two `KnownGaps.md` entries this pass's evidence directly bears on were
+updated rather than left stale: **`G-23`** closed outright (both halves —
+`apps/web` nav verified live with real credentials, and the "still open"
+shell-merge half was already superseded by `D-24`, now executed). **`G-22`**
+corrected in place — its "this environment lacks credentials" premise was
+never true for this worktree; narrowed to what's actually still unwalked
+(the specific rich states it names), not closed, since those weren't
+produced by a disposable-account pass.
+
+### What this does NOT close
+
+- **`BUG-2026-08-24-project-provision-always-400s`** — open, needs its own
+  task before anyone fixes it.
+- **`G-36`** (new) — Electron's offline screen was typechecked in `T-VR-01`,
+  never rendered; this agent has no display to launch Electron with. Recorded
+  as an accepted limitation of `D-24`'s architecture, not a regression.
+- **Detail routes with real data**, beyond `/teams/[teamId]` — `/runs`,
+  `/skills`, `/projects` etc. still only confirmed against synthetic ids,
+  since seeding them needs either a paired machine or working project
+  creation (blocked by the bug above).
+- **The plan's own Result section** — filled in alongside this one; see
+  [`plans/2026-08-24-retire-the-vite-app.md`](../../plans/2026-08-24-retire-the-vite-app.md).
