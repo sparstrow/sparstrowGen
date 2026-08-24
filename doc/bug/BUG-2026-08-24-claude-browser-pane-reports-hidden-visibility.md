@@ -1,6 +1,6 @@
 # BUG-2026-08-24-claude-browser-pane-reports-hidden-visibility
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved (workaround adopted, not fixed upstream)
 **Reported by:** agent — found while evaluating whether the in-app Claude
 Browser preview pane (`mcp__Claude_Browser__*`) could replace the Playwright
 MCP as this agent's default browser-verification tool, per the owner's
@@ -63,6 +63,38 @@ stopping dev servers, checking build/console errors, static content).
 
 ## Resolution
 
-<!-- Open. Fix deferred — see doc/Deferred.md for the parked follow-up on
-updating browser-tool guidance, which depends on this being fixed or worked
-around first. -->
+**Not fixed upstream** — the pane is harness code, not this repo's, so there
+is nothing here to patch directly, and the underlying `visibilityState` bug
+is presumably still present in the Claude Browser pane itself.
+
+**Worked around** by switching the default verification tool. Evaluated
+[`agent-browser`](https://github.com/vercel-labs/agent-browser)
+(vercel-labs, npm `agent-browser`, native Rust CLI driving Chrome directly
+over CDP) as a replacement for the Playwright MCP, at the owner's request.
+Installed and tested live 2026-08-24:
+
+- `agent-browser eval "document.visibilityState"` on a fresh, foregrounded
+  `example.com` navigation returned `{"visibilityState":"visible",
+  "hidden":false,"hasFocus":true}` — correct, unlike the Claude Browser pane.
+  Confirms the fix for exactly this bug's symptom.
+- Snapshot output is markedly more compact than Playwright's (~200–400 tokens
+  vs ~3000–5000 for a comparable page, per the tool's own docs — consistent
+  with what was observed).
+- One capability gap found and verified, not assumed: `network route --body`
+  always returns HTTP 200 and has no delay/hold-open option — `--status` and
+  `--delay` flags are silently accepted but ignored (tested: a routed fetch
+  still returned `200` in 4ms). Playwright's `page.route().fulfill({status})`
+  and `page.waitForTimeout` inside a route handler have no equivalent yet.
+
+`doc/runbooks/agent-browser-session.md`'s "Getting a browser that actually
+renders" section now prescribes `agent-browser` for the walkthrough
+(navigate, snapshot, click/fill, screenshot, console/errors, viewport/media
+emulation) and keeps the Playwright MCP only for forcing a specific non-2xx
+status or an artificially slow response, which is the one thing the gap
+above rules out.
+
+[`D-23`](../Deferred.md) (rewrite browser-tool guidance for Claude Code
+specifically) is still parked — it was scoped to the Claude Browser pane and
+Claude in Chrome, not `agent-browser`, and the owner's original request to
+defer that broader guidance rewrite stands. This resolution only replaces the
+one runbook section that named this bug as its reason for existing.
