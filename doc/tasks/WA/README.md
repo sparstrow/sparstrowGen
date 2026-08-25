@@ -19,8 +19,9 @@ specific to its files.
 1. Create `apps/web/src/app/<route>/actions.ts` with `"use server"` at the top.
 2. Move each mutation's body out of its `/api/v1` handler into an action,
    keeping the validation and the error text **byte for byte**.
-3. Replace the `useXxx()` call in the client island with a direct call to the
-   action, wrapped in `useTransition` for pending state.
+3. Replace the `useXxx()` call in the client island with a
+   **`callAction(() => …)`** call, wrapped in `useTransition` for pending state.
+   Never `await` an action directly — see the transport-failure decision below.
 4. Delete the now-unreferenced mutation hook from
    [`hooks.ts`](../../../apps/web/src/api/hooks.ts) and the now-unreferenced
    handler from `apps/web/src/lib/api/handlers/`.
@@ -116,6 +117,34 @@ decoration. An action that skips it reaches Supabase unauthenticated and is
 refused by RLS — the boundary holds either way, but the message stops being
 legible, which is the whole thing this phase must not break.
 
+### Every call site goes through `callAction()` — never `await` an action directly
+
+`ActionResult` covers failures the action **returns**. It cannot cover a
+**transport** failure, because the action never runs: the `fetch` rejects, and
+inside a `useTransition` that surfaces as an unhandled rejection and a
+full-screen *"Runtime TypeError: Failed to fetch"* overlay
+([`BUG-2026-08-25-network-failure-during-a-server-action-is-an-unhandled-rejection`](../../bug/BUG-2026-08-25-network-failure-during-a-server-action-is-an-unhandled-rejection.md)).
+
+React Query's `onError` used to catch both, so this is a **regression the
+conversion introduces** unless every call site is wrapped:
+
+```ts
+import { callAction } from "@web/lib/call-action";
+
+const r = await callAction(() => createTeamAction(input));
+if (!r.ok) { setError(r.error); return; }
+```
+
+`callAction` returns the same `ActionResult` shape for an unreachable app, and
+re-throws Next.js `redirect()`/`notFound()` control flow rather than swallowing
+it.
+
+**This matters more than it reads.** The desktop shell is a `BrowserWindow`
+pointed at a **remote** host (`packages/desktop/src/urls.ts`) with no local
+server and no local UI, so every one of these buttons is one dropped connection
+away from this path — and Electron's offline screen does not catch it, because
+that fires on failed *navigations* and an action is a `fetch`.
+
 ### The pending-state shape
 
 React Query gave every one of these buttons `isPending`. `useTransition` is the
@@ -125,7 +154,7 @@ handling:
 ```tsx
 const [pending, start] = useTransition();
 start(async () => {
-  const r = await createTeamAction(input);
+  const r = await callAction(() => createTeamAction(input));
   if (!r.ok) { setError(r.error); return; }
   await queryClient.invalidateQueries({ queryKey: ["teams"] });
 });

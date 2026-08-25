@@ -215,14 +215,36 @@ fixed in the same change, and written into
 The middleware's own pre-existing comment described this exact failure mode for
 `/api/` routes and had simply never been extended to actions.
 
-**2. `slugify`/`withCollisionSuffix` had to move.** They lived in
+**2. A dropped connection produced a Runtime error, not a message — found by
+the owner asking whether the Electron app works offline.** `ActionResult`
+(DD-3) covers what an action *returns*; a transport failure never reaches the
+action, so the rejection went unhandled inside `useTransition` and rendered as
+a full-screen *"Runtime TypeError: Failed to fetch"*. React Query's `onError`
+had covered both cases, so this was a second regression the conversion
+introduced — and one that matters most in Electron, whose window points at a
+**remote** host with no local server, and whose offline screen does not catch
+it because that fires on failed navigations, not on a `fetch`.
+
+Fixed with `lib/call-action.ts`; every call site now goes through
+`callAction(() => …)` rather than awaiting the action. Filed as
+[`BUG-2026-08-25-network-failure-during-a-server-action-is-an-unhandled-rejection`](../../bug/BUG-2026-08-25-network-failure-during-a-server-action-is-an-unhandled-rejection.md),
+made a phase decision, and added to `T-WA-09`'s sweep as a grep the siblings
+cannot silently fail.
+
+**Both of this task's findings are the same shape**, which is worth noticing:
+the conversion silently narrowed what counts as a handled failure, twice, in
+two different ways, and both typechecked perfectly. That is the argument for
+`[S]`-gating this phase on a worked example, and the reason `T-WA-09` grades by
+walking rather than by testing.
+
+**3. `slugify`/`withCollisionSuffix` had to move.** They lived in
 `api/handlers/workspace.ts`, which calls `registerRoute()` at module scope — so
 importing them from a Server Action pulls the whole route registry into the
 action's module graph. Extracted to `lib/slug.ts`; `handlers/workspace.ts`
 re-exports both, so all four existing import sites and
 `workspace-routes.test.ts` are untouched.
 
-**3. `/teams/[teamId]` is a client page, so this task demonstrates both
+**4. `/teams/[teamId]` is a client page, so this task demonstrates both
 halves.** The task framed `teams` as the one page where WA1 alone finishes the
 job. That is true of `/teams`; the detail route still reads through `useTeam()`
 and therefore keeps its `invalidateQueries` bridge. That turned out better than
@@ -230,7 +252,7 @@ the framing — the worked example now shows the finished pattern *and* the
 intermediate one, side by side, which is what the other seven tasks actually
 need to copy.
 
-**4. There were no write-path handler tests to delete.**
+**5. There were no write-path handler tests to delete.**
 `teams-routes.test.ts` covers only the four `GET` handlers, all of which stay.
 The task's trap about deleting tests with their handlers did not apply here; it
 still will elsewhere.
@@ -248,6 +270,11 @@ edit member role → manage projects → remove member → delete team. Every on
 confirmed twice — once by what the page showed, once by its own `ƒ <action>`
 line in the dev-server log. Zero `POST /api/v1/*` across the entire walk. No
 console errors, no page errors.
+
+Both regressions were reproduced before fixing and re-run after: the signed-out
+case now renders **"Not signed in."**, and the aborted-network case
+(`agent-browser network route <page path> --abort`) now renders **"Couldn't
+reach Sparstrowgen, so nothing was saved."** — neither shows an overlay.
 
 Disposable accounts cleaned up with the runbook's own query rather than the
 admin API: 6 auth users, 5 workspaces, 5 profile rows, no orphans left.

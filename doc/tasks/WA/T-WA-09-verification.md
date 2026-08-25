@@ -51,6 +51,8 @@ revision.
 - [ ] `read_network_requests` across that walk: no `POST`/`PATCH`/`DELETE` to `/api/v1` except the excluded stub-backed paths
 - [ ] Force a validation failure on three different surfaces; each renders its **own** message, not a redacted digest (plan DD-3)
 - [ ] Force a 501 on one excluded stub-backed button; it still renders the stub's own sentence
+- [ ] **Every action call site goes through `callAction()`**: `grep -rn "await [a-zA-Z]*Action(" apps/web/src --include=*.tsx` returns nothing outside a `callAction(() => …)` argument. A bare `await` is the transport-failure regression (`BUG-2026-08-25-…`) reintroduced
+- [ ] With requests to a page's own path aborted, one converted button on that page renders the unreachable message rather than a Runtime error overlay
 - [ ] Invoke one action's endpoint with no session; it refuses (plan DD-4)
 - [ ] Every converted button disables itself while its action is in flight
 - [ ] `hooks.ts` line count recorded before and after, in Result

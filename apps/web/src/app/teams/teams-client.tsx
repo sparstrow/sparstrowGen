@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { callAction } from "@web/lib/call-action";
 import { createTeamAction, setTeamProjectsAction } from "./actions";
 
 /**
@@ -73,10 +74,9 @@ export function TeamsPageClient({ projects, hasTeams }: { projects: Project[]; h
   const submit = () => {
     setError(null);
     startTransition(async () => {
-      const created = await createTeamAction({
-        name: name.trim(),
-        description: description.trim(),
-      });
+      const created = await callAction(() =>
+        createTeamAction({ name: name.trim(), description: description.trim() }),
+      );
       if (!created.ok) {
         setError(created.error);
         return;
@@ -87,10 +87,12 @@ export function TeamsPageClient({ projects, hasTeams }: { projects: Project[]; h
         // dialog still closes rather than leaving it invisible. Folding these
         // into one server-side transaction would roll the team back instead,
         // which is a behaviour change, not an improvement.
-        await setTeamProjectsAction({
-          teamId: created.data.id,
-          projectIds: Array.from(selectedProjects),
-        });
+        await callAction(() =>
+          setTeamProjectsAction({
+            teamId: created.data.id,
+            projectIds: Array.from(selectedProjects),
+          }),
+        );
       }
       setOpen(false);
     });

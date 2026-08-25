@@ -42,6 +42,7 @@ import {
   useTeamManagerChat,
   useCreatePipeline
 } from "@web/api/hooks";
+import { callAction } from "@web/lib/call-action";
 import { setTeamProjectsAction } from "../actions";
 import {
   addTeamMemberAction,
@@ -103,10 +104,12 @@ export function TeamDetailPage() {
     if (!editName.trim() || !team) return;
     setActionError(null);
     startTransition(async () => {
-      const r = await updateTeamAction({
-        id: team.id,
-        data: { name: editName.trim(), description: editDesc.trim() },
-      });
+      const r = await callAction(() =>
+        updateTeamAction({
+          id: team.id,
+          data: { name: editName.trim(), description: editDesc.trim() },
+        }),
+      );
       if (!r.ok) {
         setActionError(r.error);
         return;
@@ -292,7 +295,7 @@ export function TeamDetailPage() {
               onClick={() => {
                 setActionError(null);
                 startTransition(async () => {
-                  const r = await deleteTeamAction(team.id);
+                  const r = await callAction(() => deleteTeamAction(team.id));
                   if (!r.ok) {
                     setActionError(r.error);
                     return;
@@ -376,11 +379,13 @@ function MemberRow({ teamId, member, readOnly }: { teamId: string, member: any, 
   const save = () => {
     setError(null);
     startTransition(async () => {
-      const r = await updateTeamMemberAction({
-        teamId,
-        memberId: member.id,
-        data: { teamRole: roleInput.trim() || null },
-      });
+      const r = await callAction(() =>
+        updateTeamMemberAction({
+          teamId,
+          memberId: member.id,
+          data: { teamRole: roleInput.trim() || null },
+        }),
+      );
       if (!r.ok) {
         setError(r.error);
         return;
@@ -393,7 +398,9 @@ function MemberRow({ teamId, member, readOnly }: { teamId: string, member: any, 
   const remove = () => {
     setError(null);
     startTransition(async () => {
-      const r = await removeTeamMemberAction({ teamId, memberId: member.id });
+      const r = await callAction(() =>
+        removeTeamMemberAction({ teamId, memberId: member.id }),
+      );
       if (!r.ok) {
         setError(r.error);
         return;
@@ -492,10 +499,12 @@ function AddMemberDialog({ teamId, open, onOpenChange, existingAgentIds, agents 
     if (!selectedAgentId) return;
     setError(null);
     startTransition(async () => {
-      const r = await addTeamMemberAction({
-        teamId,
-        data: { agentId: selectedAgentId, teamRole: teamRole.trim() || null },
-      });
+      const r = await callAction(() =>
+        addTeamMemberAction({
+          teamId,
+          data: { agentId: selectedAgentId, teamRole: teamRole.trim() || null },
+        }),
+      );
       if (!r.ok) {
         setError(r.error);
         return;
@@ -593,7 +602,9 @@ function ProjectsSection({ teamId, assignedProjects, readOnly }: { teamId: strin
   const save = () => {
     setError(null);
     startTransition(async () => {
-      const r = await setTeamProjectsAction({ teamId, projectIds: Array.from(editingSet) });
+      const r = await callAction(() =>
+        setTeamProjectsAction({ teamId, projectIds: Array.from(editingSet) }),
+      );
       if (!r.ok) {
         setError(r.error);
         return;
