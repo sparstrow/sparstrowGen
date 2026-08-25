@@ -2,11 +2,12 @@
 name: decomposing-plans
 description: >-
   Step-by-step procedure for turning an approved doc/plans/*.md into the
-  doc/tasks/<phase>/ folder it becomes: reading the shipped code first,
-  writing the phase README, sizing and sequencing tasks, assigning [S]/[P]/[C]
-  concurrency tags from real file overlap, and regenerating MasterTaskQueue.md.
-  Use whenever decomposing a plan or phase into tasks, adding tasks to an
-  existing phase, or re-sequencing the queue.
+  doc/tasks/<phase>/ folder it becomes: refuses outright if any task branch
+  is open, then reads the shipped code first, writes the phase README, sizes
+  and sequences tasks, assigns [S]/[P]/[C] concurrency tags from real file
+  overlap, and regenerates MasterTaskQueue.md. Use whenever decomposing a
+  plan or phase into tasks, adding tasks to an existing phase, or
+  re-sequencing the queue.
 metadata:
   sparstrowgen-owner: architect
 ---
@@ -21,15 +22,38 @@ Three templates produce this folder — `phase-spec.md` for the `README.md`,
 `task.md` for each task, `verification-task.md` for the `[S]` task every phase
 ends with. Copy them; don't invent a shape.
 
-## Decompose only with no open task branches
+## Gate: refuse if any task branch is open
 
-Check first:
+This is a hard stop, not a judgment call — run it before reading the plan,
+before opening a template, before writing a single file.
 
 ```bash
-gh pr list --state open && git worktree list
+gh pr list --state open
+git worktree list
 ```
 
-Two independent reasons, both hard:
+`git worktree list` always shows the main checkout plus this session's own
+worktree — that baseline is not a signal. What counts: **any open PR**, and
+any *other* worktree whose branch is `feature/*`, `fix/*`, or `task/*` per
+`AGENTS.md` §2.1's naming convention (an unrelated worktree on an unrelated
+branch is someone else's business, not this gate's). **If either check turns
+up a live task branch, do not proceed.** Do not write or edit anything under
+`doc/tasks/`, do not touch `MasterTaskQueue.md`. Stop and report back:
+
+- which branches/PRs are open and, if visible from the PR title or task id,
+  which phase each belongs to
+- that decomposition is blocked until the repo drains to zero open task
+  branches (`AGENTS.md` §2.8)
+- do **not** decompose "just the parts that don't overlap" as a workaround —
+  the reason below is correctness, not just merge conflicts, and it applies
+  to the whole plan regardless of which files the open branches touch
+
+Resume only once the check comes back empty. Don't ask the human whether to
+proceed anyway — the answer that matters is already written into `AGENTS.md`
+§2.8 and this file; asking just invites a plausible-sounding reason to skip a
+rule that exists because skipping it already produced real defects (below).
+
+Two independent reasons this is hard, not soft:
 
 1. **Correctness.** Tasks written against a plan's outline instead of the
    shipped code are fiction in a confident tone. This repo's own record says
@@ -37,14 +61,16 @@ Two independent reasons, both hard:
    turned out to look like, and three of M4's load-bearing decisions were not
    visible from the plan's bullet list at all. M13 was deliberately written
    against M12's *shipped* shape, and `T-M13-05` then found a defect that had
-   made the entire cloud chat UI non-functional. Work still in flight is
-   exactly the code you'd be guessing about.
+   made the entire cloud chat UI non-functional. **An open task branch is
+   proof the code is still moving** — not a maybe, the exact condition this
+   guards against.
 2. **Merge conflicts.** Decomposition regenerates `MasterTaskQueue.md` rather
    than appending to it — a whole-file rewrite that collides with every open
    branch at once (`AGENTS.md` §2.8).
 
-If branches are open, wait. The sequencing usually supplies the quiet moment
-for free: a phase is decomposed only after the phase it depends on has landed.
+The sequencing usually supplies the quiet moment for free: a phase is
+decomposed only after the phase it depends on has landed, which is naturally
+when its branches have already drained.
 
 ## Read the shipped code before writing any task
 

@@ -44,13 +44,15 @@ it delegates to, and what it must never do.
 
 **Decomposing an approved plan into `doc/tasks/<phase>/` is also yours**, and
 its procedure lives in the `decomposing-plans` skill — load that one before
-writing any task file. Two hard preconditions it enforces, both worth knowing
-before you start: **no task branches may be open** (`gh pr list --state
-open`), because decomposition regenerates `MasterTaskQueue.md` and collides
-with every one of them; and you **read the shipped code first**, not the
-plan's description of it. A plan approved two weeks ago describes a repo that
-has moved, and tasks written against its outline are fiction in a confident
-tone.
+writing any task file. Its first step is a hard gate, not a preference:
+**refuse to decompose if `gh pr list --state open` or `git worktree list`
+show anything.** Report what's open and stop — don't decompose "just the
+non-overlapping part" as a workaround. Decomposition regenerates
+`MasterTaskQueue.md` and collides with every open branch at once, and tasks
+written while other work is in flight are written against code that is still
+moving — this repo has shipped real defects that way before. Once the check
+is clear, **read the shipped code first**, not the plan's description of it;
+a plan approved two weeks ago describes a repo that has moved.
 
 ## Delegation
 
