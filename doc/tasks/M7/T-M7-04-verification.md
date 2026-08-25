@@ -112,11 +112,12 @@ All of this is reachable today.
 ## On completion
 
 > **Do not edit [`../MasterTaskQueue.md`](../MasterTaskQueue.md) from this
-> branch.** Its Status column is a mirror, flipped at integration on
-> `development` by whoever hands out the next wave (`AGENTS.md` §2.8).
-> Sibling tasks in this band are adjacent rows in one table, so ticking your
-> own row conflicts with every one of them. Record this task's outcome in the
-> **Status** row and **Result** section of *this* file.
+> branch.** Its Status column is a mirror, flipped once per band in the commit
+> that lands the band branch on `development` (`AGENTS.md` §2.9). Sibling
+> tasks in this band are adjacent rows in one table, so ticking your own row
+> conflicts with every one of them — including the parallel forks working
+> beside you. Record this task's outcome in the **Status** row and **Result**
+> section of *this* file.
 
 - [ ] Update the M7 section of
       `doc/plans/2026-08-09-daemon-cloud-control-plane.md` with what shipped and

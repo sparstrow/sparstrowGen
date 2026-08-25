@@ -1193,7 +1193,7 @@ are ticked `[~]` rather than `[x]` in that task:
 ### G-38 — Band 16's three task files record no verification at all
 
 **Raised:** 2026-08-25, reconciling task-file Status rows against
-[`MasterTaskQueue.md`](tasks/MasterTaskQueue.md) when `AGENTS.md` §2.8 was
+[`MasterTaskQueue.md`](tasks/MasterTaskQueue.md) when `AGENTS.md` §2.9 was
 adopted.
 
 The Settings Redesign shipped — `feat(settings): Settings Redesign

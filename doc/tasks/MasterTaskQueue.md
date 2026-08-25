@@ -14,7 +14,7 @@ isn't below? Check there.
 > the new set, and reorder. A task already `in progress` keeps its slot; anything
 > still `queued` may be resequenced. Because this is a whole-file rewrite it
 > collides with every open branch at once — **decompose only with no open task
-> branches** (`AGENTS.md` §2.8).
+> branches** (`AGENTS.md` §2.9).
 
 > **Never edit this file from a task branch.** The Status column *mirrors* each
 > task file's own `Status` row, which is the authoritative record. It is flipped

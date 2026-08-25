@@ -115,21 +115,37 @@ assume it's present for another agent or machine unless it's in `.mcp.json` or
 
 ## 2. Mandatory Git & Branch Workflow
 
-We enforce a strict 3-tier Git & deployment pipeline. Two hosts are involved before
+We enforce a strict Git & deployment pipeline. Two hosts are involved before
 `development` even sees the code — set 2026-08-21, by the owner: **localhost** for
-day-to-day iteration on an individual task (fastest loop, no push needed), and **the
-feature branch's own Vercel preview** for the final verification pass once that whole
-milestone/task is complete — push the branch, verify live against its preview URL,
-*then* open the PR.
+day-to-day iteration on an individual task (fastest loop, no push needed), and a
+**Vercel preview** for the final verification pass once the whole band is
+complete — push, verify live against the preview URL, *then* open the PR into
+`development`.
+
+**A band integrates on its own branch before it reaches `development`** — set
+2026-08-25, by the owner, when the repo moved to running parallel agents and
+forked sessions on one band at a time. A band's tasks are written against each
+other (a `[S]` task authors the types its siblings compile against), so they
+need a shared ancestor that already contains the finished sequential work.
+That ancestor is the band branch, not `development`.
 
 ```
 localhost (fast iteration, per task — no push needed)
         │
-        ▼  milestone/task complete → push the branch
-[Agent Worktree: feature/*]'s own Vercel preview ── final milestone verification
-        │
-        ▼
-PR into (Squash) ──► [development branch]
+        ▼  task complete: pnpm typecheck && pnpm test
+[task worktree: task/T-M16-01]  ──PR (squash)──┐
+[task worktree: task/T-M16-02]  ──PR (squash)──┤   ← parallel agents / forked
+[task worktree: task/T-M16-03]  ──PR (squash)──┤     sessions, each its OWN
+        │                                      │     worktree, all branched
+        │                                      │     FROM the band branch
+        ▼                                      ▼
+                        [band branch: band/20-m16-live-channel]
+                                               │
+                                               ▼  band complete → push
+                    band branch's own Vercel preview ── final band verification
+                                               │
+                                               ▼
+                              PR into (Squash) ──► [development branch]
         │  agent judges it production-ready, opens the promotion PR
         ▼
 [staging branch] ── (User Review Gate — owner approves, or gives feedback
@@ -141,55 +157,92 @@ PR into (Squash) ──► [development branch]
 ### Critical Branch Rules
 1. **Isolated Worktrees ONLY**:
    - You MUST create an isolated Git branch/worktree for your task: `feature/<task-name>`, `fix/<bug-name>`, or `task/<task-id>`.
-   - **NEVER** edit files directly on `development`, `staging`, or `main`.
-2. **PR Target & Merge Strategy**:
-   - All agent pull requests from a feature/fix/task worktree MUST target `development`.
-   - PRs into `development` use **Squash and Merge** to maintain a clean history.
+   - **NEVER** edit files directly on `development`, `staging`, `main`, or a **band branch**.
+   - **One worktree per agent, always.** Two agents — subagents, forked
+     sessions, or separate Claude Code windows — must never share a working
+     directory. That is not a merge conflict resolved later; it is two
+     processes writing the same files at once.
+2. **Two-Tier PR Target & Merge Strategy**:
+   - **A band with more than one task gets a band branch**, cut from
+     `development` and named `band/<band-number>-<short-slug>` (e.g.
+     `band/20-m16-live-channel`). Its tasks' PRs target **that branch**, not
+     `development`.
+   - **Task → band branch**: Squash and Merge. The band branch accumulates one
+     clean commit per task.
+   - **Band branch → `development`**: Squash and Merge, opened once the whole
+     band is complete and verified (rule 3).
+   - **A single-task band skips the middle tier** — that task's branch targets
+     `development` directly. Don't cut a band branch for one task.
+   - **Every parallel task branch is cut FROM the band branch**, after the
+     band's `[S]` gating task has already landed on it. Cutting from
+     `development` instead is the mistake that makes the whole scheme
+     pointless — the sibling tasks compile against types the gating task
+     authored.
    - **NEVER** push directly to `staging` or `main` — both are reached only through a PR, never a raw push, even for the promotion step below.
 3. **Verification Before PR**:
-   - You MUST run and pass all typechecks and unit tests locally before submitting a PR:
+   - **Per task, before its PR into the band branch** — typecheck and unit
+     tests must pass locally:
      ```bash
      pnpm typecheck
      pnpm test
      ```
-   - For a change a browser can exercise, this is not sufficient on its own — see
-     rule 3.10 and the `frontend-verify` skill. **The live pass belongs on the
-     feature branch's own Vercel preview** (push, then verify against that
-     preview URL), done once the milestone/task is otherwise complete — not
+   - **Per band, before its PR into `development`** — the live pass. For a
+     change a browser can exercise, green tests are not sufficient on their
+     own; see rule 3.10 and the `frontend-verify` skill. **The live pass
+     belongs on the band branch's own Vercel preview** (push, then verify
+     against that preview URL), done once the band is otherwise complete — not
      against `development.sparstrow.com`, which stays reserved for confirming
      the merge itself integrated cleanly. See
      [`doc/runbooks/deploy-web-app.md`](doc/runbooks/deploy-web-app.md) §4 for
      the exact URL pattern and the Supabase redirect-URL wildcard it depends on.
-4. **Worktree & Branch Cleanup Post-Merge**:
-   - Once a PR is merged into `development` (and GitHub auto-deletes the remote feature branch), agents MUST prune and clean up local worktrees and branches:
+   - This is the band's verification task (`T-<PHASE>-<nn>-verification`)
+     doing its job — it is the last task in the band precisely so it can grade
+     the assembled result rather than one slice of it.
+4. **Keep a live band branch fresh**:
+   - A band branch outlives an individual task branch, and other bands land on
+     `development` while it is open. Merge `development` **into** the band
+     branch periodically — at minimum before opening its final PR — so the
+     band→`development` merge carries only the band's own conflicts, not weeks
+     of accumulated drift.
+     ```bash
+     git checkout band/<n>-<slug>
+     git merge origin/development
+     ```
+   - Do **not** rebase a band branch that task branches have been cut from —
+     rewriting its history orphans every open task branch beneath it.
+5. **Worktree & Branch Cleanup Post-Merge**:
+   - Once a task PR is merged into its band branch, remove that task's worktree; the band branch continues.
+   - Once the band PR is merged into `development` (and GitHub auto-deletes the remote band branch), clean up the band worktree too:
      ```bash
      git checkout development
      git pull origin development
-     git worktree remove <worktree-path> || git branch -d <feature-branch>
+     git worktree remove <worktree-path> || git branch -d <branch>
      git fetch --prune
      ```
-5. **Auto-Enqueuing PR Merges**:
-   - Immediately upon opening a PR, agents MUST execute `gh pr merge <pr_number> --auto --squash` so that GitHub automatically queues and merges the PR as soon as CI passes, without requiring manual button clicks in the GitHub UI.
-6. **Commit Without Asking**:
+6. **Auto-Enqueuing PR Merges**:
+   - Immediately upon opening a PR — at **either** tier — agents MUST execute `gh pr merge <pr_number> --auto --squash` so that GitHub automatically queues and merges the PR as soon as CI passes, without requiring manual button clicks in the GitHub UI.
+   - The `development` → `staging` promotion PR is the exception: it gets a reviewer and is not auto-merged.
+7. **Commit Without Asking**:
    - Once edits for a coherent unit of work are complete (a fix, a doc update, a task's checklist items), commit them on the current feature/worktree branch **without waiting for the user to say "commit this"** — this file is the standing, advance authorization for that.
    - Commit at the end of a logical change, not after every individual file edit: an in-progress multi-file change lands as one commit (or a few coherent ones) once it's actually done, not a commit per file touched or per half-finished edit.
-   - This does not relax rule 3 (verification before PR) and does not change anything about opening or pushing PRs — those still follow rules 1, 2, and 5 above exactly as written. It only covers local commits to the agent's own branch.
-7. **Development → Staging Promotion (agent-initiated)**:
-   - Set 2026-08-20, by the owner, while verifying the Machines pairing flow, and
-     refined 2026-08-21 once feature-branch previews became viable (rule 3): the
-     milestone's real live verification already happened pre-merge, on the
-     feature branch's own Vercel preview. Once that passed and the PR has landed
-     on `development`, the agent judges for itself whether the milestone is
+   - This does not relax rule 3 (verification before PR) and does not change anything about opening or pushing PRs — those still follow rules 1, 2, 3 and 6 above exactly as written. It only covers local commits to the agent's own branch.
+8. **Development → Staging Promotion (agent-initiated)**:
+   - Set 2026-08-20, by the owner, while verifying the Machines pairing flow;
+     refined 2026-08-21 once branch previews became viable, and again
+     2026-08-25 when bands gained their own integration branch (rule 3): the
+     band's real live verification already happened pre-merge, on the **band
+     branch's** own Vercel preview. Once that passed and the band PR has landed
+     on `development`, the agent judges for itself whether the work is
      complete and production-ready — it does not wait to be asked for this
      specific step. A fresh pass against `development.sparstrow.com` is not a
      required gate here; reach for it only if something about the merge itself
-     (multiple branches landing together) is in doubt (see
+     (multiple bands landing together) is in doubt (see
      `doc/runbooks/agent-browser-session.md` for how an agent gets a signed-in
      session on a deployed host without typing a password).
-   - When ready, the agent opens the `development` → `staging` PR itself, same Squash-and-Merge convention as rule 2, and may auto-enqueue it per rule 5.
+   - When ready, the agent opens the `development` → `staging` PR itself, same Squash-and-Merge convention as rule 2, and may auto-enqueue it per rule 6.
    - `staging.sparstrow.com` is the **owner's review gate**. The owner either approves it (clearing the way for `staging` → `main`) or gives feedback, which sends the agent back to more work on `development` — this loops until the owner is satisfied. Nothing skips this review.
    - `staging` → `main` remains a **hard, owner-only gate** — never opened or merged by an agent without an explicit "approved, ship it" in chat for that specific promotion. This is unchanged from rule 2's "never push directly to staging or main" and is not relaxed by this rule.
-8. **Never Edit `MasterTaskQueue.md` From a Task Branch**:
+9. **Never Edit `MasterTaskQueue.md` From a Task Branch**:
    - Set 2026-08-25, by the owner, when the repo moved to running several
      coding agents on several branches at once. Every task used to be told to
      tick its own row in
@@ -197,10 +250,15 @@ PR into (Squash) ──► [development branch]
      tasks in a band are **adjacent rows in one table**, so that instruction
      made a merge conflict out of every parallel hand-out.
    - Each task file's own `Status` row is the authoritative record. The queue's
-     Status column mirrors it and is flipped **at integration, on
-     `development`**, by whoever hands out the next wave — as the first step of
-     that hand-out. It therefore lags between waves, deliberately: the queue's
-     only consumer is the decision about what to start next.
+     Status column mirrors it and is flipped **once per band, in the commit
+     that lands the band branch on `development`** (rule 2's second tier) — one
+     edit, one writer, every row in the band at once. It therefore lags while a
+     band is in flight, deliberately: the queue's only consumer is the decision
+     about what band to start next, and that decision is not made mid-band.
+   - **A task branch never touches it, and neither does a band branch
+     mid-flight.** The flip is the band's closing move, alongside archiving the
+     finished band per
+     [`doc/tasks/README.md`](doc/tasks/README.md#archiving-a-finished-band).
    - Ticking both places is what the old rule asked for, and it did not work
      even serially — adopting this one found 11 task files whose Status
      contradicted the queue. Protocol, status vocabulary, and the drift check:
@@ -208,8 +266,10 @@ PR into (Squash) ──► [development branch]
    - **Decomposing a phase into tasks is a solo operation.** It *regenerates*
      the queue rather than appending to it, which is a whole-file rewrite that
      collides with every open branch simultaneously. Drain to zero open task
-     branches first. The sequencing usually supplies the quiet moment for free,
-     since a phase is decomposed only after the phase it depends on has landed.
+     **and band** branches first. The sequencing usually supplies the quiet
+     moment for free, since a phase is decomposed only after the phase it
+     depends on has landed. The `decomposing-plans` skill enforces this as a
+     hard refusal, not a preference.
    - **What is *occupied* is not this file's job.** Use `gh pr list --state
      open` and `git worktree list`; do not extend the queue to track live
      branch state.

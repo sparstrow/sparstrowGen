@@ -132,11 +132,12 @@ them.
 ## On completion
 
 > **Do not edit [`../MasterTaskQueue.md`](../MasterTaskQueue.md) from this
-> branch.** Its Status column is a mirror, flipped at integration on
-> `development` by whoever hands out the next wave (`AGENTS.md` §2.8).
-> Sibling tasks in this band are adjacent rows in one table, so ticking your
-> own row conflicts with every one of them. Record this task's outcome in the
-> **Status** row and **Result** section of *this* file.
+> branch.** Its Status column is a mirror, flipped once per band in the commit
+> that lands the band branch on `development` (`AGENTS.md` §2.9). Sibling
+> tasks in this band are adjacent rows in one table, so ticking your own row
+> conflicts with every one of them — including the parallel forks working
+> beside you. Record this task's outcome in the **Status** row and **Result**
+> section of *this* file.
 
 - [ ] Update this file's **Status** row and the phase README's
 - [ ] `KnownGaps.md` entries for SC-006, for FR-009 if unreached live, and for
@@ -145,7 +146,7 @@ them.
 - [ ] Update the spec's index row in [`../../specs/README.md`](../../specs/README.md)
 - [ ] File any bug or security issue found, in the same turn, per `AGENTS.md` §5
 - [ ] Judge whether this is production-ready and, if so, open the
-      `development` → `staging` promotion PR (§2 rule 7)
+      `development` → `staging` promotion PR (§2 rule 8)
 
 ## Result
 

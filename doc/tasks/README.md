@@ -152,29 +152,36 @@ this is the canonical version.
 
 ## Who updates the queue, and when
 
-**A task branch never edits `MasterTaskQueue.md`.** Adopted 2026-08-25, when
-the repo moved to running several agents on several branches at once.
+**Neither a task branch nor a live band branch edits `MasterTaskQueue.md`.**
+Adopted 2026-08-25, when the repo moved to running several agents — and forked
+sessions — on one band at a time.
 
 Each task's **own file** carries the authoritative `Status` row. The queue's
-Status column is a *mirror* of those rows, maintained by whoever hands out the
-next wave of work, on `development`, as the first step of that hand-out:
+Status column is a *mirror* of those rows, flipped **once per band, in the
+same commit that lands the band branch on `development`** (`AGENTS.md` §2.2's
+second tier):
 
 ```
-agents finish → PRs squash-merge into development   (queue untouched)
-              ↓
-   before handing out the next wave:
-     0. run the drift check below
-     1. flip the merged rows in MasterTaskQueue.md, one commit
-     2. read the queue, pick what runs next
-     3. fan out
+task agents finish → PRs squash-merge into band/<n>-<slug>   (queue untouched)
+                   ↓
+     band complete, verified on the band branch's preview
+                   ↓
+     in the band→development PR, one commit:
+       0. run the drift check below
+       1. flip every row in that band
+       2. archive the band if it is now fully done
+                   ↓
+              merge to development
+                   ↓
+     now read the queue and pick the next band
 ```
 
-**Why the update is bound to the hand-out and not to the merge.** The queue has
-exactly one consumer — the decision about what to start next. Between those
-decisions nobody reads it, so lag costs nothing; binding the write to the read
-is what lets every task branch stay out of the file. Updating per-merge instead
-is equally conflict-free (GitHub serializes merges into `development`) and just
-noisier; either is legitimate, per-wave is the default.
+**Why once per band.** The queue has exactly one consumer — the decision about
+which band to start next — and that decision is never made mid-band. Binding
+the write to the band's closing move gives it a single writer at a single
+moment, which is what keeps every task branch and every parallel fork out of
+the file entirely. It lags while a band is in flight; that costs nothing,
+because nobody reads it then.
 
 **The queue answers "what is *eligible*", not "what is *occupied*".** Order,
 dependencies and tags change rarely and are safe to lag. For what is running
@@ -185,9 +192,12 @@ occupancy.
 **Decomposition is a solo operation.** Adding a plan's tasks *regenerates* this
 queue rather than appending to it (see `MasterTaskQueue.md`'s header), which is
 a whole-file rewrite and collides with every open branch at once. Drain to zero
-open task branches first. `AGENTS.md` §2.8 is the rule; the sequencing usually
-hands you the quiet moment for free, since a phase is decomposed after the
-phase it depends on lands.
+open task **and band** branches first — a live band branch counts, because its
+work has not reached `development` yet and so `development` does not describe
+the shipped repo. `AGENTS.md` §2.9 is the rule and the `decomposing-plans`
+skill enforces it as a refusal; the sequencing usually hands you the quiet
+moment for free, since a phase is decomposed after the phase it depends on
+lands.
 
 ### Drift check
 
@@ -266,10 +276,12 @@ is the queue's own scheduling text, not the record itself; relocating it to
 a sibling file the moment it has nothing left to schedule loses nothing, the
 same way the Status column has always been a mirror rather than a source.
 
-**Who does it, and when:** the same person, at the same moment, as the
-queue-mirror update in [Who updates the queue, and when](#who-updates-the-queue-and-when)
-— check every band for full completion as part of that pass, move the ones
-that qualify, and leave the rest exactly where they are.
+**Who does it, and when:** the same commit, by the same writer, as the
+queue-mirror flip in [Who updates the queue, and when](#who-updates-the-queue-and-when)
+— i.e. in the band→`development` PR. Flip the band's rows, then check whether
+that band is now fully done and archive it if so. Check the *other* bands too
+while you're there: one of them may have been completed by an earlier band's
+merge and never moved.
 
 ## When a phase's tasks are fully completed
 
