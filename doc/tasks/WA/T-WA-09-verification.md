@@ -98,7 +98,13 @@ without proof is allowed; shipping without saying so is not.
 
 ## On completion
 
-- [ ] Tick 22.9 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md), and mark band 22 complete
+> **Do not edit [`../MasterTaskQueue.md`](../MasterTaskQueue.md) from this
+> branch.** Its Status column is a mirror, flipped at integration on
+> `development` by whoever hands out the next wave (`AGENTS.md` §2.8).
+> Sibling tasks in this band are adjacent rows in one table, so ticking your
+> own row conflicts with every one of them. Record this task's outcome in the
+> **Status** row and **Result** section of *this* file.
+
 - [ ] Update this file's **Status** row and the phase README's Status
 - [ ] Update [`../../plans/2026-08-24-server-action-write-conversion.md`](../../plans/2026-08-24-server-action-write-conversion.md) Result
 

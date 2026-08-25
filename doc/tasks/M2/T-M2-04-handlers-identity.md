@@ -6,7 +6,7 @@
 | **Depends on** | T-M2-03 |
 | **Blocks** | T-M2-08 |
 | **Phase spec** | [M2/README.md](README.md) |
-| **Status** | queued |
+| **Status** | done 2026-08-10 |
 
 ## Objective
 
@@ -77,3 +77,7 @@ If a hook expects `rootDir` on a project, return `null` — M7 updates the UI.
 - [x] Creating an agent through the UI persists and reappears after reload
 - [x] Assigning a skill to an agent round-trips correctly
 - [x] A row created by user A in workspace A is invisible to user B in workspace B
+
+## Result
+
+**Status reconciled 2026-08-25.** This row read `queued` until then, while [`../MasterTaskQueue.md`](../MasterTaskQueue.md) and this phase's row in [`../README.md`](../README.md) had both said done since 2026-08-10 — the old "tick both places" protocol failing under fully serial work, which is what `AGENTS.md` §2.8 was adopted to stop. The phase record is the authority for a closed phase: M2 shipped and was verified on staging on 2026-08-10, browser pass included. Any `[ ]` left in the checklists above was **never recorded**, not disproved; it is not re-adjudicated here.

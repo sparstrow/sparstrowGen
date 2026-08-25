@@ -131,9 +131,14 @@ them.
 
 ## On completion
 
-- [ ] Tick 21.6 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+> **Do not edit [`../MasterTaskQueue.md`](../MasterTaskQueue.md) from this
+> branch.** Its Status column is a mirror, flipped at integration on
+> `development` by whoever hands out the next wave (`AGENTS.md` §2.8).
+> Sibling tasks in this band are adjacent rows in one table, so ticking your
+> own row conflicts with every one of them. Record this task's outcome in the
+> **Status** row and **Result** section of *this* file.
+
 - [ ] Update this file's **Status** row and the phase README's
-- [ ] Mark the M17 band complete in the queue
 - [ ] `KnownGaps.md` entries for SC-006, for FR-009 if unreached live, and for
       anything else ticked on weaker evidence than it asked for
 - [ ] Update the plan's **Status** row to `✅ Completed` and fill its **Result**

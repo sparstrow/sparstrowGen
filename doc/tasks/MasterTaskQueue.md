@@ -6,7 +6,20 @@ what runs next**. Task documents hold the detail; this holds the sequence.
 > **Regenerated, not appended.** When a new plan contributes tasks, re-run the
 > queue: insert them, re-evaluate every unfinished task's dependencies against
 > the new set, and reorder. A task already `in progress` keeps its slot; anything
-> still `queued` may be resequenced.
+> still `queued` may be resequenced. Because this is a whole-file rewrite it
+> collides with every open branch at once — **decompose only with no open task
+> branches** (`AGENTS.md` §2.8).
+
+> **Never edit this file from a task branch.** The Status column *mirrors* each
+> task file's own `Status` row, which is the authoritative record. It is flipped
+> at integration, on `development`, by whoever hands out the next wave — so it
+> may lag reality between waves, by design. Full protocol and the drift check:
+> [`README.md`](README.md#who-updates-the-queue-and-when). Sibling tasks in a
+> band are adjacent rows in one table, so a branch that ticks its own row
+> conflicts with every other branch in that band.
+
+> **This file answers "what is *eligible*", not "what is *occupied*".** For what
+> is running right now, use `gh pr list --state open` and `git worktree list`.
 
 ## Tags
 
@@ -21,7 +34,11 @@ the quick-reference version.
 
 ## Status legend
 
-`queued` · `in progress` · `done` · `blocked → OQ-n` (see `../OpenQuestions.md`)
+`queued` · `in progress` · `done` · `done except <id>` · `blocked → OQ-n`
+(see `../OpenQuestions.md`). Five values and no others, spelled the same way
+here and in the task file — the drift check compares them. A leading `✅`/`🟢`
+is decoration; the word is what is read. Canonical definitions in
+[`README.md`](README.md#status-vocabulary).
 
 A task blocked on an open question is **not** stalled as a whole: per
 `AGENTS.md` §8 only the dependent checklist item waits, and the task is reported

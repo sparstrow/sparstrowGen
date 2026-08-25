@@ -156,7 +156,13 @@ Neither is scope. Both are two minutes once the environment is already standing.
 
 ## On completion
 
-- [ ] Tick 7.6 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md), and mark band 7 complete
+> **Do not edit [`../MasterTaskQueue.md`](../MasterTaskQueue.md) from this
+> branch.** Its Status column is a mirror, flipped at integration on
+> `development` by whoever hands out the next wave (`AGENTS.md` §2.8).
+> Sibling tasks in this band are adjacent rows in one table, so ticking your
+> own row conflicts with every one of them. Record this task's outcome in the
+> **Status** row and **Result** section of *this* file.
+
 - [ ] Update the M5 section of `doc/plans/2026-08-09-daemon-cloud-control-plane.md`
       with what shipped, what was found, and any decision reality changed
 - [ ] Knowledge Center pass per `AGENTS.md` §3.2 — transcripts reaching the cloud

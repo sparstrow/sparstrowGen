@@ -111,8 +111,13 @@ All of this is reachable today.
 
 ## On completion
 
-- [ ] Tick 9.1–9.4 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md) and mark
-      Band 9 complete
+> **Do not edit [`../MasterTaskQueue.md`](../MasterTaskQueue.md) from this
+> branch.** Its Status column is a mirror, flipped at integration on
+> `development` by whoever hands out the next wave (`AGENTS.md` §2.8).
+> Sibling tasks in this band are adjacent rows in one table, so ticking your
+> own row conflicts with every one of them. Record this task's outcome in the
+> **Status** row and **Result** section of *this* file.
+
 - [ ] Update the M7 section of
       `doc/plans/2026-08-09-daemon-cloud-control-plane.md` with what shipped and
       what was found

@@ -189,6 +189,30 @@ PR into (Squash) ──► [development branch]
    - When ready, the agent opens the `development` → `staging` PR itself, same Squash-and-Merge convention as rule 2, and may auto-enqueue it per rule 5.
    - `staging.sparstrow.com` is the **owner's review gate**. The owner either approves it (clearing the way for `staging` → `main`) or gives feedback, which sends the agent back to more work on `development` — this loops until the owner is satisfied. Nothing skips this review.
    - `staging` → `main` remains a **hard, owner-only gate** — never opened or merged by an agent without an explicit "approved, ship it" in chat for that specific promotion. This is unchanged from rule 2's "never push directly to staging or main" and is not relaxed by this rule.
+8. **Never Edit `MasterTaskQueue.md` From a Task Branch**:
+   - Set 2026-08-25, by the owner, when the repo moved to running several
+     coding agents on several branches at once. Every task used to be told to
+     tick its own row in
+     [`doc/tasks/MasterTaskQueue.md`](doc/tasks/MasterTaskQueue.md); sibling
+     tasks in a band are **adjacent rows in one table**, so that instruction
+     made a merge conflict out of every parallel hand-out.
+   - Each task file's own `Status` row is the authoritative record. The queue's
+     Status column mirrors it and is flipped **at integration, on
+     `development`**, by whoever hands out the next wave — as the first step of
+     that hand-out. It therefore lags between waves, deliberately: the queue's
+     only consumer is the decision about what to start next.
+   - Ticking both places is what the old rule asked for, and it did not work
+     even serially — adopting this one found 11 task files whose Status
+     contradicted the queue. Protocol, status vocabulary, and the drift check:
+     [`doc/tasks/README.md`](doc/tasks/README.md#who-updates-the-queue-and-when).
+   - **Decomposing a phase into tasks is a solo operation.** It *regenerates*
+     the queue rather than appending to it, which is a whole-file rewrite that
+     collides with every open branch simultaneously. Drain to zero open task
+     branches first. The sequencing usually supplies the quiet moment for free,
+     since a phase is decomposed only after the phase it depends on has landed.
+   - **What is *occupied* is not this file's job.** Use `gh pr list --state
+     open` and `git worktree list`; do not extend the queue to track live
+     branch state.
 
 ---
 

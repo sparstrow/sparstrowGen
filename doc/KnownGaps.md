@@ -1189,3 +1189,43 @@ are ticked `[~]` rather than `[x]` in that task:
   That is one walk covering three of the four rows, and it is the natural first
   step of [`T-WA-09`](tasks/WA/T-WA-09-verification.md)'s sweep — which needs
   seeded projects anyway to verify `T-WA-02`.
+
+### G-38 — Band 16's three task files record no verification at all
+
+**Raised:** 2026-08-25, reconciling task-file Status rows against
+[`MasterTaskQueue.md`](tasks/MasterTaskQueue.md) when `AGENTS.md` §2.8 was
+adopted.
+
+The Settings Redesign shipped — `feat(settings): Settings Redesign
+(Master-Detail Sidebar & Appearance Themes)` (#112), 2026-08-22 — and the queue
+has read `🟢 done` for 16.1–16.3 ever since. But **not one checklist item in any
+of the three task files was ever ticked**: 27 boxes across
+[`T-01-ThemeInfra`](tasks/SettingsRedesign/T-01-ThemeInfra.md),
+[`T-02-UnifiedNav`](tasks/SettingsRedesign/T-02-UnifiedNav.md) and
+[`T-03-AppearancePicker`](tasks/SettingsRedesign/T-03-AppearancePicker.md), all
+`[ ]`, including their Verification sections. Their Status rows read
+`not started` until this entry was written.
+
+The boxes have been left unticked deliberately. Ticking them now would assert a
+verification nobody can point to, which is the failure `doc/tasks/README.md`'s
+completion protocol exists to prevent. The Status rows say `done 2026-08-22`
+because the feature demonstrably shipped; the queue row remains the only
+assertion that these specific checks were run.
+
+**Unverified as a result** — the named ones, from the files' own Verification
+sections: that the `theme-prefs` cookie is set at login and that a
+hand-edited cookie makes the server render matching classes on first paint
+(the whole point of the cookie cache — its failure mode is FOUC, which no test
+covers), and the accent/surface picker's contrast floor holding at the Paper
+and Mono surfaces in both modes, which `DESIGN.md` §2 requires.
+
+- **If wrong:** a theming regression ships unnoticed. The FOUC case is the
+  likely one — it is invisible to `pnpm test` and `pnpm typecheck` by
+  construction, only appears on a cold first paint, and is exactly what the
+  cookie cache was built to prevent. A contrast-floor break is the more serious
+  one, because it is an accessibility failure the design doctrine states as a
+  hard floor.
+- **Clears when:** the three files' Verification sections are actually walked
+  against a deployed preview and ticked, or explicitly rewritten to say what
+  was run instead. Cheapest inside `I-10`'s settings design pass, which will
+  be re-opening these surfaces anyway.

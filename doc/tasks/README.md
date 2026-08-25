@@ -107,6 +107,87 @@ worked in the same session, in any order, but not blindly in parallel — they w
 collide on a file. `MasterTaskQueue.md` mirrors this table for quick reference;
 this is the canonical version.
 
+## Who updates the queue, and when
+
+**A task branch never edits `MasterTaskQueue.md`.** Adopted 2026-08-25, when
+the repo moved to running several agents on several branches at once.
+
+Each task's **own file** carries the authoritative `Status` row. The queue's
+Status column is a *mirror* of those rows, maintained by whoever hands out the
+next wave of work, on `development`, as the first step of that hand-out:
+
+```
+agents finish → PRs squash-merge into development   (queue untouched)
+              ↓
+   before handing out the next wave:
+     0. run the drift check below
+     1. flip the merged rows in MasterTaskQueue.md, one commit
+     2. read the queue, pick what runs next
+     3. fan out
+```
+
+**Why the update is bound to the hand-out and not to the merge.** The queue has
+exactly one consumer — the decision about what to start next. Between those
+decisions nobody reads it, so lag costs nothing; binding the write to the read
+is what lets every task branch stay out of the file. Updating per-merge instead
+is equally conflict-free (GitHub serializes merges into `development`) and just
+noisier; either is legitimate, per-wave is the default.
+
+**The queue answers "what is *eligible*", not "what is *occupied*".** Order,
+dependencies and tags change rarely and are safe to lag. For what is running
+right now, ask `gh pr list --state open` and `git worktree list` — live, always
+accurate, and never in conflict with anything. Do not extend the queue to track
+occupancy.
+
+**Decomposition is a solo operation.** Adding a plan's tasks *regenerates* this
+queue rather than appending to it (see `MasterTaskQueue.md`'s header), which is
+a whole-file rewrite and collides with every open branch at once. Drain to zero
+open task branches first. `AGENTS.md` §2.8 is the rule; the sequencing usually
+hands you the quiet moment for free, since a phase is decomposed after the
+phase it depends on lands.
+
+### Drift check
+
+The two places disagreeing is not hypothetical — it is what the old
+"tick both" protocol actually produced, under fully **serial** work. When this
+rule was adopted the check found 11 stale files: all eight of `M2/` reading
+`queued` against a queue that had said `done` since 2026-08-10, and all three
+of `SettingsRedesign/` reading `not started` against `done`. They were
+corrected in the same change. Run this as step 0 of a hand-out:
+
+```bash
+for f in doc/tasks/*/T-*.md; do
+  rel=${f#doc/tasks/}
+  fs=$(grep -m1 '^| \*\*Status\*\*' "$f" | grep -c done)
+  qs=$(grep -c "($rel).*done" doc/tasks/MasterTaskQueue.md)
+  [ "$fs" != "$qs" ] && echo "drift: $rel (file=$fs queue=$qs)"
+done
+```
+
+It matches on the queue row's **link target**, not on a task id, because two
+naming conventions are in use — `T-M16-01-…` everywhere and `T-01-…` in
+`SettingsRedesign/`. The paths are unambiguous; the ids are not.
+
+Quiet output means the mirror is honest.
+
+### Status vocabulary
+
+Five values, and nothing else — the drift check and every reader depend on
+them being spelled the same way in both places:
+
+| Value | Means |
+|---|---|
+| `queued` | written, not started |
+| `in progress` | a branch is open on it |
+| `done <date>` | every checklist item ticked, at the evidence it asked for |
+| `done except <id> <date>` | landed with a named residue — a `G-n`, `OQ-n`, or `D-n` that says what is unproved |
+| `blocked → OQ-n` | the *dependent item* waits; per `AGENTS.md` §8 the task is still reported as done-except |
+
+A tick mark before the word (`✅`, `🟢`) is decoration and may be dropped; the
+word is what is read. Do not invent a sixth value — `partly done`, `done except
+residue` with no id, and a bare date are all forms of not saying what is
+missing, which is what `KnownGaps.md` exists to prevent.
+
 ## When a phase's tasks are fully completed
 
 Nothing is deleted, moved, or archived. `doc/plans/` and `doc/tasks/` are an
@@ -121,7 +202,9 @@ where the open item is explicitly non-blocking for the plan, as M2's OQ-1 is):
 2. **This file's status table** — flip that row to `✅ done`.
 3. **`MasterTaskQueue.md`** — flip every task in that band's Status column to
    `done`. No reordering needed: a completed band is already earliest in run
-   order, which is why Band 0 never had to move.
+   order, which is why Band 0 never had to move. **This step happens at
+   integration, on `development`, not from a task branch** — see
+   [Who updates the queue, and when](#who-updates-the-queue-and-when).
 4. **The plan header** — update its `Status` row. If phases remain, name the next
    one (`M1 complete · M2 next`, the current pattern). If that was the last
    phase, the plan's status becomes `✅ Completed <date>`.

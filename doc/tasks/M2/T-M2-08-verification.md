@@ -6,7 +6,7 @@
 | **Depends on** | T-M2-04, T-M2-05, T-M2-06, T-M2-07 |
 | **Blocks** | M3 |
 | **Phase spec** | [M2/README.md](README.md) |
-| **Status** | queued |
+| **Status** | done 2026-08-10 |
 
 ## Objective
 
@@ -132,3 +132,7 @@ Two items remain open and neither belongs to M2:
 **OQ-2 is no longer blocking**, but it is not answered either: this pass only
 worked because a session happened to be live in the browser already. The next
 one will need the Playwright `storageState` fixture, or another human sign-in.
+
+## Result
+
+**Status reconciled 2026-08-25.** This row read `queued` until then, while [`../MasterTaskQueue.md`](../MasterTaskQueue.md) and this phase's row in [`../README.md`](../README.md) had both said done since 2026-08-10 — the old "tick both places" protocol failing under fully serial work, which is what `AGENTS.md` §2.8 was adopted to stop. The phase record is the authority for a closed phase: M2 shipped and was verified on staging on 2026-08-10, browser pass included. Any `[ ]` left in the checklists above was **never recorded**, not disproved; it is not re-adjudicated here.

@@ -117,7 +117,13 @@ lets `CloudAuthError` classify it without a second parser.
 
 ## On completion
 
-- [ ] Tick 20.2 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+> **Do not edit [`../MasterTaskQueue.md`](../MasterTaskQueue.md) from this
+> branch.** Its Status column is a mirror, flipped at integration on
+> `development` by whoever hands out the next wave (`AGENTS.md` §2.8).
+> Sibling tasks in this band are adjacent rows in one table, so ticking your
+> own row conflicts with every one of them. Record this task's outcome in the
+> **Status** row and **Result** section of *this* file.
+
 - [ ] Update this file's **Status** row
 - [ ] Update the phase README's task table
 - [ ] Confirm the runbook row is present and accurate

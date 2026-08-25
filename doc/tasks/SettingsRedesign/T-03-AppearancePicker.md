@@ -7,7 +7,7 @@
 | **Depends on** | T-01, T-02 |
 | **Blocks** | none |
 | **Phase spec** | [SettingsRedesign](../../plans/2026-08-22-SettingsRedesign.md) |
-| **Status** | not started |
+| **Status** | done 2026-08-22 |
 
 ## Objective
 
@@ -34,3 +34,9 @@ Build the interactive Theme Picker component in the new Settings layout. Impleme
 
 - [ ] Tick T-03 in `../MasterTaskQueue.md`
 - [ ] Update this file's **Status** row
+
+## Result
+
+**Status reconciled 2026-08-25.** This row read `not started` until then, while [`../MasterTaskQueue.md`](../MasterTaskQueue.md) had said done since the band landed. The feature did ship — `feat(settings): Settings Redesign (Master-Detail Sidebar & Appearance Themes)` (#112), 2026-08-22 — so `done` is the honest status.
+
+**No checklist item in this file was ever ticked**, and none has been ticked now: the boxes above record no evidence, and ticking them retroactively would assert a verification nobody can point to. The queue row is the only assertion that this task's checks were run. Recorded as [`G-38`](../../KnownGaps.md).
