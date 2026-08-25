@@ -885,3 +885,38 @@ to every one of the modules still stubbed in
   first-paint complaint arrives from someone who is not the owner, and do the
   first conversion in the same body of work as `D-24`'s page move, so there is
   one worked example in-tree for the rest to copy.
+
+---
+
+## D-26 — A cloud record of who opened a shell and when
+
+**Parked:** 2026-08-24, writing
+[the terminal plan](plans/2026-08-24-a-terminal-on-my-machine.md) (DD-5) — a
+deliberate scope line, not an oversight.
+
+A terminal session is a process on a machine. DD-5 makes the machine the source
+of truth for its own processes and puts no `terminal_sessions` table in the
+control plane, because a mirror row disagrees with reality the instant the
+machine restarts and the app then shows a list of shells that do not exist.
+
+What that gives up is the **audit trail**: nothing in the cloud records that a
+shell was opened on someone's computer, by whom, or when. Today that record is
+the machine's own log. The plan's own Assumptions state this plainly rather than
+leaving it implied.
+
+- **If wrong (i.e. left parked):** with one person in the workspace, the loss is
+  small — the only person who could have opened a shell is the person asking.
+  With a second owner/admin it becomes real and awkward: FR-009 restricts
+  terminals to owner/admin precisely because a shell is unrestricted, and
+  "unrestricted, and unlogged" is a materially different posture from
+  "unrestricted, and recorded". The gap is also retroactive — a trail cannot be
+  reconstructed after the fact.
+- **Unpark when:** a second person holds owner or admin on any workspace. That
+  is the trigger, not a date. It also unparks naturally alongside
+  [`I-10`](Ideas.md)'s members-and-invites work, since that is the change that
+  creates the second admin.
+- **Shape when it happens:** an append-only cloud event written by the daemon on
+  session open and close, through the existing authenticated `/api/daemon/*`
+  path — fire-and-forget, never on the critical path, so a failed write delays
+  no keystroke. Explicitly not a mirror of live session state, which is what
+  DD-5 rejects.
