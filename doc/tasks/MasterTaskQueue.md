@@ -769,7 +769,7 @@ M20's.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 23.1 | [T-M18-01 — the access vocabulary](M18/T-M18-01-access-vocabulary.md) | `[S]` | — | queued |
+| 23.1 | [T-M18-01 — the access vocabulary](M18/T-M18-01-access-vocabulary.md) | `[S]` | — | ✅ done |
 | 23.2 | [T-M18-02 — the provenance resolver](M18/T-M18-02-provenance-resolver.md) | `[P]` | 23.1 | queued |
 | 23.3 | [T-M18-03 — the tool catalogue](M18/T-M18-03-tool-catalogue.md) | `[P]` | 23.1 | queued |
 | 23.4 | [T-M18-04 — schema, policies, and dropping `users.role`](M18/T-M18-04-schema-and-policies.md) | `[P]` | 23.1 | queued |

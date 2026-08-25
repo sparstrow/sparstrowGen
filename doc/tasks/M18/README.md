@@ -100,7 +100,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
-| [T-M18-01 — the access vocabulary](T-M18-01-access-vocabulary.md) | `[S]` | foundational | — | not started |
+| [T-M18-01 — the access vocabulary](T-M18-01-access-vocabulary.md) | `[S]` | foundational | — | ✅ done |
 | [T-M18-02 — the provenance resolver](T-M18-02-provenance-resolver.md) | `[P]` | foundational | T-M18-01 | not started |
 | [T-M18-03 — the tool catalogue](T-M18-03-tool-catalogue.md) | `[P]` | foundational | T-M18-01 | not started |
 | [T-M18-04 — schema: workspace policy, shared locations, agent↔machine, drop `users.role`](T-M18-04-schema-and-policies.md) | `[P]` | foundational | T-M18-01 | not started |
