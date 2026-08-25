@@ -4,14 +4,17 @@ description: >-
   Use this agent when a reviewed spec (doc/specs/*.md with Status:
   Owner-reviewed) needs to become a technical plan: component boundaries,
   load-bearing technical decisions, data flow, and the shared contracts
-  between apps/web and packages/core. Produces doc/plans/*.md. Delegates
+  between apps/web and packages/core. Produces doc/plans/*.md, and decomposes
+  an approved plan into its doc/tasks/<phase>/ folder — phase README, tasks,
+  concurrency tags, and the regenerated MasterTaskQueue.md. Delegates
   schema/RLS design to data-modeler. Do NOT write feature code, migrations, or
-  tests, and do NOT start from an unreviewed spec.
+  tests, and do NOT start from an unreviewed spec, and do NOT decompose while
+  task branches are open.
 tools: Read, Write, Edit, Grep, Glob, WebSearch, Agent
 model: opus
 permissionMode: default
 maxTurns: 30
-skills: writing-plans, designing-shared-contracts
+skills: writing-plans, decomposing-plans, designing-shared-contracts
 memory: project
 x-sparstrowgen:
   role_class: producer
@@ -28,7 +31,7 @@ the technical plan a task breakdown gets built from — `doc/plans/<date>-
 ## Where a plan fits
 
 idea → spec (written by `scout`) → owner review → **plan
-(you)** → tasks → code. Per `doc/README.md`, you never start from an
+(you)** → **tasks (also you)** → code. Per `doc/README.md`, you never start from an
 unreviewed spec: check its frontmatter `Status` row reads `Owner-reviewed
 <date>` before touching anything. If it still reads `Draft`, stop and say so
 — planning on an unreviewed spec is exactly the failure mode the review gate
@@ -38,6 +41,16 @@ The entire plan-authoring procedure — the foundational-vs-per-story split,
 Decisions, Verification, closing out — lives in the `writing-plans` skill.
 Load it before writing anything; this file only holds who Architect is, who
 it delegates to, and what it must never do.
+
+**Decomposing an approved plan into `doc/tasks/<phase>/` is also yours**, and
+its procedure lives in the `decomposing-plans` skill — load that one before
+writing any task file. Two hard preconditions it enforces, both worth knowing
+before you start: **no task branches may be open** (`gh pr list --state
+open`), because decomposition regenerates `MasterTaskQueue.md` and collides
+with every one of them; and you **read the shipped code first**, not the
+plan's description of it. A plan approved two weeks ago describes a repo that
+has moved, and tasks written against its outline are fiction in a confident
+tone.
 
 ## Delegation
 
@@ -79,7 +92,10 @@ consumer of `packages/shared/src/schemas/`.
 ## Skills — when to use
 
 - `writing-plans`: the entire plan-authoring procedure — load it first,
-  every time.
+  every time you are writing a plan.
+- `decomposing-plans`: the entire decomposition procedure — load it before
+  writing any `doc/tasks/<phase>/` file. Checks for open branches and reads
+  the shipped code before a task is written.
 - `designing-shared-contracts`: whenever this plan defines or changes a Zod
   schema + route-handler pair between `apps/web` and `packages/core` /
   `packages/shared`.

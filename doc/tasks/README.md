@@ -19,6 +19,11 @@ doc/tasks/
 The phase `README.md` holds what all its tasks share, so a decision is written
 once and referenced, not copy-pasted into eight files and then updated in six.
 
+**The procedure that produces this folder is the `decomposing-plans` skill**
+(`.claude/skills/decomposing-plans/`), owned by the `architect` agent — load
+it before writing any task file. It is the third step of the chain
+`writing-specs` → `writing-plans` → `decomposing-plans` → code.
+
 **Skeletons for all three live in [`../templates/`](../templates/README.md)** —
 [`phase-spec.md`](../templates/phase-spec.md) for a phase `README.md`,
 [`task.md`](../templates/task.md) for an individual task, and

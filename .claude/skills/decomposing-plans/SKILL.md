@@ -1,0 +1,120 @@
+---
+name: decomposing-plans
+description: >-
+  Step-by-step procedure for turning an approved doc/plans/*.md into the
+  doc/tasks/<phase>/ folder it becomes: reading the shipped code first,
+  writing the phase README, sizing and sequencing tasks, assigning [S]/[P]/[C]
+  concurrency tags from real file overlap, and regenerating MasterTaskQueue.md.
+  Use whenever decomposing a plan or phase into tasks, adding tasks to an
+  existing phase, or re-sequencing the queue.
+metadata:
+  sparstrowgen-owner: architect
+---
+
+# Decomposing a plan into doc/tasks/<phase>/
+
+The third step of the chain, and the one that had no written procedure until
+now: `writing-specs` → `writing-plans` → **this** → code.
+
+Read `doc/tasks/README.md` and `doc/templates/README.md` before starting.
+Three templates produce this folder — `phase-spec.md` for the `README.md`,
+`task.md` for each task, `verification-task.md` for the `[S]` task every phase
+ends with. Copy them; don't invent a shape.
+
+## Decompose only with no open task branches
+
+Check first:
+
+```bash
+gh pr list --state open && git worktree list
+```
+
+Two independent reasons, both hard:
+
+1. **Correctness.** Tasks written against a plan's outline instead of the
+   shipped code are fiction in a confident tone. This repo's own record says
+   so repeatedly — M5's decomposition depended on what M4's dispatch actually
+   turned out to look like, and three of M4's load-bearing decisions were not
+   visible from the plan's bullet list at all. M13 was deliberately written
+   against M12's *shipped* shape, and `T-M13-05` then found a defect that had
+   made the entire cloud chat UI non-functional. Work still in flight is
+   exactly the code you'd be guessing about.
+2. **Merge conflicts.** Decomposition regenerates `MasterTaskQueue.md` rather
+   than appending to it — a whole-file rewrite that collides with every open
+   branch at once (`AGENTS.md` §2.8).
+
+If branches are open, wait. The sequencing usually supplies the quiet moment
+for free: a phase is decomposed only after the phase it depends on has landed.
+
+## Read the shipped code before writing any task
+
+Not the plan's description of the code — the code. For each area the plan
+touches, open the real files and confirm the plan's assumptions still hold.
+A plan approved two weeks ago describes a repo that has moved.
+
+Write what you found into the phase README's **The shape of what was found**
+section. When it contradicts the plan, the code wins and the contradiction is
+recorded there as a correction rather than folded in silently.
+
+## One phase = one folder
+
+`doc/tasks/<PHASE-ID>/`, tasks named `T-<PHASE-ID>-<nn>-<slug>.md`. The phase
+README holds what all its tasks share, so a decision is written once and
+referenced — not copy-pasted into eight files and then updated in six.
+
+Declare the phase's **Kind** in its header: foundational (blocks stories,
+demos to nobody) or serves `US-n` (ends in something the owner can open).
+Every task carries a **Serves** row. A task that can name neither a story nor
+the story phase it unblocks is a task nobody asked for.
+
+## Sizing a task
+
+One coherent unit of work, one branch, one PR. Each task must be executable
+without asking the owner anything — every decision it needs is already made in
+the plan or recorded in the task itself. **A task document contains zero open
+questions.** If decomposing surfaces one, it goes to `doc/OpenQuestions.md`
+with `AGENTS.md` §8's full options framework and blocks only the checklist
+item that depends on it; the rest of the task still gets built.
+
+Every phase ends with an `[S]` verification task built from
+`verification-task.md`, graded on the spec's acceptance scenarios rather than
+a list of components built.
+
+## Concurrency tags come from file overlap, not intuition
+
+Tag every task `[S]`, `[P]`, or `[C]` — and justify it in the task's Tag row
+by **naming the shared file**:
+
+| Tag | Use when |
+|---|---|
+| `[S]` | Something downstream cannot start until this lands. Gate a phase this way when siblings are written against types or names this task authors. |
+| `[P]` | Genuinely no shared files with its siblings. Hand to different agents with zero coordination. |
+| `[C]` | Interleavable in any order, but touches a file a sibling also touches. One agent at a time on those. |
+
+Grep for the overlap rather than assuming it. `[P]` claimed wrongly is what
+turns a parallel hand-out into a merge conflict; `apps/web/src/api/hooks.ts`
+is the repo's worst case — 2,200 lines that several tasks all delete from, and
+the reason band 22's tasks are `[C]` and never `[P]`.
+
+**Gate a phase on a worked example when siblings will copy a pattern.**
+`T-WA-01` was `[S]` for this reason and found a defect that would have hit all
+21 files behind it — before they were written.
+
+## Regenerate the queue, don't append to it
+
+Insert the new tasks into `doc/tasks/MasterTaskQueue.md`, re-evaluate every
+unfinished task's dependencies against the new set, and reorder. A task
+already `in progress` keeps its slot; anything still `queued` may be
+resequenced.
+
+State the cross-phase collisions explicitly in the band's prose — which tasks
+in other phases touch the same files, and what the coordination point is. That
+paragraph is what makes a parallel hand-out safe, and it is the part a reader
+cannot reconstruct from the rows.
+
+## Don't decompose what isn't real yet
+
+A phase whose shape depends on a phase still being built stays **not
+decomposed**, and the queue says so in a row of its own. Writing its tasks
+early is the failure this whole file exists to prevent. Name the dependency
+and move on.
