@@ -1,13 +1,13 @@
-# T-01 — Theme Infrastructure
+# T-SR-01 — Theme Infrastructure
 
 | | |
 |---|---|
 | **Tag** | `[S] sequential` — blocks UI implementation |
 | **Serves** | **foundational** — Theme Sync Architecture |
 | **Depends on** | none |
-| **Blocks** | T-03 |
+| **Blocks** | T-SR-03 |
 | **Phase spec** | [SettingsRedesign](../../plans/2026-08-22-SettingsRedesign.md) |
-| **Status** | done 2026-08-22 |
+| **Status** | done except G-38 2026-08-22 |
 
 ## Objective
 
@@ -31,7 +31,13 @@ Set up the underlying data layer for the theming system so it travels with the u
 
 ## On completion
 
-- [ ] Tick T-01 in `../MasterTaskQueue.md`
+> **Do not edit [`../MasterTaskQueue.md`](../MasterTaskQueue.md) from this
+> branch.** Its Status column is a mirror, flipped at integration on
+> `development` by whoever hands out the next wave (`AGENTS.md` §2.8).
+> Sibling tasks in this band are adjacent rows in one table, so ticking your
+> own row conflicts with every one of them. Record this task's outcome in the
+> **Status** row and **Result** section of *this* file.
+
 - [ ] Update this file's **Status** row
 
 ## Result

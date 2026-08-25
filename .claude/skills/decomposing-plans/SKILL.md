@@ -138,6 +138,11 @@ in other phases touch the same files, and what the coordination point is. That
 paragraph is what makes a parallel hand-out safe, and it is the part a reader
 cannot reconstruct from the rows.
 
+**A dependency may point at a band that's been archived.** Fully-done bands
+move out of `MasterTaskQueue.md` to `CompletedMasterQueue.md`, leaving a
+one-line stub — check both files before assuming a phase's dependency chain
+isn't in the active queue.
+
 ## Don't decompose what isn't real yet
 
 A phase whose shape depends on a phase still being built stays **not

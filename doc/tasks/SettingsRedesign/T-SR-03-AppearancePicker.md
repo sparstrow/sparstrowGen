@@ -1,24 +1,24 @@
-# T-03 — Appearance Picker
+# T-SR-03 — Appearance Picker
 
 | | |
 |---|---|
-| **Tag** | `[S] sequential` — requires T-01 and T-02 |
+| **Tag** | `[S] sequential` — requires T-SR-01 and T-SR-02 |
 | **Serves** | `US2` — Appearance & Theme |
-| **Depends on** | T-01, T-02 |
+| **Depends on** | T-SR-01, T-SR-02 |
 | **Blocks** | none |
 | **Phase spec** | [SettingsRedesign](../../plans/2026-08-22-SettingsRedesign.md) |
-| **Status** | done 2026-08-22 |
+| **Status** | done except G-38 2026-08-22 |
 
 ## Objective
 
-Build the interactive Theme Picker component in the new Settings layout. Implement the CSS overrides to support `data-brand` and `data-surface`. Wire the UI so that clicking a theme swatch instantly updates the DOM and triggers the background sync built in T-01.
+Build the interactive Theme Picker component in the new Settings layout. Implement the CSS overrides to support `data-brand` and `data-surface`. Wire the UI so that clicking a theme swatch instantly updates the DOM and triggers the background sync built in T-SR-01.
 
 ## Checklist
 
 - [ ] Port the prototype's CSS for `.theme-option`, `.brand-swatch`, and the `data-brand` preset variables into the `@sparstrow/ui` global theme stylesheet
 - [ ] Build the `AppearanceSettingsPane` React component inside `packages/ui` using Shadcn primitives
 - [ ] Wire the React `onClick` handlers to instantly inject `data-surface` and `data-brand` onto `document.documentElement`
-- [ ] Wire the React `onClick` handlers to call the API/Server Action from T-01 to save the preference
+- [ ] Wire the React `onClick` handlers to call the API/Server Action from T-SR-01 to save the preference
 - [ ] Add `window.matchMedia` listener inside the component to handle System mode changes dynamically
 
 ## Traps
@@ -32,7 +32,13 @@ Build the interactive Theme Picker component in the new Settings layout. Impleme
 
 ## On completion
 
-- [ ] Tick T-03 in `../MasterTaskQueue.md`
+> **Do not edit [`../MasterTaskQueue.md`](../MasterTaskQueue.md) from this
+> branch.** Its Status column is a mirror, flipped at integration on
+> `development` by whoever hands out the next wave (`AGENTS.md` §2.8).
+> Sibling tasks in this band are adjacent rows in one table, so ticking your
+> own row conflicts with every one of them. Record this task's outcome in the
+> **Status** row and **Result** section of *this* file.
+
 - [ ] Update this file's **Status** row
 
 ## Result

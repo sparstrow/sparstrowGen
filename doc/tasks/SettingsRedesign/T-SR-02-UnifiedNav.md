@@ -1,13 +1,13 @@
-# T-02 — Unified Navigation
+# T-SR-02 — Unified Navigation
 
 | | |
 |---|---|
-| **Tag** | `[P] parallel` — can be done alongside T-01 |
+| **Tag** | `[P] parallel` — can be done alongside T-SR-01 |
 | **Serves** | `US1` — Unified Navigation |
 | **Depends on** | none |
-| **Blocks** | T-03 |
+| **Blocks** | T-SR-03 |
 | **Phase spec** | [SettingsRedesign](../../plans/2026-08-22-SettingsRedesign.md) |
-| **Status** | done 2026-08-22 |
+| **Status** | done except G-38 2026-08-22 |
 
 ## Objective
 
@@ -33,7 +33,13 @@ Refactor the `SettingsPage` component (`packages/ui/src/routes/pages/settings.ts
 
 ## On completion
 
-- [ ] Tick T-02 in `../MasterTaskQueue.md`
+> **Do not edit [`../MasterTaskQueue.md`](../MasterTaskQueue.md) from this
+> branch.** Its Status column is a mirror, flipped at integration on
+> `development` by whoever hands out the next wave (`AGENTS.md` §2.8).
+> Sibling tasks in this band are adjacent rows in one table, so ticking your
+> own row conflicts with every one of them. Record this task's outcome in the
+> **Status** row and **Result** section of *this* file.
+
 - [ ] Update this file's **Status** row
 
 ## Result

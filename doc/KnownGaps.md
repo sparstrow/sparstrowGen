@@ -1200,9 +1200,9 @@ The Settings Redesign shipped — `feat(settings): Settings Redesign
 (Master-Detail Sidebar & Appearance Themes)` (#112), 2026-08-22 — and the queue
 has read `🟢 done` for 16.1–16.3 ever since. But **not one checklist item in any
 of the three task files was ever ticked**: 27 boxes across
-[`T-01-ThemeInfra`](tasks/SettingsRedesign/T-01-ThemeInfra.md),
-[`T-02-UnifiedNav`](tasks/SettingsRedesign/T-02-UnifiedNav.md) and
-[`T-03-AppearancePicker`](tasks/SettingsRedesign/T-03-AppearancePicker.md), all
+[`T-SR-01-ThemeInfra`](tasks/SettingsRedesign/T-SR-01-ThemeInfra.md),
+[`T-SR-02-UnifiedNav`](tasks/SettingsRedesign/T-SR-02-UnifiedNav.md) and
+[`T-SR-03-AppearancePicker`](tasks/SettingsRedesign/T-SR-03-AppearancePicker.md), all
 `[ ]`, including their Verification sections. Their Status rows read
 `not started` until this entry was written.
 

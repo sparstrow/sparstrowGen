@@ -95,6 +95,44 @@ the plate being served.
 When the question is answered: unblock the item, finish it, delete the entry from
 `OpenQuestions.md`.
 
+## Hierarchy — Spec, Plan, Phase, Band, Task
+
+Five terms, and only five; each names one specific thing:
+
+| Term | A document? | Where | Scope |
+|---|---|---|---|
+| **Spec** | yes | `doc/specs/<date>-<slug>.md` | what the owner wants, no technology |
+| **Plan** | yes | `doc/plans/<date>-<slug>.md` | the technical how; splits into one or more phases |
+| **Phase** | yes (a folder) | `doc/tasks/<PREFIX>/` | one `README.md` + its tasks; declares foundational or `serves US-n` |
+| **Task** | yes | `doc/tasks/<PREFIX>/T-<PREFIX>-<nn>-<slug>.md` | one checklist, one branch, one PR |
+| **Band** | **no** | a section inside `MasterTaskQueue.md` | a scheduling wave — see below |
+
+**A band is not a phase, and not reliably one phase's worth of work.** It is
+a grouping of tasks from one *plan* that can run as one wave, decided purely
+by run-order and file overlap. A phase with internal sequencing spans several
+bands (M2's foundations → spine → handlers → verification are Bands 1–4). A
+band can equally hold tasks from *several* phases at once when a plan's work
+was decomposed together (Band 18 holds M12, M13, M14 and M15's tasks in one
+table). Bands are numbered sequentially in queue order and never form their
+own folder or document — the task files and phase `README.md`s are the
+record; a band is just how the queue schedules them.
+
+**"Milestone" is not a structural term — do not use it for a folder or an
+id.** It appears once, informally, in `AGENTS.md`'s git workflow to mean "a
+pushable unit of work worth a preview-verification pass," which may be a
+whole phase or something smaller. That is a different concept from the five
+above and the two must not be conflated. The `M` in `M2`/`M16`/`M18` is a
+phase-prefix convention, not a claim that "milestone" is a document tier.
+
+**Phase-id convention:** `M<n>` for the main product sequence; a short
+family prefix + number for a side initiative (`D1`, `D2`, `G23`, `VR`, `WA`).
+Every phase's tasks are `T-<PREFIX>-<nn>-<slug>.md` with no exceptions —
+`SettingsRedesign`'s tasks were renamed from bare `T-01`/`T-02`/`T-03` to
+`T-SR-01`/`T-SR-02`/`T-SR-03` on 2026-08-25 specifically because the
+bare-number scheme broke a script that walks task ids by pattern; a phase
+folder itself may still be a descriptive name (`SettingsRedesign`, `VR`) but
+its task-id prefix must exist and match.
+
 ## Tags
 
 Every task carries exactly one. "Concurrent" and "parallel" are split into three
@@ -164,14 +202,23 @@ corrected in the same change. Run this as step 0 of a hand-out:
 for f in doc/tasks/*/T-*.md; do
   rel=${f#doc/tasks/}
   fs=$(grep -m1 '^| \*\*Status\*\*' "$f" | grep -c done)
-  qs=$(grep -c "($rel).*done" doc/tasks/MasterTaskQueue.md)
+  q1=$(grep -c "($rel).*done" doc/tasks/MasterTaskQueue.md)
+  q2=$(grep -c "($rel).*done" doc/tasks/CompletedMasterQueue.md)
+  qs=$((q1 + q2))
   [ "$fs" != "$qs" ] && echo "drift: $rel (file=$fs queue=$qs)"
 done
 ```
 
-It matches on the queue row's **link target**, not on a task id, because two
-naming conventions are in use — `T-M16-01-…` everywhere and `T-01-…` in
-`SettingsRedesign/`. The paths are unambiguous; the ids are not.
+It matches on the queue row's **link target**, not on a task id, because task
+files live under one of two folder-naming shapes — `<PREFIX>/T-<PREFIX>-nn-…`
+(`M16/T-M16-01-…`) is the rule, and `SettingsRedesign/` is the one documented
+exception with a bare folder name but still a proper `T-SR-nn` prefix. The
+paths are unambiguous either way; matching on a parsed-out id is not.
+
+It checks **both** `MasterTaskQueue.md` and `CompletedMasterQueue.md` because
+a band's row moves to the archive the moment it's fully done (see
+[Archiving a finished band](#archiving-a-finished-band)) — a task whose row
+only exists in the archive is not drift, it's exactly where it should be.
 
 Quiet output means the mirror is honest.
 
@@ -193,12 +240,52 @@ word is what is read. Do not invent a sixth value — `partly done`, `done excep
 residue` with no id, and a bare date are all forms of not saying what is
 missing, which is what `KnownGaps.md` exists to prevent.
 
+### Archiving a finished band
+
+`MasterTaskQueue.md` grows without bound otherwise — by 2026-08-25 it had
+reached 889 lines, 58% of it bands that had been fully done for weeks.
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md) holds the full text of
+every band that has nothing left to schedule; `MasterTaskQueue.md` keeps a
+one-line stub in the same position, linking to the archive.
+
+**Trigger: per band, not per plan.** A band archives the moment every one of
+its own rows reads `done` or `done except <id>` — regardless of what its
+sibling bands in the same *plan* are doing. A plan-level trigger was
+considered and rejected: a `KnownGaps.md` entry can outlive its plan
+indefinitely by design (that is the whole point of the register), so a plan
+would rarely close in the strict sense and the archive would stay nearly
+empty. Concretely, this repo's oldest plan has read "code-complete; **NOT**
+closed" since 2026-08-12 over three residual gaps — under a per-plan trigger
+its six *fully done* bands (93 lines) would still be sitting in the active
+file today.
+
+**This is not the append-only rule being relaxed.** That rule protects
+`doc/plans/` and each phase's `doc/tasks/<phase>/` folder — the actual
+decision record — and neither ever moves. `MasterTaskQueue.md`'s band prose
+is the queue's own scheduling text, not the record itself; relocating it to
+a sibling file the moment it has nothing left to schedule loses nothing, the
+same way the Status column has always been a mirror rather than a source.
+
+**Who does it, and when:** the same person, at the same moment, as the
+queue-mirror update in [Who updates the queue, and when](#who-updates-the-queue-and-when)
+— check every band for full completion as part of that pass, move the ones
+that qualify, and leave the rest exactly where they are.
+
 ## When a phase's tasks are fully completed
 
-Nothing is deleted, moved, or archived. `doc/plans/` and `doc/tasks/` are an
-append-only decision record, not a live working set that gets cleaned up —
-`MasterTaskQueue.md`'s Band 0 (M1) is already this pattern in practice: the band
-stayed in place and got marked done rather than being removed.
+**`doc/plans/` and each phase's own `doc/tasks/<phase>/` folder are never
+deleted, moved, or archived.** They are an append-only decision record, not a
+live working set that gets cleaned up — a phase's tasks and README stay
+exactly where they are forever, marked done in place rather than removed.
+
+`MasterTaskQueue.md` is different: it is the queue's own scheduling text, not
+the record itself, and its Status column has always been a mirror of the
+task files rather than a source. Once a band's every row reads done, its
+section *does* relocate — to
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md), with a one-line stub
+left behind — per [Archiving a finished band](#archiving-a-finished-band).
+Nothing is lost in that move; the phase folders the archived band links to
+are still exactly where the paragraph above says they must always stay.
 
 When every checklist item in a phase is `[x]` (or `[x]`/`[~] blocked → OQ-n`
 where the open item is explicitly non-blocking for the plan, as M2's OQ-1 is):
@@ -209,7 +296,11 @@ where the open item is explicitly non-blocking for the plan, as M2's OQ-1 is):
    `done`. No reordering needed: a completed band is already earliest in run
    order, which is why Band 0 never had to move. **This step happens at
    integration, on `development`, not from a task branch** — see
-   [Who updates the queue, and when](#who-updates-the-queue-and-when).
+   [Who updates the queue, and when](#who-updates-the-queue-and-when). If
+   every row in the band now reads `done`/`done except <id>`, move the band's
+   full section to [`CompletedMasterQueue.md`](CompletedMasterQueue.md) and
+   leave a one-line stub in its place — see
+   [Archiving a finished band](#archiving-a-finished-band).
 4. **The plan header** — update its `Status` row. If phases remain, name the next
    one (`M1 complete · M2 next`, the current pattern). If that was the last
    phase, the plan's status becomes `✅ Completed <date>`.
