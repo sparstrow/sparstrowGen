@@ -22,6 +22,17 @@ block US3 (terminals), which is bounded by the shell's own permissions rather
 than by this decision, nor the underlying ability to ask a machine a question
 at all.
 
+> **The terminal half is now decided, and this entry is not what decided it.**
+> On 2026-08-24 the owner scoped terminals as their own spec
+> ([`a-terminal-on-my-machine`](specs/2026-08-24-a-terminal-on-my-machine.md))
+> and chose **owner/admin only** over any-member and over confining the shell.
+> That is the asymmetry this entry's Recommendation named in advance — nominated
+> locations bound folder browsing, and terminals are deliberately not bound by
+> them, because a shell can go anywhere its account can. Recorded here so the
+> access model's US4 inherits the answer rather than re-litigating it. **This
+> does not close OQ-6**, which is still about folder browsing and still closes
+> only when that spec is owner-reviewed.
+
 > **Answered in preference, 2026-08-24, by the owner: option B.** Left open
 > deliberately rather than closed, because the owner's reply reframed the
 > question in a way that changes what "answered" means here:

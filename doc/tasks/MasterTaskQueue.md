@@ -639,6 +639,69 @@ that sets its own *lower* per-test timeout. That override is removed; the
 underlying CPU-oversubscription cause (five suites' worker pools contending
 under `turbo run test`) is deliberately left open — see the bug for why.
 
+### Band 20 — M16 a live channel to a machine (2026-08-24)
+
+Phase spec: [`M16/README.md`](M16/README.md). Plan:
+[`2026-08-24-a-terminal-on-my-machine.md`](../plans/2026-08-24-a-terminal-on-my-machine.md).
+Decomposed 2026-08-24 — six tasks, all written.
+
+**Foundational: nothing in this band is visible to the owner.** It builds the
+daemon-side Realtime credential that M5 named and declined, the two channel
+families, their policies, and the terminal manager rework. At the end of it the
+Terminals page is exactly as dead as it is today.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 20.1 | [T-M16-01 — channel contracts](M16/T-M16-01-channel-contracts.md) | `[S]` | — | queued |
+| 20.2 | [T-M16-02 — daemon Realtime credential](M16/T-M16-02-daemon-realtime-credential.md) | `[P]` | 20.1 | queued |
+| 20.3 | [T-M16-03 — `017_terminal_channels.sql`](M16/T-M16-03-channel-policies.md) | `[P]` | 20.1 | queued |
+| 20.4 | [T-M16-04 — core: the Realtime connection](M16/T-M16-04-core-realtime-connection.md) | `[C]` | 20.1, 20.2 | queued |
+| 20.5 | [T-M16-05 — core: terminal manager rework](M16/T-M16-05-terminal-manager.md) | `[P]` | 20.1 | queued |
+| 20.6 | [T-M16-06 — verification](M16/T-M16-06-verification.md) | `[S]` | 20.1—20.5 | queued |
+
+20.1 is `[S]` for the same reason M3's and M4's first tasks were: four tasks in
+three packages are written against its topics and event names, and 20.3 authors a
+policy that pins two of those names literally. 20.4 is `[C]` rather than `[P]`
+because it edits `packages/core/src/index.ts`, which 20.5 also touches.
+
+**20.2 needs an owner action** — a signing credential set on the Vercel project.
+That task adds the row to [`../runbooks/README.md`](../runbooks/README.md).
+Nothing else in the band is blocked on it; 20.6 is.
+
+**This band unblocks more than M17.** The request/reply half of
+[`reaching-my-machine-from-the-browser`](../specs/2026-08-24-reaching-my-machine-from-the-browser.md)
+and the [`I-11`](../Ideas.md) surfaces behind it become buildable once a machine
+can be asked a question at all. Neither is built here, and both still need their
+own owner review — see that spec's status.
+
+### Band 21 — M17 the terminal itself (2026-08-24)
+
+Phase spec: [`M17/README.md`](M17/README.md). Same plan as band 20.
+Decomposed 2026-08-24 — six tasks, all written.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 21.1 | [T-M17-01 — the channel client](M17/T-M17-01-terminal-channel-client.md) | `[S]` | 20.6 | queued |
+| 21.2 | [T-M17-02 — the Terminals page](M17/T-M17-02-terminals-page.md) | `[S]` | 21.1 | queued |
+| 21.3 | [T-M17-03 — agent terminals](M17/T-M17-03-agent-terminals.md) | `[C]` | 21.2 | queued |
+| 21.4 | [T-M17-04 — the per-machine off switch](M17/T-M17-04-terminal-access-switch.md) | `[P]` | 20.6 | queued |
+| 21.5 | [T-M17-05 — Knowledge Center](M17/T-M17-05-knowledge-center.md) | `[P]` | 21.2 | queued |
+| 21.6 | [T-M17-06 — verification](M17/T-M17-06-verification.md) | `[S]` | 21.1—21.5 | queued |
+
+21.3 is `[C]` rather than `[P]` because it edits `terminals.tsx`, which 21.2
+writes. 21.4 is `[P]`: `machines.tsx` and core's settings handling are touched by
+nothing else in the band, so it can run alongside the whole web half.
+
+**21.5 closes [`BUG-2026-08-24-terminals-article-describes-a-transport-that-no-longer-exists`](../bug/BUG-2026-08-24-terminals-article-describes-a-transport-that-no-longer-exists.md)**
+— pre-existing drift, filed 2026-08-24 while planning this work: the Terminals
+Knowledge Center article describes a transport that no longer exists and states
+the opposite of the machine's real session behaviour.
+
+**Runs against nothing else.** Bands 19 and 20 must be complete first. Any other
+work touching `apps/web/src/app/terminals/`, `machines.tsx`, or
+`packages/core/src/terminal/` must wait rather than run `[P]` alongside — the
+file overlap is total.
+
 ## Blocked items
 
 > For a single checklist of everything that needs the owner specifically, see

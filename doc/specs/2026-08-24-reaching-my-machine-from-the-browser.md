@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | **Draft — not yet reviewed** |
+| **Status** | **Draft — not yet reviewed.** US3 (terminals) is **superseded** by [`a-terminal-on-my-machine`](2026-08-24-a-terminal-on-my-machine.md), planned as M16/M17; US1, US2 and US4 are unchanged and still awaiting review |
 | **Created** | 2026-08-24 |
 | **Trigger** | Owner, settling the three-component shape ([`D-24`](../Deferred.md)): "If the people don't want to use electron app, then daemon service installed on the machine and people can use it from web." That makes the browser a first-class way to use the app — and today the browser cannot reach the machine at all |
 | **Plan** | not planned yet |
@@ -119,7 +119,22 @@ a folder, select it, and see the path filled in correctly.
 
 ---
 
-### US3 — Open a terminal on my machine from a browser (Priority: P2)
+### US3 — Open a terminal on my machine from a browser (Priority: P2) — **superseded**
+
+> **Superseded 2026-08-24 by
+> [`a-terminal-on-my-machine`](2026-08-24-a-terminal-on-my-machine.md).** The
+> owner picked terminals as the next thing to build and answered four framing
+> questions this story left open — including its own
+> `[NEEDS CLARIFICATION]` about session lifetime, answered
+> *survive until closed*. That spec covers the story in full, adds the
+> owner/admin restriction and a per-machine off switch, and is planned as M16
+> and M17.
+>
+> **Read this story as history, not as scope.** It is kept in place rather than
+> deleted because US1, US2 and US4 below still refer to it, and because the
+> transport M16 builds for it is the same transport they need. Nothing in this
+> file needs to change for those three to be planned; when they are, they
+> inherit a working live channel instead of specifying one.
 
 I open Terminals, start a session on one of my machines, and get a working
 shell — I type, it responds, and output appears as it is produced rather

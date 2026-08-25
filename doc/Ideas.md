@@ -218,12 +218,15 @@ meet, and belongs to the people half that spec defers.
 ## I-11 — The rest of the machine-reaching surfaces
 
 [`specs/2026-08-24-reaching-my-machine-from-the-browser.md`](specs/2026-08-24-reaching-my-machine-from-the-browser.md)
-specifies three surfaces — project files, folder browsing, terminals. Seven
-more are switched off in the browser for exactly the same reason and were left
-out of that spec deliberately, to keep it demoable rather than exhaustive:
-provider settings, importing a skill that lives on the machine, re-scanning
-memory, reading a memory note in its original form, the code graph, a
-project's git state and pull requests, and the project briefing.
+specified three surfaces — project files, folder browsing, terminals.
+Terminals has since been scoped out into its own spec
+([`a-terminal-on-my-machine`](specs/2026-08-24-a-terminal-on-my-machine.md),
+planned as M16/M17), which builds the live channel the other two need. The
+remaining seven are switched off in the browser for exactly the same reason
+and were left out of that spec deliberately, to keep it demoable rather than
+exhaustive: provider settings, importing a skill that lives on the machine,
+re-scanning memory, reading a memory note in its original form, the code
+graph, a project's git state and pull requests, and the project briefing.
 
 Each should become much cheaper once the app can ask a machine a question at
 all, but each carries its own interface questions — what a provider list means
