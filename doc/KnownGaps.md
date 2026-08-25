@@ -746,10 +746,24 @@ and is still there today.
   `tokens/*.css` and flags any custom property with no counterpart in a declared
   source, and `--transition-base` is either removed or given a real source.
 
-### G-23 — Two app shells keep two copies of the navigation, and only one is the browser's
+### G-23 — Two app shells keep two copies of the navigation, and only one is the browser's — CLOSED 2026-08-24
 
 **Raised:** 2026-08-20, by `T-M8-03` — found by rendering the page, not by
 reading the tree.
+
+**Closed 2026-08-24, by `T-VR-06`.** Both halves this entry was still
+tracking are resolved. The "not verified in `apps/web`" half: `T-VR-06`
+signed into `apps/web` on the feature branch's own Vercel preview with real
+Supabase credentials (`apps/web/.env.local`, confirmed present and working —
+the "this environment lacks credentials" premise this entry and `G-22`
+shared was simply wrong for this worktree) and read the sidebar via
+`agent-browser snapshot` on more than a dozen routes: all 17 `NAV_GROUPS`
+destinations present, correct order, correct headings, `aria-current="page"`
+on exactly one link per route. The "full-shell-merge" half: already noted
+here as superseded by `D-24` rather than needing the `Outlet` equivalent this
+entry once called for, and `D-24` is now executed —
+`packages/ui/src/components/layout/app-shell.tsx` (the Vite/desktop shell)
+no longer exists (`T-VR-01`). There is exactly one `AppShell` left to drift.
 
 **Narrowed 2026-08-23 (`T-G23-01`).** `NAV_GROUPS` — which paths appear in
 the sidebar, in what order, under which heading — is now a single export in
@@ -788,10 +802,12 @@ than rendering a route outlet.
   touch — header markup, palette wiring, collapse behavior — can still drift
   the two hosts apart the same way `NAV_GROUPS` did. Lower risk than before,
   since the highest-value duplicate (what's actually in the sidebar) is gone.
-- **Clears when:** the two `AppShell` components are actually merged into
-  one, with the live-event-transport difference resolved deliberately rather
-  than dropped — a bigger, separate piece of work than this entry's original
-  "honest minimum" fix, which is now done.
+- **Clears when:** ~~the two `AppShell` components are actually merged into
+  one~~ — **superseded 2026-08-24 by [`D-24`](Deferred.md)**, which deletes the
+  Vite/desktop shell rather than merging it. Do not build the `Outlet`
+  equivalent or reconcile the two live-event transports; that is work on a host
+  that is slated for removal. This entry closes by deletion when D-24 is
+  executed.
 
 ### G-24 — M8 is proved on localhost, not on staging, and not with a second computer
 
@@ -906,10 +922,18 @@ ways: 250 unit tests including a 120-combination contrast sweep, a clean
 loads the same generated CSS and where surface and brand were confirmed
 orthogonal in both modes.
 
-What has **not** happened is rendering `apps/web` itself. It needs
-`NEXT_PUBLIC_SUPABASE_URL` and an anon key, which this environment does not
-have; without them the app serves a "not configured" page that does not even
-load the stylesheet.
+What has **not** happened is rendering `apps/web` in each of the specific
+rich states listed below. It needs `NEXT_PUBLIC_SUPABASE_URL` and an anon
+key — **note, added 2026-08-24 by `T-VR-06`: this worktree's
+`apps/web/.env.local` has since had all four variables set, so "this
+environment does not have them" is no longer the blocker.** `apps/web` has
+now been rendered live repeatedly (`T-VR-05`, `T-VR-06`) with the real
+generated CSS and no "not configured" page — but always against a fresh,
+near-empty workspace. The specific states below (a blocked run, a connected
+machine, a failed import, an awaiting-approval item, several agents'
+avatars on a board) still haven't been walked, because producing them needs
+either a paired machine or enough manually-seeded data, neither of which a
+disposable-account pass creates for free.
 
 - **If wrong:** something that only appears in composition — a token used where
   its `-foreground` was meant, a surface that reads flat once real content is on
@@ -1057,3 +1081,81 @@ dashboard", which is true and useful. That is a correct answer, not a complete o
   current plan and written down with that provenance. Cheap; worth doing next time
   the dashboard is open anyway.
 
+
+### G-35 — The app has two role vocabularies for a person; only one of them does anything
+
+**Raised:** 2026-08-24, auditing what access decisions already exist before
+answering [`OQ-6`](OpenQuestions.md).
+
+Two columns describe a person's role, with different vocabularies:
+
+| Column | Vocabulary | Enforced? |
+|---|---|---|
+| `workspace_members.role` | `owner \| admin \| member` | **Yes** — by RLS, via `private.current_admin_workspace_ids()` |
+| `users.role` | `admin \| developer \| viewer` | **No** — nowhere, in any policy or handler |
+
+`users.role` ([`schema.ts:71`](../packages/shared/src/db/schema.ts:71)) carries a
+documented three-value vocabulary suggesting a permission level. Nothing reads
+it. No RLS policy references it, no handler branches on it, and the profile
+route deliberately strips it from its response — there is a test asserting
+exactly that
+([`profile-routes.test.ts:258`](../apps/web/src/lib/api/profile-routes.test.ts:258)).
+It is inert.
+
+**And the enforced one is narrower than it looks.** `workspace_members.role`
+gates four things only: renaming or deleting a workspace, daemon tokens,
+deleting someone else's pairing code, and updating a runtime command. Every
+content table — projects, tasks, agents, runs, chat, memory — is governed by
+the generic member policy applied in the loop at
+[`001_rls.sql:124`](../packages/shared/drizzle/policies/001_rls.sql:124), which
+asks only *are you a member of this workspace*. **Any member has full read and
+write on all workspace content.** There is no viewer, and no read-only anything.
+
+- **If wrong:** the danger is not a bypass — nothing is being circumvented,
+  because `users.role` was never a control. The danger is that it reads like
+  one. An agent (or a person) adding a feature "for viewers" would find a
+  column that appears to support it, build against it, and ship something with
+  no enforcement behind it at all. The narrow scope of the *real* role is the
+  same trap in reverse: "we have roles" is true and misleading in the same
+  breath.
+- **Clears when:** the access model is decided (see [`specs/2026-08-24-what-an-agent-is-allowed-to-do.md`](specs/2026-08-24-what-an-agent-is-allowed-to-do.md), FR-013) and
+  `users.role` is either given a meaning and enforced, or dropped. Dropping it
+  is the cheaper half and does not need the full model — it needs only the
+  decision that a person's level lives on their workspace membership, not on
+  their profile.
+
+### G-36 — Electron has no local-UI fallback; the offline screen was typechecked, never seen
+
+**Raised:** 2026-08-24, closing `T-VR-06`, verifying
+[`plans/2026-08-24-retire-the-vite-app.md`](plans/2026-08-24-retire-the-vite-app.md).
+
+**Accepted limitation, not a bug** — this is `D-24`'s architecture working as
+intended, recorded here because the plan's own Verification table asked for
+an entry naming what the Vite/Electron retirement removed. `T-VR-01` deleted
+`packages/desktop/src/urls.ts`'s `resolveLocalUiUrl` fallback: `resolveAppUrl`
+now returns `string | null` instead of ever falling back to a bundled local
+UI, and `main.ts` shows an offline screen ("SPARSTROW_APP_URL is not set")
+when it's null. A packaged Electron build with no `SPARSTROW_APP_URL` set, or
+one that can't reach the hosted app, no longer has any local UI to fall back
+to — by design, since Electron is now a thin shell pointed at the hosted app,
+not a second copy of it.
+
+**What's actually unproved:** the offline screen itself. `T-VR-01`'s own
+Result section says so directly — "nothing was rendered in a browser," and
+Electron isn't a browser this agent's tools can drive (`agent-browser`, the
+Claude Browser pane, and the disposable-account procedure all assume a web
+origin; there is no display environment here to launch a packaged or `pnpm
+--filter desktop dev` build against). `pnpm typecheck`/`pnpm test` are green
+on `packages/desktop`, which proves the `string | null` types and the
+`validatedURL`-based `did-fail-load` handler compile and pass their unit
+tests — not that a human ever saw the window.
+
+- **If wrong:** a user on a misconfigured or offline Electron install sees a
+  blank window or a crash instead of the intended "not configured" message.
+  Low blast radius today — Electron is explicitly the last of the three
+  components to be brought up (per the owner: "Electron is the final step"),
+  so nobody is running a packaged build yet.
+- **Clears when:** someone with a display launches `pnpm --filter desktop dev`
+  (or a packaged build) with `SPARSTROW_APP_URL` unset, and separately with it
+  set to an unreachable host, and confirms the offline screen renders both
+  times rather than a blank window.

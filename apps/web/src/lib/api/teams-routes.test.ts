@@ -9,7 +9,7 @@ import "./handlers";
  * response never carried `members`/`memberCount`/`projectCount` (index) or
  * `members`/`projects` (detail) that `teamIndexItemSchema`/`teamDetailSchema`
  * (packages/shared/src/schemas/team.ts) declare and the frontend
- * (packages/ui/src/routes/pages/teams.tsx, team-detail.tsx) reads
+ * (apps/web/src/app/teams/teams.tsx, teams/[teamId]/team-detail.tsx) reads
  * unconditionally. This was invisible until a real team row existed --
  * every earlier pass only hit the empty state.
  *

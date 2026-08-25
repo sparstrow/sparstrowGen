@@ -1,6 +1,6 @@
 "use client";
 
-import { MessagesPage } from "@sparstrow/ui/routes/pages/messages";
+import { MessagesPage } from "./messages";
 
 export default function Page() {
   return <MessagesPage />;

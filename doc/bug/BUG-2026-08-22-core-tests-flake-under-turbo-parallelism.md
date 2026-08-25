@@ -1,6 +1,6 @@
 # BUG-2026-08-22-core-tests-flake-under-turbo-parallelism
 
-**Status:** 🟢 resolved
+**Status:** 🟠 partially fixed 2026-08-24 — the sub-default override is gone; the contention tail is not (see Second fix)
 **Reported by:** agent — surfaced while gathering repeat-run evidence for
 [`BUG-2026-08-20-flaky-realtime-live-events-test`](BUG-2026-08-20-flaky-realtime-live-events-test.md)
 on `fix/flaky-realtime-test`; unrelated to that fix or to `apps/web`
@@ -88,3 +88,65 @@ Verified: `pnpm --filter core typecheck` clean; three consecutive
 reproduction command from this report) all green — 81/81 `@sparstrow/core`
 test files, 692/692 non-skipped tests, no timeouts, across all five
 workspaces each time.
+
+## Recurrence — 2026-08-24
+
+Hit again on `claude/nextjs-app-status-migration-fd2a49` during `T-VR-01`, on a
+plain `pnpm test` from the repo root. Two of the ten files this report
+originally named failed:
+
+| File | Timed out at | Why the fix missed it |
+|---|---|---|
+| `src/projects/variants.test.ts` | **15000ms** | Sets its own per-test timeout at [`variants.test.ts:124`](../../packages/core/src/projects/variants.test.ts:124), which is *below* the package default. Raising the package default to 20s therefore never applied to it |
+| `src/api/routes/host-fs.test.ts` | **30000ms** | Its own 30s override was exceeded outright — contention was worse than when the fix was verified |
+
+**The gap in the original resolution.** It reasoned about files "still on
+vitest's un-overridden 5000ms default" and raised the floor for them. That is
+correct and still holds. What it did not check is whether any file sets a
+timeout *lower* than the new default — a per-test `}, 15000)` argument wins
+over `testTimeout`, so `variants.test.ts` was left on a budget the package fix
+cannot raise. A package-level floor only floors files that have not opted out
+in the other direction.
+
+**Evidence it is still contention, not a hang or a regression.** Both files
+pass in isolation on the same tree — `host-fs.test.ts` 10/10 (the failing test
+itself taking 9.8s of its 30s), `variants.test.ts` 5/5 (2.5s). A second
+`pnpm test` on the identical tree, with no code change, went fully green:
+84/84 files, 718 passing. The failing run reported `collect 553.10s` against
+`419.39s` on the green one, so the machine was materially more loaded.
+
+**Not fixed here.** `T-VR-01` is a Vite retirement task and this is
+pre-existing and orthogonal; bumping a timeout inside it would bury an
+unrelated change in that diff. What the fix should be, when someone takes it:
+audit `packages/core/src/**/*.test.ts` for per-test and per-suite timeout
+arguments below `testTimeout`, and either remove them so the package floor
+applies or raise them past it — the general form of this bug, rather than
+patching `variants.test.ts` alone and waiting for the next file to surface.
+
+## Second fix — 2026-08-24
+
+**The audit this report asked for was run.** Exactly one file in the repo sets
+a per-test or per-suite timeout *below* its package default:
+`packages/core/src/projects/variants.test.ts:124`, at `15000` against a 20s
+`testTimeout`. Removed, so the test inherits the package floor, with a comment
+saying why a number must not be reintroduced there.
+`src/api/routes/host-fs.test.ts`'s suite-level `30_000` is *above* the default
+and was correctly left alone. No other file in `packages/core`,
+`packages/shared` or `apps/web` carries one.
+
+`pnpm test` green afterwards — 1,385 tests across 5 packages.
+
+**What this does not fix.** The 2026-08-24 recurrence had two failures, and
+this addresses one. `host-fs.test.ts` blew its own 30s budget on a run whose
+slowest test takes 9.8s in isolation — a >3× slowdown under five-way
+contention. Raising that number again is the whack-a-mole this report already
+warned about, so it was deliberately not done.
+
+The real cause is CPU oversubscription: `turbo run test` runs five workspace
+suites concurrently and each spawns its own vitest worker pool, so the machine
+is asked for several times the parallelism it has. The structural fix is
+capping concurrency — `turbo --concurrency`, or `poolOptions` in
+`packages/core/vitest.config.ts` — which trades solo-run speed for
+full-run reliability. **That is a real trade and should be chosen
+deliberately**, not slipped into a bug-fix pass, which is why this entry stays
+open rather than being marked resolved.

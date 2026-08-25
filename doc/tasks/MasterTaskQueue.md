@@ -576,6 +576,69 @@ The plan's own Status is now `✅ Completed` — the only thing left in `G-31`
 is the two-online-machines race, an accepted residual shared with
 `G-15`/`G-24`, not a blocker.
 
+### Band 19 — VR retire the Vite app (2026-08-24)
+
+Plan: [`../plans/2026-08-24-retire-the-vite-app.md`](../plans/2026-08-24-retire-the-vite-app.md).
+Spec: n/a (internal). Phase spec: [`VR/README.md`](VR/README.md).
+
+The owner's stated current priority, ahead of new features and the access
+model. Executes [`D-24`](../Deferred.md): one Next.js UI, Electron as a shell,
+`packages/ui` narrowed to a design system.
+
+**This band removes working features, deliberately.** Core implements 31
+handlers — terminals, folder browsing, project git, the code graph, provider
+settings, local skill import — that `apps/web` stubs with a 501, and the Vite
+app is the only UI that can reach them. The plan's decision 1 records why that
+loss is accepted and the condition that would reverse it. The rebuild is
+[`specs/2026-08-24-reaching-my-machine-from-the-browser.md`](../specs/2026-08-24-reaching-my-machine-from-the-browser.md),
+pending owner review — **not** part of this band.
+
+Every task is `[S]`. This is one sequence through one set of files, and two
+agents in `packages/ui` at once would conflict on nearly every file. Fully
+decomposed 2026-08-24 — six tasks, all written.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 19.1 | [T-VR-01 — delete the Vite host](VR/T-VR-01-delete-vite-host.md) | `[S]` | — | ✅ done (2026-08-24) |
+| 19.2 | [T-VR-02 — move the pages](VR/T-VR-02-move-pages.md) | `[S]` | 19.1 | ✅ done (2026-08-24) |
+| 19.3 | [T-VR-03 — move the app-code components](VR/T-VR-03-move-components.md) | `[S]` | 19.2 | ✅ done (2026-08-24) |
+| 19.4 | [T-VR-04 — un-shim, and delete the shim](VR/T-VR-04-unshim.md) | `[S]` | 19.3 | ✅ done (2026-08-24) |
+| 19.5 | [T-VR-05 — one worked Server Component](VR/T-VR-05-server-component.md) | `[S]` | 19.4 | ✅ done (2026-08-24) |
+| 19.6 | [T-VR-06 — verification](VR/T-VR-06-verification.md) | `[S]` | 19.1–19.5, 19.7 | ✅ done (2026-08-24) |
+| 19.7 | [T-VR-07 — finish narrowing `packages/ui`](VR/T-VR-07-narrow-packages-ui.md) | `[S]` | 19.4 | ✅ done (2026-08-24) |
+
+**Runs against nothing else.** Band 18 is complete, and the two open specs
+(machine-reaching, access model) are both pre-review, so nothing is in flight
+to conflict with. Any new work touching `packages/ui` or `apps/web/src/app`
+must wait for this band rather than run `[P]` alongside it — the file overlap
+is total.
+
+**19.3 filed, 19.7 resolved [`BUG-2026-08-24-hosted-app-never-loads-its-typeface`](../bug/BUG-2026-08-24-hosted-app-never-loads-its-typeface.md)** — the hosted app never loaded the typeface `DESIGN.md` mandates. Pre-existing; fixed once the correct import location settled at `T-VR-07`.
+
+**19.7 filed and fixed [`BUG-2026-08-24-knowledge-breadcrumb-title-silently-blank`](../bug/BUG-2026-08-24-knowledge-breadcrumb-title-silently-blank.md)** — the same failure shape as the typeface bug, found while classifying `packages/ui`: `lib/knowledge.ts`'s Vite-only `import.meta.glob` had silently returned an empty registry since `T-VR-01`, so Knowledge Center breadcrumbs/tabs showed a raw slug instead of the article title.
+
+**Band complete 2026-08-24.** 19.6 ran the full pass against the feature
+branch's own Vercel preview with real credentials — all 26 routes, all six
+switched-off areas, the T-VR-05 Server Component's SSR delivery confirmed by
+`curl`ing the raw HTML with the session cookie. **19.6 filed, then fixed
+outside the band, [`BUG-2026-08-24-project-provision-always-400s`](../bug/BUG-2026-08-24-project-provision-always-400s.md)**
+(🟢 resolved) — pre-existing, unrelated to this band, found while trying to
+seed a real project for the verification walk: every "New project" creation
+path 400s unconditionally. `POST /projects/provision` spread client-only
+fields into the DB insert and never generated a `slug`, the exact gap
+`BUG-2026-08-22-team-create-500-missing-slug` fixed on the sibling handler
+but not this one; fixed by mirroring that fix, verified live end-to-end
+through the actual dialog. 19.6 also closed [`G-23`](../KnownGaps.md) (both
+remaining halves resolved by this band) and opened [`G-36`](../KnownGaps.md)
+(Electron's offline screen typechecked, never rendered — no display
+environment available to verify it live).
+
+**19.1 partially fixed [`BUG-2026-08-22-core-tests-flake-under-turbo-parallelism`](../bug/BUG-2026-08-22-core-tests-flake-under-turbo-parallelism.md)**,
+which was marked resolved: the package-level timeout fix does not cover a file
+that sets its own *lower* per-test timeout. That override is removed; the
+underlying CPU-oversubscription cause (five suites' worker pools contending
+under `turbo run test`) is deliberately left open — see the bug for why.
+
 ## Blocked items
 
 > For a single checklist of everything that needs the owner specifically, see

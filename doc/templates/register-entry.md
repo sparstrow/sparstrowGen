@@ -64,7 +64,19 @@ who has not read the code.
 
 ### Options
 
+<!--
+Open with one line saying which moment from the Scenario above every option
+replays. That sentence is what turns a list into a comparison.
+-->
+
 **A — <name>**
+- **What this is:** <what this option actually IS — what gets built or
+  configured, what the owner has to do, what changes. Concrete enough to tell
+  it apart from B and C.>
+- **<The scenario's moment>, under A:** <the SAME person in the SAME situation
+  as the Scenario section, and what happens to them under this option. Not a
+  new example — the same one, replayed. This is the field the owner actually
+  answers from; without it they are comparing adjectives.>
 - **Pros:** <what it buys>
 - **Cons:** <what it costs>
 - **Score: <n>/10**
@@ -72,7 +84,18 @@ who has not read the code.
 - **Caveats:** <what must be true for this to work>
 
 **B — <name>**
-<!-- Same five fields. Two options minimum; three is usually the honest number. -->
+<!--
+Same seven fields, and crucially the same replayed moment — if B's scenario
+features a different person doing a different thing, the two options cannot be
+compared and the reader is back to guessing.
+
+Two options minimum; three is usually the honest number.
+-->
+
+<!--
+A worked example of this shape: OQ-6 in ../OpenQuestions.md — one contractor
+pressing one Browse button, three times, with three different outcomes.
+-->
 
 ### Recommendation
 

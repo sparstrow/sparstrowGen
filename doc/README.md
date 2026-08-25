@@ -133,13 +133,17 @@ delete the guidance comments.
 Per `AGENTS.md` §8, every entry in `OpenQuestions.md` needs full context, a
 plain user-side scenario, and concrete options. Each option carries:
 
+- Its own context — what this option *is*, concretely
+- Its own user scenario — the question's scenario replayed under this option
 - Pros and cons
 - Score out of 10
 - Blast radius if chosen wrong
 - Caveats
 - The agent's recommendation
 
-A question with no options is not ready to be asked.
+A question with no options is not ready to be asked. Options that describe
+*different* situations from each other are not ready either — replaying one
+shared moment is what lets the owner compare them.
 
 ## Answered questions
 

@@ -79,6 +79,8 @@ it unblocks. A task that can name neither is a task nobody asked for.
 | Spec | Status | Plan | Summary |
 |---|---|---|---|
 | [`2026-08-16-setup-and-machines`](2026-08-16-setup-and-machines.md) | ✅ reviewed 2026-08-16 — planned, M8–M11 | [`plan`](../plans/2026-08-16-setup-and-machines.md) | From a fresh account to a working machine: an interactive setup guide, a dedicated Machines menu with CRUD, and active/unreachable status, pairing against `staging.sparstrow.com`. Its US3–US5 scenarios *are* the verification pass `G-12`/`G-16` have been waiting for |
+| [`2026-08-24-reaching-my-machine-from-the-browser`](2026-08-24-reaching-my-machine-from-the-browser.md) | **Draft — awaiting owner review** | not planned yet | Picks up where the one above leaves off: the machine is paired, so what can the browser actually do with it? Project files, folder browsing and terminals, all of which currently tell the owner the feature is unavailable in the web app. Blocked on [`OQ-6`](../OpenQuestions.md) for how much of a machine a signed-in person may look at |
+| [`2026-08-24-what-an-agent-is-allowed-to-do`](2026-08-24-what-an-agent-is-allowed-to-do.md) | **Draft — awaiting owner review** | not planned yet | The access model, scoped agents-first at the owner's direction. The machinery that combines permission rules across four levels already works correctly and is invisible and mostly unsettable: the project level has no control at all, agents default to unrestricted, and nothing shows the resolved answer. Answers `OQ-6` as one cell of the model rather than a standalone rule. People as subjects are designed for and deliberately built last |
 
 ## The whole-app spec
 
