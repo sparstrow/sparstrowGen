@@ -251,3 +251,51 @@ where the reasoning lives. This entry exists only so it surfaces to someone
 scanning ideas rather than only to someone who happens to open that file.
 
 *Surfaced while classifying `packages/ui` files for `T-VR-07`.*
+
+---
+
+## I-13 — Chat session right-click menu, and an app-wide keyboard shortcuts page
+
+Chat session rows in the rail (`apps/web/src/app/chat/chat.tsx`, ~line 718) are
+plain buttons with no per-row actions. The only session action anywhere is an
+Archive icon in the conversation header — and there is **no unarchive
+affordance at all**, which matters more since M12–M15 made archived sessions
+genuinely read-only. A right-click menu is the obvious home for these, paired
+with a `/shortcuts` reference page (no such page exists today).
+
+The design work is not "copy Claude Code's menu". Most of that menu doesn't
+map here, and the mapping is the interesting part:
+
+- **Translates directly:** Rename and Archive/Unarchive — `chatSessionUpdateSchema`
+  already accepts `title` and `status`, so both are free of backend work.
+- **Needs reinterpreting:** "Move to group" → *Move to project* (this app has
+  no folders, but `projects` is already a first-class organizer);
+  "Continue in Cloud" → *Continue on \<machine\>*, which is potentially richer
+  here than in Claude Code since `free`/`agent` sessions can resume on any
+  online runtime while `project` sessions are machine-affine — **though M12–M15
+  may now select a runtime automatically, which would make a manual override
+  redundant. Unverified; read the dispatch path before assuming either way.**
+- **Doesn't translate:** "Split view" / "New window" — the chat split-pane is a
+  persistent layout, not a per-session action, and no pop-out concept exists.
+- **New, and a good fit:** *Fork* — duplicate a session plus its messages up to
+  a point, to branch an approach without polluting history. No such concept
+  exists anywhere today; needs a new endpoint.
+
+Open decisions that need the owner, none of them answered: whether Delete
+exists at all (no DELETE route today, and every comparable entity —
+`teams.archivedAt` — soft-archives rather than hard-deletes); whether chats
+should be pinnable (`usePins` in `apps/web/src/lib/pins.ts` supports
+`project|run|team|agent|page`, so adding `chat` is a one-line change, but pins
+are localStorage-only and so wouldn't follow a user across devices — arguably
+wrong for a cloud-canonical product); and how large the shortcuts page should
+be when only a couple of shortcuts genuinely exist.
+
+**If this is picked up, it goes through the full spec → plan → tasks
+lifecycle** — the owner's explicit instruction on parking it was that doing it
+means doing it "properly and fully". A first attempt was built straight to code
+on unreviewed defaults and discarded unmerged; the scope questions above are
+the ones that attempt got wrong by answering them itself.
+
+*Surfaced 2026-08-24 from an owner request to design the chat right-click menu;
+parked by the owner the same day as a design addition wanting its own proper
+pass.*
