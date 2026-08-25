@@ -7,7 +7,7 @@
 | **Spec** | n/a (internal) |
 | **Depends on** | — |
 | **Blocks** | WA2 (the read conversions that make these writes one round trip) |
-| **Status** | not started |
+| **Status** | 01 done 2026-08-24 |
 | **Open questions** | none — [`OQ-7`](../../OpenQuestions.md) closed 2026-08-24, option A |
 
 ## What all these tasks share
@@ -52,16 +52,69 @@ This is the one shared module the plan's DD-2 ("never a shared barrel") does
 **not** forbid: it holds a type and two constructors, no route's business logic,
 and nothing that grows as pages are converted.
 
-### Every action starts with the same four lines
+### Every action starts with the same two lines
+
+`T-WA-01` put the auth preamble in `action-result.ts` beside the result type, so
+there is one implementation rather than one per route:
 
 ```ts
 "use server";
-const supabase = await createClient();          // caller's session — never service role
-const { user, workspaceId } = await requireWorkspace(supabase);  // throws → error.tsx
+
+export async function doSomethingAction(input: X): Promise<ActionResult<Y>> {
+  const ctx = await actionContext();
+  if (!ctx) return actionFail(NOT_SIGNED_IN);
+  // ctx.supabase — the CALLER's client, never the service role
+  // ctx.workspaceId
+}
 ```
 
-`requireWorkspace` is the same resolution `/api/v1`'s middleware does today.
-Plan DD-4 is the reason this is not optional and not inherited from the page.
+`actionContext()` calls `getActiveWorkspaceId()`, which performs
+`supabase.auth.getUser()` itself and returns `{ error: "Unauthorized" }` with no
+session — so one call is both the authentication and the workspace resolution,
+identical to what `/api/v1`'s route does today.
+
+It returns `null` rather than throwing, deliberately: an unauthenticated action
+call is an **expected** failure the caller renders, not a bug for `error.tsx`.
+Plan DD-4 is why this is not optional and not inherited from the page, and the
+middleware decision below is why it is now the only thing standing between a
+signed-out browser and the write.
+
+`action-result.ts` also exports `actionErrorFrom(err)`, which reproduces
+`router.ts#handleError`'s status-to-message mapping (`PGRST116` → `Not Found`,
+`PGRST204`/`42703` → the field message). **Use it rather than writing an error
+string by hand** — keeping the mapping identical is what makes "no behaviour
+changes" a checkable claim.
+
+### Bodies still need `toSnake` / `toCamel`
+
+`/api/v1` snake-cased every body via `parseBody` and camel-cased every response
+via `ok()`. An action has no route around it doing that, so it does the
+conversion itself — both are re-exported from `action-result.ts`. Skip it and
+the browser's `logoUrl` reaches Postgres as an unknown column, or the row that
+comes back reads `logo_url` in a component expecting `logoUrl`.
+
+### The middleware lets Server Action POSTs through — added by `T-WA-01`, found by running it
+
+**This is already fixed; the note is here so nobody undoes it.**
+
+A Server Action arrives as a `POST` to the **page's own path** — `POST /teams`,
+not `/api/...`. `utils/supabase/middleware.ts` redirected any unauthenticated
+non-public request to `/login`, so an action submitted after a session expired
+never ran: React's dispatch got a page of HTML where it expected an action
+response, and the owner saw a *"Runtime Error: An unexpected response was
+received from the server"* overlay instead of a message
+([`BUG-2026-08-24-expired-session-turns-a-server-action-into-a-runtime-error`](../../bug/BUG-2026-08-24-expired-session-turns-a-server-action-into-a-runtime-error.md)).
+
+The middleware already made exactly this carve-out for `/api/` routes, with a
+comment explaining exactly this reasoning — it simply predates Server Actions.
+It now covers them too, keyed on the `Next-Action` header.
+
+**What this means for every task in this phase:** an unauthenticated action
+reaches your code and refuses through `actionContext()`. That is the guard
+(plan DD-4), and it is why `actionContext()` is not optional and is not
+decoration. An action that skips it reaches Supabase unauthenticated and is
+refused by RLS — the boundary holds either way, but the message stops being
+legible, which is the whole thing this phase must not break.
 
 ### The pending-state shape
 
@@ -83,7 +136,7 @@ and the verification task checks for it explicitly.
 
 ## Traps that apply to every task in this phase
 
-**`hooks.ts` is shared by every task here.** 2310 lines, and each task deletes
+**`hooks.ts` is shared by every task here.** 2226 lines after `T-WA-01`, and each task deletes
 from it. This is why every task below is `[C]` and not `[P]` — the tags are not
 a suggestion, and two agents in this file at once will conflict on nearly every
 change.
@@ -109,7 +162,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
-| [T-WA-01 — the convention, and `teams` as the worked example](T-WA-01-convention-and-teams.md) | `[S]` | foundational — unblocks every task below | — | not started |
+| [T-WA-01 — the convention, and `teams` as the worked example](T-WA-01-convention-and-teams.md) | `[S]` | foundational — unblocks every task below | — | ✅ done 2026-08-24 |
 | [T-WA-02 — projects](T-WA-02-projects.md) | `[C]` | foundational | T-WA-01 | not started |
 | [T-WA-03 — agents](T-WA-03-agents.md) | `[C]` | foundational | T-WA-01 | not started |
 | [T-WA-04 — tasks, goals, attention](T-WA-04-tasks-goals-attention.md) | `[C]` | foundational | T-WA-01 | not started |

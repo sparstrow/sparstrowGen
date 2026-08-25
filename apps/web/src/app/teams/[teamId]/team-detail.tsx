@@ -34,19 +34,22 @@ import { TasksPage } from "../../tasks/tasks";
 import { PipelinesPage } from "../../pipelines/pipelines";
 import { SchedulePage } from "../../schedule/schedule";
 import { PipelineCanvas } from "@web/components/pipelines/pipeline-canvas";
+import { useQueryClient } from "@tanstack/react-query";
 import { 
   useTeam, 
-  useUpdateTeam, 
-  useDeleteTeam, 
   useProjects, 
-  useSetTeamProjects,
   useAgents,
-  useAddTeamMember,
-  useUpdateTeamMember,
-  useRemoveTeamMember,
   useTeamManagerChat,
   useCreatePipeline
 } from "@web/api/hooks";
+import { setTeamProjectsAction } from "../actions";
+import {
+  addTeamMemberAction,
+  deleteTeamAction,
+  removeTeamMemberAction,
+  updateTeamAction,
+  updateTeamMemberAction,
+} from "./actions";
 import { ManagerChatPanel } from "@web/components/team/manager-chat-panel";
 import { cn } from "@/lib/utils";
 import {
@@ -65,8 +68,13 @@ export function TeamDetailPage() {
   const router = useRouter();
 
   const teamQuery = useTeam(teamId);
-  const updateTeam = useUpdateTeam();
-  const deleteTeam = useDeleteTeam();
+  const queryClient = useQueryClient();
+  // T-WA-01: the writes below are Server Actions, but this route's READ is
+  // still `useTeam()` -- so `revalidatePath` in the action cannot reach what is
+  // on screen and the React Query invalidation stays as the bridge. Plan DD-1;
+  // it goes away when this page's read converts in WA2.
+  const [pending, startTransition] = React.useTransition();
+  const [actionError, setActionError] = React.useState<string | null>(null);
 
   const [deleting, setDeleting] = React.useState(false);
   
@@ -93,10 +101,20 @@ export function TeamDetailPage() {
 
   const saveEdit = () => {
     if (!editName.trim() || !team) return;
-    updateTeam.mutate(
-      { id: team.id, data: { name: editName.trim(), description: editDesc.trim() } },
-      { onSuccess: () => setIsEditing(false) }
-    );
+    setActionError(null);
+    startTransition(async () => {
+      const r = await updateTeamAction({
+        id: team.id,
+        data: { name: editName.trim(), description: editDesc.trim() },
+      });
+      if (!r.ok) {
+        setActionError(r.error);
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["teams"] });
+      await queryClient.invalidateQueries({ queryKey: ["team", team.id] });
+      setIsEditing(false);
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -157,7 +175,7 @@ export function TeamDetailPage() {
                   <Button 
                     size="sm" 
                     onClick={saveEdit} 
-                    disabled={!editName.trim() || updateTeam.isPending}
+                    disabled={!editName.trim() || pending}
                   >
                     <Check className="size-4 mr-2" /> Save
                   </Button>
@@ -166,6 +184,7 @@ export function TeamDetailPage() {
                   </Button>
                   <span className="text-xs text-muted-foreground ml-2">Press Esc to cancel</span>
                 </div>
+                {actionError && <p className="text-sm text-destructive">{actionError}</p>}
               </div>
             ) : (
               <div className="group relative rounded-lg border border-transparent p-2 -ml-2 transition-colors hover:border-border hover:bg-muted/50">
@@ -266,12 +285,28 @@ export function TeamDetailPage() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleting(false)}>Cancel</Button>
+            {actionError && <p className="mr-auto text-sm text-destructive">{actionError}</p>}
             <Button 
               variant="destructive" 
-              disabled={deleteTeam.isPending}
-              onClick={() => deleteTeam.mutate(team.id, { onSuccess: () => router.push("/teams") })}
+              disabled={pending}
+              onClick={() => {
+                setActionError(null);
+                startTransition(async () => {
+                  const r = await deleteTeamAction(team.id);
+                  if (!r.ok) {
+                    setActionError(r.error);
+                    return;
+                  }
+                  await queryClient.invalidateQueries({ queryKey: ["teams"] });
+                  // The action deliberately does not `redirect()` -- a Next.js
+                  // redirect thrown inside a Server Action would be swallowed
+                  // by the ActionResult handling around it. Navigating here on
+                  // `ok: true` is the same outcome, visibly.
+                  router.push("/teams");
+                });
+              }}
             >
-              {deleteTeam.isPending ? "Deleting..." : "Delete Team"}
+              {pending ? "Deleting..." : "Delete Team"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -286,7 +321,6 @@ export function TeamDetailPage() {
 
 function MembersSection({ teamId, members, readOnly }: { teamId: string, members: any[], readOnly?: boolean }) {
   const agentsQuery = useAgents();
-  const removeMember = useRemoveTeamMember();
   
   const [addOpen, setAddOpen] = React.useState(false);
 
@@ -332,19 +366,40 @@ function MembersSection({ teamId, members, readOnly }: { teamId: string, members
 }
 
 function MemberRow({ teamId, member, readOnly }: { teamId: string, member: any, readOnly?: boolean }) {
-  const updateMember = useUpdateTeamMember();
-  const removeMember = useRemoveTeamMember();
+  const queryClient = useQueryClient();
+  const [pending, startTransition] = React.useTransition();
+  const [error, setError] = React.useState<string | null>(null);
   
   const [isEditing, setIsEditing] = React.useState(false);
   const [roleInput, setRoleInput] = React.useState(member.teamRole || "");
 
   const save = () => {
-    updateMember.mutate({
-      teamId,
-      memberId: member.id,
-      data: { teamRole: roleInput.trim() || null }
-    }, {
-      onSuccess: () => setIsEditing(false)
+    setError(null);
+    startTransition(async () => {
+      const r = await updateTeamMemberAction({
+        teamId,
+        memberId: member.id,
+        data: { teamRole: roleInput.trim() || null },
+      });
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["team", teamId] });
+      setIsEditing(false);
+    });
+  };
+
+  const remove = () => {
+    setError(null);
+    startTransition(async () => {
+      const r = await removeTeamMemberAction({ teamId, memberId: member.id });
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["team", teamId] });
+      await queryClient.invalidateQueries({ queryKey: ["teams"] });
     });
   };
 
@@ -380,7 +435,7 @@ function MemberRow({ teamId, member, readOnly }: { teamId: string, member: any, 
                 if (e.key === "Escape") cancel();
               }}
             />
-            <Button size="icon" variant="ghost" className="size-7" onClick={save} disabled={updateMember.isPending}>
+            <Button size="icon" variant="ghost" className="size-7" onClick={save} disabled={pending}>
               <Check className="size-4 text-success" />
             </Button>
             <Button size="icon" variant="ghost" className="size-7" onClick={cancel}>
@@ -400,6 +455,7 @@ function MemberRow({ teamId, member, readOnly }: { teamId: string, member: any, 
             {!readOnly && <span className="opacity-0 group-hover:opacity-100 text-[10px] underline ml-1">Edit</span>}
           </div>
         )}
+        {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
       </div>
       
       {!readOnly && (
@@ -407,8 +463,8 @@ function MemberRow({ teamId, member, readOnly }: { teamId: string, member: any, 
           variant="ghost" 
           size="icon" 
           className="text-muted-foreground hover:text-destructive shrink-0"
-          onClick={() => removeMember.mutate({ teamId, memberId: member.id })}
-          disabled={removeMember.isPending}
+          onClick={remove}
+          disabled={pending}
           title="Remove member"
           aria-label={`Remove ${member.agentName}`}
         >
@@ -423,7 +479,9 @@ function AddMemberDialog({ teamId, open, onOpenChange, existingAgentIds, agents 
   teamId: string, open: boolean, onOpenChange: (o: boolean) => void, 
   existingAgentIds: Set<string>, agents: any[] 
 }) {
-  const addMember = useAddTeamMember();
+  const queryClient = useQueryClient();
+  const [pending, startTransition] = React.useTransition();
+  const [error, setError] = React.useState<string | null>(null);
   
   const [selectedAgentId, setSelectedAgentId] = React.useState("");
   const [teamRole, setTeamRole] = React.useState("");
@@ -432,15 +490,21 @@ function AddMemberDialog({ teamId, open, onOpenChange, existingAgentIds, agents 
 
   const submit = () => {
     if (!selectedAgentId) return;
-    addMember.mutate({
-      teamId,
-      data: { agentId: selectedAgentId, teamRole: teamRole.trim() || null }
-    }, {
-      onSuccess: () => {
-        setSelectedAgentId("");
-        setTeamRole("");
-        onOpenChange(false);
+    setError(null);
+    startTransition(async () => {
+      const r = await addTeamMemberAction({
+        teamId,
+        data: { agentId: selectedAgentId, teamRole: teamRole.trim() || null },
+      });
+      if (!r.ok) {
+        setError(r.error);
+        return;
       }
+      await queryClient.invalidateQueries({ queryKey: ["team", teamId] });
+      await queryClient.invalidateQueries({ queryKey: ["teams"] });
+      setSelectedAgentId("");
+      setTeamRole("");
+      onOpenChange(false);
     });
   };
 
@@ -491,13 +555,15 @@ function AddMemberDialog({ teamId, open, onOpenChange, existingAgentIds, agents 
           </div>
         )}
         
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button 
             onClick={submit} 
-            disabled={!selectedAgentId || addMember.isPending || availableAgents.length === 0}
+            disabled={!selectedAgentId || pending || availableAgents.length === 0}
           >
-            {addMember.isPending ? "Adding..." : "Add Member"}
+            {pending ? "Adding..." : "Add Member"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -511,19 +577,30 @@ function AddMemberDialog({ teamId, open, onOpenChange, existingAgentIds, agents 
 
 function ProjectsSection({ teamId, assignedProjects, readOnly }: { teamId: string, assignedProjects: any[], readOnly?: boolean }) {
   const projectsQuery = useProjects();
-  const setProjects = useSetTeamProjects();
+  const queryClient = useQueryClient();
+  const [pending, startTransition] = React.useTransition();
+  const [error, setError] = React.useState<string | null>(null);
   
   const [manageOpen, setManageOpen] = React.useState(false);
   const [editingSet, setEditingSet] = React.useState<Set<string>>(new Set());
 
   const openManage = () => {
     setEditingSet(new Set(assignedProjects.map(p => p.id)));
+    setError(null);
     setManageOpen(true);
   };
 
   const save = () => {
-    setProjects.mutate({ teamId, projectIds: Array.from(editingSet) }, {
-      onSuccess: () => setManageOpen(false)
+    setError(null);
+    startTransition(async () => {
+      const r = await setTeamProjectsAction({ teamId, projectIds: Array.from(editingSet) });
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["team", teamId] });
+      await queryClient.invalidateQueries({ queryKey: ["teams"] });
+      setManageOpen(false);
     });
   };
 
@@ -585,10 +662,12 @@ function ProjectsSection({ teamId, assignedProjects, readOnly }: { teamId: strin
             )}
           </div>
           
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setManageOpen(false)}>Cancel</Button>
-            <Button onClick={save} disabled={setProjects.isPending}>
-              {setProjects.isPending ? "Saving..." : "Save Assignments"}
+            <Button onClick={save} disabled={pending}>
+              {pending ? "Saving..." : "Save Assignments"}
             </Button>
           </DialogFooter>
         </DialogContent>

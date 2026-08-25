@@ -54,9 +54,6 @@ import type {
   ProjectDirective,
   ProjectDirectiveCreate,
   ProjectDirectiveUpdate,
-  Team,
-  TeamCreate,
-  TeamUpdate,
   TeamIndexItem,
   AgentSkillAssignment,
   LocalSkillSummary,
@@ -66,9 +63,6 @@ import type {
   SkillImportResult,
   SkillUpdate,
   TeamDetail,
-  TeamMember,
-  TeamMemberCreate,
-  TeamMemberUpdate,
   Run,
   RunEvent,
   RunStatus,
@@ -651,103 +645,19 @@ export function useTeam(id: string): UseQueryResult<TeamDetail, ApiError> {
   });
 }
 
-export function useCreateTeam(): UseMutationResult<Team, ApiError, TeamCreate> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: TeamCreate) => api<Team>("/teams", { method: "POST", body }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["teams"] });
-    },
-  });
-}
-
-export function useUpdateTeam(): UseMutationResult<
-  Team,
-  ApiError,
-  { id: string; data: TeamUpdate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) => api<Team>(`/teams/${id}`, { method: "PUT", body: data }),
-    onSuccess: (_team, { id }) => {
-      void queryClient.invalidateQueries({ queryKey: ["teams"] });
-      void queryClient.invalidateQueries({ queryKey: ["team", id] });
-    },
-  });
-}
-
-export function useDeleteTeam(): UseMutationResult<void, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<void>(`/teams/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["teams"] });
-    },
-  });
-}
-
-export function useAddTeamMember(): UseMutationResult<
-  TeamMember,
-  ApiError,
-  { teamId: string; data: TeamMemberCreate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ teamId, data }) =>
-      api<TeamMember>(`/teams/${teamId}/members`, { method: "POST", body: data }),
-    onSuccess: (_member, { teamId }) => {
-      void queryClient.invalidateQueries({ queryKey: ["team", teamId] });
-      void queryClient.invalidateQueries({ queryKey: ["teams"] });
-    },
-  });
-}
-
-export function useUpdateTeamMember(): UseMutationResult<
-  TeamMember,
-  ApiError,
-  { teamId: string; memberId: string; data: TeamMemberUpdate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ teamId, memberId, data }) =>
-      api<TeamMember>(`/teams/${teamId}/members/${memberId}`, { method: "PUT", body: data }),
-    onSuccess: (_member, { teamId }) => {
-      void queryClient.invalidateQueries({ queryKey: ["team", teamId] });
-    },
-  });
-}
-
-export function useRemoveTeamMember(): UseMutationResult<
-  void,
-  ApiError,
-  { teamId: string; memberId: string }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ teamId, memberId }) =>
-      api<void>(`/teams/${teamId}/members/${memberId}`, { method: "DELETE" }),
-    onSuccess: (_void, { teamId }) => {
-      void queryClient.invalidateQueries({ queryKey: ["team", teamId] });
-      void queryClient.invalidateQueries({ queryKey: ["teams"] });
-    },
-  });
-}
-
-export function useSetTeamProjects(): UseMutationResult<
-  void,
-  ApiError,
-  { teamId: string; projectIds: string[] }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ teamId, projectIds }) =>
-      api<void>(`/teams/${teamId}/projects`, { method: "PUT", body: { projectIds } }),
-    onSuccess: (_void, { teamId }) => {
-      void queryClient.invalidateQueries({ queryKey: ["team", teamId] });
-      void queryClient.invalidateQueries({ queryKey: ["teams"] });
-    },
-  });
-}
+/*
+ * The seven team mutation hooks that stood here -- useCreateTeam,
+ * useUpdateTeam, useDeleteTeam, useAddTeamMember, useUpdateTeamMember,
+ * useRemoveTeamMember, useSetTeamProjects -- were deleted by `T-WA-01`, the
+ * first conversion in band 22 (`OQ-7` option A: every write becomes a Server
+ * Action).
+ *
+ * They live in `app/teams/actions.ts` and `app/teams/[teamId]/actions.ts` now.
+ * The team QUERIES above are untouched -- only writes move in band 22; the
+ * reads are WA2's, and `/teams/[teamId]` still needs `useTeam()`.
+ *
+ * Plan: doc/plans/2026-08-24-server-action-write-conversion.md
+ */
 
 // ---------------------------------------------------------------------------
 // Runs

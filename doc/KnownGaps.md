@@ -1159,3 +1159,33 @@ tests — not that a human ever saw the window.
   (or a packaged build) with `SPARSTROW_APP_URL` unset, and separately with it
   set to an unreachable host, and confirms the offline screen renders both
   times rather than a blank window.
+
+### G-37 — Four of `T-WA-01`'s checks were run on weaker evidence than they asked for
+
+**Raised:** 2026-08-24, closing [`T-WA-01`](tasks/WA/T-WA-01-convention-and-teams.md),
+the first Server Action conversion in band 22.
+
+The task's live walk proved all seven converted actions end to end against real
+Supabase, and proved DD-3 and DD-4 with a real failure. Four of its written
+checks could not be run **as written** against a fresh disposable workspace, and
+are ticked `[~]` rather than `[x]` in that task:
+
+| Check | What was actually run | Why it matters |
+|---|---|---|
+| Create a team **with two projects selected** | `setTeamProjectsAction` on its **empty-set** path only — the workspace had no projects to tick | **The one real code path of the four.** The non-empty branch does a `delete` then an `insert` of N rows; neither the insert nor its `workspace_id`/`team_id` shape has been executed once |
+| A name that **fails validation** | Nothing — no validation on this form rejects a non-empty name, so there was no failure to force without mocking | DD-3 (messages survive the conversion) *was* proved, by the signed-out refusal instead. This is a second, weaker instance of the same property |
+| The **member count** on the `/teams` card after adding a member | A team **rename** propagating to `/teams` — same two `revalidatePath` targets, same two routes | The mechanism is proved; the specific number was never read |
+| The create button **disabled while in flight** | The empty-name half of `disabled={!name.trim() \|\| pending}` | The action returned too fast to snapshot the in-flight state |
+
+- **If wrong:** only the first row can actually break something. If the
+  non-empty `team_projects` insert is malformed — a wrong column name, a missing
+  `workspace_id` — assigning projects to a team fails at runtime while every
+  test and typecheck stays green. It is the same shape as
+  `BUG-2026-08-22-team-create-500-missing-slug`, which is exactly how that class
+  of defect reaches users. The other three rows are presentation details whose
+  underlying mechanism is already demonstrated.
+- **Clears when:** a workspace with at least one project exists and a team is
+  created with projects selected, then the count is read off the `/teams` card.
+  That is one walk covering three of the four rows, and it is the natural first
+  step of [`T-WA-09`](tasks/WA/T-WA-09-verification.md)'s sweep — which needs
+  seeded projects anyway to verify `T-WA-02`.

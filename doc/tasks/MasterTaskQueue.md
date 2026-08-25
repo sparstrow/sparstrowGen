@@ -719,7 +719,7 @@ green typecheck cannot demonstrate.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 22.1 | [T-WA-01 — the convention, and `teams` as the worked example](WA/T-WA-01-convention-and-teams.md) | `[S]` | — | queued |
+| 22.1 | [T-WA-01 — the convention, and `teams` as the worked example](WA/T-WA-01-convention-and-teams.md) | `[S]` | — | ✅ done 2026-08-24 — 7 hooks and 9 handlers gone, all seven actions walked live; found and fixed [`BUG-2026-08-24-expired-session-turns-a-server-action-into-a-runtime-error`](../bug/BUG-2026-08-24-expired-session-turns-a-server-action-into-a-runtime-error.md), opened [`G-37`](../KnownGaps.md) |
 | 22.2 | [T-WA-02 — projects](WA/T-WA-02-projects.md) | `[C]` | 22.1 | queued |
 | 22.3 | [T-WA-03 — agents](WA/T-WA-03-agents.md) | `[C]` | 22.1 | queued |
 | 22.4 | [T-WA-04 — tasks, goals, attention](WA/T-WA-04-tasks-goals-attention.md) | `[C]` | 22.1 | queued |
@@ -733,6 +733,13 @@ green typecheck cannot demonstrate.
 worked example the other seven copy. **Everything between is `[C]`, never `[P]`**
 — each owns its own page files, and all eight delete from
 `apps/web/src/api/hooks.ts`, a 2310-line file two agents cannot share.
+
+**22.1 found a defect that would have hit all 21 files** and fixed it before
+they were written: the middleware redirected every Server Action POST from a
+signed-out browser to `/login`, so an expired session produced a Next.js
+Runtime Error overlay instead of a message. The carve-out now covers actions,
+and it is a phase decision in [`WA/README.md`](WA/README.md) rather than a note
+in one task. This is the argument for `[S]`-gating a phase on a worked example.
 
 **Two hooks have consumers in two different tasks**, and whichever lands second
 deletes them: `useCreateRun` (22.4 and 22.6), and the two chat-session hooks
