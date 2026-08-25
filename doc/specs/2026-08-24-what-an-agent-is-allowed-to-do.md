@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| **Status** | **Draft — not yet reviewed** |
+| **Status** | **Owner-reviewed 2026-08-24 — accepted, all five stories, no re-prioritization** |
 | **Created** | 2026-08-24 |
 | **Trigger** | Owner, on being asked to settle a machine's file-sharing boundary in isolation ([`OQ-6`](../OpenQuestions.md)): "we should not just think and [be] bound to only one access. We should [design] project access settings for users, agents on what level they can access and configure." Scoped agents-first at the owner's direction: "right now, I'll be the only one using the app … human scope can be built at the very end, but all other things should be planned and built expecting that human access will be built in future" |
-| **Plan** | not planned yet |
-| **Open questions** | [`OQ-6`](../OpenQuestions.md) — a machine's shared locations, which US4 answers as one cell of this model |
+| **Plan** | [`../plans/2026-08-24-what-an-agent-is-allowed-to-do.md`](../plans/2026-08-24-what-an-agent-is-allowed-to-do.md) |
+| **Open questions** | none — `OQ-6` **closed 2026-08-24** by this review; its answer (nominated locations, option B) is US4 of this spec, not a standalone rule |
 
 > **Scope.** This is the **access model**, not a settings page. It decides who
 > may do what to which thing, and it is scoped to **agents** as the actor.
@@ -382,5 +382,25 @@ change second.
 
 ## Owner review
 
-**Reviewed:** — *(not yet reviewed; planning must not start before this is
-filled in)*
+**Reviewed:** 2026-08-24 — **accepted.**
+
+Accepted as written. No story was cut, re-prioritized, or reworded at the gate,
+so there is nothing to record under "what changed" — which is itself worth
+stating, because a silent Owner review row is indistinguishable from one nobody
+filled in.
+
+**What this review closes.** [`OQ-6`](../OpenQuestions.md) — *how much of a
+machine may a signed-in person look at* — was answered in preference (option B,
+nominated locations) on 2026-08-24, and its entry said in as many words that it
+"closes when that spec is owner-reviewed." This is that review, so the entry is
+deleted from the register and **US4 is now where that answer lives**. The
+distinction the owner drew is preserved by construction: B is recorded as what
+the access model says about one cell of the grid, not as a bespoke rule invented
+for the folder picker.
+
+**What this review does not close.** [`G-35`](../KnownGaps.md) — the two role
+vocabularies — stays open. `FR-013` commits this work to resolving it, and the
+plan schedules that resolution; the gap closes when `users.role` is given
+meaning or dropped, not when this spec is accepted. The terminal spec's own
+review made the same correction about the same gap, and it applies here for the
+same reason.

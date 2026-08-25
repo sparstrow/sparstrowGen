@@ -1,9 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { FolderKanban, Plus, Users } from "lucide-react";
-import type { Project, Team } from "@sparstrow/shared";
+import type { Project } from "@sparstrow/shared";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,7 +15,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateTeam, useSetTeamProjects } from "@web/api/hooks";
+import { callAction } from "@web/lib/call-action";
+import { createTeamAction, setTeamProjectsAction } from "./actions";
 
 /**
  * The interactive island `page.tsx` reads server-side data around. Owns the
@@ -36,19 +36,20 @@ import { useCreateTeam, useSetTeamProjects } from "@web/api/hooks";
  * dialog opens, which is what the old `useProjects()` call inside the dialog
  * cost every time before this.
  *
- * The create mutation is unchanged from before this conversion — still
- * `POST /api/v1/teams` via React Query, per T-VR-05's scope: only the READ
- * moves to the server here. Converting the write to a Server Action is a
- * separate, later decision (see this task's Result), not bundled into the
- * first worked example. What DOES change is how success is observed: the
- * mutation's own `invalidateQueries` targets a React Query cache the
- * server-rendered list no longer reads, so it is `router.refresh()` — re-running
- * the Server Component — that actually gets the new team on screen.
+ * The create mutation is a **Server Action** (`T-WA-01`, executing `OQ-7`'s
+ * option A). It replaces `POST /api/v1/teams` via React Query, and because
+ * this route's READ is already a Server Component, `revalidatePath` inside the
+ * action is what puts the new team on screen — so the `router.refresh()` this
+ * component used to need is gone too, along with the round trip it cost.
+ *
+ * This is the finished shape. Sibling pages in band 22 whose reads have not
+ * moved yet keep a `queryClient.invalidateQueries()` call after the action
+ * instead; see `[teamId]/actions.ts` for that intermediate state and why it is
+ * deliberate rather than half-done.
  */
 export function TeamsPageClient({ projects, hasTeams }: { projects: Project[]; hasTeams: boolean }) {
-  const router = useRouter();
-  const createTeam = useCreateTeam();
-  const setTeamProjects = useSetTeamProjects();
+  const [pending, startTransition] = React.useTransition();
+  const [error, setError] = React.useState<string | null>(null);
 
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState("");
@@ -59,8 +60,7 @@ export function TeamsPageClient({ projects, hasTeams }: { projects: Project[]; h
     setName("");
     setDescription("");
     setSelectedProjects(new Set());
-    createTeam.reset();
-    setTeamProjects.reset();
+    setError(null);
     setOpen(true);
   };
 
@@ -72,34 +72,31 @@ export function TeamsPageClient({ projects, hasTeams }: { projects: Project[]; h
   };
 
   const submit = () => {
-    const payload = { name: name.trim(), description: description.trim() };
-    createTeam.mutate(payload, {
-      onSuccess: (team: Team) => {
-        if (selectedProjects.size > 0) {
-          setTeamProjects.mutate(
-            { teamId: team.id, projectIds: Array.from(selectedProjects) },
-            {
-              onSuccess: () => {
-                setOpen(false);
-                router.refresh();
-              },
-              // Even if project assignment fails, the team was created —
-              // still close and refresh so it's not left invisible.
-              onError: () => {
-                setOpen(false);
-                router.refresh();
-              },
-            },
-          );
-        } else {
-          setOpen(false);
-          router.refresh();
-        }
-      },
+    setError(null);
+    startTransition(async () => {
+      const created = await callAction(() =>
+        createTeamAction({ name: name.trim(), description: description.trim() }),
+      );
+      if (!created.ok) {
+        setError(created.error);
+        return;
+      }
+      if (selectedProjects.size > 0) {
+        // Deliberately a second call rather than one transactional action.
+        // Even if project assignment fails, the team WAS created — so the
+        // dialog still closes rather than leaving it invisible. Folding these
+        // into one server-side transaction would roll the team back instead,
+        // which is a behaviour change, not an improvement.
+        await callAction(() =>
+          setTeamProjectsAction({
+            teamId: created.data.id,
+            projectIds: Array.from(selectedProjects),
+          }),
+        );
+      }
+      setOpen(false);
     });
   };
-
-  const error = createTeam.error?.message ?? setTeamProjects.error?.message ?? null;
 
   return (
     <>
@@ -191,11 +188,8 @@ export function TeamsPageClient({ projects, hasTeams }: { projects: Project[]; h
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={submit}
-              disabled={!name.trim() || createTeam.isPending || setTeamProjects.isPending}
-            >
-              {createTeam.isPending || setTeamProjects.isPending ? "Creating…" : "Create team"}
+            <Button onClick={submit} disabled={!name.trim() || pending}>
+              {pending ? "Creating…" : "Create team"}
             </Button>
           </DialogFooter>
         </DialogContent>

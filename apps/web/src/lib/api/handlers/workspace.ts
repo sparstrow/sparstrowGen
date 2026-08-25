@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { registerRoute, ok, fail, HandlerContext } from "../router";
 import { isOwnStorageUrl } from "../storage-url";
@@ -44,32 +43,15 @@ const SELECT = "id, name, slug, description, context, logo_url, created_at";
 export type WorkspacePatch = Record<string, string | null>;
 
 /**
- * Derive a slug from a workspace name.
+ * Slug helpers now live in `lib/slug.ts` and are re-exported here so every
+ * existing import site and `workspace-routes.test.ts` are unaffected.
  *
- * Exported for its tests: this runs once in a workspace's lifetime and is then
- * frozen forever, so getting it wrong is not something a later edit repairs.
+ * Moved by `T-WA-01`: this module calls `registerRoute()` at module scope, so
+ * a Server Action importing `slugify` from here would pull the whole route
+ * registry into the action's module graph as a side effect.
  */
-export function slugify(name: string): string {
-  return (
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 40)
-      // Truncation can land mid-word and leave a trailing separator, which
-      // `replace` above already ran and cannot catch.
-      .replace(/-+$/g, "")
-  );
-}
-
-/**
- * A second candidate for when the first collides, kept within the 40-character
- * budget. Random rather than a counter: a counter needs a read to know what
- * number it is on, and the read races the next caller.
- */
-export function withCollisionSuffix(slug: string): string {
-  return `${slug.slice(0, 35)}-${randomBytes(2).toString("hex")}`;
-}
+export { slugify, withCollisionSuffix } from "../../slug";
+import { slugify, withCollisionSuffix } from "../../slug";
 
 /**
  * Validate a PATCH body into the exact set of columns to write.
