@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| **Status** | **Draft — not yet reviewed.** US3 (terminals) is **superseded** by [`a-terminal-on-my-machine`](2026-08-24-a-terminal-on-my-machine.md), planned as M16/M17; US1, US2 and US4 are unchanged and still awaiting review |
+| **Status** | **Owner-reviewed 2026-08-24 — accepted for US1, US2 and US4.** US3 (terminals) remains **superseded** by [`a-terminal-on-my-machine`](2026-08-24-a-terminal-on-my-machine.md), planned as M16/M17 and not re-scoped by this review |
 | **Created** | 2026-08-24 |
 | **Trigger** | Owner, settling the three-component shape ([`D-24`](../Deferred.md)): "If the people don't want to use electron app, then daemon service installed on the machine and people can use it from web." That makes the browser a first-class way to use the app — and today the browser cannot reach the machine at all |
-| **Plan** | not planned yet |
-| **Open questions** | [`OQ-6`](../OpenQuestions.md) — how much of a machine a signed-in person may look at |
+| **Plan** | [`../plans/2026-08-24-reaching-my-machine-from-the-browser.md`](../plans/2026-08-24-reaching-my-machine-from-the-browser.md) |
+| **Open questions** | none — `OQ-6` **closed 2026-08-24**; FR-002's boundary is now [`what-an-agent-is-allowed-to-do`](2026-08-24-what-an-agent-is-allowed-to-do.md) US4, which this spec's US2 inherits rather than re-decides |
 
 ## The experience today
 
@@ -358,5 +358,23 @@ this spec inherits that wording rather than inventing a second vocabulary.
 
 ## Owner review
 
-**Reviewed:** — *(not yet reviewed; planning must not start before this is
-filled in)*
+**Reviewed:** 2026-08-24 — **accepted for US1, US2 and US4.**
+
+**US3 was not re-reviewed and is not in scope.** It was superseded before this
+gate by [`a-terminal-on-my-machine`](2026-08-24-a-terminal-on-my-machine.md),
+which the owner scoped and had planned as M16/M17. Accepting this spec does not
+reopen it; the story stays in the file as history, exactly as its own banner
+says.
+
+**The one thing this review changed: FR-002 has a boundary now.** Every earlier
+read of this spec had US1's and US2's folder-browsing scope blocked on
+[`OQ-6`](../OpenQuestions.md), because nobody had decided what a machine may
+answer questions about. That question was closed in the same turn as this review
+by the access model's own gate, and its answer — **nominated locations, with a
+sensible default set at pairing** — is that spec's US4. So this spec no longer
+carries the decision; it consumes it.
+
+The practical consequence for planning, which is easy to miss: **US2 cannot ship
+before the machine can be told what it shares.** A folder picker with no
+boundary is option A, which the owner rejected. The plan records this as a
+hard cross-plan dependency rather than treating the two as independent.

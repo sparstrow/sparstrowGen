@@ -13,328 +13,44 @@ When one is answered, record the answer in the plan or task that consumes it and
 
 ---
 
-## OQ-6 — How much of a machine may a signed-in person look at?
-
-**Raised:** 2026-08-24, writing
-[`specs/2026-08-24-reaching-my-machine-from-the-browser.md`](specs/2026-08-24-reaching-my-machine-from-the-browser.md).
-**Blocks:** US1's and US2's folder-browsing scope, and FR-002. It does **not**
-block US3 (terminals), which is bounded by the shell's own permissions rather
-than by this decision, nor the underlying ability to ask a machine a question
-at all.
-
-> **The terminal half is now decided, and this entry is not what decided it.**
-> On 2026-08-24 the owner scoped terminals as their own spec
-> ([`a-terminal-on-my-machine`](specs/2026-08-24-a-terminal-on-my-machine.md))
-> and chose **owner/admin only** over any-member and over confining the shell.
-> That is the asymmetry this entry's Recommendation named in advance — nominated
-> locations bound folder browsing, and terminals are deliberately not bound by
-> them, because a shell can go anywhere its account can. Recorded here so the
-> access model's US4 inherits the answer rather than re-litigating it. **This
-> does not close OQ-6**, which is still about folder browsing and still closes
-> only when that spec is owner-reviewed.
-
-> **Answered in preference, 2026-08-24, by the owner: option B.** Left open
-> deliberately rather than closed, because the owner's reply reframed the
-> question in a way that changes what "answered" means here:
+> **Nothing is currently open.** Both entries that stood here on the morning of
+> 2026-08-24 were answered by the owner that same day; where each answer now
+> lives is recorded below, per this file's own rule that an answered entry is
+> deleted rather than archived in place.
 >
-> > "This is regarding the access right … since we have multiple users, we
-> > [are] thinking of access right now. But we should not just think and [be]
-> > bound to only one access. We should [design] project access settings for
-> > users, agents on what level they can access and configure."
+> **`OQ-6` — how much of a machine a signed-in person may look at — is closed.**
+> Answered **option B**, nominated locations with a sensible default at pairing.
+> The entry had said it would close when
+> [`what-an-agent-is-allowed-to-do`](specs/2026-08-24-what-an-agent-is-allowed-to-do.md)
+> was owner-reviewed; that review happened on 2026-08-24 and the answer now
+> lives as **US4 of that spec**, with `FR-008` carrying it. That placement was
+> the point of leaving it open rather than closing it early — the owner's
+> objection was never to B, it was to B arriving as a bespoke rule for the
+> folder picker instead of as one cell of a model. It unblocks
+> [`reaching-my-machine-from-the-browser`](specs/2026-08-24-reaching-my-machine-from-the-browser.md)'s
+> US1/US2 scope and `FR-002`, which now inherit the boundary instead of
+> defining one.
 >
-> B stands as the intended answer. What is no longer wanted is B *as a
-> bespoke rule for folder browsing*. A machine's shared locations are one cell
-> of a grid — **who** (person, agent, machine) may do **what** (see, use,
-> configure, administer) to **which thing** (workspace, project, machine,
-> agent, secret) — and this app already has four partial, independently
-> invented answers in that grid, plus a fifth that is decorative
-> ([`G-35`](KnownGaps.md)). Adding a sixth by hand is the thing to avoid.
+> The terminal asymmetry this entry flagged in advance still holds and is not
+> re-litigated: nominated locations bound **folder browsing only**, and grant
+> **reading only**. A shell is not bounded by them, because it can go anywhere
+> its account can — decided separately in
+> [`a-terminal-on-my-machine`](specs/2026-08-24-a-terminal-on-my-machine.md) as
+> owner/admin-only access to an unconfined shell.
 >
-> **Scoped 2026-08-24.** The owner directed the model be scoped agents-first,
-> people last: "right now, I'll be the only one using the app … human scope
-> can be built at the very end, but all other things should be planned and
-> built expecting that human access will be built in future." Written as
-> [`specs/2026-08-24-what-an-agent-is-allowed-to-do.md`](specs/2026-08-24-what-an-agent-is-allowed-to-do.md),
-> where **this question is US4** and B is its answer.
->
-> **This entry closes when that spec is owner-reviewed** and B is recorded as
-> what the model says about this cell — not before. It continues to block only
-> US1/US2's scope of the machine-reaching spec in the meantime, exactly as
-> above.
-
-### Context
-
-The spec asks for browsing folders on a paired machine from a browser. That
-raises a question the app has never had to answer, because until now the
-person browsing was sitting at the machine: **when the app asks a machine
-"what is in this folder", what may the machine agree to answer about?**
-
-Two facts make this sharper than it first looks. First, the folder picker for
-adding a project needs to start somewhere *above* any project — that is the
-whole point of it, so "projects only" cannot be the answer for that surface
-without breaking it. Second, a workspace can eventually have more than one
-member, and machines belong to a workspace, not to a person. So the boundary
-cannot be "whatever the owner can see", because the owner is not necessarily
-the only one asking.
-
-This is a decision about the machine's own posture, not about permissions in
-the app. It is worth taking deliberately once, because loosening it later is
-easy and tightening it later breaks someone's working setup.
-
-### Scenario
-
-You pair your work laptop. Six months later you invite a contractor into the
-workspace so they can watch a project's runs. They open the Add Project
-dialog and press Browse. What do they see — your whole drive, including
-`Documents` and `Desktop`? Only the folders that already hold projects? Or a
-set of locations you nominated when you set the machine up?
-
-### Options
-
-Each option replays the same moment from the scenario above — **the contractor
-presses Browse** — so the three can be compared on what actually happens
-rather than on how they sound.
-
-**A — Anything the machine's own account can read**
-
-- **What this is:** The machine answers any folder question about anything the
-  account it runs under can read. Nothing to configure, no setup step, no
-  list to maintain. The Browse dialog behaves exactly like a file dialog on
-  that computer.
-- **The contractor presses Browse:** They see your drives. `C:\`, then
-  `Users\you\`, and from there `Documents`, `Desktop`, `.ssh`, your tax
-  returns, and the repositories belonging to your other clients. Nothing
-  stops them opening any of it. Nothing in the app records that they did, and
-  nothing ever shows you what is exposed — so there is no moment at which you
-  would notice.
-- **Pros:** Nothing to configure and nothing to explain; the picker is what
-  people expect from a Browse button. Zero friction for the single-user case,
-  which is today's only case.
-- **Cons:** Every workspace member gets read access to the whole user profile
-  on that machine. A single over-broad invite has the whole disk as its blast
-  radius. The exposure is invisible by construction.
-- **Score: 4/10**
-- **Blast radius if wrong:** Severe and silent. A workspace member — or
-  anyone who compromises one member's session — can read arbitrary files off
-  your computer. Recoverable only by unpairing the machine, and there is no
-  record of what was read.
-- **Caveats:** Only defensible while the workspace is provably one person, and
-  nothing enforces that it stays that way.
-
-**B — Nominated locations, chosen when the machine is set up**
-
-- **What this is:** At pairing, the machine is told which folders it may
-  answer about, defaulting to the parent folder your projects already live
-  in. Browse opens at those locations. Adding another later is a visible
-  action on that machine's page in the app, and the list is visible there
-  whether or not you ever change it.
-- **The contractor presses Browse:** They see one entry — `D:\Sparstrow` —
-  and navigate freely inside it, which is everything they need. `Documents`
-  and `.ssh` are not merely hidden from the dialog: the machine will not
-  answer questions about them at all. You can see that same list yourself, on
-  the machine's page, without asking anyone what you shared.
-- **Pros:** You state once what this machine shares, and everything works
-  normally inside it. The exposure is something you chose, can see, and can
-  change. It scales to a second workspace member without revisiting the
-  decision, and it makes the picker honest — it opens at the shared locations
-  rather than pretending to be a full file dialog.
-- **Cons:** One more thing at setup, and a new failure mode to explain — "I
-  can't find my folder" when a project lives outside the nominated set.
-- **Score: 8/10**
-- **Blast radius if wrong:** Contained by construction — what leaks is what
-  was nominated. The likelier failure is the annoying one: too narrow a
-  default sends people to settings before they can add their first project.
-- **Caveats:** The default matters more than the mechanism. It must cover the
-  ordinary case on first pair, so most people never meet this feature at all.
-
-**C — Registered project roots only**
-
-- **What this is:** The machine answers only about folders inside projects
-  already registered with it. Nothing to configure — the app knows where
-  every project is, so the boundary maintains itself.
-- **The contractor presses Browse:** Nothing useful happens. The dialog can
-  only show folders inside projects that already exist, and the entire reason
-  to press Browse is to find a folder that is not a project yet. Adding a
-  project stays a typed-path operation, exactly as it is today. Their *other*
-  task — opening an existing project and reading its files — works perfectly.
-- **Pros:** Tightest boundary of the three, and it needs no configuration and
-  no new setup step at all.
-- **Cons:** **It cannot serve the folder picker.** US2 stays broken
-  permanently, which is one of the two things the spec set out to fix.
-- **Score: 5/10**
-- **Blast radius if wrong:** Smallest of the three. The cost is capability,
-  not safety.
-- **Caveats:** Viable only if you are content for Browse to remain
-  unavailable — in which case US2 should be cut from the spec rather than
-  left looking buildable.
-
-### Recommendation
-
-**B, with the default doing the work.** When a machine pairs, nominate the
-parent folder it already keeps projects in, so the common case needs no
-decision and the picker opens somewhere useful. Show the nominated list on the
-machine's own page in the app so the exposure is visible rather than implied,
-and allow adding a location from there.
-
-Two narrowings I would take with it: nominated locations grant **reading only**
-— nothing in this spec needs to write outside a project — and terminals are
-explicitly *not* bounded by them, since a shell can go anywhere its account
-can and pretending otherwise would be security theatre. That asymmetry should
-be stated plainly to the owner rather than hidden, because it means US3 is a
-bigger grant than US1 and US2, and it is reasonable to want the two decided
-separately.
-
-A is the honest choice only if the workspace is guaranteed to stay
-single-person, and nothing enforces that. C should be chosen only alongside a
-decision to drop US2.
-
----
-
-## OQ-7 — When a page's write gets converted too, not just its read: Server Action, or keep the existing mutation?
-
-**Raised:** 2026-08-24, closing out
-[`T-VR-05`](../tasks/VR/T-VR-05-server-component.md), the phase's first
-Server Component conversion.
-**Blocks:** nothing in flight. `T-VR-06` and `T-VR-07` do not depend on this.
-It will block the *next* page conversion that includes a write — whichever of
-[`D-25`](../Deferred.md)'s opportunistic per-route conversions, or one of the
-still-stubbed modules in
-[`stubs.ts`](../../apps/web/src/lib/api/handlers/stubs.ts), gets picked up
-next.
-
-### Context
-
-`apps/web/CLAUDE.md` already states a rule: *"Ordinary writes are Server
-Actions with `revalidatePath`, not a POST to `/api/v1` followed by a React
-Query invalidation."* `T-VR-05` did not follow it. Converting `teams`, its
-create-team button was left exactly as it was — still calling the existing
-`POST /api/v1/teams` through the existing `useCreateTeam()` React Query hook
-— with `router.refresh()` added afterward to make the server-rendered list
-catch up. That was the right scope call for a *first* example: rewriting a
-working mutation was not what that task was proving. But nothing stops the
-next page conversion from copying it as precedent instead of as a deliberate
-exception, and the two situations it will be copied into are genuinely
-different:
-
-- **The 21 already-converted-read pages** each have a *working* React Query
-  mutation sitting right there. Rewriting it costs real effort and real
-  regression risk for no change a user would ever see.
-- **The still-stubbed modules** (host-fs, terminals, goals, agent draft, and
-  the rest — see [`I-11`](../Ideas.md)) have **no existing mutation to
-  reuse**. There is nothing to disrupt by building them the way the doctrine
-  already says to.
-
-Left undecided, the fork gets resolved by accident the moment someone builds
-the first new button by copying whatever pattern is already on screen —
-which, today, is `teams`'s. That would settle the question as "keep the old
-way forever" without anyone actually choosing it.
-
-**In plain terms**, for whoever reads this without the surrounding code
-context: today, saving something and updating what you see afterward are two
-separate steps — one request to save, a second, separate instruction telling
-the page to go re-check what it should show. The doctrine's target pattern
-folds both into one step. The question is not *whether* new work eventually
-does it the one-step way — the doctrine already says so — it's whether
-*already-working* buttons get rewritten to match, and when.
-
-### Scenario
-
-You're on the Teams page. It's empty. You click "New team," type a name, hit
-Create. Today, that click saves the team, and then — as a second, separate
-step — the page re-checks what it should show and your new team appears.
-Two things happen in sequence; you don't notice a gap, but there are two
-steps behind the one thing you did.
-
-### Options
-
-Each replays that same click.
-
-**A — Rewrite every existing write to the one-step way, right now**
-
-- **What this is:** Every button on every page — renaming a machine, adding a
-  skill, creating a pipeline, all 20 pages this hasn't touched yet — gets its
-  save-and-refresh rebuilt as a single server-side step, whether or not
-  anyone is otherwise touching that page.
-- **You click Create:** Same result on screen, same team appears. Nothing
-  about what you experience changes. Behind the scenes, a large amount of
-  code that already works today gets rewritten for that identical, invisible
-  outcome.
-- **Pros:** Fully matches the stated doctrine, everywhere, immediately. One
-  write pattern in the codebase, not two, from this point forward.
-- **Cons:** Retrofits ~20 pages that were not otherwise being touched, each
-  one a real rewrite with its own regression risk — the exact "escaped
-  decision 2" scope `T-VR-05`'s own ceiling warned against, just arriving on
-  page 2 instead of page 1. `settings.tsx` alone has 12 separate writes.
-- **Score: 4/10**
-- **Blast radius if wrong:** Every future page conversion becomes two tasks
-  (the read, then a full write rewrite) instead of one, and each rewrite is a
-  new place a mutation that worked yesterday can break today for no
-  user-visible reason.
-- **Caveats:** Only sensible if the cost of ~20 rewrites is genuinely small
-  relative to the app. It measurably is not.
-
-**B — Keep the two-step way everywhere, including for buttons that don't exist yet**
-
-- **What this is:** `router.refresh()` after a React Query mutation becomes
-  the standing pattern for all future work too. When Terminals or the folder
-  picker finally get built, they get a new `/api/v1` handler and a new React
-  Query hook, exactly like every page before them.
-- **You click Create:** Identical outcome again. But the day someone builds
-  the "start a terminal session" button for the first time, it is built the
-  two-step way as well — even though there was never an existing mutation
-  there worth preserving.
-- **Pros:** Zero new patterns to learn, maximum consistency with every
-  existing page, fastest to ship anything, old or new.
-- **Cons:** Never converges on the doctrine's stated target at all — every
-  new write reinforces the exact thing this phase exists to move away from.
-  `apps/web/CLAUDE.md`'s write rule becomes a sentence nobody follows.
-- **Score: 3/10**
-- **Blast radius if wrong:** Low immediate risk to any one page, but the
-  written instructions stop matching what actually gets built — the same
-  failure `AGENTS.md` names for a duplicated doctrine that keeps enforcing
-  itself after the original changed underneath it.
-- **Caveats:** Only defensible as a deliberate decision to walk back the
-  doctrine's write rule outright — not as something that happens by nobody
-  deciding otherwise.
-
-**C — New writes follow the doctrine; existing writes convert only when something else is already touching them**
-
-- **What this is:** A write that has no existing mutation to reuse — every
-  one of the stubbed modules — is built as a Server Action from the start,
-  matching `apps/web/CLAUDE.md` exactly, since there is nothing old to
-  preserve. A write on a page whose *read* is being converted, but which
-  already has a working mutation, stays exactly as it is — `router.refresh()`
-  closing the loop, precisely what `T-VR-05` did — until that specific write
-  is being changed for some other reason of its own.
-- **You click Create on `teams`:** Nothing changes; this is exactly what
-  exists today. **You click "start a terminal" on the rebuilt Terminals
-  page:** that save-and-refresh is one step, a Server Action, because there
-  was never a `useMutation` hook there to keep.
-- **Pros:** Matches the doctrine everywhere it costs nothing to (all new
-  work), forces no unrequested rewrites of things that already work, and
-  every future write still moves toward the target pattern rather than away
-  from it.
-- **Cons:** Two write patterns coexist in the codebase for a while — a real,
-  visible inconsistency, though a shallow one: which pattern applies is a
-  single yes/no question (does a mutation already exist for this?), not a
-  judgment call made fresh per page.
-- **Score: 8/10**
-- **Blast radius if wrong:** Small. A page left on the "old" write pattern
-  still works correctly; it converts the next time that specific write is
-  touched for its own reasons, not left broken in the meantime.
-- **Caveats:** Only holds if the one-line rule is actually written down
-  somewhere the next person converting a page will read *before* guessing —
-  otherwise it silently decays into Option B, since "keep what's already
-  there" is always the path of least resistance and nobody has to choose it
-  on purpose.
-
-### Recommendation
-
-**C.** It is the only option that neither burns a large amount of unrequested
-rework (A) nor quietly abandons a rule that is already written down (B). When
-this is decided, the rule belongs directly in `apps/web/CLAUDE.md`, next to
-the sentence `T-VR-05` did not follow — that is exactly what a future agent
-needs to read *before* converting the next write, not after.
+> **`OQ-7` — Server Action or keep the existing mutation — is closed.**
+> Answered **option A**: every existing write is rewritten to the one-step
+> Server Action pattern now, not only the ones a page conversion happens to
+> touch. This is **not** the recommendation that entry carried (it argued for
+> C, converting opportunistically); the owner chose A with A's costs stated,
+> and the plan that executes it records both that fact and the cost, so nobody
+> later reads the scope as an accident. The answer is recorded where the next
+> person writing a write will actually read it — in
+> [`apps/web/CLAUDE.md`](../apps/web/CLAUDE.md), next to the doctrine sentence
+> `T-VR-05` did not follow — and is executed by
+> [`plans/2026-08-24-server-action-write-conversion.md`](plans/2026-08-24-server-action-write-conversion.md).
+> It supersedes the per-route opportunistic conversion described in
+> [`D-25`](Deferred.md).
 
 ---
 
@@ -440,7 +156,7 @@ requires, and it costs nothing but flipping a toggle you can flip back.
 
 ---
 
-> **Nothing else is currently open.**
+> **Older answers, kept as pointers.**
 >
 > `OQ-4` (is code syntax highlighting a fifth colour role) was answered by the
 > owner on 2026-08-19 — **option A**. Recorded in `DESIGN.md` §2.1 and the new

@@ -702,6 +702,125 @@ work touching `apps/web/src/app/terminals/`, `machines.tsx`, or
 `packages/core/src/terminal/` must wait rather than run `[P]` alongside — the
 file overlap is total.
 
+### Band 22 — WA every write becomes a Server Action (2026-08-24)
+
+Plan: [`../plans/2026-08-24-server-action-write-conversion.md`](../plans/2026-08-24-server-action-write-conversion.md).
+Spec: n/a (internal). Phase spec: [`WA/README.md`](WA/README.md).
+
+Executes [`OQ-7`](../OpenQuestions.md)'s answer — **option A**, chosen by the
+owner on 2026-08-24 over the question's own 8/10 recommendation (option C).
+87 mutation call sites across 27 files stop POSTing to `/api/v1` and become
+Server Actions. Roughly 20 of those sites are stub-backed and excluded by the
+plan's DD-6, so the real converted count is lower and each task states its own.
+
+**This band changes nothing a user can see, deliberately.** That is what makes
+its verification the hard kind: `T-WA-09` grades "nothing changed", which a
+green typecheck cannot demonstrate.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 22.1 | [T-WA-01 — the convention, and `teams` as the worked example](WA/T-WA-01-convention-and-teams.md) | `[S]` | — | queued |
+| 22.2 | [T-WA-02 — projects](WA/T-WA-02-projects.md) | `[C]` | 22.1 | queued |
+| 22.3 | [T-WA-03 — agents](WA/T-WA-03-agents.md) | `[C]` | 22.1 | queued |
+| 22.4 | [T-WA-04 — tasks, goals, attention](WA/T-WA-04-tasks-goals-attention.md) | `[C]` | 22.1 | queued |
+| 22.5 | [T-WA-05 — skills](WA/T-WA-05-skills.md) | `[C]` | 22.1 | queued |
+| 22.6 | [T-WA-06 — runs, schedule, pipelines](WA/T-WA-06-runs-schedule-pipelines.md) | `[C]` | 22.1 | queued |
+| 22.7 | [T-WA-07 — chat, messages](WA/T-WA-07-chat-messages.md) | `[C]` | 22.1 | queued |
+| 22.8 | [T-WA-08 — settings, profile, workspace, machines](WA/T-WA-08-settings-profile-workspace-machines.md) | `[C]` | 22.1 | queued |
+| 22.9 | [T-WA-09 — verification](WA/T-WA-09-verification.md) | `[S]` | 22.1–22.8 | queued |
+
+22.1 is `[S]` and gates the band: it authors `lib/action-result.ts` and the
+worked example the other seven copy. **Everything between is `[C]`, never `[P]`**
+— each owns its own page files, and all eight delete from
+`apps/web/src/api/hooks.ts`, a 2310-line file two agents cannot share.
+
+**Two hooks have consumers in two different tasks**, and whichever lands second
+deletes them: `useCreateRun` (22.4 and 22.6), and the two chat-session hooks
+(22.3 and 22.7, where 22.7 owns `app/chat/actions.ts`). These are the band's
+only real coordination points and both tasks name them.
+
+**Runs against bands 20/21 with care.** 22.8 edits `machines.tsx`, which
+`T-M17-04` also touches, and 22.2 has no overlap at all. If M17 is in flight,
+run 22.8 last or after it — the rest of the band is free.
+
+### Band 23 — M18 the access model's foundation (2026-08-24)
+
+Plan: [`../plans/2026-08-24-what-an-agent-is-allowed-to-do.md`](../plans/2026-08-24-what-an-agent-is-allowed-to-do.md).
+Spec: [`../specs/2026-08-24-what-an-agent-is-allowed-to-do.md`](../specs/2026-08-24-what-an-agent-is-allowed-to-do.md)
+— **owner-reviewed 2026-08-24**. Phase spec: [`M18/README.md`](M18/README.md).
+
+**Foundational: nothing in this band is visible to the owner.** It builds the
+subject/level/scope vocabulary, a resolver that reports which level decided
+each outcome, the first tool catalogue this repo has ever had, the cloud
+columns for the workspace-level policy, and the two tables `OQ-6`'s answer
+needs. At the end of it every screen looks exactly as it does today.
+
+**This band is where [`OQ-6`](../OpenQuestions.md) stops being a document.**
+Its answer — nominated locations, read-only, with a sensible pairing default —
+becomes `machine_shared_locations` in 23.4. The surface that renders it is
+M20's.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 23.1 | [T-M18-01 — the access vocabulary](M18/T-M18-01-access-vocabulary.md) | `[S]` | — | queued |
+| 23.2 | [T-M18-02 — the provenance resolver](M18/T-M18-02-provenance-resolver.md) | `[P]` | 23.1 | queued |
+| 23.3 | [T-M18-03 — the tool catalogue](M18/T-M18-03-tool-catalogue.md) | `[P]` | 23.1 | queued |
+| 23.4 | [T-M18-04 — schema, policies, and dropping `users.role`](M18/T-M18-04-schema-and-policies.md) | `[P]` | 23.1 | queued |
+| 23.5 | [T-M18-05 — core reads the workspace policy from the cloud](M18/T-M18-05-core-cloud-policy.md) | `[C]` | 23.4 | queued |
+| 23.6 | [T-M18-06 — verification, and the `SC-006` sentence](M18/T-M18-06-verification.md) | `[S]` | 23.1–23.5 | queued |
+
+23.1 is `[S]` for the same reason `T-M16-01` gates M16: three tasks in two
+packages are written against its types. 23.2, 23.3 and 23.4 are genuinely
+disjoint — different files, different packages, hand them to three workers.
+23.5 is `[C]` because it edits `tool-resolution.ts`, which sits on the spawn
+path of every run.
+
+**23.4 needs the owner** for one step: it drops `users.role`, and a column drop
+is an `AGENTS.md` §3.7 destructive operation even when the column is provably
+inert. It also collides on a file *name* — M16's plan claims
+`policies/017_terminal_channels.sql`, so 23.4 must check the directory and take
+`018` if M16 landed first.
+
+**23.6 can fail the band on purpose.** `SC-006` asks for one sentence expressing
+a person's view-only grant in the model's own vocabulary; if it cannot be
+written without inventing a fifth concept, the model is not finished and the
+band reports done-except rather than passing itself.
+
+**Runs `[P]` against band 22.** Zero file overlap — band 22 is entirely inside
+`apps/web/src/app/**` and `hooks.ts`; band 23 is `packages/shared`,
+`packages/core`, and SQL. The one seam is 22.3's warning not to add tool-name
+validation to the agent form, because 23.3 is building the catalogue that
+validation needs.
+
+### Band 24 — M22–M24 reaching my machine from the browser (2026-08-24)
+
+Plan: [`../plans/2026-08-24-reaching-my-machine-from-the-browser.md`](../plans/2026-08-24-reaching-my-machine-from-the-browser.md).
+Spec: [`../specs/2026-08-24-reaching-my-machine-from-the-browser.md`](../specs/2026-08-24-reaching-my-machine-from-the-browser.md)
+— **owner-reviewed 2026-08-24**, accepted for US1, US2 and US4.
+
+**Not decomposed yet, and deliberately so.** M22 extends the request/reply
+envelope `T-M16-01` defines, and writing tasks against M16's plan outline
+rather than its shipped shape is the mistake this file already records for
+M13→M14 ("written against M12's actual shipped shape rather than the plan's
+outline — which is what this repo's own precedent asks for"). These tasks get
+written when band 20 closes.
+
+| Phase | Serves | Depends on | Status |
+|---|---|---|---|
+| M22 — the bridge | foundational | **band 20 (M16)** | not decomposed |
+| M23 — a project's files | US1 | M22 | not decomposed |
+| M24 — Browse, and which machine | US2 + US4 | M22, M23, **band 23's M20** | not decomposed |
+
+**M24 is the cross-plan edge worth knowing about before scheduling anything.**
+US2's folder picker is bounded by what a machine says it shares, which is the
+access model's US4 — `OQ-6`'s answer. A picker built before that boundary
+exists is option A, which the owner rejected. US1 has no such dependency: a
+project's files are inside a registered project, which is the tightest boundary
+and needs no configuration.
+
+**US3 (terminals) is not in this band.** Superseded before the review gate;
+bands 20 and 21 own it.
+
 ## Blocked items
 
 > For a single checklist of everything that needs the owner specifically, see
@@ -716,6 +835,9 @@ file overlap is total.
 | ~~`/runs/[runId]` transcript~~ | ~~M5 (7.6)~~ | **Resolved 2026-08-22.** `T-M11-02` dispatched a real run and watched `/runs/[runId]` populate live — cloud/local `run_events` counts matched exactly (3/3 and 13/13 across two runs). Rendering the transcript for every provider is not fully closed — see [`BUG-2026-08-22-antigravity-transcript-not-rendered`](../bug/BUG-2026-08-22-antigravity-transcript-not-rendered.md) — but the page is no longer empty by construction. |
 | Realtime doorbell for dispatch | **Deferred → [D-12](../Deferred.md)** | Not blocked work. The 3s poll is correct and always-on; the doorbell is a latency improvement that M5's decision 1 declined to buy with a second daemon auth model. |
 | Agent definitions differ between cloud and machine | **Deferred → [D-9](../Deferred.md)** | Not blocked work. M4 resolves a cloud agent to a local one by slug and blocks legibly on a miss; syncing definitions is a separate feature with its own conflict model. |
+| **Band 24 (M22–M24) in its entirety** | **Band 20 (M16)** | Hard, not soft. This plan builds no transport of its own — a browser reaches a machine over M16's `machine:<workspace_id>:<runtime_id>` control channel or not at all, and building a second path is the relay service M16's DD-1 rejected. Its tasks are also not written yet, on purpose: they extend an envelope `T-M16-01` defines. |
+| **23.4's `users.role` drop** | **Owner action** | A column drop is `AGENTS.md` §3.7 destructive even when the column is provably inert (nothing reads it; the profile route strips it with a test). Everything else in 23.4 proceeds without it. |
+| **M24 (Browse) specifically** | **M20, in band 23's plan** | The folder picker's boundary is what a machine says it shares — the access model's US4, which is `OQ-6`'s answer. A picker built before that exists is `OQ-6` option A, which the owner rejected. M23 (project files) has no such dependency and ships first. |
 
 `OQ-1` (protecting uncommitted agent work) was **answered and built** on
 2026-08-10, ahead of M4 rather than inside it — the owner approved the
@@ -725,6 +847,15 @@ working tree to `refs/sparstrow/wip/<run-id>` on that machine: not a branch, not
 a commit on any branch, never pushed, `.gitignore` respected, and switchable from
 Settings. Rationale and the two narrowings from the original option B are settled
 decision 5 in the plan. **M4 is no longer gated on anything.**
+
+**`OQ-6` and `OQ-7` were both answered by the owner on 2026-08-24**, and
+between them they created bands 22, 23 and 24. `OQ-6` (how much of a machine a
+signed-in person may look at) was answered **option B** and closed by
+owner-reviewing [`what-an-agent-is-allowed-to-do`](../specs/2026-08-24-what-an-agent-is-allowed-to-do.md),
+where it is US4 — band 23 turns it into a table, and M20 gives it a screen.
+`OQ-7` (Server Action or keep the existing mutation) was answered **option A**,
+against that question's own recommendation of C, and is band 22 in full. Neither
+is in `OpenQuestions.md` any more; both are recorded where they are consumed.
 
 `OQ-2` (how an agent completes a browser pass) was **answered and closed** on
 2026-08-10 during M3, and removed from `OpenQuestions.md`. Restoring magic-link
