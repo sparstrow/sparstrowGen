@@ -30,7 +30,35 @@ doesn't run. Source of the process rules: `AGENTS.md` §2.
 
 Per `AGENTS.md` §2.1: **every** unit of work gets an isolated branch —
 `feature/<task-name>`, `fix/<bug-name>`, or `task/<task-id>`. Never edit files
-directly on `development`, `staging`, or `main`.
+directly on `development`, `staging`, `main`, or a band branch.
+
+**One worktree per agent, without exception.** Two agents sharing a working
+directory — subagents, forked sessions, or two Claude Code windows — is not a
+merge conflict to resolve later, it is two processes writing the same files at
+once. This applies to forked sessions especially: a fork inherits the
+conversation, *not* a worktree, so it must create its own before editing.
+
+### A band gets a branch of its own
+
+Per `AGENTS.md` §2.2, a band with more than one task integrates on
+`band/<band-number>-<short-slug>`, cut from `development`. Its tasks branch
+**from that band branch**, not from `development`, and their PRs target it.
+
+```
+development
+   └── band/20-m16-live-channel          ← cut once, at band start
+         ├── task/T-M16-01-…             ← the [S] gate; lands FIRST
+         ├── task/T-M16-02-…             ┐ cut only AFTER 01 has landed
+         └── task/T-M16-03-…             ┘ on the band branch
+```
+
+The sequencing matters: a band's `[S]` gating task authors the types its
+siblings compile against, so the parallel branches must be cut *after* it
+merges into the band branch. Cutting all of them at band start defeats the
+whole arrangement.
+
+A single-task band skips this — that task branches from `development` and
+targets it directly.
 
 This repo creates worktrees via the harness's `EnterWorktree` tool, not raw
 `git worktree add` — `.claude/worktrees/` currently holds live worktrees created this
@@ -61,18 +89,36 @@ actually allow-listed in Supabase. Full mechanics of adding a new `launch.json`
 preset are in [references/port-isolation.md](references/port-isolation.md). Do not
 guess a port from either file alone — check the registry first.
 
-## Merge and cleanup (AGENTS.md §2.2, §2.4, §2.5)
+## Merge and cleanup (AGENTS.md §2.2, §2.5, §2.6)
 
-1. PRs target `development` only. Never push directly to `staging` or `main`.
-2. Run `pnpm typecheck` and `pnpm test` locally before opening the PR.
-3. Immediately after opening the PR, run `gh pr merge <pr_number> --auto --squash` so
+**Tier 1 — task → band branch:**
+
+1. Run `pnpm typecheck` and `pnpm test` locally before opening the PR.
+2. PR targets the **band branch**, not `development`.
+3. Immediately after opening it, run `gh pr merge <pr_number> --auto --squash` so
    it merges as soon as CI passes — don't wait for a manual click.
-4. **Before removing the worktree, confirm all three:**
+4. Once `gh pr view <n> --json state,mergedAt` reads `MERGED`, remove that
+   task's worktree. The band branch stays.
+
+**Tier 2 — band branch → `development`:**
+
+1. Merge `development` **into** the band branch first, so the PR carries only
+   the band's own conflicts (`AGENTS.md` §2.4). Never rebase a band branch —
+   it orphans any task branch still cut from it.
+2. Push, then run the band's live verification pass against **the band
+   branch's own Vercel preview** (`AGENTS.md` §2.3). This is the band's
+   verification task doing its job.
+3. Open the PR into `development`, `--auto --squash`.
+4. The queue flip and any band archiving happen **in this PR** — see
+   [`doc/tasks/README.md`](../../../doc/tasks/README.md#who-updates-the-queue-and-when).
+5. **Before removing the band worktree, confirm all three:**
    - `gh pr view <n> --json state,mergedAt,headRefName` reads `MERGED`.
    - The post-merge CI run on `development` is green (GitHub deletes the head branch
      at merge time and does not wait for this run — a gone branch is not evidence the
      merge was healthy).
    - The head branch is actually gone.
+
+Never push directly to `staging` or `main` at either tier.
 5. Then `ExitWorktree`, and:
    ```bash
    git checkout development

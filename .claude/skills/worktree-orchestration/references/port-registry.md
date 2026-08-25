@@ -22,6 +22,17 @@ Allow-listed in the Supabase dashboard as of 2026-08-16: `3000`, `3010`,
 `3020`, ... `3100` (step 10, 11 rows total). `3000` stays reserved for the
 main checkout — never assign it to a worktree.
 
+**A band in flight consumes several rows at once.** Under `AGENTS.md` §2.2 a
+band branch and each of its parallel task worktrees are separate directories,
+so each needs its own port if it runs a dev server — a 6-task band fanned out
+across forked sessions can hold 4–5 rows simultaneously. Ten usable ports
+covers one band comfortably and two only if neither is fully fanned out.
+**Release a task's port the moment its worktree is removed** (task → band
+merge), rather than at the end of the band; that is what keeps the pool from
+running dry mid-band. If it does run dry, this is the row that reopens the
+owner-action in [`doc/runbooks/README.md`](../../../../doc/runbooks/README.md)
+for allow-listing the next range — don't quietly assign an unlisted port.
+
 | Port | Status | Branch | Worktree | Assigned |
 |---|---|---|---|---|
 | 3000 | 🔒 reserved | — | main checkout (no worktree) | — |

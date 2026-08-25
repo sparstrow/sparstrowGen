@@ -111,7 +111,14 @@ sentences in the spec's error state.
 
 ## On completion
 
-- [ ] Tick 21.1 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+> **Do not edit [`../MasterTaskQueue.md`](../MasterTaskQueue.md) from this
+> branch.** Its Status column is a mirror, flipped once per band in the commit
+> that lands the band branch on `development` (`AGENTS.md` §2.9). Sibling
+> tasks in this band are adjacent rows in one table, so ticking your own row
+> conflicts with every one of them — including the parallel forks working
+> beside you. Record this task's outcome in the **Status** row and **Result**
+> section of *this* file.
+
 - [ ] Update this file's **Status** row and the phase README's task table
 
 ## Result
