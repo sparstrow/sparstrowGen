@@ -1005,14 +1005,6 @@ export function usePipeline(id: string): UseQueryResult<Pipeline, ApiError> {
   });
 }
 
-export function useCreatePipeline(): UseMutationResult<Pipeline, ApiError, PipelineCreate> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: PipelineCreate) => api<Pipeline>("/pipelines", { method: "POST", body }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["pipelines"] }),
-  });
-}
-
 export function useRunPipeline(): UseMutationResult<
   PipelineRun,
   ApiError,

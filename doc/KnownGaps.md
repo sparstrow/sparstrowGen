@@ -1485,3 +1485,76 @@ the UI settling.
   `revokeRuntimeTokenAction` against another member's machine live, or a real
   avatar/logo file is uploaded through the running app and confirmed to
   render after a reload.
+
+### G-46 — `T-WA-09`'s phase-wide walk did not reach five of the eight tasks' surfaces, due to preview flakiness rather than a code defect
+
+**Raised:** 2026-08-26, verifying `T-WA-09` live.
+
+`T-WA-09`'s method calls for a walk against **the band branch's own Vercel
+preview** with a real signed-in session — not localhost — specifically so
+the verification proves the same deployed artifact the band will promote.
+That preview (`sparstrowgen-git-band-22-wa-server-actions-sparstrow.vercel.app`)
+was confirmed live and reachable at the start of this pass, and the walk
+covered:
+
+- **Teams** (`T-WA-01`): created a team live; `POST /teams` (page route, not
+  `/api/v1`) confirmed via `read_network_requests`.
+- **Projects** (`T-WA-02`): created two projects live, including the
+  slug-collision auto-suffix path (`wa09-bad-import` →
+  `wa09-bad-import-701e`) firing correctly on a duplicate name.
+- **Agents** (`T-WA-03`): created an agent live via the Agent Creator flow;
+  `POST /agents/create` confirmed, agent appeared in the list after reload.
+- **Cross-cutting, not page-specific**: with the session cookie cleared
+  mid-form, submitting a Server Action rendered "Not signed in." inline in
+  the dialog (plan DD-4, `actionContext()`'s refusal) — not a redirect, not a
+  crash. With `**/teams` routed to abort, submitting rendered "Couldn't reach
+  Sparstrowgen, so nothing was saved..." inline (`callAction`'s
+  `UNREACHABLE` message, `BUG-2026-08-25-network-failure-...`'s fix) — not a
+  Runtime Error overlay. Both checks are transport-layer and auth-layer
+  behavior shared by every converted action, not specific to Teams, so
+  passing there is evidence for the whole phase, not just `T-WA-01`.
+- **A real, previously-unknown defect**: this same pass found
+  `BUG-2026-08-26-manager-chat-panel-publish-pipeline-always-404` (fixed in
+  the same change).
+
+**Not reached:** `/chat`, `/messages`, `/skills`, `/tasks`, `/goals`,
+`/runs`, `/schedule`, `/pipelines`, `/machines`, `/settings` on this specific
+preview. Partway through the pass the preview began returning intermittent
+`504 GATEWAY_TIMEOUT` responses and, later, browser-level connection
+timeouts (`os error 10060`) on page loads — `/agents` and `/teams` each hit
+this once and recovered on retry; `/chat` did not recover after three
+attempts over several minutes. `curl` against the same URLs during the same
+window returned clean `307` redirects (the expected unauthenticated
+response) in under a second, which rules out the deployment itself being
+down — the flakiness is somewhere between this machine and that specific
+Vercel preview (or in `agent-browser`'s own browser process after an
+extended session), not in the code this band changed.
+
+`T-WA-01` through `T-WA-08` each already ran their own live verification
+pass for their own surface (see each task's Result section) — `T-WA-06`,
+`T-WA-07`, and `T-WA-08` in particular already have real, detailed live
+evidence, including `T-WA-08`'s pass against a genuinely paired local
+daemon. This gap is specifically about `T-WA-09`'s **additional**,
+cross-cluster confirmation of those surfaces on the shared preview, not a
+claim that they are unverified everywhere.
+
+- **If wrong:** medium — the surfaces this gap covers are exactly the ones a
+  cross-cluster regression (the `useCreateRun`/chat-session-hook sharing
+  pattern the task's own "why this task exists" section names) would show up
+  in. The mitigating fact is that each task's own hook-deletion pass already
+  grepped for other consumers before deleting a shared hook (documented in
+  each task's Result), and the mechanical checks that DID complete
+  phase-wide — `pnpm typecheck`, `pnpm test` (both green, workspace-wide),
+  and the `use(Mutation|Create|Update|...)` sweep (every real hit
+  classified, one fixed, one deferred as `D-28`) — cover the two failure
+  modes (a genuinely broken build, a hook nobody actually converted) that
+  don't need a rendered browser to detect. What they cannot catch is a
+  runtime-only mismatch like `T-M13-05`'s (a response shape that typechecks
+  but doesn't match what the page reads) on a surface this pass didn't
+  reach.
+- **Clears when:** the band branch's Vercel preview is walked again — either
+  a retry once it stabilizes, or the equivalent pass against
+  `development.sparstrow.com` once the band merges — covering `/chat`,
+  `/messages`, `/skills`, `/tasks`, `/goals`, `/runs`, `/schedule`,
+  `/pipelines`, `/machines`, and `/settings` specifically for cross-cluster
+  breakage (a page reading a shape a sibling task's hook deletion changed).
