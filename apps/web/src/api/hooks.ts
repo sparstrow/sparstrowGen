@@ -688,26 +688,6 @@ export function useTasks(filters: TaskFilters = {}): UseQueryResult<Task[], ApiE
   });
 }
 
-export interface TaskCreateInput {
-  title: string;
-  description?: string;
-  projectId?: string | null;
-  assignedAgentId?: string | null;
-  /** P3: two or more agents ⇒ ephemeral team + one child task per agent. */
-  assignedAgentIds?: string[];
-  priority?: number;
-}
-
-export function useCreateTask(): UseMutationResult<Task, ApiError, TaskCreateInput> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: TaskCreateInput) => api<Task>("/tasks", { method: "POST", body }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-}
-
 export interface TaskUpdateInput {
   title?: string;
   description?: string;
@@ -729,28 +709,6 @@ export function useUpdateTask(): UseMutationResult<
     mutationFn: ({ id, data }) => api<Task>(`/tasks/${id}`, { method: "PUT", body: data }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-}
-
-export function useDeleteTask(): UseMutationResult<void, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<void>(`/tasks/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-}
-
-/** POST /tasks/:id/run — (re)spawn the assignee on a stuck or failed task. */
-export function useRunTask(): UseMutationResult<Task, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<Task>(`/tasks/${id}/run`, { method: "POST" }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      void queryClient.invalidateQueries({ queryKey: ["runs"] });
     },
   });
 }
@@ -800,57 +758,6 @@ export function useAttentionQueue(): UseQueryResult<AttentionRow[], ApiError> {
     queryKey: ["attention-queue"],
     queryFn: () => api<AttentionRow[]>("/tasks/attention/queue"),
     refetchInterval: 5000,
-  });
-}
-
-export interface AnswerResult {
-  applied: boolean;
-  reason?: string;
-  task: Task | null;
-  questions: TaskQuestion[];
-}
-
-export interface AnswerInput {
-  taskId: string;
-  answers: { questionId: string; answer: string }[];
-}
-
-/** PATCH /tasks/:id/answer — fold answers into a blocked task and wake it. */
-export function useAnswerTask(): UseMutationResult<AnswerResult, ApiError, AnswerInput> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ taskId, answers }) =>
-      api<AnswerResult>(`/tasks/${taskId}/answer`, { method: "PATCH", body: { answers } }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["attention-queue"] });
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      void queryClient.invalidateQueries({ queryKey: ["runs"] });
-    },
-  });
-}
-
-/** POST /tasks/:id/approve — run a parked cross-team spawn (P3). */
-export function useApproveTask(): UseMutationResult<Task, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<Task>(`/tasks/${id}/approve`, { method: "POST" }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["attention-queue"] });
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      void queryClient.invalidateQueries({ queryKey: ["runs"] });
-    },
-  });
-}
-
-/** POST /tasks/:id/deny — fail a parked cross-team spawn; the lead wakes with the denial (P3). */
-export function useDenyTask(): UseMutationResult<Task, ApiError, { id: string; reason?: string }> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, reason }) => api<Task>(`/tasks/${id}/deny`, { method: "POST", body: { reason } }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["attention-queue"] });
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
   });
 }
 
@@ -1678,7 +1585,6 @@ function useGoalAction(action: "pause" | "resume" | "cancel" | "replan") {
 
 export const usePauseGoal = () => useGoalAction("pause");
 export const useResumeGoal = () => useGoalAction("resume");
-export const useCancelGoal = () => useGoalAction("cancel");
 export const useReplanGoal = () => useGoalAction("replan");
 
 function useNodeAction(action: "retry" | "cancel") {
@@ -1694,7 +1600,6 @@ function useNodeAction(action: "retry" | "cancel") {
   });
 }
 
-export const useRetryNode = () => useNodeAction("retry");
 export const useCancelNode = () => useNodeAction("cancel");
 
 export function useDeleteGoal(): UseMutationResult<void, ApiError, string> {

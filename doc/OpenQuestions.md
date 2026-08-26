@@ -13,10 +13,146 @@ When one is answered, record the answer in the plan or task that consumes it and
 
 ---
 
-> **Nothing is currently open.** Both entries that stood here on the morning of
-> 2026-08-24 were answered by the owner that same day; where each answer now
-> lives is recorded below, per this file's own rule that an answered entry is
-> deleted rather than archived in place.
+## OQ-8 — what does "cancel this step" actually do to a running plan node?
+
+**Raised:** 2026-08-25, converting `T-WA-04`'s goal-detail writes to Server
+Actions.
+**Blocks:** only `useCancelNode` (the goal detail page's "Cancel this step"
+button on an in-flight plan node). Everything else in `T-WA-04` — task
+board writes, the attention queue, the work launcher, and the goal's own
+Cancel/Pause/Resume/Replan buttons — ships without waiting on this.
+
+### Context
+
+`useCancelNode` calls `POST /goals/:id/nodes/:nodeId/cancel`. That route has
+never existed — not a stub, not a real handler, nothing in
+`apps/web/src/lib/api/handlers/`. Converting it to a Server Action means
+writing its logic for the first time, and the two obvious approaches both run
+into the same wall: **a plan node has no status column of its own.**
+`packages/shared/src/db/schema.ts`'s `planNodes` table has no `status` field —
+the goal detail page derives a node's displayed status entirely from its
+linked `tasks` row (`GET /goals/:id`'s join comment says so explicitly). So
+"cancel this step" has to mean *something* to the linked task, and neither
+option below is free of a real design decision:
+
+- `TaskStatus` (`packages/shared/src/schemas/task.ts`) has **no `cancelled`
+  value** — the closest existing state is `failed`, which is semantically
+  wrong (a cancelled step didn't fail, it was stopped) and would make a
+  cancelled step indistinguishable from a genuine failure everywhere else in
+  the app that reads task status (the board, the attention queue, reporting).
+- Even setting a status doesn't necessarily *stop* anything. If the node's
+  task has a run in flight, cancelling the step plausibly should kill that
+  live process on the runtime — and no exposed action anywhere in this repo
+  does that today. A status flip that doesn't touch the live process would
+  silently lie about what "cancel" did.
+
+`useCancelGoal` and `useRetryNode` do not have this problem and are converted
+normally in this task: cancelling a *goal* is a flip to `goals.status =
+'cancelled'`, a value the schema and the UI (`GOAL_BADGE`, the
+`!["done","cancelled"].includes(...)` gate) already use as a real, settled
+state. Retrying a node resolves to its linked task and reuses the exact
+`start_run` RPC call `POST /tasks/:id/run` already makes for the identical
+"respawn the assignee" operation — nothing new to design.
+
+### User scenario
+
+The owner is watching a goal's plan graph. One step is stuck `running` for
+ten minutes on a runtime that looks unresponsive. They click **Cancel this
+step** hoping to free it up and either retry it or let the goal route around
+it.
+
+### Option A — add `cancelled` to `TaskStatus`, flip it, no live-process kill (Recommended)
+
+**What it is:** widen the `TaskStatus` enum with a genuine `cancelled` value
+(small migration touching the enum's callers: the board's status badges, the
+attention queue's filters, any status-branching logic). `cancelNodeAction`
+resolves the node → task and sets `status: "cancelled"`. Nothing reaches the
+runtime; if a process is actually still executing, it keeps running to
+completion or failure on its own, and the row will not update again — the
+button means "stop tracking this as if it succeeds," not "kill the process."
+
+**User scenario replayed:** the owner clicks Cancel, the step badge changes to
+"cancelled" immediately, and the goal graph can route around it. If the
+runtime process was still alive, it keeps running unseen in the background
+and its eventual result never reaches the row again.
+
+- **Pros:** ships an honest status the rest of the UI can render correctly;
+  small, contained schema change; matches how `useCancelGoal` already treats
+  "cancel" as a status, not a kill.
+- **Cons:** does not free the runtime resource the owner was actually trying
+  to reclaim — a "cancelled" step whose process is still silently running is
+  a new, invisible kind of leak.
+- **Score:** 6/10
+- **Blast radius if wrong:** low-medium — worst case is a confusing status
+  with no real effect; nothing destructive, easily corrected in a follow-up
+  once live-cancel exists.
+- **Caveats:** this is a stepping stone, not the real feature. Whoever
+  eventually builds live cancellation will need to revisit every place that
+  now treats `cancelled` as terminal.
+
+### Option B — build real live cancellation now
+
+**What it is:** design and build an actual stop-signal path from this action
+down to the runtime executing the task's run (kill the process, mark the run
+row accordingly, then set the task/node to `cancelled`). This is a genuine
+feature, not a Server Action conversion — it needs a runtime-side contract
+this repo does not have yet (how a daemon receives and honors a cancel
+signal), which is squarely `packages/core`/`packages/daemon` territory.
+
+**User scenario replayed:** the owner clicks Cancel, the runtime actually
+stops the stuck process within a few seconds, and the step shows "cancelled"
+truthfully — the resource is really freed.
+
+- **Pros:** the only option that does what a reasonable person expects
+  "cancel" to mean.
+- **Cons:** real scope — a runtime dispatch feature, not a page conversion;
+  building it inside `T-WA-04` would make a mechanical transport-conversion
+  task into a new-feature task, exactly what plan DD-6 excludes stub-backed
+  surfaces from doing.
+- **Score:** 9/10 for correctness, 2/10 for fit in this task.
+- **Blast radius if wrong:** high if rushed — a half-built kill-signal path
+  that sometimes doesn't reach the runtime is worse than no button at all,
+  because it would look reliable and not be.
+- **Caveats:** this is the right long-term answer; it just isn't a `T-WA-04`-
+  sized piece of work.
+
+### Option C — leave `useCancelNode` exactly as it is (unconverted)
+
+**What it is:** the button stays wired to the nonexistent
+`POST /goals/:id/nodes/:nodeId/cancel` route, 404ing exactly as it does today.
+Zero behavior change — this is the same treatment `useCreateGoal` already gets
+in this task for the same reason (plan DD-6: don't build a transport for a
+feature that isn't real yet).
+
+**User scenario replayed:** the owner clicks Cancel, sees the same broken
+result they'd see today (nothing happens, or an error toast), no worse and no
+better than before this task touched the page.
+
+- **Pros:** zero risk, zero invented behavior, consistent with how the plan
+  already treats `useCreateGoal`.
+- **Cons:** leaves a visibly broken button in the shipped UI indefinitely
+  unless something else picks this up.
+- **Score:** 7/10
+- **Blast radius if wrong:** none — this is the status quo.
+- **Caveats:** the button should arguably be hidden or disabled with a
+  tooltip rather than left clickable-and-broken, but that's a design call
+  for whoever picks this up next, not a silent scope addition here.
+
+### Recommendation
+
+**Option A**, done inside `T-WA-04`'s own scope once answered: it is a small,
+honest schema change that unblocks the same conversion `useCancelGoal` and
+`useRetryNode` already get, and it does not foreclose Option B later — a
+`cancelled` status is exactly what a real live-cancel feature would also set,
+once it exists. Until answered, `useCancelNode` and its call site are left
+untouched (Option C's behavior), which is what `T-WA-04` ships with now.
+
+---
+
+> **OQ-8 above is the only entry currently open.** `OQ-6` and `OQ-7`, which
+> stood here on the morning of 2026-08-24, were answered by the owner that
+> same day; where each answer now lives is recorded below, per this file's own
+> rule that an answered entry is deleted rather than archived in place.
 >
 > **`OQ-6` — how much of a machine a signed-in person may look at — is closed.**
 > Answered **option B**, nominated locations with a sensible default at pairing.
