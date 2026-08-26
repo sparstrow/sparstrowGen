@@ -23,9 +23,12 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { useAgents, useMarkMessageRead, useMessages, useSendMessage } from "@web/api/hooks";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAgents, useMessages } from "@web/api/hooks";
+import { callAction } from "@web/lib/call-action";
 import { formatDate, shortId } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { markMessageReadAction, sendMessageAction } from "./actions";
 
 type Filter = "all" | "user-inbox" | "unread";
 
@@ -122,8 +125,10 @@ function FeedSection({
 export function MessagesPage() {
   const agents = useAgents();
   const messages = useMessages();
-  const sendMessage = useSendMessage();
-  const markRead = useMarkMessageRead();
+  const queryClient = useQueryClient();
+  const [sendPending, startSendMessage] = React.useTransition();
+  const [, startMarkRead] = React.useTransition();
+  const [sendError, setSendError] = React.useState<string | null>(null);
 
   const [filter, setFilter] = React.useState<Filter>("all");
   const [composeOpen, setComposeOpen] = React.useState(false);
@@ -149,25 +154,35 @@ export function MessagesPage() {
 
   const openMessage = (m: Message) => {
     setSelected(m);
-    if (m.status === "unread") markRead.mutate(m.id);
+    if (m.status === "unread") {
+      startMarkRead(async () => {
+        const r = await callAction(() => markMessageReadAction(m.id));
+        if (!r.ok) return;
+        void queryClient.invalidateQueries({ queryKey: ["messages"] });
+      });
+    }
   };
 
   const submitMessage = () => {
     if (!newBody.trim()) return;
-    sendMessage.mutate(
-      {
-        toAgentId: newToAgentId || null,
-        subject: newSubject.trim(),
-        body: newBody,
-      },
-      {
-        onSuccess: () => {
-          setComposeOpen(false);
-          setNewSubject("");
-          setNewBody("");
-        },
-      },
-    );
+    setSendError(null);
+    startSendMessage(async () => {
+      const r = await callAction(() =>
+        sendMessageAction({
+          toAgentId: newToAgentId || null,
+          subject: newSubject.trim(),
+          body: newBody,
+        }),
+      );
+      if (!r.ok) {
+        setSendError(r.error);
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: ["messages"] });
+      setComposeOpen(false);
+      setNewSubject("");
+      setNewBody("");
+    });
   };
 
   return (
@@ -295,9 +310,7 @@ export function MessagesPage() {
                 placeholder="The agent receives exactly this text."
               />
             </div>
-            {sendMessage.isError && (
-              <p className="text-sm text-destructive">{sendMessage.error.message}</p>
-            )}
+            {sendError && <p className="text-sm text-destructive">{sendError}</p>}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setComposeOpen(false)}>
@@ -305,9 +318,9 @@ export function MessagesPage() {
             </Button>
             <Button
               onClick={submitMessage}
-              disabled={!newToAgentId || !newBody.trim() || sendMessage.isPending}
+              disabled={!newToAgentId || !newBody.trim() || sendPending}
             >
-              {sendMessage.isPending ? "Sending…" : "Send"}
+              {sendPending ? "Sending…" : "Send"}
             </Button>
           </DialogFooter>
         </DialogContent>

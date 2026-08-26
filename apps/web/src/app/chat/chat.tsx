@@ -20,6 +20,7 @@ import {
   PROVIDER_KINDS,
   type ChatSession,
   type ChatSessionKind,
+  type ChatSessionUpdate,
   type ChatTurnError,
   type ChatTurnState,
   type ProviderId,
@@ -34,17 +35,15 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChatTurnView, ThinkingDots, TurnErrorBanner } from "@web/components/chat/chat-bits";
-import {
-  useAgents,
-  useChatSession,
-  useChatSessions,
-  useCreateChatSession,
-  usePostChatTurn,
-  useProjects,
-  useRetryChatTurn,
-  useUpdateChatSession,
-} from "@web/api/hooks";
+import { useAgents, useChatSession, useChatSessions, useProjects } from "@web/api/hooks";
 import { useLiveEvents } from "@web/lib/live-events";
+import { callAction } from "@web/lib/call-action";
+import {
+  createChatSessionAction,
+  postChatTurnAction,
+  retryChatTurnAction,
+  updateChatSessionAction,
+} from "./actions";
 import {
   applyChatTurnBroadcast,
   applyChatTurnState,
@@ -300,10 +299,9 @@ function RetryControls({
 export function ChatPage() {
   const projects = useProjects();
   const agents = useAgents();
-  const createSession = useCreateChatSession();
-  const updateSession = useUpdateChatSession();
-  const postTurn = usePostChatTurn();
-  const retryTurn = useRetryChatTurn();
+  const [sendPending, startSend] = React.useTransition();
+  const [retryPending, startRetry] = React.useTransition();
+  const [, startUpdate] = React.useTransition();
 
   // Sidebar filters (intake 0002: group/filter sessions by project, status…).
   const [filterKind, setFilterKind] = React.useState<"all" | ChatSessionKind>("all");
@@ -385,8 +383,7 @@ export function ChatPage() {
   // reload case on its own (decision 3's original point): after a reload,
   // `isPending` resets to false, but a still-non-terminal server turn keeps
   // disabling the composer via `activeTurn`.
-  const busy =
-    isTurnBusy(turn) || postTurn.isPending || retryTurn.isPending || createSession.isPending;
+  const busy = isTurnBusy(turn) || sendPending || retryPending;
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -427,8 +424,8 @@ export function ChatPage() {
     });
   }, [selectedId, liveEvents, queryClient, updateTurn]);
 
-  const notifyFailure = (sessionId: string, err: { reason: string | null; message: string }) => {
-    if (err.reason === "turn_in_progress") {
+  const notifyFailure = (sessionId: string, err: { field?: string; error: string }) => {
+    if (err.field === "turn_in_progress") {
       // Another tab (or a race in this one) already has a turn in flight.
       // The server is the source of truth here — refetch rather than guess
       // at what that turn's state is.
@@ -438,11 +435,11 @@ export function ChatPage() {
       });
       void queryClient.invalidateQueries({ queryKey: ["chat-session", sessionId] });
     } else {
-      setComposerNotice({ kind: "error", message: err.message });
+      setComposerNotice({ kind: "error", message: err.error });
     }
   };
 
-  const postTo = (sessionId: string, content: string) => {
+  const postTo = async (sessionId: string, content: string) => {
     // Null the held turn BEFORE the request starts, not after it resolves.
     // Found by actually sending a second message in the browser: without
     // this, `turn` keeps pointing at the PREVIOUS (terminal) turn for the
@@ -453,16 +450,15 @@ export function ChatPage() {
     // them honest instead of each needing its own "is this turn actually
     // CURRENT" guard.
     updateTurn(() => null);
-    postTurn.mutate(
-      { sessionId, content },
-      {
-        onSuccess: (state) => updateTurn((current) => applyChatTurnState(current, state)),
-        onError: (err) => {
-          setInput(content);
-          notifyFailure(sessionId, err);
-        },
-      },
-    );
+    const r = await callAction(() => postChatTurnAction(sessionId, { content }));
+    if (!r.ok) {
+      setInput(content);
+      notifyFailure(sessionId, r);
+      return;
+    }
+    updateTurn((current) => applyChatTurnState(current, r.data));
+    void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+    void queryClient.invalidateQueries({ queryKey: ["chat-session", sessionId] });
   };
 
   const send = () => {
@@ -472,46 +468,59 @@ export function ChatPage() {
     setComposerNotice(null);
     setCreateError(null);
     if (selectedId) {
-      postTo(selectedId, content);
+      startSend(() => postTo(selectedId, content));
       return;
     }
     // First message of a fresh conversation: create the session from the
     // composer's context controls, then post.
-    createSession.mutate(
-      {
-        kind: draftKind,
-        ...(draftKind === "project" ? { projectId: draftProjectId } : {}),
-        ...(draftKind === "agent" ? { agentId: draftAgentId } : {}),
-        ...(draftKind === "free" ? { provider: draftProvider, model: draftModel } : {}),
-      },
-      {
-        onSuccess: (s) => {
-          setSelectedId(s.id);
-          postTo(s.id, content);
-        },
-        onError: (err) => {
-          setInput(content);
-          setCreateError(err.message);
-        },
-      },
-    );
+    startSend(async () => {
+      const r = await callAction(() =>
+        createChatSessionAction({
+          kind: draftKind,
+          ...(draftKind === "project" ? { projectId: draftProjectId } : {}),
+          ...(draftKind === "agent" ? { agentId: draftAgentId } : {}),
+          ...(draftKind === "free" ? { provider: draftProvider, model: draftModel } : {}),
+        }),
+      );
+      if (!r.ok) {
+        setInput(content);
+        setCreateError(r.error);
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+      setSelectedId(r.data.id);
+      await postTo(r.data.id, content);
+    });
   };
 
   const retry = (override?: { provider: string; model: string }) => {
     if (!selectedId || busy) return;
     setComposerNotice(null);
     updateTurn(() => null); // same reason as postTo above
-    retryTurn.mutate(
-      {
-        sessionId: selectedId,
-        provider: override?.provider as ProviderId | undefined,
-        model: override?.model,
-      },
-      {
-        onSuccess: (state) => updateTurn((current) => applyChatTurnState(current, state)),
-        onError: (err) => notifyFailure(selectedId, err),
-      },
-    );
+    startRetry(async () => {
+      const r = await callAction(() =>
+        retryChatTurnAction(selectedId, {
+          provider: override?.provider as ProviderId | undefined,
+          model: override?.model,
+        }),
+      );
+      if (!r.ok) {
+        notifyFailure(selectedId, r);
+        return;
+      }
+      updateTurn((current) => applyChatTurnState(current, r.data));
+      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+      void queryClient.invalidateQueries({ queryKey: ["chat-session", selectedId] });
+    });
+  };
+
+  const updateSessionField = (id: string, data: ChatSessionUpdate) => {
+    startUpdate(async () => {
+      const r = await callAction(() => updateChatSessionAction(id, data));
+      if (!r.ok) return;
+      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+      void queryClient.invalidateQueries({ queryKey: ["chat-session", id] });
+    });
   };
 
   const projectName = (id: string | null) =>
@@ -545,10 +554,7 @@ export function ChatPage() {
           value={session.provider}
           onValueChange={(v) => {
             const provider = v as ProviderId;
-            updateSession.mutate({
-              id: session.id,
-              data: { provider, model: KNOWN_MODELS[provider]?.[0] ?? "sonnet" },
-            });
+            updateSessionField(session.id, { provider, model: KNOWN_MODELS[provider]?.[0] ?? "sonnet" });
           }}
         >
           {CLI_PROVIDERS.map((p) => (
@@ -560,7 +566,7 @@ export function ChatPage() {
         <GhostSelect
           title="Model — switch anytime; the conversation continues"
           value={session.model ?? ""}
-          onValueChange={(model) => updateSession.mutate({ id: session.id, data: { model } })}
+          onValueChange={(model) => updateSessionField(session.id, { model })}
         >
           {[
             ...new Set(
@@ -763,9 +769,7 @@ export function ChatPage() {
                     size="icon"
                     className="size-8 text-muted-foreground"
                     title="Archive session"
-                    onClick={() =>
-                      updateSession.mutate({ id: session.id, data: { status: "archived" } })
-                    }
+                    onClick={() => updateSessionField(session.id, { status: "archived" })}
                   >
                     <Archive className="size-4" />
                   </Button>

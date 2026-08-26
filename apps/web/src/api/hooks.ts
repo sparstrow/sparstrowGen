@@ -68,13 +68,10 @@ import type {
   TeamManagerChatRequest,
   ChatRetryRequest,
   ChatSession,
-  ChatSessionCreate,
   ChatSessionDetail,
   ChatSessionListQuery,
-  ChatSessionUpdate,
   ChatTurn,
   ChatTurnRequest,
-  ChatTurnState,
 } from "@sparstrow/shared";
 import { api, type ApiError } from "@web/lib/api-client";
 
@@ -699,35 +696,6 @@ export function useMessages(filters: { unreadOnly?: boolean } = {}): UseQueryRes
   });
 }
 
-export interface MessageCreateInput {
-  toAgentId?: string | null;
-  projectId?: string | null;
-  taskId?: string | null;
-  subject?: string;
-  body: string;
-  spawnRun?: boolean;
-}
-
-export function useSendMessage(): UseMutationResult<Message, ApiError, MessageCreateInput> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: MessageCreateInput) => api<Message>("/messages", { method: "POST", body }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["messages"] });
-    },
-  });
-}
-
-export function useMarkMessageRead(): UseMutationResult<Message, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<Message>(`/messages/${id}/mark-read`, { method: "POST" }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["messages"] });
-    },
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Chat sessions (unified session-chat architecture, intake 0001+0002)
 // ---------------------------------------------------------------------------
@@ -754,95 +722,6 @@ export function useChatSession(id: string | null): UseQueryResult<ChatSessionDet
     queryKey: ["chat-session", id],
     queryFn: () => api<ChatSessionDetail>(`/chat/sessions/${id}`),
     enabled: Boolean(id),
-  });
-}
-
-/**
- * `T-WA-03` converted `agent-create.tsx`'s call site to
- * `app/chat/actions.ts`'s `createChatSessionAction`, but `chat.tsx` still
- * calls this hook — `T-WA-07` owns that conversion and deletes this hook
- * once it lands (phase README's shared-hook pattern).
- */
-export function useCreateChatSession(): UseMutationResult<
-  ChatSession,
-  ApiError,
-  ChatSessionCreate
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: ChatSessionCreate) =>
-      api<ChatSession>("/chat/sessions", { method: "POST", body }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
-    },
-  });
-}
-
-/**
- * `T-WA-03` converted `agent-create.tsx`'s call site to
- * `app/chat/actions.ts`'s `updateChatSessionAction` (which also fixes
- * `BUG-2026-08-26-chat-session-updates-always-404` — this hook's `PATCH`
- * had no matching route at all). `chat.tsx` still calls this hook — `T-WA-07`
- * owns that conversion and deletes this hook once it lands.
- */
-export function useUpdateChatSession(): UseMutationResult<
-  ChatSession,
-  ApiError,
-  { id: string; data: ChatSessionUpdate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) =>
-      api<ChatSession>(`/chat/sessions/${id}`, { method: "PATCH", body: data }),
-    onSuccess: (_session, { id }) => {
-      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
-      void queryClient.invalidateQueries({ queryKey: ["chat-session", id] });
-    },
-  });
-}
-
-/**
- * M13 (DD-7, narrowed) -- `POST /chat/sessions/:id/messages` for free /
- * project / agent sessions, on BOTH hosts. The cloud route returns the turn
- * non-terminal (usually `waiting` or `in_progress`); the local Fastify route
- * returns it already terminal. `chat.tsx` renders the turn and subscribes
- * via `useLiveEvents().subscribeChat` only while it isn't.
- *
- * NOT for agent-creator sessions -- see `useAgentDraftTurn` below. The split
- * exists because `agent-create.tsx` reads `draftTurn` off the response,
- * which `ChatTurnState` deliberately does not carry (a draft is a local-only,
- * non-dispatched concern; see doc/tasks/M13/T-M13-02's decision 1).
- */
-export function usePostChatTurn(): UseMutationResult<
-  ChatTurnState,
-  ApiError,
-  { sessionId: string } & ChatTurnRequest
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ sessionId, ...body }) =>
-      api<ChatTurnState>(`/chat/sessions/${sessionId}/messages`, { method: "POST", body }),
-    onSuccess: (_turn, { sessionId }) => {
-      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
-      void queryClient.invalidateQueries({ queryKey: ["chat-session", sessionId] });
-    },
-  });
-}
-
-/** M13 -- retry (US3), same host split as `usePostChatTurn` above. */
-export function useRetryChatTurn(): UseMutationResult<
-  ChatTurnState,
-  ApiError,
-  { sessionId: string } & ChatRetryRequest
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ sessionId, ...body }) =>
-      api<ChatTurnState>(`/chat/sessions/${sessionId}/retry`, { method: "POST", body }),
-    onSuccess: (_turn, { sessionId }) => {
-      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
-      void queryClient.invalidateQueries({ queryKey: ["chat-session", sessionId] });
-    },
   });
 }
 

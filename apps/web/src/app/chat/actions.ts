@@ -1,8 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { executionModeForProvider } from "@sparstrow/shared";
-import type { ChatSession, ChatSessionCreate, ChatSessionUpdate } from "@sparstrow/shared";
+import { CHAT_MESSAGE_MAX_BYTES, executionModeForProvider } from "@sparstrow/shared";
+import type {
+  ChatRetryRequest,
+  ChatSession,
+  ChatSessionCreate,
+  ChatSessionUpdate,
+  ChatTurnRequest,
+  ChatTurnState,
+} from "@sparstrow/shared";
 import {
   actionContext,
   actionErrorFrom,
@@ -11,11 +18,60 @@ import {
   toCamel,
   toSnake,
   NOT_SIGNED_IN,
+  type ActionContext,
   type ActionResult,
 } from "@web/lib/action-result";
+import { chatTurnFailureFrom } from "@web/lib/api/enqueue";
+import { OPAQUE_COLUMNS } from "@web/lib/case";
 
 const CHAT_SESSIONS_OPAQUE = ["draft"];
 const CHAT_SESSION_KINDS = ["free", "project", "agent", "agent-creator"];
+
+/** Same flat list `handlers/chat.ts` uses — covers a session's own `draft`
+ *  and a flat/nested message's `meta` at any depth (deepConvert matches by
+ *  key name alone), including the userMessage/assistantMessage nested inside
+ *  a ChatTurnState. */
+const CHAT_TURN_OPAQUE_KEYS = [
+  ...(OPAQUE_COLUMNS.chat_sessions as string[]),
+  ...(OPAQUE_COLUMNS.chat_messages as string[]),
+];
+
+function agentCreatorNotAvailable(action: string) {
+  return actionFail(
+    `${action} in an Agent Creator session runs on the local daemon and is not available from the web app.`,
+  );
+}
+
+/**
+ * Shapes a `chat_turns` row into the `ChatTurnState` contract by attaching
+ * the turn's user/assistant messages — moved verbatim from
+ * `handlers/chat.ts`'s `turnStateRow` (T-M13-01 decision 2: one function,
+ * three call sites; this file now owns the two mutation call sites, the
+ * third — `GET /chat/sessions/:id` — stays a route since reads are out of
+ * scope for the whole WA phase, DD-5).
+ */
+async function turnStateRow(
+  supabase: ActionContext["supabase"],
+  workspaceId: string,
+  turnRow: Record<string, unknown>,
+) {
+  const { data: messages, error } = await supabase
+    .from("chat_messages")
+    .select("*")
+    .eq("workspace_id", workspaceId)
+    .eq("turn_id", turnRow.id as string)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+
+  const userMessage = (messages ?? []).find((m: any) => m.role === "user") ?? null;
+  const assistantMessage = (messages ?? []).find((m: any) => m.role === "assistant") ?? null;
+
+  return {
+    ...turnRow,
+    user_message: userMessage,
+    assistant_message: assistantMessage,
+  };
+}
 
 function generateId(prefix: string) {
   return `${prefix}${crypto.randomUUID().replace(/-/g, "")}`;
@@ -24,11 +80,9 @@ function generateId(prefix: string) {
 /**
  * Moved verbatim from the `POST /chat/sessions` handler this replaces.
  *
- * Shared with `T-WA-07`: `chat.tsx` calls this same hook today
- * (`useCreateChatSession`) for its own "new chat" flow. This task
- * (`T-WA-03`) converts `agent-create.tsx`'s call site only — `T-WA-07` owns
- * `chat.tsx`'s conversion and deletes the hook once both consumers are off
- * it (phase README's shared-hook pattern).
+ * Built by `T-WA-03` for `agent-create.tsx`'s call site; `T-WA-07` converted
+ * `chat.tsx`'s "new chat" flow onto this same action and deleted the hook
+ * both used to share (phase README's shared-hook pattern).
  */
 export async function createChatSessionAction(
   input: ChatSessionCreate,
@@ -113,13 +167,13 @@ export async function createChatSessionAction(
 }
 
 /**
- * Built fresh — no `PATCH /chat/sessions/:id` handler ever existed
- * (`BUG-2026-08-26-chat-session-updates-always-404`); this is the fix,
- * scoped here to the columns `ChatSessionUpdate` actually carries (`title`,
+ * Built fresh by `T-WA-03` — no `PATCH /chat/sessions/:id` handler ever
+ * existed (`BUG-2026-08-26-chat-session-updates-always-404`); this is the
+ * fix, scoped to the columns `ChatSessionUpdate` actually carries (`title`,
  * `status`, `provider`, `model`), all of them real, already-written columns
- * on `chat_sessions`. Shared with `T-WA-07` the same way
- * `createChatSessionAction` is: `chat.tsx`'s rename/model-switch/archive
- * call sites convert to this action when that task lands.
+ * on `chat_sessions`. `T-WA-07` converted `chat.tsx`'s
+ * rename/model-switch/archive call sites onto this same action, completing
+ * the bug's fix.
  */
 export async function updateChatSessionAction(
   id: string,
@@ -139,4 +193,108 @@ export async function updateChatSessionAction(
 
   revalidatePath("/chat");
   return actionOk(toCamel(row, CHAT_SESSIONS_OPAQUE) as ChatSession);
+}
+
+/**
+ * Moved verbatim from `POST /chat/sessions/:id/messages` (`T-WA-07`).
+ *
+ * `enqueue_chat_turn` inserts the turn and the user message in one
+ * transaction and never raises for "nothing is online" (DD-3) — a `waiting`
+ * turn with a `waitingReason` comes back instead. Only a bad session id or an
+ * already-in-flight turn is a hard error, mapped by `chatTurnFailureFrom`.
+ *
+ * Agent Creator sessions are refused here on purpose, same as the route they
+ * replace: `enqueue_chat_turn` does not accept their `draft` payload, and
+ * they keep the local, non-dispatched path (T-M13-01 decision 4) via
+ * `useAgentDraftTurn`, which this task does not touch.
+ */
+export async function postChatTurnAction(
+  sessionId: string,
+  input: ChatTurnRequest,
+): Promise<ActionResult<ChatTurnState>> {
+  const ctx = await actionContext();
+  if (!ctx) return actionFail(NOT_SIGNED_IN);
+
+  const { data: session, error: sessionErr } = await ctx.supabase
+    .from("chat_sessions")
+    .select("id, kind")
+    .eq("workspace_id", ctx.workspaceId)
+    .eq("id", sessionId)
+    .maybeSingle();
+  if (sessionErr) return actionErrorFrom(sessionErr);
+  if (!session) return actionFail("That chat session does not exist.");
+  if (session.kind === "agent-creator") return agentCreatorNotAvailable("Sending a message");
+
+  const content = input.content;
+  if (!content || !content.trim()) return actionFail("content is required.");
+  if (Buffer.byteLength(content, "utf8") > CHAT_MESSAGE_MAX_BYTES) {
+    return actionFail(`content must not exceed ${CHAT_MESSAGE_MAX_BYTES} bytes`);
+  }
+
+  const { data, error } = await ctx.supabase.rpc("enqueue_chat_turn", {
+    p_session_id: sessionId,
+    p_content: content,
+  });
+
+  if (error) {
+    const failure = chatTurnFailureFrom(error);
+    if (!failure) return actionErrorFrom(error);
+    return actionFail(failure.message, failure.reason);
+  }
+
+  revalidatePath("/chat");
+  return actionOk(
+    toCamel(await turnStateRow(ctx.supabase, ctx.workspaceId, data), CHAT_TURN_OPAQUE_KEYS) as ChatTurnState,
+  );
+}
+
+/**
+ * Moved verbatim from `POST /chat/sessions/:id/retry` (`T-WA-07`) — re-ask
+ * without retyping (US3). `retry_chat_turn` takes a TURN id, not a session
+ * id, so this resolves the session's latest turn first, same as the route.
+ */
+export async function retryChatTurnAction(
+  sessionId: string,
+  input: ChatRetryRequest,
+): Promise<ActionResult<ChatTurnState>> {
+  const ctx = await actionContext();
+  if (!ctx) return actionFail(NOT_SIGNED_IN);
+
+  const { data: session, error: sessionErr } = await ctx.supabase
+    .from("chat_sessions")
+    .select("id, kind")
+    .eq("workspace_id", ctx.workspaceId)
+    .eq("id", sessionId)
+    .maybeSingle();
+  if (sessionErr) return actionErrorFrom(sessionErr);
+  if (!session) return actionFail("That chat session does not exist.");
+  if (session.kind === "agent-creator") return agentCreatorNotAvailable("Retrying");
+
+  const { data: latestTurn, error: latestErr } = await ctx.supabase
+    .from("chat_turns")
+    .select("id")
+    .eq("workspace_id", ctx.workspaceId)
+    .eq("session_id", sessionId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (latestErr) return actionErrorFrom(latestErr);
+  if (!latestTurn) return actionFail("This session has no turn to retry.");
+
+  const { data, error } = await ctx.supabase.rpc("retry_chat_turn", {
+    p_turn_id: latestTurn.id,
+    p_provider: input.provider ?? null,
+    p_model: input.model ?? null,
+  });
+
+  if (error) {
+    const failure = chatTurnFailureFrom(error);
+    if (!failure) return actionErrorFrom(error);
+    return actionFail(failure.message, failure.reason);
+  }
+
+  revalidatePath("/chat");
+  return actionOk(
+    toCamel(await turnStateRow(ctx.supabase, ctx.workspaceId, data), CHAT_TURN_OPAQUE_KEYS) as ChatTurnState,
+  );
 }
