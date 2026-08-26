@@ -1,0 +1,1 @@
+ALTER TABLE "plan_nodes" ADD CONSTRAINT "plan_nodes_task_id_tasks_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."tasks"("id") ON DELETE set null ON UPDATE no action;

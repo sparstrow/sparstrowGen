@@ -44,7 +44,7 @@ registerRoute({
   handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
     const { data, error } = await supabase
       .from("skills")
-      .select("*")
+      .select("*, files:skill_files(*)")
       .eq("workspace_id", workspaceId)
       .eq("id", params.id)
       .single();

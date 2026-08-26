@@ -50,6 +50,13 @@
       "when": 1787702778776,
       "tag": "0006_tranquil_thunderbolt_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787710679241,
+      "tag": "0007_dear_calypso",
+      "breakpoints": true
     }
   ]
 }
