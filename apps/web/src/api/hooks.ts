@@ -54,10 +54,8 @@ import type {
   AgentSkillAssignment,
   LocalSkillSummary,
   Skill,
-  SkillCreate,
   SkillDetail,
   SkillImportResult,
-  SkillUpdate,
   TeamDetail,
   Run,
   RunEvent,
@@ -468,34 +466,6 @@ export function useSkillAssignments(): UseQueryResult<AgentSkillAssignment[], Ap
   return useQuery({
     queryKey: ["skills", "assignments"],
     queryFn: () => api<AgentSkillAssignment[]>("/skills/assignments"),
-  });
-}
-
-export function useCreateSkill(): UseMutationResult<Skill, ApiError, SkillCreate> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: SkillCreate) => api<Skill>("/skills", { method: "POST", body }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
-  });
-}
-
-export function useUpdateSkill(): UseMutationResult<
-  Skill,
-  ApiError,
-  { id: string; data: SkillUpdate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) => api<Skill>(`/skills/${id}`, { method: "PUT", body: data }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
-  });
-}
-
-export function useDeleteSkill(): UseMutationResult<void, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<void>(`/skills/${id}`, { method: "DELETE" }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
   });
 }
 
