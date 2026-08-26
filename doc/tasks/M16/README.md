@@ -18,7 +18,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 |---|---|---|---|---|
 | [T-M16-01 — channel contracts](T-M16-01-channel-contracts.md) | `[S]` | foundational | — | not started |
 | [T-M16-02 — daemon Realtime credential](T-M16-02-daemon-realtime-credential.md) | `[P]` | foundational | T-M16-01 | not started |
-| [T-M16-03 — `017_terminal_channels.sql`](T-M16-03-channel-policies.md) | `[P]` | foundational | T-M16-01 | not started |
+| [T-M16-03 — `018_terminal_channels.sql`](T-M16-03-channel-policies.md) | `[P]` | foundational | T-M16-01 | not started |
 | [T-M16-04 — core: the Realtime connection](T-M16-04-core-realtime-connection.md) | `[C]` | foundational | T-M16-01, T-M16-02 | not started |
 | [T-M16-05 — core: terminal manager rework](T-M16-05-terminal-manager.md) | `[P]` | foundational | T-M16-01 | not started |
 | [T-M16-06 — verification](T-M16-06-verification.md) | `[S]` | foundational | T-M16-01…05 | not started |
@@ -146,7 +146,7 @@ by that task; nothing else in this phase is blocked on it, and `T-M16-06` is.
 | `packages/shared/src/schemas/terminal.ts` | new — envelopes, event names, Zod schemas |
 | `packages/shared/src/cloud.ts` | edit — topic helpers, limits, `SETTING_TERMINAL_ACCESS` |
 | `packages/shared/src/index.ts` | edit — re-export |
-| `packages/shared/drizzle/policies/017_terminal_channels.sql` | new — subscribe + send policies |
+| `packages/shared/drizzle/policies/018_terminal_channels.sql` | new — subscribe + send policies |
 | `apps/web/src/app/api/daemon/realtime/token/route.ts` | new — the minting endpoint |
 | `apps/web/src/lib/daemon/realtime-token.ts` | new — signing, claims, TTL |
 | `packages/core/src/cloud/realtime.ts` | new — connection, refresh, backoff, control channel |

@@ -6,7 +6,7 @@
 | **Status** | Draft — M16 next |
 | **Trigger** | The owner, 2026-08-24: "lets build the terminal." |
 | **Depends on** | M3 (pairing + daemon token), M4 (per-machine settings via `settings.set`), M5 (the Realtime broadcast pattern this extends). All code-complete. |
-| **Touches** | `packages/shared/src/cloud.ts`, `packages/shared/src/schemas/terminal.ts` (new), `packages/shared/drizzle/policies/017_terminal_channels.sql` (new), `apps/web/src/app/api/daemon/realtime/token/route.ts` (new), `apps/web/src/lib/daemon/realtime-token.ts` (new), `apps/web/src/lib/terminal-channel.ts` (new), `apps/web/src/app/terminals/terminals.tsx`, `apps/web/src/app/machines/machines.tsx`, `apps/web/src/content/knowledge/*.md`, `packages/core/src/cloud/realtime.ts` (new), `packages/core/src/cloud/terminal-bridge.ts` (new), `packages/core/src/terminal/manager.ts`, `packages/core/src/api/routes/terminal.ts`, `packages/core/src/index.ts` |
+| **Touches** | `packages/shared/src/cloud.ts`, `packages/shared/src/schemas/terminal.ts` (new), `packages/shared/drizzle/policies/018_terminal_channels.sql` (new), `apps/web/src/app/api/daemon/realtime/token/route.ts` (new), `apps/web/src/lib/daemon/realtime-token.ts` (new), `apps/web/src/lib/terminal-channel.ts` (new), `apps/web/src/app/terminals/terminals.tsx`, `apps/web/src/app/machines/machines.tsx`, `apps/web/src/content/knowledge/*.md`, `packages/core/src/cloud/realtime.ts` (new), `packages/core/src/cloud/terminal-bridge.ts` (new), `packages/core/src/terminal/manager.ts`, `packages/core/src/api/routes/terminal.ts`, `packages/core/src/index.ts` |
 | **Tasks** | [`doc/tasks/M16/`](../tasks/M16/README.md), [`doc/tasks/M17/`](../tasks/M17/README.md) |
 | **Open questions** | none |
 
@@ -71,7 +71,7 @@ used for table policies. Nothing has ever role-gated a *channel*. DD-4.
 |---|---|
 | Channel topics, event names, message envelopes and Zod schemas in `@sparstrow/shared` | A shared type file; serves every story equally and demos to nobody |
 | `POST /api/daemon/realtime/token` — mint a short-lived, workspace-scoped Realtime credential for a paired machine | An endpoint no browser calls |
-| `017_terminal_channels.sql` — subscribe **and** send policies on `realtime.messages`, admin-scoped, event-pinned | A policy. Its absence is invisible until someone else's tab can type into your shell |
+| `018_terminal_channels.sql` — subscribe **and** send policies on `realtime.messages`, admin-scoped, event-pinned | A policy. Its absence is invisible until someone else's tab can type into your shell |
 | Core: `cloud/realtime.ts` — hold the connection, refresh the credential, reconnect with backoff, subscribe to the machine's control channel | Daemon plumbing; the owner sees only its effects |
 | Core: `terminal/manager.ts` gains a sink abstraction, loses the detach timer, gains a session ceiling and output coalescing | The same terminal it already was, reachable by a second path |
 | Core: `cloud/terminal-bridge.ts` — bind the control channel's requests to the manager, and a session's bytes to its channel | The seam between the two above |

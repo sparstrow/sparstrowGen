@@ -111,7 +111,7 @@ setting uses; absent means **on**.
 - [ ] `packages/shared/src/index.ts` re-exports the new module
 - [ ] Unit tests: each schema accepts a valid message and rejects a malformed one;
       the topic helpers produce exactly the documented strings
-- [ ] A doc comment on each topic helper naming `017_terminal_channels.sql` as
+- [ ] A doc comment on each topic helper naming `018_terminal_channels.sql` as
       the policy that must match it — the same cross-reference `chatTurnTopic`
       carries
 - [ ] `packages/shared` typecheck and tests green

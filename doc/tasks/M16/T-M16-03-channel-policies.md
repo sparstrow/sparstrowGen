@@ -1,4 +1,4 @@
-# T-M16-03 — `017_terminal_channels.sql`
+# T-M16-03 — `018_terminal_channels.sql`
 
 | | |
 |---|---|
@@ -65,7 +65,7 @@ and these policies are decoration.
 - [ ] Load the `supabase` and `supabase-postgres-best-practices` skills
 - [ ] Confirm `realtime.messages.event` exists and carries the broadcast event
       name on this project; record the finding in Result
-- [ ] `packages/shared/drizzle/policies/017_terminal_channels.sql` — the RLS
+- [ ] `packages/shared/drizzle/policies/018_terminal_channels.sql` — the RLS
       assertion block, `drop policy if exists` for all four, then the four
       policies
 - [ ] A header comment in the house style, covering: who sends and why a client
