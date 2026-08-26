@@ -7,7 +7,7 @@
 | **Depends on** | T-WA-01 |
 | **Blocks** | T-WA-09 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | done except G-40 2026-08-25 |
 
 ## Objective
 
@@ -33,14 +33,14 @@ Convert the skills surface. Both files share two hooks, so they are one task.
 
 ## Checklist
 
-- [ ] `app/skills/actions.ts` — `createSkillAction`, `updateSkillAction`, `deleteSkillAction`
-- [ ] `skills.tsx` and `skill-detail.tsx` call them under `useTransition`
-- [ ] `useImportLocalSkill` and `useImportUrlSkill` untouched
-- [ ] Deleting a skill from the detail page still navigates back to `/skills`
-- [ ] Delete the three converted hooks from [`hooks.ts`](../../../apps/web/src/api/hooks.ts) — **grep first**, `useSkill`/`useSkills`/`useSkillAssignments` queries stay
-- [ ] Delete the matching write handlers from `apps/web/src/lib/api/handlers/`; reads stay (plan DD-5)
-- [ ] Keep the existing `invalidateQueries` calls in place (plan DD-1)
-- [ ] `apps/web` typecheck and tests green
+- [x] `app/skills/actions.ts` — `createSkillAction`, `updateSkillAction`, `deleteSkillAction`
+- [x] `skills.tsx` and `skill-detail.tsx` call them under `useTransition`
+- [x] `useImportLocalSkill` and `useImportUrlSkill` untouched
+- [ ] Deleting a skill from the detail page still navigates back to `/skills` — could not exercise; see `G-40`
+- [x] Delete the three converted hooks from [`hooks.ts`](../../../apps/web/src/api/hooks.ts) — **grep first**, `useSkill`/`useSkills`/`useSkillAssignments` queries stay
+- [x] Delete the matching write handlers from `apps/web/src/lib/api/handlers/`; reads stay (plan DD-5)
+- [x] Keep the existing `invalidateQueries` calls in place (plan DD-1)
+- [x] `apps/web` typecheck and tests green
 
 ## Traps
 
@@ -59,12 +59,12 @@ wrong by reflex and fails silently.
 
 ## Verification
 
-- [ ] `grep -rn "useCreateSkill\|useUpdateSkill\|useDeleteSkill" apps/web/src` returns nothing
-- [ ] Delete a skill from its detail page: it navigates to `/skills` and the skill is already gone on arrival, not after a manual refresh
-- [ ] Edit a skill's content and reload — the change persisted
-- [ ] `pnpm typecheck` and `pnpm test` green
-- [ ] `read_network_requests` shows no `POST`/`PATCH`/`DELETE` to `/api/v1/skills` (the two import paths excepted)
-- [ ] Every converted button disables itself while its action is in flight
+- [x] `grep -rn "useCreateSkill\|useUpdateSkill\|useDeleteSkill" apps/web/src` returns nothing
+- [ ] Delete a skill from its detail page: it navigates to `/skills` and the skill is already gone on arrival, not after a manual refresh — **could not exercise**: `/skills/<id>` crashes on mount regardless of this task's changes (`BUG-2026-08-25-skill-detail-page-always-crashes`, pre-existing); verified the same `deleteSkillAction` from the list page instead — see `G-40`
+- [x] Edit a skill's content and reload — the change persisted
+- [x] `pnpm typecheck` and `pnpm test` green
+- [x] `read_network_requests` shows no `POST`/`PATCH`/`DELETE` to `/api/v1/skills` (the two import paths excepted)
+- [x] Every converted button disables itself while its action is in flight
 
 ## On completion
 
@@ -76,8 +76,37 @@ wrong by reflex and fails silently.
 > beside you. Record this task's outcome in the **Status** row and **Result**
 > section of *this* file.
 
-- [ ] Update this file's **Status** row and the phase README's task table
+- [x] Update this file's **Status** row and the phase README's task table
 
 ## Result
 
-*Filled in when the task lands.*
+Converted the three sites, per the phase decision:
+`useCreateSkill`/`useUpdateSkill`/`useDeleteSkill` → `createSkillAction` /
+`updateSkillAction` / `deleteSkillAction` in new
+`apps/web/src/app/skills/actions.ts`, all moved verbatim from the deleted
+`POST /skills` / `PUT /skills/:id` / `DELETE /skills/:id` handlers. Both call
+sites converted: `skills.tsx` (create dialog, edit dialog, enabled-toggle
+switch, delete confirm) and `skill-detail.tsx` (enabled-toggle switch, delete
+confirm — its own copy, sharing the same actions). `useImportLocalSkill` and
+`useImportUrlSkill` untouched, per plan DD-6. The already-dead `PATCH
+/skills/:id` duplicate was left alone, out of scope.
+
+**Two pre-existing bugs found while verifying, both unrelated to this task's
+write-only scope (plan DD-5 leaves reads untouched):**
+[`BUG-2026-08-25-skills-list-file-count-is-nan`](../../bug/BUG-2026-08-25-skills-list-file-count-is-nan.md)
+(`GET /skills` never returns a `fileCount`, so the list always shows "NaN"),
+and the more serious
+[`BUG-2026-08-25-skill-detail-page-always-crashes`](../../bug/BUG-2026-08-25-skill-detail-page-always-crashes.md)
+(`GET /skills/:id` never joins `skill_files`, so `skill.files` is `undefined`
+and the detail page crashes on every mount, unconditionally, since M3/#80).
+The second one blocked live verification of this task's own detail-page
+toggle/delete wiring — recorded as `G-40`, verified instead via the identical
+action calls on the list page, which does render.
+
+**Verified:** `pnpm --filter web typecheck` and `pnpm --filter web test` both
+green (365 tests). Live pass via `agent-browser` against a disposable
+`@sparstrow.test` account on localhost:3020: created a skill through the New
+skill dialog, toggled it enabled/disabled from the list, edited its
+description and reloaded to confirm persistence, deleted it and confirmed it
+was gone immediately (not after a manual refresh) — zero `/api/v1` requests,
+zero console errors throughout. Detail-page verification not run — see `G-40`.

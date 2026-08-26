@@ -1262,3 +1262,30 @@ went untouched, because nothing calls the action with one.
   `updateProjectAction(id, { name: "..." })` directly against a disposable
   project and confirms `/projects` shows the new name without a query
   invalidation bug.
+
+### G-40 — `T-WA-05`'s skill-detail.tsx toggle/delete not exercised live
+
+**Raised:** 2026-08-25, verifying `T-WA-05` live.
+
+`apps/web/src/app/skills/[skillId]/skill-detail.tsx` has its own call sites
+for `updateSkillAction` (the enabled toggle) and `deleteSkillAction`, converted
+by this task alongside the list page's. Neither could be exercised through the
+UI: the page crashes unconditionally on mount —
+[`BUG-2026-08-25-skill-detail-page-always-crashes`](bug/BUG-2026-08-25-skill-detail-page-always-crashes.md),
+a pre-existing bug in `GET /skills/:id` (unrelated to this task, which doesn't
+touch reads) — so the component never reaches the code this task changed.
+
+**Verified instead:** the exact same two actions, called with the same
+signature, live on the list page (`skills.tsx`'s row switch and delete menu
+item) — toggle, edit, and delete all confirmed working end to end, including
+a page reload proving persistence. The action code itself
+(`apps/web/src/app/skills/actions.ts`) is shared between both call sites
+unmodified; only the calling component differs, and `pnpm typecheck` confirms
+the detail page's wiring type-checks against the same action signatures.
+
+- **If wrong:** low — the risk would have to be in `skill-detail.tsx`'s own
+  glue code (the `toggleSkill`/`startDelete` wrappers), not the shared action,
+  and that glue is a near-verbatim copy of the list page's already-proven
+  version.
+- **Clears when:** `BUG-2026-08-25-skill-detail-page-always-crashes` is fixed
+  and the detail page's toggle and delete are walked live once it can render.
