@@ -2,8 +2,10 @@
 
 import * as React from "react";
 import { createClient } from "@web/utils/supabase/client";
-import { AccountProvider, type Account } from "@sparstrow/ui/lib/account";
+import { AccountProvider, type Account } from "@web/lib/account";
+import { ImageUploaderProvider } from "@web/lib/image-upload";
 import { toSnapshot, type AccountSnapshot } from "@web/lib/auth/account-snapshot";
+import { createSupabaseImageUploader } from "@web/lib/storage/image-uploader";
 
 /**
  * Feeds the shared shell's account context from the Supabase session.
@@ -28,6 +30,10 @@ export function WebAccountProvider({
   children: React.ReactNode;
 }) {
   const supabase = React.useMemo(() => createClient(), []);
+  // Same client, same lifetime as the account it authenticates for — the RLS
+  // policies on `storage.objects` are what actually scope who may write, so
+  // this needs no gating on `snapshot` itself.
+  const uploader = React.useMemo(() => createSupabaseImageUploader(supabase), [supabase]);
   const [snapshot, setSnapshot] = React.useState<AccountSnapshot | null>(initial);
 
   React.useEffect(() => {
@@ -68,5 +74,9 @@ export function WebAccountProvider({
     };
   }, [snapshot]);
 
-  return <AccountProvider account={account}>{children}</AccountProvider>;
+  return (
+    <AccountProvider account={account}>
+      <ImageUploaderProvider uploader={uploader}>{children}</ImageUploaderProvider>
+    </AccountProvider>
+  );
 }

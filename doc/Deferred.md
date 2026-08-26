@@ -125,6 +125,9 @@ picker in the UI, and users are expected to have exactly one for now.
 ## D-8 — GitHub and Google sign-in
 
 **Parked:** 2026-08-10, by the owner — "defer google and github auth."
+**Reconfirmed:** 2026-08-16, by the owner — not using GitHub or Google OAuth
+right now. (`runbooks/README.md`'s row had drifted to "pending"; corrected to
+"parked" the same day.)
 
 The app-side code is **complete and verified**; nothing here is unbuilt. What is
 missing is configuration that only a human can supply: an OAuth app registered
@@ -136,7 +139,7 @@ The login page reads `/auth/v1/settings` on load, so the buttons render disabled
 with "Social sign-in isn't set up yet — use email below" and **light up on their
 own** once the providers are enabled. No code change is needed to unpark this.
 
-Tracked as an action item in [`runbooks/README.md`](runbooks/README.md). Full
+Tracked as a parked row in [`runbooks/README.md`](runbooks/README.md). Full
 steps, including the callback URL people get wrong (it is Supabase's, not the
 app's): [`runbooks/oauth-providers.md`](runbooks/oauth-providers.md).
 
@@ -205,6 +208,22 @@ and service registration is separate work per platform, with no
 owner's own dev checkout, or before handing the app to anyone who isn't
 comfortable cloning a monorepo.
 
+> **Sequenced 2026-08-16.** At the review of
+> [`specs/2026-08-16-setup-and-machines.md`](specs/2026-08-16-setup-and-machines.md)
+> the owner chose to fix distribution as **its own round, immediately after**
+> that spec ships — not folded into it, and not left indefinite. That spec's
+> setup guide and Machines empty state therefore say plainly that connecting a
+> machine currently needs a dev checkout, rather than implying a `sparstrow`
+> command that is published nowhere. **This entry gets its own spec when the
+> setup-and-machines work lands**, which is the concrete trigger this
+> deferral previously lacked.
+
+> **Promoted 2026-08-24.** This entry is now the prerequisite for
+> [`D-24`](#d-24--collapse-to-three-components-one-nextjs-ui-electron-as-a-shell-headless-core)
+> — it *is* the third of the owner's three components (headless daemon +
+> browser, for users who don't want Electron). Shipping it is what unparks
+> D-24.
+
 ---
 
 ## D-12 — Realtime doorbell for command dispatch
@@ -237,6 +256,16 @@ takes minutes. The poll costs one indexed `UPDATE … RETURNING` per runtime per
 merely react faster — live HITL approvals, interactive chat turns, or a cancel
 that must land inside 100 ms. At that point the JWT is load-bearing rather than
 an optimisation, and the doorbell comes along with it for nearly nothing.
+
+**Update 2026-08-23:** chat turns — named above as a candidate trigger — were
+scoped in
+[`doc/specs/2026-08-23-chat-message-sending.md`](specs/2026-08-23-chat-message-sending.md)
+and deliberately did *not* unpark this. The owner chose to reuse the poll +
+broadcast-back pattern M4/M5 already proved, on the grounds that a chat reply
+is not meaningfully worse for arriving within a few seconds instead of
+instantly — the same latency tradeoff the app already accepts for starting a
+run. The doorbell stays parked; the remaining named triggers (live HITL
+approvals, a sub-100ms cancel) are unaffected.
 
 ---
 
@@ -278,3 +307,706 @@ because nothing today needs cross-machine contradiction review.
   pull-side ordering rule. Contradictions — cross-machine contradiction
   review becomes a real, requested feature rather than a table with an
   existing shape it would be convenient to reuse.
+
+---
+
+## D-14 — Custom SMTP for transactional email
+
+**Parked:** 2026-08-16, immediately after email delivery was proven working
+(closing `G-11`).
+
+Supabase's **built-in** mailer is now confirmed delivering: an emailed sign-up
+confirmation and a magic link both arrived in a real inbox and both signed the
+owner in. That is enough for today, and the owner explicitly scoped it that way
+— the app is not public, and the only two accounts in use are members of the
+project's Supabase org.
+
+That last clause is the whole reason this entry exists. The built-in mailer
+delivers **only** to addresses that are members of the project's Supabase org,
+and is rate-limited to a handful of messages an hour. Neither limit is visible
+when it bites: a non-member's mail is **silently dropped**, and the classic
+symptom is "it works for me and not for anyone I invite". A plus-address
+(`you+test@gmail.com`) is a different string from the member address, so it may
+not match the allowlist even though it reaches the same inbox.
+
+Setting it up is not a code change — it is a provider account, a sender address
+on a domain under our control, and SPF/DKIM records. Procedure, including which
+providers work and the rate-limit settings to raise afterwards:
+[`runbooks/email-delivery.md`](runbooks/email-delivery.md).
+
+- **If wrong:** the first person outside the Supabase org who tries to sign up,
+  reset a password, or use a magic link gets nothing at all — no error on our
+  side, no error on theirs — and the account they created cannot be confirmed.
+  Since sign-up now genuinely depends on delivery (the auto-confirm trigger that
+  used to mask this was dropped, see `G-11`'s closure note), that is a hard
+  block rather than a degraded experience.
+- **Clears when:** either of these becomes true, whichever comes first —
+  **(a)** anyone who is not a member of the project's Supabase org needs to
+  receive mail from the app (an invited user, a customer, a teammate), or
+  **(b)** the web app is deployed to a public URL. Both are certain to happen
+  before the app ships products to users, which is the owner's stated horizon
+  for this work.
+
+---
+
+## D-15 — Production Supabase project for `main`
+
+**Parked:** 2026-08-16, by the owner, while walking through the Vercel/DNS
+deployment — "later I will create a new Supabase project, and that will be
+connected to the main branch," once `main`'s code is no longer a dummy
+placeholder.
+
+Vercel and Hostinger DNS already route `main` → `sparstrow.com`, and that
+wiring is real. What's missing is everything downstream of it: `main` has no
+environment variables and is not connected to any Supabase project, so the
+live URL currently serves placeholder content. `staging` and `development`
+already share one fully configured Supabase project (env vars, backend, Auth
+redirect URLs) — `main` deliberately does **not** reuse it. Full picture:
+[`runbooks/deploy-web-app.md`](runbooks/deploy-web-app.md).
+
+**Unpark when:** `staging`'s build is solid enough to promote into `main`.
+At that point, create a dedicated production Supabase project, connect it to
+`main`, and configure its own Authentication → URL Configuration from
+scratch (it does not inherit `staging`'s settings) — then follow
+`deploy-web-app.md`'s "When `main` goes live" section to point a machine's
+`SPARSTROW_CLOUD_URL`/`SPARSTROW_APP_URL` at `sparstrow.com`.
+
+---
+
+## D-16 — Sleep awareness: detecting sleep, and waking from it
+
+**Parked:** 2026-08-16, by the owner, while giving the Machines user stories —
+"if a machine is sleeping, we might need to add or trigger the machine to wake
+up… Defer this task now for later." **Extended the same day** at spec review to
+cover *detection* as well, when the owner chose to ship the Machines menu with
+two states and revisit sleeping later.
+
+Two parts, parked together because detection's main use is deciding whether
+waking is worth offering — but they have different unpark conditions, so they
+are stated separately.
+
+### Part A — detecting that a machine is asleep
+
+[`specs/2026-08-16-setup-and-machines.md`](specs/2026-08-16-setup-and-machines.md)
+ships **two** states, active and unreachable, because a sleeping machine and a
+dead one are the same silence from the cloud's side. Liveness is derived purely
+from heartbeat age ([`cloud.ts:35-52`](../packages/shared/src/cloud.ts:35)).
+
+Distinguishing them needs the machine to **announce suspension before it goes
+quiet**. Electron 36 ships `powerMonitor` with `suspend`/`resume` events and it
+is currently unused anywhere in `packages/desktop` (verified 2026-08-16), so
+the desktop app is nearly free; headless core needs a per-OS mechanism
+(systemd sleep hooks, Windows power broadcasts, launchd).
+
+**What stays ambiguous no matter what:** a machine that loses power, crashes,
+or drops off the network never gets to announce anything, and is
+indistinguishable from one that was switched off. So even with Part A built,
+the honest set is *active / sleeping / unreachable* — never "turned off".
+
+*(One wrinkle in our favour: Windows Modern Standby machines keep networking
+alive while asleep, so some may keep heartbeating and never need this.)*
+
+- **Unpark when:** the two-state model proves genuinely confusing in daily use —
+  the owner repeatedly cannot tell whether a machine is coming back — **or**
+  Part B is wanted, which needs this first.
+
+### Part B — waking a sleeping machine from the web app
+
+The intent: a machine showing as asleep gets a control in the web app that
+wakes it, so work can be sent without walking over to the computer. A machine
+genuinely powered off stays out of reach, and that is accepted.
+
+**The constraint that makes this bigger than a button**, recorded now so
+nobody unparks it expecting an afternoon's work: a cloud web app cannot wake a
+machine on its own. Wake-on-LAN works by broadcasting a magic packet **on the
+machine's own local network**, and `staging.sparstrow.com` is not on it. The
+packet cannot route across the internet to a machine behind NAT. So waking
+needs one of:
+
+- **a second always-on paired machine on the same LAN**, which receives the
+  request from the cloud and broadcasts the packet locally — the only option
+  that needs no router configuration, and it means waking requires two
+  machines on that network;
+- **router configuration** — a directed-broadcast forward or a static ARP
+  entry, per network, often disabled by default and a real security tradeoff;
+- **vendor out-of-band management** (Intel AMT/vPro and equivalents), which is
+  enterprise hardware only and not present on typical machines.
+
+Also unverified: whether the target machine's NIC has WoL enabled at all — it
+is a BIOS/firmware setting that is off by default on many consumer machines,
+and no amount of software fixes that.
+
+- **If wrong:** nothing breaks — the feature simply does not exist, and a
+  sleeping machine is woken the way it is woken today, by touching it. The
+  risk is the opposite one: shipping a **Wake** button that silently does
+  nothing on most networks would be worse than having no button, because it
+  teaches the owner the app is unreliable.
+- **Unpark when:** the owner has a second always-on machine on the same
+  network as the one they want woken (making the relay option real), **or**
+  reaching a sleeping machine becomes routine friction rather than an
+  occasional annoyance. Whichever comes first — and confirm WoL is actually
+  enabled on the target machine's NIC before building anything.
+
+---
+
+## D-17 — Settings → Display: the theme picker UI
+
+**Parked:** 2026-08-18, by the owner, while locking `DESIGN.md` — the theming
+*contract* was decided and written (§2), the *picker* was explicitly left as its
+own piece of work.
+
+The owner asked for user-selectable brand colour and surface character
+("paper, slate, soft, mono"), exposed in Settings. §2 defines what any theme
+must satisfy — curated presets only, one accent role, status colour never
+themeable, every preset clearing 4.5:1 in both modes. What it deliberately does
+not define is the UI, or where the choice is stored.
+
+Open sub-questions the spec has to answer: whether the choice is per-device or
+synced to the account; whether it applies instantly or on save; what a viewer
+sees before their preference loads (a flash of the default is a real problem on
+a dark-first app); and whether density joins brand and surface as a third axis
+(§13 lists that as undecided).
+
+**The dependency cleared on 2026-08-19.** `G-19` closed: `globals.css` is
+parametric, and the four surfaces and five brand presets ship as root classes.
+Adding `surface-slate` or `theme-teal` to `<html>` re-themes the whole app
+today, so a picker would now be wiring a control to something real rather than
+to nothing.
+
+- **Still parked, and this is the point:** what is missing is not mechanism, it
+  is the product decision. Per-device or synced to the account? Instant or on
+  save? What a viewer sees before their preference loads — a flash of the
+  default is a real problem on a dark-first app. And whether density joins brand
+  and surface as a third axis (§13 lists that as undecided).
+- **Unpark when:** the owner wants it. It needs a `product-requirements` pass
+  before build, and that pass is now the only thing between here and shipping
+  it. Recorded as `DD-006` in `design-system/DECISIONS.md`.
+
+> **Sequenced 2026-08-19.** The owner chose to hold all further colour/theme
+> design work — this picker included — until **machine pairing is working
+> end-to-end**, rather than running it in parallel. Machine pairing itself
+> (`sparstrow pair`) has shipped since M3 (2026-08-10); what is still open is
+> walking the full setup-and-machines spec against staging (`M11`, band 13),
+> which is blocked on an owner action — pointing a machine's
+> `SPARSTROW_CLOUD_URL` / `SPARSTROW_APP_URL` at `staging.sparstrow.com` — not
+> on any undone engineering. See
+> [`runbooks/deploy-web-app.md`](runbooks/deploy-web-app.md).
+> **Unpark trigger is now:** M11 (band 13) reported done, in addition to the
+> owner wanting the picker.
+
+---
+
+## D-18 — Entity profiles and the in-app tab strip
+
+**Parked:** 2026-08-18, by the owner, on locking `DESIGN.md` §9 — the owner
+asked for the navigation *instruction* to exist so agents design to it, not for
+the feature to be built in the same turn.
+
+`DESIGN.md` §9 fully specifies it: an outer tab strip (which entity's profile is
+open), a side sub-nav (which section of that entity), a smart-default +
+modifier-key destination model for tangential actions, and mandatory ARIA/
+keyboard requirements from the first commit. Proved interactively in
+`design-brief/entity-profile-board.html`, including that per-tab state survives
+switching away and back.
+
+None of it is built. Today no detail view exists for a machine or an agent at
+all, and `project-detail.tsx`'s tabs are a *different*, sidebar-panel pattern.
+
+§9.4 fixes the order and the reason: **Machines** first (a real gap, nothing to
+regress), **Agents** second (same shape of gap, still greenfield), **Projects**
+last and deliberately — it is the only one of the three that is a migration of
+working code rather than new work.
+
+- **Unpark when:** the design-system rebuild lands (this needs the doctrine's
+  tokens to exist) and Machines gets a `product-requirements` pass — it is still
+  outside `specs/2026-08-16-setup-and-machines.md`, whose "profile" means the
+  *user's* profile, not a machine's. Recorded as `DD-003`/`DD-008`.
+
+---
+
+## D-19 — Rename `@sparstrow/daemon` back to `@sparstrow/core`
+
+**Parked:** 2026-08-22, by the owner — "I like the word core than daemon, at
+the end of complete development when we have to discard the old core folder,
+let's rename the daemon to core in all places and remove any references."
+
+**Why "daemon" exists at all.** Before 2026-08-09, `@sparstrow/core` was the
+whole single-machine runtime — a Fastify server + Vite SPA, no cloud/local
+split — and there was no need for a second name. The word "daemon" was
+introduced the same day as the Next.js migration (`67bd615`) and the Postgres
+control-plane split (`b1891cb`), in
+[`doc/plans/2026-08-09-daemon-cloud-control-plane.md`](plans/2026-08-09-daemon-cloud-control-plane.md),
+which explicitly frames the new per-machine role as **"the Multica model"** —
+a competitor studied for its architecture, not its skin (see `DESIGN.md` §14).
+"Daemon" was borrowed terminology for that role, not an organic repo name.
+
+**Current state.** Per `AGENTS.md` §4, the `@sparstrow/daemon` split from
+`@sparstrow/core` is a **planned goal, not yet built** — there is no
+`packages/daemon/` directory today (confirmed on disk 2026-08-22). Everything
+that would live there — pairing, heartbeat, run execution, command polling —
+currently lives in and runs as `@sparstrow/core`. So "daemon" today is a role
+name used in docs/plans/AGENTS.md, not a package.
+
+**The decision.** When that split is eventually done for real — i.e. when the
+current `packages/core/` folder is discarded/replaced by whatever the daemon
+work produces — do **not** create `packages/daemon/`. Instead, name the new
+per-machine execution package `@sparstrow/core` (reusing the name once the old
+folder is gone) and sweep every "daemon" reference back to "core": package
+name, import paths, `AGENTS.md`'s directory layout and §4 environment section,
+plan/task docs that use the word going forward, code comments, route names
+(e.g. `/api/daemon/*`), and schema identifiers where renaming is still cheap
+(`daemon_tokens`, etc. — evaluate case by case, since some of these are already
+live in Postgres and a rename there is a migration, not a find-replace).
+Historical docs (`doc/plans/2026-08-09-daemon-cloud-control-plane.md`, this
+entry, closed `doc/tasks/` records) keep the word "daemon" as the accurate
+historical record of what happened — this is a go-forward rename, not a
+rewrite of history.
+
+- **If wrong (i.e. left undone):** no functional harm — "daemon" is a naming
+  preference, not a correctness issue. The cost of leaving it is purely
+  cognitive: the codebase carries two names for the same concept
+  indefinitely, and the terminology mismatch this very conversation started
+  from recurs for every future agent or contributor.
+- **Unpark when:** the `@sparstrow/daemon` package split actually begins —
+  i.e. exactly the moment `AGENTS.md` §4 currently says "don't create
+  `packages/daemon/` speculatively" stops applying. Do the rename as part of
+  that same body of work, not as a separate later pass.
+
+---
+
+## D-20 — Memory injection on the chat path
+
+**Parked:** 2026-08-23, during planning for
+[chat message-sending](plans/2026-08-23-chat-message-sending.md) — the owner
+confirmed the lighter scope (DD-6 in that plan) over full memory injection for
+the first build.
+
+The spec's US1.2 says a Project or Agent chat reply should reflect "that
+project's directives and memory the same way a task run already does." What
+ships in M13 is the lighter half: the project's system prompt, its read-only
+repository tools, and its directives, carried to whichever machine picks up
+the turn. What does not ship is a memory block — `RunManager` injects one via
+`buildMemoryBlock` behind an actual `runs` row; the chat path runs through
+`completeOnce`, documented as *"NO run row, NO memory injection,"* and pulling
+memory retrieval into a chat turn is a second feature, not a corollary of
+message dispatch.
+
+**Unpark when:** the owner wants a chat reply to draw on the project's memory
+notes the way a run does — at that point this needs its own scoping (does
+every turn re-run retrieval, or only the first in a session; does injected
+memory count toward `buildMemoryBlock`'s existing budget; does a Free or
+Agent-only session get anything at all).
+
+## D-22 — Settings-managed `claude-code` OAuth token, hot-reloaded per spawn
+
+**Parked:** 2026-08-23, by the owner — "I like the idea, but... save the
+idea... We can build that later," while getting a `claude setup-token`
+credential set up (that step, tracked as `D-21`, is done — the owner ran
+it, and this agent confirmed live that headless `claude-code` chat turns
+work; `G-31`/`KnownGaps.md` has the evidence). Raised while explaining why
+the in-app Terminal can't be used as a shortcut for `claude setup-token`
+(it spawns a genuinely separate OS process; nothing typed there reaches the
+daemon).
+
+The owner switches between two Claude accounts and wants Sparstrowgen's
+headless `claude-code` chat turns to use whichever account they currently
+consider active — without leaving the app, and without restarting the
+daemon each time. Today's only working mechanism
+(`CLAUDE_CODE_OAUTH_TOKEN`) is an OS env var, bound to whichever account was
+active when `claude setup-token` created it and decoupled from any later
+interactive account switch, read once at daemon startup — so switching
+means re-running `setup-token`, re-exporting it in whatever launches the
+daemon, and restarting — real friction, and not what was asked for.
+
+**The fix already has ~90% of its plumbing built**, reusing an existing
+pattern rather than inventing one:
+
+- `packages/core/src/secrets/secret-store.ts` already stores direct-API
+  provider keys (`SECRET_ANTHROPIC_API_KEY`, `SECRET_GEMINI_API_KEY`)
+  AES-256-GCM-encrypted on disk, read fresh via `getSecret()` on every
+  call — no caching, no restart needed to pick up a change.
+- `packages/core/src/api/routes/providers.ts` already exposes
+  `GET/PUT/DELETE /providers/:id/key` for exactly this kind of credential,
+  with a masked-hint-only read path.
+- `packages/ui/src/routes/pages/settings.tsx`'s `ProviderKeyInput` already
+  renders a Save/Replace key field per provider card in Settings.
+
+All three currently gate on `provider.kind === "direct_api"` —
+`requireDirectProvider` in `providers.ts` explicitly excludes CLI providers
+("ollama + CLI providers need no stored key"), which was a correct
+assumption until this need existed. The work is: add
+`SECRET_CLAUDE_CODE_OAUTH_TOKEN`, let `claude-code` opt into the existing
+key-storage route without becoming a `direct_api` provider (a CLI provider
+with an optional stored credential, not a new provider kind), wire
+`buildHeadlessSpawn`'s `extraEnv` (`packages/core/src/providers/claude-code.ts`)
+to read it via `getSecret()` at spawn time, and show the input in Settings.
+Pasting a new `claude setup-token` output there would take effect on the
+very next chat message — no restart, no terminal, no leaving the app.
+
+**Unpark when:** the owner asks for it, or the two-account switching
+friction from the manual env-var-plus-restart mechanics above becomes
+actively painful enough to prioritize. Not urgent — that manual path works
+today, just with more friction than this would have.
+
+---
+
+## D-23 — Rewrite browser-tool guidance for Claude Code agents specifically
+
+**Parked:** 2026-08-24, by the owner — "defer task on this instruction on
+guidance on which browser to use later," while asking whether the Playwright
+MCP should be replaced by Claude's own native browser tools (the in-app
+Claude Browser preview pane, `mcp__Claude_Browser__*`, and Claude in Chrome,
+`mcp__claude-in-chrome__*`) across `AGENTS.md`, `doc/runbooks/agent-browser-session.md`,
+and the `frontend-verify` skill, since Playwright is generic MCP tooling
+built for any coding agent, not Claude Code specifically.
+
+**Why this isn't a same-day rewrite.** Checked live before parking, not
+assumed: the Claude Browser pane still has the exact bug
+`agent-browser-session.md` already documents as the reason Playwright was
+adopted — it reports `document.visibilityState === "hidden"` on a fresh,
+foregrounded navigation, which starves any page whose data fetching gates on
+visibility (React Query, used throughout this app). See
+[`bug/BUG-2026-08-24-claude-browser-pane-reports-hidden-visibility`](bug/BUG-2026-08-24-claude-browser-pane-reports-hidden-visibility.md).
+Claude in Chrome would sidestep that (it drives a real browser window, not
+an emulated pane) but isn't usable here either: `list_connected_browsers`
+returned empty and the extension reported unreachable in this session. The
+owner confirmed this is expected — they manually swap Chrome between two
+accounts, so the extension isn't kept signed in standing, and reconnecting
+it just for this isn't worth doing right now.
+
+So both named alternatives have a real reason they can't simply replace
+Playwright today: one has an open bug, the other isn't connected. Rewriting
+the guidance now would either bake in a regression or point at a tool that
+doesn't work in this environment.
+
+- **If wrong (i.e. left unparked with stale guidance):** no functional
+  harm — `AGENTS.md`/the runbook/`frontend-verify` still correctly point at
+  Playwright, which works. The cost of leaving this parked is purely that
+  Claude Code agents keep using the generic tool instead of a potentially
+  better-integrated native one, once native tooling is actually ready.
+- **Unpark when:** `BUG-2026-08-24-claude-browser-pane-reports-hidden-visibility`
+  is fixed (or a workaround is found), **and** the owner wants Claude in
+  Chrome set up and kept connected (or a per-session reconnect step is
+  judged worth the friction). At that point, rewrite `AGENTS.md`'s MCP
+  server description, `doc/runbooks/agent-browser-session.md`'s "Getting a
+  browser that actually renders" section, and the `frontend-verify` skill to
+  prefer the native tool(s), with Playwright kept as the documented fallback
+  for environments where they aren't available.
+
+---
+
+## D-24 — Collapse to three components: one Next.js UI, Electron as a shell, headless core
+
+**Parked:** 2026-08-24, by the owner — "My expectation is to have one webapp
+next.js and same app in electron app for desktop. If the people don't want to
+use electron app, then daemon service installed on the machine and people can
+use it from web. This is my three apps component idea."
+
+**The target shape.** Three components, each with one job:
+
+| Component | What it is | What it uniquely provides |
+|---|---|---|
+| `apps/web` (Next.js) | The one and only UI | Everything visible |
+| `packages/desktop` (Electron) | A window pointed at that UI, plus a daemon supervisor | Bundles and supervises the daemon, tray, auto-update, survives reboot — the user never registers a service by hand |
+| `packages/core` headless service | Daemon-only install, no GUI | For users who skip Electron and drive the app from a browser |
+
+The decisive rename is **Electron is a shell, not a second UI**. Today it is
+ambiguous: it ships a window *and* a UI.
+
+**Current state — the old Vite app was never removed.** `apps/web` was created
+fresh as Next.js App Router in `67bd615` (2026-08-09) and is where all
+subsequent work landed. But the pre-migration Vite SPA is still built
+(`packages/ui`'s `vite build`), still served as static files with SPA fallback
+by the daemon's own Fastify server
+([`server.ts:138`](../packages/core/src/api/server.ts:138)), and is still what
+a packaged Electron build loads **by default**:
+[`urls.ts:43`](../packages/desktop/src/urls.ts:43) loads `SPARSTROW_APP_URL`
+only when it is set, and nothing sets it. So the desktop app's out-of-the-box
+experience is currently the old app.
+
+**Why the Vite SPA is not an offline mode.** `packages/ui` contains no Supabase
+code at all (verified by search 2026-08-24) — it is the pre-cloud, pre-auth,
+single-machine UI, talking to local core over `wsHub`. It has no concept of an
+account, a workspace, or cloud dispatch. Since dispatch, chat, projects and
+runs are cloud-canonical (`AGENTS.md` §4), it cannot do the work anyway.
+Keeping it as a fallback preserves a *different, older product*, not a degraded
+version of the current one.
+
+**Nothing is left to port, and less is duplicated than it looks.** The page
+components in `packages/ui/src/routes/pages/` are **shared, not Vite-only** —
+almost every route in `apps/web/src/app/` is a 7-line re-export of one
+(verified 2026-08-24). Route parity shipped in M7 (`ec66a1a`) by sharing the
+pages, not by copying them.
+
+**What gets deleted when this is done.** `packages/ui` itself **stays**, and so
+do its `routes/pages/*` — `apps/web` renders them. What ends is only the Vite
+*host*:
+
+- `packages/ui/index.html`, `vite.config.ts`, `src/main.tsx`, `src/router.tsx`
+  and the `dev`/`build` scripts in `packages/ui/package.json`
+- `packages/ui/src/components/layout/app-shell.tsx` — the Vite/desktop shell
+- the `fastifyStatic` / SPA-fallback block in
+  [`packages/core/src/api/server.ts`](../packages/core/src/api/server.ts)
+- `resolveLocalUiUrl` and the `SPARSTROW_DEV` fallback in
+  [`packages/desktop/src/urls.ts`](../packages/desktop/src/urls.ts)
+
+**Where the pages go.** Once the Vite host is gone there is no second consumer,
+so `packages/ui/src/routes/pages/*` has no reason to live in a shared package —
+that location exists only because two hosts needed the same files. Move each
+page into `apps/web/src/app/<route>/` beside its `page.tsx`, deleting the
+7-line re-export as you go, and let `packages/ui` narrow to what the
+`create-turbo` convention actually intends: a design system
+(`components/ui/*`, tokens, `cn()`).
+
+`apps/web/src/lib/react-router-mock.tsx` — the shim translating
+`@tanstack/react-router` calls into Next's router — dies with the last page
+that imports it. It is the clearest marker of the transition: nobody designs
+that file, it exists purely so one component can satisfy two routers.
+
+> **Scope check, 2026-08-24.** The shim is wired as a build-level alias in
+> [`next.config.ts:11`](../apps/web/next.config.ts:11) and
+> [`tsconfig.json:25`](../apps/web/tsconfig.json:25), not imported by name, and
+> `@tanstack/react-router` is imported by **ten non-page components** in
+> `packages/ui/src/components/` as well as by the pages — `attention-queue`,
+> `breadcrumbs`, `command-palette`, `pinned-items`, `tab-strip`,
+> `workspace-switcher`, `pr-queue`, `work-launcher`, `markdown`, `app-shell`.
+> Those are app composites, not design-system primitives, so they move to
+> `apps/web` under the same rule and get Next's router directly. The shim dies
+> with the last **component** that imports it, which is a little later than the
+> last page.
+
+This is a **mechanical move, not a rewrite**. Converting those pages to Server
+Components is a separate concern and deliberately not folded in here — see
+[`D-25`](#d-25--converge-the-existing-pages-on-server-components).
+
+**This supersedes [`G-23`](KnownGaps.md)'s remaining half.** G-23 asks for the
+two `AppShell` components to be merged — including building an `Outlet`
+equivalent for Next's `children`-based shell. If one of the two shells is being
+deleted, that merge is work that should not be done. Do not start it. When this
+entry is executed, close G-23 by deletion rather than by merge.
+
+**What is genuinely lost.** The desktop app stops working without internet.
+This is a real product decision and should be taken deliberately, not absorbed
+silently — though in substance it is already true, since every canonical
+surface is cloud-side and the local SPA cannot authenticate.
+
+**Confirmed 2026-08-24.** The owner accepted Electron-as-shell and online-only
+for now: "I am fine with the electron app being a shell and online only until I
+have all the required features and functionality. Then we can build an electron
+packaged app." So packaging is explicitly *after* feature completeness, and the
+offline loss above is an accepted cost rather than an open question.
+
+> **Unparked 2026-08-24** — the owner made this the current priority ("our
+> priority right now is transitioning to the next.js app from the vite app and
+> clearing that out"), ahead of the D-10 trigger below. Planned as
+> [`plans/2026-08-24-retire-the-vite-app.md`](plans/2026-08-24-retire-the-vite-app.md).
+>
+> **That plan found a cost this entry did not know about.** Core implements 31
+> handlers — terminals, folder browsing, project git, the code graph, provider
+> settings, local skill import — that `apps/web` stubs with a 501. Retiring the
+> Vite app therefore *removes working features*, it is not only a duplication
+> cleanup. The owner accepted that loss deliberately; see the plan's decision 1
+> for the reasoning and the condition that would reverse it.
+
+**Sequencing.** [`D-10`](#d-10--headless-non-electron-core-distribution)
+(headless core distribution) is the prerequisite and *is* component 3 — until
+it exists, "I don't want Electron" has no answer. It is already sequenced to
+get its own spec once `specs/2026-08-16-setup-and-machines.md` lands. Then:
+repoint Electron's default to the hosted app; verify a packaged build loading
+it; delete the Vite app last.
+
+- **If wrong (i.e. left parked):** the repo carries two UIs indefinitely, one
+  of which predates authentication. The concrete risk is not drift between
+  them — it is that anyone installing the packaged desktop app today gets the
+  pre-cloud UI as their first impression, with no account and no workspace.
+  Cost also compounds: every shared component change is weighed against a host
+  that is slated for deletion.
+- **Unpark when:** `D-10` ships a headless core distribution — at that point
+  all three components exist and only the repoint-and-delete remains. Bring it
+  forward if a packaged Electron build is put in anyone else's hands before
+  then, since that is the moment the old-UI default becomes user-visible.
+
+---
+
+## D-25 — Converge the existing pages on Server Components
+
+**Parked:** 2026-08-24, by the owner, on reviewing the target state — the shape
+is agreed; only the timing is parked.
+
+**What is true today.** Nearly every route in `apps/web` is a 7-line re-export
+of a client component in `packages/ui`, fetching through React Query against
+`/api/v1/*`. Those pages are necessarily `"use client"` — they use React Query
+hooks. A client component *is* still server-rendered on first request, so the
+HTML is not empty; but it is the **loading** state, because the only code that
+knows how to fetch runs in the browser. The page is structurally incapable of
+arriving with data in it.
+
+**The scenario.** Priya clicks Agents. She sees skeleton rows immediately, then
+her browser downloads the page's JavaScript, hydrates, and only then asks
+`/api/v1/agents` — which re-checks her session with Supabase Auth, resolves her
+workspace, queries Postgres, returns JSON. On office wifi that is a flicker; on
+a phone on hotel wifi it is a visible pause where the app looks loaded and is
+empty. Creating an agent costs two round trips, not one: the POST, then a list
+refetch to make the new row appear.
+
+**The target.**
+
+| Where | What |
+|---|---|
+| `packages/ui` | Design system only — `components/ui/*`, tokens, `cn()` |
+| `apps/web/src/app/<route>/page.tsx` | Server Component: auth + query, renders with data |
+| `apps/web/src/app/<route>/*-client.tsx` | `"use client"` islands for interactivity |
+| `apps/web/src/lib/api/handlers/` | Thins to streaming and daemon-facing surfaces |
+
+Reads move into the Server Component and hit Postgres directly — one hop
+instead of three. Ordinary writes become Server Actions with `revalidatePath`
+— one round trip instead of two.
+
+**Streaming is the exception, and not a small one.** Server Actions are
+request/response and do not stream. Terminals, and live run transcripts, need a
+route handler or WebSocket regardless of anything here. `/api/v1` therefore
+**thins; it does not disappear.** Anyone reading this entry as "delete the
+handler registry" has misread it.
+
+**This entry governs the existing pages only.** New surfaces are built the
+target way from the start — that is a standing rule in
+[`apps/web/CLAUDE.md`](../apps/web/CLAUDE.md), not a deferral, and it applies
+to every one of the modules still stubbed in
+[`stubs.ts`](../apps/web/src/lib/api/handlers/stubs.ts).
+
+- **If wrong (i.e. left parked):** nothing breaks and nothing is unsafe — the
+  current pattern works and is well organised. The cost is a slower first paint
+  on every route, a larger JS bundle, and `loading.tsx` / Suspense being
+  unable to do anything useful. It is felt most on a slow connection and
+  least on the owner's own machine, which is exactly why it can go unnoticed.
+- **Unpark when:** per-route and opportunistic — convert a page the next time
+  feature work touches it, rather than as a scheduled migration. Two
+  backstops that make it deliberate instead: convert wholesale if a real
+  first-paint complaint arrives from someone who is not the owner, and do the
+  first conversion in the same body of work as `D-24`'s page move, so there is
+  one worked example in-tree for the rest to copy.
+
+---
+
+## D-26 — A cloud record of who opened a shell and when
+
+**Parked:** 2026-08-24, writing
+[the terminal plan](plans/2026-08-24-a-terminal-on-my-machine.md) (DD-5) — a
+deliberate scope line, not an oversight.
+
+A terminal session is a process on a machine. DD-5 makes the machine the source
+of truth for its own processes and puts no `terminal_sessions` table in the
+control plane, because a mirror row disagrees with reality the instant the
+machine restarts and the app then shows a list of shells that do not exist.
+
+What that gives up is the **audit trail**: nothing in the cloud records that a
+shell was opened on someone's computer, by whom, or when. Today that record is
+the machine's own log. The plan's own Assumptions state this plainly rather than
+leaving it implied.
+
+- **If wrong (i.e. left parked):** with one person in the workspace, the loss is
+  small — the only person who could have opened a shell is the person asking.
+  With a second owner/admin it becomes real and awkward: FR-009 restricts
+  terminals to owner/admin precisely because a shell is unrestricted, and
+  "unrestricted, and unlogged" is a materially different posture from
+  "unrestricted, and recorded". The gap is also retroactive — a trail cannot be
+  reconstructed after the fact.
+- **Unpark when:** a second person holds owner or admin on any workspace. That
+  is the trigger, not a date. It also unparks naturally alongside
+  [`I-10`](Ideas.md)'s members-and-invites work, since that is the change that
+  creates the second admin.
+- **Shape when it happens:** an append-only cloud event written by the daemon on
+  session open and close, through the existing authenticated `/api/daemon/*`
+  path — fire-and-forget, never on the critical path, so a failed write delays
+  no keystroke. Explicitly not a mirror of live session state, which is what
+  DD-5 rejects.
+
+---
+
+## D-27 — Live cancellation of an in-flight plan node/run
+
+**Parked:** 2026-08-25 — the owner answered
+[`OQ-8`](OpenQuestions.md) (now closed, answer recorded there) with **option
+B**: clicking "Cancel this step" on a goal's plan graph should actually stop
+the work, not just relabel it. That is a real, cross-package feature, not a
+`T-WA-04`-sized Server Action conversion, so it is parked here rather than
+folded into `T-WA-04` (already merged, `useCancelNode` shipped unconverted) or
+band 22 (`WA` — mechanical write-transport conversion only, no new backend
+behavior per plan DD-6).
+
+Building it for real needs, at minimum:
+- A genuine `cancelled` value on `TaskStatus`
+  (`packages/shared/src/schemas/task.ts`) distinct from `failed`, since a
+  stopped step and a broken one must not read the same everywhere the app
+  displays task status (board, attention queue, reporting).
+- A stop-signal contract from the control plane down to the daemon actually
+  executing the run — nothing in `packages/core`/`packages/daemon` today
+  receives or honors a cancel signal for an in-flight process. This is the
+  real scope: designing how a daemon polls for or is pushed a cancel request,
+  how it kills the child process cleanly, and how the `runs` row and the
+  linked task settle afterward.
+- Wiring `cancelNodeAction` (`app/tasks/goals/[goalId]/actions.ts`) to that
+  contract once it exists, replacing the currently-unconverted
+  `useCancelNode` hook and its 404ing `POST /goals/:id/nodes/:nodeId/cancel`
+  call site.
+
+**If wrong (i.e. left parked):** low — the button stays exactly as broken as
+it is today (calls a route that has never existed), which is the same
+no-worse-than-status-quo state `T-WA-04` already shipped it in. No user is
+worse off than before this was raised.
+
+**Unpark when:** this becomes prioritized work. Given the scope (a real
+daemon-side dispatch contract touching `packages/core`, the control plane's
+`runs` table, and the web UI), the next step when picked up is a
+`doc/specs/` entry per the normal idea → spec → plan → tasks lifecycle, not a
+task dropped directly into an existing band — this is a new feature, not a
+conversion.
+
+---
+
+## D-28 — `memory.tsx`'s six writes were never assigned to a WA-phase task
+
+**Parked:** 2026-08-26 — found by `T-WA-09`'s mandated sweep
+(`grep -rnE "use(Mutation|Create|Update|...)...\(\)" --include=*.tsx`), which
+turned up real, non-stub write hooks with no task in `doc/tasks/WA/` naming
+`apps/web/src/app/memory/memory.tsx` at all. Every other real hit the sweep
+found (`manager-chat-panel.tsx`'s `useCreatePipeline`,
+`blocked-project-actions.tsx`'s four hooks) was at least a *known* remaining
+consumer some earlier task's Result section had flagged and left for later;
+`memory.tsx` was never mentioned by any task file in this phase, which is why
+this is `Deferred.md` and not a same-turn fix — it is not one or two call
+sites next to a file this session already had open, it is a whole
+unconverted page.
+
+**Six real, working routes, all unconverted:**
+- `useCreateMemoryNote` → `POST /memory/notes`
+- `useDeleteMemoryNote` → `DELETE /memory/notes/:id` (two call sites: the
+  main list's delete action, and the "reject" action on a quarantined note)
+- `useBulkDeleteNotes` → `POST /memory/notes/bulk-delete`
+- `useApproveNote` → `POST /memory/notes/:id/approve`
+- `useArchiveNote` → `POST /memory/notes/:id/archive`
+
+(`useUpdateNoteRaw` → `PUT /memory/notes/:id/raw` is correctly excluded — that
+path is a `stubs.ts` host-local pattern, a real DD-6 exclusion, not part of
+this gap.)
+
+**Why not fixed inline by `T-WA-09`:** this is comparable in size to any one
+of `T-WA-02` through `T-WA-08` individually — six hooks, a dedicated
+`app/memory/actions.ts`, its own test file, its own live verification pass —
+not a one- or two-call-site correction. Converting it as a side effect of the
+*verification* task would be exactly the scope inflation `AGENTS.md` §9
+warns against, and would leave this task's own actual job (proving the other
+eight tasks didn't break anything) half-done.
+
+**If wrong (i.e. left parked):** low — these six writes keep going through
+`/api/v1` exactly as they do today. Nothing about band 22 landing makes them
+worse; they are simply not yet part of the phase's stated "every write is a
+Server Action" outcome. The risk is purely that `WA1`'s Result section
+(`doc/tasks/WA/README.md`) would overstate completeness if this gap isn't
+named there.
+
+**Unpark when:** band 22 closes (zero open task/band branches, per
+`AGENTS.md` §2.9's queue-regeneration precondition) and a new task can be
+decomposed for it — either folded into whatever comes after `WA1`/`WA2`, or
+its own small band. Whoever picks this up should re-run the same sweep first
+in case anything else has drifted since 2026-08-26.

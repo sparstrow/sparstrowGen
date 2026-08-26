@@ -6,7 +6,7 @@
 | **Depends on** | T-M7-01 … T-M7-03 |
 | **Blocks** | — |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | not started — section D partially closed 2026-08-22 by [`T-M11-04`](../M11/T-M11-04-desktop-window.md), which also found and filed [`BUG-2026-08-22-desktop-servicemanager-health-check-times-out`](../../bug/BUG-2026-08-22-desktop-servicemanager-health-check-times-out.md). Sections A–C remain unreached. The `/teams/[teamId]` row's hard crash on real data — [`BUG-2026-08-22-teams-page-crashes-with-real-data`](../../bug/BUG-2026-08-22-teams-page-crashes-with-real-data.md), found during an earlier M11 pass at this same checklist item — is fixed (`GET /teams`/`GET /teams/:id` now return the joined shape the page needs) and unit-tested, but not yet re-walked live, so this row of section A stays unticked |
 
 ## Objective
 
@@ -81,14 +81,27 @@ All of this is reachable today.
 
 **Needs a deployment.** Skip and record if there is not one.
 
-- [ ] `SPARSTROW_APP_URL` pointed at the deployed app: the window loads it and
-      sign-in works inside the Electron window
-- [ ] A signed-in desktop window shows this machine as an online runtime — the
-      daemon and the window are the same machine and should agree
+- [~] `SPARSTROW_APP_URL` pointed at the deployed app: the window loads it —
+      **closed 2026-08-22** by `T-M11-04`, log-confirmed (`[main] loading
+      window: https://staging.sparstrow.com` → `[main] window loaded:
+      https://staging.sparstrow.com/login`) plus a real window title/handle.
+      "and sign-in works inside the Electron window" — **not closed**:
+      computer-use interaction was unavailable that pass (every
+      `computer_batch` call returned `"user interrupt"`, no human present to
+      approve), so nothing was typed or clicked inside the window
+- [ ] A signed-in desktop window shows this machine as an online runtime —
+      not reached, blocked on the item above
 - [ ] Host-local features return `501` in the window, as designed, with their
-      message intact
-- [ ] Killing the network mid-session shows the offline screen rather than a
-      broken page
+      message intact — not exercised inside the window; the **server-side**
+      half of this (the hosted app always returning legible 501s regardless
+      of which client calls it) was reconfirmed live in `T-M11-02`
+- [~] Killing the network mid-session shows the offline screen rather than a
+      broken page — **closed 2026-08-22** by `T-M11-04` for the "renders the
+      offline screen" half: the window's title bar read exactly `"Sparstrowgen
+      — can't reach the app"` (the offline screen's literal `<title>`) after
+      pointing `SPARSTROW_APP_URL` at an unreachable host. The body text
+      (URL/error/"agents keep running") and Retry were **not** visually
+      confirmed — same computer-use block
 
 ## E — Regression surface
 
@@ -98,8 +111,14 @@ All of this is reachable today.
 
 ## On completion
 
-- [ ] Tick 9.1–9.4 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md) and mark
-      Band 9 complete
+> **Do not edit [`../MasterTaskQueue.md`](../MasterTaskQueue.md) from this
+> branch.** Its Status column is a mirror, flipped once per band in the commit
+> that lands the band branch on `development` (`AGENTS.md` §2.9). Sibling
+> tasks in this band are adjacent rows in one table, so ticking your own row
+> conflicts with every one of them — including the parallel forks working
+> beside you. Record this task's outcome in the **Status** row and **Result**
+> section of *this* file.
+
 - [ ] Update the M7 section of
       `doc/plans/2026-08-09-daemon-cloud-control-plane.md` with what shipped and
       what was found

@@ -1,6 +1,6 @@
 "use client";
 
-import { PipelinesPage } from "@sparstrow/ui/routes/pages/pipelines";
+import { PipelinesPage } from "./pipelines";
 
 export default function Page() {
   return <PipelinesPage />;

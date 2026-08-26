@@ -91,10 +91,25 @@ export const chatSessionListQuerySchema = z.object({
 });
 export type ChatSessionListQuery = z.infer<typeof chatSessionListQuerySchema>;
 
+/**
+ * A message becomes an argv-bound prompt on someone's machine (see
+ * `TRANSCRIPT_BUDGET_BYTES` in `packages/core/src/chat/service.ts`, which
+ * this ceiling deliberately sits above — a route-level clamp, not the
+ * budget itself). Unbounded input is a spawn failure on a laptop rather than
+ * a 400 here; this is the one clamp DD-8 (M12 plan) asks for at this
+ * boundary, everything else stays pass-through.
+ */
+export const CHAT_MESSAGE_MAX_BYTES = 64_000;
+
 /** POST /chat/sessions/:id/messages — one user turn. `draft` is only honored on
  *  agent-creator sessions (untrusted WIP context, clamped server-side). */
 export const chatTurnRequestSchema = z.object({
-  content: z.string().min(1),
+  content: z
+    .string()
+    .min(1)
+    .refine((s) => Buffer.byteLength(s, "utf8") <= CHAT_MESSAGE_MAX_BYTES, {
+      message: `content must not exceed ${CHAT_MESSAGE_MAX_BYTES} bytes`,
+    }),
   draft: z.record(z.unknown()).optional(),
 });
 export type ChatTurnRequest = z.infer<typeof chatTurnRequestSchema>;
@@ -136,4 +151,62 @@ export interface ChatTurn {
 export interface ChatSessionDetail {
   session: ChatSession;
   messages: ChatMessage[];
+  /**
+   * M13 — the session's most recent turn, terminal or not; `status`
+   * distinguishes them. `null` if no turn was ever sent. This is what makes a
+   * turn recoverable after a reload (FR-007): the mutation response is gone
+   * once the page remounts, and this field is the only source left. The local
+   * host always reports a terminal turn here, or `null` if the local `ChatTurn`
+   * shape doesn't apply (agent-creator sessions).
+   */
+  activeTurn: ChatTurnState | null;
 }
+
+// ─── M12 — one async contract for both hosts ────────────────────────────────
+
+/**
+ * The unified response shape for `POST /chat/sessions/:id/messages` and
+ * `.../retry`, used by BOTH the cloud-dispatched path and the local
+ * single-daemon path (M12 plan, DD-7).
+ *
+ * `ChatTurn` above is synchronous — built when the local daemon answered
+ * in-process and could return the finished exchange from the POST itself.
+ * The cloud path cannot do that: the reply doesn't exist yet when the route
+ * returns. Rather than give `packages/ui` two response shapes to branch on
+ * (exactly the "am I hosted?" question `live-events.ts` already documents a
+ * component must never ask), both hosts now return THIS shape — the cloud
+ * route returns it non-terminal (usually `waiting` or `in_progress`) and the
+ * local Fastify route returns it already terminal, `assistantMessage`
+ * populated, in the same request. The consumer renders the turn and
+ * subscribes only while `status` is non-terminal.
+ *
+ * Migrating existing callers of `ChatTurn` to this shape is M13's job, not
+ * this schema addition's — this is purely additive until then.
+ */
+export const chatTurnStatusSchema = z.enum(["waiting", "in_progress", "succeeded", "failed"]);
+export type ChatTurnStatus = z.infer<typeof chatTurnStatusSchema>;
+
+export const chatTurnWaitingReasonSchema = z.enum([
+  "no_runtime_paired",
+  "all_runtimes_offline",
+  "project_not_available",
+]);
+
+export const chatTurnStateSchema = z.object({
+  id: idSchema,
+  sessionId: idSchema,
+  status: chatTurnStatusSchema,
+  waitingReason: chatTurnWaitingReasonSchema.nullable(),
+  /** Full text produced so far — grows in place, never a delta, matching how it's stored. */
+  replyText: z.string(),
+  replySeq: z.number(),
+  provider: providerIdSchema.nullable(),
+  model: z.string().nullable(),
+  attempt: z.number(),
+  retryOfTurnId: z.string().nullable(),
+  error: z.string().nullable(),
+  userMessage: chatMessageSchema,
+  /** Present only once `status === "succeeded"`. */
+  assistantMessage: chatMessageSchema.nullable(),
+});
+export type ChatTurnState = z.infer<typeof chatTurnStateSchema>;

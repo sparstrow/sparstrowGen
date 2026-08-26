@@ -52,6 +52,40 @@ export function isRuntimeOnline(
   return !Number.isNaN(age) && !(age >= HEARTBEAT_STALE_AFTER_MS);
 }
 
+/** The words the UI is allowed to use about a machine. M8, FR-006 / FR-007. */
+export type MachineState = "active" | "unreachable" | "draining";
+
+/**
+ * What to CALL a machine, from what it declared and when it last spoke.
+ *
+ * Two states plus `draining` this round. Sleep detection is D-16; when it
+ * lands, a daemon declares `status = 'sleeping'` BEFORE it suspends and this
+ * function gains one branch. That is the whole reason the label is computed
+ * here rather than in the row that renders it.
+ *
+ * **Reachability is checked first, and that ordering is the decision.** A
+ * machine that declared `draining` and then went quiet IS unreachable — it may
+ * have finished shutting down twenty minutes ago, or it may have been unplugged
+ * mid-drain, and we cannot tell which. Saying "shutting down" about it asserts
+ * a cause we do not know, which is the same rule that rejected "turned off" in
+ * favour of "unreachable". Reversing the order would leave a machine reading
+ * "shutting down" forever.
+ *
+ * Built ON `isRuntimeOnline`, not instead of it: that function answers "may I
+ * dispatch to this?" for three callers, and this one answers "what do I call
+ * it?" for the UI. Reimplementing the comparison here would also lose the
+ * deliberate `!(age >= X)` form that makes a corrupt timestamp read as offline.
+ */
+export function machineState(
+  status: string | null | undefined,
+  lastHeartbeat: string | Date | null | undefined,
+  now: number = Date.now(),
+): MachineState {
+  if (!isRuntimeOnline(lastHeartbeat, now)) return "unreachable";
+  if (status === "draining") return "draining";
+  return "active";
+}
+
 /** What a machine reports about itself. Sent at pairing and on every boot. */
 export interface RuntimeIdentity {
   /** Owner-facing label. Defaults to the hostname; never overwritten once set. */
@@ -181,7 +215,8 @@ export type CommandKind =
   | "run.cancel"
   | "project.clone"
   | "settings.set"
-  | "memory.sync";
+  | "memory.sync"
+  | "chat.turn";
 
 /**
  * Ids AND slugs travel together, deliberately.
@@ -254,6 +289,10 @@ export interface ClaimedCommand {
 export interface ClaimResponse {
   /** Always an array. Empty is the common case and is not an error. */
   commands: ClaimedCommand[];
+  workspaceTools?: {
+    allowedTools: string[];
+    disallowedTools: string[];
+  };
 }
 
 /**
@@ -626,4 +665,154 @@ export interface MemoryPullResponse {
 export interface MemoryPullCursor {
   updatedAt: string;
   id: string;
+}
+
+// ─── M12 — chat turn dispatch ──────────────────────────────────────────────────
+
+/**
+ * Ids AND slugs travel together, deliberately — same reasoning as
+ * `RunStartPayload`. The daemon resolves an agent/project to its local copy
+ * BY SLUG (D-9: no definition sync between the cloud's ids and a daemon's own),
+ * and then uses the id it was handed to report back which one was actually used.
+ */
+export interface ChatTurnStartPayload {
+  turnId: string;
+  sessionId: string;
+  sessionKind: "free" | "project" | "agent";
+  projectId: string | null;
+  projectSlug: string | null;
+  agentId: string | null;
+  agentSlug: string | null;
+  /** null = inherit the session's (free/project) or the agent's configured default. */
+  provider: string | null;
+  model: string | null;
+  attempt: number;
+  /**
+   * The last ~50 messages, oldest first, INCLUDING the user message this
+   * turn is answering. A daemon has no local copy of a cloud session's
+   * history to read instead — see `016_chat_turn_transcript.sql`. The
+   * daemon does its own count/byte windowing on top of this with the
+   * existing local `buildTranscriptPrompt`; this is deliberately a superset,
+   * not the final prompt window.
+   */
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+}
+
+/**
+ * Why a turn is parked instead of dispatched, surfaced to the browser.
+ *
+ * Mirrors `EnqueueFailureReason`'s job for `runs`, but chat never raises for
+ * these — `enqueue_chat_turn` always succeeds and records one of these on the
+ * row instead, because losing the owner's typed message is worse than a
+ * bounded wait. See doc/plans/2026-08-23-chat-message-sending.md DD-3.
+ */
+export type ChatTurnWaitingReason = "no_runtime_paired" | "all_runtimes_offline" | "project_not_available";
+
+/** SQLSTATE → reason token, for `enqueue_chat_turn` / `retry_chat_turn`. Continues
+ *  `ENQUEUE_ERRCODE_REASONS`' numbering; the contract is defined in the chat
+ *  dispatch migration (see doc/tasks/M12/T-M12-01). */
+export type ChatTurnEnqueueFailureReason =
+  | "turn_in_progress"
+  | "session_not_found"
+  | "turn_not_found"
+  | "turn_not_retryable";
+
+export const CHAT_TURN_ENQUEUE_ERRCODE_REASONS: Record<string, ChatTurnEnqueueFailureReason> = {
+  SPG16: "turn_in_progress",
+  SPG17: "session_not_found",
+  SPG18: "turn_not_found",
+  SPG19: "turn_not_retryable",
+};
+
+/**
+ * How long a parked (`waiting`) turn may sit before it expires, set ONCE at
+ * creation and never pushed out by a later recompute.
+ *
+ * 24 hours, not the 10 minutes this plan originally proposed — reasoned from
+ * "sent before bed, machine turned on in the morning." Ten minutes would
+ * defeat the spec's US2.2 promise ("the reply arrives automatically once a
+ * machine picks it up") for anyone who steps away from the keyboard. A plain
+ * constant with no migration cost to change; flagged for owner confirmation
+ * in doc/tasks/M12/T-M12-01's Result section, not treated as silently closed.
+ *
+ * This value exists in SQL too (the migration that enqueues/assigns turns)
+ * and the two must change together — see that task's Traps.
+ */
+export const CHAT_TURN_WAIT_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * A turn's daemon died mid-reply and posted nothing further. No sweeper reads
+ * this — it is derived at read time, same discipline as `isRuntimeOnline`
+ * (M3 decision 4), because a machine that dies writes nothing and a stored
+ * `in_progress` stays `in_progress` forever otherwise.
+ */
+export const CHAT_TURN_STALE_MS = 60_000;
+
+/** True only for an `in_progress` turn with no ingest call inside `CHAT_TURN_STALE_MS`. */
+export function isChatTurnStale(
+  turn: { status: string; updatedAt: string | Date },
+  now: number = Date.now(),
+): boolean {
+  if (turn.status !== "in_progress") return false;
+  const updated = turn.updatedAt instanceof Date ? turn.updatedAt : new Date(turn.updatedAt);
+  const age = now - updated.getTime();
+  // Same NaN-safe form as isRuntimeOnline: a corrupt timestamp must read as
+  // stale (fail safe toward "something is wrong"), not as fresh.
+  return Number.isNaN(age) || age >= CHAT_TURN_STALE_MS;
+}
+
+/**
+ * Daemon → cloud ingest, mirroring `RunEventPush`/`RunEventBatch`'s shape —
+ * but note the semantics differ. `replyText` is ALWAYS the full accumulated
+ * reply as of `seq`, never a delta, because a chat turn has no replayable
+ * event trace to reassemble — only a growing block of plain text. This is
+ * what makes ingest trivially idempotent under a replayed or reordered batch:
+ * one `seq` comparison, no gap handling. See doc/tasks/M12/T-M12-01.
+ */
+export interface ChatTurnEventPush {
+  seq: number;
+  /** Full text so far, not a delta. */
+  replyText: string;
+}
+
+export interface ChatTurnEventBatch {
+  events: ChatTurnEventPush[];
+}
+
+/** The terminal call — `POST /api/daemon/chat/turns/:id/result`. */
+export interface ChatTurnResultPayload {
+  seq: number;
+  replyText: string;
+  status: "succeeded" | "failed";
+  error?: string | null;
+}
+
+/**
+ * The Realtime topic a chat turn's live deltas are broadcast on — per
+ * SESSION, not per turn, so a subscriber opened once for a session sees every
+ * turn sent in it without re-subscribing between them. Same reasoning as
+ * `runTranscriptTopic`; the RLS policy on `realtime.messages` this must match
+ * is `015_chat_broadcast.sql`, not this function — a non-member who guesses
+ * the topic is refused at subscribe, same as the run topic.
+ */
+export function chatTurnTopic(workspaceId: string, sessionId: string): string {
+  return `chat:${workspaceId}:${sessionId}`;
+}
+
+/** The broadcast event name carried inside that topic. */
+export const CHAT_TURN_BROADCAST_EVENT = "turn";
+
+/**
+ * What a subscriber receives — mirrors `TranscriptBroadcast`'s shape
+ * deliberately (an `events` array, chunked the same way by `planBroadcast`)
+ * rather than a single snapshot, so a batch of several deltas still renders
+ * progressively instead of jumping straight to its final text. `status`
+ * describes the turn as of this message; only the terminal call sets it to
+ * `succeeded`/`failed`, and only then is `error` meaningful.
+ */
+export interface ChatTurnBroadcast {
+  turnId: string;
+  events: ChatTurnEventPush[];
+  status: "running" | "succeeded" | "failed";
+  error?: string | null;
 }

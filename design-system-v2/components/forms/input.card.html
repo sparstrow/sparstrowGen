@@ -1,0 +1,68 @@
+<!doctype html>
+<html class="dark"><head><meta charset="utf-8">
+<title>Input</title>
+<meta name="description" content="Rest, focus, invalid, and disabled — plus the labelling mistake placeholders invite">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body{margin:0;padding:20px;background:var(--card);color:var(--foreground);
+       font-family:var(--font-sans);font-size:14px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px}
+  .f{display:flex;flex-direction:column;gap:5px}
+  .lb{font-size:11px;font-weight:600;color:var(--foreground)}
+  .in{height:36px;padding:0 11px;border:1px solid var(--border);border-radius:var(--radius-md);
+      background:var(--background);color:var(--foreground);font-family:inherit;font-size:13px;width:100%;
+      box-sizing:border-box}
+  .in::placeholder{color:var(--muted-foreground)}
+  .in:focus{outline:2px solid var(--ring);outline-offset:-1px;border-color:var(--ring)}
+  .focus{outline:2px solid var(--ring);outline-offset:-1px;border-color:var(--ring)}
+  .bad{border-color:var(--destructive)}
+  .msg{font-size:11px;color:var(--destructive)}
+  .hint{font-size:11px;color:var(--muted-foreground)}
+  .in:disabled{opacity:.5;cursor:not-allowed}
+  .note{margin-top:18px;font-size:12px;color:var(--muted-foreground);line-height:1.6}
+  .note strong{color:var(--foreground)}
+  code{font-size:11px;background:var(--muted);padding:1px 4px;border-radius:4px}
+</style></head><body>
+
+<div class="grid">
+  <div class="f"><label class="lb" for="a">Machine name</label>
+    <input class="in" id="a" placeholder="workshop-desktop"></div>
+
+  <div class="f"><label class="lb" for="b">Machine name &middot; focus</label>
+    <input class="in focus" id="b" value="workshop-desktop"></div>
+
+  <div class="f"><label class="lb" for="c">Machine name &middot; invalid</label>
+    <input class="in bad" id="c" value="workshop desktop" aria-invalid="true" aria-describedby="e">
+    <div class="msg" id="e">Use a hyphen instead of a space.</div></div>
+
+  <div class="f"><label class="lb" for="d">Machine name &middot; disabled</label>
+    <input class="in" id="d" value="workshop-desktop" disabled>
+    <div class="hint">Locked while the machine is online.</div></div>
+</div>
+
+<div class="note">
+  <strong>Focus is forced on the second field</strong> so the ring is comparable without
+  tabbing. Click into the first to see the real behaviour &mdash; the ring is inset
+  (<code>outline-offset:-1px</code>) so it does not push adjacent rows in a dense form.
+</div>
+
+<div class="note">
+  <strong>The invalid field is the one worth studying.</strong> Red border, plus
+  <code>aria-invalid</code>, plus a message that says what to do &mdash; and
+  <code>aria-describedby</code> tying them together, which is what makes a screen reader
+  read the message when focus lands. A red border on its own passes a glance and fails a
+  user.
+</div>
+
+<div class="note">
+  <strong>Every field above has a real <code>Label</code>.</strong> The placeholder in the
+  first is example content, not the label &mdash; it vanishes the moment someone types, which
+  is exactly when they most need to know what the field was.
+</div>
+
+<div class="note">
+  <strong>Disabled says why.</strong> A greyed field with no adjacent reason reads as broken
+  rather than intentional.
+</div>
+
+</body></html>

@@ -1,7 +1,12 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { RunEvent, TranscriptBroadcast } from "@sparstrow/shared";
-import { TRANSCRIPT_BROADCAST_EVENT, runTranscriptTopic } from "@sparstrow/shared";
-import type { LiveEventSource } from "@sparstrow/ui/lib/live-events";
+import type { ChatTurnBroadcast, RunEvent, TranscriptBroadcast } from "@sparstrow/shared";
+import {
+  CHAT_TURN_BROADCAST_EVENT,
+  TRANSCRIPT_BROADCAST_EVENT,
+  chatTurnTopic,
+  runTranscriptTopic,
+} from "@sparstrow/shared";
+import type { LiveEventSource } from "@web/lib/live-events";
 import { createClient } from "@web/utils/supabase/client";
 
 /**
@@ -102,6 +107,39 @@ export class RealtimeLiveEventSource implements LiveEventSource {
             }
           },
         )
+        .subscribe((status) => {
+          this.setConnected(status === "SUBSCRIBED");
+        });
+    });
+
+    return () => {
+      closed = true;
+      if (channel) void this.supabase.removeChannel(channel);
+    };
+  }
+
+  /**
+   * M12 — per-SESSION private channel (`chatTurnTopic`, `015_chat_broadcast.sql`),
+   * same lifecycle shape as `subscribeRun` above: the workspace id is
+   * resolved once and cached, a `closed` flag guards against a subscriber
+   * that unmounted before that lookup settled, and the channel is torn down
+   * on unsubscribe. Delivers the broadcast payload as sent — a consumer
+   * merges `events` into whatever turn state it already holds, the same way
+   * `subscribeRun`'s caller merges individual `RunEvent`s rather than
+   * receiving a synthesized `Run`.
+   */
+  subscribeChat(sessionId: string, onUpdate: (delta: ChatTurnBroadcast) => void): () => void {
+    let closed = false;
+    let channel: ReturnType<SupabaseClientLike["channel"]> | null = null;
+
+    void this.workspaceId().then((workspaceId) => {
+      if (closed || !workspaceId) return;
+
+      channel = this.supabase
+        .channel(chatTurnTopic(workspaceId, sessionId), { config: { private: true } })
+        .on("broadcast", { event: CHAT_TURN_BROADCAST_EVENT }, ({ payload }: { payload: ChatTurnBroadcast }) => {
+          onUpdate(payload);
+        })
         .subscribe((status) => {
           this.setConnected(status === "SUBSCRIBED");
         });

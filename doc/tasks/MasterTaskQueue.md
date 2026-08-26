@@ -3,10 +3,29 @@
 Global run order across every plan. This file is the **single source of truth for
 what runs next**. Task documents hold the detail; this holds the sequence.
 
+**Active bands only.** A band whose every row is done moves to
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md), leaving a one-line stub
+in its place — see
+[`README.md`](README.md#archiving-a-finished-band). Looking for a band that
+isn't below? Check there.
+
 > **Regenerated, not appended.** When a new plan contributes tasks, re-run the
 > queue: insert them, re-evaluate every unfinished task's dependencies against
 > the new set, and reorder. A task already `in progress` keeps its slot; anything
-> still `queued` may be resequenced.
+> still `queued` may be resequenced. Because this is a whole-file rewrite it
+> collides with every open branch at once — **decompose only with no open task
+> branches** (`AGENTS.md` §2.9).
+
+> **Never edit this file from a task branch.** The Status column *mirrors* each
+> task file's own `Status` row, which is the authoritative record. It is flipped
+> at integration, on `development`, by whoever hands out the next wave — so it
+> may lag reality between waves, by design. Full protocol and the drift check:
+> [`README.md`](README.md#who-updates-the-queue-and-when). Sibling tasks in a
+> band are adjacent rows in one table, so a branch that ticks its own row
+> conflicts with every other branch in that band.
+
+> **This file answers "what is *eligible*", not "what is *occupied*".** For what
+> is running right now, use `gh pr list --state open` and `git worktree list`.
 
 ## Tags
 
@@ -21,7 +40,11 @@ the quick-reference version.
 
 ## Status legend
 
-`queued` · `in progress` · `done` · `blocked → OQ-n` (see `../OpenQuestions.md`)
+`queued` · `in progress` · `done` · `done except <id>` · `blocked → OQ-n`
+(see `../OpenQuestions.md`). Five values and no others, spelled the same way
+here and in the task file — the drift check compares them. A leading `✅`/`🟢`
+is decoration; the word is what is read. Canonical definitions in
+[`README.md`](README.md#status-vocabulary).
 
 A task blocked on an open question is **not** stalled as a whole: per
 `AGENTS.md` §8 only the dependent checklist item waits, and the task is reported
@@ -33,96 +56,38 @@ as *done except OQ-n*.
 
 ### Band 0 — complete
 
-| # | Task | Tag | Status |
-|---|---|---|---|
-| 0.1 | M1 — cloud schema, RLS, FK indexes | `[S]` | ✅ done (staging, 2026-08-09) |
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-0).
 
 ### Band 1 — M2 foundations · no dependencies, fully parallel
 
-| # | Task | Tag | Depends on | Status |
-|---|---|---|---|---|
-| 1.1 | [T-M2-01 — case converter](M2/T-M2-01-case-converter.md) | `[P]` | — | done |
-| 1.2 | [T-M2-02 — workspace resolver + bootstrap](M2/T-M2-02-workspace-resolver.md) | `[P]` | — | done |
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-1).
 
 ### Band 2 — M2 spine · gates every handler
 
-| # | Task | Tag | Depends on | Status |
-|---|---|---|---|---|
-| 2.1 | [T-M2-03 — route skeleton + middleware](M2/T-M2-03-route-skeleton.md) | `[S]` | 1.1, 1.2 | done |
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-2).
 
 ### Band 3 — M2 handlers · parallel across groups
 
-| # | Task | Tag | Depends on | Status |
-|---|---|---|---|---|
-| 3.1 | [T-M2-04 — identity & config handlers](M2/T-M2-04-handlers-identity.md) | `[P]` | 2.1 | done |
-| 3.2 | [T-M2-05 — work handlers](M2/T-M2-05-handlers-work.md) | `[P]` | 2.1 | done |
-| 3.3 | [T-M2-06 — execution handlers](M2/T-M2-06-handlers-execution.md) | `[P]` | 2.1 | done |
-| 3.4 | [T-M2-07 — health, providers rewire, 501 stubs](M2/T-M2-07-health-and-stubs.md) | `[C]` | 2.1 | done |
-
-3.4 is `[C]` rather than `[P]` because it edits `providers.tsx` and the shared
-dispatch table, which 3.1–3.3 also register into.
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-3).
 
 ### Band 4 — M2 verification
 
-| # | Task | Tag | Depends on | Status |
-|---|---|---|---|---|
-| 4.1 | [T-M2-08 — verification & browser pass](M2/T-M2-08-verification.md) | `[S]` | 3.1–3.4 | done |
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-4).
 
 ### Band 5 — M3 pairing, registration, heartbeat
 
-Phase spec: [`M3/README.md`](M3/README.md). Decomposed 2026-08-10.
-
-| # | Task | Tag | Depends on | Status |
-|---|---|---|---|---|
-| 5.1 | [T-M3-01 — pairing redemption RPC](M3/T-M3-01-redeem-rpc.md) | `[S]` | — | ✅ done (staging, 2026-08-10) |
-| 5.2 | [T-M3-02 — daemon API surface in Next](M3/T-M3-02-daemon-api.md) | `[S]` | 5.1 | ✅ done (staging, 2026-08-10) |
-| 5.3 | [T-M3-03 — cloud client + token storage](M3/T-M3-03-cloud-client.md) | `[P]` | 5.2 | ✅ done (2026-08-10) |
-| 5.4 | [T-M3-04 — `sparstrow pair` CLI](M3/T-M3-04-pair-cli.md) | `[P]` | 5.3 | ✅ done (2026-08-10) |
-| 5.5 | [T-M3-05 — registration + capability probe](M3/T-M3-05-registration.md) | `[P]` | 5.3 | ✅ done (2026-08-10) |
-| 5.6 | [T-M3-06 — heartbeat loop + status derivation](M3/T-M3-06-heartbeat.md) | `[C]` | 5.3 | ✅ done (2026-08-10) |
-| 5.7 | [T-M3-07 — Runtimes UI: pair, list, revoke](M3/T-M3-07-runtimes-ui.md) | `[P]` | 5.1 | done (2026-08-10) |
-| 5.8 | [T-M3-08 — verification](M3/T-M3-08-verification.md) | `[S]` | 5.1–5.7 | done (2026-08-10) |
-
-5.1 and 5.2 are `[S]` because they define the contract every other task is
-written against. 5.7 needs only the RPC, so the UI can be built in parallel with
-all of the core work. 5.6 is `[C]` rather than `[P]` because it edits
-`packages/core/src/index.ts` and the web health handler, which 5.5 and 5.7 also
-touch.
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-5).
 
 ### Band 6 — M4 command spine ✅ complete
 
-Phase spec: [`M4/README.md`](M4/README.md). Decomposed 2026-08-10.
-
-| # | Task | Tag | Depends on | Status |
-|---|---|---|---|---|
-| 6.1 | [T-M4-01 — command RPCs: enqueue, claim, ack](M4/T-M4-01-command-rpcs.md) | `[S]` | — | ✅ done (2026-08-10) |
-| 6.2 | [T-M4-02 — daemon command API in Next](M4/T-M4-02-daemon-command-api.md) | `[S]` | 6.1 | ✅ done (2026-08-10) |
-| 6.3 | [T-M4-03 — enqueue path: retire the M4 stubs](M4/T-M4-03-enqueue-path.md) | `[P]` | 6.1 | ✅ done (2026-08-10) |
-| 6.4 | [T-M4-04 — core command loop](M4/T-M4-04-command-loop.md) | `[P]` | 6.2 | ✅ done (2026-08-10) |
-| 6.5 | [T-M4-05 — resolution + project preflight](M4/T-M4-05-resolution-preflight.md) | `[P]` | 6.2 | ✅ done (2026-08-10) |
-| 6.6 | [T-M4-06 — run status reporting + `G-4`](M4/T-M4-06-run-status.md) | `[C]` | 6.2 | ✅ done (2026-08-10) |
-| 6.7 | [T-M4-07 — UI: blocked actions + snapshot toggle](M4/T-M4-07-ui-blocked-and-toggle.md) | `[P]` | 6.1 | ✅ done (2026-08-11) |
-| 6.8 | [T-M4-08 — verification](M4/T-M4-08-verification.md) | `[S]` | 6.1–6.7 | ✅ done (staging, 2026-08-11) |
-
-6.1 and 6.2 are `[S]` for the same reason M3's first two were: they define the
-SQL and HTTP contracts every other task is written against. 6.3 and 6.7 need only
-the RPCs, so the whole web/UI half can be built in parallel with the daemon half.
-6.6 is `[C]` rather than `[P]` because it edits `run-manager.ts` and
-`packages/core/src/index.ts`, which 6.4 also touches.
-
-**M4 closes three [`../KnownGaps.md`](../KnownGaps.md) entries.** Not extra
-scope — M4 is simply the first phase in a position to close them, and each has an
-owning task:
-
-- **`G-3`** — the WIP snapshot has never been fired by a real run, because until
-  M4 there is no dispatched work to fire it. Asserted in **6.8 §B**, not left
-  incidental. A backup that silently never runs is the one failure mode this
-  feature cannot survive.
-- **`G-4`** — the snapshot/scheduler race. Closed in **6.6** by holding the busy
-  key across the snapshot; M4's dispatch makes concurrent same-project runs
-  materially more likely, which is what changed the trade.
-- **`G-6`** — the per-runtime snapshot toggle. Closed in **6.7** via the
-  `settings.set` command, in the Machines card rather than workspace settings.
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-6).
 
 ### Band 7 — M5 transcripts (dual path)
 
@@ -216,9 +181,12 @@ plan's bullets.** The routes half is smaller than it looks: the TanStack-to-Next
 adapter already solves route params, and all four detail endpoints already exist
 in `/api/v1`, so each page is a seven-line re-export. The Electron half is
 **blocked on a premise that stopped being true** — "point `loadURL` at the hosted
-app" assumes a deployment, and there isn't one. 9.2 ships the URL as
-configuration so the work lands anyway, but section D of 9.4 cannot be verified
-until the owner deploys. That is the phase's one owner action.
+app" assumes a deployment, and there wasn't one at the time. 9.2 ships the URL
+as configuration so the work lands anyway, but section D of 9.4 cannot be
+verified until a machine's `SPARSTROW_CLOUD_URL`/`SPARSTROW_APP_URL` actually
+points at a deployed environment. **Update 2026-08-16:** `staging.sparstrow.com`
+now exists (see [`../runbooks/deploy-web-app.md`](../runbooks/deploy-web-app.md)),
+but no machine points at it yet — that remains the phase's one owner action.
 
 Also caught: the plan's bullet says the goal route is `goals`, while the router
 and the component both say `/tasks/goals/$goalId`. Building the plan's version
@@ -226,22 +194,183 @@ would produce a page that renders correctly and is linked from nowhere.
 
 ---
 
+## Setup and Machines — bands 10–13
+
+Plan: [`../plans/2026-08-16-setup-and-machines.md`](../plans/2026-08-16-setup-and-machines.md).
+Spec: [`../specs/2026-08-16-setup-and-machines.md`](../specs/2026-08-16-setup-and-machines.md).
+Decomposed 2026-08-16.
+
+**The first bands in this repo named after something the owner can open.**
+M1–M7 were all foundational — none of them was named after a surface. Bands 10,
+12 and 13 serve user stories; band 11 is the only foundational one, and it is
+small on purpose.
+
+**Band 10 and band 11 are `[P]` against each other** and can run at the same
+time: M8 lives in `packages/ui` routes, nav and `packages/core/src/cli`, while
+M9 lives in the schema, `apps/web/src/lib/api/handlers` and storage. Their only
+shared file is `hooks.ts`, and M8 does not touch it. **Band 12 edits
+`settings.tsx`, which band 10 also edits** — 12.2 adds two forms there while
+10.2 removes the Machines card, so the two must not be worked simultaneously by
+different agents.
+
+### Band 10 — M8 Machines gets a menu of its own · **serves US1** ✅ complete
+
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-10).
+
+### Band 11 — M9 workspace and profile identity · **foundational**
+
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-11).
+
+### Band 12 — M10 the setup guide · **serves US2**
+
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-12).
+
+### Band 13 — M11 walk the spec against staging · **serves US3–US5**
+
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-13).
+
 ### Band 4b — auth completeness (2026-08-10)
 
-Raised by the owner after M2 closed: logout and account deletion did not exist,
-the OAuth buttons were decorative, and the login page was off-design.
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-4b).
+
+### Band 14 — D1 design token conformance (2026-08-19)
+
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-14).
+
+### Band 15 — D2 parametric theming (2026-08-19) · ✅ **done**
+
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-15).
+
+### Band 16 - Settings Redesign & Theme Architecture (2026-08-22)
+
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-16).
+
+### Band 17 — G23 shared sidebar nav groups (2026-08-23)
+
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-17).
+
+### Band 18 — M12–M15 chat message sending (2026-08-23)
+
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-18).
+
+### Band 19 — VR retire the Vite app (2026-08-24)
+
+✅ **Archived 2026-08-25 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-19).
+
+### Band 20 — M16 a live channel to a machine (2026-08-24)
+
+Phase spec: [`M16/README.md`](M16/README.md). Plan:
+[`2026-08-24-a-terminal-on-my-machine.md`](../plans/2026-08-24-a-terminal-on-my-machine.md).
+Decomposed 2026-08-24 — six tasks, all written.
+
+**Foundational: nothing in this band is visible to the owner.** It builds the
+daemon-side Realtime credential that M5 named and declined, the two channel
+families, their policies, and the terminal manager rework. At the end of it the
+Terminals page is exactly as dead as it is today.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 4.2 | Auth hardening, logout, account deletion, login redesign | `[S]` | 4.1 | done |
+| 20.1 | [T-M16-01 — channel contracts](M16/T-M16-01-channel-contracts.md) | `[S]` | — | queued |
+| 20.2 | [T-M16-02 — daemon Realtime credential](M16/T-M16-02-daemon-realtime-credential.md) | `[P]` | 20.1 | queued |
+| 20.3 | [T-M16-03 — `017_terminal_channels.sql`](M16/T-M16-03-channel-policies.md) | `[P]` | 20.1 | queued |
+| 20.4 | [T-M16-04 — core: the Realtime connection](M16/T-M16-04-core-realtime-connection.md) | `[C]` | 20.1, 20.2 | queued |
+| 20.5 | [T-M16-05 — core: terminal manager rework](M16/T-M16-05-terminal-manager.md) | `[P]` | 20.1 | queued |
+| 20.6 | [T-M16-06 — verification](M16/T-M16-06-verification.md) | `[S]` | 20.1—20.5 | queued |
 
-Social sign-in is built but not switched on: enabling it needs OAuth apps
-registered under the owner's own GitHub and Google accounts. Parked as
-[D-8](../Deferred.md) on 2026-08-10 with the runbook ready
-([`doc/runbooks/oauth-providers.md`](../runbooks/oauth-providers.md)).
+20.1 is `[S]` for the same reason M3's and M4's first tasks were: four tasks in
+three packages are written against its topics and event names, and 20.3 authors a
+policy that pins two of those names literally. 20.4 is `[C]` rather than `[P]`
+because it edits `packages/core/src/index.ts`, which 20.5 also touches.
 
-Magic-link sign-in was added on 2026-08-10 at the owner's request, after the
-mechanism was explained. It is live and verified end to end.
+**20.2 needs an owner action** — a signing credential set on the Vercel project.
+That task adds the row to [`../runbooks/README.md`](../runbooks/README.md).
+Nothing else in the band is blocked on it; 20.6 is.
+
+**This band unblocks more than M17.** The request/reply half of
+[`reaching-my-machine-from-the-browser`](../specs/2026-08-24-reaching-my-machine-from-the-browser.md)
+and the [`I-11`](../Ideas.md) surfaces behind it become buildable once a machine
+can be asked a question at all. Neither is built here, and both still need their
+own owner review — see that spec's status.
+
+### Band 21 — M17 the terminal itself (2026-08-24)
+
+Phase spec: [`M17/README.md`](M17/README.md). Same plan as band 20.
+Decomposed 2026-08-24 — six tasks, all written.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 21.1 | [T-M17-01 — the channel client](M17/T-M17-01-terminal-channel-client.md) | `[S]` | 20.6 | queued |
+| 21.2 | [T-M17-02 — the Terminals page](M17/T-M17-02-terminals-page.md) | `[S]` | 21.1 | queued |
+| 21.3 | [T-M17-03 — agent terminals](M17/T-M17-03-agent-terminals.md) | `[C]` | 21.2 | queued |
+| 21.4 | [T-M17-04 — the per-machine off switch](M17/T-M17-04-terminal-access-switch.md) | `[P]` | 20.6 | queued |
+| 21.5 | [T-M17-05 — Knowledge Center](M17/T-M17-05-knowledge-center.md) | `[P]` | 21.2 | queued |
+| 21.6 | [T-M17-06 — verification](M17/T-M17-06-verification.md) | `[S]` | 21.1—21.5 | queued |
+
+21.3 is `[C]` rather than `[P]` because it edits `terminals.tsx`, which 21.2
+writes. 21.4 is `[P]`: `machines.tsx` and core's settings handling are touched by
+nothing else in the band, so it can run alongside the whole web half.
+
+**21.5 closes [`BUG-2026-08-24-terminals-article-describes-a-transport-that-no-longer-exists`](../bug/BUG-2026-08-24-terminals-article-describes-a-transport-that-no-longer-exists.md)**
+— pre-existing drift, filed 2026-08-24 while planning this work: the Terminals
+Knowledge Center article describes a transport that no longer exists and states
+the opposite of the machine's real session behaviour.
+
+**Runs against nothing else.** Bands 19 and 20 must be complete first. Any other
+work touching `apps/web/src/app/terminals/`, `machines.tsx`, or
+`packages/core/src/terminal/` must wait rather than run `[P]` alongside — the
+file overlap is total.
+
+### Band 22 — WA every write becomes a Server Action (2026-08-24)
+
+✅ **Archived 2026-08-26 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-22).
+
+### Band 23 — M18 the access model's foundation (2026-08-24)
+
+✅ **Archived 2026-08-26 (drift correction — landed on `development` via
+PR #129 without this flip; caught while promoting band 22, per
+`doc/tasks/README.md`'s "check the other bands too" step).** Full task
+table, tags and notes: [`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-23).
+
+### Band 24 — M22–M24 reaching my machine from the browser (2026-08-24)
+
+Plan: [`../plans/2026-08-24-reaching-my-machine-from-the-browser.md`](../plans/2026-08-24-reaching-my-machine-from-the-browser.md).
+Spec: [`../specs/2026-08-24-reaching-my-machine-from-the-browser.md`](../specs/2026-08-24-reaching-my-machine-from-the-browser.md)
+— **owner-reviewed 2026-08-24**, accepted for US1, US2 and US4.
+
+**Not decomposed yet, and deliberately so.** M22 extends the request/reply
+envelope `T-M16-01` defines, and writing tasks against M16's plan outline
+rather than its shipped shape is the mistake this file already records for
+M13→M14 ("written against M12's actual shipped shape rather than the plan's
+outline — which is what this repo's own precedent asks for"). These tasks get
+written when band 20 closes.
+
+| Phase | Serves | Depends on | Status |
+|---|---|---|---|
+| M22 — the bridge | foundational | **band 20 (M16)** | not decomposed |
+| M23 — a project's files | US1 | M22 | not decomposed |
+| M24 — Browse, and which machine | US2 + US4 | M22, M23, **band 23's M20** | not decomposed |
+
+**M24 is the cross-plan edge worth knowing about before scheduling anything.**
+US2's folder picker is bounded by what a machine says it shares, which is the
+access model's US4 — `OQ-6`'s answer. A picker built before that boundary
+exists is option A, which the owner rejected. US1 has no such dependency: a
+project's files are inside a registered project, which is the tightest boundary
+and needs no configuration.
+
+**US3 (terminals) is not in this band.** Superseded before the review gate;
+bands 20 and 21 own it.
 
 ## Blocked items
 
@@ -251,11 +380,15 @@ mechanism was explained. It is live and verified end to end.
 
 | Item | Blocked by | Effect |
 |---|---|---|
+| ~~**M11 (band 13) in its entirety**~~ | ~~**Owner action**~~ | **Resolved 2026-08-22.** `T-M11-01` paired a scratch machine (its own secrets/data dirs, not the owner's `~/.sparstrow`) live against `staging.sparstrow.com`, and 13.1–13.4 ran against it — a real dispatched run, all four failure messages, the Electron shell launched three times. The owner's own day-to-day machine is still unswitched, which is fine: nothing in this band needed it. |
 | GitHub / Google sign-in | **Deferred → [D-8](../Deferred.md)** | Not blocked work — parked by the owner 2026-08-10. Code is complete and verified; the buttons render disabled and light up on their own once the providers are enabled. |
 | Leaked password protection | **Supabase plan** | Requires Pro; not available on the current plan (confirmed 2026-08-10). No SQL equivalent, so nothing in this repo can fix it. Verified off by signing up with `password123` and getting a session. Not an action item — the advisor will keep flagging it. |
-| `/runs/[runId]` transcript | M5 (7.6) | M4 made the page openable and the run row live; the transcript inside it is empty until M5 writes `run_events` to the cloud. |
+| ~~`/runs/[runId]` transcript~~ | ~~M5 (7.6)~~ | **Resolved 2026-08-22.** `T-M11-02` dispatched a real run and watched `/runs/[runId]` populate live — cloud/local `run_events` counts matched exactly (3/3 and 13/13 across two runs). Rendering the transcript for every provider is not fully closed — see [`BUG-2026-08-22-antigravity-transcript-not-rendered`](../bug/BUG-2026-08-22-antigravity-transcript-not-rendered.md) — but the page is no longer empty by construction. |
 | Realtime doorbell for dispatch | **Deferred → [D-12](../Deferred.md)** | Not blocked work. The 3s poll is correct and always-on; the doorbell is a latency improvement that M5's decision 1 declined to buy with a second daemon auth model. |
 | Agent definitions differ between cloud and machine | **Deferred → [D-9](../Deferred.md)** | Not blocked work. M4 resolves a cloud agent to a local one by slug and blocks legibly on a miss; syncing definitions is a separate feature with its own conflict model. |
+| **Band 24 (M22–M24) in its entirety** | **Band 20 (M16)** | Hard, not soft. This plan builds no transport of its own — a browser reaches a machine over M16's `machine:<workspace_id>:<runtime_id>` control channel or not at all, and building a second path is the relay service M16's DD-1 rejected. Its tasks are also not written yet, on purpose: they extend an envelope `T-M16-01` defines. |
+| **23.4's `users.role` drop** | **Owner action** | A column drop is `AGENTS.md` §3.7 destructive even when the column is provably inert (nothing reads it; the profile route strips it with a test). Everything else in 23.4 proceeds without it. |
+| **M24 (Browse) specifically** | **M20, in band 23's plan** | The folder picker's boundary is what a machine says it shares — the access model's US4, which is `OQ-6`'s answer. A picker built before that exists is `OQ-6` option A, which the owner rejected. M23 (project files) has no such dependency and ships first. |
 
 `OQ-1` (protecting uncommitted agent work) was **answered and built** on
 2026-08-10, ahead of M4 rather than inside it — the owner approved the
@@ -265,6 +398,15 @@ working tree to `refs/sparstrow/wip/<run-id>` on that machine: not a branch, not
 a commit on any branch, never pushed, `.gitignore` respected, and switchable from
 Settings. Rationale and the two narrowings from the original option B are settled
 decision 5 in the plan. **M4 is no longer gated on anything.**
+
+**`OQ-6` and `OQ-7` were both answered by the owner on 2026-08-24**, and
+between them they created bands 22, 23 and 24. `OQ-6` (how much of a machine a
+signed-in person may look at) was answered **option B** and closed by
+owner-reviewing [`what-an-agent-is-allowed-to-do`](../specs/2026-08-24-what-an-agent-is-allowed-to-do.md),
+where it is US4 — band 23 turns it into a table, and M20 gives it a screen.
+`OQ-7` (Server Action or keep the existing mutation) was answered **option A**,
+against that question's own recommendation of C, and is band 22 in full. Neither
+is in `OpenQuestions.md` any more; both are recorded where they are consumed.
 
 `OQ-2` (how an agent completes a browser pass) was **answered and closed** on
 2026-08-10 during M3, and removed from `OpenQuestions.md`. Restoring magic-link

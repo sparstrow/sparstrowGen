@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { PackagedPaths } from "./packaged-env";
+import { readApiToken } from "./core-client";
 
 const CORE_URL = process.env.SPARSTROW_CORE_URL ?? "http://127.0.0.1:48750";
 const HEALTH_URL = `${CORE_URL}/api/v1/system/health`;
@@ -23,9 +24,20 @@ export function findRepoRoot(start: string): string {
   return start;
 }
 
-export async function probeHealth(timeoutMs = 1500): Promise<boolean> {
+/**
+ * `/system/health` sits behind the same per-install bearer-token gate as the
+ * rest of the human/UI API surface (`requireAuth` in `api/auth.ts`, wrapping
+ * `systemRoutes` — see `packages/core/src/api/server.ts`), so a probe sent
+ * without the token gets a 401, not a 200, no matter how healthy the core
+ * actually is. `token` should be the same per-install token `core-client.ts`
+ * already reads for the tray/updater (`readApiToken`); omit it only when the
+ * caller genuinely doesn't know it yet.
+ */
+export async function probeHealth(timeoutMs = 1500, token: string | null = null): Promise<boolean> {
   try {
-    const res = await fetch(HEALTH_URL, { signal: AbortSignal.timeout(timeoutMs) });
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(HEALTH_URL, { headers, signal: AbortSignal.timeout(timeoutMs) });
     return res.ok;
   } catch {
     return false;
@@ -45,6 +57,10 @@ export class ServiceManager {
   private logStream: fs.WriteStream | null = null;
   private logBytes = 0;
   private logPath: string;
+  /** Same data dir `core-client.ts` reads `.api-token` from — kept in sync so
+   *  the supervisor's own health probe authenticates the same way the
+   *  tray/updater's `coreFetch` does. */
+  private dataDir: string;
 
   /**
    * @param repoRoot dev-mode repo checkout (spawns core via tsx from src).
@@ -58,6 +74,7 @@ export class ServiceManager {
     const logDir = packaged?.logDir ?? path.join(repoRoot, "data", "logs");
     fs.mkdirSync(logDir, { recursive: true });
     this.logPath = path.join(logDir, "core-service.log");
+    this.dataDir = packaged?.dataDir ?? path.join(repoRoot, "data");
   }
 
   get mode(): "external" | "supervised" | "stopped" {
@@ -65,8 +82,16 @@ export class ServiceManager {
     return this.child ? "supervised" : "stopped";
   }
 
+  /** The per-install token, read (and cached) from the same `.api-token`
+   *  file/`SPARSTROW_TOKEN` env `core-client.ts` uses. Null before core has
+   *  ever written the file — probeHealth degrades to an unauthenticated
+   *  request in that case, same as before this fix, rather than throwing. */
+  private token(): string | null {
+    return readApiToken(this.dataDir);
+  }
+
   async start(): Promise<void> {
-    if (await probeHealth()) {
+    if (await probeHealth(1500, this.token())) {
       this.external = true;
       console.log("[service] core already running — external mode");
       return;
@@ -74,7 +99,7 @@ export class ServiceManager {
     this.spawnCore();
     const deadline = Date.now() + 60_000;
     while (Date.now() < deadline) {
-      if (await probeHealth()) {
+      if (await probeHealth(1500, this.token())) {
         console.log("[service] core is healthy");
         return;
       }
@@ -130,7 +155,7 @@ export class ServiceManager {
       void (async () => {
         // Another core may own the port (dev watch server, prior instance) —
         // adopt it instead of crash-looping on EADDRINUSE.
-        if (await probeHealth()) {
+        if (await probeHealth(1500, this.token())) {
           this.external = true;
           console.log("[service] external core detected — adopting, not respawning");
           return;
@@ -168,7 +193,10 @@ export class ServiceManager {
     if (this.external || !this.child) return;
     const child = this.child;
     try {
-      await fetch(SHUTDOWN_URL, { method: "POST", signal: AbortSignal.timeout(2000) });
+      const token = this.token();
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      await fetch(SHUTDOWN_URL, { method: "POST", headers, signal: AbortSignal.timeout(2000) });
     } catch {
       // fall through to kill
     }

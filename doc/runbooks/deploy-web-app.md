@@ -1,107 +1,203 @@
 # Deploying the web app, and pointing the desktop shell at it
 
-**Why this needs you:** it needs a hosting account and the project's secrets.
-Nothing in this repo can create either.
+**Why this needs you:** hosting accounts, a purchased domain, and the
+project's secrets. Nothing in this repo can create any of those.
 
-**What is already done:** the code. `SPARSTROW_APP_URL` exists and works
-(M7 / T-M7-02); the desktop shell reads it, falls back cleanly when it is unset,
-and shows a native screen naming the URL when it cannot be reached. There is
-nothing left to build — only somewhere to point it.
+**What is already done:** the code, **and** the deployment. `SPARSTROW_APP_URL`
+exists and works (M7 / T-M7-02); the desktop shell reads it, falls back
+cleanly when it is unset, and shows a native screen naming the URL when it
+cannot be reached. The three environments below are live. What is left is
+pointing machines at one of them — see "What's still open".
 
 ---
 
-## What "not deployed" currently means
+## The three environments
 
-The app runs locally and is verified on staging Supabase, but it has never been
-published to a URL. Two consequences, both invisible until you look for them:
+**2026-08-16.** Vercel watches three branches and auto-deploys each to its
+own subdomain of `sparstrow.com` (purchased and DNS-managed at Hostinger):
 
-- **Every daemon defaults to `http://localhost:3000`.** `config.cloudUrl` says
-  so, with the comment "Set `SPARSTROW_CLOUD_URL` once the app is deployed".
-  Pairing a machine works today only because the app happens to be running on
-  the same box.
-- **The desktop window falls back to the local core's own UI.** That is
-  deliberate and is a working product — but it is not the hosted app, so the
-  version-skew argument behind settled decision 4 is not yet being collected.
+| Branch | URL | DNS routing | Supabase project |
+|---|---|---|---|
+| `main` | `sparstrow.com` | A records, root domain → Vercel | **none yet** — dummy placeholder code, no env vars |
+| `staging` | `staging.sparstrow.com` | CNAME → Vercel | shared project (see below) |
+| `development` | `development.sparstrow.com` | CNAME → Vercel | shared project (see below) |
 
-## 1 — Deploy
+**`staging` and `development` share one Supabase project** — same backend,
+same database — but that did not mean the same env vars were actually set on
+both. As of 2026-08-20 they are: Vercel's env vars were scoped to `Preview
+(staging)` only (`development` served its own "not configured" guard until
+this was caught and fixed — see the update note below). That project's
+Authentication → URL Configuration has the Site URL set to the staging
+domain, and Redirect URLs cover both `staging.sparstrow.com` and
+`development.sparstrow.com`, plus the 11 `localhost:3000`–`3100` entries
+already tracked in [`README.md`](README.md)'s worktree-ports row.
 
-Any Node host that runs Next 16 works. Vercel is the path of least resistance
-because the app is a stock Next App Router project with no custom server.
+**`main` gets its own, separate Supabase project later — deliberately not
+yet.** The plan: once the `staging` build is solid, its code and config get
+promoted into `main`, and a *new* production Supabase project is created and
+connected at that point, not before. Until then `main` deploys dummy
+placeholder content to `sparstrow.com` — the Vercel/DNS wiring is real, but
+there is nothing behind it. Tracked as [`../Deferred.md`](../Deferred.md)
+**D-15**.
 
-Environment variables the app needs — take them from `apps/web/.env.local`,
-which already has the working staging values:
+`staging.sparstrow.com` and `development.sparstrow.com` are live but not
+publicized — they're for the owner's own testing right now, not a public
+launch.
 
-| Variable | Where it comes from | Notes |
-|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API | Safe to expose |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | same page | Safe to expose |
-| `SUPABASE_SERVICE_ROLE_KEY` | same page | **Server-only.** Never prefix `NEXT_PUBLIC_` — it bypasses every RLS policy in the database |
+## What's still open
 
-> ⚠️ The service role key is what `/api/daemon/*` authenticates daemons with. If
-> it is ever exposed to a browser, every workspace's data is readable by anyone
-> who opens devtools. It is the single most sensitive value in this project.
+- **Agent/local testing is unaffected and should stay on localhost** — the 11
+  redirect URLs above exist for exactly this; nothing here changes how an
+  agent worktree tests auth.
+- **Running a real job from the deployed app, and the desktop shell's
+  online/offline behavior**, are still unexercised — steps 3's third and
+  fourth checklist items. Only pairing/sign-in/remove have been proven live.
 
-## 2 — Tell Supabase the new URL exists
+> **Update 2026-08-20.** Two blockers, previously undiscovered, stood between
+> this runbook and actually being followed:
+>
+> 1. **Vercel Deployment Protection** gated both `staging.sparstrow.com` and
+>    `development.sparstrow.com` behind a Vercel account login, in front of
+>    the app's own sign-in — nobody without Vercel project access could reach
+>    either host at all. Disabled project-wide: `vercel project protection
+>    disable sparstrowgen --sso`. Was [`OQ-5`](../OpenQuestions.md), closed.
+> 2. **`development`'s env vars were never actually set.** This file's "same
+>    env vars... fully configured on both branches" claim was wrong —
+>    `vercel env ls` showed all five vars (`DATABASE_URL`,
+>    `NEXT_PUBLIC_SUPABASE_URL`, the anon key, the service role key,
+>    `NODE_ENV`) scoped to `Preview (staging)` only. `development` had none,
+>    and served its own "this deployment is not configured" guard. Owner
+>    added the same values scoped to `development` too.
+>
+> With both fixed, the full pairing flow was run **live against
+> `development.sparstrow.com`, for the first time**: sign in (via the
+> `agent-browser-session.md` magic-link procedure, no password typed) → pair
+> a machine → confirm it reads **active** with real OS/hostname/provider
+> badges → remove it → confirm plain re-pair is correctly refused
+> ("already paired") → confirm `--force` re-pairs successfully. Every step
+> matched what `machines.md` documents, including the `--force` requirement
+> from [`BUG-2026-08-20-remove-machine-doesnt-clear-local-pairing`](../bug/BUG-2026-08-20-remove-machine-doesnt-clear-local-pairing.md).
+> No new friction surfaced beyond that already-fixed doc gap. Cleaned up
+> after: disposable `@sparstrow.test` account deleted, scratch core process
+> stopped, scratch secrets/data dirs removed — nothing paired against this
+> workspace was left behind.
 
-Supabase rejects auth redirects to hosts it does not know, so sign-in will fail
-on the deployed app until this is done.
-
-**Supabase → Authentication → URL Configuration:**
-
-- **Site URL** → your deployed origin, e.g. `https://app.example.com`
-- **Redirect URLs** → add `https://app.example.com/auth/callback` and
-  `https://app.example.com/auth/confirm`
-
-Leave the existing `localhost:3000` entries in place; local development still
-needs them.
-
-If you have already done the OAuth runbook, re-read
-[`oauth-providers.md`](oauth-providers.md) — the callback URL people get wrong
-is Supabase's, not the app's, so a new app URL does **not** change it.
-
-## 3 — Point the daemons at it
-
-On each paired machine, set:
+## 1 — Point a machine at staging (when ready to test this)
 
 ```
-SPARSTROW_CLOUD_URL=https://app.example.com
+SPARSTROW_CLOUD_URL=https://staging.sparstrow.com
 ```
 
-Then restart core. A machine that was paired against `localhost:3000` keeps its
-token — the token is scoped to a workspace and a runtime, not to a hostname — so
-it reconnects without re-pairing.
+Then restart core. A machine that was paired against `localhost:3000` keeps
+its token — the token is scoped to a workspace and a runtime, not to a
+hostname — so it reconnects without re-pairing.
 
-## 4 — Point the desktop shell at it
+**Windows gotcha:** setting the var persistently
+(`[Environment]::SetEnvironmentVariable(..., 'User')`, or the System
+Properties dialog) only reaches processes started *after* that call, from a
+process tree that re-reads the updated registry value — a fresh terminal, the
+desktop app, or a reboot. A terminal/daemon that was already running when you
+set it keeps its old environment and will not pick up the change until it's
+closed and reopened; restarting core *inside that same stale shell* silently
+keeps using the old value. To apply the change to an already-running daemon
+immediately, restart it with the variable passed inline for that one command
+(`SPARSTROW_CLOUD_URL=https://staging.sparstrow.com npx tsx src/index.ts`)
+rather than relying on the persisted value being visible yet.
+
+**Done for the owner's own machine, 2026-08-24.** Set persistently
+(`SPARSTROW_CLOUD_URL`/`SPARSTROW_APP_URL` = `https://staging.sparstrow.com`,
+`User` scope) and applied immediately per the gotcha above. Confirmed via
+`sparstrow pair --status` (`Control plane https://staging.sparstrow.com`,
+same workspace/runtime, no re-pairing needed) and a direct read of the
+`runtimes` row in Supabase showing a fresh heartbeat after the restart —
+proving the daemon reached the real deployed app, not `localhost:3000`.
+
+## 2 — Point the desktop shell at it
 
 ```
-SPARSTROW_APP_URL=https://app.example.com
+SPARSTROW_APP_URL=https://staging.sparstrow.com
 ```
 
-Unset, the desktop window loads the local core's UI, exactly as it does today.
-Set, it loads the hosted app.
+Unset, the desktop window loads the local core's UI, exactly as it does
+today. Set, it loads the hosted app.
 
-**Keep these two variables separate even though they name the same host.** One
-is where this machine's daemon reports to; the other is what the window
-displays. Splitting them is what lets you point a window at staging while the
-daemon keeps reporting to production, without a code change.
+**Keep these two variables separate even though they may name the same
+host.** One is where this machine's daemon reports to; the other is what the
+window displays. Splitting them is what lets you point a window at staging
+while the daemon keeps reporting to production, without a code change.
 
-## 5 — Check it
+## 3 — Check it
 
-- [ ] Sign in on the deployed app in an ordinary browser
+- [ ] Sign in on `staging.sparstrow.com` in an ordinary browser
 - [ ] A paired machine shows as **online** in Settings → Machines
 - [ ] Start a run from the deployed app and watch it execute on the machine
 - [ ] Open the desktop app with `SPARSTROW_APP_URL` set — it loads the hosted
       app and sign-in works inside the window
-- [ ] Stop the deployment (or point the variable at a dead port) and confirm the
-      desktop window shows the native offline screen with a working retry
+- [ ] Stop the deployment (or point the variable at a dead port) and confirm
+      the desktop window shows the native offline screen with a working retry
 
 The last two are sections C and D of
 [`../tasks/M7/T-M7-04-verification.md`](../tasks/M7/T-M7-04-verification.md),
-which cannot be completed until this runbook has been.
+which cannot be completed until this has been.
+
+## 4 — Testing a branch's own Vercel preview (before merging into `development`)
+
+**Which branch's preview?** Since 2026-08-25 (`AGENTS.md` §2.2) the live
+verification pass belongs to the **band branch** — `band/<n>-<slug>` — once the
+whole band is assembled on it, not to each individual task branch. A task
+branch's own preview is still available and useful for spot-checking mid-task;
+it just isn't the gate. For a single-task band, the task branch *is* the band
+and its preview is the gate. Everything below applies to any pushed branch
+either way.
+
+**2026-08-21.** Vercel deploys a live preview for every pushed branch automatically —
+not just `staging`/`development`/`main`. While narrowing the env-var scope below, this
+turned out to already work project-wide by accident:
+
+- **Env vars apply to every preview, any branch.** The five vars (`DATABASE_URL`,
+  `NEXT_PUBLIC_SUPABASE_URL`, the anon key, the service role key, `NODE_ENV`) are scoped
+  to `Preview` with no git-branch restriction — confirmed via `vercel env ls`. So a
+  feature branch's preview boots already configured, no per-branch setup needed.
+  (These vars were briefly scoped to `Preview, Production` — which would have silently
+  connected `main`/`sparstrow.com` to this same non-production Supabase project the
+  next time `main` deployed, exactly what [`../Deferred.md`](../Deferred.md) **D-15**
+  says not to do. Caught before `main` was ever redeployed against it and narrowed back
+  to `Preview`-only, 2026-08-21.)
+- **Auth still needs one more thing: a Supabase Redirect URL wildcard.** Supabase's
+  Auth → URL Configuration → Redirect URLs only allow-lists `staging.sparstrow.com`,
+  `development.sparstrow.com`, and the tracked `localhost` ports — not Vercel's preview
+  domains. Static pages load fine on a feature-branch preview without it; a magic-link
+  or password-reset redirect will not complete until it's added. **Owner action, one
+  time:** add `https://sparstrowgen-*-sparstrow.vercel.app/**` to that allow-list. It
+  covers every preview this project ever produces — both the per-deployment hash form
+  (`sparstrowgen-<hash>-sparstrow.vercel.app`) and the stable per-branch alias form
+  (`sparstrowgen-git-<branch>-sparstrow.vercel.app`) — scoped to just this
+  project+team, not a bare `*.vercel.app` that would also match unrelated projects.
+  **Not yet added as of this writing** — until it is, treat feature-branch preview
+  sign-in as unverified.
+
+**What this changes for testing, once the wildcard is in:** a feature branch can be
+verified live on its own preview *before* opening the PR into `development` — catching
+a bug pre-merge instead of merging first and finding it after (which is what happened
+2026-08-20, see the update note above). It does **not** replace the PR into
+`development` — that squash-merge is still how code actually lands there, per
+`AGENTS.md` §2 — nor does it change anything about `development`→`staging`→`main`.
+Use the branch's stable git-branch-alias URL (not the per-deployment hash URL, which
+changes on every push) as `SPARSTROW_CLOUD_URL` for this kind of test, and sign in via
+the same [`agent-browser-session.md`](agent-browser-session.md) magic-link procedure —
+no per-branch Supabase config, the wildcard already covers it.
+
+## When `main` goes live
+
+Repeat steps 1–2 against `sparstrow.com`, once: `main` has real code, a
+dedicated production Supabase project is connected, and that project's own
+Authentication → URL Configuration has been set (Site URL → `sparstrow.com`,
+Redirect URLs → `sparstrow.com/auth/callback` and `/auth/confirm`) — it starts
+from scratch, it does not inherit the staging project's settings.
 
 ## What this does NOT unblock
 
-Terminals, git operations and local file browsing stay unavailable in the hosted
-app — including inside the desktop window. That is by design: the window talks
-to the cloud, and the cloud reaches this machine's daemon through commands. See
-`doc/tasks/M7/README.md` decision 5.
+Terminals, git operations and local file browsing stay unavailable in the
+hosted app — including inside the desktop window. That is by design: the
+window talks to the cloud, and the cloud reaches this machine's daemon through
+commands. See `doc/tasks/M7/README.md` decision 5.

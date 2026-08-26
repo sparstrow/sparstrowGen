@@ -22,59 +22,257 @@ Welcome agent! This file defines the mandatory workflow, safety rules, and engin
 ```
 
 ### Locked Technology Stack
-- **Web App**: Next.js 16.3 App Router (`apps/web`) with Turbopack bundler.
-- **Router Adapter**: Custom Next.js navigation adapter (`apps/web/src/lib/react-router-mock.tsx`) intercepting TanStack Router calls.
-- **UI & Styling**: Tailwind CSS v4, Radix UI primitives, `@sparstrow/ui` Shadcn components, OKLCH design system tokens (`DESIGN.md`).
-- **Database & ORM**: Supabase PostgreSQL + Drizzle ORM (`@sparstrow/shared`), Drizzle Kit migrations.
+
+**`.sparstrowgen/blueprint.yaml` is the single source of truth for the stack,
+commands, MCP server roster, and CLI tool roster — read it, don't restate its
+facts here.** It's
+loaded every session same as this file, so duplicating its content in prose here
+would just be two places to keep in sync instead of one. When the stack changes,
+update the blueprint; only touch this section for the wiring detail below, which the
+blueprint deliberately doesn't carry (file paths, provider specifics — not "what tech
+are we on").
+
+- **Router**: Plain `next/link` / `next/navigation`, direct — no adapter.
+  `react-router-mock.tsx` and the `@tanstack/react-router` dependency it
+  shimmed are both gone (`T-VR-04`, `D-24`); every navigation call site was
+  moved to the real Next.js APIs rather than kept behind a compatibility
+  layer.
+- **Design doctrine**: `DESIGN.md` — written 2026-08-18 with the owner via the `design-brief` skill, replacing generic tool output nobody had chosen. Read it before any UI work. It defines a **theming contract** (user-selectable brand accent + surface character, with contrast floors) rather than a fixed palette, so never hardcode a colour.
 - **Authentication**: `@supabase/ssr` (Passwordless Magic Link, Email & Password, GitHub OAuth, Google OAuth) + Next.js Middleware Session Guard (`apps/web/src/middleware.ts`).
 - **Realtime Cloud Sync**: Supabase Realtime Postgres event channel streaming (`apps/web/src/components/providers.tsx`) bridging into live React Query cache invalidation.
-- **Vector Search**: Supabase `pgvector` semantic search for memory notes and RAG retrieval.
-- **Desktop Shell**: Electron 36 (`@sparstrow/desktop`).
-- **Package Manager & Monorepo**: `pnpm` v11.6.0 + Turbo 2.9.18 caching.
+
+Vector search specifics (local vs. cloud) are covered in §4, not repeated here.
 
 ### Connected MCP Servers & Skills
-- **`shadcn` MCP Server**: UI pattern discovery (`search_items_in_registries`, `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`).
-- **`impeccable` Skill**: Production-grade UI design commands (`audit`, `adapt`, `polish`, `craft`, `shape`, `distill`, `harden`).
-- **`supabase` MCP Server**: Database schema inspection, migration execution, and Edge Function deployment.
-- **Tool Integration MCPs**: `clockify`, `square`, and `blender` MCP servers for agent action execution.
+
+The server roster is `blueprint.yaml`'s `mcp_servers` list, configured in
+`.mcp.json` — update both together when a server is added or removed. What follows
+is operational detail neither of those files carries (why each is there, auth
+posture, what pairs with what):
+
+- **`supabase`**: schema inspection, migration execution, Edge Function deployment.
+- **`context7`**: up-to-date library/framework documentation lookup — prefer this
+  over training-data knowledge or web search for API syntax and version-specific
+  docs.
+- **`shadcn`**: UI pattern discovery (`search_items_in_registries`,
+  `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`).
+  Paired with the vendored `shadcn` skill (`.claude/skills/shadcn/`) for the
+  procedural half of the Shadcn workflow — see §3.11.
+- **`github`**: PR/issue management and repo search against this project's
+  GitHub remote. OAuth on first connect (run `/mcp` to authorize), same pattern
+  as `supabase` — no token ever belongs in `.mcp.json` or an agent's hands.
+- **`playwright`**: browser automation. As of 2026-08-24, the end-to-end
+  visual/runtime testing loop mandated in §3.10 defaults to the `agent-browser`
+  CLI tool instead (see below) — it drives Chrome directly over CDP and
+  doesn't share the Claude Browser pane's `document.visibilityState` bug.
+  `playwright` is kept connected only for the one thing `agent-browser` can't
+  do yet: forcing a specific non-2xx HTTP status or an artificially delayed
+  response via route mocking. Full rationale and the command-by-command
+  walkthrough:
+  [`doc/runbooks/agent-browser-session.md`](doc/runbooks/agent-browser-session.md#getting-a-browser-that-actually-renders--added-2026-08-20-revised-2026-08-24).
+
+### Connected CLI Tools
+
+The roster is `blueprint.yaml`'s `cli_tools` list — plain executables invoked
+via Bash, not MCP servers, so there's no `.mcp.json` entry and none is
+guaranteed present on a fresh machine. What follows is why each is there and
+how to get it if it's missing:
+
+- **`agent-browser`**: the default browser-automation tool for the §3.10
+  verification loop (see the `playwright` bullet above for why it replaced
+  Playwright as the default). Install: `npm install -g agent-browser &&
+  agent-browser install` — the second command fetches Chrome for Testing
+  once. Full walkthrough:
+  [`doc/runbooks/agent-browser-session.md`](doc/runbooks/agent-browser-session.md).
+- **`gh`**: GitHub CLI. Required for the auto-merge step in the Critical
+  Branch Rules (`gh pr merge <pr_number> --auto --squash`) and for reading
+  PR/worktree state (`gh pr view --json state,mergedAt,headRefName`) — see
+  `worktree-orchestration`. Install: https://cli.github.com (not an npm
+  package).
+- **`vercel`**: inspects and manages deployment config — env var scoping,
+  project protection — per
+  [`doc/runbooks/deploy-web-app.md`](doc/runbooks/deploy-web-app.md). Install:
+  `npm install -g vercel`.
+- **`supabase`**: local migration workflow — `db advisors`, `migration new`,
+  `db pull` / `migration list` — documented in `.agents/skills/supabase/SKILL.md`,
+  falling back to the `supabase` MCP server's equivalents (`get_advisors`,
+  `execute_sql`) on older CLI versions per that skill's "Known gotchas".
+  Install: `npm install -g supabase`.
+
+**`impeccable` Skill**: Production-grade UI design commands (`audit`, `adapt`,
+`polish`, `craft`, `shape`, `distill`, `harden`). Personal/user-level, not declared
+in this repo. Its slop rules — and three default clusters from Anthropic's
+`frontend-design` skill — were adapted into the repo's own `ai-design-slop`
+catalogue under Apache-2.0; attribution and the list of what was deliberately
+not taken live in `.claude/skills/ai-design-slop/NOTICE.md`. That catalogue is
+the one an agent here loads; `impeccable` itself carries a competing doctrine
+and is not part of this repo's chain. Any other MCP tool or skill an agent sees available (e.g. `clockify`,
+`square`) comes from that agent's personal/user-level config the same way — don't
+assume it's present for another agent or machine unless it's in `.mcp.json` or
+`.claude/skills/`.
 
 ---
 
 ## 2. Mandatory Git & Branch Workflow
 
-We enforce a strict 3-tier Git & deployment pipeline:
+We enforce a strict Git & deployment pipeline. Two hosts are involved before
+`development` even sees the code — set 2026-08-21, by the owner: **localhost** for
+day-to-day iteration on an individual task (fastest loop, no push needed), and a
+**Vercel preview** for the final verification pass once the whole band is
+complete — push, verify live against the preview URL, *then* open the PR into
+`development`.
+
+**A band integrates on its own branch before it reaches `development`** — set
+2026-08-25, by the owner, when the repo moved to running parallel agents and
+forked sessions on one band at a time. A band's tasks are written against each
+other (a `[S]` task authors the types its siblings compile against), so they
+need a shared ancestor that already contains the finished sequential work.
+That ancestor is the band branch, not `development`.
 
 ```
-[Agent Worktree: feature/*] ──► PR into (Squash) ──► [development branch]
-                                                         │ (Milestone complete)
-                                                         ▼
-[main branch (Production)] ◄── PR into ◄── [staging branch (User Review Gate)]
+localhost (fast iteration, per task — no push needed)
+        │
+        ▼  task complete: pnpm typecheck && pnpm test
+[task worktree: task/T-M16-01]  ──PR (squash)──┐
+[task worktree: task/T-M16-02]  ──PR (squash)──┤   ← parallel agents / forked
+[task worktree: task/T-M16-03]  ──PR (squash)──┤     sessions, each its OWN
+        │                                      │     worktree, all branched
+        │                                      │     FROM the band branch
+        ▼                                      ▼
+                        [band branch: band/20-m16-live-channel]
+                                               │
+                                               ▼  band complete → push
+                    band branch's own Vercel preview ── final band verification
+                                               │
+                                               ▼
+                              PR into (Squash) ──► [development branch]
+        │  agent judges it production-ready, opens the promotion PR
+        ▼
+[staging branch] ── (User Review Gate — owner approves, or gives feedback
+        │              that loops back to more work on development)
+        ▼
+[main branch (Production)] ◄── PR into (owner-approved only)
 ```
 
 ### Critical Branch Rules
 1. **Isolated Worktrees ONLY**:
    - You MUST create an isolated Git branch/worktree for your task: `feature/<task-name>`, `fix/<bug-name>`, or `task/<task-id>`.
-   - **NEVER** edit files directly on `development`, `staging`, or `main`.
-2. **PR Target & Merge Strategy**:
-   - All agent pull requests MUST target `development`.
-   - PRs into `development` use **Squash and Merge** to maintain a clean history.
-   - **NEVER** push directly to `staging` or `main`.
+   - **NEVER** edit files directly on `development`, `staging`, `main`, or a **band branch**.
+   - **One worktree per agent, always.** Two agents — subagents, forked
+     sessions, or separate Claude Code windows — must never share a working
+     directory. That is not a merge conflict resolved later; it is two
+     processes writing the same files at once.
+2. **Two-Tier PR Target & Merge Strategy**:
+   - **A band with more than one task gets a band branch**, cut from
+     `development` and named `band/<band-number>-<short-slug>` (e.g.
+     `band/20-m16-live-channel`). Its tasks' PRs target **that branch**, not
+     `development`.
+   - **Task → band branch**: Squash and Merge. The band branch accumulates one
+     clean commit per task.
+   - **Band branch → `development`**: Squash and Merge, opened once the whole
+     band is complete and verified (rule 3).
+   - **A single-task band skips the middle tier** — that task's branch targets
+     `development` directly. Don't cut a band branch for one task.
+   - **Every parallel task branch is cut FROM the band branch**, after the
+     band's `[S]` gating task has already landed on it. Cutting from
+     `development` instead is the mistake that makes the whole scheme
+     pointless — the sibling tasks compile against types the gating task
+     authored.
+   - **NEVER** push directly to `staging` or `main` — both are reached only through a PR, never a raw push, even for the promotion step below.
 3. **Verification Before PR**:
-   - You MUST run and pass all typechecks and unit tests locally before submitting a PR:
+   - **Per task, before its PR into the band branch** — typecheck and unit
+     tests must pass locally:
      ```bash
      pnpm typecheck
      pnpm test
      ```
-4. **Worktree & Branch Cleanup Post-Merge**:
-   - Once a PR is merged into `development` (and GitHub auto-deletes the remote feature branch), agents MUST prune and clean up local worktrees and branches:
+   - **Per band, before its PR into `development`** — the live pass. For a
+     change a browser can exercise, green tests are not sufficient on their
+     own; see rule 3.10 and the `frontend-verify` skill. **The live pass
+     belongs on the band branch's own Vercel preview** (push, then verify
+     against that preview URL), done once the band is otherwise complete — not
+     against `development.sparstrow.com`, which stays reserved for confirming
+     the merge itself integrated cleanly. See
+     [`doc/runbooks/deploy-web-app.md`](doc/runbooks/deploy-web-app.md) §4 for
+     the exact URL pattern and the Supabase redirect-URL wildcard it depends on.
+   - This is the band's verification task (`T-<PHASE>-<nn>-verification`)
+     doing its job — it is the last task in the band precisely so it can grade
+     the assembled result rather than one slice of it.
+4. **Keep a live band branch fresh**:
+   - A band branch outlives an individual task branch, and other bands land on
+     `development` while it is open. Merge `development` **into** the band
+     branch periodically — at minimum before opening its final PR — so the
+     band→`development` merge carries only the band's own conflicts, not weeks
+     of accumulated drift.
+     ```bash
+     git checkout band/<n>-<slug>
+     git merge origin/development
+     ```
+   - Do **not** rebase a band branch that task branches have been cut from —
+     rewriting its history orphans every open task branch beneath it.
+5. **Worktree & Branch Cleanup Post-Merge**:
+   - Once a task PR is merged into its band branch, remove that task's worktree; the band branch continues.
+   - Once the band PR is merged into `development` (and GitHub auto-deletes the remote band branch), clean up the band worktree too:
      ```bash
      git checkout development
      git pull origin development
-     git worktree remove <worktree-path> || git branch -d <feature-branch>
+     git worktree remove <worktree-path> || git branch -d <branch>
      git fetch --prune
      ```
-5. **Auto-Enqueuing PR Merges**:
-   - Immediately upon opening a PR, agents MUST execute `gh pr merge <pr_number> --auto --squash` so that GitHub automatically queues and merges the PR as soon as CI passes, without requiring manual button clicks in the GitHub UI.
+6. **Auto-Enqueuing PR Merges**:
+   - Immediately upon opening a PR — at **either** tier — agents MUST execute `gh pr merge <pr_number> --auto --squash` so that GitHub automatically queues and merges the PR as soon as CI passes, without requiring manual button clicks in the GitHub UI.
+   - The `development` → `staging` promotion PR is the exception: it gets a reviewer and is not auto-merged.
+7. **Commit Without Asking**:
+   - Once edits for a coherent unit of work are complete (a fix, a doc update, a task's checklist items), commit them on the current feature/worktree branch **without waiting for the user to say "commit this"** — this file is the standing, advance authorization for that.
+   - Commit at the end of a logical change, not after every individual file edit: an in-progress multi-file change lands as one commit (or a few coherent ones) once it's actually done, not a commit per file touched or per half-finished edit.
+   - This does not relax rule 3 (verification before PR) and does not change anything about opening or pushing PRs — those still follow rules 1, 2, 3 and 6 above exactly as written. It only covers local commits to the agent's own branch.
+8. **Development → Staging Promotion (agent-initiated)**:
+   - Set 2026-08-20, by the owner, while verifying the Machines pairing flow;
+     refined 2026-08-21 once branch previews became viable, and again
+     2026-08-25 when bands gained their own integration branch (rule 3): the
+     band's real live verification already happened pre-merge, on the **band
+     branch's** own Vercel preview. Once that passed and the band PR has landed
+     on `development`, the agent judges for itself whether the work is
+     complete and production-ready — it does not wait to be asked for this
+     specific step. A fresh pass against `development.sparstrow.com` is not a
+     required gate here; reach for it only if something about the merge itself
+     (multiple bands landing together) is in doubt (see
+     `doc/runbooks/agent-browser-session.md` for how an agent gets a signed-in
+     session on a deployed host without typing a password).
+   - When ready, the agent opens the `development` → `staging` PR itself, same Squash-and-Merge convention as rule 2, and may auto-enqueue it per rule 6.
+   - `staging.sparstrow.com` is the **owner's review gate**. The owner either approves it (clearing the way for `staging` → `main`) or gives feedback, which sends the agent back to more work on `development` — this loops until the owner is satisfied. Nothing skips this review.
+   - `staging` → `main` remains a **hard, owner-only gate** — never opened or merged by an agent without an explicit "approved, ship it" in chat for that specific promotion. This is unchanged from rule 2's "never push directly to staging or main" and is not relaxed by this rule.
+9. **Never Edit `MasterTaskQueue.md` From a Task Branch**:
+   - Set 2026-08-25, by the owner, when the repo moved to running several
+     coding agents on several branches at once. Every task used to be told to
+     tick its own row in
+     [`doc/tasks/MasterTaskQueue.md`](doc/tasks/MasterTaskQueue.md); sibling
+     tasks in a band are **adjacent rows in one table**, so that instruction
+     made a merge conflict out of every parallel hand-out.
+   - Each task file's own `Status` row is the authoritative record. The queue's
+     Status column mirrors it and is flipped **once per band, in the commit
+     that lands the band branch on `development`** (rule 2's second tier) — one
+     edit, one writer, every row in the band at once. It therefore lags while a
+     band is in flight, deliberately: the queue's only consumer is the decision
+     about what band to start next, and that decision is not made mid-band.
+   - **A task branch never touches it, and neither does a band branch
+     mid-flight.** The flip is the band's closing move, alongside archiving the
+     finished band per
+     [`doc/tasks/README.md`](doc/tasks/README.md#archiving-a-finished-band).
+   - Ticking both places is what the old rule asked for, and it did not work
+     even serially — adopting this one found 11 task files whose Status
+     contradicted the queue. Protocol, status vocabulary, and the drift check:
+     [`doc/tasks/README.md`](doc/tasks/README.md#who-updates-the-queue-and-when).
+   - **Decomposing a phase into tasks is a solo operation.** It *regenerates*
+     the queue rather than appending to it, which is a whole-file rewrite that
+     collides with every open branch simultaneously. Drain to zero open task
+     **and band** branches first. The sequencing usually supplies the quiet
+     moment for free, since a phase is decomposed only after the phase it
+     depends on has landed. The `decomposing-plans` skill enforces this as a
+     hard refusal, not a preference.
+   - **What is *occupied* is not this file's job.** Use `gh pr list --state
+     open` and `git worktree list`; do not extend the queue to track live
+     branch state.
 
 ---
 
@@ -111,6 +309,8 @@ We enforce a strict 3-tier Git & deployment pipeline:
    - When the question is answered, unblock that item, finish it, and delete the entry from `OpenQuestions.md`.
    - When presenting open questions to the user, always structure each question with full context, a simple user-side scenario, and concrete options.
    - For every option presented, provide:
+     - **Its own context** — what this option actually *is*, concretely enough to tell it apart from its neighbours: what gets built or configured, what the user has to do, what changes
+     - **Its own user scenario** — **the question's scenario replayed under this option**, so the reader compares outcomes side by side instead of reasoning about each in the abstract. Same person, same moment, different result. This is the field that makes options answerable; a set of options that all describe *different* situations cannot be compared at all
      - Pros and Cons
      - Score out of 10
      - Blast radius if chosen wrong
@@ -125,19 +325,46 @@ We enforce a strict 3-tier Git & deployment pipeline:
     - The browser agent MUST report back with detailed feedback, console errors, and usability issues found.
     - The main agent MUST then verify and fix any reported issues.
     - Upon applying fixes, the browser agent MUST be invoked again to re-verify. This loop MUST continue until all issues are resolved and the goal is complete before claiming task completion.
+    - **This is what the `frontend-verify` skill (`.claude/skills/frontend-verify/`) implements.** It is the concrete, repeatable form of this rule — invoke it rather than improvising the loop, and always after the `interactive-prototype` or `design-system` skills produce something.
 11. **Shadcn UI & MCP Server Integration (Impeccable Workflow)**:
     - ALL design work and Impeccable commands (`craft`, `shape`, `polish`, `audit`, `bolder`, `quieter`, `distill`, `harden`, etc.) MUST use `@sparstrow/ui` Shadcn UI components and design tokens (`bg-background`, `bg-card`, `border-border`, `text-foreground`, `text-muted-foreground`).
     - ALWAYS leverage the `shadcn` MCP server tools (`search_items_in_registries`, `view_items_in_registries`, `get_add_command_for_items`, `get_audit_checklist`) to discover, inspect, and audit Shadcn UI component patterns.
     - **Mandatory Order of Work Before Writing a Component**:
-      1. Read `DESIGN.md` (tokens, motion, component vocabulary) and `PRODUCT.md`'s register.
+      1. Read `DESIGN.md` in full — especially §6 Iconography and §7 Motion, whose absence is what made the app read as plain — plus `PRODUCT.md`'s register. Verify new UI in **both modes and at least the Paper and Mono surfaces**; Mono is the honest worst case.
       2. Invoke the `/shadcn` skill and use the Shadcn UI MCP — `list_components` / `get_component` / `get_component_demo` for primitives, `list_blocks` / `get_block` for composite surfaces. Check for an existing block before composing a page from scratch.
       3. Only then write code.
+13. **The Design Skill Chain (order matters)**:
+    - `design-brief` → `design-system` → `interactive-prototype` → `frontend-wiring` + `ai-design-slop` → `frontend-verify` → `slop-audit`.
+    - `design-brief` writes the doctrine by interviewing the owner with rendered options. Everything downstream is accountable to it, so nothing downstream may run before it exists.
+    - **Never restate the doctrine's rules inside another skill, agent, or checklist.** Point at it. A duplicated doctrine keeps enforcing itself after the original changes — this happened in the retired `design-system-conformance` skill and silently overrode the design system for every agent that loaded it.
+    - **Design lives in `DESIGN.md` + `design-system/`; the repo mechanics live in `frontend-wiring`.** The split is load-bearing: `frontend-wiring` holds paths, the router mock adapter, contract wiring, the four states, and verification, and decides nothing about how anything looks.
+    - **Slop is a family, not a design concern.** `ai-design-slop` is a catalogue of tells that would be slop in *any* app — absolute, portable, and deliberately free of this project's tokens. Anything project-specific is drift and belongs to the doctrine. `ai-coding-slop` and `ai-database-slop` will follow the same schema.
+    - **`slop-audit` is report-only** and is run by the `slop-killer` agent. An author auditing their own surface is not a second opinion — build with `ai-design-slop` loaded, then have `slop-killer` check it. Report-only is a rule the agent keeps, not a wall: a restricted `tools:` list is **not** self-enforcing here, so the evidence is `git status --short` unchanged across the run.
+    - **Record why a design changed, not just what changed.** When the owner asks for a different style, a tighter layout, or something added on top, that request has a reason behind it, and the reason is worth more than the change: it usually generalises into a rule that stops the same debate recurring on every subsequent page. `design-system/DECISIONS.md` is where it goes — see the `design-system` skill.
 12. **Mandatory Supabase & Postgres Skills**:
     - Load the `supabase` skill for ANY task touching Supabase — schema changes, Auth, Realtime, Storage, Edge Functions, RLS, the CLI/MCP, or client-library (`supabase-js`, `@supabase/ssr`) integration.
     - Load the `supabase-postgres-best-practices` skill **before** writing or changing anything that lives in Postgres, running anywhere: tables/columns, migrations, RLS policies (and their tests), indexes, triggers, functions, `pg_cron`/`pgmq`, `pgvector`, or restoring/importing data. Load it too when diagnosing slow queries, timeouts, locking, or rows visible to the wrong tenant.
     - Load both together for anything Supabase-and-schema at once (e.g. an RLS-bearing migration) — one covers the platform, the other covers the SQL.
     - Load BEFORE writing the SQL or the migration, not after. M1 found three real defects this way — per-row RLS function calls, `SECURITY DEFINER` helpers reachable as public RPC endpoints, and 25 unindexed foreign keys — that a plausible-looking migration would otherwise have shipped uncaught to staging.
     - This is not satisfied by general Postgres knowledge or by a past session's memory of the rules. Invoke the skill in the turn where the work happens.
+14. **Check for a Settings surface, every feature**:
+    - Set 2026-08-22, by the owner, after noticing that M1–M11 built page after
+      page — chat, projects, agents, machines, workspace/profile identity —
+      without a matching pass over the application's own settings and
+      customization surface. Nothing forced that check feature by feature, so
+      it never happened. See [`doc/Ideas.md`](doc/Ideas.md) I-10 for the parked
+      design pass this gap opened.
+    - Before calling a feature complete, ask: does this introduce a behavior a
+      user might reasonably want to configure, toggle, or set a default for —
+      not just the feature's own function, but preferences around how it
+      works? If yes, build the settings entry for it in the same PR, next to
+      the feature. If the feature is a straight capability with no reasonable
+      configuration surface, it stays a straight feature — this is a required
+      check, not a mandate to invent settings that add no value (see rule 9's
+      no-over-engineering standard).
+    - This does not retroactively obligate settings UI for everything already
+      shipped without it — that backlog is I-10's, to be scoped as a spec, not
+      built piecemeal as a side effect of an unrelated PR.
 
 ---
 
@@ -151,8 +378,11 @@ We enforce a strict 3-tier Git & deployment pipeline:
   board, runs, transcripts, chat) is Postgres/Supabase, schema in
   `packages/shared/src/db/schema.ts` (`pgTable`). Each daemon's execution store
   and derived memory index is local SQLite, schema in
-  `packages/core/src/db/schema.ts` (`sqliteTable`). There is no
-  `@sparstrow/daemon` package — the daemon is `@sparstrow/core`.
+  `packages/core/src/db/schema.ts` (`sqliteTable`). **Splitting a standalone
+  `@sparstrow/daemon` package out of `@sparstrow/core` is a planned goal, not yet
+  built** — until that split happens, the daemon's code lives in and runs as
+  `@sparstrow/core`. Don't create a `packages/daemon/` directory speculatively;
+  the split should be its own deliberate piece of work.
 * **RLS is the security boundary, not an add-on.** Dispatch is cloud-canonical,
   so a task row targeting a runtime causes a process to spawn on someone's
   machine. Any new table needs a workspace-scoped policy. Post-migration SQL
@@ -180,6 +410,50 @@ We enforce a strict 3-tier Git & deployment pipeline:
 ## 5. Documentation & Decision Records (`doc/`)
 
 All non-code project memory lives in `doc/`. Read `doc/README.md` first.
+
+**Every file type below has a skeleton in `doc/templates/`** — specs, plans,
+phase specs, tasks, verification tasks, bugs, security reports, runbooks, and
+entries for all four registers. Copy the matching one instead of inventing a
+shape: they encode the required sections (a task's checklist, a gap's "clears
+when", a deferral's unpark trigger) that make "done" mean the same thing every
+time it's written. `doc/templates/README.md` maps situation → template →
+destination.
+
+### The lifecycle starts at a spec, not a plan
+
+**This app is UX-first.** It is mostly backend, and backend-heavy projects fail
+in one specific way: every layer gets built, each passes its tests, and the
+thing the owner wanted to *use* never quite arrives. The spec is the
+counterweight.
+
+```
+idea → spec → owner review → plan → tasks → code
+```
+
+* **`doc/specs/`** — what the owner wants, **in the owner's terms**. User
+  stories prioritized P1/P2/P3, acceptance scenarios as Given/When/Then, and an
+  Interface & experience section covering all four states. **No technology in a
+  spec** — no table names, endpoints, component names, or framework. If a
+  sentence couldn't be read aloud to someone who has never seen the codebase,
+  it belongs in the plan.
+* **Every user story is independently demoable.** Build only that story and the
+  owner still has something they can open and use. A story that delivers
+  nothing alone is a technical step wearing a story's clothes — it belongs in
+  the plan's foundational work.
+* **The owner reviews the spec before planning starts.** Cheapest point to
+  catch a wrong direction; a wrong spec propagates silently into the plan, the
+  tasks, and everything downstream.
+* **Internal work skips the spec.** Anything that only changes how the repo is
+  built, checked, documented, or governed goes straight to a plan whose `Spec`
+  row reads `n/a (internal)`. When it's genuinely unclear, ask.
+* **The plan splits the spec into foundational and per-story work**, using one
+  test: *can the owner see the result?* Yes → it belongs to a story. No → it is
+  foundational, and it blocks the story work behind it. Foundational phases get
+  ordinary technical tasks; story phases get tasks grouped so the phase ends in
+  something demoable, and are graded on the spec's acceptance scenarios rather
+  than a list of components built. Full rules: `doc/tasks/README.md`.
+* **Every task carries a `Serves` row** naming its user story or the story
+  phase it unblocks. A task that can name neither is a task nobody asked for.
 
 * **`doc/plans/`** — approved plans. The what and why. Uncertainty is allowed here.
 * **`doc/tasks/`** — executable specs derived from an approved plan, one folder
@@ -214,6 +488,22 @@ All non-code project memory lives in `doc/`. Read `doc/README.md` first.
   concrete thing that closes it; when you close one, **delete the entry** and say
   where the proof lives.
 * **`doc/Ideas.md`** — unscoped, no commitment, may never be built.
+* **`doc/bug/`** — owner-reported or agent-found wrong behavior in the running
+  app. One file per bug (`BUG-<date>-<slug>.md`), never deleted, just marked
+  resolved in place. Format and index: `doc/bug/README.md`.
+* **`doc/security/`** — vulnerabilities and trust-boundary issues: auth bypass,
+  injection, leaked secrets, data crossing users/workspaces, RLS gaps. One file
+  per issue (`SEC-<date>-<slug>.md`), never a live secret or replayable exploit
+  payload inside it. Format and index: `doc/security/README.md`.
+
+**Always document a bug or security issue in the same turn it surfaces** —
+whether the owner reports it directly, or an agent notices it while
+implementing, reviewing, or verifying unrelated work. Do not wait to be asked,
+and do not rely on chat history being re-read later; a problem mentioned only
+in a chat message does not exist to the next session. Once a bug/security file
+is well enough understood to fix, open a task in `doc/tasks/` (or add to an
+existing phase) and link it back to the bug/security file's id — the report
+stays as the historical record, the task is what gets executed.
 
 When the owner says "park it", "later", or "just an idea", write it to the right
 file in the same turn rather than relying on the conversation to be re-read.

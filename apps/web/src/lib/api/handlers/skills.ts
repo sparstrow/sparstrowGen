@@ -1,9 +1,5 @@
-import { registerRoute, ok, fail, noContent, HandlerContext } from "../router";
+import { registerRoute, ok, fail, HandlerContext } from "../router";
 import { OPAQUE_COLUMNS } from "../../case";
-
-function generateId(prefix: string) {
-  return `${prefix}${crypto.randomUUID().replace(/-/g, "")}`;
-}
 
 registerRoute({
   method: "GET",
@@ -20,51 +16,16 @@ registerRoute({
 });
 
 registerRoute({
-  method: "POST",
-  pattern: "/skills",
-  handler: async ({ supabase, workspaceId, body }: HandlerContext) => {
-    const payload = {
-      ...body,
-      workspace_id: workspaceId,
-      id: body.id || generateId("skl_")
-    };
-    const { data, error } = await supabase
-      .from("skills")
-      .insert(payload)
-      .select()
-      .single();
-    if (error) throw error;
-    return ok(data);
-  }
-});
-
-registerRoute({
   method: "GET",
   pattern: "/skills/:id",
   handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
     const { data, error } = await supabase
       .from("skills")
-      .select("*")
+      .select("*, files:skill_files(*)")
       .eq("workspace_id", workspaceId)
       .eq("id", params.id)
       .single();
     if (error) return fail(404, "Not Found");
-    return ok(data);
-  }
-});
-
-registerRoute({
-  method: "PUT",
-  pattern: "/skills/:id", // hooks.ts says PUT /skills/:id
-  handler: async ({ supabase, workspaceId, params, body }: HandlerContext) => {
-    const { data, error } = await supabase
-      .from("skills")
-      .update(body)
-      .eq("workspace_id", workspaceId)
-      .eq("id", params.id)
-      .select()
-      .single();
-    if (error) throw error;
     return ok(data);
   }
 });
@@ -82,27 +43,6 @@ registerRoute({
       .single();
     if (error) throw error;
     return ok(data);
-  }
-});
-
-registerRoute({
-  method: "DELETE",
-  pattern: "/skills/:id",
-  handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
-    // .select() makes PostgREST return the deleted rows. Without it a
-    // delete that matched nothing -- because the id is unknown OR because
-    // RLS hid another workspace's row -- still resolves without error, and
-    // this would answer 204. The client then optimistically drops a row it
-    // never actually deleted.
-    const { data: deleted, error } = await supabase
-      .from("skills")
-      .delete()
-      .eq("workspace_id", workspaceId)
-      .eq("id", params.id)
-      .select("id");
-    if (error) throw error;
-    if (!deleted || deleted.length === 0) return fail(404, "Not Found");
-    return noContent();
   }
 });
 

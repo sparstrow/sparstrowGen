@@ -1,0 +1,266 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>Sparstrowgen — entity profile + tab navigation</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:oklch(0.10 0 0);color:#e9e9ec;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{padding:18px 20px 60px}
+h1{font-size:15px;font-weight:600;margin:0 0 4px}
+.sub{font-size:12.5px;color:#8b8b93;margin:0 0 8px;max-width:960px;line-height:1.55}
+.sub b{color:#c9c9cf}
+.sect{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#8b8b93;font-weight:700;margin:22px 0 8px}
+
+:root, .app{
+  --bg:oklch(0.145 0.010 85); --card:oklch(0.195 0.010 85); --raise:oklch(0.245 0.010 85);
+  --raise2:oklch(0.29 0.010 85);
+  --fg:oklch(0.97 0 0); --dim:oklch(0.68 0.010 85); --line:oklch(1 0 0 / 11%);
+  --brand:oklch(0.78 0.15 70); --brand-fg:oklch(0.16 0 0); --brand-soft:oklch(0.78 0.15 70 / 16%);
+  --ok:oklch(0.78 0.16 155); --warn:oklch(0.80 0.14 75); --danger:oklch(0.70 0.19 22);
+  --r:9px; --r-sm:6px;
+}
+.app{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:12px;overflow:hidden;
+     display:grid;grid-template-rows:auto 1fr;font-size:13px;height:560px}
+svg{display:block;flex:none}
+
+/* ===== tab strip — the OUTER navigation: which profile am I in ===== */
+.tabstrip{display:flex;align-items:stretch;background:var(--card);border-bottom:1px solid var(--line);height:36px;flex:none}
+.tabstrip .home{display:flex;align-items:center;padding:0 10px;color:var(--dim);border-right:1px solid var(--line)}
+.tstab{display:flex;align-items:center;gap:6px;padding:0 10px;font-size:12px;color:var(--dim);border-right:1px solid var(--line);
+       max-width:170px;position:relative;cursor:default}
+.tstab.on{background:var(--bg);color:var(--fg);font-weight:600}
+.tstab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--brand)}
+.tstab .dot{width:6px;height:6px;border-radius:99px;background:var(--ok);flex:none}
+.tstab .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tstab .x{opacity:0;margin-left:2px;color:var(--dim)}
+.tstab:hover .x{opacity:1}
+.newtab{display:flex;align-items:center;justify-content:center;width:30px;color:var(--dim)}
+
+/* ===== body: shell nav + content ===== */
+.body{display:grid;grid-template-columns:150px 1fr;min-height:0}
+.side{background:var(--card);border-right:1px solid var(--line);padding:10px 8px;overflow:auto}
+.nvh{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);font-weight:700;padding:0 7px;margin:10px 0 5px}
+.nv{display:flex;align-items:center;gap:7px;padding:5px 7px;border-radius:6px;color:var(--dim);font-size:12px;margin-bottom:1px}
+.nv.on{background:var(--brand-soft);color:var(--brand);font-weight:600}
+.content{padding:14px 16px;overflow:auto;min-width:0}
+
+/* ===== list view ===== */
+.lhd{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.lhd h2{margin:0;font-size:14px;font-weight:650}
+.cnt{min-width:17px;height:17px;padding:0 5px;border-radius:99px;background:var(--raise);color:var(--dim);font-size:10px;font-weight:600;display:grid;place-items:center}
+.panel{border:1px solid var(--line);border-radius:var(--r);background:var(--card);overflow:hidden}
+.mrow{display:flex;align-items:center;gap:10px;padding:9px 11px;border-bottom:1px solid var(--line);cursor:pointer}
+.mrow:last-child{border-bottom:0}
+.mrow:hover{background:var(--raise)}
+.tile{width:28px;height:28px;border-radius:7px;background:var(--raise);display:grid;place-items:center;color:var(--dim);position:relative;flex:none}
+.tile .st{position:absolute;left:-2px;bottom:-2px;width:8px;height:8px;border-radius:99px;background:var(--ok);border:2px solid var(--card)}
+.rn{font-size:12.5px;font-weight:600}
+.rm{font-size:11px;color:var(--dim);margin-top:1px}
+.chev{margin-left:auto;color:var(--dim)}
+.hint{margin-top:9px;font-size:11px;color:var(--dim);display:flex;align-items:center;gap:5px}
+
+/* ===== profile view: sub-nav is the INNER navigation: which section of THIS entity ===== */
+.profile{display:flex;gap:16px;height:100%}
+.subnav{width:118px;flex:none;display:flex;flex-direction:column;gap:1px}
+.sn{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:6px;color:var(--dim);font-size:12px}
+.sn.on{background:var(--brand-soft);color:var(--brand);font-weight:600}
+.pmain{flex:1;min-width:0}
+.phd{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.phd .tile{width:40px;height:40px;border-radius:9px}
+.phd .st{width:10px;height:10px}
+.phd h2{margin:0;font-size:15px}
+.phd .pm{font-size:11.5px;color:var(--dim);margin-top:2px}
+.actbar{margin-left:auto;display:flex;gap:6px}
+.btn{padding:5px 10px;border-radius:var(--r-sm);font-size:11.5px;font-weight:600;border:1px solid var(--line);background:transparent;color:var(--fg)}
+.btn.p{background:var(--brand);color:var(--brand-fg);border-color:transparent}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:7px 0;font-size:12px}
+.kv .k{color:var(--dim)}
+.provrow{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--line)}
+.provrow:last-child{border-bottom:0}
+.pill{padding:2px 8px;border-radius:99px;font-size:10.5px;border:1px solid var(--line);color:var(--dim)}
+
+/* ===== dest picker + modal ===== */
+.destpop{position:absolute;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 30px -10px oklch(0 0 0/60%);
+         padding:4px;z-index:30;width:190px}
+.destopt{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:12px;color:var(--fg)}
+.destopt:hover{background:var(--raise)}
+.destopt .k{margin-left:auto;font-size:10px;color:var(--dim);font-family:ui-monospace,Menlo,Consolas,monospace}
+.overlay{position:fixed;inset:0;background:oklch(0 0 0/55%);display:none;align-items:center;justify-content:center;z-index:40}
+.overlay.on{display:flex}
+.modal{width:380px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:0 20px 50px -12px oklch(0 0 0/70%)}
+.modal h3{margin:0 0 4px;font-size:14px}
+.modal p{margin:0 0 12px;font-size:12px;color:var(--dim)}
+.modal input{width:100%;padding:7px 9px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font-size:12.5px;margin-bottom:10px}
+.modal .acts{display:flex;justify-content:flex-end;gap:6px}
+</style></head>
+<body><div class="wrap">
+<h1>Entity profile + navigation model</h1>
+<p class="sub">Two mechanisms, working together, using real Machines content. <b>Outer tab strip</b> (top) is which entity's profile you have open — closable, click a machine to add one. <b>Inner side sub-nav</b> (inside a profile) is which section of that one entity you're looking at. Click <b>workshop-desktop</b> in the list, then try <b>"Start new chat"</b> inside its profile — that's the "open somewhere else" question, made concrete with three real destinations to compare.</p>
+
+<div class="app" id="app">
+  <div class="tabstrip" id="tabstrip"></div>
+  <div class="body">
+    <div class="side">
+      <div class="nvh">Workspace</div>
+      <div class="nv on"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/></svg>Machines</div>
+      <div class="nv"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>Agents</div>
+      <div class="nv"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 3 14 9-14 9V3z"/></svg>Runs</div>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3>New chat — workshop-desktop</h3>
+    <p>Opened as a centred window. The profile stays exactly where it was underneath — closing this returns you with nothing lost.</p>
+    <input placeholder="What do you want to ask?">
+    <div class="acts"><button class="btn" id="modalClose">Cancel</button><button class="btn p">Start</button></div>
+  </div>
+</div>
+
+<div class="sect">What each destination actually costs</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:960px">
+  <div class="panel" style="padding:12px"><b style="font-size:12.5px">Same tab (replace)</b><p style="font-size:11.5px;color:#9a9aa2;margin:6px 0 0;line-height:1.5">Cheapest to build — it's what the app already does. But you lose the profile you were reading; "back" is the only way home, and back loses scroll position and any unsaved sub-nav state.</p></div>
+  <div class="panel" style="padding:12px"><b style="font-size:12.5px">New in-app tab</b><p style="font-size:11.5px;color:#9a9aa2;margin:6px 0 0;line-height:1.5">The tab strip above is this. Real new work: a tab manager, state per tab, deciding what happens on reload. Best for anything you'll work in for more than a minute — a real chat, a second machine's profile.</p></div>
+  <div class="panel" style="padding:12px"><b style="font-size:12.5px">Centre modal</b><p style="font-size:11.5px;color:#9a9aa2;margin:6px 0 0;line-height:1.5">Cheapest of the "don't lose my place" options — a Dialog primitive, already installed. Right for a quick capture (one message, one field). Wrong for a real chat thread — a modal that scrolls internally fights the reading-column rule in §8.1.</p></div>
+</div>
+
+<script>
+const MACHINES = [
+  { id:"m1", nm:"workshop-desktop", os:"win32", host:"DESKTOP-7QK2R1", core:"0.14.2", online:true,
+    caps:[{n:"claude-code",c:"oklch(0.72 0.17 45)"},{n:"antigravity",c:"oklch(0.66 0.19 275)"}] },
+  { id:"m2", nm:"office-mac-mini", os:"darwin", host:"sparstrow-mini.local", core:"0.14.2", online:true,
+    caps:[{n:"claude-code",c:"oklch(0.72 0.17 45)"},{n:"ollama",c:"oklch(0.7 0.13 155)"}] },
+  { id:"m3", nm:"build-server", os:"linux", host:"sparstrow-ci-01", core:"0.13.9", online:false, caps:[{n:"claude-code",c:"oklch(0.72 0.17 45)"}] },
+];
+const ico = { mon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/></svg>',
+  chev:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>',
+  bot:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 4v4M9 14h.01M15 14h.01"/></svg>',
+  gear:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg>',
+  act:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>',
+  home:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/></svg>',
+  x:'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  plus:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>',
+  chat:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 1 1 8.5-8.5Z"/></svg>',
+};
+
+let tabs = [{ kind:"list" }];
+let active = 0;
+
+function renderTabstrip() {
+  const el = document.getElementById("tabstrip");
+  el.innerHTML = `<div class="home">${ico.home}</div>` +
+    tabs.map((t,i) => {
+      if (t.kind === "list") return `<div class="tstab ${i===active?'on':''}" data-i="${i}"><span class="nm">Machines</span></div>`;
+      const m = MACHINES.find(x=>x.id===t.id);
+      return `<div class="tstab ${i===active?'on':''}" data-i="${i}"><span class="dot" style="background:${m.online?'var(--ok)':'var(--dim)'}"></span><span class="nm">${m.nm}</span><span class="x" data-close="${i}">${ico.x}</span></div>`;
+    }).join("") + `<div class="newtab" title="New tab">${ico.plus}</div>`;
+  el.querySelectorAll(".tstab").forEach(n => n.addEventListener("click", (e) => {
+    if (e.target.closest("[data-close]")) return;
+    active = +n.dataset.i; render();
+  }));
+  el.querySelectorAll("[data-close]").forEach(n => n.addEventListener("click", (e) => {
+    e.stopPropagation(); const i = +n.dataset.close;
+    tabs.splice(i,1); if (active >= tabs.length) active = tabs.length-1; if (active < 0) { tabs=[{kind:"list"}]; active=0; } render();
+  }));
+}
+
+function openMachine(id) {
+  const existing = tabs.findIndex(t => t.kind==="machine" && t.id===id);
+  if (existing >= 0) { active = existing; } else { tabs.push({ kind:"machine", id, sub:"overview" }); active = tabs.length-1; }
+  render();
+}
+
+function renderList() {
+  document.getElementById("content").innerHTML = `
+    <div class="lhd"><h2>Machines</h2><span class="cnt">${MACHINES.length}</span></div>
+    <div class="panel">${MACHINES.map(m => `
+      <div class="mrow" data-open="${m.id}">
+        <span class="tile">${ico.mon}<span class="st" style="background:${m.online?'var(--ok)':'var(--dim)'}"></span></span>
+        <span><div class="rn">${m.nm}</div><div class="rm">${m.os} &middot; core ${m.core}</div></span>
+        <span class="chev">${ico.chev}</span>
+      </div>`).join("")}</div>
+    <div class="hint">${ico.chev} Click a row to open its profile as a new tab above</div>`;
+  document.querySelectorAll("[data-open]").forEach(n => n.addEventListener("click", () => openMachine(n.dataset.open)));
+}
+
+function renderProfile(tab) {
+  const m = MACHINES.find(x=>x.id===tab.id);
+  const SECTIONS = [
+    {k:"overview", nm:"Overview", ic:ico.mon},
+    {k:"agents", nm:"Agents", ic:ico.bot},
+    {k:"activity", nm:"Activity", ic:ico.act},
+    {k:"settings", nm:"Settings", ic:ico.gear},
+  ];
+  let body = "";
+  if (tab.sub === "overview") body = `
+    <div class="kv">
+      <span class="k">Status</span><span style="color:${m.online?'var(--ok)':'var(--dim)'}">${m.online?'Online':'Unreachable'}</span>
+      <span class="k">Hostname</span><span>${m.host}</span>
+      <span class="k">OS</span><span>${m.os}</span>
+      <span class="k">Core version</span><span>${m.core}</span>
+    </div>`;
+  else if (tab.sub === "agents") body = m.caps.map(c => `
+    <div class="provrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="${c.c}"><path d="M12 2 3 20h4l5-11 5 11h4z"/></svg>
+      <span style="font-size:12.5px;font-weight:600">${c.n}</span><span class="pill" style="margin-left:auto">available</span></div>`).join("");
+  else if (tab.sub === "activity") body = `<p style="font-size:12px;color:var(--dim)">3 runs in the last 24h &middot; last: <b style="color:var(--fg)">2m ago</b></p>`;
+  else body = `<p style="font-size:12px;color:var(--dim)">Rename, revoke pairing, remove this machine.</p>`;
+
+  document.getElementById("content").innerHTML = `
+    <div class="profile">
+      <div class="subnav">${SECTIONS.map(s => `<div class="sn ${tab.sub===s.k?'on':''}" data-sub="${s.k}">${s.ic}${s.nm}</div>`).join("")}</div>
+      <div class="pmain">
+        <div class="phd">
+          <span class="tile">${ico.mon}<span class="st" style="background:${m.online?'var(--ok)':'var(--dim)'}"></span></span>
+          <span><h2>${m.nm}</h2><div class="pm">${m.host}</div></span>
+          <div class="actbar" style="position:relative">
+            <button class="btn p" id="startChatBtn">${ico.chat} Start new chat</button>
+          </div>
+        </div>
+        ${body}
+      </div>
+    </div>`;
+  document.querySelectorAll("[data-sub]").forEach(n => n.addEventListener("click", () => { tab.sub = n.dataset.sub; render(); }));
+  document.getElementById("startChatBtn").addEventListener("click", (e) => showDestPicker(e.currentTarget, m));
+}
+
+function showDestPicker(anchor, m) {
+  document.querySelectorAll(".destpop").forEach(n => n.remove());
+  const r = anchor.getBoundingClientRect();
+  const appR = document.getElementById("app").getBoundingClientRect();
+  const pop = document.createElement("div");
+  pop.className = "destpop";
+  pop.style.top = (r.bottom - appR.top + 6) + "px";
+  pop.style.right = (appR.right - r.right) + "px";
+  pop.innerHTML = `
+    <div class="destopt" data-d="same">Replace this tab<span class="k">Enter</span></div>
+    <div class="destopt" data-d="tab">Open in new tab<span class="k">&#8984;&crarr;</span></div>
+    <div class="destopt" data-d="modal">Open in centre window<span class="k">&#8679;&crarr;</span></div>`;
+  document.getElementById("app").appendChild(pop);
+  pop.querySelectorAll("[data-d]").forEach(n => n.addEventListener("click", () => {
+    pop.remove();
+    if (n.dataset.d === "modal") { document.getElementById("overlay").classList.add("on"); return; }
+    if (n.dataset.d === "tab") { tabs.push({kind:"chat", id:m.id, nm:m.nm}); active = tabs.length-1; render(); return; }
+    tabs[active] = {kind:"chat", id:m.id, nm:m.nm}; render();
+  }));
+  const closer = (ev) => { if (!pop.contains(ev.target) && ev.target !== anchor) { pop.remove(); document.removeEventListener("click", closer, true); } };
+  setTimeout(() => document.addEventListener("click", closer, true), 0);
+}
+
+function renderChat(tab) {
+  document.getElementById("content").innerHTML = `
+    <div class="phd"><h2>New chat &mdash; ${tab.nm}</h2></div>
+    <p style="font-size:12.5px;color:var(--dim);max-width:68ch;line-height:1.6">This is a full reading-column chat, exactly like the earlier Chat board — which is why it belongs in its own tab rather than a modal. A modal that has to scroll a whole conversation inside it fights §8.1's reading-column rule.</p>`;
+}
+
+function render() {
+  renderTabstrip();
+  const t = tabs[active];
+  if (!t || t.kind === "list") renderList();
+  else if (t.kind === "machine") renderProfile(t);
+  else renderChat(t);
+}
+document.getElementById("modalClose").addEventListener("click", () => document.getElementById("overlay").classList.remove("on"));
+render();
+</script>
+</div></body></html>

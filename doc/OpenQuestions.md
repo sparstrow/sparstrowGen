@@ -13,7 +13,173 @@ When one is answered, record the answer in the plan or task that consumes it and
 
 ---
 
-**Nothing is currently open.** M4 task planning is unblocked.
+> **No entries are currently open.** `OQ-6`, `OQ-7`, and `OQ-8`, which stood
+> here at various points, were all answered by the owner; where each answer
+> now lives is recorded below, per this file's own rule that an answered entry
+> is deleted rather than archived in place.
+>
+> **`OQ-8` — what does "cancel this step" actually do to a running plan
+> node — is closed.** Answered **option B**: a real stop-signal path from the
+> button down to the daemon actually running the process, not just a status
+> relabel. This is a genuine feature (a daemon-side cancel contract that does
+> not exist yet, plus a real `cancelled` `TaskStatus` value), not a `T-WA-04`
+> Server Action conversion, so it is parked rather than built inline —
+> `useCancelNode` ships exactly as `T-WA-04` left it (wired to the
+> never-existed `POST /goals/:id/nodes/:nodeId/cancel` route, 404ing as
+> before). Recorded as [`D-27`](Deferred.md), which carries the shape of the
+> work and its unpark trigger — a `doc/specs/` entry, since this crosses
+> `packages/core`, the control plane's `runs` table, and the web UI.
+>
+> **`OQ-6` — how much of a machine a signed-in person may look at — is closed.**
+> Answered **option B**, nominated locations with a sensible default at pairing.
+> The entry had said it would close when
+> [`what-an-agent-is-allowed-to-do`](specs/2026-08-24-what-an-agent-is-allowed-to-do.md)
+> was owner-reviewed; that review happened on 2026-08-24 and the answer now
+> lives as **US4 of that spec**, with `FR-008` carrying it. That placement was
+> the point of leaving it open rather than closing it early — the owner's
+> objection was never to B, it was to B arriving as a bespoke rule for the
+> folder picker instead of as one cell of a model. It unblocks
+> [`reaching-my-machine-from-the-browser`](specs/2026-08-24-reaching-my-machine-from-the-browser.md)'s
+> US1/US2 scope and `FR-002`, which now inherit the boundary instead of
+> defining one.
+>
+> The terminal asymmetry this entry flagged in advance still holds and is not
+> re-litigated: nominated locations bound **folder browsing only**, and grant
+> **reading only**. A shell is not bounded by them, because it can go anywhere
+> its account can — decided separately in
+> [`a-terminal-on-my-machine`](specs/2026-08-24-a-terminal-on-my-machine.md) as
+> owner/admin-only access to an unconfined shell.
+>
+> **`OQ-7` — Server Action or keep the existing mutation — is closed.**
+> Answered **option A**: every existing write is rewritten to the one-step
+> Server Action pattern now, not only the ones a page conversion happens to
+> touch. This is **not** the recommendation that entry carried (it argued for
+> C, converting opportunistically); the owner chose A with A's costs stated,
+> and the plan that executes it records both that fact and the cost, so nobody
+> later reads the scope as an accident. The answer is recorded where the next
+> person writing a write will actually read it — in
+> [`apps/web/CLAUDE.md`](../apps/web/CLAUDE.md), next to the doctrine sentence
+> `T-VR-05` did not follow — and is executed by
+> [`plans/2026-08-24-server-action-write-conversion.md`](plans/2026-08-24-server-action-write-conversion.md).
+> It supersedes the per-route opportunistic conversion described in
+> [`D-25`](Deferred.md).
+
+---
+
+*OQ-5 (Vercel Deployment Protection blocking `development`/`staging`) was
+**answered by the owner on 2026-08-20** — option A. SSO protection disabled
+project-wide via `vercel project protection disable sparstrowgen --sso`; both
+hosts now reach the app's own sign-in directly. Recorded in
+[`runbooks/deploy-web-app.md`](runbooks/deploy-web-app.md).*
+
+<details>
+<summary>OQ-5 — Vercel Deployment Protection blocks reaching `development`/`staging` at all (closed)</summary>
+
+## OQ-5 — Vercel Deployment Protection blocks reaching `development`/`staging` at all
+
+**Raised:** 2026-08-20, attempting the live-host pairing test M11/G-16 have been
+waiting on.
+**Blocks:** testing the app as a regular user (or an agent) against a deployed
+URL — pairing, sign-in, anything. Does not block localhost work, which already
+has its own signed-in-session method (`runbooks/agent-browser-session.md`).
+
+### Context
+
+Asked to open `development.sparstrow.com` and pair/unpair a machine like a
+regular user would, to surface friction in the flow. Navigating there —
+and separately to `staging.sparstrow.com` — redirects to **Vercel's own login
+page** (`vercel.com/login?...next=/sso-api?url=https://development.sparstrow.com/machines`),
+before the app's own Supabase sign-in is ever reached. This is Vercel's
+**Deployment Protection** (aka Vercel Authentication) feature, gating the
+whole deployment behind membership in the Vercel team/project — a second,
+separate gate in front of the app's own auth.
+
+No bypass secret (`VERCEL_AUTOMATION_BYPASS_SECRET` or similar) is present in
+`apps/web/.env.local`, so there is currently no way through this at all,
+scripted or manual, without a Vercel account that has access to the project.
+
+### Scenario
+
+A teammate or early tester, with no Vercel account, is handed
+`development.sparstrow.com` (or `staging.sparstrow.com`) to try the app. They
+get a Vercel login screen asking for credentials to a project they've never
+heard of, before they ever see Sparstrowgen's own sign-in. From their side
+this reads as "the link is broken" or "I don't have access," not as an app
+issue — and no error on the app's own side gives any hint why.
+
+### Options
+
+**A — Disable Deployment Protection on `development` and `staging`**
+- **Pros:** Directly unblocks exactly what's being tested — reaching the app
+  in an ordinary browser, no Vercel account needed. These two branches exist
+  specifically as pre-launch test surfaces (per `deploy-web-app.md`, "for the
+  owner's own testing right now"); the app's own Supabase auth is already the
+  real gate once you're past this. One dashboard toggle, no code change,
+  fully reversible.
+- **Cons:** Anyone who finds the URL can load the sign-in screen and see the
+  app's unauthenticated shell (marketing-less, no data) before real launch.
+  Not indexed or publicized today, but no longer requires a Vercel login to
+  probe.
+- **Score:** 8/10
+- **Blast radius if wrong:** Low. Without a real Supabase session, an
+  outside visitor sees a login page and nothing behind it — no data, no RLS
+  boundary at risk. Reversible in one click.
+- **Caveats:** Scope this to `development`/`staging` only — `main` should stay
+  however it's configured today (dummy content per `Deferred.md` D-15) until
+  real launch decisions are made for it.
+
+**B — Keep protection on; generate a Protection Bypass for Automation secret**
+- **Pros:** No change to who can casually browse to the URL. Lets scripts/CI
+  get through with a header or query param.
+- **Cons:** Does not answer what was actually asked — testing *as a regular
+  user* specifically means without a bypass secret, since a real user won't
+  have one. Only helps scripted/agent testing, not the UX verification this
+  came up while doing. One more secret to generate, store, and avoid leaking
+  in a script or CI log.
+- **Score:** 4/10 for this goal (higher for a pure-CI use case)
+- **Blast radius if wrong:** Low technically; the secret leaking (e.g.
+  committed by accident) would let anyone through the same door, same as
+  option A but by mistake instead of by design.
+- **Caveats:** Worth adding later for CI regardless of what's chosen here —
+  doesn't substitute for A.
+
+**C — Grant the testing agent/service a Vercel account with project access**
+- **Pros:** No protection-config change.
+- **Cons:** Means an agent authenticating to a third-party account — outside
+  what this session is willing to do (no password entry, no account
+  creation, by standing rule) — and defeats the actual reason `development`
+  was chosen over `staging` in the first place (avoiding needing platform-
+  level access at all). Wrong shape besides: Vercel team membership controls
+  deploy permissions, not app-level testing.
+- **Score:** 2/10
+- **Blast radius if wrong:** High — grants deploy-level access for what only
+  needed page-load access.
+- **Caveats:** Not recommended.
+
+### Recommendation
+
+**A.** Turn off Deployment Protection for `development` (and `staging`, since
+it's explicitly meant for testing already) in Vercel's project settings —
+Settings → Deployment Protection, per-branch. This is the only option that
+actually lets a regular user, or this agent, reach the app the way the test
+requires, and it costs nothing but flipping a toggle you can flip back.
+
+</details>
+
+---
+
+> **Older answers, kept as pointers.**
+>
+> `OQ-4` (is code syntax highlighting a fifth colour role) was answered by the
+> owner on 2026-08-19 — **option A**. Recorded in `DESIGN.md` §2.1 and the new
+> §2.6, and as `DD-011` in `design-system/DECISIONS.md`. It unblocks the
+> `--hl-*` sub-item of phase D2.2 in
+> [`plans/2026-08-19-parametric-theming.md`](plans/2026-08-19-parametric-theming.md):
+> the twelve values stay literal and are excluded from the parametric rebuild.
+>
+> OQ-3 was answered by the owner on 2026-08-19 — the answer is recorded in
+> `DESIGN.md` §2.1, §2.4, and §2.5, and unblocks the two parked items in
+> `tasks/D1/T-D1-01-status-colour-token-sweep.md`.
 
 ---
 

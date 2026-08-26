@@ -1,0 +1,105 @@
+/* colors.css — MIRRORED, do not edit here.
+ *
+ * Source of truth: packages/ui/src/styles/globals.css
+ * Edit that file, then run:
+ *   node .claude/skills/design-system/scripts/ds.mjs sync --root design-system
+ *
+ * Two things about this system that are easy to get wrong:
+ *
+ * 1. Dark mode is a `.dark` CLASS, not a media query and not a data attribute.
+ *    `:root` is the LIGHT theme. The app runs dark, so `.dark` is effectively
+ *    the default in practice even though it is the override in the CSS.
+ * 2. Every colour is OKLCH with zero chroma except the four semantic statuses
+ *    and destructive. These VALUES are mirrored from the real stylesheet and
+ *    remain valid. The RATIONALE once given here cited the retired doctrine's
+ *    accent-budget rule; that doctrine was deleted (see DECISIONS.md DD-001),
+ *    so the near-total neutrality below is currently an observation about the
+ *    app, not a rule anyone still stands behind. The owner has since asked for
+ *    more visible status colour — see DD-002.
+ */
+
+:root {
+  /* surfaces — light */
+  --background: oklch(1 0 0);
+  --card: oklch(1 0 0);
+  --popover: oklch(1 0 0);
+  --muted: oklch(0.97 0 0);
+  --accent: oklch(0.97 0 0);
+  --secondary: oklch(0.97 0 0);
+  --sidebar: oklch(0.985 0 0);
+
+  /* foreground hierarchy — light */
+  --foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+
+  /* brand */
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+
+  /* semantic status — the only chromatic colours in the system */
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --success: oklch(0.94 0.045 155);
+  --success-foreground: oklch(0.4 0.1 155);
+  --warning: oklch(0.94 0.06 80);
+  --warning-foreground: oklch(0.42 0.12 70);
+  --info: oklch(0.94 0.035 250);
+  --info-foreground: oklch(0.42 0.13 255);
+
+  /* lines */
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+}
+
+.dark,
+[data-theme="dark"] {
+  /* surfaces — dark. Note the stack: sidebar, card and popover share a value,
+     so hierarchy comes from the 1px border, not a lightness step. */
+  --background: oklch(0.145 0 0);
+  --card: oklch(0.205 0 0);
+  --popover: oklch(0.205 0 0);
+  --muted: oklch(0.269 0 0);
+  --accent: oklch(0.269 0 0);
+  --secondary: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+
+  --foreground: oklch(0.985 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+
+  /* Primary INVERTS in dark: near-white on near-black. A primary button is
+     the lightest thing on the screen, not a coloured one. */
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --success: oklch(0.28 0.05 155);
+  --success-foreground: oklch(0.82 0.11 155);
+  --warning: oklch(0.3 0.06 70);
+  --warning-foreground: oklch(0.8 0.13 70);
+  --info: oklch(0.28 0.05 250);
+  --info-foreground: oklch(0.78 0.12 255);
+
+  /* Borders in dark are TRANSLUCENT WHITE, not a solid grey — they lift
+     with whatever surface sits behind them. */
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+}

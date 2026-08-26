@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 // "self is not defined". Loading it client-side only keeps the build green;
 // `ssr: false` is legal here because this file is a Client Component.
 const TerminalsPage = dynamic(
-  () => import("@sparstrow/ui/routes/pages/terminals").then((m) => m.TerminalsPage),
+  () => import("./terminals").then((m) => m.TerminalsPage),
   { ssr: false },
 );
 

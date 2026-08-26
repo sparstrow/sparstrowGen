@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import {
   AlertCircle,
   ArrowLeft,
@@ -176,7 +177,7 @@ function LoginForm() {
         const { error } = await supabase.auth.signInWithOtp({
           email,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`,
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
             // Without this, signInWithOtp CREATES an account for any address
             // typed here -- so the sign-in form would quietly become an open
             // signup form. Explicit account creation stays on the sign-up tab.
@@ -203,7 +204,7 @@ function LoginForm() {
 
       if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/confirm?next=/auth/reset-password`,
+          redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
         });
         if (error) throw error;
         // Deliberately unconditional: saying "no account with that email"
@@ -220,7 +221,7 @@ function LoginForm() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`,
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
           },
         });
         if (error) throw error;
@@ -260,7 +261,8 @@ function LoginForm() {
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
       <div className="w-full max-w-sm space-y-6">
-        <div className="space-y-2 text-center">
+        <div className="space-y-2 text-center flex flex-col items-center">
+          <Image src="/logo.png" alt="Sparstrowgen Logo" width={64} height={64} className="mb-2" />
           <h1 className="text-xl font-semibold tracking-tight">Sparstrowgen</h1>
           <p className="text-sm text-muted-foreground">
             Autonomous multi-agent runtime &amp; control plane

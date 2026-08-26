@@ -104,7 +104,14 @@ rather than skipping silently.
 
 ## On completion
 
-- [ ] Tick 8.5 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md), mark Band 8 complete for M6
+> **Do not edit [`../MasterTaskQueue.md`](../MasterTaskQueue.md) from this
+> branch.** Its Status column is a mirror, flipped once per band in the commit
+> that lands the band branch on `development` (`AGENTS.md` §2.9). Sibling
+> tasks in this band are adjacent rows in one table, so ticking your own row
+> conflicts with every one of them — including the parallel forks working
+> beside you. Record this task's outcome in the **Status** row and **Result**
+> section of *this* file.
+
 - [ ] Update the M6 section of `doc/plans/2026-08-09-daemon-cloud-control-plane.md`
       with what shipped and what was found
 - [ ] Knowledge Center pass per `AGENTS.md` §3.2 — memory now syncs across

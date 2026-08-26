@@ -43,10 +43,21 @@ import type { SpecterReport } from "../schemas/specter";
 
 export const workspaces = pgTable("workspaces", {
   id: text("id").primaryKey(),
+  // `name` is `''` until the owner supplies one. Nothing derives it -- not from
+  // an email, not from a literal default. See policies/012_no_invented_names.sql.
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   description: text("description").notNull().default(""),
+  // Background an agent should know about this workspace. Mirrors `description`'s
+  // shape (notNull + "" default) rather than being nullable, so "unset" is one
+  // value everywhere instead of two.
+  context: text("context").notNull().default(""),
+  // Nullable, mirroring users.avatar_url. Matching the neighbouring column of the
+  // same kind beats being internally consistent with `context`.
+  logoUrl: text("logo_url"),
   ownerId: text("owner_id").notNull(),
+  allowedTools: jsonb("allowed_tools").$type<string[]>().notNull().default([]),
+  disallowedTools: jsonb("disallowed_tools").$type<string[]>().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -54,9 +65,14 @@ export const workspaces = pgTable("workspaces", {
 export const users = pgTable("users", {
   id: text("id").primaryKey(), // matches Supabase Auth user.id
   email: text("email").notNull().unique(),
+  // `''` until the person supplies one, or until an OAuth provider hands us a
+  // name they themselves typed. See policies/012_no_invented_names.sql.
   name: text("name").notNull(),
   avatarUrl: text("avatar_url"),
-  role: text("role").notNull().default("developer"), // admin | developer | viewer
+  bio: text("bio").notNull().default(""),
+  themeSurface: text("theme_surface").notNull().default("paper"),
+  themeBrand: text("theme_brand").notNull().default("amber"),
+  themeMode: text("theme_mode").notNull().default("system"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -157,6 +173,65 @@ export const runtimeProjects = pgTable(
     primaryKey({ columns: [t.runtimeId, t.projectId] }),
     index("idx_runtime_projects_project").on(t.projectId, t.state),
     index("idx_runtime_projects_workspace").on(t.workspaceId),
+  ],
+);
+
+/**
+ * Plan DD-4: nominated locations grant reading only. There is no `can_write` column,
+ * because adding one would invite someone to set it. If a write grant is ever
+ * wanted it is a new decision with a new column, deliberately.
+ *
+ * NOTE: this is cloud state that a machine enforces. The daemon fetches the list
+ * and refuses paths outside it. Nothing in this table enforces anything — a reader
+ * who thinks the table is the boundary has misread it.
+ */
+export const machineSharedLocations = pgTable(
+  "machine_shared_locations",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    runtimeId: text("runtime_id")
+      .notNull()
+      .references(() => runtimes.id, { onDelete: "cascade" }),
+    path: text("path").notNull(),
+    addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
+    addedBy: text("added_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  (t) => [
+    uniqueIndex("uq_machine_shared_locations").on(t.runtimeId, t.path),
+    index("idx_machine_shared_locations_workspace").on(t.workspaceId),
+    index("idx_machine_shared_locations_runtime").on(t.runtimeId),
+    index("idx_machine_shared_locations_added_by").on(t.addedBy),
+  ],
+);
+
+/**
+ * Agent-machine restrictions. Which agents may run on which machine.
+ *
+ * FR-009: No rows for an agent ⇒ that agent may run anywhere.
+ * Matches `tool-policy.ts` locked semantics: an empty allow-list at a level
+ * does NOT mean deny all.
+ */
+export const agentMachineRestrictions = pgTable(
+  "agent_machine_restrictions",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    agentId: text("agent_id")
+      .notNull()
+      .references(() => agents.id, { onDelete: "cascade" }),
+    runtimeId: text("runtime_id")
+      .notNull()
+      .references(() => runtimes.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    index("idx_agent_machine_restrictions_workspace").on(t.workspaceId),
+    index("idx_agent_machine_restrictions_agent").on(t.agentId),
+    index("idx_agent_machine_restrictions_runtime").on(t.runtimeId),
   ],
 );
 
@@ -789,11 +864,85 @@ export const chatMessages = pgTable(
     role: text("role").notNull(),
     content: text("content").notNull(),
     meta: jsonb("meta").$type<Record<string, unknown> | null>(),
+    // M12. SET NULL, not CASCADE: message history is the durable record and
+    // must outlive an administratively cleaned-up turn row. Every turn owns
+    // 0-2 messages via this FK (the user message, eagerly; the assistant
+    // message, only on `succeeded`). See doc/tasks/M12/T-M12-01.
+    turnId: text("turn_id").references(() => chatTurns.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("idx_chat_messages_session").on(t.sessionId, t.createdAt),
     index("idx_chat_messages_workspace").on(t.workspaceId),
+    index("idx_chat_messages_turn").on(t.turnId),
+  ],
+);
+
+/**
+ * M12 — cloud-only chat-turn dispatch state. No local SQLite mirror: local
+ * chat is synchronous and single-machine, with no dispatch state to track.
+ *
+ * `chat_sessions.kind`/`projectId`/`agentId` are deliberately NOT copied
+ * here — the assignment path joins `chat_sessions` by indexed PK at low
+ * frequency, and copying risks drift (session's binding changes, turn's
+ * copy doesn't) for no measured benefit.
+ *
+ * `replyText` is ALWAYS the full accumulated reply as of `replySeq`, never a
+ * delta — chat has no replayable event trace to reassemble, only a growing
+ * block of plain text, which is what makes ingest trivially idempotent under
+ * a replayed batch: one seq comparison, no gap handling. See
+ * doc/plans/2026-08-23-chat-message-sending.md DD-2.
+ *
+ * All writes go through SECURITY DEFINER functions
+ * (packages/shared/drizzle/policies/014_chat_turn_dispatch.sql) — RLS grants
+ * `authenticated` read-only. A member with raw UPDATE could set
+ * status='succeeded' and reply_text to anything and it would render as a
+ * real assistant reply, the same forgery risk 010_transcript_broadcast.sql
+ * calls out for run_events.
+ */
+export const chatTurns = pgTable(
+  "chat_turns",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => chatSessions.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("waiting"), // waiting | in_progress | succeeded | failed
+    // Populated only while status = 'waiting'; recomputed by the same
+    // assignment pass claim_runtime_commands runs on every poll (no new job).
+    waitingReason: text("waiting_reason"), // no_runtime_paired | all_runtimes_offline | project_not_available
+    assignedRuntimeId: text("assigned_runtime_id").references(() => runtimes.id, { onDelete: "set null" }),
+    commandId: text("command_id").references(() => runtimeCommands.id, { onDelete: "set null" }),
+    provider: text("provider"), // null = inherit session/agent default
+    model: text("model"),
+    attempt: integer("attempt").notNull().default(1),
+    // Code-enforced, NOT a DB FK -- mirrors tasks.parentTaskId's existing convention.
+    retryOfTurnId: text("retry_of_turn_id"),
+    replyText: text("reply_text").notNull().default(""),
+    replySeq: integer("reply_seq").notNull().default(0),
+    error: text("error"),
+    // Set ONCE at creation (`coalesce` in the assignment function), never
+    // pushed out by a later recompute.
+    waitExpiresAt: timestamp("wait_expires_at", { withTimezone: true }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_chat_turns_workspace").on(t.workspaceId),
+    index("idx_chat_turns_session").on(t.sessionId, t.createdAt),
+    index("idx_chat_turns_assigned_runtime").on(t.assignedRuntimeId),
+    index("idx_chat_turns_command").on(t.commandId),
+    index("idx_chat_turns_retry_of").on(t.retryOfTurnId),
+    // FR-004's in-flight guard (at most one non-terminal turn per session) is
+    // a partial UNIQUE index, added in 014_chat_turn_dispatch.sql rather than
+    // here -- Drizzle's pgTable index builder does not express a `where`
+    // predicate on a unique index the way the raw SQL policy file needs to,
+    // and enqueue_chat_turn relies on `ON CONFLICT` targeting it by name.
   ],
 );
 
@@ -953,7 +1102,7 @@ export const planNodes = pgTable(
     pre: jsonb("pre").$type<string[]>().notNull().default([]),
     effects: jsonb("effects").$type<string[]>().notNull().default([]),
     cost: doublePrecision("cost").notNull().default(1),
-    taskId: text("task_id"),
+    taskId: text("task_id").references(() => tasks.id, { onDelete: "set null" }),
     position: jsonb("position").$type<{ x: number; y: number } | null>(),
     userId: text("user_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

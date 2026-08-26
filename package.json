@@ -8,9 +8,7 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test",
-    "typecheck": "turbo run typecheck",
-    "dev:preview:core": "node scripts/dev-preview.mjs core",
-    "dev:preview:ui": "node scripts/dev-preview.mjs ui"
+    "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.10",

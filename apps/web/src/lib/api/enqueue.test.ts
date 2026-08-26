@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { enqueueFailureFrom } from "./enqueue";
+import { chatTurnFailureFrom, enqueueFailureFrom } from "./enqueue";
 
 /** Shaped like a PostgREST error: the SQLSTATE arrives as `code`. */
 const pgError = (code: string, message = "boom") => ({ code, message, details: null, hint: null });
@@ -61,6 +61,53 @@ describe("enqueueFailureFrom", () => {
     // reported as a dispatch problem.
     for (const code of ["SPG01", "SPG02", "SPG03"]) {
       expect(enqueueFailureFrom(pgError(code))).toBeNull();
+    }
+  });
+});
+
+describe("chatTurnFailureFrom", () => {
+  it("maps every SQLSTATE enqueue_chat_turn / retry_chat_turn raise", () => {
+    expect(chatTurnFailureFrom(pgError("SPG16"))?.reason).toBe("turn_in_progress");
+    expect(chatTurnFailureFrom(pgError("SPG17"))?.reason).toBe("session_not_found");
+    expect(chatTurnFailureFrom(pgError("SPG18"))?.reason).toBe("turn_not_found");
+    expect(chatTurnFailureFrom(pgError("SPG19"))?.reason).toBe("turn_not_retryable");
+  });
+
+  it("is 409 for 'exists but not runnable now', 404 for 'does not exist'", () => {
+    expect(chatTurnFailureFrom(pgError("SPG16"))?.status).toBe(409);
+    expect(chatTurnFailureFrom(pgError("SPG19"))?.status).toBe(409);
+    expect(chatTurnFailureFrom(pgError("SPG17"))?.status).toBe(404);
+    expect(chatTurnFailureFrom(pgError("SPG18"))?.status).toBe(404);
+  });
+
+  it("passes the database's own message through", () => {
+    const failure = chatTurnFailureFrom(
+      pgError("SPG16", "This session already has a reply in progress."),
+    );
+    expect(failure?.message).toBe("This session already has a reply in progress.");
+  });
+
+  it("falls back to a usable message when the error carries none", () => {
+    expect(chatTurnFailureFrom({ code: "SPG16", message: "   " })?.message).toBe(
+      "That chat turn could not be sent.",
+    );
+  });
+
+  it("returns null for anything it does not recognise, so the caller rethrows", () => {
+    expect(chatTurnFailureFrom(pgError("08006", "connection failure"))).toBeNull();
+    expect(chatTurnFailureFrom(pgError("23505", "duplicate key"))).toBeNull();
+    expect(chatTurnFailureFrom(new Error("TypeError: undefined is not a function"))).toBeNull();
+    expect(chatTurnFailureFrom(null)).toBeNull();
+    expect(chatTurnFailureFrom(undefined)).toBeNull();
+    expect(chatTurnFailureFrom("SPG16")).toBeNull();
+    expect(chatTurnFailureFrom({ code: 12 })).toBeNull();
+  });
+
+  it("does not mistake start_run's dispatch codes for chat-turn failures", () => {
+    // 009 owns SPG10-15. If those ever mapped here, a run-dispatch bug would
+    // be reported as a chat problem.
+    for (const code of ["SPG10", "SPG11", "SPG12", "SPG13", "SPG14", "SPG15"]) {
+      expect(chatTurnFailureFrom(pgError(code))).toBeNull();
     }
   });
 });

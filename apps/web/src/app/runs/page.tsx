@@ -1,6 +1,6 @@
 "use client";
 
-import { RunsPage } from "@sparstrow/ui/routes/pages/runs";
+import { RunsPage } from "./runs";
 
 export default function Page() {
   return <RunsPage />;

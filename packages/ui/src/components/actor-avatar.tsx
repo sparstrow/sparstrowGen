@@ -1,19 +1,36 @@
 import { Bot, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const PALETTE = [
-  "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-  "bg-violet-500/15 text-violet-700 dark:text-violet-300",
-  "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-  "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  "bg-rose-500/15 text-rose-700 dark:text-rose-300",
-  "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300",
+/**
+ * The six actor-identity roles of `DESIGN.md` §2.5. Hues 50/135/185/235/285/335
+ * — 50° apart, and every one of them at least 20° from a status hue, so an
+ * avatar can never read as a state it has nothing to do with (Identity Is Not
+ * Status). The palette this replaced used emerald, amber, and rose: success,
+ * warning, and danger.
+ *
+ * **A neutral fill with a coloured mark and ring, not a coloured fill.** The
+ * doctrine originally specified an identity tint plus the colour's own
+ * foreground; measured, that reaches only 3.91:1 in dark mode, because a 15%
+ * tint lifts the ground by more than the mark gains. This form keeps both
+ * signals — mark and ring — at 7.16:1 dark and 4.72:1 light. `DD-013`.
+ */
+const IDENTITY = [
+  "text-identity-1 ring-identity-1/40",
+  "text-identity-2 ring-identity-2/40",
+  "text-identity-3 ring-identity-3/40",
+  "text-identity-4 ring-identity-4/40",
+  "text-identity-5 ring-identity-5/40",
+  "text-identity-6 ring-identity-6/40",
 ];
 
-function hue(name: string): string {
+/**
+ * Stable name -> identity role. The hash is unchanged: an agent keeps the same
+ * slot it has always had, so only the colour of that slot moved.
+ */
+function identity(name: string): string {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
-  return PALETTE[Math.abs(h) % PALETTE.length]!;
+  return IDENTITY[Math.abs(h) % IDENTITY.length]!;
 }
 
 const SIZES = {
@@ -24,7 +41,9 @@ const SIZES = {
 
 /**
  * Deterministic initials avatar for any actor (agent or the owner). Same name
- * always renders the same tint, so agents stay recognizable across surfaces.
+ * always renders the same identity colour, so agents stay recognizable across
+ * surfaces — and the colour is never a status colour, so it cannot be misread
+ * as one.
  */
 export function ActorAvatar({
   name,
@@ -64,8 +83,9 @@ export function ActorAvatar({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 select-none items-center justify-center rounded-full font-semibold uppercase ring-1 ring-inset ring-border",
-        hue(name),
+        "inline-flex shrink-0 select-none items-center justify-center rounded-full",
+        "bg-muted font-semibold uppercase ring-1 ring-inset",
+        identity(name),
         SIZES[size],
         className,
       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { AgentCreatePage } from "@sparstrow/ui/routes/pages/agent-create";
+import { AgentCreatePage } from "./agent-create";
 
 export default function Page() {
   return <AgentCreatePage />;

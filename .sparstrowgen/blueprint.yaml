@@ -1,0 +1,42 @@
+# .sparstrowgen/blueprint.yaml — the single place stack/command facts live.
+# Agent/skill instructions reference these instead of restating them inline.
+# Source of truth for prose remains AGENTS.md §1; keep this file in sync with it.
+
+project:
+  name: sparstrowgen
+  type: web
+
+stack:
+  frontend:
+    framework: "Next.js 16.3 (App Router, Turbopack)"
+    styling: "Tailwind CSS v4"
+    ui: "Radix UI + @sparstrow/ui (shadcn)"
+    state: "TanStack Router via custom navigation adapter"
+  backend:
+    language: "TypeScript"
+    framework: "Next.js route handlers + @sparstrow/core"
+    runtime: "Node.js"
+  database:
+    engine: "Supabase Postgres"
+    orm: "Drizzle ORM"
+    vector: "local sqlite-vec (FastEmbed, 384-dim) — not cloud pgvector"
+  desktop:
+    shell: "Electron 36"
+  infra:
+    host: "Vercel (apps/web)"
+    package_manager: "pnpm 11.6.0"
+    monorepo: "Turbo 2.9.18"
+
+commands:
+  install: "pnpm install"
+  dev: "turbo run dev"
+  build: "turbo run build"
+  test: "turbo run test"
+  typecheck: "turbo run typecheck"
+
+mcp_servers: [supabase, context7, shadcn, github, playwright]
+
+# Plain CLI executables invoked via Bash, not MCP servers — no .mcp.json
+# entry, may be absent on a fresh machine. Purpose/install for each is in
+# AGENTS.md's "Connected CLI Tools".
+cli_tools: [agent-browser, gh, vercel, supabase]

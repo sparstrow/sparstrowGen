@@ -3,82 +3,21 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  BookOpen,
-  Bot,
-  Brain,
-  CalendarClock,
-  FolderKanban,
-  Inbox,
-  LayoutDashboard,
-  ListChecks,
-  Menu,
-  MessagesSquare,
-  PackagePlus,
-  Play,
-  Puzzle,
-  Search,
-  Settings,
-  TerminalSquare,
-  Users,
-  Workflow,
-  X,
-} from "lucide-react";
+import { Menu, Search, X } from "lucide-react";
 import { cn } from "@sparstrow/ui/lib/utils";
 import { Badge } from "@sparstrow/ui/components/ui/badge";
-import { UpdateBanner } from "@sparstrow/ui/components/update-banner";
-import { useLiveEvents } from "@sparstrow/ui/lib/live-events";
-import { useAttentionQueue } from "@sparstrow/ui/api/hooks";
+import { UpdateBanner } from "@web/components/update-banner";
+import { useLiveEvents } from "@web/lib/live-events";
+import { useAttentionQueue } from "@web/api/hooks";
 import { ThemeToggle } from "@sparstrow/ui/theme/theme-toggle";
-import { Breadcrumbs } from "@sparstrow/ui/components/layout/breadcrumbs";
-import { CommandPalette } from "@sparstrow/ui/components/layout/command-palette";
-import { PinnedItems } from "@sparstrow/ui/components/layout/pinned-items";
-import { TabStrip } from "@sparstrow/ui/components/layout/tab-strip";
-import { WorkspaceSwitcher } from "@sparstrow/ui/components/layout/workspace-switcher";
-import { useWorkspaceTabs } from "@sparstrow/ui/lib/workspace-tabs";
-
-interface NavItem {
-  to: string;
-  label: string;
-  icon: typeof LayoutDashboard;
-}
-
-const NAV_GROUPS: { heading: string | null; items: NavItem[] }[] = [
-  {
-    heading: null,
-    items: [{ to: "/", label: "Dashboard", icon: LayoutDashboard }],
-  },
-  {
-    heading: "Personal",
-    items: [
-      { to: "/chat", label: "Chat", icon: MessagesSquare },
-      { to: "/messages", label: "Inbox", icon: Inbox },
-      { to: "/tasks", label: "Task Board", icon: ListChecks },
-      { to: "/memory", label: "Memory", icon: Brain },
-    ],
-  },
-  {
-    heading: "Workspace",
-    items: [
-      { to: "/agents", label: "Agents", icon: Bot },
-      { to: "/teams", label: "Teams", icon: Users },
-      { to: "/projects", label: "Projects", icon: FolderKanban },
-      { to: "/runs", label: "Runs", icon: Play },
-      { to: "/pipelines", label: "Pipelines", icon: Workflow },
-      { to: "/schedule", label: "Schedule", icon: CalendarClock },
-      { to: "/imports", label: "Imports", icon: PackagePlus },
-    ],
-  },
-  {
-    heading: "Configure",
-    items: [
-      { to: "/skills", label: "Skills", icon: Puzzle },
-      { to: "/terminals", label: "Terminals", icon: TerminalSquare },
-      { to: "/knowledge", label: "Knowledge Center", icon: BookOpen },
-      { to: "/settings", label: "Settings", icon: Settings },
-    ],
-  },
-];
+import { Breadcrumbs } from "@web/components/layout/breadcrumbs";
+import { CommandPalette } from "@web/components/layout/command-palette";
+import { PinnedItems } from "@web/components/layout/pinned-items";
+import { TabStrip } from "@web/components/layout/tab-strip";
+import { WorkspaceSwitcher } from "@web/components/layout/workspace-switcher";
+import { useWorkspaceTabs } from "@web/lib/workspace-tabs";
+import { NAV_GROUPS, sectionMeta } from "@web/lib/nav-meta";
+import type { KnowledgeIndexEntry } from "@web/lib/knowledge.server";
 
 /**
  * M5: reports whichever transport this host actually installed — Realtime
@@ -106,17 +45,29 @@ function useWsConnected(): boolean {
  * ("/login" -> "/") crashed with "rendered more hooks than during the previous
  * render" -- the one transition every single user makes.
  */
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  knowledgeIndex,
+}: {
+  children: React.ReactNode;
+  knowledgeIndex: KnowledgeIndexEntry[];
+}) {
   const pathname = usePathname() || "/";
 
   if (pathname === "/login" || pathname.startsWith("/auth/")) {
     return <div className="min-h-screen w-full bg-background text-foreground">{children}</div>;
   }
 
-  return <AuthenticatedShell>{children}</AuthenticatedShell>;
+  return <AuthenticatedShell knowledgeIndex={knowledgeIndex}>{children}</AuthenticatedShell>;
 }
 
-function AuthenticatedShell({ children }: { children: React.ReactNode }) {
+function AuthenticatedShell({
+  children,
+  knowledgeIndex,
+}: {
+  children: React.ReactNode;
+  knowledgeIndex: KnowledgeIndexEntry[];
+}) {
   const connected = useWsConnected();
   const pathname = usePathname() || "/";
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
@@ -204,14 +155,19 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
                   </p>
                 )}
                 <div className="space-y-0.5">
-                  {group.items.map((item) => {
-                    const isActive =
-                      item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
+                  {group.items.map((to) => {
+                    const meta = sectionMeta(to);
+                    const isActive = to === "/" ? pathname === "/" : pathname.startsWith(to);
                     return (
                       <Link
-                        key={item.to}
-                        href={item.to}
-                        title={item.label}
+                        key={to}
+                        href={to}
+                        title={meta.label}
+                        // `isActive` was spent entirely on className until
+                        // 2026-08-24, so the active destination was visible and
+                        // silent. DESIGN.md §9 requires the landmark answer
+                        // "where am I" for assistive tech too.
+                        aria-current={isActive ? "page" : undefined}
                         className={cn(
                           "flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                           collapsed && "md:justify-center md:px-0",
@@ -220,14 +176,14 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
                             : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
                         )}
                       >
-                        <item.icon className="size-4" />
+                        <meta.icon className="size-4" />
                         <span className={cn("flex-1", collapsed && "md:hidden")}>
-                          {item.label}
+                          {meta.label}
                         </span>
-                        {item.to === "/" && attentionCount > 0 ? (
+                        {to === "/" && attentionCount > 0 ? (
                           <span
                             className={cn(
-                              "rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-white",
+                              "rounded-full bg-warning px-1.5 text-xs font-semibold text-white",
                               collapsed && "md:hidden",
                             )}
                           >
@@ -254,7 +210,7 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <TabStrip />
+        <TabStrip knowledgeIndex={knowledgeIndex} />
         <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b px-5">
           <div className="flex min-w-0 items-center gap-2">
             <button
@@ -265,13 +221,13 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
             >
               <Menu className="size-5" />
             </button>
-            <Breadcrumbs />
+            <Breadcrumbs knowledgeIndex={knowledgeIndex} />
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {attentionCount > 0 ? (
               <Link href="/" title={`${attentionCount} item(s) need your attention`}>
                 <Badge variant="warning" className="gap-1.5 rounded-full">
-                  <span className="size-1.5 rounded-full bg-amber-500" />
+                  <span className="size-1.5 rounded-full bg-warning" />
                   {attentionCount} waiting
                 </Badge>
               </Link>
@@ -284,7 +240,7 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
               <span
                 className={cn(
                   "size-1.5 rounded-full",
-                  connected ? "bg-emerald-500" : "bg-red-100 animate-pulse",
+                  connected ? "bg-success" : "bg-destructive animate-pulse",
                 )}
               />
               {connected ? "live" : "offline"}

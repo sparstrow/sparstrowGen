@@ -6,7 +6,7 @@
 | **Depends on** | T-M2-01, T-M2-02 |
 | **Blocks** | T-M2-04, 05, 06, 07 |
 | **Phase spec** | [M2/README.md](README.md) |
-| **Status** | queued |
+| **Status** | done 2026-08-10 |
 
 ## Objective
 
@@ -64,3 +64,7 @@ the UI can distinguish "signed out" from "broken".
 - [x] `curl -i localhost:3000/api/v1/nonsense` while signed in → HTTP 404 JSON
 - [x] Signing in and hitting a registered-but-empty path returns 501 JSON, not a
       stack trace
+
+## Result
+
+**Status reconciled 2026-08-25.** This row read `queued` until then, while [`../MasterTaskQueue.md`](../MasterTaskQueue.md) and this phase's row in [`../README.md`](../README.md) had both said done since 2026-08-10 — the old "tick both places" protocol failing under fully serial work, which is what `AGENTS.md` §2.9 was adopted to stop. The phase record is the authority for a closed phase: M2 shipped and was verified on staging on 2026-08-10, browser pass included. Any `[ ]` left in the checklists above was **never recorded**, not disproved; it is not re-adjudicated here.

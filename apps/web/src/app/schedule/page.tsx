@@ -1,6 +1,6 @@
 "use client";
 
-import { SchedulePage } from "@sparstrow/ui/routes/pages/schedule";
+import { SchedulePage } from "./schedule";
 
 export default function Page() {
   return <SchedulePage />;

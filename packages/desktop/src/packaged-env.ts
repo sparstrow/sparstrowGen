@@ -49,7 +49,6 @@ export function applyPackagedEnv(): PackagedPaths | null {
   process.env.SPARSTROW_VAULT ??= paths.vaultPath;
   process.env.SPARSTROW_MEMORY_MCP ??= path.join(res, "memory-mcp", "index.cjs");
   process.env.SPARSTROW_MEMORY_CLI ??= path.join(res, "memory-cli", "index.cjs");
-  process.env.SPARSTROW_UI_DIST ??= path.join(res, "ui");
   process.env.SPARSTROW_NODE ??= paths.nodeBin;
   return paths;
 }

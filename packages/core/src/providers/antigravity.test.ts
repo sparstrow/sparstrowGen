@@ -72,6 +72,14 @@ describe("AntigravityCliProvider — headless spawn", () => {
     expect(spec.args[spec.args.length - 2]).toBe("--print");
   });
 
+  it("asks agy for structured NDJSON via --output-format stream-json, before --print", () => {
+    const spec = provider.buildHeadlessSpawn(agentWith(), "hi", headlessOpts);
+    const fmtIdx = spec.args.indexOf("--output-format");
+    expect(fmtIdx).toBeGreaterThanOrEqual(0);
+    expect(spec.args[fmtIdx + 1]).toBe("stream-json");
+    expect(fmtIdx).toBeLessThan(spec.args.indexOf("--print"));
+  });
+
   it("always adds the memory vault to --add-dir alongside the agent's addDirs", () => {
     const spec = provider.buildHeadlessSpawn(
       agentWith({ addDirs: ["C:/proj"] }),
@@ -82,6 +90,23 @@ describe("AntigravityCliProvider — headless spawn", () => {
     const dirs = spec.args.filter((_, i) => spec.args[i - 1] === "--add-dir");
     expect(dirs).toContain("C:/proj");
     expect(dirs).toContain(config.vaultPath);
+  });
+
+  // BUG-2026-08-23-headless-spawn-skill-leak: a headless spawn has no TTY, so
+  // a machine-global skill (installed under the operator's own
+  // ~/.claude/skills, unrelated to Sparstrowgen) can never get the tool
+  // permission it wants and denies the whole turn instead.
+  it("disables skill expansion on a headless spawn, so a machine-global skill can't attach", () => {
+    const spec = provider.buildHeadlessSpawn(agentWith(), "hi", headlessOpts);
+    expect(spec.args).toContain("--disable-slash-commands");
+  });
+
+  it("keeps skills on for an interactive spawn — a real human is at the PTY", () => {
+    const spec = provider.buildInteractiveSpawn(agentWith(), {
+      tempDir: "/tmp/x",
+      extraEnv: {},
+    } as never);
+    expect(spec.args).not.toContain("--disable-slash-commands");
   });
 
   it("maps every PermissionMode exhaustively", () => {
@@ -126,5 +151,181 @@ describe("AntigravityCliProvider — result + models", () => {
 
   it("lists the known antigravity model tokens", () => {
     expect(provider.listModels()).toEqual(KNOWN_MODELS.antigravity);
+  });
+});
+
+// Fixtures below are real lines captured from `agy --model "Gemini 3.5 Flash
+// (Low)" --output-format stream-json --print "…"` against a live agy v1.1.18
+// binary (BUG-2026-08-22-antigravity-transcript-not-rendered.md's
+// Resolution) — not hand-guessed from --help text.
+describe("AntigravityCliProvider — parseLine (stream-json)", () => {
+  it("maps the init event to a system/init event (matches EventRow's 'session started' case)", () => {
+    const line =
+      '{"event":"init","conversation_id":"260bd636-97af-4afb-80a9-0395f7cd23c6","init":{"model":"Gemini 3.5 Flash (Low)","cwd":"D:\\\\repo","tools":["view_file"],"permission_mode":"request-review"}}';
+    const events = provider.parseLine(line);
+    expect(events).toEqual([{ type: "system", payload: { subtype: "init", model: "Gemini 3.5 Flash (Low)" } }]);
+  });
+
+  it("maps an agent_response text_delta to an assistant text block", () => {
+    const line =
+      '{"event":"step_update","step_update":{"conversation_id":"c1","step_index":2,"state":"ACTIVE","step_type":"agent_response","text_delta":"4"}}';
+    const events = provider.parseLine(line);
+    expect(events).toEqual([
+      { type: "assistant", payload: { message: { content: [{ type: "text", text: "4" }] } } },
+    ]);
+  });
+
+  it("drops agent_response updates with an empty text_delta", () => {
+    const line =
+      '{"event":"step_update","step_update":{"conversation_id":"c1","step_index":2,"state":"DONE","step_type":"agent_response","text_delta":""}}';
+    expect(provider.parseLine(line)).toEqual([]);
+  });
+
+  it("drops bookkeeping steps (user_input, checkpoint) — nothing user-visible to render", () => {
+    expect(
+      provider.parseLine(
+        '{"event":"step_update","step_update":{"step_index":0,"state":"DONE","step_type":"user_input"}}',
+      ),
+    ).toEqual([]);
+    expect(
+      provider.parseLine(
+        '{"event":"step_update","step_update":{"step_index":1,"state":"DONE","step_type":"checkpoint","duration_seconds":0.78}}',
+      ),
+    ).toEqual([]);
+  });
+
+  it("maps a tool step's ACTIVE state to an assistant tool_use block", () => {
+    const line =
+      '{"event":"step_update","step_update":{"conversation_id":"c1","step_index":7,"state":"ACTIVE","step_type":"tool","tool_name":"list_dir","tool_info":{"name":"list_dir","parameters":{"DirectoryPath":"C:\\\\scratch"}}}}';
+    const events = provider.parseLine(line);
+    expect(events).toEqual([
+      {
+        type: "assistant",
+        payload: {
+          message: {
+            content: [{ type: "tool_use", name: "list_dir", input: { DirectoryPath: "C:\\scratch" } }],
+          },
+        },
+      },
+    ]);
+  });
+
+  it("maps a tool step's DONE state to a user tool_result block carrying the output", () => {
+    const line =
+      '{"event":"step_update","step_update":{"conversation_id":"c1","step_index":7,"state":"DONE","step_type":"tool","tool_name":"list_dir","duration_seconds":0.066,"tool_info":{"name":"list_dir","parameters":{},"output":".system_generated/\\nscratch/"}}}';
+    const events = provider.parseLine(line);
+    expect(events).toEqual([
+      {
+        type: "user",
+        payload: { message: { content: [{ type: "tool_result", content: ".system_generated/\nscratch/" }] } },
+      },
+    ]);
+  });
+
+  it("maps a tool step's ERROR state to a user tool_result block carrying the error message", () => {
+    const line =
+      '{"event":"step_update","step_update":{"conversation_id":"c1","step_index":9,"state":"ERROR","step_type":"tool","tool_name":"list_dir","tool_info":{"name":"list_dir","parameters":{},"error":{"type":"TOOL_ERROR","message":"permission check failed"}}}}';
+    const events = provider.parseLine(line);
+    expect(events).toEqual([
+      {
+        type: "user",
+        payload: { message: { content: [{ type: "tool_result", content: "permission check failed" }] } },
+      },
+    ]);
+  });
+
+  it("maps the terminal result event to a result NormalizedEvent (SUCCESS)", () => {
+    const line =
+      '{"event":"result","result":{"conversation_id":"c1","status":"SUCCESS","response":"4\\n","duration_seconds":8.8,"num_turns":1,"usage":{"input_tokens":1}}}';
+    const events = provider.parseLine(line);
+    expect(events).toEqual([
+      { type: "result", payload: { subtype: "success", result: "4\n", error: null, num_turns: 1 } },
+    ]);
+  });
+
+  it("maps the terminal result event to a result NormalizedEvent (ERROR)", () => {
+    const line =
+      '{"event":"result","result":{"conversation_id":"c1","status":"ERROR","response":"partial text","error":"permission check failed for read_file","duration_seconds":12.7,"num_turns":1}}';
+    const events = provider.parseLine(line);
+    expect(events).toEqual([
+      {
+        type: "result",
+        payload: {
+          subtype: "error",
+          result: "partial text",
+          error: "permission check failed for read_file",
+          num_turns: 1,
+        },
+      },
+    ]);
+  });
+
+  it("falls back to raw for a non-JSON line (e.g. agy not actually in stream-json mode)", () => {
+    expect(provider.parseLine("plain text banner")).toEqual([{ type: "raw", payload: "plain text banner" }]);
+  });
+
+  it("falls back to raw for a JSON line with an unrecognized event field", () => {
+    const line = '{"event":"heartbeat","ts":123}';
+    expect(provider.parseLine(line)).toEqual([{ type: "raw", payload: { event: "heartbeat", ts: 123 } }]);
+  });
+
+  it("drops blank lines", () => {
+    expect(provider.parseLine("")).toEqual([]);
+    expect(provider.parseLine("   ")).toEqual([]);
+  });
+});
+
+describe("AntigravityCliProvider — extractResult (structured stream-json)", () => {
+  it("prefers the terminal result event's response text over accumulated deltas", () => {
+    const events: NormalizedEvent[] = [
+      { type: "system", payload: { subtype: "init", model: "Gemini 3.5 Flash (Low)" } },
+      { type: "assistant", payload: { message: { content: [{ type: "text", text: "4" }] } } },
+      { type: "assistant", payload: { message: { content: [{ type: "text", text: "\n" }] } } },
+      { type: "result", payload: { subtype: "success", result: "4\n", error: null, num_turns: 1 } },
+    ];
+    const r = provider.extractResult(events);
+    expect(r.resultText).toBe("4\n");
+    expect(r.isError).toBe(false);
+    expect(r.numTurns).toBe(1);
+    expect(r.costUsd).toBeNull();
+    expect(r.sessionId).toBeNull();
+  });
+
+  it("falls back to accumulated assistant text when the result event has no response", () => {
+    const events: NormalizedEvent[] = [
+      { type: "assistant", payload: { message: { content: [{ type: "text", text: "partial " }] } } },
+      { type: "assistant", payload: { message: { content: [{ type: "text", text: "answer" }] } } },
+      { type: "result", payload: { subtype: "success", result: null, error: null, num_turns: 1 } },
+    ];
+    const r = provider.extractResult(events);
+    expect(r.resultText).toBe("partial answer");
+  });
+
+  it("surfaces the structured error field and flags isError on an ERROR-status result", () => {
+    const events: NormalizedEvent[] = [
+      {
+        type: "result",
+        payload: {
+          subtype: "error",
+          result: "partial text",
+          error: "permission check failed for read_file",
+          num_turns: 1,
+        },
+      },
+    ];
+    const r = provider.extractResult(events);
+    expect(r.isError).toBe(true);
+    expect(r.errorMessage).toBe("permission check failed for read_file");
+    expect(r.resultText).toBe("partial text");
+  });
+
+  it("still handles the legacy plain-text fallback when no result event is present", () => {
+    const events: NormalizedEvent[] = [
+      { type: "raw", payload: "first line" },
+      { type: "raw", payload: "second line" },
+    ];
+    const r = provider.extractResult(events);
+    expect(r.resultText).toBe("first line\nsecond line");
+    expect(r.isError).toBe(false);
   });
 });

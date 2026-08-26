@@ -1,0 +1,41 @@
+/* typography.css — the font stack is MIRRORED from
+ * packages/ui/src/styles/globals.css (--font-sans) and remains valid.
+ *
+ * The SCALE below is not. It was transcribed from the retired doctrine's prose
+ * (see DECISIONS.md DD-001), which had no CSS counterpart — the app's
+ * components use Tailwind size classes rather than these variables. It is now
+ * a placeholder recording a direction nobody chose, not documentation of
+ * intent. Expect design-brief to replace it wholesale.
+ */
+
+:root {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Display — page titles */
+  --text-display-size: clamp(2rem, 5vw, 3.5rem);
+  --text-display-weight: 700;
+  --text-display-tracking: -0.02em;
+
+  /* Headline — section headers */
+  --text-headline-size: 1.5rem;
+  --text-headline-weight: 600;
+  --text-headline-tracking: -0.015em;
+
+  /* Title — component and dialog headers */
+  --text-title-size: 1.125rem;
+  --text-title-weight: 600;
+  --text-title-tracking: -0.01em;
+
+  /* Body — primary content. The retired doctrine capped lines at 65-75ch;
+   * whether that rule survives is for the new doctrine to decide. */
+  --text-body-size: 0.875rem;
+  --text-body-weight: 400;
+  --text-body-leading: 1.5;
+  --text-body-measure: 70ch;
+
+  /* Label — field labels, table headers, badges */
+  --text-label-size: 0.75rem;
+  --text-label-weight: 500;
+  --text-label-tracking: 0.05em;
+}

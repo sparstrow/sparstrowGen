@@ -93,7 +93,61 @@ export async function POST(request: Request, { params }: RouteContext) {
     });
   }
 
+  // M12: a `chat.turn` command failing here means the daemon rejected it
+  // before ever reaching T-M12-03's own routes (unknown kind, agent/project
+  // miss, spawn failure) -- nothing else closes the `chat_turns` row in that
+  // case. Live-confirmed as a real gap during T-M12-01's testing: the row
+  // stayed `in_progress` forever until this was wired in. Deliberately not
+  // gated on `reason` being set -- a bare failed ack with no reason token
+  // still must not leave a turn stuck.
+  if (status === "failed" && command?.kind === "chat.turn") {
+    await closeFailedChatTurn({
+      db,
+      runtimeId: auth.scope.runtimeId,
+      payload: (command.payload ?? {}) as Record<string, unknown>,
+      reason,
+      error: body?.error ?? null,
+    });
+  }
+
   return NextResponse.json({ ok: true, alreadyCompleted: result.alreadyCompleted === true });
+}
+
+/**
+ * Close out a `chat_turns` row for a command that never reached
+ * `/api/daemon/chat/turns/:id/*` at all. Scoped by `(turn id, assigned
+ * runtime id)` -- the same containment `ingest_chat_turn_reply` enforces
+ * itself -- so a miss here (turn reassigned or deleted since this command
+ * was claimed) is a legitimate no-op, not an error.
+ */
+async function closeFailedChatTurn(args: {
+  db: ReturnType<typeof daemonDb>;
+  runtimeId: string;
+  payload: Record<string, unknown>;
+  reason: CommandFailureReason | null;
+  error: string | null;
+}) {
+  const { db, runtimeId, payload, reason, error } = args;
+  const turnId = typeof payload.turnId === "string" ? payload.turnId : null;
+  if (!turnId) return;
+
+  const { data: turn } = await db
+    .from("chat_turns")
+    .select("reply_seq, reply_text")
+    .eq("id", turnId)
+    .eq("assigned_runtime_id", runtimeId)
+    .maybeSingle();
+
+  if (!turn) return;
+
+  await db.rpc("ingest_chat_turn_reply", {
+    p_turn_id: turnId,
+    p_runtime_id: runtimeId,
+    p_seq: (turn.reply_seq as number) + 1,
+    p_reply_text: (turn.reply_text as string) ?? "",
+    p_status: "failed",
+    p_error: error ?? reason ?? "The command failed before it could run.",
+  });
 }
 
 /**
