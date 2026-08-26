@@ -1,6 +1,6 @@
 # BUG-2026-08-25-project-variants-read-queries-a-table-that-does-not-exist
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — found while converting `useCreateVariant` in `T-WA-02`
 **Reported:** 2026-08-25
 

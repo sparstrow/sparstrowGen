@@ -1,6 +1,6 @@
 # BUG-2026-08-25-attention-queue-rows-always-render-as-ready-for-review
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — found while verifying `T-WA-04`'s Server Action conversion live
 **Reported:** 2026-08-25
 

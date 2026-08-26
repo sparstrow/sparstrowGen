@@ -1,6 +1,6 @@
 # BUG-2026-08-25-goal-detail-500s-once-a-plan-has-nodes
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — found while verifying `T-WA-04`'s Server Action conversion live
 **Reported:** 2026-08-25
 

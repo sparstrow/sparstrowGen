@@ -222,7 +222,7 @@ registerRoute({
       const qAge = now - new Date(q.asked_at).getTime();
       if (!tasksWithQuestions.has(q.task_id)) {
         tasksWithQuestions.set(q.task_id, {
-          kind: "question",
+          type: "question",
           task: q.tasks,
           questions: [],
           ageMs: qAge
@@ -245,7 +245,7 @@ registerRoute({
     if (approvalErr) throw approvalErr;
     for (const t of (approvalData || [])) {
       queue.push({
-        kind: "approval",
+        type: "approval",
         task: t,
         ageMs: now - new Date(t.updated_at || t.created_at).getTime()
       });
@@ -260,7 +260,7 @@ registerRoute({
     if (reviewErr) throw reviewErr;
     for (const t of (reviewData || [])) {
       queue.push({
-        kind: "review",
+        type: "review",
         task: t,
         ageMs: now - new Date(t.updated_at || t.created_at).getTime()
       });
@@ -279,7 +279,7 @@ registerRoute({
     if (contraErr) throw contraErr;
     for (const c of (contraData || [])) {
       queue.push({
-        kind: "contradiction",
+        type: "contradiction",
         task: null, // "task: null variant"
         contradiction: c,
         ageMs: now - new Date(c.detected_at).getTime()

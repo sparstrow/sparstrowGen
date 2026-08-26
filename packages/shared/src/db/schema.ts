@@ -1102,7 +1102,7 @@ export const planNodes = pgTable(
     pre: jsonb("pre").$type<string[]>().notNull().default([]),
     effects: jsonb("effects").$type<string[]>().notNull().default([]),
     cost: doublePrecision("cost").notNull().default(1),
-    taskId: text("task_id"),
+    taskId: text("task_id").references(() => tasks.id, { onDelete: "set null" }),
     position: jsonb("position").$type<{ x: number; y: number } | null>(),
     userId: text("user_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

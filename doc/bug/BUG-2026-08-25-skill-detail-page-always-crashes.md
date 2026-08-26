@@ -1,6 +1,6 @@
 # BUG-2026-08-25-skill-detail-page-always-crashes
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — found while verifying `T-WA-05`'s Server Action conversion live
 **Reported:** 2026-08-25
 

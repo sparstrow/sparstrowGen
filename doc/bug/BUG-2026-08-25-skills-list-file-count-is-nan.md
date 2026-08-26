@@ -1,6 +1,6 @@
 # BUG-2026-08-25-skills-list-file-count-is-nan
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — found while verifying `T-WA-05`'s Server Action conversion live
 **Reported:** 2026-08-25
 
