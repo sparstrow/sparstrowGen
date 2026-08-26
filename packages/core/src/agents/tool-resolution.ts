@@ -8,6 +8,9 @@ import {
 import { getDb } from "../db/connection.js";
 import { settings } from "../db/schema.js";
 
+import { isControlPlaneHealthy } from "../cloud/commands.js";
+import { logger } from "../logger.js";
+
 /** Settings keys holding the factory-wide (Global-level) tool policy. */
 const GLOBAL_ALLOWED_KEY = "tools.global.allowed";
 const GLOBAL_DISALLOWED_KEY = "tools.global.disallowed";
@@ -23,11 +26,42 @@ function readJsonStringArray(key: string): string[] {
   }
 }
 
+let cachedCloudPolicy: ToolPolicy | null = null;
+let loggedLocalFallback = false;
+
+export function cacheWorkspacePolicy(policy: { allowedTools: string[]; disallowedTools: string[] }) {
+  cachedCloudPolicy = { allowed: policy.allowedTools, disallowed: policy.disallowedTools };
+}
+
+export function _resetWorkspacePolicyCache() {
+  cachedCloudPolicy = null;
+  loggedLocalFallback = false;
+}
+
 export function readGlobalToolPolicy(): ToolPolicy {
-  return {
+  const localRows: ToolPolicy = {
     allowed: readJsonStringArray(GLOBAL_ALLOWED_KEY),
     disallowed: readJsonStringArray(GLOBAL_DISALLOWED_KEY),
   };
+
+  if (cachedCloudPolicy !== null) {
+    if (isControlPlaneHealthy()) {
+      return cachedCloudPolicy;
+    }
+    const localEffective = resolveEffectiveTools({ global: localRows });
+    const cachedEffective = resolveEffectiveTools({ global: cachedCloudPolicy });
+    const intersected = intersectEffectiveTools(cachedEffective, localEffective);
+    return {
+      allowed: intersected.allowed,
+      disallowed: intersected.disallowed,
+    };
+  }
+
+  if (!loggedLocalFallback) {
+    logger.warn("running on local tool policy — control plane has never been reached");
+    loggedLocalFallback = true;
+  }
+  return localRows;
 }
 
 interface WithToolPolicy {

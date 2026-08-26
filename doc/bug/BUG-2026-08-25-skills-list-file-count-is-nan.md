@@ -1,6 +1,6 @@
 # BUG-2026-08-25-skills-list-file-count-is-nan
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — found while verifying `T-WA-05`'s Server Action conversion live
 **Reported:** 2026-08-25
 
@@ -46,7 +46,15 @@ own display), no data loss.
 
 ## Resolution
 
-*Open. Fix belongs to whichever task next touches the skills list read: either
-have `GET /skills` join/aggregate a real count from `skill_files`, or stop
-displaying a count on the list and reserve it for the detail page where
-`files.length` is already correct.*
+Fixed on `development` (PR #134): took the second of the two options this
+report named — the Files column and its `skill.fileCount + 1` tooltip were
+removed from the skills list table entirely (`apps/web/src/app/skills/skills.tsx`),
+rather than teaching `GET /skills` to join/aggregate a count it never carried.
+The detail page's own file tree (`files.length`, fixed by
+`BUG-2026-08-25-skill-detail-page-always-crashes`) is still where a file count
+is accurate; the list no longer claims to show one.
+
+Not verified live by this record — the fix landed on `development` in a
+parallel session and was picked up by band 22 via its pre-promotion merge
+(`AGENTS.md` §2 rule 4). Confirmed by reading the merged diff: the column
+header, its cell, and the `colSpan` adjustment are all present and consistent.

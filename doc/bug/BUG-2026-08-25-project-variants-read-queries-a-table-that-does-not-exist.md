@@ -1,6 +1,6 @@
 # BUG-2026-08-25-project-variants-read-queries-a-table-that-does-not-exist
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — found while converting `useCreateVariant` in `T-WA-02`
 **Reported:** 2026-08-25
 
@@ -48,7 +48,12 @@ this phase converts writes only), so left as found rather than fixed here.
 
 ## Resolution
 
-*Open. Fix belongs in whichever task next touches project reads — change
-`useProjectVariants`'s query (and the `GET /projects/:id/variants` handler) to
-select from `projects` filtered by `parent_project_id = :id` instead of the
-nonexistent `project_variants` table.*
+Fixed on `development` (PR #134), exactly the fix this report named:
+`GET /projects/:id/variants` (`apps/web/src/lib/api/handlers/projects.ts`)
+now selects from `projects` filtered by `eq("parent_project_id", params.id)`
+instead of the nonexistent `project_variants` table. The client hook's URL
+was unchanged, so no call-site edit was needed on that side.
+
+Not verified live by this record — the fix landed on `development` in a
+parallel session and was picked up by band 22 via its pre-promotion merge
+(`AGENTS.md` §2 rule 4). Confirmed by reading the merged diff.

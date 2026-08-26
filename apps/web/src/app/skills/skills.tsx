@@ -266,7 +266,6 @@ export function SkillsPage() {
                 <TableHead>Skill</TableHead>
                 <TableHead>Origin</TableHead>
                 <TableHead>Used by</TableHead>
-                <TableHead>Files</TableHead>
                 <TableHead>Enabled</TableHead>
                 <TableHead>Updated</TableHead>
                 <TableHead className="w-10" />
@@ -275,7 +274,7 @@ export function SkillsPage() {
             <TableBody>
               {visible.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                     No skills match{q ? ` “${query.trim()}”` : " this filter"}.
                   </TableCell>
                 </TableRow>
@@ -317,12 +316,6 @@ export function SkillsPage() {
                             {users.length} agent{users.length !== 1 && "s"}
                           </span>
                         )}
-                      </TableCell>
-                      <TableCell className="text-xs tabular-nums text-muted-foreground">
-                        <span className="inline-flex items-center gap-1.5" title={`${skill.fileCount + 1} files including SKILL.md`}>
-                          <Files className="size-3 text-muted-foreground" />
-                          {skill.fileCount + 1}
-                        </span>
                       </TableCell>
                       <TableCell>
                         <Switch

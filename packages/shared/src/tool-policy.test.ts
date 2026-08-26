@@ -1,15 +1,18 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import {
   intersectEffectiveTools,
   isToolPolicySubset,
   resolveEffectiveTools,
   type EffectiveTools,
+  resolveEffectiveToolsWithProvenance,
+  intersectEffectiveToolsWithProvenance,
+  toLegacyShape,
 } from "./tool-policy";
 
 const P = (allowed: string[] = [], disallowed: string[] = []) => ({ allowed, disallowed });
 
-describe("resolveEffectiveTools — P2-lite truth table", () => {
-  it("empty everywhere ⇒ empty (provider default), not deny-all (P2-Q2)", () => {
+describe("resolveEffectiveTools â€” P2-lite truth table", () => {
+  it("empty everywhere â‡’ empty (provider default), not deny-all (P2-Q2)", () => {
     expect(resolveEffectiveTools({})).toEqual({ allowed: [], disallowed: [] });
     expect(resolveEffectiveTools({ agent: P() })).toEqual({ allowed: [], disallowed: [] });
   });
@@ -52,7 +55,7 @@ describe("resolveEffectiveTools — P2-lite truth table", () => {
   });
 });
 
-describe("isToolPolicySubset — P3 delegation clamp (S1-a)", () => {
+describe("isToolPolicySubset â€” P3 delegation clamp (S1-a)", () => {
   const parent: EffectiveTools = { allowed: ["Read", "WebSearch"], disallowed: ["Bash"] };
 
   it("child within the parent's allow-list and denying the parent's denies is a subset", () => {
@@ -76,14 +79,14 @@ describe("isToolPolicySubset — P3 delegation clamp (S1-a)", () => {
   });
 });
 
-describe("intersectEffectiveTools — S1-a LEAST constructor", () => {
+describe("intersectEffectiveTools â€” S1-a LEAST constructor", () => {
   const I = (a: EffectiveTools, b: EffectiveTools) => intersectEffectiveTools(a, b);
 
-  it("both allow-lists empty ⇒ empty allow, union of denies (provider default, tighter denies)", () => {
+  it("both allow-lists empty â‡’ empty allow, union of denies (provider default, tighter denies)", () => {
     expect(I(P([], ["Bash"]), P([], ["Edit"]))).toEqual({ allowed: [], disallowed: ["Bash", "Edit"] });
   });
 
-  it("one side empty ⇒ the non-default side is the bound", () => {
+  it("one side empty â‡’ the non-default side is the bound", () => {
     expect(I(P([], ["Edit"]), P(["Read", "WebSearch"], []))).toEqual({
       allowed: ["Read", "WebSearch"],
       disallowed: ["Edit"],
@@ -91,7 +94,7 @@ describe("intersectEffectiveTools — S1-a LEAST constructor", () => {
     expect(I(P(["Read"], []), P([], ["Bash"]))).toEqual({ allowed: ["Read"], disallowed: ["Bash"] });
   });
 
-  it("both non-empty ⇒ set intersection of allows", () => {
+  it("both non-empty â‡’ set intersection of allows", () => {
     expect(I(P(["Read", "Edit"], []), P(["Read", "WebSearch"], []))).toEqual({
       allowed: ["Read"],
       disallowed: [],
@@ -114,9 +117,90 @@ describe("intersectEffectiveTools — S1-a LEAST constructor", () => {
     ];
     for (const [a, b] of cases) {
       const least = I(a, b);
-      // Union of denies + intersected allows ⇒ subset of each input by construction.
+      // Union of denies + intersected allows â‡’ subset of each input by construction.
       expect(isToolPolicySubset(least, a)).toBe(true);
       expect(isToolPolicySubset(least, b)).toBe(true);
+    }
+  });
+});
+
+function mulberry32(a: number) {
+  return function() {
+    let t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+}
+
+describe("resolveEffectiveToolsWithProvenance", () => {
+  it("explicit cases", () => {
+    const r1 = resolveEffectiveToolsWithProvenance({});
+    expect(r1.usesProviderDefault).toBe(true);
+    expect(r1.tools).toEqual([]);
+
+    const r2 = resolveEffectiveToolsWithProvenance({
+      project: P([], ["Bash"]),
+      task: P([], ["Bash"]),
+    });
+    expect(r2.tools.find((t) => t.tool === "Bash")?.deniedBy).toEqual(["project", "task"]);
+
+    const r3 = resolveEffectiveToolsWithProvenance({
+      agent: P(["Bash"]),
+      project: P([], ["Bash"]),
+    });
+    const tool = r3.tools.find((t) => t.tool === "Bash");
+    expect(tool?.grantedBy).toEqual(["agent"]);
+    expect(tool?.deniedBy).toEqual(["project"]);
+    
+    const bound = resolveEffectiveToolsWithProvenance({ agent: P([], ["Edit"]) });
+    const resolved = resolveEffectiveToolsWithProvenance({ task: P(["Edit", "Read"]) });
+    const intersected = intersectEffectiveToolsWithProvenance(resolved, bound);
+    
+    expect([...toLegacyShape(intersected).allowed].sort()).toEqual([...intersectEffectiveTools(toLegacyShape(resolved), toLegacyShape(bound)).allowed].sort());
+    expect([...toLegacyShape(intersected).disallowed].sort()).toEqual([...intersectEffectiveTools(toLegacyShape(resolved), toLegacyShape(bound)).disallowed].sort());
+    expect(intersected.tools.find(t => t.tool === "Edit")?.deniedBy).toContain("delegation-bound");
+  });
+
+  it("agrees with resolveEffectiveTools on randomized input", () => {
+    const prng = mulberry32(12345);
+    const levels = ["global", "agent", "project", "task"] as const;
+    const possibleTools = ["A", "B", "C", "D"];
+
+    for (let i = 0; i < 200; i++) {
+      const policy: any = {};
+      for (const lvl of levels) {
+        if (prng() > 0.5) {
+          const allowed = possibleTools.filter(() => prng() > 0.5);
+          const disallowed = possibleTools.filter(() => prng() > 0.8);
+          policy[lvl] = P(allowed, disallowed);
+        }
+      }
+
+      const legacy = resolveEffectiveTools(policy);
+      const prov = resolveEffectiveToolsWithProvenance(policy);
+      expect([...toLegacyShape(prov).allowed].sort()).toEqual([...legacy.allowed].sort());
+      expect([...toLegacyShape(prov).disallowed].sort()).toEqual([...legacy.disallowed].sort());
+    }
+  });
+  
+  it("intersectEffectiveToolsWithProvenance agrees with intersectEffectiveTools on randomized input", () => {
+    const prng = mulberry32(54321);
+    const possibleTools = ["A", "B", "C", "D"];
+
+    for (let i = 0; i < 200; i++) {
+      const aAllowed = prng() > 0.2 ? possibleTools.filter(() => prng() > 0.5) : [];
+      const aDisallowed = possibleTools.filter(() => prng() > 0.8);
+      const bAllowed = prng() > 0.2 ? possibleTools.filter(() => prng() > 0.5) : [];
+      const bDisallowed = possibleTools.filter(() => prng() > 0.8);
+      
+      const a = resolveEffectiveToolsWithProvenance({ global: P(aAllowed, aDisallowed) });
+      const b = resolveEffectiveToolsWithProvenance({ global: P(bAllowed, bDisallowed) });
+      
+      const legacyIntersect = intersectEffectiveTools(toLegacyShape(a), toLegacyShape(b));
+      const provIntersect = intersectEffectiveToolsWithProvenance(a, b);
+      expect([...toLegacyShape(provIntersect).allowed].sort()).toEqual([...legacyIntersect.allowed].sort());
+      expect([...toLegacyShape(provIntersect).disallowed].sort()).toEqual([...legacyIntersect.disallowed].sort());
     }
   });
 });

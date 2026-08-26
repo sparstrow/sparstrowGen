@@ -124,10 +124,10 @@ registerRoute({
   pattern: "/projects/:id/variants",
   handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
     const { data, error } = await supabase
-      .from("project_variants")
+      .from("projects")
       .select("*")
       .eq("workspace_id", workspaceId)
-      .eq("project_id", params.id);
+      .eq("parent_project_id", params.id);
     if (error) throw error;
     return ok(data);
   }
