@@ -35,15 +35,16 @@ import {
 } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { useQueryClient } from "@tanstack/react-query";
+import { useRuntimes, type Runtime } from "@web/api/hooks";
+import { callAction } from "@web/lib/call-action";
 import {
-  useCreatePairingCode,
-  useRemoveRuntime,
-  useRenameRuntime,
-  useRevokeRuntimeToken,
-  useRuntimes,
-  useSetRuntimeSetting,
-  type Runtime,
-} from "@web/api/hooks";
+  createPairingCodeAction,
+  removeRuntimeAction,
+  renameRuntimeAction,
+  revokeRuntimeTokenAction,
+  setRuntimeSettingAction,
+} from "./actions";
 import {
   DEFAULT_WIP_SNAPSHOT_KEEP,
   SETTING_WIP_SNAPSHOT,
@@ -262,9 +263,10 @@ function MachineTile({ state }: { state: MachineState }) {
 }
 
 function RuntimeRow({ runtime }: { runtime: Runtime }) {
-  const rename = useRenameRuntime();
-  const revoke = useRevokeRuntimeToken();
-  const remove = useRemoveRuntime();
+  const queryClient = useQueryClient();
+  const [, startRename] = React.useTransition();
+  const [revokePending, startRevoke] = React.useTransition();
+  const [removePending, startRemove] = React.useTransition();
 
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(runtime.name);
@@ -274,7 +276,12 @@ function RuntimeRow({ runtime }: { runtime: Runtime }) {
 
   function commit() {
     const next = draft.trim();
-    if (next && next !== runtime.name) rename.mutate({ id: runtime.id, name: next });
+    if (next && next !== runtime.name) {
+      startRename(async () => {
+        const r = await callAction(() => renameRuntimeAction(runtime.id, next));
+        if (r.ok) void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
+      });
+    }
     setEditing(false);
   }
 
@@ -397,8 +404,17 @@ function RuntimeRow({ runtime }: { runtime: Runtime }) {
         }
         confirmLabel="Revoke pairing"
         pendingLabel="Revoking…"
-        pending={revoke.isPending}
-        onConfirm={() => revoke.mutate(runtime.id, { onSettled: () => setConfirming(null) })}
+        pending={revokePending}
+        onConfirm={() =>
+          startRevoke(async () => {
+            const r = await callAction(() => revokeRuntimeTokenAction(runtime.id));
+            if (r.ok) {
+              void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
+              void queryClient.invalidateQueries({ queryKey: ["health"] });
+            }
+            setConfirming(null);
+          })
+        }
       />
 
       <ConfirmDialog
@@ -414,8 +430,17 @@ function RuntimeRow({ runtime }: { runtime: Runtime }) {
         }
         confirmLabel="Remove machine"
         pendingLabel="Removing…"
-        pending={remove.isPending}
-        onConfirm={() => remove.mutate(runtime.id, { onSettled: () => setConfirming(null) })}
+        pending={removePending}
+        onConfirm={() =>
+          startRemove(async () => {
+            const r = await callAction(() => removeRuntimeAction(runtime.id));
+            if (r.ok) {
+              void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
+              void queryClient.invalidateQueries({ queryKey: ["health"] });
+            }
+            setConfirming(null);
+          })
+        }
       />
     </Item>
   );
@@ -441,8 +466,10 @@ function RuntimeRow({ runtime }: { runtime: Runtime }) {
  * "unreachable" and "offline" about the same machine in two places.
  */
 function SnapshotControl({ runtime }: { runtime: Runtime }) {
-  const setSetting = useSetRuntimeSetting();
+  const queryClient = useQueryClient();
+  const [, startTransition] = React.useTransition();
   const [pendingKey, setPendingKey] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
 
   const reported = runtime.reportedSettings ?? {};
   const enabled = isWipSnapshotEnabled(reported[SETTING_WIP_SNAPSHOT]);
@@ -453,10 +480,13 @@ function SnapshotControl({ runtime }: { runtime: Runtime }) {
   // this is here per machine and not one switch in workspace settings.
   const send = (key: string, value: string) => {
     setPendingKey(key);
-    setSetting.mutate(
-      { runtimeId: runtime.id, key, value },
-      { onSettled: () => setPendingKey(null) },
-    );
+    setError(null);
+    startTransition(async () => {
+      const r = await callAction(() => setRuntimeSettingAction(runtime.id, key, value));
+      if (!r.ok) setError(r.error);
+      else void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
+      setPendingKey(null);
+    });
   };
 
   return (
@@ -482,9 +512,7 @@ function SnapshotControl({ runtime }: { runtime: Runtime }) {
         </div>
       </div>
 
-      {setSetting.isError ? (
-        <p className="mt-1 text-xs text-destructive">{setSetting.error.message}</p>
-      ) : null}
+      {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
     </div>
   );
 }
@@ -557,7 +585,8 @@ function RuntimesError({
 
 export function MachinesPage() {
   const runtimes = useRuntimes();
-  const createCode = useCreatePairingCode();
+  const [createPending, startCreate] = React.useTransition();
+  const [createError, setCreateError] = React.useState<string | null>(null);
   const [issued, setIssued] = React.useState<{
     code: string;
     expiresAt: string;
@@ -593,15 +622,20 @@ export function MachinesPage() {
 
   const pair = () => {
     setPairOutcome(null);
-    createCode.mutate(undefined, {
-      onSuccess: (result) =>
-        setIssued({ ...result, knownIds: new Set(machines.map((m) => m.id)) }),
+    setCreateError(null);
+    startCreate(async () => {
+      const r = await callAction(() => createPairingCodeAction());
+      if (!r.ok) {
+        setCreateError(r.error);
+        return;
+      }
+      setIssued({ ...r.data, knownIds: new Set(machines.map((m) => m.id)) });
     });
   };
 
   const PairButton = ({ variant }: { variant: "default" | "outline" }) => (
-    <Button variant={variant} disabled={createCode.isPending} onClick={pair}>
-      {createCode.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+    <Button variant={variant} disabled={createPending} onClick={pair}>
+      {createPending ? <Loader2 className="size-4 animate-spin" /> : null}
       Pair a machine
     </Button>
   );
@@ -633,10 +667,8 @@ export function MachinesPage() {
         />
       ) : null}
 
-      {createCode.isError ? (
-        <p className="text-sm text-destructive">
-          Could not create a pairing code: {createCode.error.message}
-        </p>
+      {createError ? (
+        <p className="text-sm text-destructive">Could not create a pairing code: {createError}</p>
       ) : null}
 
       {pairOutcome ? (

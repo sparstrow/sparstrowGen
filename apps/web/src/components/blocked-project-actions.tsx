@@ -1,17 +1,13 @@
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, DownloadCloud, FolderSearch, Link2Off, Loader2, MonitorUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Task } from "@sparstrow/shared";
-import {
-  useCloneProject,
-  useProjects,
-  useRelinkProject,
-  useRuntimeProjects,
-  useRuntimes,
-  useUnbindProject,
-  useUpdateTask,
-} from "@web/api/hooks";
+import { useProjects, useRuntimeProjects, useRuntimes } from "@web/api/hooks";
+import { callAction } from "@web/lib/call-action";
+import { cloneProjectAction, relinkProjectAction, unbindProjectAction } from "@web/app/machines/actions";
+import { updateTaskAction } from "@web/app/tasks/actions";
 
 /**
  * M4 — what to do about a task blocked on a project the machine does not have.
@@ -75,11 +71,14 @@ export function BlockedProjectActions({ task }: { task: Task }) {
   const runtimes = useRuntimes();
   const bindings = useRuntimeProjects();
   const projects = useProjects();
+  const queryClient = useQueryClient();
 
-  const relink = useRelinkProject();
-  const clone = useCloneProject();
-  const unbind = useUnbindProject();
-  const updateTask = useUpdateTask();
+  const [relinkPending, startRelink] = React.useTransition();
+  const [clonePending, startClone] = React.useTransition();
+  const [unbindPending, startUnbind] = React.useTransition();
+  const [reassignPending, startReassign] = React.useTransition();
+  const [cloneQueued, setCloneQueued] = React.useState(false);
+  const [failure, setFailure] = React.useState<string | null>(null);
 
   const [prompting, setPrompting] = React.useState<"relink" | "clone" | null>(null);
 
@@ -100,10 +99,12 @@ export function BlockedProjectActions({ task }: { task: Task }) {
     (m) => m.online && boundElsewhere.some((b) => b.runtimeId === m.id),
   );
 
-  const busy =
-    relink.isPending || clone.isPending || unbind.isPending || updateTask.isPending;
+  const busy = relinkPending || clonePending || unbindPending || reassignPending;
 
-  const failure = relink.error ?? clone.error ?? unbind.error ?? updateTask.error ?? null;
+  const invalidateBindings = () => {
+    void queryClient.invalidateQueries({ queryKey: ["runtime-projects"] });
+    void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+  };
 
   return (
     <div className="mt-2 rounded-md border border-warning/40 bg-warning/5 p-2">
@@ -120,43 +121,52 @@ export function BlockedProjectActions({ task }: { task: Task }) {
         <PathPrompt
           label={`Where is it on ${target.name}?`}
           placeholder="D:\\code\\my-project"
-          pending={relink.isPending}
+          pending={relinkPending}
           onCancel={() => setPrompting(null)}
-          onSubmit={(localPath) =>
-            relink.mutate(
-              { runtimeId: target.id, projectId: task.projectId!, localPath },
-              {
-                onSuccess: () => {
-                  setPrompting(null);
-                  // Back to todo: the blocker is gone, so the task should be
-                  // runnable again rather than sitting in a state named after
-                  // a problem that has been fixed.
-                  updateTask.mutate({ id: task.id, data: { status: "todo" } });
-                },
-              },
-            )
-          }
+          onSubmit={(localPath) => {
+            setFailure(null);
+            startRelink(async () => {
+              const r = await callAction(() =>
+                relinkProjectAction(target.id, task.projectId!, localPath),
+              );
+              if (!r.ok) {
+                setFailure(r.error);
+                return;
+              }
+              invalidateBindings();
+              setPrompting(null);
+              // Back to todo: the blocker is gone, so the task should be
+              // runnable again rather than sitting in a state named after
+              // a problem that has been fixed.
+              void callAction(() => updateTaskAction(task.id, { status: "todo" }));
+            });
+          }}
         />
       ) : prompting === "clone" && target ? (
         <PathPrompt
           label={`Where should it be cloned on ${target.name}?`}
           placeholder="D:\\code\\my-project"
-          pending={clone.isPending}
+          pending={clonePending}
           onCancel={() => setPrompting(null)}
-          onSubmit={(localPath) =>
-            clone.mutate(
-              { runtimeId: target.id, projectId: task.projectId!, localPath },
-              {
-                onSuccess: () => {
-                  setPrompting(null);
-                  // Deliberately NOT moved to todo. The clone has been queued,
-                  // not finished; the binding turns `bound` when the machine
-                  // says so, and claiming success here would be the same lie
-                  // the snapshot toggle avoids.
-                },
-              },
-            )
-          }
+          onSubmit={(localPath) => {
+            setFailure(null);
+            startClone(async () => {
+              const r = await callAction(() =>
+                cloneProjectAction(target.id, task.projectId!, localPath),
+              );
+              if (!r.ok) {
+                setFailure(r.error);
+                return;
+              }
+              invalidateBindings();
+              setPrompting(null);
+              setCloneQueued(true);
+              // Deliberately NOT moved to todo. The clone has been queued,
+              // not finished; the binding turns `bound` when the machine
+              // says so, and claiming success here would be the same lie
+              // the snapshot toggle avoids.
+            });
+          }}
         />
       ) : (
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -165,12 +175,19 @@ export function BlockedProjectActions({ task }: { task: Task }) {
               size="sm"
               variant="secondary"
               disabled={busy}
-              onClick={() =>
-                updateTask.mutate({
-                  id: task.id,
-                  data: { targetRuntimeId: reassignTo.id, status: "todo" },
-                })
-              }
+              onClick={() => {
+                setFailure(null);
+                startReassign(async () => {
+                  const r = await callAction(() =>
+                    updateTaskAction(task.id, {
+                      targetRuntimeId: reassignTo.id,
+                      status: "todo",
+                    }),
+                  );
+                  if (!r.ok) setFailure(r.error);
+                  else void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+                });
+              }}
             >
               <MonitorUp className="size-3.5" />
               Run on {reassignTo.name}
@@ -197,9 +214,16 @@ export function BlockedProjectActions({ task }: { task: Task }) {
               variant="ghost"
               disabled={busy}
               title={`Stop considering ${target.name} for this project`}
-              onClick={() =>
-                unbind.mutate({ runtimeId: target.id, projectId: task.projectId! })
-              }
+              onClick={() => {
+                setFailure(null);
+                startUnbind(async () => {
+                  const r = await callAction(() =>
+                    unbindProjectAction(target.id, task.projectId!),
+                  );
+                  if (!r.ok) setFailure(r.error);
+                  else invalidateBindings();
+                });
+              }}
             >
               <Link2Off className="size-3.5" />
               Unbind
@@ -208,14 +232,14 @@ export function BlockedProjectActions({ task }: { task: Task }) {
         </div>
       )}
 
-      {clone.isSuccess && !prompting ? (
+      {cloneQueued && !prompting ? (
         <p className="mt-1 text-xs text-muted-foreground">
           Clone queued. It appears here as available once {target?.name ?? "the machine"} reports
           it.
         </p>
       ) : null}
 
-      {failure ? <p className="mt-1 text-xs text-destructive">{failure.message}</p> : null}
+      {failure ? <p className="mt-1 text-xs text-destructive">{failure}</p> : null}
     </div>
   );
 }

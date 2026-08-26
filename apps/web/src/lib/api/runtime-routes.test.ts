@@ -4,68 +4,37 @@ import { matchRoute } from "./router";
 import "./handlers";
 
 /**
- * M4's per-runtime routes: the four `project_not_available` actions and the
- * WIP snapshot toggle.
- *
- * These assert dispatch, not handler bodies — the bodies need a Supabase
- * session and belong in T-M4-08's live pass. Dispatch is where M2's defects 4
- * and 5 lived (a static path swallowed by `:id`, and a route registered twice
- * with the real handler shadowed by its own stub), and both are re-introducible
- * by exactly the kind of change this task makes.
+ * M4's per-runtime routes used to be tested here for dispatch (path-shadowing
+ * regressions: M2 defects 4 and 5). `T-WA-08` moved all of them —
+ * relink/unbind/clone and the settings switch, plus pairing-code creation,
+ * rename, revoke and remove — to `app/machines/actions.ts`. A Server Action
+ * has no path pattern to be shadowed by, so that class of regression no
+ * longer applies; their behavioural coverage lives in
+ * `app/machines/actions.test.ts` instead. Only the surviving GET routes are
+ * dispatch-tested here.
  */
 
-const routes: Array<[string, string]> = [
-  ["PUT", "/runtimes/rt_1/projects/prj_1"],
-  ["DELETE", "/runtimes/rt_1/projects/prj_1"],
-  ["POST", "/runtimes/rt_1/projects/prj_1/clone"],
-  ["PUT", "/runtimes/rt_1/settings"],
-];
-
-describe("per-runtime routes", () => {
-  it.each(routes)("%s %s resolves to a handler", (method, path) => {
-    expect(matchRoute(method, path)).not.toBeNull();
-  });
-
-  it("binds both path parameters", () => {
-    const matched = matchRoute("PUT", "/runtimes/rt_1/projects/prj_1");
-    expect(matched?.params).toMatchObject({ id: "rt_1", projectId: "prj_1" });
-  });
-
-  it("does not let /runtimes/:id/settings be swallowed by /runtimes/:id", () => {
-    // The M2 defect 4 shape. `/runtimes/:id` is registered for PUT-adjacent
-    // methods, and first-match-wins ordering would resolve this as a runtime
-    // literally named "settings".
-    const matched = matchRoute("PUT", "/runtimes/rt_1/settings");
-    expect(matched?.route.pattern).toBe("/runtimes/:id/settings");
-  });
-
-  it("keeps clone distinct from the binding it hangs off", () => {
-    const clone = matchRoute("POST", "/runtimes/rt_1/projects/prj_1/clone");
-    expect(clone?.route.pattern).toBe("/runtimes/:id/projects/:projectId/clone");
-  });
-
-  it("registers each of them exactly once", () => {
-    // M2 defect 5: `POST /goals` was registered twice and the real insert
-    // shadowed its own 501 stub. A duplicate here would mean one of these
-    // silently never runs.
-    for (const [method, path] of routes) {
-      const matched = matchRoute(method, path);
-      expect(matched, `${method} ${path}`).not.toBeNull();
-    }
-  });
-
-  it("still serves the M3 routes it was appended beside", () => {
+describe("dispatch", () => {
+  it("still serves the reads T-WA-08 left in place", () => {
     expect(matchRoute("GET", "/runtimes")).not.toBeNull();
-    expect(matchRoute("DELETE", "/runtimes/rt_1")).not.toBeNull();
-    // Revoke is a DELETE on the token, not a POST — asserted with the real
-    // method so this test keeps its value as a regression guard.
-    expect(matchRoute("DELETE", "/runtimes/rt_1/token")).not.toBeNull();
+    expect(matchRoute("GET", "/runtime-projects")).not.toBeNull();
+  });
+
+  it("no longer serves the writes T-WA-08 moved to Server Actions", () => {
+    expect(matchRoute("POST", "/pairing-codes")).toBeNull();
+    expect(matchRoute("PATCH", "/runtimes/rt_1")).toBeNull();
+    expect(matchRoute("DELETE", "/runtimes/rt_1")).toBeNull();
+    expect(matchRoute("DELETE", "/runtimes/rt_1/token")).toBeNull();
+    expect(matchRoute("PUT", "/runtimes/rt_1/settings")).toBeNull();
+    expect(matchRoute("PUT", "/runtimes/rt_1/projects/prj_1")).toBeNull();
+    expect(matchRoute("DELETE", "/runtimes/rt_1/projects/prj_1")).toBeNull();
+    expect(matchRoute("POST", "/runtimes/rt_1/projects/prj_1/clone")).toBeNull();
   });
 });
 
-describe("the settings allowlist the route enforces", () => {
+describe("the settings allowlist the action enforces", () => {
   it("contains the WIP snapshot switch and nothing unexpected", () => {
-    // Three copies of this list exist by design (daemon, route, UI). The
+    // Three copies of this list exist by design (daemon, action, UI). The
     // daemon's is the one that matters; this asserts the shared constant they
     // all read has not quietly grown.
     expect(DAEMON_SETTABLE_KEYS).toContain(SETTING_WIP_SNAPSHOT);

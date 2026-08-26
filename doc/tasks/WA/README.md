@@ -198,7 +198,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | [T-WA-05 — skills](T-WA-05-skills.md) | `[C]` | foundational | T-WA-01 | done except G-40 2026-08-25 |
 | [T-WA-06 — runs, schedule, pipelines](T-WA-06-runs-schedule-pipelines.md) | `[C]` | foundational | T-WA-01 | done except G-42 2026-08-25 |
 | [T-WA-07 — chat, messages](T-WA-07-chat-messages.md) | `[C]` | foundational | T-WA-01 | done except G-44 2026-08-26 |
-| [T-WA-08 — settings, profile, workspace, machines](T-WA-08-settings-profile-workspace-machines.md) | `[C]` | foundational | T-WA-01 | not started |
+| [T-WA-08 — settings, profile, workspace, machines](T-WA-08-settings-profile-workspace-machines.md) | `[C]` | foundational | T-WA-01 | done except G-45 2026-08-26 |
 | [T-WA-09 — verification](T-WA-09-verification.md) | `[S]` | foundational | T-WA-01–08 | not started |
 
 `T-WA-01` is `[S]` and gates the phase: it authors `action-result.ts` and the

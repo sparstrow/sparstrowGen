@@ -1427,3 +1427,61 @@ provider/model through to `retry_chat_turn`, and mapping `SPG19` to
 - **Clears when:** a paired daemon (or a hand-seeded `succeeded`/`failed` turn
   row) lets `RetryControls` render in a live pass, and a retry with a
   different model is confirmed to use it.
+
+### G-45 — `T-WA-08`'s avatar/logo upload, account deletion, and non-admin RLS refusal not exercised live
+
+**Raised:** 2026-08-26, verifying `T-WA-08` live.
+
+`updateProfileAction` (name field, persisting across reload) and
+`updateWorkspaceAction` (name — including the once-in-a-lifetime slug move
+from `personal-<hex>` to a real slug — and description, both persisting
+across reload) were proven live against a fresh disposable workspace.
+`createPairingCodeAction`, `renameRuntimeAction`, `setRuntimeSettingAction`,
+`revokeRuntimeTokenAction`, and `removeRuntimeAction` went further: a real
+local daemon was paired against the dev server (per
+`doc/runbooks/agent-browser-session.md`'s "If the pass needs a paired
+machine" section) and every one of the five was confirmed **from the
+daemon's own log**, not just the browser — `setting changed from the control
+plane: git.wipSnapshot = off` and `this machine's pairing was revoked —
+stopping the command loop` are the daemon's own words, not an inference from
+the UI settling.
+
+**Not exercised:**
+- `updateProfileAction`/`updateWorkspaceAction`'s avatar/logo path
+  (`ImageUploadField` → `useImageUploader().upload()` → Supabase Storage
+  directly, then `onSave(url)`). This is client-side storage, not something
+  either action does — but the task file's own listed trap (a `FormData`
+  serialization boundary) turned out not to exist at all: the upload never
+  reaches the action, only the resulting URL string does, so there was
+  nothing here to prove **for these actions specifically**. Uploading a real
+  file was skipped as testing `ImageUploadField`/Storage, not `T-WA-08`'s
+  actions.
+- `blocked-project-actions.tsx`'s `relinkProjectAction`/`cloneProjectAction`/
+  `unbindProjectAction`/`updateTaskAction` reassign — needs a task genuinely
+  `blocked` with a `targetRuntimeId` pinned (M4's `project_not_available`
+  path), which needs either a second paired machine or hand-seeded
+  `tasks`/`runtime_projects` rows. Judged out of proportion given the same
+  logic is exercised directly in `apps/web/src/app/machines/actions.test.ts`
+  and `updateTaskAction` itself was already proven live by `T-WA-04`.
+- The RLS-only enforcement claim for `revokeRuntimeTokenAction` (a non-admin
+  member gets the same "no active pairing found" refusal an admin would get
+  for a genuinely-missing token) — the disposable workspace has exactly one
+  member (its owner, who bootstraps as admin), so there was no non-admin
+  session available to prove the *denial* path specifically. The admin path
+  was proven live above; the RLS policy itself
+  (`daemon_tokens_admin_all`, `001_rls.sql`) is unchanged by this task.
+- Danger Zone's account deletion (`account.deleteAccount`) — untouched by
+  this task (already a Server Action call from `T-WA-01`'s work, not part of
+  this task's file list) and destructive against the disposable workspace
+  used for the rest of this pass; not re-verified here.
+
+- **If wrong:** low for the upload path (no code in scope touches it) and for
+  the blocked-task actions (their logic is unit-tested and `updateTaskAction`
+  itself is already live-proven). Medium in principle for the RLS-denial
+  claim, but the actual risk is bounded by the fact that the query is
+  byte-for-byte the one the route handler already ran — this task changed
+  the transport, not the policy or the query.
+- **Clears when:** a second workspace member at a non-admin role attempts
+  `revokeRuntimeTokenAction` against another member's machine live, or a real
+  avatar/logo file is uploaded through the running app and confirmed to
+  render after a reload.

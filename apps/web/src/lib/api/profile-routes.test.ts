@@ -6,13 +6,12 @@ import "./handlers";
 /**
  * M9's `/me` handler.
  *
- * Exercises handler bodies, not only dispatch — see the note in
- * `workspace-routes.test.ts` for why that is worth a fake here. The specific
- * thing this file exists to pin is **which store each field lands in**:
- * `bio` must never reach auth metadata, and `name` must reach both stores under
- * both metadata keys. Neither is visible from a 200, and getting either wrong
- * produces a change that works everywhere except the sidebar, or everywhere
- * except the rest of the schema.
+ * `PATCH /me` moved to `app/settings/actions.ts`'s `updateProfileAction`
+ * (`T-WA-08`) — the end-to-end "which store each field lands in" tests moved
+ * with it to `app/settings/actions.test.ts`. What's left here is
+ * `parseProfilePatch`'s own pure-function coverage (still exported from this
+ * module, re-exported from `lib/patch-validation.ts`) and the surviving
+ * `GET /me` route.
  */
 
 const SUPABASE_URL = "https://example.supabase.co";
@@ -28,25 +27,13 @@ afterEach(() => {
 
 type Row = Record<string, unknown>;
 
-function fakeSupabase(row: Row | null, opts: { user?: boolean; authFails?: boolean } = {}) {
-  const metadataWrites: Row[] = [];
-  const rowWrites: Row[] = [];
-
+function fakeSupabase(row: Row | null, opts: { user?: boolean } = {}) {
   function chain() {
-    let patch: Row | null = null;
     const self: Record<string, unknown> = {
       select: () => self,
       eq: () => self,
-      update(next: Row) {
-        patch = next;
-        return self;
-      },
       async maybeSingle() {
-        if (patch === null) return { data: row, error: null };
-        rowWrites.push(patch);
-        if (row === null) return { data: null, error: null };
-        Object.assign(row, patch);
-        return { data: { ...row }, error: null };
+        return { data: row, error: null };
       },
     };
     return self;
@@ -58,25 +45,16 @@ function fakeSupabase(row: Row | null, opts: { user?: boolean; authFails?: boole
       async getUser() {
         return { data: { user: opts.user === false ? null : { id: "u_1" } } };
       },
-      async updateUser({ data }: { data: Row }) {
-        metadataWrites.push(data);
-        return opts.authFails ? { error: { message: "gotrue is down" } } : { error: null };
-      },
     },
   };
 
-  return { supabase: supabase as never, metadataWrites, rowWrites };
+  return { supabase: supabase as never };
 }
 
-async function call(
-  method: "GET" | "PATCH",
-  body: unknown,
-  row: Row | null,
-  opts: { user?: boolean; authFails?: boolean } = {},
-) {
-  const matched = matchRoute(method, "/me");
-  if (!matched) throw new Error(`${method} /me is not registered`);
-  const { supabase, metadataWrites, rowWrites } = fakeSupabase(row, opts);
+async function call(body: unknown, row: Row | null, opts: { user?: boolean } = {}) {
+  const matched = matchRoute("GET", "/me");
+  if (!matched) throw new Error("GET /me is not registered");
+  const { supabase } = fakeSupabase(row, opts);
   const res = await matched.route.handler({
     supabase,
     workspaceId: "ws_1",
@@ -84,7 +62,7 @@ async function call(
     searchParams: new URLSearchParams(),
     body,
   });
-  return { status: res.status, json: await res.json(), metadataWrites, rowWrites };
+  return { status: res.status, json: await res.json() };
 }
 
 /** A user as `bootstrap_workspace` leaves them after T-M9-01: no name. */
@@ -99,13 +77,12 @@ const freshRow = (): Row => ({
 // ─── dispatch ────────────────────────────────────────────────────────────────
 
 describe("dispatch", () => {
-  it("registers GET and PATCH /me", () => {
+  it("still serves GET /me", () => {
     expect(matchRoute("GET", "/me")).not.toBeNull();
-    expect(matchRoute("PATCH", "/me")).not.toBeNull();
   });
 
-  it("is not swallowed by a stub", () => {
-    expect(matchRoute("PATCH", "/me")?.route.pattern).toBe("/me");
+  it("no longer serves PATCH /me — moved to updateProfileAction", () => {
+    expect(matchRoute("PATCH", "/me")).toBeNull();
   });
 });
 
@@ -185,78 +162,16 @@ describe("parseProfilePatch", () => {
   });
 });
 
-// ─── which store each field lands in ─────────────────────────────────────────
-
-describe("PATCH /me writes the right field to the right store", () => {
-  it("writes the name to both stores, under both metadata keys", async () => {
-    // bootstrap_workspace reads full_name first and name second, so writing
-    // both is what makes a future bootstrap find the chosen name.
-    const { status, metadataWrites, rowWrites } = await call("PATCH", { name: "Sri Hari" }, freshRow());
-    expect(status).toBe(200);
-    expect(metadataWrites).toEqual([{ full_name: "Sri Hari", name: "Sri Hari" }]);
-    expect(rowWrites[0]).toMatchObject({ name: "Sri Hari" });
-  });
-
-  it("keeps bio out of auth metadata entirely", async () => {
-    // Plan decision 9. The shell never renders it, and it would ride along on
-    // every request in the JWT.
-    const { metadataWrites, rowWrites } = await call("PATCH", { bio: "Builds things." }, freshRow());
-    expect(metadataWrites).toEqual([]);
-    expect(rowWrites[0]).toMatchObject({ bio: "Builds things." });
-  });
-
-  it("writes the avatar to both stores", async () => {
-    const { metadataWrites, rowWrites } = await call("PATCH", { avatar_url: OWN_IMAGE }, freshRow());
-    expect(metadataWrites).toEqual([{ avatar_url: OWN_IMAGE }]);
-    expect(rowWrites[0]).toMatchObject({ avatar_url: OWN_IMAGE });
-  });
-
-  it("does not blank the other fields when only one is sent", async () => {
-    const row = { ...freshRow(), name: "Sri Hari", bio: "Existing bio." };
-    const { rowWrites } = await call("PATCH", { bio: "New bio." }, row);
-    expect(rowWrites[0]).not.toHaveProperty("name");
-    expect(row.name).toBe("Sri Hari");
-  });
-
-  it("stamps updated_at", async () => {
-    const { rowWrites } = await call("PATCH", { bio: "b" }, freshRow());
-    expect(rowWrites[0]).toHaveProperty("updated_at");
-  });
-
-  it("writes auth before the row, and surfaces an auth failure instead of the row", async () => {
-    // Reversed, a failing auth update after a successful row update would leave
-    // the shell showing the old value with no error at all.
-    const row = freshRow();
-    await expect(call("PATCH", { name: "Sri Hari" }, row, { authFails: true })).rejects.toBeTruthy();
-    expect(row.name).toBe("");
-  });
-});
-
-describe("PATCH /me refusals", () => {
-  it("401s with no session", async () => {
-    const { status } = await call("PATCH", { name: "x" }, freshRow(), { user: false });
+describe("GET /me refusals", () => {
+  it("401s an unauthenticated read", async () => {
+    const { status } = await call(undefined, freshRow(), { user: false });
     expect(status).toBe(401);
-  });
-
-  it("401s an unauthenticated read too", async () => {
-    const { status } = await call("GET", undefined, freshRow(), { user: false });
-    expect(status).toBe(401);
-  });
-
-  it("400s an empty patch rather than reporting a successful no-op", async () => {
-    const { status } = await call("PATCH", {}, freshRow());
-    expect(status).toBe(400);
-  });
-
-  it("404s when the update matches no row", async () => {
-    const { status } = await call("PATCH", { bio: "b" }, null);
-    expect(status).toBe(404);
   });
 });
 
 describe("GET /me", () => {
   it("returns the row the form edits, camel-cased, without the role", async () => {
-    const { status, json } = await call("GET", undefined, freshRow());
+    const { status, json } = await call(undefined, freshRow());
     expect(status).toBe(200);
     expect(json).toEqual({
       id: "u_1",
