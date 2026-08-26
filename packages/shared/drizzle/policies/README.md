@@ -126,6 +126,11 @@ policies/010_transcript_broadcast.sql  M5 — who may subscribe to a run's trans
 policies/011_drop_auto_confirm.sql     drop the auth.users auto-confirm trigger
 policies/012_no_invented_names.sql     M9 — bootstrap stops inventing names + one-time cleanup
 policies/013_storage_images.sql        M9 — the public-images bucket and its write policies
+policies/014_chat_turn_dispatch.sql    M12 — enqueue/retry/assign a chat turn
+policies/015_chat_broadcast.sql        M12 — who may subscribe to a chat turn's live reply
+policies/016_chat_turn_transcript.sql  M12 — recent messages travel in the chat.turn payload
+policies/017_access_model.sql          M18 — machine_shared_locations, agent_machine_restrictions
+policies/018_terminal_channels.sql     M16 — terminal/machine channel read + send policies
 ```
 
 **Applied to staging 2026-08-18** as migrations `setup_identity_fields`,
@@ -227,6 +232,33 @@ row with a primary key, so a row lock is the precise tool. The code row is
 fetched **without** filtering on `consumed_at`, deliberately: filtering would
 make the loser of a race see zero rows and report "unknown code", sending
 someone hunting for a typo in a code that was simply already used.
+
+**018 is the first file here with an INSERT policy on `realtime.messages`,
+and the first gated on admin role rather than plain membership.** 010's and
+015's "no insert policy, deliberately" reasoning is unchanged and still
+applies to transcript and chat broadcasts — 018 grants a narrower thing on
+two new topic families: an admin may send a keystroke (`input`) or a control
+request (`request`) on a machine they may already open a shell on directly.
+The event pin (`event = 'input'` / `event = 'request'`) is what keeps that
+narrow: without it the same grant would let a client publish `output` or
+`reply` and forge what another tab watching the same channel displays.
+
+Confirmed directly against this project (not just the docs) before writing
+the send policies: `realtime.messages` has a `text` column named `event`
+holding the broadcast event name —
+
+```sql
+select column_name, data_type from information_schema.columns
+where table_schema = 'realtime' and table_name = 'messages';
+```
+
+Applied with `scripts/apply-sql.mjs` like every file since 009; re-run
+immediately after to confirm it is a no-op, and `pg_policies` shows exactly
+the expected six rows (010's, 015's, and 018's four). The deeper
+role/cross-workspace/event-forgery negative assertions are intentionally
+*not* done here as raw SQL impersonation — T-M16-06 §D does the live
+two-session version instead, matching T-M5-06 §E and T-M12-06's precedent of
+using a real second browser session rather than simulating one in SQL.
 
 ### Accepted advisor findings
 
