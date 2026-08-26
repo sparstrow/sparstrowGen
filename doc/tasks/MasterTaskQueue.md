@@ -333,100 +333,15 @@ file overlap is total.
 
 ### Band 22 — WA every write becomes a Server Action (2026-08-24)
 
-Plan: [`../plans/2026-08-24-server-action-write-conversion.md`](../plans/2026-08-24-server-action-write-conversion.md).
-Spec: n/a (internal). Phase spec: [`WA/README.md`](WA/README.md).
-
-Executes [`OQ-7`](../OpenQuestions.md)'s answer — **option A**, chosen by the
-owner on 2026-08-24 over the question's own 8/10 recommendation (option C).
-87 mutation call sites across 27 files stop POSTing to `/api/v1` and become
-Server Actions. Roughly 20 of those sites are stub-backed and excluded by the
-plan's DD-6, so the real converted count is lower and each task states its own.
-
-**This band changes nothing a user can see, deliberately.** That is what makes
-its verification the hard kind: `T-WA-09` grades "nothing changed", which a
-green typecheck cannot demonstrate.
-
-| # | Task | Tag | Depends on | Status |
-|---|---|---|---|---|
-| 22.1 | [T-WA-01 — the convention, and `teams` as the worked example](WA/T-WA-01-convention-and-teams.md) | `[S]` | — | ✅ done 2026-08-24 — 7 hooks and 9 handlers gone, all seven actions walked live; found and fixed [`BUG-2026-08-24-expired-session-turns-a-server-action-into-a-runtime-error`](../bug/BUG-2026-08-24-expired-session-turns-a-server-action-into-a-runtime-error.md), opened [`G-37`](../KnownGaps.md) |
-| 22.2 | [T-WA-02 — projects](WA/T-WA-02-projects.md) | `[C]` | 22.1 | queued |
-| 22.3 | [T-WA-03 — agents](WA/T-WA-03-agents.md) | `[C]` | 22.1 | queued |
-| 22.4 | [T-WA-04 — tasks, goals, attention](WA/T-WA-04-tasks-goals-attention.md) | `[C]` | 22.1 | queued |
-| 22.5 | [T-WA-05 — skills](WA/T-WA-05-skills.md) | `[C]` | 22.1 | queued |
-| 22.6 | [T-WA-06 — runs, schedule, pipelines](WA/T-WA-06-runs-schedule-pipelines.md) | `[C]` | 22.1 | queued |
-| 22.7 | [T-WA-07 — chat, messages](WA/T-WA-07-chat-messages.md) | `[C]` | 22.1 | queued |
-| 22.8 | [T-WA-08 — settings, profile, workspace, machines](WA/T-WA-08-settings-profile-workspace-machines.md) | `[C]` | 22.1 | queued |
-| 22.9 | [T-WA-09 — verification](WA/T-WA-09-verification.md) | `[S]` | 22.1–22.8 | queued |
-
-22.1 is `[S]` and gates the band: it authors `lib/action-result.ts` and the
-worked example the other seven copy. **Everything between is `[C]`, never `[P]`**
-— each owns its own page files, and all eight delete from
-`apps/web/src/api/hooks.ts`, a 2310-line file two agents cannot share.
-
-**22.1 found a defect that would have hit all 21 files** and fixed it before
-they were written: the middleware redirected every Server Action POST from a
-signed-out browser to `/login`, so an expired session produced a Next.js
-Runtime Error overlay instead of a message. The carve-out now covers actions,
-and it is a phase decision in [`WA/README.md`](WA/README.md) rather than a note
-in one task. This is the argument for `[S]`-gating a phase on a worked example.
-
-**Two hooks have consumers in two different tasks**, and whichever lands second
-deletes them: `useCreateRun` (22.4 and 22.6), and the two chat-session hooks
-(22.3 and 22.7, where 22.7 owns `app/chat/actions.ts`). These are the band's
-only real coordination points and both tasks name them.
-
-**Runs against bands 20/21 with care.** 22.8 edits `machines.tsx`, which
-`T-M17-04` also touches, and 22.2 has no overlap at all. If M17 is in flight,
-run 22.8 last or after it — the rest of the band is free.
+✅ **Archived 2026-08-26 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-22).
 
 ### Band 23 — M18 the access model's foundation (2026-08-24)
 
-Plan: [`../plans/2026-08-24-what-an-agent-is-allowed-to-do.md`](../plans/2026-08-24-what-an-agent-is-allowed-to-do.md).
-Spec: [`../specs/2026-08-24-what-an-agent-is-allowed-to-do.md`](../specs/2026-08-24-what-an-agent-is-allowed-to-do.md)
-— **owner-reviewed 2026-08-24**. Phase spec: [`M18/README.md`](M18/README.md).
-
-**Foundational: nothing in this band is visible to the owner.** It builds the
-subject/level/scope vocabulary, a resolver that reports which level decided
-each outcome, the first tool catalogue this repo has ever had, the cloud
-columns for the workspace-level policy, and the two tables `OQ-6`'s answer
-needs. At the end of it every screen looks exactly as it does today.
-
-**This band is where [`OQ-6`](../OpenQuestions.md) stops being a document.**
-Its answer — nominated locations, read-only, with a sensible pairing default —
-becomes `machine_shared_locations` in 23.4. The surface that renders it is
-M20's.
-
-| # | Task | Tag | Depends on | Status |
-|---|---|---|---|---|
-| 23.1 | [T-M18-01 — the access vocabulary](M18/T-M18-01-access-vocabulary.md) | `[S]` | — | queued |
-| 23.2 | [T-M18-02 — the provenance resolver](M18/T-M18-02-provenance-resolver.md) | `[P]` | 23.1 | queued |
-| 23.3 | [T-M18-03 — the tool catalogue](M18/T-M18-03-tool-catalogue.md) | `[P]` | 23.1 | queued |
-| 23.4 | [T-M18-04 — schema, policies, and dropping `users.role`](M18/T-M18-04-schema-and-policies.md) | `[P]` | 23.1 | queued |
-| 23.5 | [T-M18-05 — core reads the workspace policy from the cloud](M18/T-M18-05-core-cloud-policy.md) | `[C]` | 23.4 | queued |
-| 23.6 | [T-M18-06 — verification, and the `SC-006` sentence](M18/T-M18-06-verification.md) | `[S]` | 23.1–23.5 | queued |
-
-23.1 is `[S]` for the same reason `T-M16-01` gates M16: three tasks in two
-packages are written against its types. 23.2, 23.3 and 23.4 are genuinely
-disjoint — different files, different packages, hand them to three workers.
-23.5 is `[C]` because it edits `tool-resolution.ts`, which sits on the spawn
-path of every run.
-
-**23.4 needs the owner** for one step: it drops `users.role`, and a column drop
-is an `AGENTS.md` §3.7 destructive operation even when the column is provably
-inert. It also collides on a file *name* — M16's plan claims
-`policies/017_terminal_channels.sql`, so 23.4 must check the directory and take
-`018` if M16 landed first.
-
-**23.6 can fail the band on purpose.** `SC-006` asks for one sentence expressing
-a person's view-only grant in the model's own vocabulary; if it cannot be
-written without inventing a fifth concept, the model is not finished and the
-band reports done-except rather than passing itself.
-
-**Runs `[P]` against band 22.** Zero file overlap — band 22 is entirely inside
-`apps/web/src/app/**` and `hooks.ts`; band 23 is `packages/shared`,
-`packages/core`, and SQL. The one seam is 22.3's warning not to add tool-name
-validation to the agent form, because 23.3 is building the catalogue that
-validation needs.
+✅ **Archived 2026-08-26 (drift correction — landed on `development` via
+PR #129 without this flip; caught while promoting band 22, per
+`doc/tasks/README.md`'s "check the other bands too" step).** Full task
+table, tags and notes: [`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-23).
 
 ### Band 24 — M22–M24 reaching my machine from the browser (2026-08-24)
 

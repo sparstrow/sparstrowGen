@@ -54,8 +54,12 @@ live until now.
 
 ## Resolution
 
-*Open. Fix: have `GET /skills/:id` join `skill_files` (matching the
-`skillDetailSchema`'s shape) and return `files: [...]`, or compute it however
-the original design intended. Whichever task next touches skill reads should
-close this before touching anything else on the page — trying to build new
-features on top of a page that crashes on mount is not productive.*
+Fixed on `development` (PR #134), exactly the fix this report named:
+`GET /skills/:id` (`apps/web/src/lib/api/handlers/skills.ts`) now selects
+`"*, files:skill_files(*)"` instead of a plain `"*"`, so `skill.files` is a
+real array and `skill-detail.tsx`'s `.map(...)` no longer runs against
+`undefined`.
+
+Not verified live by this record — the fix landed on `development` in a
+parallel session and was picked up by band 22 via its pre-promotion merge
+(`AGENTS.md` §2 rule 4). Confirmed by reading the merged diff.

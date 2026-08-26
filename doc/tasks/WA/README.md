@@ -7,7 +7,7 @@
 | **Spec** | n/a (internal) |
 | **Depends on** | — |
 | **Blocks** | WA2 (the read conversions that make these writes one round trip) |
-| **Status** | 01 done 2026-08-24 |
+| **Status** | ✅ all 9 tasks done (T-WA-02/04/05/06/07/08/09 each except a `KnownGaps.md`/`Deferred.md` entry) 2026-08-26 |
 | **Open questions** | none — [`OQ-7`](../../OpenQuestions.md) closed 2026-08-24, option A |
 
 ## What all these tasks share
@@ -192,14 +192,14 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
 | [T-WA-01 — the convention, and `teams` as the worked example](T-WA-01-convention-and-teams.md) | `[S]` | foundational — unblocks every task below | — | ✅ done 2026-08-24 |
-| [T-WA-02 — projects](T-WA-02-projects.md) | `[C]` | foundational | T-WA-01 | not started |
-| [T-WA-03 — agents](T-WA-03-agents.md) | `[C]` | foundational | T-WA-01 | not started |
-| [T-WA-04 — tasks, goals, attention](T-WA-04-tasks-goals-attention.md) | `[C]` | foundational | T-WA-01 | not started |
-| [T-WA-05 — skills](T-WA-05-skills.md) | `[C]` | foundational | T-WA-01 | not started |
-| [T-WA-06 — runs, schedule, pipelines](T-WA-06-runs-schedule-pipelines.md) | `[C]` | foundational | T-WA-01 | not started |
-| [T-WA-07 — chat, messages](T-WA-07-chat-messages.md) | `[C]` | foundational | T-WA-01 | not started |
-| [T-WA-08 — settings, profile, workspace, machines](T-WA-08-settings-profile-workspace-machines.md) | `[C]` | foundational | T-WA-01 | not started |
-| [T-WA-09 — verification](T-WA-09-verification.md) | `[S]` | foundational | T-WA-01–08 | not started |
+| [T-WA-02 — projects](T-WA-02-projects.md) | `[C]` | foundational | T-WA-01 | done except G-39 2026-08-25 |
+| [T-WA-03 — agents](T-WA-03-agents.md) | `[C]` | foundational | T-WA-01 | done 2026-08-26 |
+| [T-WA-04 — tasks, goals, attention](T-WA-04-tasks-goals-attention.md) | `[C]` | foundational | T-WA-01 | done — `useCancelNode` deferred as `D-27` 2026-08-25 |
+| [T-WA-05 — skills](T-WA-05-skills.md) | `[C]` | foundational | T-WA-01 | done except G-40 2026-08-25 |
+| [T-WA-06 — runs, schedule, pipelines](T-WA-06-runs-schedule-pipelines.md) | `[C]` | foundational | T-WA-01 | done except G-42 2026-08-25 |
+| [T-WA-07 — chat, messages](T-WA-07-chat-messages.md) | `[C]` | foundational | T-WA-01 | done except G-44 2026-08-26 |
+| [T-WA-08 — settings, profile, workspace, machines](T-WA-08-settings-profile-workspace-machines.md) | `[C]` | foundational | T-WA-01 | done except G-45 2026-08-26 |
+| [T-WA-09 — verification](T-WA-09-verification.md) | `[S]` | foundational | T-WA-01–08 | done except G-46 2026-08-26 |
 
 `T-WA-01` is `[S]` and gates the phase: it authors `action-result.ts` and the
 worked example every other task copies. Everything between is `[C]` — genuinely

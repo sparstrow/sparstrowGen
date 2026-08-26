@@ -63,9 +63,17 @@ have caused it).
 
 ## Resolution
 
-*Open. Fix: rename the handler's `kind` field to `type` (or add `type` as an
-alias alongside `kind`) so the values `AttentionQueue`'s switch already checks
-for actually arrive. Whichever task next touches `GET /tasks/attention/queue`
-or `attention-queue.tsx` should close this before building anything else on
-top of the queue — right now `QuestionCard` and `ApprovalCard` are unreachable
-dead code in every real deployment.*
+Fixed on `development` (PR #134), the first of the two options this report
+named: `GET /tasks/attention/queue`'s handler
+(`apps/web/src/lib/api/handlers/tasks.ts`) renames every queue item's field
+from `kind` to `type` (question/approval/review/contradiction rows all
+updated), matching what `AttentionRow`/`AttentionQueue`'s render switch
+already read. `QuestionCard`/`ApprovalCard` should now actually mount for
+the first time.
+
+Not verified live by this record — the fix landed on `development` in a
+parallel session and was picked up by band 22 via its pre-promotion merge
+(`AGENTS.md` §2 rule 4). Confirmed by reading the merged diff; `T-WA-04`'s
+`answerTaskAction`/`approveTaskAction`/`denyTaskAction` remain covered by
+unit tests only (see that task's Result) — a fresh live pass exercising them
+through the now-reachable cards is still open.

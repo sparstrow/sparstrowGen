@@ -35,12 +35,11 @@ import { PipelinesPage } from "../../pipelines/pipelines";
 import { SchedulePage } from "../../schedule/schedule";
 import { PipelineCanvas } from "@web/components/pipelines/pipeline-canvas";
 import { useQueryClient } from "@tanstack/react-query";
-import { 
-  useTeam, 
-  useProjects, 
+import {
+  useTeam,
+  useProjects,
   useAgents,
   useTeamManagerChat,
-  useCreatePipeline
 } from "@web/api/hooks";
 import { callAction } from "@web/lib/call-action";
 import { setTeamProjectsAction } from "../actions";

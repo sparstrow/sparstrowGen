@@ -13,10 +13,22 @@ When one is answered, record the answer in the plan or task that consumes it and
 
 ---
 
-> **Nothing is currently open.** Both entries that stood here on the morning of
-> 2026-08-24 were answered by the owner that same day; where each answer now
-> lives is recorded below, per this file's own rule that an answered entry is
-> deleted rather than archived in place.
+> **No entries are currently open.** `OQ-6`, `OQ-7`, and `OQ-8`, which stood
+> here at various points, were all answered by the owner; where each answer
+> now lives is recorded below, per this file's own rule that an answered entry
+> is deleted rather than archived in place.
+>
+> **`OQ-8` — what does "cancel this step" actually do to a running plan
+> node — is closed.** Answered **option B**: a real stop-signal path from the
+> button down to the daemon actually running the process, not just a status
+> relabel. This is a genuine feature (a daemon-side cancel contract that does
+> not exist yet, plus a real `cancelled` `TaskStatus` value), not a `T-WA-04`
+> Server Action conversion, so it is parked rather than built inline —
+> `useCancelNode` ships exactly as `T-WA-04` left it (wired to the
+> never-existed `POST /goals/:id/nodes/:nodeId/cancel` route, 404ing as
+> before). Recorded as [`D-27`](Deferred.md), which carries the shape of the
+> work and its unpark trigger — a `doc/specs/` entry, since this crosses
+> `packages/core`, the control plane's `runs` table, and the web UI.
 >
 > **`OQ-6` — how much of a machine a signed-in person may look at — is closed.**
 > Answered **option B**, nominated locations with a sensible default at pairing.

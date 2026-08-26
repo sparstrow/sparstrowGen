@@ -32,8 +32,11 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { RunStatusBadge } from "@web/components/run-status-badge";
-import { useAgents, useCreateRun, useProjects, useRuns } from "@web/api/hooks";
+import { useAgents, useProjects, useRuns } from "@web/api/hooks";
 import { formatCost, formatDate, formatDuration, shortId } from "@/lib/format";
+import { callAction } from "@web/lib/call-action";
+import { createRunAction } from "./actions";
+import { useQueryClient } from "@tanstack/react-query";
 
 const STATUSES: RunStatus[] = ["queued", "running", "succeeded", "failed", "cancelled", "timeout"];
 
@@ -82,7 +85,9 @@ export function RunsPage() {
     status: (statusFilter || undefined) as RunStatus | undefined,
     limit: 200,
   });
-  const createRun = useCreateRun();
+  const queryClient = useQueryClient();
+  const [createPending, startCreate] = React.useTransition();
+  const [createError, setCreateError] = React.useState<string | null>(null);
 
   const [newAgentId, setNewAgentId] = React.useState("");
   const [newProjectId, setNewProjectId] = React.useState("");
@@ -122,16 +127,20 @@ export function RunsPage() {
 
   const submitRun = () => {
     if (!newAgentId || !newPrompt.trim()) return;
-    createRun.mutate(
-      { agentId: newAgentId, projectId: newProjectId || null, prompt: newPrompt },
-      {
-        onSuccess: (run) => {
-          setDialogOpen(false);
-          setNewPrompt("");
-          void router.push(`/runs/${run.id}`);
-        },
-      },
-    );
+    setCreateError(null);
+    startCreate(async () => {
+      const r = await callAction(() =>
+        createRunAction({ agentId: newAgentId, projectId: newProjectId || null, prompt: newPrompt }),
+      );
+      if (!r.ok) {
+        setCreateError(r.error);
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: ["runs"] });
+      setDialogOpen(false);
+      setNewPrompt("");
+      void router.push(`/runs/${r.data.id}`);
+    });
   };
 
   return (
@@ -324,9 +333,7 @@ export function RunsPage() {
                 onChange={(e) => setNewPrompt(e.target.value)}
               />
             </div>
-            {createRun.isError && (
-              <p className="text-sm text-destructive">{createRun.error.message}</p>
-            )}
+            {createError && <p className="text-sm text-destructive">{createError}</p>}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -334,9 +341,9 @@ export function RunsPage() {
             </Button>
             <Button
               onClick={submitRun}
-              disabled={!newAgentId || !newPrompt.trim() || createRun.isPending}
+              disabled={!newAgentId || !newPrompt.trim() || createPending}
             >
-              {createRun.isPending ? "Starting…" : "Start run"}
+              {createPending ? "Starting…" : "Start run"}
             </Button>
           </DialogFooter>
         </DialogContent>

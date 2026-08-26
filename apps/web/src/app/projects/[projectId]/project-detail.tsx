@@ -29,13 +29,10 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useQueryClient } from "@tanstack/react-query";
 import { WorkLauncher } from "@web/components/work-launcher";
 import {
   useAgents,
-  useCreateDirective,
-  useCreateTask,
-  useCreateVariant,
-  useDeleteDirective,
   useProject,
   useProjectBriefing,
   useProjectDream,
@@ -47,7 +44,6 @@ import {
   useProjectVariants,
   useProjectPrs,
   useProjects,
-  useUpdateProject,
   useGraphEngine,
   useLaunchViz,
   useProjectViz,
@@ -58,13 +54,20 @@ import {
   useSetProjectDream,
   useSyncFromBase,
   useTasks,
-  useUpdateDirective,
   type DirEntry,
 } from "@web/api/hooks";
 import { useMemoryNotes } from "@web/api/hooks";
 import { PrRow, ProfileBadge } from "@web/components/pr-queue";
+import { callAction } from "@web/lib/call-action";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import {
+  createDirectiveAction,
+  createVariantAction,
+  deleteDirectiveAction,
+  updateDirectiveAction,
+  updateProjectAction,
+} from "./actions";
 
 export function ProjectWorkspacePage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -203,17 +206,26 @@ function GitPanel({
   stagingBranch: string | null;
   hasRemote: boolean;
 }) {
-  const update = useUpdateProject();
+  const queryClient = useQueryClient();
+  const [updatePending, startUpdate] = React.useTransition();
+  const [updateError, setUpdateError] = React.useState<string | null>(null);
   const prs = useProjectPrs(projectId);
   const [staging, setStaging] = React.useState(stagingBranch ?? "");
 
   const setProfile = (next: "factory" | "production_app") => {
-    update.mutate({
-      id: projectId,
-      data: {
-        executionProfile: next,
-        stagingBranch: next === "production_app" ? staging.trim() || "staging" : null,
-      },
+    setUpdateError(null);
+    startUpdate(async () => {
+      const r = await callAction(() =>
+        updateProjectAction(projectId, {
+          executionProfile: next,
+          stagingBranch: next === "production_app" ? staging.trim() || "staging" : null,
+        }),
+      );
+      if (!r.ok) {
+        setUpdateError(r.error);
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
     });
   };
 
@@ -231,7 +243,7 @@ function GitPanel({
           <button
             key={v}
             type="button"
-            disabled={update.isPending}
+            disabled={updatePending}
             onClick={() => setProfile(v)}
             className={cn(
               "flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors hover:bg-accent",
@@ -254,7 +266,7 @@ function GitPanel({
           <Button
             size="sm"
             variant="outline"
-            disabled={update.isPending || staging.trim() === (stagingBranch ?? "")}
+            disabled={updatePending || staging.trim() === (stagingBranch ?? "")}
             onClick={() => setProfile("production_app")}
           >
             Set branch
@@ -280,7 +292,7 @@ function GitPanel({
           ))}
         </div>
       )}
-      {update.isError && <p className="text-xs text-destructive">{update.error.message}</p>}
+      {updateError && <p className="text-xs text-destructive">{updateError}</p>}
     </div>
   );
 }
@@ -351,17 +363,44 @@ function ActivityFeed({ projectId }: { projectId: string }) {
 
 function DirectivesPanel({ projectId }: { projectId: string }) {
   const directives = useProjectDirectives(projectId);
-  const create = useCreateDirective();
-  const update = useUpdateDirective();
-  const remove = useDeleteDirective();
+  const queryClient = useQueryClient();
+  const [createPending, startCreate] = React.useTransition();
+  const [, startUpdate] = React.useTransition();
+  const [removePending, startRemove] = React.useTransition();
   const [draft, setDraft] = React.useState("");
   const [confirmRemove, setConfirmRemove] = React.useState<{ id: string; body: string } | null>(
     null,
   );
 
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["project-directives", projectId] });
+
   const add = () => {
     if (!draft.trim()) return;
-    create.mutate({ projectId, data: { body: draft.trim() } }, { onSuccess: () => setDraft("") });
+    startCreate(async () => {
+      const r = await callAction(() => createDirectiveAction(projectId, { body: draft.trim() }));
+      if (!r.ok) return;
+      await invalidate();
+      setDraft("");
+    });
+  };
+
+  const toggle = (id: string, enabled: boolean) => {
+    startUpdate(async () => {
+      const r = await callAction(() => updateDirectiveAction(projectId, id, { enabled }));
+      if (!r.ok) return;
+      await invalidate();
+    });
+  };
+
+  const confirmDelete = () => {
+    if (!confirmRemove) return;
+    startRemove(async () => {
+      const r = await callAction(() => deleteDirectiveAction(projectId, confirmRemove.id));
+      if (!r.ok) return;
+      await invalidate();
+      setConfirmRemove(null);
+    });
   };
 
   return (
@@ -373,7 +412,7 @@ function DirectivesPanel({ projectId }: { projectId: string }) {
         <div key={d.id} className="flex items-start gap-2 rounded-md border p-2">
           <Switch
             checked={d.enabled}
-            onCheckedChange={(enabled) => update.mutate({ projectId, id: d.id, data: { enabled } })}
+            onCheckedChange={(enabled) => toggle(d.id, enabled)}
             className="mt-0.5"
           />
           <span className={cn("flex-1 text-xs", !d.enabled && "text-muted-foreground line-through")}>{d.body}</span>
@@ -395,15 +434,9 @@ function DirectivesPanel({ projectId }: { projectId: string }) {
             ? `“${confirmRemove.body}” will no longer be injected into runs for this project.`
             : "This rule will no longer be injected into runs for this project."
         }
-        pending={remove.isPending}
+        pending={removePending}
         pendingLabel="Deleting…"
-        onConfirm={() =>
-          confirmRemove &&
-          remove.mutate(
-            { projectId, id: confirmRemove.id },
-            { onSuccess: () => setConfirmRemove(null) },
-          )
-        }
+        onConfirm={confirmDelete}
       />
       <div className="flex gap-2">
         <Input
@@ -413,7 +446,7 @@ function DirectivesPanel({ projectId }: { projectId: string }) {
           placeholder="Add a rule…"
           className="text-xs"
         />
-        <Button size="sm" variant="outline" disabled={!draft.trim() || create.isPending} onClick={add}>
+        <Button size="sm" variant="outline" disabled={!draft.trim() || createPending} onClick={add}>
           <Plus className="size-3.5" />
         </Button>
       </div>
@@ -762,11 +795,32 @@ function VariantsPanel({
 }) {
   const variants = useProjectVariants(projectId);
   const sync = useSyncFromBase();
-  const createVariant = useCreateVariant();
+  const queryClient = useQueryClient();
+  const [forkPending, startFork] = React.useTransition();
+  const [forkError, setForkError] = React.useState<string | null>(null);
   const [forking, setForking] = React.useState(false);
   const [vName, setVName] = React.useState("");
   const [vRoot, setVRoot] = React.useState("");
   const rows = variants.data ?? [];
+
+  const fork = () => {
+    if (!vName.trim() || !vRoot.trim()) return;
+    setForkError(null);
+    startFork(async () => {
+      const r = await callAction(() =>
+        createVariantAction({ baseId: projectId, name: vName.trim(), rootDir: vRoot.trim() }),
+      );
+      if (!r.ok) {
+        setForkError(r.error);
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      await queryClient.invalidateQueries({ queryKey: ["project-variants", projectId] });
+      setForking(false);
+      setVName("");
+      setVRoot("");
+    });
+  };
 
   if (isVariant) {
     return (
@@ -812,27 +866,12 @@ function VariantsPanel({
             className="font-mono text-xs"
           />
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              disabled={!vName.trim() || !vRoot.trim() || createVariant.isPending}
-              onClick={() =>
-                createVariant.mutate(
-                  { baseId: projectId, name: vName.trim(), rootDir: vRoot.trim() },
-                  {
-                    onSuccess: () => {
-                      setForking(false);
-                      setVName("");
-                      setVRoot("");
-                    },
-                  },
-                )
-              }
-            >
-              {createVariant.isPending ? "Forking…" : "Fork"}
+            <Button size="sm" disabled={!vName.trim() || !vRoot.trim() || forkPending} onClick={fork}>
+              {forkPending ? "Forking…" : "Fork"}
             </Button>
             <span className="text-[11px] text-muted-foreground">Clones the base repo + copies its project memory.</span>
           </div>
-          {createVariant.isError && <p className="text-xs text-destructive">{createVariant.error.message}</p>}
+          {forkError && <p className="text-xs text-destructive">{forkError}</p>}
         </div>
       )}
     </div>

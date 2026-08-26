@@ -20,16 +20,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { useQueryClient } from "@tanstack/react-query";
 import { Markdown } from "@web/components/chat/markdown";
-import {
-  useAgents,
-  useDeleteSkill,
-  useSkill,
-  useSkillAssignments,
-  useUpdateSkill,
-} from "@web/api/hooks";
+import { useAgents, useSkill, useSkillAssignments } from "@web/api/hooks";
+import { callAction } from "@web/lib/call-action";
 import { formatDate, shortId } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { deleteSkillAction, updateSkillAction } from "../actions";
 
 const SKILL_MD = "SKILL.md";
 
@@ -137,10 +134,19 @@ export function SkillDetailPage() {
   const skillQuery = useSkill(skillId);
   const agents = useAgents();
   const assignments = useSkillAssignments();
-  const updateSkill = useUpdateSkill();
-  const deleteSkill = useDeleteSkill();
+  const queryClient = useQueryClient();
+  const [, startToggle] = React.useTransition();
+  const [deletePending, startDelete] = React.useTransition();
   const [deleting, setDeleting] = React.useState(false);
   const [selected, setSelected] = React.useState(SKILL_MD);
+
+  const toggleSkill = (id: string, enabled: boolean) => {
+    startToggle(async () => {
+      const r = await callAction(() => updateSkillAction(id, { enabled }));
+      if (!r.ok) return;
+      await queryClient.invalidateQueries({ queryKey: ["skills"] });
+    });
+  };
 
   const skill = skillQuery.data;
 
@@ -211,7 +217,7 @@ export function SkillDetailPage() {
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <Switch
               checked={skill.enabled}
-              onCheckedChange={(enabled) => updateSkill.mutate({ id: skill.id, data: { enabled } })}
+              onCheckedChange={(enabled) => toggleSkill(skill.id, enabled)}
             />
             {skill.enabled ? "Enabled" : "Disabled"}
           </label>
@@ -343,11 +349,17 @@ export function SkillDetailPage() {
             ? `It is assigned to ${users.length} agent(s); their future runs will no longer receive it. This can't be undone.`
             : "The skill and its files are removed. This can't be undone."
         }
-        pending={deleteSkill.isPending}
+        pending={deletePending}
         pendingLabel="Deleting…"
-        onConfirm={() =>
-          deleteSkill.mutate(skill.id, { onSuccess: () => router.push("/skills") })
-        }
+        onConfirm={() => {
+          const id = skill.id;
+          startDelete(async () => {
+            const r = await callAction(() => deleteSkillAction(id));
+            if (!r.ok) return;
+            await queryClient.invalidateQueries({ queryKey: ["skills"] });
+            router.push("/skills");
+          });
+        }}
       />
     </div>
   );

@@ -47,19 +47,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useAgents,
-  useCreateSkill,
-  useDeleteSkill,
   useImportLocalSkill,
   useImportUrlSkill,
   useLocalSkills,
   useSkillAssignments,
   useSkills,
-  useUpdateSkill,
 } from "@web/api/hooks";
+import { callAction } from "@web/lib/call-action";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { createSkillAction, deleteSkillAction, updateSkillAction } from "./actions";
 
 interface EditorState {
   skill: Skill | null; // null = creating
@@ -91,9 +91,13 @@ export function SkillsPage() {
   const skills = useSkills();
   const agents = useAgents();
   const assignments = useSkillAssignments();
-  const createSkill = useCreateSkill();
-  const updateSkill = useUpdateSkill();
-  const deleteSkill = useDeleteSkill();
+  const queryClient = useQueryClient();
+  const invalidateSkills = () => queryClient.invalidateQueries({ queryKey: ["skills"] });
+  const [createPending, startCreate] = React.useTransition();
+  const [createError, setCreateError] = React.useState<string | null>(null);
+  const [updatePending, startUpdate] = React.useTransition();
+  const [updateError, setUpdateError] = React.useState<string | null>(null);
+  const [deletePending, startDelete] = React.useTransition();
 
   const [query, setQuery] = React.useState("");
   const [segment, setSegment] = React.useState<"all" | "enabled" | "disabled">("all");
@@ -141,11 +145,11 @@ export function SkillsPage() {
     );
 
   const openCreate = () => {
-    createSkill.reset();
+    setCreateError(null);
     setEditor({ skill: null, name: "", description: "", content: "" });
   };
   const openEdit = (skill: Skill) => {
-    updateSkill.reset();
+    setUpdateError(null);
     setEditor({
       skill,
       name: skill.name,
@@ -154,8 +158,8 @@ export function SkillsPage() {
     });
   };
 
-  const saving = createSkill.isPending || updateSkill.isPending;
-  const saveError = createSkill.error?.message ?? updateSkill.error?.message ?? null;
+  const saving = createPending || updatePending;
+  const saveError = createError ?? updateError;
   const submit = () => {
     if (!editor || !editor.name.trim()) return;
     const body = {
@@ -163,12 +167,38 @@ export function SkillsPage() {
       description: editor.description,
       content: editor.content,
     };
-    const onSuccess = () => setEditor(null);
     if (editor.skill) {
-      updateSkill.mutate({ id: editor.skill.id, data: body }, { onSuccess });
+      setUpdateError(null);
+      startUpdate(async () => {
+        const r = await callAction(() => updateSkillAction(editor.skill!.id, body));
+        if (!r.ok) {
+          setUpdateError(r.error);
+          return;
+        }
+        await invalidateSkills();
+        setEditor(null);
+      });
     } else {
-      createSkill.mutate({ ...body, enabled: true }, { onSuccess });
+      setCreateError(null);
+      startCreate(async () => {
+        const r = await callAction(() => createSkillAction({ ...body, enabled: true }));
+        if (!r.ok) {
+          setCreateError(r.error);
+          return;
+        }
+        await invalidateSkills();
+        setEditor(null);
+      });
     }
+  };
+
+  const toggleSkill = (id: string, enabled: boolean) => {
+    setUpdateError(null);
+    startUpdate(async () => {
+      const r = await callAction(() => updateSkillAction(id, { enabled }));
+      if (!r.ok) return;
+      await invalidateSkills();
+    });
   };
 
   return (
@@ -290,9 +320,7 @@ export function SkillsPage() {
                       <TableCell>
                         <Switch
                           checked={skill.enabled}
-                          onCheckedChange={(enabled) =>
-                            updateSkill.mutate({ id: skill.id, data: { enabled } })
-                          }
+                          onCheckedChange={(enabled) => toggleSkill(skill.id, enabled)}
                         />
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
@@ -630,11 +658,18 @@ export function SkillsPage() {
             ? `It is assigned to ${(usedBy.get(deleting.id) ?? []).length} agent(s); their future runs will no longer receive it. This can't be undone.`
             : "The skill and its instructions are removed. This can't be undone."
         }
-        pending={deleteSkill.isPending}
+        pending={deletePending}
         pendingLabel="Deleting…"
-        onConfirm={() =>
-          deleting && deleteSkill.mutate(deleting.id, { onSuccess: () => setDeleting(null) })
-        }
+        onConfirm={() => {
+          if (!deleting) return;
+          const id = deleting.id;
+          startDelete(async () => {
+            const r = await callAction(() => deleteSkillAction(id));
+            if (!r.ok) return;
+            await invalidateSkills();
+            setDeleting(null);
+          });
+        }}
       />
 
       {/* Chips row: quick visibility of which agents use skills at all. */}

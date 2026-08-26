@@ -59,10 +59,18 @@ state almost immediately after creation), the page is completely unusable.
 
 ## Resolution
 
-*Open. Fix: add the missing FK — `planNodes.taskId` should
-`.references(() => tasks.id, { onDelete: "set null" })` (nullable, since a
-node need not always have a linked task) — via a migration, then PostgREST's
-schema cache will resolve the embedded join. Whichever task next builds real
-goal creation (closing the `useCreateGoal` stub) should treat this as a
-blocking prerequisite, not an unrelated follow-up — it will hit this
-immediately on the first real goal with a plan.*
+Fixed on `development` (PR #134), exactly the fix this report named:
+`planNodes.taskId` (`packages/shared/src/db/schema.ts`) now
+`.references(() => tasks.id, { onDelete: "set null" })`, applied via
+migration `0007_dear_calypso.sql`
+(`ALTER TABLE plan_nodes ADD CONSTRAINT plan_nodes_task_id_tasks_id_fk
+FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE set null`), so
+PostgREST's schema cache can now resolve the `plan_nodes` ↔ `tasks` embedded
+join `GET /goals/:id` relies on.
+
+Not verified live by this record — the fix landed on `development` in a
+parallel session and was picked up by band 22 via its pre-promotion merge
+(`AGENTS.md` §2 rule 4). Confirmed by reading the merged schema and
+migration diffs; `useCreateGoal` remains stub-backed (`POST /goals`, plan
+DD-6), so producing a real goal with a plan to click through live still
+needs that separate, unrelated piece of work.

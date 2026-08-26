@@ -1,6 +1,9 @@
 import { Building2 } from "lucide-react";
-import { useUpdateWorkspace, useWorkspace } from "@web/api/hooks";
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspace } from "@web/api/hooks";
 import { useAccount } from "@web/lib/account";
+import { callAction } from "@web/lib/call-action";
+import { updateWorkspaceAction, type UpdateWorkspaceInput } from "@web/app/settings/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -34,9 +37,18 @@ import { LongTextField, SingleLineField } from "@/components/form-field";
 export function WorkspaceForm({ variant }: { variant: "card" | "inline" }) {
   const account = useAccount();
   const workspace = useWorkspace();
-  const update = useUpdateWorkspace();
+  const queryClient = useQueryClient();
 
   if (!account) return null;
+
+  /** Same reasoning as `profile-form.tsx`'s `save`: the shared field
+   *  components expect `onSave` to reject on failure. */
+  const save = async (data: UpdateWorkspaceInput) => {
+    const r = await callAction(() => updateWorkspaceAction(data));
+    if (!r.ok) throw new Error(r.error);
+    void queryClient.invalidateQueries({ queryKey: ["workspace"] });
+    return r.data;
+  };
 
   const body = workspace.isLoading ? (
     <div className="space-y-4">
@@ -62,7 +74,7 @@ export function WorkspaceForm({ variant }: { variant: "card" | "inline" }) {
       <ImageUploadField
         currentUrl={workspace.data.logoUrl}
         prefix={`workspace-logos/${workspace.data.id}`}
-        onSave={(url) => update.mutateAsync({ logoUrl: url })}
+        onSave={(url) => save({ logoUrl: url })}
         label="logo"
         fallback={
           <span className="flex size-12 items-center justify-center rounded-lg bg-accent text-muted-foreground">
@@ -77,7 +89,7 @@ export function WorkspaceForm({ variant }: { variant: "card" | "inline" }) {
         value={workspace.data.name}
         placeholder="e.g. Sparstrow Inc"
         maxLength={60}
-        onSave={(name) => update.mutateAsync({ name })}
+        onSave={(name) => save({ name })}
       />
 
       <div className="space-y-1.5">
@@ -100,7 +112,7 @@ export function WorkspaceForm({ variant }: { variant: "card" | "inline" }) {
         placeholder="What does this workspace focus on?"
         maxLength={280}
         rows={2}
-        onSave={(description) => update.mutateAsync({ description })}
+        onSave={(description) => save({ description })}
       />
 
       <LongTextField
@@ -111,7 +123,7 @@ export function WorkspaceForm({ variant }: { variant: "card" | "inline" }) {
         placeholder="Background information and context for AI agents working in this workspace."
         maxLength={4000}
         rows={6}
-        onSave={(context) => update.mutateAsync({ context })}
+        onSave={(context) => save({ context })}
       />
     </div>
   );

@@ -1,6 +1,9 @@
 import { LogOut } from "lucide-react";
-import { useProfile, useUpdateProfile } from "@web/api/hooks";
+import { useQueryClient } from "@tanstack/react-query";
+import { useProfile } from "@web/api/hooks";
 import { useAccount } from "@web/lib/account";
+import { callAction } from "@web/lib/call-action";
+import { updateProfileAction, type UpdateProfileInput } from "@web/app/settings/actions";
 import { ActorAvatar } from "@/components/actor-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,8 +41,19 @@ const PROVIDER_LABELS: Record<string, string> = {
  */
 export function ProfileForm({ variant }: { variant: "card" | "inline" }) {
   const profile = useProfile();
-  const update = useUpdateProfile();
   const account = useAccount();
+  const queryClient = useQueryClient();
+
+  /** `SingleLineField`/`LongTextField`/`ImageUploadField` all expect `onSave`
+   *  to REJECT on failure (their own `useFieldDraft`/`status` own the pending
+   *  and error UI) — `callAction`'s `ActionResult` doesn't throw, so this is
+   *  the one place in the phase that translates a failure back into one. */
+  const save = async (data: UpdateProfileInput) => {
+    const r = await callAction(() => updateProfileAction(data));
+    if (!r.ok) throw new Error(r.error);
+    void queryClient.invalidateQueries({ queryKey: ["profile"] });
+    return r.data;
+  };
 
   const body = profile.isLoading ? (
     <div className="space-y-4">
@@ -64,7 +78,7 @@ export function ProfileForm({ variant }: { variant: "card" | "inline" }) {
       <ImageUploadField
         currentUrl={profile.data.avatarUrl}
         prefix={`avatars/${profile.data.id}`}
-        onSave={(url) => update.mutateAsync({ avatarUrl: url })}
+        onSave={(url) => save({ avatarUrl: url })}
         label="avatar"
         fallback={
           <ActorAvatar
@@ -82,7 +96,7 @@ export function ProfileForm({ variant }: { variant: "card" | "inline" }) {
         value={profile.data.name}
         placeholder="e.g. Sri Hari"
         maxLength={60}
-        onSave={(name) => update.mutateAsync({ name })}
+        onSave={(name) => save({ name })}
       />
 
       <LongTextField
@@ -93,7 +107,7 @@ export function ProfileForm({ variant }: { variant: "card" | "inline" }) {
         placeholder="e.g. Backend engineer (Go + Postgres). Prefer terse PRs and tests alongside the change."
         maxLength={2000}
         rows={4}
-        onSave={(bio) => update.mutateAsync({ bio })}
+        onSave={(bio) => save({ bio })}
       />
 
       {variant === "card" && account ? (

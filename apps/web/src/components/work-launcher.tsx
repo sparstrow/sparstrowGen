@@ -11,7 +11,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useAgents, useCreateGoal, useCreateTask, useTeams } from "@web/api/hooks";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAgents, useCreateGoal, useTeams } from "@web/api/hooks";
+import { callAction } from "@web/lib/call-action";
+import { createTaskAction } from "@web/app/tasks/actions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -57,29 +60,35 @@ export function WorkLauncher({
 
 function TaskMode({ projectId }: { projectId: string | null }) {
   const agents = useAgents();
-  const createTask = useCreateTask();
+  const queryClient = useQueryClient();
+  const [pending, startCreate] = React.useTransition();
+  const [error, setError] = React.useState<string | null>(null);
   const [title, setTitle] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [agentIds, setAgentIds] = React.useState<string[]>([]);
 
   const launch = () => {
     if (!title.trim()) return;
-    createTask.mutate(
-      {
-        title: title.trim(),
-        description: description.trim(),
-        projectId,
-        assignedAgentId: agentIds.length === 1 ? agentIds[0] : null,
-        assignedAgentIds: agentIds.length > 1 ? agentIds : undefined,
-      },
-      {
-        onSuccess: () => {
-          setTitle("");
-          setDescription("");
-          setAgentIds([]);
-        },
-      },
-    );
+    setError(null);
+    startCreate(async () => {
+      const r = await callAction(() =>
+        createTaskAction({
+          title: title.trim(),
+          description: description.trim(),
+          projectId,
+          assignedAgentId: agentIds.length === 1 ? agentIds[0] : null,
+          assignedAgentIds: agentIds.length > 1 ? agentIds : undefined,
+        }),
+      );
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      setTitle("");
+      setDescription("");
+      setAgentIds([]);
+    });
   };
 
   return (
@@ -119,11 +128,11 @@ function TaskMode({ projectId }: { projectId: string | null }) {
             </span>
           )}
         </span>
-        <Button size="sm" disabled={!title.trim() || createTask.isPending} onClick={launch}>
-          {createTask.isPending ? "Launching…" : "Launch task"}
+        <Button size="sm" disabled={!title.trim() || pending} onClick={launch}>
+          {pending ? "Launching…" : "Launch task"}
         </Button>
       </div>
-      {createTask.isError && <p className="text-xs text-destructive">{createTask.error.message}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </>
   );
 }

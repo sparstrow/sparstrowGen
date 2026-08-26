@@ -12,7 +12,9 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useTeamManagerChat, useCreatePipeline } from "@web/api/hooks";
+import { useTeamManagerChat } from "@web/api/hooks";
+import { callAction } from "@web/lib/call-action";
+import { createPipelineAction } from "@web/app/pipelines/actions";
 import { cn } from "@/lib/utils";
 import { PipelineCanvas } from "@web/components/pipelines/pipeline-canvas";
 import { PipelineList } from "@web/components/pipelines/pipeline-list";
@@ -34,27 +36,27 @@ export function ManagerChatPanel({
   const [editorView, setEditorView] = React.useState<"canvas" | "list">("canvas");
 
   const chatMutation = useTeamManagerChat(teamId);
-  const createPipeline = useCreatePipeline();
+  const [createPending, startCreate] = React.useTransition();
 
   const validation = draft ? validateDraftForPublish(draft, roster) : { ok: false, reasons: [] };
 
   const handlePublish = () => {
     if (!draft || !validation.ok) return;
-    createPipeline.mutate(draftToCreatePayload(draft, teamId), {
-      onSuccess: (created) => {
-        setEditorOpen(false);
+    startCreate(async () => {
+      const r = await callAction(() => createPipelineAction(draftToCreatePayload(draft, teamId)));
+      if (!r.ok) {
         setHistory((prev) => [
           ...prev,
-          { role: "advisor", text: `✓ Published "${created.name}" to this team's pipelines.` },
+          { role: "advisor", text: `Publish failed: ${r.error || "could not create pipeline."}` },
         ]);
-        setDraft(undefined);
-      },
-      onError: (err: any) => {
-        setHistory((prev) => [
-          ...prev,
-          { role: "advisor", text: `Publish failed: ${err.message || "could not create pipeline."}` },
-        ]);
-      },
+        return;
+      }
+      setEditorOpen(false);
+      setHistory((prev) => [
+        ...prev,
+        { role: "advisor", text: `✓ Published "${r.data.name}" to this team's pipelines.` },
+      ]);
+      setDraft(undefined);
     });
   };
 
@@ -267,9 +269,9 @@ export function ManagerChatPanel({
               <Button variant="outline" onClick={() => setEditorOpen(false)}>
                 Close
               </Button>
-              <Button onClick={handlePublish} disabled={!validation.ok || createPipeline.isPending}>
+              <Button onClick={handlePublish} disabled={!validation.ok || createPending}>
                 <Rocket className="mr-2 size-4" />
-                {createPipeline.isPending ? "Publishing…" : "Publish"}
+                {createPending ? "Publishing…" : "Publish"}
               </Button>
             </div>
           </DialogFooter>

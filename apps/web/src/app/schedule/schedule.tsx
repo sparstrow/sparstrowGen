@@ -32,16 +32,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  useAgents,
-  useCreateCronJob,
-  useCronJobs,
-  useDeleteCronJob,
-  usePipelines,
-  useRunCronJobNow,
-  useUpdateCronJob,
-} from "@web/api/hooks";
+import { useAgents, useCronJobs, usePipelines, useRunCronJobNow } from "@web/api/hooks";
 import { formatDate, shortId } from "@/lib/format";
+import { useQueryClient } from "@tanstack/react-query";
+import { callAction } from "@web/lib/call-action";
+import { createCronJobAction, deleteCronJobAction, updateCronJobAction } from "./actions";
 
 const PRESETS: { label: string; expr: string }[] = [
   { label: "Every 15 minutes", expr: "*/15 * * * *" },
@@ -78,10 +73,26 @@ export function SchedulePage({ teamId, readOnly }: { teamId?: string; readOnly?:
   const jobs = useCronJobs(teamId);
   const agents = useAgents();
   const pipelines = usePipelines();
-  const createJob = useCreateCronJob();
-  const updateJob = useUpdateCronJob();
-  const deleteJob = useDeleteCronJob();
   const runNow = useRunCronJobNow();
+
+  const queryClient = useQueryClient();
+  const invalidateCronJobs = () => queryClient.invalidateQueries({ queryKey: ["cron-jobs"] });
+  const [createPending, startCreate] = React.useTransition();
+  const [updatePending, startUpdate] = React.useTransition();
+  const [deletePending, startDelete] = React.useTransition();
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+
+  const runUpdate = (id: string, data: Record<string, unknown>, onSuccess?: () => void) => {
+    startUpdate(async () => {
+      const r = await callAction(() => updateCronJobAction(id, data));
+      if (!r.ok) {
+        setSaveError(r.error);
+        return;
+      }
+      invalidateCronJobs();
+      onSuccess?.();
+    });
+  };
 
   const [editorOpen, setEditorOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<CronJob | null>(null);
@@ -118,7 +129,7 @@ export function SchedulePage({ teamId, readOnly }: { teamId?: string; readOnly?:
     setEditorOpen(true);
   };
 
-  const saving = createJob.isPending || updateJob.isPending;
+  const saving = createPending || updatePending;
   const valid = name.trim() && cronExpr.trim() && targetId && prompt.trim();
 
   const submit = () => {
@@ -129,14 +140,21 @@ export function SchedulePage({ teamId, readOnly }: { teamId?: string; readOnly?:
       targetId,
       prompt,
     };
-    const onSuccess = () => setEditorOpen(false);
+    setSaveError(null);
     if (editing) {
-      updateJob.mutate({ id: editing.id, data: body }, { onSuccess });
+      runUpdate(editing.id, body, () => setEditorOpen(false));
     } else {
-      createJob.mutate(
-        { ...body, projectId: null, timezone: "system", enabled: true },
-        { onSuccess },
-      );
+      startCreate(async () => {
+        const r = await callAction(() =>
+          createCronJobAction({ ...body, projectId: null, timezone: "system", enabled: true }),
+        );
+        if (!r.ok) {
+          setSaveError(r.error);
+          return;
+        }
+        invalidateCronJobs();
+        setEditorOpen(false);
+      });
     }
   };
 
@@ -257,9 +275,7 @@ export function SchedulePage({ teamId, readOnly }: { teamId?: string; readOnly?:
                   <TableCell>
                     <Switch
                       checked={job.enabled}
-                      onCheckedChange={(enabled) =>
-                        updateJob.mutate({ id: job.id, data: { enabled } })
-                      }
+                      onCheckedChange={(enabled) => runUpdate(job.id, { enabled })}
                     />
                   </TableCell>
                   <TableCell>
@@ -384,11 +400,7 @@ export function SchedulePage({ teamId, readOnly }: { teamId?: string; readOnly?:
                 placeholder="What should run on this schedule?"
               />
             </div>
-            {(createJob.isError || updateJob.isError) && (
-              <p className="text-sm text-destructive">
-                {createJob.error?.message ?? updateJob.error?.message}
-              </p>
-            )}
+            {saveError && <p className="text-sm text-destructive">{saveError}</p>}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditorOpen(false)}>
@@ -406,12 +418,18 @@ export function SchedulePage({ teamId, readOnly }: { teamId?: string; readOnly?:
         onOpenChange={(open) => !open && setConfirmDelete(null)}
         title={confirmDelete ? `Delete “${confirmDelete.name}”?` : "Delete cron job?"}
         description="This schedule stops firing and is removed. This can't be undone."
-        pending={deleteJob.isPending}
+        pending={deletePending}
         pendingLabel="Deleting…"
-        onConfirm={() =>
-          confirmDelete &&
-          deleteJob.mutate(confirmDelete.id, { onSuccess: () => setConfirmDelete(null) })
-        }
+        onConfirm={() => {
+          if (!confirmDelete) return;
+          const id = confirmDelete.id;
+          startDelete(async () => {
+            const r = await callAction(() => deleteCronJobAction(id));
+            if (!r.ok) return;
+            invalidateCronJobs();
+            setConfirmDelete(null);
+          });
+        }}
       />
     </div>
   );

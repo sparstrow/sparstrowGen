@@ -48,20 +48,14 @@ import type {
   VolumeList,
   Project,
   ProjectCreate,
-  ProjectUpdate,
-  ProjectProvision,
   ProjectGitState,
   ProjectDirective,
-  ProjectDirectiveCreate,
-  ProjectDirectiveUpdate,
   TeamIndexItem,
   AgentSkillAssignment,
   LocalSkillSummary,
   Skill,
-  SkillCreate,
   SkillDetail,
   SkillImportResult,
-  SkillUpdate,
   TeamDetail,
   Run,
   RunEvent,
@@ -74,13 +68,10 @@ import type {
   TeamManagerChatRequest,
   ChatRetryRequest,
   ChatSession,
-  ChatSessionCreate,
   ChatSessionDetail,
   ChatSessionListQuery,
-  ChatSessionUpdate,
   ChatTurn,
   ChatTurnRequest,
-  ChatTurnState,
 } from "@sparstrow/shared";
 import { api, type ApiError } from "@web/lib/api-client";
 
@@ -112,42 +103,6 @@ export function useAgent(id: string): UseQueryResult<Agent, ApiError> {
     queryKey: ["agent", id],
     queryFn: () => api<Agent>(`/agents/${id}`),
     enabled: Boolean(id),
-  });
-}
-
-export function useCreateAgent(): UseMutationResult<Agent, ApiError, AgentCreate> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: AgentCreate) => api<Agent>("/agents", { method: "POST", body }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["agents"] });
-    },
-  });
-}
-
-export function useUpdateAgent(): UseMutationResult<
-  Agent,
-  ApiError,
-  { id: string; data: AgentUpdate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) => api<Agent>(`/agents/${id}`, { method: "PUT", body: data }),
-    onSuccess: (_agent, { id }) => {
-      void queryClient.invalidateQueries({ queryKey: ["agents"] });
-      void queryClient.invalidateQueries({ queryKey: ["agent", id] });
-    },
-  });
-}
-
-export function useDeleteAgent(): UseMutationResult<void, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<void>(`/agents/${id}`, { method: "DELETE" }),
-    onSuccess: (_void, id) => {
-      void queryClient.invalidateQueries({ queryKey: ["agents"] });
-      void queryClient.invalidateQueries({ queryKey: ["agent", id] });
-    },
   });
 }
 
@@ -198,20 +153,6 @@ export function useCreateProject(): UseMutationResult<Project, ApiError, Project
   });
 }
 
-export function useUpdateProject(): UseMutationResult<
-  Project,
-  ApiError,
-  { id: string; data: ProjectUpdate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) => api<Project>(`/projects/${id}`, { method: "PUT", body: data }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["projects"] });
-    },
-  });
-}
-
 export function useDeleteProject(): UseMutationResult<void, ApiError, string> {
   const queryClient = useQueryClient();
   return useMutation({
@@ -219,15 +160,6 @@ export function useDeleteProject(): UseMutationResult<void, ApiError, string> {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
-  });
-}
-
-/** P4 §4: provision a project via scratch/bind/clone. */
-export function useProvisionProject(): UseMutationResult<Project, ApiError, ProjectProvision> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: ProjectProvision) => api<Project>("/projects/provision", { method: "POST", body }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["projects"] }),
   });
 }
 
@@ -288,22 +220,6 @@ export function useProjectVariants(id: string): UseQueryResult<Project[], ApiErr
     queryKey: ["project-variants", id],
     queryFn: () => api<Project[]>(`/projects/${id}/variants`),
     enabled: Boolean(id),
-  });
-}
-
-export function useCreateVariant(): UseMutationResult<
-  Project,
-  ApiError,
-  { baseId: string; name: string; rootDir: string }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ baseId, name, rootDir }) =>
-      api<Project>(`/projects/${baseId}/variants`, { method: "POST", body: { name, rootDir } }),
-    onSuccess: (_r, { baseId }) => {
-      void queryClient.invalidateQueries({ queryKey: ["projects"] });
-      void queryClient.invalidateQueries({ queryKey: ["project-variants", baseId] });
-    },
   });
 }
 
@@ -438,48 +354,6 @@ export function useProjectDirectives(id: string): UseQueryResult<ProjectDirectiv
   });
 }
 
-export function useCreateDirective(): UseMutationResult<
-  ProjectDirective,
-  ApiError,
-  { projectId: string; data: ProjectDirectiveCreate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ projectId, data }) =>
-      api<ProjectDirective>(`/projects/${projectId}/directives`, { method: "POST", body: data }),
-    onSuccess: (_r, { projectId }) =>
-      void queryClient.invalidateQueries({ queryKey: ["project-directives", projectId] }),
-  });
-}
-
-export function useUpdateDirective(): UseMutationResult<
-  ProjectDirective,
-  ApiError,
-  { projectId: string; id: string; data: ProjectDirectiveUpdate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ projectId, id, data }) =>
-      api<ProjectDirective>(`/projects/${projectId}/directives/${id}`, { method: "PUT", body: data }),
-    onSuccess: (_r, { projectId }) =>
-      void queryClient.invalidateQueries({ queryKey: ["project-directives", projectId] }),
-  });
-}
-
-export function useDeleteDirective(): UseMutationResult<
-  void,
-  ApiError,
-  { projectId: string; id: string }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ projectId, id }) =>
-      api<void>(`/projects/${projectId}/directives/${id}`, { method: "DELETE" }),
-    onSuccess: (_r, { projectId }) =>
-      void queryClient.invalidateQueries({ queryKey: ["project-directives", projectId] }),
-  });
-}
-
 // ── Morning briefing (§5) ──
 export interface BriefingState {
   enabled: boolean;
@@ -556,34 +430,6 @@ export function useSkillAssignments(): UseQueryResult<AgentSkillAssignment[], Ap
   });
 }
 
-export function useCreateSkill(): UseMutationResult<Skill, ApiError, SkillCreate> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: SkillCreate) => api<Skill>("/skills", { method: "POST", body }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
-  });
-}
-
-export function useUpdateSkill(): UseMutationResult<
-  Skill,
-  ApiError,
-  { id: string; data: SkillUpdate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) => api<Skill>(`/skills/${id}`, { method: "PUT", body: data }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
-  });
-}
-
-export function useDeleteSkill(): UseMutationResult<void, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<void>(`/skills/${id}`, { method: "DELETE" }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
-  });
-}
-
 export function useLocalSkills(enabled: boolean): UseQueryResult<LocalSkillSummary[], ApiError> {
   return useQuery({
     queryKey: ["skills", "local"],
@@ -613,19 +459,6 @@ export function useImportUrlSkill(): UseMutationResult<
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body) => api<SkillImportResult>("/skills/import-url", { method: "POST", body }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
-  });
-}
-
-export function useSetAgentSkills(): UseMutationResult<
-  Skill[],
-  ApiError,
-  { agentId: string; skillIds: string[] }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ agentId, skillIds }) =>
-      api<Skill[]>(`/agents/${agentId}/skills`, { method: "PUT", body: { skillIds } }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
   });
 }
@@ -750,33 +583,6 @@ export function useRunEvents(
   });
 }
 
-export interface CreateRunInput {
-  agentId: string;
-  projectId?: string | null;
-  prompt: string;
-}
-
-export function useCreateRun(): UseMutationResult<Run, ApiError, CreateRunInput> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: CreateRunInput) => api<Run>("/runs", { method: "POST", body }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["runs"] });
-    },
-  });
-}
-
-export function useCancelRun(): UseMutationResult<Run, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<Run>(`/runs/${id}/cancel`, { method: "POST" }),
-    onSuccess: (_run, id) => {
-      void queryClient.invalidateQueries({ queryKey: ["runs"] });
-      void queryClient.invalidateQueries({ queryKey: ["run", id] });
-    },
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Tasks
 // ---------------------------------------------------------------------------
@@ -800,73 +606,6 @@ export function useTasks(filters: TaskFilters = {}): UseQueryResult<Task[], ApiE
           teamId: filters.teamId,
         })}`,
       ),
-  });
-}
-
-export interface TaskCreateInput {
-  title: string;
-  description?: string;
-  projectId?: string | null;
-  assignedAgentId?: string | null;
-  /** P3: two or more agents ⇒ ephemeral team + one child task per agent. */
-  assignedAgentIds?: string[];
-  priority?: number;
-}
-
-export function useCreateTask(): UseMutationResult<Task, ApiError, TaskCreateInput> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: TaskCreateInput) => api<Task>("/tasks", { method: "POST", body }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-}
-
-export interface TaskUpdateInput {
-  title?: string;
-  description?: string;
-  status?: TaskStatus;
-  assignedAgentId?: string | null;
-  priority?: number;
-  result?: string | null;
-  /** M4 — reassign to a specific machine, or clear the pin with null. */
-  targetRuntimeId?: string | null;
-}
-
-export function useUpdateTask(): UseMutationResult<
-  Task,
-  ApiError,
-  { id: string; data: TaskUpdateInput }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) => api<Task>(`/tasks/${id}`, { method: "PUT", body: data }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-}
-
-export function useDeleteTask(): UseMutationResult<void, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<void>(`/tasks/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-}
-
-/** POST /tasks/:id/run — (re)spawn the assignee on a stuck or failed task. */
-export function useRunTask(): UseMutationResult<Task, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<Task>(`/tasks/${id}/run`, { method: "POST" }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      void queryClient.invalidateQueries({ queryKey: ["runs"] });
-    },
   });
 }
 
@@ -918,57 +657,6 @@ export function useAttentionQueue(): UseQueryResult<AttentionRow[], ApiError> {
   });
 }
 
-export interface AnswerResult {
-  applied: boolean;
-  reason?: string;
-  task: Task | null;
-  questions: TaskQuestion[];
-}
-
-export interface AnswerInput {
-  taskId: string;
-  answers: { questionId: string; answer: string }[];
-}
-
-/** PATCH /tasks/:id/answer — fold answers into a blocked task and wake it. */
-export function useAnswerTask(): UseMutationResult<AnswerResult, ApiError, AnswerInput> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ taskId, answers }) =>
-      api<AnswerResult>(`/tasks/${taskId}/answer`, { method: "PATCH", body: { answers } }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["attention-queue"] });
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      void queryClient.invalidateQueries({ queryKey: ["runs"] });
-    },
-  });
-}
-
-/** POST /tasks/:id/approve — run a parked cross-team spawn (P3). */
-export function useApproveTask(): UseMutationResult<Task, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<Task>(`/tasks/${id}/approve`, { method: "POST" }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["attention-queue"] });
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      void queryClient.invalidateQueries({ queryKey: ["runs"] });
-    },
-  });
-}
-
-/** POST /tasks/:id/deny — fail a parked cross-team spawn; the lead wakes with the denial (P3). */
-export function useDenyTask(): UseMutationResult<Task, ApiError, { id: string; reason?: string }> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, reason }) => api<Task>(`/tasks/${id}/deny`, { method: "POST", body: { reason } }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["attention-queue"] });
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Messages
 // ---------------------------------------------------------------------------
@@ -980,35 +668,6 @@ export function useMessages(filters: { unreadOnly?: boolean } = {}): UseQueryRes
   return useQuery({
     queryKey: ["messages", filters],
     queryFn: () => api<Message[]>(`/messages${qs({ unreadOnly: filters.unreadOnly ? "true" : undefined })}`),
-  });
-}
-
-export interface MessageCreateInput {
-  toAgentId?: string | null;
-  projectId?: string | null;
-  taskId?: string | null;
-  subject?: string;
-  body: string;
-  spawnRun?: boolean;
-}
-
-export function useSendMessage(): UseMutationResult<Message, ApiError, MessageCreateInput> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: MessageCreateInput) => api<Message>("/messages", { method: "POST", body }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["messages"] });
-    },
-  });
-}
-
-export function useMarkMessageRead(): UseMutationResult<Message, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<Message>(`/messages/${id}/mark-read`, { method: "POST" }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["messages"] });
-    },
   });
 }
 
@@ -1038,82 +697,6 @@ export function useChatSession(id: string | null): UseQueryResult<ChatSessionDet
     queryKey: ["chat-session", id],
     queryFn: () => api<ChatSessionDetail>(`/chat/sessions/${id}`),
     enabled: Boolean(id),
-  });
-}
-
-export function useCreateChatSession(): UseMutationResult<
-  ChatSession,
-  ApiError,
-  ChatSessionCreate
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: ChatSessionCreate) =>
-      api<ChatSession>("/chat/sessions", { method: "POST", body }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
-    },
-  });
-}
-
-export function useUpdateChatSession(): UseMutationResult<
-  ChatSession,
-  ApiError,
-  { id: string; data: ChatSessionUpdate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) =>
-      api<ChatSession>(`/chat/sessions/${id}`, { method: "PATCH", body: data }),
-    onSuccess: (_session, { id }) => {
-      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
-      void queryClient.invalidateQueries({ queryKey: ["chat-session", id] });
-    },
-  });
-}
-
-/**
- * M13 (DD-7, narrowed) -- `POST /chat/sessions/:id/messages` for free /
- * project / agent sessions, on BOTH hosts. The cloud route returns the turn
- * non-terminal (usually `waiting` or `in_progress`); the local Fastify route
- * returns it already terminal. `chat.tsx` renders the turn and subscribes
- * via `useLiveEvents().subscribeChat` only while it isn't.
- *
- * NOT for agent-creator sessions -- see `useAgentDraftTurn` below. The split
- * exists because `agent-create.tsx` reads `draftTurn` off the response,
- * which `ChatTurnState` deliberately does not carry (a draft is a local-only,
- * non-dispatched concern; see doc/tasks/M13/T-M13-02's decision 1).
- */
-export function usePostChatTurn(): UseMutationResult<
-  ChatTurnState,
-  ApiError,
-  { sessionId: string } & ChatTurnRequest
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ sessionId, ...body }) =>
-      api<ChatTurnState>(`/chat/sessions/${sessionId}/messages`, { method: "POST", body }),
-    onSuccess: (_turn, { sessionId }) => {
-      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
-      void queryClient.invalidateQueries({ queryKey: ["chat-session", sessionId] });
-    },
-  });
-}
-
-/** M13 -- retry (US3), same host split as `usePostChatTurn` above. */
-export function useRetryChatTurn(): UseMutationResult<
-  ChatTurnState,
-  ApiError,
-  { sessionId: string } & ChatRetryRequest
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ sessionId, ...body }) =>
-      api<ChatTurnState>(`/chat/sessions/${sessionId}/retry`, { method: "POST", body }),
-    onSuccess: (_turn, { sessionId }) => {
-      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
-      void queryClient.invalidateQueries({ queryKey: ["chat-session", sessionId] });
-    },
   });
 }
 
@@ -1422,38 +1005,6 @@ export function usePipeline(id: string): UseQueryResult<Pipeline, ApiError> {
   });
 }
 
-export function useCreatePipeline(): UseMutationResult<Pipeline, ApiError, PipelineCreate> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: PipelineCreate) => api<Pipeline>("/pipelines", { method: "POST", body }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["pipelines"] }),
-  });
-}
-
-export function useUpdatePipeline(): UseMutationResult<
-  Pipeline,
-  ApiError,
-  { id: string; data: PipelineUpdate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) =>
-      api<Pipeline>(`/pipelines/${id}`, { method: "PUT", body: data }),
-    onSuccess: (_p, { id }) => {
-      void queryClient.invalidateQueries({ queryKey: ["pipelines"] });
-      void queryClient.invalidateQueries({ queryKey: ["pipeline", id] });
-    },
-  });
-}
-
-export function useDeletePipeline(): UseMutationResult<void, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<void>(`/pipelines/${id}`, { method: "DELETE" }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["pipelines"] }),
-  });
-}
-
 export function useRunPipeline(): UseMutationResult<
   PipelineRun,
   ApiError,
@@ -1481,35 +1032,6 @@ export function usePipelineRuns(pipelineId: string): UseQueryResult<PipelineRun[
 
 export function useCronJobs(teamId?: string): UseQueryResult<CronJob[], ApiError> {
   return useQuery({ queryKey: ["cron-jobs", teamId], queryFn: () => api<CronJob[]>(`/cron-jobs${qs({ teamId })}`) });
-}
-
-export function useCreateCronJob(): UseMutationResult<CronJob, ApiError, CronJobCreate> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: CronJobCreate) => api<CronJob>("/cron-jobs", { method: "POST", body }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["cron-jobs"] }),
-  });
-}
-
-export function useUpdateCronJob(): UseMutationResult<
-  CronJob,
-  ApiError,
-  { id: string; data: CronJobUpdate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) =>
-      api<CronJob>(`/cron-jobs/${id}`, { method: "PUT", body: data }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["cron-jobs"] }),
-  });
-}
-
-export function useDeleteCronJob(): UseMutationResult<void, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<void>(`/cron-jobs/${id}`, { method: "DELETE" }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["cron-jobs"] }),
-  });
 }
 
 export function useRunCronJobNow(): UseMutationResult<{ ok: boolean }, ApiError, string> {
@@ -1793,7 +1315,6 @@ function useGoalAction(action: "pause" | "resume" | "cancel" | "replan") {
 
 export const usePauseGoal = () => useGoalAction("pause");
 export const useResumeGoal = () => useGoalAction("resume");
-export const useCancelGoal = () => useGoalAction("cancel");
 export const useReplanGoal = () => useGoalAction("replan");
 
 function useNodeAction(action: "retry" | "cancel") {
@@ -1809,7 +1330,6 @@ function useNodeAction(action: "retry" | "cancel") {
   });
 }
 
-export const useRetryNode = () => useNodeAction("retry");
 export const useCancelNode = () => useNodeAction("cancel");
 
 export function useDeleteGoal(): UseMutationResult<void, ApiError, string> {
@@ -1955,54 +1475,6 @@ export function useRuntimes(): UseQueryResult<Runtime[], ApiError> {
   });
 }
 
-export function useCreatePairingCode(): UseMutationResult<PairingCode, ApiError, void> {
-  return useMutation({
-    mutationFn: () => api<PairingCode>("/pairing-codes", { method: "POST" }),
-  });
-}
-
-export function useRenameRuntime(): UseMutationResult<
-  Runtime,
-  ApiError,
-  { id: string; name: string }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, name }) =>
-      api<Runtime>(`/runtimes/${id}`, { method: "PATCH", body: { name } }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
-    },
-  });
-}
-
-export function useRevokeRuntimeToken(): UseMutationResult<
-  { revoked: number },
-  ApiError,
-  string
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) =>
-      api<{ revoked: number }>(`/runtimes/${id}/token`, { method: "DELETE" }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
-      void queryClient.invalidateQueries({ queryKey: ["health"] });
-    },
-  });
-}
-
-export function useRemoveRuntime(): UseMutationResult<{ deleted: number }, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<{ deleted: number }>(`/runtimes/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
-      void queryClient.invalidateQueries({ queryKey: ["health"] });
-    },
-  });
-}
-
 /**
  * ─── M4: per-runtime bindings and settings ──────────────────────────────────
  *
@@ -2015,89 +1487,6 @@ export function useRuntimeProjects(): UseQueryResult<RuntimeProject[], ApiError>
   return useQuery({
     queryKey: ["runtime-projects"],
     queryFn: () => api<RuntimeProject[]>("/runtime-projects"),
-  });
-}
-
-/** Relink — the project is on that machine, just not where the binding says. */
-export function useRelinkProject(): UseMutationResult<
-  RuntimeProject,
-  ApiError,
-  { runtimeId: string; projectId: string; localPath: string }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ runtimeId, projectId, localPath }) =>
-      api<RuntimeProject>(`/runtimes/${runtimeId}/projects/${projectId}`, {
-        method: "PUT",
-        body: { localPath },
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["runtime-projects"] });
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-}
-
-/** Unbind — stop considering this machine for this project. */
-export function useUnbindProject(): UseMutationResult<
-  { unbound: number },
-  ApiError,
-  { runtimeId: string; projectId: string }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ runtimeId, projectId }) =>
-      api<{ unbound: number }>(`/runtimes/${runtimeId}/projects/${projectId}`, {
-        method: "DELETE",
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["runtime-projects"] });
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-}
-
-/** Clone — fetch the project onto that machine from its git remote. */
-export function useCloneProject(): UseMutationResult<
-  { queued: boolean },
-  ApiError,
-  { runtimeId: string; projectId: string; localPath: string }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ runtimeId, projectId, localPath }) =>
-      api<{ queued: boolean }>(`/runtimes/${runtimeId}/projects/${projectId}/clone`, {
-        method: "POST",
-        body: { localPath },
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["runtime-projects"] });
-    },
-  });
-}
-
-/**
- * Set one allowlisted setting on one machine.
- *
- * Returns `{ queued }`, deliberately — not the new value. The command has been
- * enqueued, not applied; the switch keeps rendering `reportedSettings` until
- * the daemon says otherwise, which is the whole point of `G-6`.
- */
-export function useSetRuntimeSetting(): UseMutationResult<
-  { queued: boolean },
-  ApiError,
-  { runtimeId: string; key: string; value: string }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ runtimeId, key, value }) =>
-      api<{ queued: boolean }>(`/runtimes/${runtimeId}/settings`, {
-        method: "PUT",
-        body: { key, value },
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
-    },
   });
 }
 
@@ -2177,44 +1566,10 @@ export function useWorkspace(enabled = true): UseQueryResult<Workspace, ApiError
   });
 }
 
-/** Partial, matching the handler: a form that saves one field sends one field. */
-export function useUpdateWorkspace(): UseMutationResult<
-  Workspace,
-  ApiError,
-  Partial<Pick<Workspace, "name" | "description" | "context" | "logoUrl">>
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body) => api<Workspace>("/workspace", { method: "PATCH", body }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["workspace"] });
-    },
-  });
-}
-
 /** See `Profile` for why this and `useAccount()` both exist. No polling, same reasons as `useWorkspace`. */
 export function useProfile(): UseQueryResult<Profile, ApiError> {
   return useQuery({
     queryKey: ["profile"],
     queryFn: () => api<Profile>("/me"),
-  });
-}
-
-export function useUpdateProfile(): UseMutationResult<
-  Profile,
-  ApiError,
-  Partial<Pick<Profile, "name" | "bio" | "avatarUrl">>
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body) => api<Profile>("/me", { method: "PATCH", body }),
-    onSuccess: () => {
-      // `["profile"]` and nothing else, deliberately. The shell's name and
-      // avatar do NOT come from react-query -- they come from Supabase's
-      // onAuthStateChange, and the handler's `auth.updateUser` call is what
-      // fires `USER_UPDATED` for them. An extra invalidation here would look
-      // like it was doing that work while doing nothing.
-      void queryClient.invalidateQueries({ queryKey: ["profile"] });
-    },
   });
 }
