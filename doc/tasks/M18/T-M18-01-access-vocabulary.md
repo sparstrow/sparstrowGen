@@ -7,7 +7,7 @@
 | **Depends on** | — |
 | **Blocks** | T-M18-02, T-M18-03, T-M18-04 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done |
 
 ## Objective
 
@@ -117,5 +117,4 @@ Anything Node-only in this file breaks the browser build. Types and Zod only.
 - [ ] Update this file's **Status** row and the phase README's task table
 
 ## Result
-
-*Filled in when the task lands.*
+✅ Finished and verified. Vocabulary created, unit test added for `atLeast()`, Zod schema absent for `ResolvedAccess` verified via `ExtractedSchemas`.

@@ -6,7 +6,15 @@ import type { Agent } from "@sparstrow/shared";
 import { closeDb, openDb } from "../db/connection.js";
 import { settings } from "../db/schema.js";
 import { ClaudeCodeProvider } from "../providers/claude-code.js";
-import { readGlobalToolPolicy, resolveRunEffectiveTools } from "./tool-resolution.js";
+import { readGlobalToolPolicy, resolveRunEffectiveTools, cacheWorkspacePolicy } from "./tool-resolution.js";
+import { vi } from "vitest";
+
+vi.mock("../cloud/commands.js", () => {
+  return {
+    isControlPlaneHealthy: vi.fn(() => true),
+  };
+});
+import { isControlPlaneHealthy } from "../cloud/commands.js";
 
 const agent = (allowedTools: string[], disallowedTools: string[]) =>
   ({ allowedTools, disallowedTools }) as unknown as Agent & {
@@ -91,3 +99,68 @@ describe("EH5 TOCTOU: claude-code reads the immutable snapshot, not the live age
     expect(allowedArg).not.toContain("Bash");
   });
 });
+
+import { _resetWorkspacePolicyCache } from "./tool-resolution.js";
+
+describe("readGlobalToolPolicy - cloud policy fallback (DD-3)", () => {
+  beforeEach(() => {
+    closeDb();
+    openDb(":memory:");
+    _resetWorkspacePolicyCache();
+  });
+  afterEach(() => closeDb());
+
+  it("cloud reachable returns cloud value", () => {
+    const db = openDb(":memory:").db;
+    db.insert(settings).values({ key: "tools.global.disallowed", value: JSON.stringify(["Edit"]) }).run();
+    cacheWorkspacePolicy({ allowedTools: ["Bash", "Read"], disallowedTools: ["Edit"] });
+    vi.mocked(isControlPlaneHealthy).mockReturnValue(true);
+    
+    const policy = readGlobalToolPolicy();
+    expect(policy.allowed).toEqual(["Bash", "Read"]);
+    expect(policy.disallowed).toEqual(["Edit"]);
+  });
+
+  it("cloud unreachable with a cached value that is stricter", () => {
+    const db = openDb(":memory:").db;
+    db.insert(settings).values({ key: "tools.global.allowed", value: JSON.stringify(["Bash", "Read"]) }).run();
+    
+    // Cloud cached has no Bash, so it is stricter
+    cacheWorkspacePolicy({ allowedTools: ["Read"], disallowedTools: [] });
+    vi.mocked(isControlPlaneHealthy).mockReturnValue(false);
+    
+    const policy = readGlobalToolPolicy();
+    expect(policy.allowed).toEqual(["Read"]);
+  });
+
+  it("cloud unreachable with local rows that are stricter", () => {
+    const db = openDb(":memory:").db;
+    db.insert(settings).values({ key: "tools.global.disallowed", value: JSON.stringify(["Edit"]) }).run();
+    cacheWorkspacePolicy({ allowedTools: ["Read"], disallowedTools: ["Bash"] });
+    vi.mocked(isControlPlaneHealthy).mockReturnValue(false);
+    
+    const policy = readGlobalToolPolicy();
+    expect(policy.disallowed).toContain("Edit");
+    expect(policy.disallowed).toContain("Bash");
+  });
+
+  it("never reached", () => {
+    const db = openDb(":memory:").db;
+    db.insert(settings).values({ key: "tools.global.disallowed", value: JSON.stringify(["Write"]) }).run();
+    
+    const policy = readGlobalToolPolicy();
+    expect(policy.disallowed).toEqual(["Write"]);
+  });
+
+  it("unreachable path can never return a superset of the last cached cloud policy", () => {
+    const db = openDb(":memory:").db;
+    db.insert(settings).values({ key: "tools.global.allowed", value: JSON.stringify(["Bash", "Read", "Edit", "Delete"]) }).run();
+    
+    cacheWorkspacePolicy({ allowedTools: ["Read"], disallowedTools: [] });
+    vi.mocked(isControlPlaneHealthy).mockReturnValue(false);
+    
+    const policy = readGlobalToolPolicy();
+    expect(policy.allowed).toEqual(["Read"]);
+  });
+});
+

@@ -53,6 +53,18 @@ export async function GET(request: Request) {
       createdAt: row.created_at as string,
     }));
 
-  const response: ClaimResponse = { commands };
+  const { data: workspace } = await daemonDb()
+    .from("workspaces")
+    .select("allowed_tools, disallowed_tools")
+    .eq("id", auth.scope.workspaceId)
+    .maybeSingle();
+
+  const response: ClaimResponse = { 
+    commands,
+    workspaceTools: workspace ? {
+      allowedTools: (workspace.allowed_tools as string[]) ?? [],
+      disallowedTools: (workspace.disallowed_tools as string[]) ?? [],
+    } : undefined
+  };
   return NextResponse.json(response);
 }

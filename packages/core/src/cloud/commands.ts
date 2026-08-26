@@ -22,6 +22,7 @@ import { pullOnce } from "./memory-sync.js";
 import { reportSettings } from "./registration.js";
 import { resolveAgent } from "./resolve.js";
 import { markDispatched } from "./run-reporter.js";
+import { cacheWorkspacePolicy } from "../agents/tool-resolution.js";
 
 /**
  * M4 — the loop that turns a row in Postgres into a process on this machine.
@@ -43,16 +44,24 @@ let inFlight = false;
 /** Connectivity edge, so a laptop offline overnight logs once, not 1,200 times. */
 let healthy = true;
 
+export function isControlPlaneHealthy(): boolean {
+  return healthy;
+}
+
 async function poll(): Promise<void> {
   if (stopped || inFlight || !isPaired()) return;
   inFlight = true;
 
   try {
-    const { commands } = await cloudFetch<ClaimResponse>("/commands", {
+    const { commands, workspaceTools } = await cloudFetch<ClaimResponse>("/commands", {
       method: "GET",
       retries: 1,
       timeoutMs: 10_000,
     });
+
+    if (workspaceTools) {
+      cacheWorkspacePolicy(workspaceTools);
+    }
 
     if (!healthy) {
       healthy = true;

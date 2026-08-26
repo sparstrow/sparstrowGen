@@ -255,7 +255,7 @@ describe("PATCH /me refusals", () => {
 });
 
 describe("GET /me", () => {
-  it("returns the row the form edits, camel-cased, without the role", async () => {
+  it("returns the row the form edits, camel-cased", async () => {
     const { status, json } = await call("GET", undefined, freshRow());
     expect(status).toBe(200);
     expect(json).toEqual({
@@ -265,6 +265,5 @@ describe("GET /me", () => {
       avatarUrl: null,
       bio: "",
     });
-    expect(json).not.toHaveProperty("role");
   });
 });

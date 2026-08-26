@@ -289,6 +289,10 @@ export interface ClaimedCommand {
 export interface ClaimResponse {
   /** Always an array. Empty is the common case and is not an error. */
   commands: ClaimedCommand[];
+  workspaceTools?: {
+    allowedTools: string[];
+    disallowedTools: string[];
+  };
 }
 
 /**

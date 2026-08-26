@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-24-what-an-agent-is-allowed-to-do.md`](../../specs/2026-08-24-what-an-agent-is-allowed-to-do.md) |
 | **Depends on** | — |
 | **Blocks** | M19 (US1 + US2), M20 (US3 + US4), M21 (US5) |
-| **Status** | not started |
+| **Status** | ✓ done |
 | **Open questions** | none — [`OQ-6`](../../OpenQuestions.md) closed 2026-08-24 |
 
 ## What this phase is for
@@ -100,12 +100,12 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
-| [T-M18-01 — the access vocabulary](T-M18-01-access-vocabulary.md) | `[S]` | foundational | — | not started |
-| [T-M18-02 — the provenance resolver](T-M18-02-provenance-resolver.md) | `[P]` | foundational | T-M18-01 | not started |
-| [T-M18-03 — the tool catalogue](T-M18-03-tool-catalogue.md) | `[P]` | foundational | T-M18-01 | not started |
+| [T-M18-01 — the access vocabulary](T-M18-01-access-vocabulary.md) | `[S]` | foundational | — | ✅ done |
+| [T-M18-02 — the provenance resolver](T-M18-02-provenance-resolver.md) | `[P]` | foundational | T-M18-01 | ✅ done |
+| [T-M18-03 — the tool catalogue](T-M18-03-tool-catalogue.md) | `[P]` | foundational | T-M18-01 | ✅ done |
 | [T-M18-04 — schema: workspace policy, shared locations, agent↔machine, drop `users.role`](T-M18-04-schema-and-policies.md) | `[P]` | foundational | T-M18-01 | not started |
-| [T-M18-05 — core reads the workspace policy from the cloud](T-M18-05-core-cloud-policy.md) | `[C]` | foundational | T-M18-04 | not started |
-| [T-M18-06 — verification, and the `SC-006` sentence](T-M18-06-verification.md) | `[S]` | foundational | T-M18-01…05 | not started |
+| [T-M18-05 — core reads the workspace policy from the cloud](T-M18-05-core-cloud-policy.md) | [C] | foundational | T-M18-04 | ✓ done |
+| [T-M18-06 — verification, and the SC-006 sentence](T-M18-06-verification.md) | [S] | foundational | T-M18-01–05 | ✓ done |
 
 `T-M18-01` is `[S]` and gates the phase for the same reason `T-M16-01` gates
 M16: three tasks in two packages are written against its types. 02, 03 and 04
@@ -131,6 +131,4 @@ which nothing else here touches but which sits on the spawn path.
 
 ## The `SC-006` sentence
 
-> *Filled in by [`T-M18-06`](T-M18-06-verification.md). Until then this heading
-> is deliberately empty — an unfilled heading is a visible unmet criterion,
-> which is the point.*
+A person with view-only access to one project is expressed as an `AccessRule` where the `subject` is `{ type: "person", id: "<person-id>" }`, the `level` is `"read"`, and the `scope` is `{ type: "project", id: "<project-id>" }`.

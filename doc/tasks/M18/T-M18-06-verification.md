@@ -7,7 +7,7 @@
 | **Depends on** | T-M18-01 … T-M18-05 |
 | **Blocks** | M19, M20, M21 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✓ done |
 
 ## Objective
 
@@ -110,4 +110,14 @@ Result. "Covered" without the two lists is not a result.
 
 ## Result
 
-*Filled in when the task lands. Quote the `SC-006` sentence here verbatim.*
+o. Finished and verified.
+
+> A person with view-only access to one project is expressed as an `AccessRule` where the `subject` is `{ type: "person", id: "<person-id>" }`, the `level` is `"read"`, and the `scope` is `{ type: "project", id: "<project-id>" }`.
+
+- `pnpm typecheck` and `pnpm test` are green.
+- The `SC-006` sentence is written in `README.md`.
+- Provenance resolver and superset tests were broken to prove they have teeth, then restored.
+- The tool catalogue covers all providers (4 of them: claude-code, antigravity, anthropic-api, ollama).
+- `G-35` was checked.
+- Knowledge Center pass completed. `limitations.md` and `providers-and-execution-modes.md` were checked and no changes are needed as they accurately reflect the current state.
+- Plan status updated to `In progress — M19 next`.

@@ -56,6 +56,8 @@ export const workspaces = pgTable("workspaces", {
   // same kind beats being internally consistent with `context`.
   logoUrl: text("logo_url"),
   ownerId: text("owner_id").notNull(),
+  allowedTools: jsonb("allowed_tools").$type<string[]>().notNull().default([]),
+  disallowedTools: jsonb("disallowed_tools").$type<string[]>().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -68,7 +70,6 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   avatarUrl: text("avatar_url"),
   bio: text("bio").notNull().default(""),
-  role: text("role").notNull().default("developer"), // admin | developer | viewer
   themeSurface: text("theme_surface").notNull().default("paper"),
   themeBrand: text("theme_brand").notNull().default("amber"),
   themeMode: text("theme_mode").notNull().default("system"),
@@ -172,6 +173,65 @@ export const runtimeProjects = pgTable(
     primaryKey({ columns: [t.runtimeId, t.projectId] }),
     index("idx_runtime_projects_project").on(t.projectId, t.state),
     index("idx_runtime_projects_workspace").on(t.workspaceId),
+  ],
+);
+
+/**
+ * Plan DD-4: nominated locations grant reading only. There is no `can_write` column,
+ * because adding one would invite someone to set it. If a write grant is ever
+ * wanted it is a new decision with a new column, deliberately.
+ *
+ * NOTE: this is cloud state that a machine enforces. The daemon fetches the list
+ * and refuses paths outside it. Nothing in this table enforces anything — a reader
+ * who thinks the table is the boundary has misread it.
+ */
+export const machineSharedLocations = pgTable(
+  "machine_shared_locations",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    runtimeId: text("runtime_id")
+      .notNull()
+      .references(() => runtimes.id, { onDelete: "cascade" }),
+    path: text("path").notNull(),
+    addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
+    addedBy: text("added_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  (t) => [
+    uniqueIndex("uq_machine_shared_locations").on(t.runtimeId, t.path),
+    index("idx_machine_shared_locations_workspace").on(t.workspaceId),
+    index("idx_machine_shared_locations_runtime").on(t.runtimeId),
+    index("idx_machine_shared_locations_added_by").on(t.addedBy),
+  ],
+);
+
+/**
+ * Agent-machine restrictions. Which agents may run on which machine.
+ *
+ * FR-009: No rows for an agent ⇒ that agent may run anywhere.
+ * Matches `tool-policy.ts` locked semantics: an empty allow-list at a level
+ * does NOT mean deny all.
+ */
+export const agentMachineRestrictions = pgTable(
+  "agent_machine_restrictions",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    agentId: text("agent_id")
+      .notNull()
+      .references(() => agents.id, { onDelete: "cascade" }),
+    runtimeId: text("runtime_id")
+      .notNull()
+      .references(() => runtimes.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    index("idx_agent_machine_restrictions_workspace").on(t.workspaceId),
+    index("idx_agent_machine_restrictions_agent").on(t.agentId),
+    index("idx_agent_machine_restrictions_runtime").on(t.runtimeId),
   ],
 );
 
