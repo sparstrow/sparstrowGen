@@ -18,11 +18,18 @@ export const SECTION_ORDER = [
   "Reference",
 ] as const;
 
+/**
+ * T-VR-07: the content moved from `packages/ui/src/content/knowledge` into
+ * `apps/web/src/content/knowledge` alongside this file, closing a stale
+ * cross-package fs reference. `process.cwd()` still varies with where the
+ * process was launched from (repo root vs. `apps/web`, dev vs. build), which
+ * is why this stays multi-candidate rather than collapsing to one path.
+ */
 function getKnowledgeDir() {
   const candidates = [
-    path.resolve(process.cwd(), "packages/ui/src/content/knowledge"),
-    path.resolve(process.cwd(), "../../packages/ui/src/content/knowledge"),
-    path.resolve(process.cwd(), "../packages/ui/src/content/knowledge"),
+    path.resolve(process.cwd(), "apps/web/src/content/knowledge"),
+    path.resolve(process.cwd(), "src/content/knowledge"),
+    path.resolve(process.cwd(), "../../apps/web/src/content/knowledge"),
   ];
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
@@ -52,6 +59,30 @@ function titleFromSlug(slug: string): string {
     .split("-")
     .map((w) => (w ? w[0]?.toUpperCase() + w.slice(1) : w))
     .join(" ");
+}
+
+export interface KnowledgeIndexEntry {
+  slug: string;
+  title: string;
+}
+
+/**
+ * `{slug, title}` only, for the two CLIENT components (`breadcrumbs.tsx`,
+ * `tab-strip.tsx`) that need to show an article's real title instead of its
+ * raw slug. They cannot import this file's `fs` reads directly — Client
+ * Components cannot bundle `node:fs` — so `RootLayout` reads this once,
+ * server-side, and passes it down as a prop. Small and static enough
+ * (repo content, not user data) that this beats a second API route and a
+ * second client-side fetch for the same lookup.
+ *
+ * Replaces `packages/ui/src/lib/knowledge.ts`, deleted in `T-VR-07` —
+ * see `BUG-2026-08-24-knowledge-breadcrumb-title-silently-blank.md`. That
+ * file built its registry with Vite's `import.meta.glob`, which Turbopack
+ * silently no-ops rather than erroring on, so its `getArticle()` had
+ * returned `undefined` on every call since the Vite host was deleted.
+ */
+export function getKnowledgeIndex(): KnowledgeIndexEntry[] {
+  return getAllArticles().map(({ slug, title }) => ({ slug, title }));
 }
 
 export function getAllArticles(): KnowledgeArticle[] {

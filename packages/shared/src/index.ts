@@ -4,6 +4,7 @@ export * from "./events";
 export * from "./skill-md";
 export * from "./wake-prompt";
 export * from "./tool-policy";
+export * from "./access";
 export * from "./schemas/common";
 export * from "./schemas/agent";
 export * from "./schemas/agent-draft";

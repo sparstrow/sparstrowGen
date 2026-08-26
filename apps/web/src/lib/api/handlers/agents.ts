@@ -1,10 +1,5 @@
-import { registerRoute, ok, fail, noContent, HandlerContext } from "../router";
+import { registerRoute, ok, fail, HandlerContext } from "../router";
 import { OPAQUE_COLUMNS } from "../../case";
-import { slugify, withCollisionSuffix } from "./workspace";
-
-function generateId(prefix: string) {
-  return `${prefix}${crypto.randomUUID().replace(/-/g, "")}`;
-}
 
 registerRoute({
   method: "GET",
@@ -17,40 +12,6 @@ registerRoute({
       .order("created_at", { ascending: false });
     if (error) throw error;
     return ok(data, OPAQUE_COLUMNS.agents as string[]);
-  }
-});
-
-registerRoute({
-  method: "POST",
-  pattern: "/agents",
-  opaqueKeys: OPAQUE_COLUMNS.agents as string[],
-  handler: async ({ supabase, workspaceId, body }: HandlerContext) => {
-    const id = body.id || generateId("agt_");
-    // `agents.slug` is `not null` with no DB default (same shape as
-    // teams.slug and projects.slug — BUG-2026-08-22-team-create-500-missing-slug).
-    // Neither the client nor this handler generated one, so every INSERT
-    // violated the constraint and 500'd. One retry with a random suffix on
-    // collision.
-    const baseSlug = typeof body.slug === "string" && body.slug.trim() ? body.slug : slugify(body.name ?? "");
-    const attempts = [baseSlug, withCollisionSuffix(baseSlug || "agent")];
-
-    for (let i = 0; i < attempts.length; i++) {
-      const payload = {
-        ...body,
-        workspace_id: workspaceId,
-        id,
-        slug: attempts[i],
-      };
-      const { data, error } = await supabase.from("agents").insert(payload).select().single();
-      if (error) {
-        if (error.code === "23505" && i < attempts.length - 1) continue;
-        throw error;
-      }
-      return ok(data, OPAQUE_COLUMNS.agents as string[]);
-    }
-
-    // Unreachable: the second attempt's random suffix cannot collide twice.
-    return fail(500, "Internal Server Error");
   }
 });
 
@@ -70,44 +31,6 @@ registerRoute({
 });
 
 registerRoute({
-  method: "PATCH",
-  pattern: "/agents/:id",
-  opaqueKeys: OPAQUE_COLUMNS.agents as string[],
-  handler: async ({ supabase, workspaceId, params, body }: HandlerContext) => {
-    const { data, error } = await supabase
-      .from("agents")
-      .update(body)
-      .eq("workspace_id", workspaceId)
-      .eq("id", params.id)
-      .select()
-      .single();
-    if (error) throw error;
-    return ok(data, OPAQUE_COLUMNS.agents as string[]);
-  }
-});
-
-registerRoute({
-  method: "DELETE",
-  pattern: "/agents/:id",
-  handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
-    // .select() makes PostgREST return the deleted rows. Without it a
-    // delete that matched nothing -- because the id is unknown OR because
-    // RLS hid another workspace's row -- still resolves without error, and
-    // this would answer 204. The client then optimistically drops a row it
-    // never actually deleted.
-    const { data: deleted, error } = await supabase
-      .from("agents")
-      .delete()
-      .eq("workspace_id", workspaceId)
-      .eq("id", params.id)
-      .select("id");
-    if (error) throw error;
-    if (!deleted || deleted.length === 0) return fail(404, "Not Found");
-    return noContent();
-  }
-});
-
-registerRoute({
   method: "GET",
   pattern: "/agents/:id/skills",
   handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
@@ -118,33 +41,6 @@ registerRoute({
       .eq("agent_id", params.id);
     if (error) throw error;
     return ok(data);
-  }
-});
-
-registerRoute({
-  method: "PUT",
-  pattern: "/agents/:id/skills",
-  handler: async ({ supabase, workspaceId, params, body }: HandlerContext) => {
-    const skillIds: string[] = body.skillIds || body.skill_ids || [];
-    const { error: delError } = await supabase
-      .from("agent_skills")
-      .delete()
-      .eq("workspace_id", workspaceId)
-      .eq("agent_id", params.id);
-    if (delError) throw delError;
-
-    if (skillIds.length > 0) {
-      const inserts = skillIds.map(id => ({
-        workspace_id: workspaceId,
-        agent_id: params.id,
-        skill_id: id
-      }));
-      const { error: insError } = await supabase
-        .from("agent_skills")
-        .insert(inserts);
-      if (insError) throw insError;
-    }
-    return ok({ success: true });
   }
 });
 

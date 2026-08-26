@@ -746,10 +746,24 @@ and is still there today.
   `tokens/*.css` and flags any custom property with no counterpart in a declared
   source, and `--transition-base` is either removed or given a real source.
 
-### G-23 — Two app shells keep two copies of the navigation, and only one is the browser's
+### G-23 — Two app shells keep two copies of the navigation, and only one is the browser's — CLOSED 2026-08-24
 
 **Raised:** 2026-08-20, by `T-M8-03` — found by rendering the page, not by
 reading the tree.
+
+**Closed 2026-08-24, by `T-VR-06`.** Both halves this entry was still
+tracking are resolved. The "not verified in `apps/web`" half: `T-VR-06`
+signed into `apps/web` on the feature branch's own Vercel preview with real
+Supabase credentials (`apps/web/.env.local`, confirmed present and working —
+the "this environment lacks credentials" premise this entry and `G-22`
+shared was simply wrong for this worktree) and read the sidebar via
+`agent-browser snapshot` on more than a dozen routes: all 17 `NAV_GROUPS`
+destinations present, correct order, correct headings, `aria-current="page"`
+on exactly one link per route. The "full-shell-merge" half: already noted
+here as superseded by `D-24` rather than needing the `Outlet` equivalent this
+entry once called for, and `D-24` is now executed —
+`packages/ui/src/components/layout/app-shell.tsx` (the Vite/desktop shell)
+no longer exists (`T-VR-01`). There is exactly one `AppShell` left to drift.
 
 **Narrowed 2026-08-23 (`T-G23-01`).** `NAV_GROUPS` — which paths appear in
 the sidebar, in what order, under which heading — is now a single export in
@@ -788,10 +802,12 @@ than rendering a route outlet.
   touch — header markup, palette wiring, collapse behavior — can still drift
   the two hosts apart the same way `NAV_GROUPS` did. Lower risk than before,
   since the highest-value duplicate (what's actually in the sidebar) is gone.
-- **Clears when:** the two `AppShell` components are actually merged into
-  one, with the live-event-transport difference resolved deliberately rather
-  than dropped — a bigger, separate piece of work than this entry's original
-  "honest minimum" fix, which is now done.
+- **Clears when:** ~~the two `AppShell` components are actually merged into
+  one~~ — **superseded 2026-08-24 by [`D-24`](Deferred.md)**, which deletes the
+  Vite/desktop shell rather than merging it. Do not build the `Outlet`
+  equivalent or reconcile the two live-event transports; that is work on a host
+  that is slated for removal. This entry closes by deletion when D-24 is
+  executed.
 
 ### G-24 — M8 is proved on localhost, not on staging, and not with a second computer
 
@@ -906,10 +922,18 @@ ways: 250 unit tests including a 120-combination contrast sweep, a clean
 loads the same generated CSS and where surface and brand were confirmed
 orthogonal in both modes.
 
-What has **not** happened is rendering `apps/web` itself. It needs
-`NEXT_PUBLIC_SUPABASE_URL` and an anon key, which this environment does not
-have; without them the app serves a "not configured" page that does not even
-load the stylesheet.
+What has **not** happened is rendering `apps/web` in each of the specific
+rich states listed below. It needs `NEXT_PUBLIC_SUPABASE_URL` and an anon
+key — **note, added 2026-08-24 by `T-VR-06`: this worktree's
+`apps/web/.env.local` has since had all four variables set, so "this
+environment does not have them" is no longer the blocker.** `apps/web` has
+now been rendered live repeatedly (`T-VR-05`, `T-VR-06`) with the real
+generated CSS and no "not configured" page — but always against a fresh,
+near-empty workspace. The specific states below (a blocked run, a connected
+machine, a failed import, an awaiting-approval item, several agents'
+avatars on a board) still haven't been walked, because producing them needs
+either a paired machine or enough manually-seeded data, neither of which a
+disposable-account pass creates for free.
 
 - **If wrong:** something that only appears in composition — a token used where
   its `-foreground` was meant, a surface that reads flat once real content is on
@@ -1057,3 +1081,464 @@ dashboard", which is true and useful. That is a correct answer, not a complete o
   current plan and written down with that provenance. Cheap; worth doing next time
   the dashboard is open anyway.
 
+
+### G-35 — Any workspace member has full read and write on all workspace content
+
+**Raised:** 2026-08-24, auditing what access decisions already exist before
+answering [`OQ-6`](OpenQuestions.md).
+**Narrowed:** 2026-08-25 (M18, `T-M18-04`). The inert `users.role` column, which
+created a second deceptive vocabulary (`admin | developer | viewer`), was dropped
+outright. A person's level lives on their workspace membership (`workspace_members.role`),
+which is enforced. Proof: `schema.ts:63` has no `role` column, and
+`profile-routes.test.ts:258`'s test asserting it was stripped is deleted.
+
+**Still open: the enforced role is narrower than it looks.** `workspace_members.role`
+gates four things only: renaming or deleting a workspace, daemon tokens,
+deleting someone else's pairing code, and updating a runtime command (plus M18's
+machine/location bindings). Every content table — projects, tasks, agents, runs,
+chat, memory — is governed by the generic member policy applied in the loop at
+[`001_rls.sql:124`](../packages/shared/drizzle/policies/001_rls.sql:124), which
+asks only *are you a member of this workspace*. **Any member has full read and
+write on all workspace content.** There is no viewer, and no read-only anything.
+
+- **If wrong:** "we have roles" is true and misleading in the same breath. A
+  feature built "for admins" but backed by a generic content table would ship
+  with no enforcement behind it at all.
+- **Clears when:** the access model decides whether content remains flat-member
+  access, or if `workspace_members.role` is extended to gate content (e.g.,
+  viewers).
+
+### G-36 — Electron has no local-UI fallback; the offline screen was typechecked, never seen
+
+**Raised:** 2026-08-24, closing `T-VR-06`, verifying
+[`plans/2026-08-24-retire-the-vite-app.md`](plans/2026-08-24-retire-the-vite-app.md).
+
+**Accepted limitation, not a bug** — this is `D-24`'s architecture working as
+intended, recorded here because the plan's own Verification table asked for
+an entry naming what the Vite/Electron retirement removed. `T-VR-01` deleted
+`packages/desktop/src/urls.ts`'s `resolveLocalUiUrl` fallback: `resolveAppUrl`
+now returns `string | null` instead of ever falling back to a bundled local
+UI, and `main.ts` shows an offline screen ("SPARSTROW_APP_URL is not set")
+when it's null. A packaged Electron build with no `SPARSTROW_APP_URL` set, or
+one that can't reach the hosted app, no longer has any local UI to fall back
+to — by design, since Electron is now a thin shell pointed at the hosted app,
+not a second copy of it.
+
+**What's actually unproved:** the offline screen itself. `T-VR-01`'s own
+Result section says so directly — "nothing was rendered in a browser," and
+Electron isn't a browser this agent's tools can drive (`agent-browser`, the
+Claude Browser pane, and the disposable-account procedure all assume a web
+origin; there is no display environment here to launch a packaged or `pnpm
+--filter desktop dev` build against). `pnpm typecheck`/`pnpm test` are green
+on `packages/desktop`, which proves the `string | null` types and the
+`validatedURL`-based `did-fail-load` handler compile and pass their unit
+tests — not that a human ever saw the window.
+
+- **If wrong:** a user on a misconfigured or offline Electron install sees a
+  blank window or a crash instead of the intended "not configured" message.
+  Low blast radius today — Electron is explicitly the last of the three
+  components to be brought up (per the owner: "Electron is the final step"),
+  so nobody is running a packaged build yet.
+- **Clears when:** someone with a display launches `pnpm --filter desktop dev`
+  (or a packaged build) with `SPARSTROW_APP_URL` unset, and separately with it
+  set to an unreachable host, and confirms the offline screen renders both
+  times rather than a blank window.
+
+### G-37 — Four of `T-WA-01`'s checks were run on weaker evidence than they asked for
+
+**Raised:** 2026-08-24, closing [`T-WA-01`](tasks/WA/T-WA-01-convention-and-teams.md),
+the first Server Action conversion in band 22.
+
+The task's live walk proved all seven converted actions end to end against real
+Supabase, and proved DD-3 and DD-4 with a real failure. Four of its written
+checks could not be run **as written** against a fresh disposable workspace, and
+are ticked `[~]` rather than `[x]` in that task:
+
+| Check | What was actually run | Why it matters |
+|---|---|---|
+| Create a team **with two projects selected** | `setTeamProjectsAction` on its **empty-set** path only — the workspace had no projects to tick | **The one real code path of the four.** The non-empty branch does a `delete` then an `insert` of N rows; neither the insert nor its `workspace_id`/`team_id` shape has been executed once |
+| A name that **fails validation** | Nothing — no validation on this form rejects a non-empty name, so there was no failure to force without mocking | DD-3 (messages survive the conversion) *was* proved, by the signed-out refusal instead. This is a second, weaker instance of the same property |
+| The **member count** on the `/teams` card after adding a member | A team **rename** propagating to `/teams` — same two `revalidatePath` targets, same two routes | The mechanism is proved; the specific number was never read |
+| The create button **disabled while in flight** | The empty-name half of `disabled={!name.trim() \|\| pending}` | The action returned too fast to snapshot the in-flight state |
+
+- **If wrong:** only the first row can actually break something. If the
+  non-empty `team_projects` insert is malformed — a wrong column name, a missing
+  `workspace_id` — assigning projects to a team fails at runtime while every
+  test and typecheck stays green. It is the same shape as
+  `BUG-2026-08-22-team-create-500-missing-slug`, which is exactly how that class
+  of defect reaches users. The other three rows are presentation details whose
+  underlying mechanism is already demonstrated.
+- **Clears when:** a workspace with at least one project exists and a team is
+  created with projects selected, then the count is read off the `/teams` card.
+  That is one walk covering three of the four rows, and it is the natural first
+  step of [`T-WA-09`](tasks/WA/T-WA-09-verification.md)'s sweep — which needs
+  seeded projects anyway to verify `T-WA-02`.
+
+### G-38 — Band 16's three task files record no verification at all
+
+**Raised:** 2026-08-25, reconciling task-file Status rows against
+[`MasterTaskQueue.md`](tasks/MasterTaskQueue.md) when `AGENTS.md` §2.9 was
+adopted.
+
+The Settings Redesign shipped — `feat(settings): Settings Redesign
+(Master-Detail Sidebar & Appearance Themes)` (#112), 2026-08-22 — and the queue
+has read `🟢 done` for 16.1–16.3 ever since. But **not one checklist item in any
+of the three task files was ever ticked**: 27 boxes across
+[`T-SR-01-ThemeInfra`](tasks/SettingsRedesign/T-SR-01-ThemeInfra.md),
+[`T-SR-02-UnifiedNav`](tasks/SettingsRedesign/T-SR-02-UnifiedNav.md) and
+[`T-SR-03-AppearancePicker`](tasks/SettingsRedesign/T-SR-03-AppearancePicker.md), all
+`[ ]`, including their Verification sections. Their Status rows read
+`not started` until this entry was written.
+
+The boxes have been left unticked deliberately. Ticking them now would assert a
+verification nobody can point to, which is the failure `doc/tasks/README.md`'s
+completion protocol exists to prevent. The Status rows say `done 2026-08-22`
+because the feature demonstrably shipped; the queue row remains the only
+assertion that these specific checks were run.
+
+**Unverified as a result** — the named ones, from the files' own Verification
+sections: that the `theme-prefs` cookie is set at login and that a
+hand-edited cookie makes the server render matching classes on first paint
+(the whole point of the cookie cache — its failure mode is FOUC, which no test
+covers), and the accent/surface picker's contrast floor holding at the Paper
+and Mono surfaces in both modes, which `DESIGN.md` §2 requires.
+
+- **If wrong:** a theming regression ships unnoticed. The FOUC case is the
+  likely one — it is invisible to `pnpm test` and `pnpm typecheck` by
+  construction, only appears on a cold first paint, and is exactly what the
+  cookie cache was built to prevent. A contrast-floor break is the more serious
+  one, because it is an accessibility failure the design doctrine states as a
+  hard floor.
+- **Clears when:** the three files' Verification sections are actually walked
+  against a deployed preview and ticked, or explicitly rewritten to say what
+  was run instead. Cheapest inside `I-10`'s settings design pass, which will
+  be re-opening these surfaces anyway.
+
+### G-39 — `T-WA-02`'s "rename a project" verification has no UI to exercise it
+
+**Raised:** 2026-08-25, verifying `T-WA-02` (`updateProjectAction`) live.
+
+The task's Verification section asks to "rename a project, then open
+`/projects` — the new name is there on arrival." `apps/web/src/app/projects/[projectId]/project-detail.tsx`'s
+`GitPanel` is the only call site of `updateProjectAction` in this task, and it
+only ever sends `executionProfile`/`stagingBranch` — there is no project-name
+or description edit control anywhere in `project-detail.tsx` or `projects.tsx`
+to actually exercise a rename through the UI. `useUpdateProject`, the hook this
+task deleted, had exactly the same single call site before conversion, so this
+is not a regression the conversion introduced — the UI to rename a project has
+never existed on these pages.
+
+Verified instead: `updateProjectAction` itself, live, via the one real call
+site — flipping a project to `production_app` with a staging branch, both
+persisted (confirmed against the `projects` row directly) and reflected back
+in the UI without a page reload. The write path — auth, `toSnake`, the
+`workspace_id`/`id` scoped update, `revalidatePath`, `actionErrorFrom` mapping
+— is exercised end to end; only the specific "name" field of `ProjectUpdate`
+went untouched, because nothing calls the action with one.
+
+- **If wrong:** low — `updateProjectAction` updates whatever fields
+  `ProjectUpdate` carries via one generic `.update(payload)` call, so a name
+  change is not a distinct code path from the profile-field change already
+  proven live. The risk is confined to the day a rename UI is actually built
+  and wires up wrong, not to this task's code.
+- **Clears when:** a task adds a rename control to `project-detail.tsx` or
+  `projects.tsx` and exercises it live, or someone runs
+  `updateProjectAction(id, { name: "..." })` directly against a disposable
+  project and confirms `/projects` shows the new name without a query
+  invalidation bug.
+
+### G-40 — `T-WA-05`'s skill-detail.tsx toggle/delete not exercised live
+
+**Raised:** 2026-08-25, verifying `T-WA-05` live.
+
+`apps/web/src/app/skills/[skillId]/skill-detail.tsx` has its own call sites
+for `updateSkillAction` (the enabled toggle) and `deleteSkillAction`, converted
+by this task alongside the list page's. Neither could be exercised through the
+UI: the page crashes unconditionally on mount —
+[`BUG-2026-08-25-skill-detail-page-always-crashes`](bug/BUG-2026-08-25-skill-detail-page-always-crashes.md),
+a pre-existing bug in `GET /skills/:id` (unrelated to this task, which doesn't
+touch reads) — so the component never reaches the code this task changed.
+
+**Verified instead:** the exact same two actions, called with the same
+signature, live on the list page (`skills.tsx`'s row switch and delete menu
+item) — toggle, edit, and delete all confirmed working end to end, including
+a page reload proving persistence. The action code itself
+(`apps/web/src/app/skills/actions.ts`) is shared between both call sites
+unmodified; only the calling component differs, and `pnpm typecheck` confirms
+the detail page's wiring type-checks against the same action signatures.
+
+- **If wrong:** low — the risk would have to be in `skill-detail.tsx`'s own
+  glue code (the `toggleSkill`/`startDelete` wrappers), not the shared action,
+  and that glue is a near-verbatim copy of the list page's already-proven
+  version.
+- **Clears when:** `BUG-2026-08-25-skill-detail-page-always-crashes` is fixed
+  and the detail page's toggle and delete are walked live once it can render.
+
+### G-41 — `T-WA-04`'s answer/approve/deny/cancel-goal/retry-node not exercised live
+
+**Raised:** 2026-08-25, verifying `T-WA-04` live.
+
+Five of this task's six converted actions could not be exercised through
+their real UI, blocked by two pre-existing bugs neither caused nor touched by
+this task (plan DD-5: reads untouched):
+
+- [`BUG-2026-08-25-attention-queue-rows-always-render-as-ready-for-review`](bug/BUG-2026-08-25-attention-queue-rows-always-render-as-ready-for-review.md)
+  means `QuestionCard` (`answerTaskAction`) and `ApprovalCard`
+  (`approveTaskAction`/`denyTaskAction`) never mount on the dashboard.
+- [`BUG-2026-08-25-goal-detail-500s-once-a-plan-has-nodes`](bug/BUG-2026-08-25-goal-detail-500s-once-a-plan-has-nodes.md)
+  means the goal detail page 500s before its Cancel/Retry-step buttons
+  (`cancelGoalAction`/`retryNodeAction`) ever render.
+
+**Verified instead:** unit tests for all five
+(`apps/web/src/app/tasks/actions.test.ts`,
+`apps/web/src/app/tasks/goals/[goalId]/actions.test.ts`) covering the actual
+DB writes each performs — the answer-then-wake transition, the approve/deny
+status flips, the goal cancel, and the node→task resolution feeding into
+`runTaskAction` (itself proven live separately — see this task's Result).
+`createTaskAction`/`updateTaskAction`/`deleteTaskAction`/`runTaskAction` (the
+sixth action, and the most complex) were all proven live end-to-end,
+including `runTaskAction`'s RPC-failure park-status fallback.
+
+- **If wrong:** low for the DB-write logic itself (unit-tested against
+  realistic mocked responses); the actual risk surface is entirely inside the
+  two blocking bugs above, not in this task's code.
+- **Clears when:** both bugs above are fixed and these five actions are
+  walked live through their real UI.
+
+### G-42 — `T-WA-06`'s `cancelRunAction` and full pipeline edit/delete not exercised live
+
+**Raised:** 2026-08-25, verifying `T-WA-06` live.
+
+`createRunAction` (run creation, including its `start_run` RPC failure
+mapping — reproduced live as "No machine is online that can run
+claude-code."), `createCronJobAction`, `updateCronJobAction` (the enabled
+toggle and a full edit), and `deleteCronJobAction` were all proven live
+end-to-end against a fresh disposable workspace, including a page reload
+confirming persistence after both the toggle and the delete.
+
+Two things could not be:
+
+- **`cancelRunAction`** needs a real, in-flight `runs` row to cancel. No
+  daemon is paired in this environment, so `createRunAction` never succeeds
+  far enough to produce one — the same "no machine online" wall
+  `createRunAction`'s own verification hit. `T-WA-04`'s `runTaskAction` hit
+  and cleared this identical wall by pairing a real daemon; that was not
+  repeated here to keep this task's verification pass scoped.
+- **`updatePipelineAction`'s full edit and `deletePipelineAction`** need a
+  real `pipelines` row, and none can currently be created —
+  [`BUG-2026-08-25-creating-a-pipeline-always-400s`](bug/BUG-2026-08-25-creating-a-pipeline-always-400s.md),
+  pre-existing and unrelated to this task's own conversion (it moved the
+  same broken insert verbatim). `updatePipelineAction`'s `enabled`-only path
+  has no such dependency and **was** proven live, since a pipeline's
+  `enabled` toggle is the one write this bug doesn't block — but there was
+  no way to reach a full edit or a delete through the UI.
+
+**Verified instead:** unit tests for both
+(`apps/web/src/app/runs/actions.test.ts`,
+`apps/web/src/app/pipelines/actions.test.ts`) covering `cancelRunAction`'s
+success and RPC-failure-mapping paths, and `createPipelineAction`'s/
+`updatePipelineAction`'s/`deletePipelineAction`'s DB logic against realistic
+mocked responses — including a regression test reproducing the exact
+`BUG-2026-08-25-creating-a-pipeline-always-400s` failure shape, so a future
+fix has something to flip green.
+
+- **If wrong:** low — both actions are near-identical in shape to
+  `runTaskAction`/`deleteCronJobAction`, which were proven live in this same
+  pass and the previous task respectively; the risk is confined to the
+  DB-write logic itself, already covered by the unit tests.
+- **Clears when:** a daemon is paired to walk `cancelRunAction` live, and
+  `BUG-2026-08-25-creating-a-pipeline-always-400s` is fixed so a pipeline can
+  actually be created, edited, and deleted through the UI.
+
+### G-43 — `T-WA-03`'s `deleteAgentAction` FK-violation refusal not exercised live
+
+**Raised:** 2026-08-26, verifying `T-WA-03` live.
+
+`createAgentAction` (both the manual form and the Agent Creator's own
+create), `updateAgentAction` (the enabled toggle and a full edit via
+`SkillViewer`), `setAgentSkillsAction`, and a plain `deleteAgentAction` (no
+references) were all proven live end-to-end against a fresh disposable
+workspace, each confirmed via a page reload rather than optimistic UI state
+alone.
+
+**Not exercised:** the task's own verification step "delete an agent that is
+referenced by a team: the same refusal message as today." No team existed in
+the disposable workspace to create that reference from, and building one
+was out of this task's scope. `deleteAgentAction`'s delete-then-check-count
+shape is an unmodified move of the original handler's logic — same
+`.delete().select("id")`, same `actionErrorFrom`/`handleError` mapping for
+whatever Postgres returns on a foreign-key violation — so there is nothing
+this conversion could have changed about that specific path.
+
+- **If wrong:** low — the only way this regresses is if `actionErrorFrom`
+  handles the FK-violation error code differently than `handleError` did,
+  and both share the same `23503` → "Invalid reference" mapping already
+  (`apps/web/src/lib/action-result.ts`, `apps/web/src/lib/api/router.ts`).
+- **Clears when:** an agent referenced by a team is deleted live and shows
+  the expected refusal.
+
+### G-44 — `T-WA-07`'s retry-with-a-different-model path not exercised live
+
+**Raised:** 2026-08-26, verifying `T-WA-07` live.
+
+`createChatSessionAction` + `postChatTurnAction` (send a free-chat message:
+optimistic user message, session creation, `enqueue_chat_turn`, the
+`no_runtime_paired` waiting-reason card from `T-M14-01`), `updateChatSessionAction`
+(model switch and archive, both from `chat.tsx` itself this time, confirmed
+persisting across a reload), `sendMessageAction`, and `markMessageReadAction`
+(a full compose → appear-unread → open → read cycle against a freshly created
+agent) were all proven live end-to-end against a fresh disposable workspace.
+
+**Not exercised:** `retryChatTurnAction` via the browser's own `RetryControls`
+picker (verification item "retry a turn with a different model selected").
+`RetryControls` only renders once a turn reaches `status: "succeeded"`, and a
+turn in this disposable workspace can only ever reach `waiting` — there is no
+paired daemon to advance it to `in_progress`/`succeeded`/`failed`, the same
+missing-daemon shape as `G-42`'s `cancelRunAction`. Manufacturing a
+`succeeded` or `failed` `chat_turns` row by hand (direct SQL) to force the UI
+path was judged out of proportion to what it would prove, since
+`retryChatTurnAction`'s own logic — resolving the session's **latest** turn by
+`created_at` rather than trusting a passed-in id, passing the override
+provider/model through to `retry_chat_turn`, and mapping `SPG19` to
+`field: "turn_not_retryable"` — is exercised directly in
+`apps/web/src/app/chat/actions.test.ts`, ported from the route-level tests
+`chat-routes.test.ts` had before the route was deleted.
+
+- **If wrong:** low — the untested surface is entirely inside `chat.tsx`'s
+  existing `retry()` function (unchanged control flow, just swapped from
+  `retryTurn.mutate` to `callAction(() => retryChatTurnAction(...))`) and the
+  RPC argument-passing already covered by the unit test above.
+- **Clears when:** a paired daemon (or a hand-seeded `succeeded`/`failed` turn
+  row) lets `RetryControls` render in a live pass, and a retry with a
+  different model is confirmed to use it.
+
+### G-45 — `T-WA-08`'s avatar/logo upload, account deletion, and non-admin RLS refusal not exercised live
+
+**Raised:** 2026-08-26, verifying `T-WA-08` live.
+
+`updateProfileAction` (name field, persisting across reload) and
+`updateWorkspaceAction` (name — including the once-in-a-lifetime slug move
+from `personal-<hex>` to a real slug — and description, both persisting
+across reload) were proven live against a fresh disposable workspace.
+`createPairingCodeAction`, `renameRuntimeAction`, `setRuntimeSettingAction`,
+`revokeRuntimeTokenAction`, and `removeRuntimeAction` went further: a real
+local daemon was paired against the dev server (per
+`doc/runbooks/agent-browser-session.md`'s "If the pass needs a paired
+machine" section) and every one of the five was confirmed **from the
+daemon's own log**, not just the browser — `setting changed from the control
+plane: git.wipSnapshot = off` and `this machine's pairing was revoked —
+stopping the command loop` are the daemon's own words, not an inference from
+the UI settling.
+
+**Not exercised:**
+- `updateProfileAction`/`updateWorkspaceAction`'s avatar/logo path
+  (`ImageUploadField` → `useImageUploader().upload()` → Supabase Storage
+  directly, then `onSave(url)`). This is client-side storage, not something
+  either action does — but the task file's own listed trap (a `FormData`
+  serialization boundary) turned out not to exist at all: the upload never
+  reaches the action, only the resulting URL string does, so there was
+  nothing here to prove **for these actions specifically**. Uploading a real
+  file was skipped as testing `ImageUploadField`/Storage, not `T-WA-08`'s
+  actions.
+- `blocked-project-actions.tsx`'s `relinkProjectAction`/`cloneProjectAction`/
+  `unbindProjectAction`/`updateTaskAction` reassign — needs a task genuinely
+  `blocked` with a `targetRuntimeId` pinned (M4's `project_not_available`
+  path), which needs either a second paired machine or hand-seeded
+  `tasks`/`runtime_projects` rows. Judged out of proportion given the same
+  logic is exercised directly in `apps/web/src/app/machines/actions.test.ts`
+  and `updateTaskAction` itself was already proven live by `T-WA-04`.
+- The RLS-only enforcement claim for `revokeRuntimeTokenAction` (a non-admin
+  member gets the same "no active pairing found" refusal an admin would get
+  for a genuinely-missing token) — the disposable workspace has exactly one
+  member (its owner, who bootstraps as admin), so there was no non-admin
+  session available to prove the *denial* path specifically. The admin path
+  was proven live above; the RLS policy itself
+  (`daemon_tokens_admin_all`, `001_rls.sql`) is unchanged by this task.
+- Danger Zone's account deletion (`account.deleteAccount`) — untouched by
+  this task (already a Server Action call from `T-WA-01`'s work, not part of
+  this task's file list) and destructive against the disposable workspace
+  used for the rest of this pass; not re-verified here.
+
+- **If wrong:** low for the upload path (no code in scope touches it) and for
+  the blocked-task actions (their logic is unit-tested and `updateTaskAction`
+  itself is already live-proven). Medium in principle for the RLS-denial
+  claim, but the actual risk is bounded by the fact that the query is
+  byte-for-byte the one the route handler already ran — this task changed
+  the transport, not the policy or the query.
+- **Clears when:** a second workspace member at a non-admin role attempts
+  `revokeRuntimeTokenAction` against another member's machine live, or a real
+  avatar/logo file is uploaded through the running app and confirmed to
+  render after a reload.
+
+### G-46 — `T-WA-09`'s phase-wide walk did not reach five of the eight tasks' surfaces, due to preview flakiness rather than a code defect
+
+**Raised:** 2026-08-26, verifying `T-WA-09` live.
+
+`T-WA-09`'s method calls for a walk against **the band branch's own Vercel
+preview** with a real signed-in session — not localhost — specifically so
+the verification proves the same deployed artifact the band will promote.
+That preview (`sparstrowgen-git-band-22-wa-server-actions-sparstrow.vercel.app`)
+was confirmed live and reachable at the start of this pass, and the walk
+covered:
+
+- **Teams** (`T-WA-01`): created a team live; `POST /teams` (page route, not
+  `/api/v1`) confirmed via `read_network_requests`.
+- **Projects** (`T-WA-02`): created two projects live, including the
+  slug-collision auto-suffix path (`wa09-bad-import` →
+  `wa09-bad-import-701e`) firing correctly on a duplicate name.
+- **Agents** (`T-WA-03`): created an agent live via the Agent Creator flow;
+  `POST /agents/create` confirmed, agent appeared in the list after reload.
+- **Cross-cutting, not page-specific**: with the session cookie cleared
+  mid-form, submitting a Server Action rendered "Not signed in." inline in
+  the dialog (plan DD-4, `actionContext()`'s refusal) — not a redirect, not a
+  crash. With `**/teams` routed to abort, submitting rendered "Couldn't reach
+  Sparstrowgen, so nothing was saved..." inline (`callAction`'s
+  `UNREACHABLE` message, `BUG-2026-08-25-network-failure-...`'s fix) — not a
+  Runtime Error overlay. Both checks are transport-layer and auth-layer
+  behavior shared by every converted action, not specific to Teams, so
+  passing there is evidence for the whole phase, not just `T-WA-01`.
+- **A real, previously-unknown defect**: this same pass found
+  `BUG-2026-08-26-manager-chat-panel-publish-pipeline-always-404` (fixed in
+  the same change).
+
+**Not reached:** `/chat`, `/messages`, `/skills`, `/tasks`, `/goals`,
+`/runs`, `/schedule`, `/pipelines`, `/machines`, `/settings` on this specific
+preview. Partway through the pass the preview began returning intermittent
+`504 GATEWAY_TIMEOUT` responses and, later, browser-level connection
+timeouts (`os error 10060`) on page loads — `/agents` and `/teams` each hit
+this once and recovered on retry; `/chat` did not recover after three
+attempts over several minutes. `curl` against the same URLs during the same
+window returned clean `307` redirects (the expected unauthenticated
+response) in under a second, which rules out the deployment itself being
+down — the flakiness is somewhere between this machine and that specific
+Vercel preview (or in `agent-browser`'s own browser process after an
+extended session), not in the code this band changed.
+
+`T-WA-01` through `T-WA-08` each already ran their own live verification
+pass for their own surface (see each task's Result section) — `T-WA-06`,
+`T-WA-07`, and `T-WA-08` in particular already have real, detailed live
+evidence, including `T-WA-08`'s pass against a genuinely paired local
+daemon. This gap is specifically about `T-WA-09`'s **additional**,
+cross-cluster confirmation of those surfaces on the shared preview, not a
+claim that they are unverified everywhere.
+
+- **If wrong:** medium — the surfaces this gap covers are exactly the ones a
+  cross-cluster regression (the `useCreateRun`/chat-session-hook sharing
+  pattern the task's own "why this task exists" section names) would show up
+  in. The mitigating fact is that each task's own hook-deletion pass already
+  grepped for other consumers before deleting a shared hook (documented in
+  each task's Result), and the mechanical checks that DID complete
+  phase-wide — `pnpm typecheck`, `pnpm test` (both green, workspace-wide),
+  and the `use(Mutation|Create|Update|...)` sweep (every real hit
+  classified, one fixed, one deferred as `D-28`) — cover the two failure
+  modes (a genuinely broken build, a hook nobody actually converted) that
+  don't need a rendered browser to detect. What they cannot catch is a
+  runtime-only mismatch like `T-M13-05`'s (a response shape that typechecks
+  but doesn't match what the page reads) on a surface this pass didn't
+  reach.
+- **Clears when:** the band branch's Vercel preview is walked again — either
+  a retry once it stabilizes, or the equivalent pass against
+  `development.sparstrow.com` once the band merges — covering `/chat`,
+  `/messages`, `/skills`, `/tasks`, `/goals`, `/runs`, `/schedule`,
+  `/pipelines`, `/machines`, and `/settings` specifically for cross-cluster
+  breakage (a page reading a shape a sibling task's hook deletion changed).

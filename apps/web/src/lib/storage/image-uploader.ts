@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PUBLIC_IMAGE_ALLOWED_TYPES, PUBLIC_IMAGE_BUCKET } from "@sparstrow/shared";
-import type { ImageUploader } from "@sparstrow/ui/lib/image-upload";
+import type { ImageUploader } from "@web/lib/image-upload";
 import { supabaseUrl } from "@web/utils/supabase/env";
 
 /**

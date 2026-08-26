@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, BookOpen } from "lucide-react";
 import { cn } from "@sparstrow/ui/lib/utils";
-import { Markdown } from "@sparstrow/ui/components/chat/markdown";
+import { Markdown } from "@web/components/chat/markdown";
 import {
   getAllArticles,
   getArticleBySlug,

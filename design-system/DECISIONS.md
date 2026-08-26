@@ -11,6 +11,72 @@ guidance: `.claude/skills/design-system/references/decision-log.md`.
 
 ---
 
+## DD-015 — What belongs in `packages/ui`: a design-system file knows nothing about Sparstrowgen's domain
+
+**Date:** 2026-08-24 — **Asked by:** `T-VR-07` — **Surface:** package boundary, not a screen
+
+**Situation:** `T-VR-03` moved every component that imported the deleted Vite
+router out of `packages/ui`, on the belief that what remained would be the
+design system `D-24` describes. It was not — `packages/ui/src` still held
+~30 files with real Sparstrowgen domain knowledge (agent forms, run status,
+the board, the Knowledge Center's content) plus the entire React Query data
+layer, because none of them happened to import a router. The router test
+never was a design-system test; it was a coincidence that worked for exactly
+one prior migration.
+
+**Decision:** A file belongs in `packages/ui` only if **it would make sense
+unchanged in a different product** — it takes generic props (a string, a
+size, a variant, a name), never imports `@sparstrow/shared`'s domain types,
+and never encodes what a run, an agent, or a project *is*. `Badge` passes.
+`RunStatusBadge`, which maps `run.status` to a colour, does not — it encodes
+domain knowledge, however small the component. By this test:
+
+- **Stays:** `components/ui/*` (shadcn primitives), `page-container.tsx`,
+  `form-field.tsx`, `lib/utils.ts` (`cn()`), `lib/format.ts` (generic
+  date/duration/currency/id formatting — no domain types imported despite
+  formatting domain *values*), `styles/globals.css`, `theme/*`.
+- **Borderline, ruled in:** `actor-avatar.tsx`. It takes a bare `name: string`
+  and implements `DESIGN.md` §2.5's identity-hue derivation — the design
+  doctrine's own algorithm, not app logic that happens to use design tokens.
+  Its `kind: "agent" | "user"` parameter only selects a fallback icon and is
+  the one place this file leans toward the app; not enough to move it.
+- **Moves to `apps/web`:** every domain form (`agent-form`, `profile-form`,
+  `workspace-form`), every domain-status component (`run-status-badge`,
+  `run-transcript`, `blocked-project-actions`, `new-agent-button`,
+  `skill-viewer`, `setup-card`, `update-banner`, `directory-picker-dialog`,
+  `image-upload-field`), the whole `board/`, `canvas/`, `goals/`,
+  `pipelines/`, `team/` feature directories, `api/hooks.ts` (data access is
+  not design), and every domain `lib/*` file (`account`, `chat-turn-state`,
+  `directory-picker`, `image-upload`, `live-events`, `merge-run-events`,
+  `nav-meta`, `pins`, `setup`, `workspace-tabs`, `ws`).
+- **A third category, neither design nor app code:** `content/knowledge/*.md`
+  is product content, and moves into `apps/web` alongside the
+  `knowledge.server.ts` that already reads it — not into `packages/ui`,
+  which was never the right shelf for prose.
+
+**Found while applying the test, not by design review:** `account.tsx`,
+`image-upload.tsx` and `directory-picker.ts` each carry a "this capability
+exists on the hosted web app, not on the local desktop build" branch, built
+when two UI hosts genuinely disagreed about what existed. `D-24` retired the
+second host. The branch is not yet removed here — that is behavioural
+surgery, not a package move — but the premise it was written for is gone,
+and whoever next touches these three files should know that before extending
+the branch rather than deleting it.
+
+Also found: `lib/knowledge.ts` used `import.meta.glob` — Vite-only syntax
+that Turbopack silently no-ops rather than erroring on, so its `getArticle()`
+had returned `undefined` on every call since `T-VR-01` deleted the Vite host
+that made it work. See
+[`BUG-2026-08-24-knowledge-breadcrumb-title-silently-blank`](../doc/bug/BUG-2026-08-24-knowledge-breadcrumb-title-silently-blank.md).
+
+**Generalises to:** any future file arriving in `packages/ui` gets this test
+before it lands, not a router check — there is no router left to check
+against.
+
+**Status:** **locked**
+
+---
+
 ## DD-014 - Settings: Appearance & Theme Architecture
 
 **Date:** 2026-08-22 - **Asked by:** settings redesign - **Surface:** Settings Appearance

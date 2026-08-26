@@ -4,6 +4,23 @@ Newest first. Record token changes, new components, and new prototypes — *what
 changed. **Why** it changed goes in [`DECISIONS.md`](DECISIONS.md), which is the
 file to read before altering a design choice.
 
+## 2026-08-24
+
+- **`packages/ui` finished narrowing to an actual design system** (`T-VR-07`,
+  see `DD-015`). It had been carrying ~30 files of Sparstrowgen domain code —
+  agent forms, the board, the whole React Query data layer — because an
+  earlier task's test for what belonged there was "does it import the
+  router," which happened to leave all of that behind. Everything domain
+  moved to `apps/web`; what remains is `components/ui/*`, `page-container`,
+  `form-field`, `actor-avatar`, `cn()`, `format.ts`, `globals.css`, and
+  `theme/*`.
+- Found and fixed along the way: `lib/knowledge.ts` used Vite's
+  `import.meta.glob`, which Turbopack silently no-ops rather than erroring
+  on — so a Knowledge Center article's breadcrumb and tab label had shown its
+  raw slug instead of its title since the Vite host was deleted, with nothing
+  catching it because both call sites already had a `?? fallback`. See
+  `BUG-2026-08-24-knowledge-breadcrumb-title-silently-blank`.
+
 ## 2026-08-18
 
 - **`DESIGN.md` was written** (`design-brief`), replacing the retired doctrine.

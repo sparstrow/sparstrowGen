@@ -77,23 +77,39 @@ with victims as (select id::text as tid, id as uid from auth.users where email l
 select (select count(*) from ws), (select count(*) from pu), (select count(*) from au);
 ```
 
-## Getting a browser that actually renders — added 2026-08-20
+## Getting a browser that actually renders — added 2026-08-20, revised 2026-08-24
 
 The procedure above gives you a *session*. For two milestones that was only half
 of what a visual pass needs, because nothing here rendered a frame: `G-12`,
 `G-13` and `G-16` all record the same blocker in different words.
 
-**The blocker is the in-app Browser pane specifically, not this environment.**
-A page loaded into that pane reports `document.visibilityState === "hidden"` and
-is throttled hard enough that React Query never issues its first fetch — so a
-page that is working perfectly sits on its loading skeletons forever and reads
-as a bug in your own code. `tabs_select` does not change it. Do not spend an
-hour debugging a query that is fine.
+**The blocker is the in-app Claude Browser pane specifically, not this
+environment.** A page loaded into that pane reports
+`document.visibilityState === "hidden"` even on a fresh, foregrounded
+navigation, throttled hard enough that React Query never issues its first
+fetch — so a page that is working perfectly sits on its loading skeletons
+forever and reads as a bug in your own code. `tabs_select` does not change it.
+Do not spend an hour debugging a query that is fine. Tracked as
+[`BUG-2026-08-24-claude-browser-pane-reports-hidden-visibility`](../bug/BUG-2026-08-24-claude-browser-pane-reports-hidden-visibility.md)
+(resolved via the workaround below — the pane itself is harness code, not
+something this repo can patch).
 
-**Use the Playwright MCP instead.** It drives its own browser, which composites,
-screenshots, accepts real keyboard input, and — the part that matters most for
-the four-states rule — intercepts routes, so error and loading states can be
-reached deliberately rather than waited for.
+**Use the `agent-browser` CLI instead** ([vercel-labs/agent-browser](https://github.com/vercel-labs/agent-browser),
+`npm install -g agent-browser` then `agent-browser install` to fetch Chrome for
+Testing once). It drives a real Chrome instance over CDP — not an emulated
+pane — so `document.visibilityState` reports correctly, and its accessibility
+snapshots run ~200–400 tokens instead of Playwright's ~3000–5000 for the same
+page. Verified live 2026-08-24 on a fresh `example.com` navigation:
+`{"visibilityState":"visible","hidden":false,"hasFocus":true}`.
+
+One capability gap, verified rather than assumed: `network route`'s `--body`
+stubs a response but always returns HTTP 200, and there is no delay/hold-open
+option — flags like `--status`/`--delay` are silently accepted and ignored
+(tested: a routed fetch still came back `200` in 4ms). Playwright's
+`page.route().fulfill({status, ...})` and `page.waitForTimeout` inside a route
+handler have no `agent-browser` equivalent yet. **Keep the Playwright MCP
+around for step 5 below only** — forcing a specific non-2xx status or an
+artificially slow response. Everything else in this loop is `agent-browser`.
 
 ### The whole loop
 
@@ -110,18 +126,28 @@ reached deliberately rather than waited for.
    routing check and wrong for anything visual.
 
 2. **Start the dev server** through `preview_start` with a `.claude/launch.json`
-   entry running `pnpm --filter web dev` on port 3000. Never with the Bash tool.
+   entry running `pnpm --filter web dev` on port 3000. Never with the Bash tool
+   — this is about supervising the dev server process itself, unrelated to
+   which tool later drives the browser.
 
-3. **Mint a token** exactly as above, then navigate the *Playwright* browser to
-   `/auth/confirm?token_hash=…&type=magiclink&next=/<page under test>`. The
-   session cookie lands in that browser.
+3. **Mint a token** exactly as above, then point `agent-browser` at the confirm
+   route:
 
-4. **Walk the page.** `browser_snapshot` for structure, `browser_click` /
-   `browser_type` / `browser_press_key` for interaction, `browser_take_screenshot`
-   for the record, `browser_console_messages` for the console-clean assertion.
+   ```bash
+   agent-browser open "http://localhost:3000/auth/confirm?token_hash=<tokenHash>&type=magiclink&next=/<page under test>"
+   ```
 
-5. **Force the states you cannot wait for**, with `page.route` via
-   `browser_run_code_unsafe`:
+   The session cookie lands in `agent-browser`'s own Chrome profile.
+
+4. **Walk the page.** `agent-browser snapshot -i` for structure (interactive
+   elements only; drop `-i` for the full tree), `agent-browser click @ref` /
+   `agent-browser fill @ref "text"` / `agent-browser press Enter` for
+   interaction, `agent-browser screenshot [--full]` for the record,
+   `agent-browser console` for the console-clean assertion, `agent-browser
+   errors` for uncaught page errors specifically.
+
+5. **Force the states you cannot wait for, via the Playwright MCP** (the one
+   step `agent-browser` cannot do yet — see the gap noted above):
 
    ```js
    // Error state
@@ -135,12 +161,20 @@ reached deliberately rather than waited for.
    ```
 
    `page.unrouteAll()` between states. Note that `setTimeout` is not defined in
-   that evaluation context — use `page.waitForTimeout`.
+   that evaluation context — use `page.waitForTimeout`. Playwright needs its
+   own signed-in session for this step (repeat step 3's token mint, navigated
+   in the Playwright browser instead) since it isn't sharing `agent-browser`'s
+   profile.
 
-6. **Dark mode and mobile** are `page.emulateMedia({ colorScheme: 'dark' })` plus
-   the app's own `.dark` class, and `page.setViewportSize({ width: 375, … })`.
-   Assert no sideways scroll by comparing `document.documentElement.scrollWidth`
-   with `window.innerWidth` rather than by looking.
+   For anything `agent-browser` *can* mock — a full network failure, or a 200
+   response with a different body — use `agent-browser network route <url>
+   --abort` or `--body '<json>'` instead and skip Playwright entirely.
+
+6. **Dark mode and mobile**: `agent-browser set media dark` (or `light
+   reduced-motion`) plus the app's own `.dark` class, and `agent-browser set
+   viewport 375 812`. Assert no sideways scroll by comparing
+   `document.documentElement.scrollWidth` with `window.innerWidth` via
+   `agent-browser eval` rather than by looking.
 
 ### If the pass needs a paired machine
 

@@ -218,6 +218,12 @@ comfortable cloning a monorepo.
 > setup-and-machines work lands**, which is the concrete trigger this
 > deferral previously lacked.
 
+> **Promoted 2026-08-24.** This entry is now the prerequisite for
+> [`D-24`](#d-24--collapse-to-three-components-one-nextjs-ui-electron-as-a-shell-headless-core)
+> — it *is* the third of the owner's three components (headless daemon +
+> browser, for users who don't want Electron). Shipping it is what unparks
+> D-24.
+
 ---
 
 ## D-12 — Realtime doorbell for command dispatch
@@ -686,3 +692,321 @@ doesn't work in this environment.
   browser that actually renders" section, and the `frontend-verify` skill to
   prefer the native tool(s), with Playwright kept as the documented fallback
   for environments where they aren't available.
+
+---
+
+## D-24 — Collapse to three components: one Next.js UI, Electron as a shell, headless core
+
+**Parked:** 2026-08-24, by the owner — "My expectation is to have one webapp
+next.js and same app in electron app for desktop. If the people don't want to
+use electron app, then daemon service installed on the machine and people can
+use it from web. This is my three apps component idea."
+
+**The target shape.** Three components, each with one job:
+
+| Component | What it is | What it uniquely provides |
+|---|---|---|
+| `apps/web` (Next.js) | The one and only UI | Everything visible |
+| `packages/desktop` (Electron) | A window pointed at that UI, plus a daemon supervisor | Bundles and supervises the daemon, tray, auto-update, survives reboot — the user never registers a service by hand |
+| `packages/core` headless service | Daemon-only install, no GUI | For users who skip Electron and drive the app from a browser |
+
+The decisive rename is **Electron is a shell, not a second UI**. Today it is
+ambiguous: it ships a window *and* a UI.
+
+**Current state — the old Vite app was never removed.** `apps/web` was created
+fresh as Next.js App Router in `67bd615` (2026-08-09) and is where all
+subsequent work landed. But the pre-migration Vite SPA is still built
+(`packages/ui`'s `vite build`), still served as static files with SPA fallback
+by the daemon's own Fastify server
+([`server.ts:138`](../packages/core/src/api/server.ts:138)), and is still what
+a packaged Electron build loads **by default**:
+[`urls.ts:43`](../packages/desktop/src/urls.ts:43) loads `SPARSTROW_APP_URL`
+only when it is set, and nothing sets it. So the desktop app's out-of-the-box
+experience is currently the old app.
+
+**Why the Vite SPA is not an offline mode.** `packages/ui` contains no Supabase
+code at all (verified by search 2026-08-24) — it is the pre-cloud, pre-auth,
+single-machine UI, talking to local core over `wsHub`. It has no concept of an
+account, a workspace, or cloud dispatch. Since dispatch, chat, projects and
+runs are cloud-canonical (`AGENTS.md` §4), it cannot do the work anyway.
+Keeping it as a fallback preserves a *different, older product*, not a degraded
+version of the current one.
+
+**Nothing is left to port, and less is duplicated than it looks.** The page
+components in `packages/ui/src/routes/pages/` are **shared, not Vite-only** —
+almost every route in `apps/web/src/app/` is a 7-line re-export of one
+(verified 2026-08-24). Route parity shipped in M7 (`ec66a1a`) by sharing the
+pages, not by copying them.
+
+**What gets deleted when this is done.** `packages/ui` itself **stays**, and so
+do its `routes/pages/*` — `apps/web` renders them. What ends is only the Vite
+*host*:
+
+- `packages/ui/index.html`, `vite.config.ts`, `src/main.tsx`, `src/router.tsx`
+  and the `dev`/`build` scripts in `packages/ui/package.json`
+- `packages/ui/src/components/layout/app-shell.tsx` — the Vite/desktop shell
+- the `fastifyStatic` / SPA-fallback block in
+  [`packages/core/src/api/server.ts`](../packages/core/src/api/server.ts)
+- `resolveLocalUiUrl` and the `SPARSTROW_DEV` fallback in
+  [`packages/desktop/src/urls.ts`](../packages/desktop/src/urls.ts)
+
+**Where the pages go.** Once the Vite host is gone there is no second consumer,
+so `packages/ui/src/routes/pages/*` has no reason to live in a shared package —
+that location exists only because two hosts needed the same files. Move each
+page into `apps/web/src/app/<route>/` beside its `page.tsx`, deleting the
+7-line re-export as you go, and let `packages/ui` narrow to what the
+`create-turbo` convention actually intends: a design system
+(`components/ui/*`, tokens, `cn()`).
+
+`apps/web/src/lib/react-router-mock.tsx` — the shim translating
+`@tanstack/react-router` calls into Next's router — dies with the last page
+that imports it. It is the clearest marker of the transition: nobody designs
+that file, it exists purely so one component can satisfy two routers.
+
+> **Scope check, 2026-08-24.** The shim is wired as a build-level alias in
+> [`next.config.ts:11`](../apps/web/next.config.ts:11) and
+> [`tsconfig.json:25`](../apps/web/tsconfig.json:25), not imported by name, and
+> `@tanstack/react-router` is imported by **ten non-page components** in
+> `packages/ui/src/components/` as well as by the pages — `attention-queue`,
+> `breadcrumbs`, `command-palette`, `pinned-items`, `tab-strip`,
+> `workspace-switcher`, `pr-queue`, `work-launcher`, `markdown`, `app-shell`.
+> Those are app composites, not design-system primitives, so they move to
+> `apps/web` under the same rule and get Next's router directly. The shim dies
+> with the last **component** that imports it, which is a little later than the
+> last page.
+
+This is a **mechanical move, not a rewrite**. Converting those pages to Server
+Components is a separate concern and deliberately not folded in here — see
+[`D-25`](#d-25--converge-the-existing-pages-on-server-components).
+
+**This supersedes [`G-23`](KnownGaps.md)'s remaining half.** G-23 asks for the
+two `AppShell` components to be merged — including building an `Outlet`
+equivalent for Next's `children`-based shell. If one of the two shells is being
+deleted, that merge is work that should not be done. Do not start it. When this
+entry is executed, close G-23 by deletion rather than by merge.
+
+**What is genuinely lost.** The desktop app stops working without internet.
+This is a real product decision and should be taken deliberately, not absorbed
+silently — though in substance it is already true, since every canonical
+surface is cloud-side and the local SPA cannot authenticate.
+
+**Confirmed 2026-08-24.** The owner accepted Electron-as-shell and online-only
+for now: "I am fine with the electron app being a shell and online only until I
+have all the required features and functionality. Then we can build an electron
+packaged app." So packaging is explicitly *after* feature completeness, and the
+offline loss above is an accepted cost rather than an open question.
+
+> **Unparked 2026-08-24** — the owner made this the current priority ("our
+> priority right now is transitioning to the next.js app from the vite app and
+> clearing that out"), ahead of the D-10 trigger below. Planned as
+> [`plans/2026-08-24-retire-the-vite-app.md`](plans/2026-08-24-retire-the-vite-app.md).
+>
+> **That plan found a cost this entry did not know about.** Core implements 31
+> handlers — terminals, folder browsing, project git, the code graph, provider
+> settings, local skill import — that `apps/web` stubs with a 501. Retiring the
+> Vite app therefore *removes working features*, it is not only a duplication
+> cleanup. The owner accepted that loss deliberately; see the plan's decision 1
+> for the reasoning and the condition that would reverse it.
+
+**Sequencing.** [`D-10`](#d-10--headless-non-electron-core-distribution)
+(headless core distribution) is the prerequisite and *is* component 3 — until
+it exists, "I don't want Electron" has no answer. It is already sequenced to
+get its own spec once `specs/2026-08-16-setup-and-machines.md` lands. Then:
+repoint Electron's default to the hosted app; verify a packaged build loading
+it; delete the Vite app last.
+
+- **If wrong (i.e. left parked):** the repo carries two UIs indefinitely, one
+  of which predates authentication. The concrete risk is not drift between
+  them — it is that anyone installing the packaged desktop app today gets the
+  pre-cloud UI as their first impression, with no account and no workspace.
+  Cost also compounds: every shared component change is weighed against a host
+  that is slated for deletion.
+- **Unpark when:** `D-10` ships a headless core distribution — at that point
+  all three components exist and only the repoint-and-delete remains. Bring it
+  forward if a packaged Electron build is put in anyone else's hands before
+  then, since that is the moment the old-UI default becomes user-visible.
+
+---
+
+## D-25 — Converge the existing pages on Server Components
+
+**Parked:** 2026-08-24, by the owner, on reviewing the target state — the shape
+is agreed; only the timing is parked.
+
+**What is true today.** Nearly every route in `apps/web` is a 7-line re-export
+of a client component in `packages/ui`, fetching through React Query against
+`/api/v1/*`. Those pages are necessarily `"use client"` — they use React Query
+hooks. A client component *is* still server-rendered on first request, so the
+HTML is not empty; but it is the **loading** state, because the only code that
+knows how to fetch runs in the browser. The page is structurally incapable of
+arriving with data in it.
+
+**The scenario.** Priya clicks Agents. She sees skeleton rows immediately, then
+her browser downloads the page's JavaScript, hydrates, and only then asks
+`/api/v1/agents` — which re-checks her session with Supabase Auth, resolves her
+workspace, queries Postgres, returns JSON. On office wifi that is a flicker; on
+a phone on hotel wifi it is a visible pause where the app looks loaded and is
+empty. Creating an agent costs two round trips, not one: the POST, then a list
+refetch to make the new row appear.
+
+**The target.**
+
+| Where | What |
+|---|---|
+| `packages/ui` | Design system only — `components/ui/*`, tokens, `cn()` |
+| `apps/web/src/app/<route>/page.tsx` | Server Component: auth + query, renders with data |
+| `apps/web/src/app/<route>/*-client.tsx` | `"use client"` islands for interactivity |
+| `apps/web/src/lib/api/handlers/` | Thins to streaming and daemon-facing surfaces |
+
+Reads move into the Server Component and hit Postgres directly — one hop
+instead of three. Ordinary writes become Server Actions with `revalidatePath`
+— one round trip instead of two.
+
+**Streaming is the exception, and not a small one.** Server Actions are
+request/response and do not stream. Terminals, and live run transcripts, need a
+route handler or WebSocket regardless of anything here. `/api/v1` therefore
+**thins; it does not disappear.** Anyone reading this entry as "delete the
+handler registry" has misread it.
+
+**This entry governs the existing pages only.** New surfaces are built the
+target way from the start — that is a standing rule in
+[`apps/web/CLAUDE.md`](../apps/web/CLAUDE.md), not a deferral, and it applies
+to every one of the modules still stubbed in
+[`stubs.ts`](../apps/web/src/lib/api/handlers/stubs.ts).
+
+- **If wrong (i.e. left parked):** nothing breaks and nothing is unsafe — the
+  current pattern works and is well organised. The cost is a slower first paint
+  on every route, a larger JS bundle, and `loading.tsx` / Suspense being
+  unable to do anything useful. It is felt most on a slow connection and
+  least on the owner's own machine, which is exactly why it can go unnoticed.
+- **Unpark when:** per-route and opportunistic — convert a page the next time
+  feature work touches it, rather than as a scheduled migration. Two
+  backstops that make it deliberate instead: convert wholesale if a real
+  first-paint complaint arrives from someone who is not the owner, and do the
+  first conversion in the same body of work as `D-24`'s page move, so there is
+  one worked example in-tree for the rest to copy.
+
+---
+
+## D-26 — A cloud record of who opened a shell and when
+
+**Parked:** 2026-08-24, writing
+[the terminal plan](plans/2026-08-24-a-terminal-on-my-machine.md) (DD-5) — a
+deliberate scope line, not an oversight.
+
+A terminal session is a process on a machine. DD-5 makes the machine the source
+of truth for its own processes and puts no `terminal_sessions` table in the
+control plane, because a mirror row disagrees with reality the instant the
+machine restarts and the app then shows a list of shells that do not exist.
+
+What that gives up is the **audit trail**: nothing in the cloud records that a
+shell was opened on someone's computer, by whom, or when. Today that record is
+the machine's own log. The plan's own Assumptions state this plainly rather than
+leaving it implied.
+
+- **If wrong (i.e. left parked):** with one person in the workspace, the loss is
+  small — the only person who could have opened a shell is the person asking.
+  With a second owner/admin it becomes real and awkward: FR-009 restricts
+  terminals to owner/admin precisely because a shell is unrestricted, and
+  "unrestricted, and unlogged" is a materially different posture from
+  "unrestricted, and recorded". The gap is also retroactive — a trail cannot be
+  reconstructed after the fact.
+- **Unpark when:** a second person holds owner or admin on any workspace. That
+  is the trigger, not a date. It also unparks naturally alongside
+  [`I-10`](Ideas.md)'s members-and-invites work, since that is the change that
+  creates the second admin.
+- **Shape when it happens:** an append-only cloud event written by the daemon on
+  session open and close, through the existing authenticated `/api/daemon/*`
+  path — fire-and-forget, never on the critical path, so a failed write delays
+  no keystroke. Explicitly not a mirror of live session state, which is what
+  DD-5 rejects.
+
+---
+
+## D-27 — Live cancellation of an in-flight plan node/run
+
+**Parked:** 2026-08-25 — the owner answered
+[`OQ-8`](OpenQuestions.md) (now closed, answer recorded there) with **option
+B**: clicking "Cancel this step" on a goal's plan graph should actually stop
+the work, not just relabel it. That is a real, cross-package feature, not a
+`T-WA-04`-sized Server Action conversion, so it is parked here rather than
+folded into `T-WA-04` (already merged, `useCancelNode` shipped unconverted) or
+band 22 (`WA` — mechanical write-transport conversion only, no new backend
+behavior per plan DD-6).
+
+Building it for real needs, at minimum:
+- A genuine `cancelled` value on `TaskStatus`
+  (`packages/shared/src/schemas/task.ts`) distinct from `failed`, since a
+  stopped step and a broken one must not read the same everywhere the app
+  displays task status (board, attention queue, reporting).
+- A stop-signal contract from the control plane down to the daemon actually
+  executing the run — nothing in `packages/core`/`packages/daemon` today
+  receives or honors a cancel signal for an in-flight process. This is the
+  real scope: designing how a daemon polls for or is pushed a cancel request,
+  how it kills the child process cleanly, and how the `runs` row and the
+  linked task settle afterward.
+- Wiring `cancelNodeAction` (`app/tasks/goals/[goalId]/actions.ts`) to that
+  contract once it exists, replacing the currently-unconverted
+  `useCancelNode` hook and its 404ing `POST /goals/:id/nodes/:nodeId/cancel`
+  call site.
+
+**If wrong (i.e. left parked):** low — the button stays exactly as broken as
+it is today (calls a route that has never existed), which is the same
+no-worse-than-status-quo state `T-WA-04` already shipped it in. No user is
+worse off than before this was raised.
+
+**Unpark when:** this becomes prioritized work. Given the scope (a real
+daemon-side dispatch contract touching `packages/core`, the control plane's
+`runs` table, and the web UI), the next step when picked up is a
+`doc/specs/` entry per the normal idea → spec → plan → tasks lifecycle, not a
+task dropped directly into an existing band — this is a new feature, not a
+conversion.
+
+---
+
+## D-28 — `memory.tsx`'s six writes were never assigned to a WA-phase task
+
+**Parked:** 2026-08-26 — found by `T-WA-09`'s mandated sweep
+(`grep -rnE "use(Mutation|Create|Update|...)...\(\)" --include=*.tsx`), which
+turned up real, non-stub write hooks with no task in `doc/tasks/WA/` naming
+`apps/web/src/app/memory/memory.tsx` at all. Every other real hit the sweep
+found (`manager-chat-panel.tsx`'s `useCreatePipeline`,
+`blocked-project-actions.tsx`'s four hooks) was at least a *known* remaining
+consumer some earlier task's Result section had flagged and left for later;
+`memory.tsx` was never mentioned by any task file in this phase, which is why
+this is `Deferred.md` and not a same-turn fix — it is not one or two call
+sites next to a file this session already had open, it is a whole
+unconverted page.
+
+**Six real, working routes, all unconverted:**
+- `useCreateMemoryNote` → `POST /memory/notes`
+- `useDeleteMemoryNote` → `DELETE /memory/notes/:id` (two call sites: the
+  main list's delete action, and the "reject" action on a quarantined note)
+- `useBulkDeleteNotes` → `POST /memory/notes/bulk-delete`
+- `useApproveNote` → `POST /memory/notes/:id/approve`
+- `useArchiveNote` → `POST /memory/notes/:id/archive`
+
+(`useUpdateNoteRaw` → `PUT /memory/notes/:id/raw` is correctly excluded — that
+path is a `stubs.ts` host-local pattern, a real DD-6 exclusion, not part of
+this gap.)
+
+**Why not fixed inline by `T-WA-09`:** this is comparable in size to any one
+of `T-WA-02` through `T-WA-08` individually — six hooks, a dedicated
+`app/memory/actions.ts`, its own test file, its own live verification pass —
+not a one- or two-call-site correction. Converting it as a side effect of the
+*verification* task would be exactly the scope inflation `AGENTS.md` §9
+warns against, and would leave this task's own actual job (proving the other
+eight tasks didn't break anything) half-done.
+
+**If wrong (i.e. left parked):** low — these six writes keep going through
+`/api/v1` exactly as they do today. Nothing about band 22 landing makes them
+worse; they are simply not yet part of the phase's stated "every write is a
+Server Action" outcome. The risk is purely that `WA1`'s Result section
+(`doc/tasks/WA/README.md`) would overstate completeness if this gap isn't
+named there.
+
+**Unpark when:** band 22 closes (zero open task/band branches, per
+`AGENTS.md` §2.9's queue-regeneration precondition) and a new task can be
+decomposed for it — either folded into whatever comes after `WA1`/`WA2`, or
+its own small band. Whoever picks this up should re-run the same sweep first
+in case anything else has drifted since 2026-08-26.

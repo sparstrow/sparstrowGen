@@ -1,6 +1,6 @@
 "use client";
 
-import { SetupPage } from "@sparstrow/ui/routes/pages/setup";
+import { SetupPage } from "./setup";
 
 export default function Page() {
   return <SetupPage />;

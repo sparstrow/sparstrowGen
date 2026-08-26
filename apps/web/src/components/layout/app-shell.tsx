@@ -6,17 +6,18 @@ import { usePathname } from "next/navigation";
 import { Menu, Search, X } from "lucide-react";
 import { cn } from "@sparstrow/ui/lib/utils";
 import { Badge } from "@sparstrow/ui/components/ui/badge";
-import { UpdateBanner } from "@sparstrow/ui/components/update-banner";
-import { useLiveEvents } from "@sparstrow/ui/lib/live-events";
-import { useAttentionQueue } from "@sparstrow/ui/api/hooks";
+import { UpdateBanner } from "@web/components/update-banner";
+import { useLiveEvents } from "@web/lib/live-events";
+import { useAttentionQueue } from "@web/api/hooks";
 import { ThemeToggle } from "@sparstrow/ui/theme/theme-toggle";
-import { Breadcrumbs } from "@sparstrow/ui/components/layout/breadcrumbs";
-import { CommandPalette } from "@sparstrow/ui/components/layout/command-palette";
-import { PinnedItems } from "@sparstrow/ui/components/layout/pinned-items";
-import { TabStrip } from "@sparstrow/ui/components/layout/tab-strip";
-import { WorkspaceSwitcher } from "@sparstrow/ui/components/layout/workspace-switcher";
-import { useWorkspaceTabs } from "@sparstrow/ui/lib/workspace-tabs";
-import { NAV_GROUPS, sectionMeta } from "@sparstrow/ui/lib/nav-meta";
+import { Breadcrumbs } from "@web/components/layout/breadcrumbs";
+import { CommandPalette } from "@web/components/layout/command-palette";
+import { PinnedItems } from "@web/components/layout/pinned-items";
+import { TabStrip } from "@web/components/layout/tab-strip";
+import { WorkspaceSwitcher } from "@web/components/layout/workspace-switcher";
+import { useWorkspaceTabs } from "@web/lib/workspace-tabs";
+import { NAV_GROUPS, sectionMeta } from "@web/lib/nav-meta";
+import type { KnowledgeIndexEntry } from "@web/lib/knowledge.server";
 
 /**
  * M5: reports whichever transport this host actually installed — Realtime
@@ -44,17 +45,29 @@ function useWsConnected(): boolean {
  * ("/login" -> "/") crashed with "rendered more hooks than during the previous
  * render" -- the one transition every single user makes.
  */
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  knowledgeIndex,
+}: {
+  children: React.ReactNode;
+  knowledgeIndex: KnowledgeIndexEntry[];
+}) {
   const pathname = usePathname() || "/";
 
   if (pathname === "/login" || pathname.startsWith("/auth/")) {
     return <div className="min-h-screen w-full bg-background text-foreground">{children}</div>;
   }
 
-  return <AuthenticatedShell>{children}</AuthenticatedShell>;
+  return <AuthenticatedShell knowledgeIndex={knowledgeIndex}>{children}</AuthenticatedShell>;
 }
 
-function AuthenticatedShell({ children }: { children: React.ReactNode }) {
+function AuthenticatedShell({
+  children,
+  knowledgeIndex,
+}: {
+  children: React.ReactNode;
+  knowledgeIndex: KnowledgeIndexEntry[];
+}) {
   const connected = useWsConnected();
   const pathname = usePathname() || "/";
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
@@ -150,6 +163,11 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
                         key={to}
                         href={to}
                         title={meta.label}
+                        // `isActive` was spent entirely on className until
+                        // 2026-08-24, so the active destination was visible and
+                        // silent. DESIGN.md §9 requires the landmark answer
+                        // "where am I" for assistive tech too.
+                        aria-current={isActive ? "page" : undefined}
                         className={cn(
                           "flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                           collapsed && "md:justify-center md:px-0",
@@ -192,7 +210,7 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <TabStrip />
+        <TabStrip knowledgeIndex={knowledgeIndex} />
         <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b px-5">
           <div className="flex min-w-0 items-center gap-2">
             <button
@@ -203,7 +221,7 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
             >
               <Menu className="size-5" />
             </button>
-            <Breadcrumbs />
+            <Breadcrumbs knowledgeIndex={knowledgeIndex} />
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {attentionCount > 0 ? (

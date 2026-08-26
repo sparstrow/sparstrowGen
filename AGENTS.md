@@ -24,14 +24,19 @@ Welcome agent! This file defines the mandatory workflow, safety rules, and engin
 ### Locked Technology Stack
 
 **`.sparstrowgen/blueprint.yaml` is the single source of truth for the stack,
-commands, and MCP server roster — read it, don't restate its facts here.** It's
+commands, MCP server roster, and CLI tool roster — read it, don't restate its
+facts here.** It's
 loaded every session same as this file, so duplicating its content in prose here
 would just be two places to keep in sync instead of one. When the stack changes,
 update the blueprint; only touch this section for the wiring detail below, which the
 blueprint deliberately doesn't carry (file paths, provider specifics — not "what tech
 are we on").
 
-- **Router Adapter**: Custom Next.js navigation adapter (`apps/web/src/lib/react-router-mock.tsx`) intercepting TanStack Router calls.
+- **Router**: Plain `next/link` / `next/navigation`, direct — no adapter.
+  `react-router-mock.tsx` and the `@tanstack/react-router` dependency it
+  shimmed are both gone (`T-VR-04`, `D-24`); every navigation call site was
+  moved to the real Next.js APIs rather than kept behind a compatibility
+  layer.
 - **Design doctrine**: `DESIGN.md` — written 2026-08-18 with the owner via the `design-brief` skill, replacing generic tool output nobody had chosen. Read it before any UI work. It defines a **theming contract** (user-selectable brand accent + surface character, with contrast floors) rather than a fixed palette, so never hardcode a colour.
 - **Authentication**: `@supabase/ssr` (Passwordless Magic Link, Email & Password, GitHub OAuth, Google OAuth) + Next.js Middleware Session Guard (`apps/web/src/middleware.ts`).
 - **Realtime Cloud Sync**: Supabase Realtime Postgres event channel streaming (`apps/web/src/components/providers.tsx`) bridging into live React Query cache invalidation.
@@ -56,8 +61,43 @@ posture, what pairs with what):
 - **`github`**: PR/issue management and repo search against this project's
   GitHub remote. OAuth on first connect (run `/mcp` to authorize), same pattern
   as `supabase` — no token ever belongs in `.mcp.json` or an agent's hands.
-- **`playwright`**: browser automation, backing the end-to-end visual/runtime
-  testing loop mandated in §3.10.
+- **`playwright`**: browser automation. As of 2026-08-24, the end-to-end
+  visual/runtime testing loop mandated in §3.10 defaults to the `agent-browser`
+  CLI tool instead (see below) — it drives Chrome directly over CDP and
+  doesn't share the Claude Browser pane's `document.visibilityState` bug.
+  `playwright` is kept connected only for the one thing `agent-browser` can't
+  do yet: forcing a specific non-2xx HTTP status or an artificially delayed
+  response via route mocking. Full rationale and the command-by-command
+  walkthrough:
+  [`doc/runbooks/agent-browser-session.md`](doc/runbooks/agent-browser-session.md#getting-a-browser-that-actually-renders--added-2026-08-20-revised-2026-08-24).
+
+### Connected CLI Tools
+
+The roster is `blueprint.yaml`'s `cli_tools` list — plain executables invoked
+via Bash, not MCP servers, so there's no `.mcp.json` entry and none is
+guaranteed present on a fresh machine. What follows is why each is there and
+how to get it if it's missing:
+
+- **`agent-browser`**: the default browser-automation tool for the §3.10
+  verification loop (see the `playwright` bullet above for why it replaced
+  Playwright as the default). Install: `npm install -g agent-browser &&
+  agent-browser install` — the second command fetches Chrome for Testing
+  once. Full walkthrough:
+  [`doc/runbooks/agent-browser-session.md`](doc/runbooks/agent-browser-session.md).
+- **`gh`**: GitHub CLI. Required for the auto-merge step in the Critical
+  Branch Rules (`gh pr merge <pr_number> --auto --squash`) and for reading
+  PR/worktree state (`gh pr view --json state,mergedAt,headRefName`) — see
+  `worktree-orchestration`. Install: https://cli.github.com (not an npm
+  package).
+- **`vercel`**: inspects and manages deployment config — env var scoping,
+  project protection — per
+  [`doc/runbooks/deploy-web-app.md`](doc/runbooks/deploy-web-app.md). Install:
+  `npm install -g vercel`.
+- **`supabase`**: local migration workflow — `db advisors`, `migration new`,
+  `db pull` / `migration list` — documented in `.agents/skills/supabase/SKILL.md`,
+  falling back to the `supabase` MCP server's equivalents (`get_advisors`,
+  `execute_sql`) on older CLI versions per that skill's "Known gotchas".
+  Install: `npm install -g supabase`.
 
 **`impeccable` Skill**: Production-grade UI design commands (`audit`, `adapt`,
 `polish`, `craft`, `shape`, `distill`, `harden`). Personal/user-level, not declared
@@ -75,21 +115,37 @@ assume it's present for another agent or machine unless it's in `.mcp.json` or
 
 ## 2. Mandatory Git & Branch Workflow
 
-We enforce a strict 3-tier Git & deployment pipeline. Two hosts are involved before
+We enforce a strict Git & deployment pipeline. Two hosts are involved before
 `development` even sees the code — set 2026-08-21, by the owner: **localhost** for
-day-to-day iteration on an individual task (fastest loop, no push needed), and **the
-feature branch's own Vercel preview** for the final verification pass once that whole
-milestone/task is complete — push the branch, verify live against its preview URL,
-*then* open the PR.
+day-to-day iteration on an individual task (fastest loop, no push needed), and a
+**Vercel preview** for the final verification pass once the whole band is
+complete — push, verify live against the preview URL, *then* open the PR into
+`development`.
+
+**A band integrates on its own branch before it reaches `development`** — set
+2026-08-25, by the owner, when the repo moved to running parallel agents and
+forked sessions on one band at a time. A band's tasks are written against each
+other (a `[S]` task authors the types its siblings compile against), so they
+need a shared ancestor that already contains the finished sequential work.
+That ancestor is the band branch, not `development`.
 
 ```
 localhost (fast iteration, per task — no push needed)
         │
-        ▼  milestone/task complete → push the branch
-[Agent Worktree: feature/*]'s own Vercel preview ── final milestone verification
-        │
-        ▼
-PR into (Squash) ──► [development branch]
+        ▼  task complete: pnpm typecheck && pnpm test
+[task worktree: task/T-M16-01]  ──PR (squash)──┐
+[task worktree: task/T-M16-02]  ──PR (squash)──┤   ← parallel agents / forked
+[task worktree: task/T-M16-03]  ──PR (squash)──┤     sessions, each its OWN
+        │                                      │     worktree, all branched
+        │                                      │     FROM the band branch
+        ▼                                      ▼
+                        [band branch: band/20-m16-live-channel]
+                                               │
+                                               ▼  band complete → push
+                    band branch's own Vercel preview ── final band verification
+                                               │
+                                               ▼
+                              PR into (Squash) ──► [development branch]
         │  agent judges it production-ready, opens the promotion PR
         ▼
 [staging branch] ── (User Review Gate — owner approves, or gives feedback
@@ -101,54 +157,122 @@ PR into (Squash) ──► [development branch]
 ### Critical Branch Rules
 1. **Isolated Worktrees ONLY**:
    - You MUST create an isolated Git branch/worktree for your task: `feature/<task-name>`, `fix/<bug-name>`, or `task/<task-id>`.
-   - **NEVER** edit files directly on `development`, `staging`, or `main`.
-2. **PR Target & Merge Strategy**:
-   - All agent pull requests from a feature/fix/task worktree MUST target `development`.
-   - PRs into `development` use **Squash and Merge** to maintain a clean history.
+   - **NEVER** edit files directly on `development`, `staging`, `main`, or a **band branch**.
+   - **One worktree per agent, always.** Two agents — subagents, forked
+     sessions, or separate Claude Code windows — must never share a working
+     directory. That is not a merge conflict resolved later; it is two
+     processes writing the same files at once.
+2. **Two-Tier PR Target & Merge Strategy**:
+   - **A band with more than one task gets a band branch**, cut from
+     `development` and named `band/<band-number>-<short-slug>` (e.g.
+     `band/20-m16-live-channel`). Its tasks' PRs target **that branch**, not
+     `development`.
+   - **Task → band branch**: Squash and Merge. The band branch accumulates one
+     clean commit per task.
+   - **Band branch → `development`**: Squash and Merge, opened once the whole
+     band is complete and verified (rule 3).
+   - **A single-task band skips the middle tier** — that task's branch targets
+     `development` directly. Don't cut a band branch for one task.
+   - **Every parallel task branch is cut FROM the band branch**, after the
+     band's `[S]` gating task has already landed on it. Cutting from
+     `development` instead is the mistake that makes the whole scheme
+     pointless — the sibling tasks compile against types the gating task
+     authored.
    - **NEVER** push directly to `staging` or `main` — both are reached only through a PR, never a raw push, even for the promotion step below.
 3. **Verification Before PR**:
-   - You MUST run and pass all typechecks and unit tests locally before submitting a PR:
+   - **Per task, before its PR into the band branch** — typecheck and unit
+     tests must pass locally:
      ```bash
      pnpm typecheck
      pnpm test
      ```
-   - For a change a browser can exercise, this is not sufficient on its own — see
-     rule 3.10 and the `frontend-verify` skill. **The live pass belongs on the
-     feature branch's own Vercel preview** (push, then verify against that
-     preview URL), done once the milestone/task is otherwise complete — not
+   - **Per band, before its PR into `development`** — the live pass. For a
+     change a browser can exercise, green tests are not sufficient on their
+     own; see rule 3.10 and the `frontend-verify` skill. **The live pass
+     belongs on the band branch's own Vercel preview** (push, then verify
+     against that preview URL), done once the band is otherwise complete — not
      against `development.sparstrow.com`, which stays reserved for confirming
      the merge itself integrated cleanly. See
      [`doc/runbooks/deploy-web-app.md`](doc/runbooks/deploy-web-app.md) §4 for
      the exact URL pattern and the Supabase redirect-URL wildcard it depends on.
-4. **Worktree & Branch Cleanup Post-Merge**:
-   - Once a PR is merged into `development` (and GitHub auto-deletes the remote feature branch), agents MUST prune and clean up local worktrees and branches:
+   - This is the band's verification task (`T-<PHASE>-<nn>-verification`)
+     doing its job — it is the last task in the band precisely so it can grade
+     the assembled result rather than one slice of it.
+4. **Keep a live band branch fresh**:
+   - A band branch outlives an individual task branch, and other bands land on
+     `development` while it is open. Merge `development` **into** the band
+     branch periodically — at minimum before opening its final PR — so the
+     band→`development` merge carries only the band's own conflicts, not weeks
+     of accumulated drift.
+     ```bash
+     git checkout band/<n>-<slug>
+     git merge origin/development
+     ```
+   - Do **not** rebase a band branch that task branches have been cut from —
+     rewriting its history orphans every open task branch beneath it.
+5. **Worktree & Branch Cleanup Post-Merge**:
+   - Once a task PR is merged into its band branch, remove that task's worktree; the band branch continues.
+   - Once the band PR is merged into `development` (and GitHub auto-deletes the remote band branch), clean up the band worktree too:
      ```bash
      git checkout development
      git pull origin development
-     git worktree remove <worktree-path> || git branch -d <feature-branch>
+     git worktree remove <worktree-path> || git branch -d <branch>
      git fetch --prune
      ```
-5. **Auto-Enqueuing PR Merges**:
-   - Immediately upon opening a PR, agents MUST execute `gh pr merge <pr_number> --auto --squash` so that GitHub automatically queues and merges the PR as soon as CI passes, without requiring manual button clicks in the GitHub UI.
-6. **Commit Without Asking**:
+6. **Auto-Enqueuing PR Merges**:
+   - Immediately upon opening a PR — at **either** tier — agents MUST execute `gh pr merge <pr_number> --auto --squash` so that GitHub automatically queues and merges the PR as soon as CI passes, without requiring manual button clicks in the GitHub UI.
+   - The `development` → `staging` promotion PR is the exception: it gets a reviewer and is not auto-merged.
+7. **Commit Without Asking**:
    - Once edits for a coherent unit of work are complete (a fix, a doc update, a task's checklist items), commit them on the current feature/worktree branch **without waiting for the user to say "commit this"** — this file is the standing, advance authorization for that.
    - Commit at the end of a logical change, not after every individual file edit: an in-progress multi-file change lands as one commit (or a few coherent ones) once it's actually done, not a commit per file touched or per half-finished edit.
-   - This does not relax rule 3 (verification before PR) and does not change anything about opening or pushing PRs — those still follow rules 1, 2, and 5 above exactly as written. It only covers local commits to the agent's own branch.
-7. **Development → Staging Promotion (agent-initiated)**:
-   - Set 2026-08-20, by the owner, while verifying the Machines pairing flow, and
-     refined 2026-08-21 once feature-branch previews became viable (rule 3): the
-     milestone's real live verification already happened pre-merge, on the
-     feature branch's own Vercel preview. Once that passed and the PR has landed
-     on `development`, the agent judges for itself whether the milestone is
+   - This does not relax rule 3 (verification before PR) and does not change anything about opening or pushing PRs — those still follow rules 1, 2, 3 and 6 above exactly as written. It only covers local commits to the agent's own branch.
+8. **Development → Staging Promotion (agent-initiated)**:
+   - Set 2026-08-20, by the owner, while verifying the Machines pairing flow;
+     refined 2026-08-21 once branch previews became viable, and again
+     2026-08-25 when bands gained their own integration branch (rule 3): the
+     band's real live verification already happened pre-merge, on the **band
+     branch's** own Vercel preview. Once that passed and the band PR has landed
+     on `development`, the agent judges for itself whether the work is
      complete and production-ready — it does not wait to be asked for this
      specific step. A fresh pass against `development.sparstrow.com` is not a
      required gate here; reach for it only if something about the merge itself
-     (multiple branches landing together) is in doubt (see
+     (multiple bands landing together) is in doubt (see
      `doc/runbooks/agent-browser-session.md` for how an agent gets a signed-in
      session on a deployed host without typing a password).
-   - When ready, the agent opens the `development` → `staging` PR itself, same Squash-and-Merge convention as rule 2, and may auto-enqueue it per rule 5.
+   - When ready, the agent opens the `development` → `staging` PR itself, same Squash-and-Merge convention as rule 2, and may auto-enqueue it per rule 6.
    - `staging.sparstrow.com` is the **owner's review gate**. The owner either approves it (clearing the way for `staging` → `main`) or gives feedback, which sends the agent back to more work on `development` — this loops until the owner is satisfied. Nothing skips this review.
    - `staging` → `main` remains a **hard, owner-only gate** — never opened or merged by an agent without an explicit "approved, ship it" in chat for that specific promotion. This is unchanged from rule 2's "never push directly to staging or main" and is not relaxed by this rule.
+9. **Never Edit `MasterTaskQueue.md` From a Task Branch**:
+   - Set 2026-08-25, by the owner, when the repo moved to running several
+     coding agents on several branches at once. Every task used to be told to
+     tick its own row in
+     [`doc/tasks/MasterTaskQueue.md`](doc/tasks/MasterTaskQueue.md); sibling
+     tasks in a band are **adjacent rows in one table**, so that instruction
+     made a merge conflict out of every parallel hand-out.
+   - Each task file's own `Status` row is the authoritative record. The queue's
+     Status column mirrors it and is flipped **once per band, in the commit
+     that lands the band branch on `development`** (rule 2's second tier) — one
+     edit, one writer, every row in the band at once. It therefore lags while a
+     band is in flight, deliberately: the queue's only consumer is the decision
+     about what band to start next, and that decision is not made mid-band.
+   - **A task branch never touches it, and neither does a band branch
+     mid-flight.** The flip is the band's closing move, alongside archiving the
+     finished band per
+     [`doc/tasks/README.md`](doc/tasks/README.md#archiving-a-finished-band).
+   - Ticking both places is what the old rule asked for, and it did not work
+     even serially — adopting this one found 11 task files whose Status
+     contradicted the queue. Protocol, status vocabulary, and the drift check:
+     [`doc/tasks/README.md`](doc/tasks/README.md#who-updates-the-queue-and-when).
+   - **Decomposing a phase into tasks is a solo operation.** It *regenerates*
+     the queue rather than appending to it, which is a whole-file rewrite that
+     collides with every open branch simultaneously. Drain to zero open task
+     **and band** branches first. The sequencing usually supplies the quiet
+     moment for free, since a phase is decomposed only after the phase it
+     depends on has landed. The `decomposing-plans` skill enforces this as a
+     hard refusal, not a preference.
+   - **What is *occupied* is not this file's job.** Use `gh pr list --state
+     open` and `git worktree list`; do not extend the queue to track live
+     branch state.
 
 ---
 
@@ -185,6 +309,8 @@ PR into (Squash) ──► [development branch]
    - When the question is answered, unblock that item, finish it, and delete the entry from `OpenQuestions.md`.
    - When presenting open questions to the user, always structure each question with full context, a simple user-side scenario, and concrete options.
    - For every option presented, provide:
+     - **Its own context** — what this option actually *is*, concretely enough to tell it apart from its neighbours: what gets built or configured, what the user has to do, what changes
+     - **Its own user scenario** — **the question's scenario replayed under this option**, so the reader compares outcomes side by side instead of reasoning about each in the abstract. Same person, same moment, different result. This is the field that makes options answerable; a set of options that all describe *different* situations cannot be compared at all
      - Pros and Cons
      - Score out of 10
      - Blast radius if chosen wrong

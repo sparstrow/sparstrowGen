@@ -49,7 +49,29 @@ export async function updateSession(request: NextRequest) {
   // redirected here: an unauthenticated fetch() would follow the 302 to /login
   // and resolve with a 200 page of HTML, so the caller sees "success" and then
   // fails trying to parse it. A 401 is the honest answer to a program.
-  if (pathname.startsWith("/api/")) {
+  //
+  // A Server Action is the same kind of caller and needs the same exemption.
+  // It arrives as a POST to the PAGE's own path -- `POST /teams`, not
+  // `/api/...` -- so without this it takes the redirect below, and React's
+  // action dispatch receives a page of HTML where it expected an action
+  // response. What the owner sees is a "Runtime Error: An unexpected response
+  // was received from the server" overlay instead of "you're signed out"
+  // (BUG-2026-08-24-expired-session-turns-a-server-action-into-a-runtime-error).
+  //
+  // Identified by the `Next-Action` header, which Next.js sets on every action
+  // dispatch and which a normal navigation never carries.
+  //
+  // This moves the guard rather than removing it. Every action's first
+  // statement is `actionContext()`, which refuses without a session and returns
+  // a message the caller renders -- exactly where the write-conversion plan's
+  // DD-4 says the check belongs, because an action is a public endpoint with an
+  // unguessable name and was never protected by the page's own guard. RLS
+  // remains the boundary underneath: actions use the caller's supabase-js
+  // client, never the service role.
+  const isServerAction =
+    request.method === "POST" && request.headers.has("next-action");
+
+  if (pathname.startsWith("/api/") || isServerAction) {
     return supabaseResponse;
   }
 

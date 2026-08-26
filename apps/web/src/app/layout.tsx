@@ -1,22 +1,18 @@
 import React, { Suspense } from "react";
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+// DESIGN.md §3 names Inter Variable, and `globals.css` sets `--font-sans` to
+// it. Nothing loaded it here until 2026-08-24 — the only import lived in the
+// Vite entry — so the app rendered in the system fallback while separately
+// downloading Geist, which no token referenced. See
+// doc/bug/BUG-2026-08-24-hosted-app-never-loads-its-typeface.md.
+import "@fontsource-variable/inter";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 import { AppShell } from "@web/components/layout/app-shell";
 import { Providers } from "@web/components/providers";
 import { toSnapshot } from "@web/lib/auth/account-snapshot";
 import { createClient } from "@web/utils/supabase/server";
+import { getKnowledgeIndex } from "@web/lib/knowledge.server";
 
 export const metadata: Metadata = {
   title: "Sparstrowgen",
@@ -39,6 +35,10 @@ export default async function RootLayout({
     data: { user },
   } = await supabase.auth.getUser();
   const account = user ? toSnapshot(user) : null;
+  // Static repo content, not user data — read once here rather than a second
+  // client-side fetch. See getKnowledgeIndex's own comment for why this
+  // can't just be imported directly by breadcrumbs.tsx/tab-strip.tsx.
+  const knowledgeIndex = getKnowledgeIndex();
 
   const cookieStore = await cookies();
   const themeCookie = cookieStore.get("theme-prefs");
@@ -56,7 +56,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased ${defaultClass} surface-${themeObj.surface} theme-${themeObj.brand}`}
+      className={`h-full antialiased ${defaultClass} surface-${themeObj.surface} theme-${themeObj.brand}`}
       suppressHydrationWarning
     >
       <head>
@@ -78,7 +78,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col">
         <Providers account={account}>
           <Suspense fallback={null}>
-            <AppShell>{children}</AppShell>
+            <AppShell knowledgeIndex={knowledgeIndex}>{children}</AppShell>
           </Suspense>
         </Providers>
       </body>

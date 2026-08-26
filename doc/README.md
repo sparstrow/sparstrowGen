@@ -11,7 +11,8 @@ doc/
 │   └── README.md             user stories, written BEFORE any plan
 ├── plans/                    approved plans — the technical "how"
 ├── tasks/                    executable specs — the "how"
-│   ├── MasterTaskQueue.md    global run order + concurrency tags
+│   ├── MasterTaskQueue.md    global run order + concurrency tags (active bands only)
+│   ├── CompletedMasterQueue.md  fully-done bands, archived out to keep the above short
 │   └── <phase>/              phase spec + individual tasks
 ├── runbooks/                 manual steps only a human can do (external
 │   ├── README.md             ← start here: the owner's action-item checklist
@@ -47,7 +48,7 @@ plan ──────────────► doc/plans/<date>-<slug>.md
   │                  open decisions go to OpenQuestions.md until answered
   │ (owner approves)
   ▼
-task ──────────────► doc/tasks/<milestone>/T-<id>-<slug>.md
+task ──────────────► doc/tasks/<phase>/T-<id>-<slug>.md
   │                  MUST contain zero open questions
   │                  each carries a Serves row: a user story, or the story
   │                  phase it unblocks
@@ -133,13 +134,17 @@ delete the guidance comments.
 Per `AGENTS.md` §8, every entry in `OpenQuestions.md` needs full context, a
 plain user-side scenario, and concrete options. Each option carries:
 
+- Its own context — what this option *is*, concretely
+- Its own user scenario — the question's scenario replayed under this option
 - Pros and cons
 - Score out of 10
 - Blast radius if chosen wrong
 - Caveats
 - The agent's recommendation
 
-A question with no options is not ready to be asked.
+A question with no options is not ready to be asked. Options that describe
+*different* situations from each other are not ready either — replaying one
+shared moment is what lets the owner compare them.
 
 ## Answered questions
 

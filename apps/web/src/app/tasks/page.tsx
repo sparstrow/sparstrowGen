@@ -1,6 +1,6 @@
 "use client";
 
-import { TasksPage } from "@sparstrow/ui/routes/pages/tasks";
+import { TasksPage } from "./tasks";
 
 export default function Page() {
   return <TasksPage />;

@@ -21,8 +21,7 @@
     "paths": {
       "@/*": ["../../packages/ui/src/*"],
       "@web/*": ["./src/*"],
-      "@sparstrow/ui/*": ["../../packages/ui/src/*"],
-      "@tanstack/react-router": ["./src/lib/react-router-mock.tsx"]
+      "@sparstrow/ui/*": ["../../packages/ui/src/*"]
     }
   },
   "include": [

@@ -1,12 +1,11 @@
 // 0004 Phase 1 — stage everything the packaged app ships as extraResources.
 // Run from the repo root (or via `pnpm --filter @sparstrow/desktop dist:prepare`)
-// AFTER `pnpm build` has produced core/dist, ui/dist and the memory bundles.
+// AFTER `pnpm build` has produced core/dist and the memory bundles.
 //
 // Layout produced (consumed by packaged-env.ts at runtime):
 //   resources-staging/
 //     core/            pnpm-deployed core (dist/index.js + prod node_modules,
 //                      native .node prebuilds included)
-//     ui/              built UI (served by core via SPARSTROW_UI_DIST)
 //     memory-mcp/      index.cjs
 //     memory-cli/      index.cjs
 //     node-runtime/    plain Node binary matching the natives' ABI (never
@@ -68,12 +67,7 @@ mustExist(
 fs.rmSync(coreVendor, { recursive: true, force: true });
 fs.renameSync(coreNm, coreVendor);
 
-// 2. UI.
-const uiDist = path.join(repoRoot, "packages", "ui", "dist");
-mustExist(uiDist, "run `pnpm --filter @sparstrow/ui build` first");
-copy(uiDist, path.join(staging, "ui"));
-
-// 3. Memory bundles (single-file cjs each).
+// 2. Memory bundles (single-file cjs each).
 for (const name of ["memory-mcp", "memory-cli"]) {
   const bundle = path.join(repoRoot, "packages", name, "dist", "index.cjs");
   mustExist(bundle, `run \`pnpm --filter @sparstrow/${name} build\` first`);
@@ -81,7 +75,7 @@ for (const name of ["memory-mcp", "memory-cli"]) {
   fs.copyFileSync(bundle, path.join(staging, name, "index.cjs"));
 }
 
-// 4. Node runtime: the Node this script runs under IS the ABI the workspace's
+// 3. Node runtime: the Node this script runs under IS the ABI the workspace's
 // native prebuilds were installed for — ship exactly that binary.
 const nodeDir = path.join(staging, "node-runtime");
 fs.mkdirSync(nodeDir, { recursive: true });

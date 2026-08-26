@@ -1,12 +1,9 @@
-import fs from "node:fs";
-import path from "node:path";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
-import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import { ZodError } from "zod";
 import { API_BASE } from "@sparstrow/shared";
-import { config, repoRoot } from "../config.js";
+import { config } from "../config.js";
 import { logger } from "../logger.js";
 import { HttpError } from "../orchestrator/run-manager.js";
 import { agentGatewayRoutes } from "./routes/agent-gateway.js";
@@ -119,39 +116,9 @@ export async function buildServer() {
 
   await app.register(mcpRoutes);
 
-  // Serve the built UI when present (desktop/prod; dev uses the vite server).
-  const uiDist =
-    process.env.SPARSTROW_UI_DIST ?? path.join(repoRoot, "packages", "ui", "dist");
-  const indexPath = path.join(uiDist, "index.html");
-  if (fs.existsSync(indexPath)) {
-    // Inject the per-install token so the same-origin UI can authenticate.
-    // Same-origin policy keeps any cross-origin page from reading it.
-    const injectedIndex = fs
-      .readFileSync(indexPath, "utf8")
-      .replace(
-        "</head>",
-        `<script>window.__SPARSTROW_TOKEN__=${JSON.stringify(config.apiToken)};</script></head>`,
-      );
-    const sendIndex = (reply: import("fastify").FastifyReply) =>
-      reply.type("text/html").send(injectedIndex);
-
-    await app.register(fastifyStatic, { root: uiDist, wildcard: false, index: false });
-    app.get("/", (_request, reply) => sendIndex(reply));
-    // SPA fallback: any unknown GET that isn't an API/WS/MCP path gets index.html.
-    app.setNotFoundHandler((request, reply) => {
-      const url = request.raw.url ?? "/";
-      if (
-        request.method === "GET" &&
-        !url.startsWith(API_BASE) &&
-        !url.startsWith("/ws") &&
-        !url.startsWith("/mcp")
-      ) {
-        return sendIndex(reply);
-      }
-      return reply.code(404).send({ error: "not found" });
-    });
-    logger.info({ uiDist }, "serving built UI");
-  }
-
+  // Core serves an API, not a UI. It used to also host the Vite bundle from
+  // packages/ui/dist and inject the per-install token into its index.html, so
+  // that a same-origin page could authenticate. That app is gone (D-24), and
+  // with it the only thing that was ever served from `/`.
   return app;
 }

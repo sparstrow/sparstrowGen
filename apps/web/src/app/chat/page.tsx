@@ -1,6 +1,6 @@
 "use client";
 
-import { ChatPage } from "@sparstrow/ui/routes/pages/chat";
+import { ChatPage } from "./chat";
 
 export default function Page() {
   return <ChatPage />;

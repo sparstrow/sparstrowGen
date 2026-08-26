@@ -158,3 +158,147 @@ straight from this list.
 work. See also I-8 above (workspace `context`/user `bio` unused) and
 [D-17](Deferred.md) (the theme picker) — both are settings-shaped work this
 idea would likely absorb rather than duplicate, once it's scoped.*
+
+### Access and permissions is the dimension of this that is already leaking
+
+**Added 2026-08-24, by the owner**, on being asked to decide a machine's
+file-sharing boundary in isolation ([`OQ-6`](OpenQuestions.md)): "we should not
+just think and [be] bound to only one access. We should [design] project access
+settings for users, agents on what level they can access and configure."
+
+The point is correct and evidenced. Access is not one decision that OQ-6 needs;
+it is a grid — **who** (a person, an agent, a machine) may do **what** (see,
+use, configure, administer) to **which thing** (workspace, project, machine,
+agent, secret, run, chat) — and the app has been filling cells in it one at a
+time, by hand, without the grid existing. What is in the tree today:
+
+| Mechanism | Where | What it actually covers |
+|---|---|---|
+| `workspace_members.role` | RLS, [`001_rls.sql`](../packages/shared/drizzle/policies/001_rls.sql) | Real, but only 4 things: workspace rename/delete, daemon tokens, others' pairing codes, runtime-command update |
+| The generic member policy | [`001_rls.sql:124`](../packages/shared/drizzle/policies/001_rls.sql:124) | Everything else. **Any member = full read/write on all content.** No viewer, no read-only |
+| `effectiveTools` clamp | `packages/core`, at spawn | What tools an *agent* gets — the only per-agent capability control that exists |
+| Untrusted-run badging | [`G-5`](KnownGaps.md) | Badges, does not clamp writes. An access control that was started and not finished |
+| `users.role` | [`schema.ts:71`](../packages/shared/src/db/schema.ts:71) | **Nothing.** Decorative — see [`G-35`](KnownGaps.md) |
+| HITL gates | [`D-1`](Deferred.md) | Parked. The approval half of the same problem |
+
+**The half that is urgent is not the half that feels urgent.** Multi-user is
+the familiar frame, and it is genuinely coming — but there is one person on
+this workspace today, and there are already autonomous agents running commands
+on that person's machine right now, governed by a partial tool clamp and an
+unfinished write clamp. Agents are the subject with real exposure today;
+people are the subject with real exposure later. A model that treats agents as
+an afterthought to a people-permissions system would get the ordering exactly
+backwards.
+
+**Decide the grid; build almost none of it.** The model is cheap and the
+enforcement is expensive, and `AGENTS.md` §9's no-over-engineering rule points
+straight at not building a permissions product for a one-person workspace. The
+deliverable is a written model that says what the cells *are* and what the
+default is for each, so that each feature's access question — OQ-6's included
+— is answered by looking it up rather than by inventing a rule and a vocabulary
+on the spot. Two cheap things fall out of it immediately and need no
+enforcement work: resolving `users.role` (`G-35`), and recording B as what the
+model says about a machine's shared locations.
+
+**Scoped and written, 2026-08-24**, as
+[`specs/2026-08-24-what-an-agent-is-allowed-to-do.md`](specs/2026-08-24-what-an-agent-is-allowed-to-do.md)
+— the access model, agents-first, at the owner's direction. People as subjects
+are designed for throughout and deliberately built last, since the owner is the
+only person using the app today.
+
+**That spec is not this idea.** It decides what access *means*; I-10 remains
+open as the settings and customization surface that will later render it,
+alongside profile, preferences, shortcuts, notifications, update behavior,
+task/status properties and MCP configuration. Members and invites — the one
+item on I-10's original list that is squarely access-shaped — is where the two
+meet, and belongs to the people half that spec defers.
+
+---
+
+## I-11 — The rest of the machine-reaching surfaces
+
+[`specs/2026-08-24-reaching-my-machine-from-the-browser.md`](specs/2026-08-24-reaching-my-machine-from-the-browser.md)
+specified three surfaces — project files, folder browsing, terminals.
+Terminals has since been scoped out into its own spec
+([`a-terminal-on-my-machine`](specs/2026-08-24-a-terminal-on-my-machine.md),
+planned as M16/M17), which builds the live channel the other two need. The
+remaining seven are switched off in the browser for exactly the same reason
+and were left out of that spec deliberately, to keep it demoable rather than
+exhaustive: provider settings, importing a skill that lives on the machine,
+re-scanning memory, reading a memory note in its original form, the code
+graph, a project's git state and pull requests, and the project briefing.
+
+Each should become much cheaper once the app can ask a machine a question at
+all, but each carries its own interface questions — what a provider list means
+when two machines disagree, what a git state looks like for a project you are
+not sitting in front of — so none is a mechanical follow-on. Worth picking up
+individually, by whichever the owner misses first, rather than as one batch.
+
+*Surfaced while scoping that spec's Assumptions.*
+
+---
+
+## I-12 — Retire the "two hosts disagree about accounts" branch in three files
+
+`account.tsx`, `image-upload.tsx` and `directory-picker.ts` (now in
+`apps/web/src/lib/`) each carry a branch built when two UI hosts genuinely
+disagreed about what existed: the web app authenticated against Supabase, the
+local desktop build had no account or workspace to speak of. `D-24` retired
+that second host — Electron now just points a window at the hosted app. The
+branch's premise is gone, but the branch itself is still there, since removing
+it is behavioural surgery, not something a file-organization pass
+(`T-VR-07`) should also be doing.
+
+Found and recorded in full in `design-system/DECISIONS.md` `DD-015`, which is
+where the reasoning lives. This entry exists only so it surfaces to someone
+scanning ideas rather than only to someone who happens to open that file.
+
+*Surfaced while classifying `packages/ui` files for `T-VR-07`.*
+
+---
+
+## I-13 — Chat session right-click menu, and an app-wide keyboard shortcuts page
+
+Chat session rows in the rail (`apps/web/src/app/chat/chat.tsx`, ~line 718) are
+plain buttons with no per-row actions. The only session action anywhere is an
+Archive icon in the conversation header — and there is **no unarchive
+affordance at all**, which matters more since M12–M15 made archived sessions
+genuinely read-only. A right-click menu is the obvious home for these, paired
+with a `/shortcuts` reference page (no such page exists today).
+
+The design work is not "copy Claude Code's menu". Most of that menu doesn't
+map here, and the mapping is the interesting part:
+
+- **Translates directly:** Rename and Archive/Unarchive — `chatSessionUpdateSchema`
+  already accepts `title` and `status`, so both are free of backend work.
+- **Needs reinterpreting:** "Move to group" → *Move to project* (this app has
+  no folders, but `projects` is already a first-class organizer);
+  "Continue in Cloud" → *Continue on \<machine\>*, which is potentially richer
+  here than in Claude Code since `free`/`agent` sessions can resume on any
+  online runtime while `project` sessions are machine-affine — **though M12–M15
+  may now select a runtime automatically, which would make a manual override
+  redundant. Unverified; read the dispatch path before assuming either way.**
+- **Doesn't translate:** "Split view" / "New window" — the chat split-pane is a
+  persistent layout, not a per-session action, and no pop-out concept exists.
+- **New, and a good fit:** *Fork* — duplicate a session plus its messages up to
+  a point, to branch an approach without polluting history. No such concept
+  exists anywhere today; needs a new endpoint.
+
+Open decisions that need the owner, none of them answered: whether Delete
+exists at all (no DELETE route today, and every comparable entity —
+`teams.archivedAt` — soft-archives rather than hard-deletes); whether chats
+should be pinnable (`usePins` in `apps/web/src/lib/pins.ts` supports
+`project|run|team|agent|page`, so adding `chat` is a one-line change, but pins
+are localStorage-only and so wouldn't follow a user across devices — arguably
+wrong for a cloud-canonical product); and how large the shortcuts page should
+be when only a couple of shortcuts genuinely exist.
+
+**If this is picked up, it goes through the full spec → plan → tasks
+lifecycle** — the owner's explicit instruction on parking it was that doing it
+means doing it "properly and fully". A first attempt was built straight to code
+on unreviewed defaults and discarded unmerged; the scope questions above are
+the ones that attempt got wrong by answering them itself.
+
+*Surfaced 2026-08-24 from an owner request to design the chat right-click menu;
+parked by the owner the same day as a design addition wanting its own proper
+pass.*

@@ -13,11 +13,11 @@ import {
   TableHeader,
   TableRow,
 } from "@sparstrow/ui/components/ui/table";
-import { RunStatusBadge } from "@sparstrow/ui/components/run-status-badge";
-import { AttentionQueue } from "@sparstrow/ui/components/attention-queue";
-import { SetupCard } from "@sparstrow/ui/components/setup-card";
-import { PrQueueCard } from "@sparstrow/ui/components/pr-queue";
-import { useAgents, useHealth, useProjects, useRuns } from "@sparstrow/ui/api/hooks";
+import { RunStatusBadge } from "@web/components/run-status-badge";
+import { AttentionQueue } from "@web/components/attention-queue";
+import { SetupCard } from "@web/components/setup-card";
+import { PrQueueCard } from "@web/components/pr-queue";
+import { useAgents, useHealth, useProjects, useRuns } from "@web/api/hooks";
 import { formatCost, formatDate, formatDuration } from "@sparstrow/ui/lib/format";
 
 export default function Home() {

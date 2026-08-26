@@ -13,6 +13,59 @@ When one is answered, record the answer in the plan or task that consumes it and
 
 ---
 
+> **No entries are currently open.** `OQ-6`, `OQ-7`, and `OQ-8`, which stood
+> here at various points, were all answered by the owner; where each answer
+> now lives is recorded below, per this file's own rule that an answered entry
+> is deleted rather than archived in place.
+>
+> **`OQ-8` — what does "cancel this step" actually do to a running plan
+> node — is closed.** Answered **option B**: a real stop-signal path from the
+> button down to the daemon actually running the process, not just a status
+> relabel. This is a genuine feature (a daemon-side cancel contract that does
+> not exist yet, plus a real `cancelled` `TaskStatus` value), not a `T-WA-04`
+> Server Action conversion, so it is parked rather than built inline —
+> `useCancelNode` ships exactly as `T-WA-04` left it (wired to the
+> never-existed `POST /goals/:id/nodes/:nodeId/cancel` route, 404ing as
+> before). Recorded as [`D-27`](Deferred.md), which carries the shape of the
+> work and its unpark trigger — a `doc/specs/` entry, since this crosses
+> `packages/core`, the control plane's `runs` table, and the web UI.
+>
+> **`OQ-6` — how much of a machine a signed-in person may look at — is closed.**
+> Answered **option B**, nominated locations with a sensible default at pairing.
+> The entry had said it would close when
+> [`what-an-agent-is-allowed-to-do`](specs/2026-08-24-what-an-agent-is-allowed-to-do.md)
+> was owner-reviewed; that review happened on 2026-08-24 and the answer now
+> lives as **US4 of that spec**, with `FR-008` carrying it. That placement was
+> the point of leaving it open rather than closing it early — the owner's
+> objection was never to B, it was to B arriving as a bespoke rule for the
+> folder picker instead of as one cell of a model. It unblocks
+> [`reaching-my-machine-from-the-browser`](specs/2026-08-24-reaching-my-machine-from-the-browser.md)'s
+> US1/US2 scope and `FR-002`, which now inherit the boundary instead of
+> defining one.
+>
+> The terminal asymmetry this entry flagged in advance still holds and is not
+> re-litigated: nominated locations bound **folder browsing only**, and grant
+> **reading only**. A shell is not bounded by them, because it can go anywhere
+> its account can — decided separately in
+> [`a-terminal-on-my-machine`](specs/2026-08-24-a-terminal-on-my-machine.md) as
+> owner/admin-only access to an unconfined shell.
+>
+> **`OQ-7` — Server Action or keep the existing mutation — is closed.**
+> Answered **option A**: every existing write is rewritten to the one-step
+> Server Action pattern now, not only the ones a page conversion happens to
+> touch. This is **not** the recommendation that entry carried (it argued for
+> C, converting opportunistically); the owner chose A with A's costs stated,
+> and the plan that executes it records both that fact and the cost, so nobody
+> later reads the scope as an accident. The answer is recorded where the next
+> person writing a write will actually read it — in
+> [`apps/web/CLAUDE.md`](../apps/web/CLAUDE.md), next to the doctrine sentence
+> `T-VR-05` did not follow — and is executed by
+> [`plans/2026-08-24-server-action-write-conversion.md`](plans/2026-08-24-server-action-write-conversion.md).
+> It supersedes the per-route opportunistic conversion described in
+> [`D-25`](Deferred.md).
+
+---
+
 *OQ-5 (Vercel Deployment Protection blocking `development`/`staging`) was
 **answered by the owner on 2026-08-20** — option A. SSO protection disabled
 project-wide via `vercel project protection disable sparstrowgen --sso`; both
@@ -115,7 +168,7 @@ requires, and it costs nothing but flipping a toggle you can flip back.
 
 ---
 
-> **Nothing else is currently open.**
+> **Older answers, kept as pointers.**
 >
 > `OQ-4` (is code syntax highlighting a fifth colour role) was answered by the
 > owner on 2026-08-19 — **option A**. Recorded in `DESIGN.md` §2.1 and the new
