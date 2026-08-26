@@ -7,7 +7,7 @@
 | **Depends on** | T-M16-01 |
 | **Blocks** | T-M16-04, T-M16-06 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | done (2026-08-26) |
 
 ## Objective
 
@@ -66,23 +66,23 @@ works unchanged.
 
 ## Checklist
 
-- [ ] Establish which signing path this project uses; record the answer in this
+- [x] Establish which signing path this project uses; record the answer in this
       task's Result section — the next person must not have to look it up again
-- [ ] `apps/web/src/lib/daemon/realtime-token.ts` — `mintRealtimeToken({ workspaceId, runtimeId })`,
+- [x] `apps/web/src/lib/daemon/realtime-token.ts` — `mintRealtimeToken({ workspaceId, runtimeId })`,
       returning `{ token, expiresAt }`
-- [ ] `apps/web/src/app/api/daemon/realtime/token/route.ts` — `POST`, bearer auth
+- [x] `apps/web/src/app/api/daemon/realtime/token/route.ts` — `POST`, bearer auth
       via the existing resolver, returns the minted credential
-- [ ] The signing secret is read once, from a server-only env var, with a clear
+- [x] The signing secret is read once, from a server-only env var, with a clear
       thrown error naming the variable if it is absent — the same shape
       `broadcast.ts`'s `serviceRoleKey()` uses
-- [ ] Unit tests: claims are exactly as specified; **there is no `sub` claim**;
+- [x] Unit tests: claims are exactly as specified; **there is no `sub` claim**;
       `exp` is `DAEMON_REALTIME_TOKEN_TTL_S` ahead of `iat`; an absent secret
       throws by name
-- [ ] Route tests: no token → 401; revoked pairing → 403; valid → 200 with a
+- [x] Route tests: no token → 401; revoked pairing → 403; valid → 200 with a
       token that verifies against the signing key
-- [ ] A row in [`../../runbooks/README.md`](../../runbooks/README.md) for the
+- [x] A row in [`../../runbooks/README.md`](../../runbooks/README.md) for the
       owner: set the signing variable on the Vercel project
-- [ ] `apps/web` typecheck and tests green
+- [x] `apps/web` typecheck and tests green
 
 ## Traps
 
@@ -106,14 +106,16 @@ lets `CloudAuthError` classify it without a second parser.
 
 ## Verification
 
-- [ ] `pnpm --filter @sparstrow/web test` green including the new route tests
-- [ ] `node -e` (or a test) decodes a freshly minted token and asserts the claim
-      set matches the table above **and that `sub` is absent**
-- [ ] Against a real deployment: `curl -XPOST .../api/daemon/realtime/token` with
-      a valid daemon token returns 200; with a garbage token returns 401
-- [ ] The minted token is accepted by Realtime — proved in
+- [x] `pnpm --filter web test` green including the new route tests
+- [x] A test decodes a freshly minted token and asserts the claim set matches
+      the table above **and that `sub` is absent**
+- [~] Against a real deployment: `curl -XPOST .../api/daemon/realtime/token` —
+      not run. The route is correct and unit-tested, but exercising it live
+      needs `SUPABASE_JWT_SIGNING_KEY` set on the deployment first, which is
+      the owner action this task added to `runbooks/README.md`
+- [~] The minted token is accepted by Realtime — proved in
       [`T-M16-06`](T-M16-06-verification.md) §A, not here, because it needs the
-      policies from `T-M16-03` to be applied first
+      policies from `T-M16-03` (done) and the owner action above, both
 
 ## On completion
 
@@ -125,11 +127,59 @@ lets `CloudAuthError` classify it without a second parser.
 > beside you. Record this task's outcome in the **Status** row and **Result**
 > section of *this* file.
 
-- [ ] Update this file's **Status** row
-- [ ] Update the phase README's task table
-- [ ] Confirm the runbook row is present and accurate
+- [x] Update this file's **Status** row
+- [x] Update the phase README's task table
+- [x] Confirm the runbook row is present and accurate
 
 ## Result
 
-*(filled in when the task lands — including which signing path this project
-turned out to use)*
+**This project signs with an ES256 key pair, not the legacy shared HS256
+secret.** Confirmed by fetching the project's own
+`/auth/v1/.well-known/jwks.json` (public, no auth needed) rather than
+inferring it from the anon key, per this task's own warning that a project
+mid-migration serves both: it returned exactly one key,
+`{"alg":"ES256","kty":"EC","crv":"P-256","kid":"1ee0a572-eaf2-4110-b43f-9f60462fdec7", ...}`.
+So `mintRealtimeToken` signs with `jose`'s `SignJWT` under `ES256` and sets
+the `kid` header from the signing key's own `kid`.
+
+The private half of that key is not obtainable by an agent — the JWKS only
+ever publishes the public verification key, and there is no MCP/API access in
+this session that can read a project's private signing material (Supabase
+MCP requires an interactive OAuth grant this session doesn't have). It reads
+the whole key as one JSON JWK from a new server-only env var,
+`SUPABASE_JWT_SIGNING_KEY`, and throws by name (matching `broadcast.ts`'s
+`serviceRoleKey()` shape) if it's absent or not valid JSON. Row added to
+[`runbooks/README.md`](../../runbooks/README.md) for the owner to set it from
+**Project Settings → API → JWT Keys**; `.env.example` documents the expected
+shape.
+
+Claims are exactly the Decisions table: `role`, `aud`, `iat`, `exp`,
+`workspace_id`, `runtime_id` — **no `sub`**, verified by a test that decodes a
+freshly minted token and asserts the claim is absent, not just unchecked.
+`exp` is `DAEMON_REALTIME_TOKEN_TTL_S` (600s) ahead of `iat`, also asserted
+directly rather than assumed from the constant being passed in correctly.
+
+Both the lib and the route are new test surfaces for this repo:
+`realtime-token.test.ts` generates a throwaway ES256 keypair per test (never
+the project's real one) with `jose`'s `generateKeyPair`/`exportJWK`, and
+`route.test.ts` is the first `/api/daemon/*` route test in this codebase —
+every prior daemon route has only ever been verified live (curl against a
+deployment) or through its calling code's own tests. Mocks `authenticateDaemon`
+via `vi.mock("@web/lib/daemon/auth", ...)` to exercise the 401/403/200 paths
+without a real token or database.
+
+Added `jose@^6.2.10` to `apps/web/package.json` — no JWT library existed in
+this repo before this task.
+
+**Found and fixed while running the full suite, not scoped to this task**:
+T-M16-01 added `SETTING_TERMINAL_ACCESS` to `DAEMON_SETTABLE_KEYS`, which
+broke `runtime-routes.test.ts`'s sentinel assertion that the allowlist has
+exactly 2 entries (its own comment: "asserts the shared constant they all
+read has not quietly grown"). Updated to 3 and added the new key to the
+`toContain` assertions rather than loosening the test.
+
+**Not done here, and correctly so**: the live curl-against-a-deployment check
+and the "Realtime actually accepts this token" proof both need
+`SUPABASE_JWT_SIGNING_KEY` set on a real deployment, which is the owner
+action above. `T-M16-06` §A is where that gets proved, once the owner has set
+it — nothing else in this band is blocked on it in the meantime.
