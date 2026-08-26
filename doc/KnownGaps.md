@@ -1542,3 +1542,86 @@ claim that they are unverified everywhere.
   `/messages`, `/skills`, `/tasks`, `/goals`, `/runs`, `/schedule`,
   `/pipelines`, `/machines`, and `/settings` specifically for cross-cluster
   breakage (a page reading a shape a sibling task's hook deletion changed).
+
+### G-47 — M16 (a live channel to a machine) is built and unit-tested; nothing has actually connected to Realtime
+
+**Raised:** 2026-08-26, closing `T-M16-01` … `T-M16-05` and attempting
+`T-M16-06`.
+
+All five build tasks are done — 22 new tests across `packages/shared` and
+`packages/core` (channel-contract schemas, the four RLS policies applied to
+the project's actual Supabase database and confirmed via `pg_policies`, the
+signing-path discovery, the terminal manager's coalescer/throttle/ceiling,
+and the Realtime connection's refresh/backoff/revocation handling against a
+faked `RealtimeClient`) — and `pnpm typecheck`/`pnpm test` are green
+workspace-wide. **Not one byte has crossed a real Realtime connection**,
+because every remaining check in `T-M16-06` needs something this pass did
+not have:
+
+- **§A (the wire works) and §B (the connection looks after itself) — not run
+  at all.** Both need `SUPABASE_JWT_SIGNING_KEY` set on a real deployment
+  (the owner action `T-M16-02` added to
+  [`runbooks/README.md`](runbooks/README.md)) and a real machine paired to
+  it. Until that variable is set, `POST /api/daemon/realtime/token` 500s by
+  design (`mintRealtimeToken` throws by name rather than minting with no
+  key) — there is nothing today's build could have connected to even if a
+  machine were paired and pointed at a preview.
+- **§C's local-route regression check — not run live**, for the same reason
+  `G-13`/`G-16` weren't: no rendering browser in this environment. Partially
+  covered anyway: `manager.test.ts`'s fake-WebSocket tests exercise
+  `attachSocket` — the exact function the local `/ws/terminal/:id` route
+  calls — for attach, detach-survives, and reattach-replays, which is real
+  evidence for the code path even without a rendered xterm.js session. The
+  transcript/chat-still-streaming check and the typecheck/test bullet **did**
+  run — see `T-M16-04`'s Result.
+- **§D (the policies refuse the right people) — not run at all**, and this
+  is the one the task's own Objective flagged in advance as the likely gap.
+  It asks for SQL assertions against **synthetic sessions** on the preview's
+  project rather than a second real account, which this repo's own house
+  style (`verify-rls.sh`, `verify-command-spine.mjs`) normally satisfies by
+  standing up a **disposable local Postgres container** with the real
+  migrations replayed onto it — never the actual Supabase project, so a
+  synthetic admin/member/cross-workspace session can be fabricated freely.
+  Docker Desktop was not running in this environment; starting it was
+  attempted and did not come up within this session. Fabricating the
+  equivalent sessions directly against the **real** project's database
+  instead — inserting throwaway `auth.users`/`workspace_members` rows to get
+  an admin of A, a member of A, and an admin of B — was deliberately not
+  done: that mutates real production-adjacent data for a check this repo's
+  own precedent says should never need to touch it. `T-M16-03`'s Result
+  already recorded the same deferral for its own narrower verification list,
+  for the same reason.
+- **§E (the lifetime change behaves) — the four points needing a live shell
+  or a real 15-minute wait weren't run**, but the underlying mechanism for
+  every one of them is unit-tested in `manager.test.ts` against a fake PTY
+  and fake timers: survives-all-sinks-detached (there is no timer left that
+  could kill it, proven directly rather than waited out), the eleventh
+  session refused, the throttle engaging/recovering with the ring intact,
+  and `onExit` closing with `"exited"`. `SETTING_TERMINAL_ACCESS=false`
+  refusing `terminal.open` (and, from `T-M16-04`, `terminal.attach`) is
+  proven in `terminal-bridge.test.ts` against a real in-memory settings
+  table — only "existing sessions are killed" when the switch flips live
+  (`T-M17-04`'s enforcement, not built yet) is genuinely untested anywhere.
+
+- **If wrong:** high for §A/§B specifically — a Realtime connection that
+  fails to actually authenticate, subscribe, or refresh against the real
+  service would be a foundational defect this entire phase and all of M17
+  sit on, and nothing about a faked `RealtimeClient` can catch a mismatch
+  against the real `@supabase/realtime-js` wire protocol or a real Supabase
+  project's actual behavior (message framing, channel topic prefixing,
+  auth-rejection timing). Medium for §D — the four policies were written
+  against the same `split_part(realtime.topic(), ':', 2)` shape 010/015
+  already prove correct in production, and the event pin is the one new
+  idea, but a mistake there is a real cross-workspace or output-forgery
+  vulnerability, not a cosmetic bug. Low for §C/§E, which have strong
+  proxy evidence already.
+- **Clears when:** (1) the owner sets `SUPABASE_JWT_SIGNING_KEY` on the
+  deployment and a real machine pairs against it, closing §A and §B with an
+  actual subscribed channel and a real refresh-under-load; (2) either Docker
+  becomes available in a future session to run the disposable-container
+  version of §D, or the owner authorizes fabricating synthetic sessions
+  directly against the real project once weighed against the risk above;
+  (3) `T-M17-04` ships and its own verification proves the
+  access-switch-kills-existing-sessions bullet. `T-M17-06` (the browser-side
+  pass) is where §A/§B's evidence gets a second, independent confirmation
+  from the UI side once M17 exists to click.

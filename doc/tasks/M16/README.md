@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-24-a-terminal-on-my-machine.md`](../../specs/2026-08-24-a-terminal-on-my-machine.md) |
 | **Depends on** | M3 (pairing + daemon bearer token), M4 (`settings.set`), M5 (the broadcast pattern this extends) — all shipped |
 | **Blocks** | M17 |
-| **Status** | in progress — every task done except T-M16-06 (verification) |
+| **Status** | ✅ built and unit-tested — live verification deferred, [`KnownGaps.md`](../../KnownGaps.md) G-47 |
 | **Open questions** | none |
 
 ## Tasks
@@ -21,7 +21,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | [T-M16-03 — `018_terminal_channels.sql`](T-M16-03-channel-policies.md) | `[P]` | foundational | T-M16-01 | done (2026-08-26) |
 | [T-M16-04 — core: the Realtime connection](T-M16-04-core-realtime-connection.md) | `[C]` | foundational | T-M16-01, T-M16-02 | done (2026-08-26) |
 | [T-M16-05 — core: terminal manager rework](T-M16-05-terminal-manager.md) | `[P]` | foundational | T-M16-01 | done (2026-08-26) |
-| [T-M16-06 — verification](T-M16-06-verification.md) | `[S]` | foundational | T-M16-01…05 | not started |
+| [T-M16-06 — verification](T-M16-06-verification.md) | `[S]` | foundational | T-M16-01…05 | ⏸ deferred — [`KnownGaps.md`](../../KnownGaps.md) G-47 (2026-08-26) |
 
 This file holds what they share. Individual tasks reference it rather than
 restating it.

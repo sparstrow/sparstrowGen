@@ -6,7 +6,7 @@
 | **Depends on** | T-M16-01 … T-M16-05 |
 | **Blocks** | M17 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ⏸ deferred — see [`KnownGaps.md`](../../KnownGaps.md) G-47 (2026-08-26) |
 
 ## Objective
 
@@ -73,7 +73,7 @@ paired to it, per `AGENTS.md` §2 rule 3. Not `development.sparstrow.com`.
       stream on `chat:<ws>:<session>`. **This is the check that catches a
       malformed daemon credential**: if a `sub` claim slipped in, these break
       before terminals does
-- [ ] `pnpm typecheck` and `pnpm test` green across the monorepo
+- [x] `pnpm typecheck` and `pnpm test` green across the monorepo
 
 ## D — The policies refuse the right people
 
@@ -120,13 +120,46 @@ Objective if the live walk is not also done.
 > beside you. Record this task's outcome in the **Status** row and **Result**
 > section of *this* file.
 
-- [ ] Update this file's **Status** row and the phase README's
-- [ ] `KnownGaps.md` entry for §D's live half if it was not run, and for anything
+- [x] Update this file's **Status** row and the phase README's
+- [x] `KnownGaps.md` entry for §D's live half if it was not run, and for anything
       else ticked on weaker evidence than it asked for
-- [ ] Update the plan's **Status** row to *In progress — M17 next*
-- [ ] File any bug or security issue found, in the same turn, per `AGENTS.md` §5
+- [x] Update the plan's **Status** row to *In progress — M17 next*
+- [x] File any bug or security issue found, in the same turn, per `AGENTS.md` §5
+      — none found
 
 ## Result
 
-*(filled in when the pass runs — name what was actually executed, not
-"verified")*
+**Named exactly, not "verified":** what actually ran this pass was
+`pnpm typecheck` and `pnpm test` across the whole monorepo (green — 87 core
+test files / 745 tests, 39 web test files / 417 tests, 16 shared test files
+/ 313 tests, all reported in `T-M16-01`–`T-M16-05`'s own Results) plus a
+re-read of every unit suite those five tasks wrote, confirming each one
+actually exercises the behavior its own task claims rather than merely
+existing. No bug or security issue was found while doing that.
+
+**Everything else in §A, §B, §D, and the live-shell half of §E was not run**,
+each for a specific, named reason — full account in
+[`KnownGaps.md`](../../KnownGaps.md) **G-47**, opened in this same change per
+this task's own Objective section (which flagged §D's live half as the
+likely gap in advance) and per the completion checklist above:
+
+- §A/§B need `SUPABASE_JWT_SIGNING_KEY` set on a real deployment (the owner
+  action `T-M16-02` already added to `runbooks/README.md`) and a real
+  machine paired against it. Neither exists yet.
+- §D needs either a disposable local Postgres container (this repo's own
+  house style for exactly this, per `verify-rls.sh`/`verify-command-spine.mjs`
+  — Docker was not running in this environment and did not come up within
+  this session) or fabricating synthetic auth/membership rows directly
+  against the real project, which was deliberately not done given the
+  smaller, safer alternative this repo already has a pattern for.
+- §E's four points needing a live shell or a real 15-minute wait have strong
+  proxy evidence instead — the identical code paths are driven directly in
+  `manager.test.ts` with a fake PTY and fake timers, described task-by-task
+  in `T-M16-05`'s own Result.
+
+**This band is not being held for the gap.** Per this project's established
+precedent (`G-13`, `G-15`, `G-24` — M5, M6 and M8 all merged with their own
+verification tasks deferred the same way), a documented, honestly-scoped gap
+is what lets the band move rather than what blocks it. M17 depends on M16's
+*build* being done, not on this live pass — see the phase README and the
+plan's Status row, both updated in this change.
