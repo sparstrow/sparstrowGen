@@ -35,20 +35,20 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useQueryClient } from "@tanstack/react-query";
 import { WorkLauncher } from "@web/components/work-launcher";
 import { GoalCard } from "./goals/[goalId]/goal-detail";
-import {
-  useAgents,
-  useCreateTask,
-  useDeleteTask,
-  useGoals,
-  useProjects,
-  useRunTask,
-  useTasks,
-  useUpdateTask,
-} from "@web/api/hooks";
+import { useAgents, useGoals, useProjects, useTasks } from "@web/api/hooks";
+import { callAction } from "@web/lib/call-action";
 import { formatDate, shortId } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import {
+  createTaskAction,
+  deleteTaskAction,
+  runTaskAction,
+  updateTaskAction,
+  type TaskUpdateInput,
+} from "./actions";
 
 const COLUMNS: { status: TaskStatus; label: string; accent: string }[] = [
   { status: "inbox", label: "Inbox", accent: "bg-muted-foreground" },
@@ -145,10 +145,27 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
   const agents = useAgents();
   const projects = useProjects();
   const tasks = useTasks({ teamId });
-  const createTask = useCreateTask();
-  const updateTask = useUpdateTask();
-  const deleteTask = useDeleteTask();
-  const runTask = useRunTask();
+  const queryClient = useQueryClient();
+  const invalidateTasks = () => queryClient.invalidateQueries({ queryKey: ["tasks"] });
+  const [createPending, startCreate] = React.useTransition();
+  const [createError, setCreateError] = React.useState<string | null>(null);
+  const [updatePending, startUpdate] = React.useTransition();
+  const [updateError, setUpdateError] = React.useState<string | null>(null);
+  const [, startDelete] = React.useTransition();
+  const [runPending, startRun] = React.useTransition();
+  const [runError, setRunError] = React.useState<string | null>(null);
+
+  const runUpdate = (id: string, data: TaskUpdateInput) => {
+    setUpdateError(null);
+    startUpdate(async () => {
+      const r = await callAction(() => updateTaskAction(id, data));
+      if (!r.ok) {
+        setUpdateError(r.error);
+        return;
+      }
+      await invalidateTasks();
+    });
+  };
 
   const [createOpen, setCreateOpen] = React.useState(false);
   // Per-column quick-add: the + in a column header creates directly into that stage.
@@ -176,32 +193,36 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
 
   const submitTask = () => {
     if (!newTitle.trim()) return;
-    createTask.mutate(
-      {
-        title: newTitle.trim(),
-        description: newDescription,
-        // One agent = plain assignment; two or more = ephemeral swarm (P3).
-        assignedAgentId: newAgentIds.length === 1 ? newAgentIds[0] : null,
-        assignedAgentIds: newAgentIds.length > 1 ? newAgentIds : undefined,
-        projectId: newProjectId || null,
-        priority: Number(newPriority),
-      },
-      {
-        onSuccess: (task) => {
-          // The server decides the initial column (inbox, or todo when
-          // assigned); a column quick-add then moves it there, same as a drag.
-          if (createStatus && task.status !== createStatus) {
-            updateTask.mutate({ id: task.id, data: { status: createStatus } });
-          }
-          setCreateOpen(false);
-          setCreateStatus(null);
-          setNewTitle("");
-          setNewDescription("");
-          setNewAgentIds([]);
-          setNewPriority("1");
-        },
-      },
-    );
+    setCreateError(null);
+    startCreate(async () => {
+      const r = await callAction(() =>
+        createTaskAction({
+          title: newTitle.trim(),
+          description: newDescription,
+          // One agent = plain assignment; two or more = ephemeral swarm (P3).
+          assignedAgentId: newAgentIds.length === 1 ? newAgentIds[0] : null,
+          assignedAgentIds: newAgentIds.length > 1 ? newAgentIds : undefined,
+          projectId: newProjectId || null,
+          priority: Number(newPriority),
+        }),
+      );
+      if (!r.ok) {
+        setCreateError(r.error);
+        return;
+      }
+      await invalidateTasks();
+      // The server decides the initial column (inbox, or todo when
+      // assigned); a column quick-add then moves it there, same as a drag.
+      if (createStatus && r.data.status !== createStatus) {
+        runUpdate(r.data.id, { status: createStatus });
+      }
+      setCreateOpen(false);
+      setCreateStatus(null);
+      setNewTitle("");
+      setNewDescription("");
+      setNewAgentIds([]);
+      setNewPriority("1");
+    });
   };
 
   // waiting_children (a suspended lead) and blocked_answered (wake in flight) are
@@ -249,7 +270,7 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
     const task = (tasks.data ?? []).find((t) => t.id === active.id);
     if (!task || !targetStatus || task.status === targetStatus) return;
     if (!COLUMNS.some((c) => c.status === targetStatus)) return;
-    updateTask.mutate({ id: task.id, data: { status: targetStatus } });
+    runUpdate(task.id, { status: targetStatus });
   };
 
   // Escalation/suspension states are machine-managed — those cards can't be
@@ -503,16 +524,14 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
                 </Select>
               </div>
             </div>
-            {createTask.isError && (
-              <p className="text-sm text-destructive">{createTask.error.message}</p>
-            )}
+            {createError && <p className="text-sm text-destructive">{createError}</p>}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={submitTask} disabled={!newTitle.trim() || createTask.isPending}>
-              {createTask.isPending ? "Creating…" : "Create task"}
+            <Button onClick={submitTask} disabled={!newTitle.trim() || createPending}>
+              {createPending ? "Creating…" : "Create task"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -605,10 +624,7 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
                       <Select
                         value={selected.status}
                         onValueChange={(status) =>
-                          updateTask.mutate({
-                            id: selected.id,
-                            data: { status: status as TaskStatus },
-                          })
+                          runUpdate(selected.id, { status: status as TaskStatus })
                         }
                       >
                         <SelectTrigger>
@@ -628,9 +644,7 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
                     <Label>Assignee</Label>
                     <Select
                       value={selected.assignedAgentId ?? ""}
-                      onValueChange={(agentId) =>
-                        updateTask.mutate({ id: selected.id, data: { assignedAgentId: agentId } })
-                      }
+                      onValueChange={(agentId) => runUpdate(selected.id, { assignedAgentId: agentId })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Unassigned" />
@@ -675,10 +689,8 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
                   )}
                 </div>
 
-                {(updateTask.isError || runTask.isError) && (
-                  <p className="text-sm text-destructive">
-                    {updateTask.error?.message ?? runTask.error?.message}
-                  </p>
+                {(updateError || runError) && (
+                  <p className="text-sm text-destructive">{updateError ?? runError}</p>
                 )}
               </div>
 
@@ -688,7 +700,11 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
                   size="sm"
                   className="text-destructive hover:text-destructive"
                   onClick={() => {
-                    deleteTask.mutate(selected.id);
+                    const id = selected.id;
+                    startDelete(async () => {
+                      const r = await callAction(() => deleteTaskAction(id));
+                      if (r.ok) await invalidateTasks();
+                    });
                     setSelected(null);
                   }}
                 >
@@ -698,11 +714,25 @@ export function TasksPage({ teamId, readOnly }: { teamId?: string; readOnly?: bo
                   ["inbox", "todo", "failed", "review"].includes(selected.status) && (
                     <Button
                       size="sm"
-                      onClick={() => runTask.mutate(selected.id)}
-                      disabled={runTask.isPending}
+                      onClick={() => {
+                        const id = selected.id;
+                        setRunError(null);
+                        startRun(async () => {
+                          const r = await callAction(() => runTaskAction(id));
+                          if (!r.ok) {
+                            setRunError(r.error);
+                            return;
+                          }
+                          await Promise.all([
+                            invalidateTasks(),
+                            queryClient.invalidateQueries({ queryKey: ["runs"] }),
+                          ]);
+                        });
+                      }}
+                      disabled={runPending}
                     >
                       <Play className="size-3.5" />
-                      {runTask.isPending ? "Starting…" : "Run with assignee"}
+                      {runPending ? "Starting…" : "Run with assignee"}
                     </Button>
                   )}
               </DialogFooter>

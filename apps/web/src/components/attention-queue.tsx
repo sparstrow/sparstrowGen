@@ -7,15 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useAgents,
-  useAnswerTask,
-  useApproveTask,
   useAttentionQueue,
-  useDenyTask,
   useResolveContradiction,
   type AttentionRow,
 } from "@web/api/hooks";
+import { callAction } from "@web/lib/call-action";
+import { answerTaskAction, approveTaskAction, denyTaskAction } from "@web/app/tasks/actions";
 
 /** Task-backed rows (question/approval/review) always carry a task; the P5
  *  contradiction row is the task-null variant. */
@@ -32,7 +32,9 @@ function ageLabel(ms: number): string {
 
 /** One blocked task: the agent's progress note + a labeled field per open question. */
 function QuestionCard({ row, agentName }: { row: TaskAttentionRow; agentName: string }) {
-  const answer = useAnswerTask();
+  const queryClient = useQueryClient();
+  const [answerPending, startAnswer] = React.useTransition();
+  const [answerError, setAnswerError] = React.useState<string | null>(null);
   const [drafts, setDrafts] = React.useState<Record<string, string>>({});
   const [deferred, setDeferred] = React.useState<string | null>(null);
 
@@ -41,10 +43,25 @@ function QuestionCard({ row, agentName }: { row: TaskAttentionRow; agentName: st
 
   function submit() {
     setDeferred(null);
-    answer.mutate(
-      { taskId: row.task.id, answers: open.map((q) => ({ questionId: q.id, answer: drafts[q.id]!.trim() })) },
-      { onSuccess: (res) => { if (!res.applied) setDeferred(res.reason ?? "run still active — answer saved"); } },
-    );
+    setAnswerError(null);
+    startAnswer(async () => {
+      const r = await callAction(() =>
+        answerTaskAction(
+          row.task.id,
+          open.map((q) => ({ questionId: q.id, answer: drafts[q.id]!.trim() })),
+        ),
+      );
+      if (!r.ok) {
+        setAnswerError(r.error);
+        return;
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["attention-queue"] }),
+        queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+        queryClient.invalidateQueries({ queryKey: ["runs"] }),
+      ]);
+      if (!r.data.applied) setDeferred(r.data.reason ?? "run still active — answer saved");
+    });
   }
 
   return (
@@ -105,17 +122,15 @@ function QuestionCard({ row, agentName }: { row: TaskAttentionRow; agentName: st
       </div>
 
       <div className="mt-3 flex items-center gap-3">
-        <Button size="sm" disabled={!allAnswered || answer.isPending} onClick={submit}>
-          {answer.isPending ? "Waking…" : "Answer & wake"}
+        <Button size="sm" disabled={!allAnswered || answerPending} onClick={submit}>
+          {answerPending ? "Waking…" : "Answer & wake"}
         </Button>
         {deferred ? (
           <span className="flex items-center gap-1 text-xs text-warning">
             <AlertCircle className="size-3.5" /> {deferred}
           </span>
         ) : null}
-        {answer.isError ? (
-          <span className="text-xs text-destructive">{answer.error.message}</span>
-        ) : null}
+        {answerError ? <span className="text-xs text-destructive">{answerError}</span> : null}
       </div>
     </div>
   );
@@ -128,11 +143,49 @@ function QuestionCard({ row, agentName }: { row: TaskAttentionRow; agentName: st
  * bound it would run under.
  */
 function ApprovalCard({ row }: { row: TaskAttentionRow }) {
-  const approve = useApproveTask();
-  const deny = useDenyTask();
+  const queryClient = useQueryClient();
+  const [approvePending, startApprove] = React.useTransition();
+  const [denyPending, startDeny] = React.useTransition();
+  const [approvalError, setApprovalError] = React.useState<string | null>(null);
   const [denying, setDenying] = React.useState(false);
   const [reason, setReason] = React.useState("");
   const a = row.approval!;
+
+  const invalidate = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["attention-queue"] }),
+      queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+      queryClient.invalidateQueries({ queryKey: ["runs"] }),
+    ]);
+
+  const approve = () => {
+    setApprovalError(null);
+    startApprove(async () => {
+      const r = await callAction(() => approveTaskAction(row.task.id));
+      if (!r.ok) {
+        setApprovalError(r.error);
+        return;
+      }
+      await invalidate();
+    });
+  };
+
+  const deny = () => {
+    setApprovalError(null);
+    startDeny(async () => {
+      const r = await callAction(() => denyTaskAction(row.task.id, reason.trim() || undefined));
+      if (!r.ok) {
+        setApprovalError(r.error);
+        return;
+      }
+      // denyTaskAction only ever invalidates ["attention-queue"]/["tasks"] in
+      // the original hook -- no ["runs"] entry, since denying never starts one.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["attention-queue"] }),
+        queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+      ]);
+    });
+  };
 
   return (
     <div className="rounded-lg border border-info/30 bg-info/5 p-3">
@@ -192,8 +245,8 @@ function ApprovalCard({ row }: { row: TaskAttentionRow }) {
             onChange={(e) => setReason(e.target.value)}
           />
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="destructive" disabled={deny.isPending} onClick={() => deny.mutate({ id: row.task.id, reason: reason.trim() || undefined })}>
-              {deny.isPending ? "Denying…" : "Confirm deny"}
+            <Button size="sm" variant="destructive" disabled={denyPending} onClick={deny}>
+              {denyPending ? "Denying…" : "Confirm deny"}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setDenying(false)}>
               Back
@@ -202,17 +255,13 @@ function ApprovalCard({ row }: { row: TaskAttentionRow }) {
         </div>
       ) : (
         <div className="mt-3 flex items-center gap-2">
-          <Button size="sm" disabled={approve.isPending} onClick={() => approve.mutate(row.task.id)}>
-            {approve.isPending ? "Approving…" : "Approve & run"}
+          <Button size="sm" disabled={approvePending} onClick={approve}>
+            {approvePending ? "Approving…" : "Approve & run"}
           </Button>
           <Button size="sm" variant="outline" onClick={() => setDenying(true)}>
             Deny
           </Button>
-          {(approve.isError || deny.isError) && (
-            <span className="text-xs text-destructive">
-              {approve.error?.message ?? deny.error?.message}
-            </span>
-          )}
+          {approvalError && <span className="text-xs text-destructive">{approvalError}</span>}
         </div>
       )}
     </div>

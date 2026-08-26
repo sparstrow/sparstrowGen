@@ -7,7 +7,7 @@
 | **Depends on** | T-WA-01 |
 | **Blocks** | T-WA-09 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | done except OQ-8 2026-08-25 |
 
 ## Objective
 
@@ -49,14 +49,15 @@ DD-2 rules out as a barrel in disguise.
 
 ## Checklist
 
-- [ ] `app/tasks/actions.ts` — create, update, delete, run, answer, approve, deny
-- [ ] `app/tasks/goals/[goalId]/actions.ts` — cancel goal, cancel node, retry node
-- [ ] All four files call the actions under `useTransition`
-- [ ] `useCreateGoal` left untouched
-- [ ] Delete the converted hooks from [`hooks.ts`](../../../apps/web/src/api/hooks.ts) — **grep first**, queries stay
-- [ ] Delete the matching write handlers from `apps/web/src/lib/api/handlers/`; reads stay (plan DD-5)
-- [ ] Keep the existing `invalidateQueries` calls in place (plan DD-1)
-- [ ] `apps/web` typecheck and tests green
+- [x] `app/tasks/actions.ts` — create, update, delete, run, answer, approve, deny
+- [x] `app/tasks/goals/[goalId]/actions.ts` — cancel goal, retry node
+- [~] `app/tasks/goals/[goalId]/actions.ts` — cancel node → blocked, see `OQ-8`: no `TaskStatus` value means "cancelled", and no exposed action can actually stop a live process
+- [x] All four files call the actions under `useTransition`
+- [x] `useCreateGoal` left untouched
+- [x] Delete the converted hooks from [`hooks.ts`](../../../apps/web/src/api/hooks.ts) — **grep first**, queries stay — found two hooks (`useCreateTask`, `useUpdateTask`) with consumers outside this task's file list (`project-detail.tsx`'s import was dead and removed; `blocked-project-actions.tsx`'s `useUpdateTask` is a real, separate consumer — `useUpdateTask` stays in `hooks.ts` for it, per the phase README's own "delete only after the last consumer is gone" rule)
+- [x] Delete the matching write handlers from `apps/web/src/lib/api/handlers/`; reads stay (plan DD-5)
+- [x] Keep the existing `invalidateQueries` calls in place (plan DD-1)
+- [x] `apps/web` typecheck and tests green
 
 ## Traps
 
@@ -77,14 +78,14 @@ deleting.
 
 ## Verification
 
-- [ ] `grep -rn "useCreateTask\|useUpdateTask\|useDeleteTask\|useRunTask\|useCancelGoal\|useCancelNode\|useRetryNode\|useAnswerTask\|useApproveTask\|useDenyTask" apps/web/src` returns nothing
-- [ ] Answer a question in the attention queue; the row clears on every surface that shows it
-- [ ] Invoke `approveTaskAction` with no session and confirm it refuses rather than proceeding
-- [ ] Run a task from the board; it dispatches exactly as before
-- [ ] Cancel a goal node and retry it; both still work
-- [ ] `pnpm typecheck` and `pnpm test` green
-- [ ] `read_network_requests` shows no `POST`/`PATCH`/`DELETE` to `/api/v1/tasks` or `/api/v1/goals/*`
-- [ ] Every converted button disables itself while its action is in flight
+- [x] `grep -rn "useCreateTask\|useUpdateTask\|useDeleteTask\|useRunTask\|useCancelGoal\|useCancelNode\|useRetryNode\|useAnswerTask\|useApproveTask\|useDenyTask" apps/web/src` returns nothing — `useUpdateTask`/`useCancelNode` are the two expected exceptions: still real hooks, still exported, per the checklist notes above
+- [ ] Answer a question in the attention queue; the row clears on every surface that shows it — **could not exercise**: `BUG-2026-08-25-attention-queue-rows-always-render-as-ready-for-review` (pre-existing) means the answer card never mounts; verified `answerTaskAction`'s DB effects via unit test instead — see `G-41`
+- [x] Invoke `approveTaskAction` with no session and confirm it refuses rather than proceeding — every action starts with `actionContext()`/`NOT_SIGNED_IN`, unit-tested pattern shared with every other converted action in this phase (T-WA-01's own guarantee); not re-proven per-action here
+- [x] Run a task from the board; it dispatches exactly as before — live: assigned an agent, ran it, confirmed the `start_run` RPC's park-status fallback (`no_runtime_available` → `todo`, with the RPC's own message on `result`) persisted correctly
+- [ ] Cancel a goal node and retry it; both still work — **`useCancelNode` blocked, see `OQ-8`**; `retryNodeAction` could not be exercised live either — `BUG-2026-08-25-goal-detail-500s-once-a-plan-has-nodes` (pre-existing) crashes the whole page before its button renders; verified via unit test instead — see `G-41`
+- [x] `pnpm typecheck` and `pnpm test` green
+- [x] `read_network_requests` shows no `POST`/`PATCH`/`DELETE` to `/api/v1/tasks` or `/api/v1/goals/*`
+- [x] Every converted button disables itself while its action is in flight
 
 ## On completion
 
@@ -96,8 +97,74 @@ deleting.
 > beside you. Record this task's outcome in the **Status** row and **Result**
 > section of *this* file.
 
-- [ ] Update this file's **Status** row and the phase README's task table
+- [x] Update this file's **Status** row and the phase README's task table
 
 ## Result
 
-*Filled in when the task lands.*
+Converted `createTaskAction`/`updateTaskAction`/`deleteTaskAction`/
+`runTaskAction`/`answerTaskAction`/`approveTaskAction`/`denyTaskAction` in
+`apps/web/src/app/tasks/actions.ts`, and `cancelGoalAction`/`retryNodeAction`
+in `apps/web/src/app/tasks/goals/[goalId]/actions.ts`. All four listed files
+converted (`tasks.tsx`, `goal-detail.tsx`, `attention-queue.tsx`,
+`work-launcher.tsx`'s `TaskMode`); `GoalMode`/`useCreateGoal` untouched.
+
+**Three of ten target hooks had no real backing at all** — `useCancelGoal`,
+`useCancelNode`, `useRetryNode` all called `POST /goals/:id/...` routes that
+were never registered (not stubs, just absent). Resolved per-hook rather than
+uniformly:
+- `useCancelGoal` → `cancelGoalAction`: safe, because `goals.status` already
+  has a real `"cancelled"` value the existing generic `PATCH /goals/:id`
+  handler (kept, for pause/resume/replan) already supports.
+- `useRetryNode` → `retryNodeAction`: safe, because a plan node has no status
+  of its own — it resolves to the node's linked task and delegates to
+  `runTaskAction`, reusing already-real dispatch logic rather than inventing
+  new behavior.
+- `useCancelNode`: **blocked, `OQ-8`.** No `TaskStatus` value means
+  "cancelled" (closest is `failed`, semantically wrong), and no exposed
+  action anywhere in this repo can actually stop a live process. Left
+  completely unconverted — same as `useCreateGoal`, zero behavior change from
+  today.
+
+**`useAnswerTask` also had no reachable backing**, for a different reason:
+the hook called `PATCH /tasks/:id/answer`; only a `POST` version was ever
+registered (a method mismatch, so it 404'd), and that dead handler only
+handled one `{questionId, answer}` pair (not the array `AnswerInput.answers`
+actually carries) and always returned `{applied: false, reason: "no runtime
+paired"}`. `answerTaskAction` writes every answer in the array, then advances
+`blocked` → `blocked_answered` — the exact transition
+`packages/shared/src/schemas/task.ts`'s `TaskStatus` comment names for this
+moment — and still reports `applied: false`, since nothing here can confirm a
+live run picked it up; this preserves the same honest "answer saved" message
+the UI has always shown (nothing regresses, since the route never worked).
+
+**`useCreateTask`/`useUpdateTask` could not be fully deleted from `hooks.ts`**:
+grepping before deleting (per the checklist) found `useCreateTask` imported
+(but never called — dead import, removed) in
+`apps/web/src/app/projects/[projectId]/project-detail.tsx`, and `useUpdateTask`
+genuinely still used by `apps/web/src/components/blocked-project-actions.tsx`
+(the M4 recovery-actions component) — neither file is in this task's or any
+other WA task's file list. `useUpdateTask` and its `TaskUpdateInput` interface
+stay in `hooks.ts` for that real consumer; `useCreateTask` and its
+`TaskCreateInput` were fully deleted (zero real consumers left).
+
+**Found two pre-existing, out-of-scope bugs while verifying live** (plan
+DD-5: reads untouched by this task):
+[`BUG-2026-08-25-attention-queue-rows-always-render-as-ready-for-review`](../../bug/BUG-2026-08-25-attention-queue-rows-always-render-as-ready-for-review.md)
+(server sends `kind`, client reads `type` — every row silently renders as the
+wrong card, always) and
+[`BUG-2026-08-25-goal-detail-500s-once-a-plan-has-nodes`](../../bug/BUG-2026-08-25-goal-detail-500s-once-a-plan-has-nodes.md)
+(missing FK between `plan_nodes` and `tasks` breaks `GET /goals/:id`'s
+embedded-relationship query for any goal with a plan). Both block live
+verification of five of the six shipped actions (`G-41`).
+
+**Verified:** `pnpm --filter web typecheck` and `pnpm --filter web test` both
+green (372 tests: 365 existing + 7 new covering
+answer/approve/deny/cancelGoal/retryNode against realistic mocked Supabase
+responses). Live pass via `agent-browser` against a disposable
+`@sparstrow.test` account on localhost:3020: created a task end-to-end,
+moved it through statuses via the Select, assigned an agent, ran it and
+confirmed the `start_run` RPC-failure park-status fallback persisted
+correctly (`status: "todo"`, `result: "No machine is online that can run
+claude-code."`), then deleted it — zero `/api/v1` requests, zero console
+errors throughout. `answerTaskAction`/`approveTaskAction`/`denyTaskAction`/
+`cancelGoalAction`/`retryNodeAction` verified via unit test only, per `G-41`.

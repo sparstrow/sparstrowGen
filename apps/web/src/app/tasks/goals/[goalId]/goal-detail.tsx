@@ -24,18 +24,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useQueryClient } from "@tanstack/react-query";
 import { GoalGraph } from "@web/components/goals/goal-graph";
 import {
   useAgents,
-  useCancelGoal,
   useCancelNode,
   useGoalDetail,
   usePauseGoal,
   useProjects,
   useReplanGoal,
   useResumeGoal,
-  useRetryNode,
 } from "@web/api/hooks";
+import { callAction } from "@web/lib/call-action";
+import { cancelGoalAction, retryNodeAction } from "./actions";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -55,10 +56,59 @@ export function GoalDetailPage() {
   const projects = useProjects();
   const pause = usePauseGoal();
   const resume = useResumeGoal();
-  const cancel = useCancelGoal();
   const replan = useReplanGoal();
-  const retryNode = useRetryNode();
   const cancelNode = useCancelNode();
+  const queryClient = useQueryClient();
+
+  // `cancel` and `retryNode` are Server Action conversions (T-WA-04). Shaped
+  // to match the `{ mutate, isPending, isError, error }` surface the
+  // still-hook-backed siblings above (pause/resume/replan) expose, so the
+  // shared `act()` helper and the JSX call sites below don't need to know
+  // which is which.
+  const [cancelPending, startCancel] = React.useTransition();
+  const [cancelError, setCancelError] = React.useState<string | null>(null);
+  const cancel = {
+    isPending: cancelPending,
+    isError: cancelError !== null,
+    error: cancelError ? { message: cancelError } : null,
+    mutate: ({ id }: { id: string }) => {
+      setCancelError(null);
+      startCancel(async () => {
+        const r = await callAction(() => cancelGoalAction(id));
+        if (!r.ok) {
+          setCancelError(r.error);
+          return;
+        }
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["goals"] }),
+          queryClient.invalidateQueries({ queryKey: ["goal", id] }),
+        ]);
+      });
+    },
+  };
+
+  const [retryPending, startRetry] = React.useTransition();
+  const [retryError, setRetryError] = React.useState<string | null>(null);
+  const retryNode = {
+    isPending: retryPending,
+    isError: retryError !== null,
+    error: retryError ? { message: retryError } : null,
+    mutate: ({ goalId, nodeId }: { goalId: string; nodeId: string }) => {
+      setRetryError(null);
+      startRetry(async () => {
+        const r = await callAction(() => retryNodeAction(goalId, nodeId));
+        if (!r.ok) {
+          setRetryError(r.error);
+          return;
+        }
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["goals"] }),
+          queryClient.invalidateQueries({ queryKey: ["goal", goalId] }),
+          queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+        ]);
+      });
+    },
+  };
   const [selectedNode, setSelectedNode] = React.useState<PlanNodeView | null>(null);
 
   const agentName = React.useCallback(

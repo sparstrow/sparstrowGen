@@ -1289,3 +1289,34 @@ the detail page's wiring type-checks against the same action signatures.
   version.
 - **Clears when:** `BUG-2026-08-25-skill-detail-page-always-crashes` is fixed
   and the detail page's toggle and delete are walked live once it can render.
+
+### G-41 — `T-WA-04`'s answer/approve/deny/cancel-goal/retry-node not exercised live
+
+**Raised:** 2026-08-25, verifying `T-WA-04` live.
+
+Five of this task's six converted actions could not be exercised through
+their real UI, blocked by two pre-existing bugs neither caused nor touched by
+this task (plan DD-5: reads untouched):
+
+- [`BUG-2026-08-25-attention-queue-rows-always-render-as-ready-for-review`](bug/BUG-2026-08-25-attention-queue-rows-always-render-as-ready-for-review.md)
+  means `QuestionCard` (`answerTaskAction`) and `ApprovalCard`
+  (`approveTaskAction`/`denyTaskAction`) never mount on the dashboard.
+- [`BUG-2026-08-25-goal-detail-500s-once-a-plan-has-nodes`](bug/BUG-2026-08-25-goal-detail-500s-once-a-plan-has-nodes.md)
+  means the goal detail page 500s before its Cancel/Retry-step buttons
+  (`cancelGoalAction`/`retryNodeAction`) ever render.
+
+**Verified instead:** unit tests for all five
+(`apps/web/src/app/tasks/actions.test.ts`,
+`apps/web/src/app/tasks/goals/[goalId]/actions.test.ts`) covering the actual
+DB writes each performs — the answer-then-wake transition, the approve/deny
+status flips, the goal cancel, and the node→task resolution feeding into
+`runTaskAction` (itself proven live separately — see this task's Result).
+`createTaskAction`/`updateTaskAction`/`deleteTaskAction`/`runTaskAction` (the
+sixth action, and the most complex) were all proven live end-to-end,
+including `runTaskAction`'s RPC-failure park-status fallback.
+
+- **If wrong:** low for the DB-write logic itself (unit-tested against
+  realistic mocked responses); the actual risk surface is entirely inside the
+  two blocking bugs above, not in this task's code.
+- **Clears when:** both bugs above are fixed and these five actions are
+  walked live through their real UI.
