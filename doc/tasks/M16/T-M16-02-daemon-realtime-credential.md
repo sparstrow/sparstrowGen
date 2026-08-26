@@ -133,6 +133,17 @@ lets `CloudAuthError` classify it without a second parser.
 
 ## Result
 
+**Amended 2026-08-26 (during `T-M16-04`):** the response now also carries
+`supabaseUrl` and `supabaseAnonKey`, and the return type moved from a local
+`MintedRealtimeToken` interface to `@sparstrow/shared`'s `RealtimeCredential`.
+Discovered building `T-M16-04`: core has never talked to Supabase directly
+before M16 — it only ever calls `/api/daemon/*` on the Next app — so it has
+no separately configured Supabase URL or anon key to pair with the token.
+Both are already public values (the anon key ships to every browser), so
+returning them from this same endpoint costs zero new machine-side
+configuration. Purely additive to the response shape; nothing before this
+consumed it.
+
 **This project signs with an ES256 key pair, not the legacy shared HS256
 secret.** Confirmed by fetching the project's own
 `/auth/v1/.well-known/jwks.json` (public, no auth needed) rather than

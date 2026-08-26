@@ -11,10 +11,13 @@ beforeEach(async () => {
   const privateJwk = await exportJWK(privateKey);
   privateJwk.kid = "test-key-1";
   process.env.SUPABASE_JWT_SIGNING_KEY = JSON.stringify(privateJwk);
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "test-anon-key");
 });
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
   if (ORIGINAL_ENV === undefined) delete process.env.SUPABASE_JWT_SIGNING_KEY;
   else process.env.SUPABASE_JWT_SIGNING_KEY = ORIGINAL_ENV;
 });
@@ -47,9 +50,11 @@ describe("POST /api/daemon/realtime/token", () => {
     const res = await POST(req());
     expect(res.status).toBe(200);
 
-    const body = (await res.json()) as { token: string; expiresAt: string };
+    const body = (await res.json()) as { token: string; expiresAt: string; supabaseUrl: string; supabaseAnonKey: string };
     expect(typeof body.token).toBe("string");
     expect(typeof body.expiresAt).toBe("string");
+    expect(body.supabaseUrl).toBe("https://example.supabase.co");
+    expect(body.supabaseAnonKey).toBe("test-anon-key");
 
     const { d: _d, ...publicJwk } = JSON.parse(process.env.SUPABASE_JWT_SIGNING_KEY as string);
     const publicKey = await importJWK(publicJwk, "ES256");

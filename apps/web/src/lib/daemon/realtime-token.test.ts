@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { exportJWK, generateKeyPair, importJWK, jwtVerify } from "jose";
 import { DAEMON_REALTIME_TOKEN_TTL_S } from "@sparstrow/shared";
 import { mintRealtimeToken } from "./realtime-token";
@@ -18,11 +18,14 @@ beforeEach(async () => {
   publicJwk.kid = kid;
   process.env.SUPABASE_JWT_SIGNING_KEY = JSON.stringify(privateJwk);
   publicKey = await importJWK(publicJwk, "ES256");
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "test-anon-key");
 });
 
 afterEach(() => {
   if (ORIGINAL_ENV === undefined) delete process.env.SUPABASE_JWT_SIGNING_KEY;
   else process.env.SUPABASE_JWT_SIGNING_KEY = ORIGINAL_ENV;
+  vi.unstubAllEnvs();
 });
 
 describe("mintRealtimeToken", () => {
@@ -54,6 +57,12 @@ describe("mintRealtimeToken", () => {
     const { token, expiresAt } = await mintRealtimeToken({ workspaceId: "ws1", runtimeId: "rt1" });
     const { payload } = await jwtVerify(token, publicKey);
     expect(new Date(expiresAt).getTime()).toBe((payload.exp as number) * 1000);
+  });
+
+  it("includes the Supabase URL and anon key, so a machine needs no separate config", async () => {
+    const credential = await mintRealtimeToken({ workspaceId: "ws1", runtimeId: "rt1" });
+    expect(credential.supabaseUrl).toBe("https://example.supabase.co");
+    expect(credential.supabaseAnonKey).toBe("test-anon-key");
   });
 
   it("throws naming the missing env var when the signing key is absent", async () => {

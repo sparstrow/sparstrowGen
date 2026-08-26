@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import type { RealtimeCredential } from "@sparstrow/shared";
 import { authenticateDaemon } from "@web/lib/daemon/auth";
 import { authFailureResponse, daemonError } from "@web/lib/daemon/respond";
-import { mintRealtimeToken, type MintedRealtimeToken } from "@web/lib/daemon/realtime-token";
+import { mintRealtimeToken } from "@web/lib/daemon/realtime-token";
 
 /**
  * T-M16-02 — let a paired machine trade its daemon bearer token for a
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
   const auth = await authenticateDaemon(request);
   if (!auth.ok) return authFailureResponse(auth.failure);
 
-  let minted: MintedRealtimeToken;
+  let minted: RealtimeCredential;
   try {
     minted = await mintRealtimeToken({
       workspaceId: auth.scope.workspaceId,

@@ -897,3 +897,22 @@ export const MACHINE_REQUEST_TIMEOUT_MS = 10_000;
 
 /** Lifetime of the credential a daemon mints to authenticate to Realtime. */
 export const DAEMON_REALTIME_TOKEN_TTL_S = 600;
+
+/**
+ * Everything a paired machine needs to open its own Realtime connection,
+ * from the one endpoint that mints it — `POST /api/daemon/realtime/token`.
+ *
+ * Found while building `T-M16-04`, amending `T-M16-02`'s shipped shape: core
+ * has never talked to Supabase directly before this — it only ever calls
+ * `/api/daemon/*` on the Next app — so it has no separately configured
+ * Supabase URL or anon key to combine with the token. Both are already
+ * public values (the anon key ships to every browser), so returning them
+ * here costs zero new machine-side configuration and zero new secrets.
+ */
+export interface RealtimeCredential {
+  token: string;
+  /** ISO string. For the daemon's refresh timer — never decode the JWT to find this. */
+  expiresAt: string;
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+}

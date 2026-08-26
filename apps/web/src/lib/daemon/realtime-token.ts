@@ -1,5 +1,6 @@
 import { SignJWT, importJWK, type JWK } from "jose";
-import { DAEMON_REALTIME_TOKEN_TTL_S } from "@sparstrow/shared";
+import { DAEMON_REALTIME_TOKEN_TTL_S, type RealtimeCredential } from "@sparstrow/shared";
+import { supabaseAnonKey, supabaseUrl } from "@web/utils/supabase/env";
 
 /**
  * T-M16-02 — mints the short-lived credential a paired daemon presents to
@@ -25,12 +26,6 @@ import { DAEMON_REALTIME_TOKEN_TTL_S } from "@sparstrow/shared";
 export interface RealtimeTokenClaims {
   workspaceId: string;
   runtimeId: string;
-}
-
-export interface MintedRealtimeToken {
-  token: string;
-  /** ISO string. For the daemon's refresh timer — never decode the JWT to find this. */
-  expiresAt: string;
 }
 
 function signingJwk(): JWK {
@@ -64,7 +59,7 @@ function signingJwk(): JWK {
  * subscribed to a run transcript or a chat turn on the side, breaking two
  * features this token was never meant to touch.
  */
-export async function mintRealtimeToken({ workspaceId, runtimeId }: RealtimeTokenClaims): Promise<MintedRealtimeToken> {
+export async function mintRealtimeToken({ workspaceId, runtimeId }: RealtimeTokenClaims): Promise<RealtimeCredential> {
   const jwk = signingJwk();
   const key = await importJWK(jwk, "ES256");
   const now = Math.floor(Date.now() / 1000);
@@ -81,5 +76,10 @@ export async function mintRealtimeToken({ workspaceId, runtimeId }: RealtimeToke
     .setExpirationTime(exp)
     .sign(key);
 
-  return { token, expiresAt: new Date(exp * 1000).toISOString() };
+  return {
+    token,
+    expiresAt: new Date(exp * 1000).toISOString(),
+    supabaseUrl: supabaseUrl(),
+    supabaseAnonKey: supabaseAnonKey(),
+  };
 }
