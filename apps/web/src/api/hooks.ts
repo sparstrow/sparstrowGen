@@ -48,12 +48,8 @@ import type {
   VolumeList,
   Project,
   ProjectCreate,
-  ProjectUpdate,
-  ProjectProvision,
   ProjectGitState,
   ProjectDirective,
-  ProjectDirectiveCreate,
-  ProjectDirectiveUpdate,
   TeamIndexItem,
   AgentSkillAssignment,
   LocalSkillSummary,
@@ -198,20 +194,6 @@ export function useCreateProject(): UseMutationResult<Project, ApiError, Project
   });
 }
 
-export function useUpdateProject(): UseMutationResult<
-  Project,
-  ApiError,
-  { id: string; data: ProjectUpdate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) => api<Project>(`/projects/${id}`, { method: "PUT", body: data }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["projects"] });
-    },
-  });
-}
-
 export function useDeleteProject(): UseMutationResult<void, ApiError, string> {
   const queryClient = useQueryClient();
   return useMutation({
@@ -219,15 +201,6 @@ export function useDeleteProject(): UseMutationResult<void, ApiError, string> {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
-  });
-}
-
-/** P4 §4: provision a project via scratch/bind/clone. */
-export function useProvisionProject(): UseMutationResult<Project, ApiError, ProjectProvision> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: ProjectProvision) => api<Project>("/projects/provision", { method: "POST", body }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["projects"] }),
   });
 }
 
@@ -288,22 +261,6 @@ export function useProjectVariants(id: string): UseQueryResult<Project[], ApiErr
     queryKey: ["project-variants", id],
     queryFn: () => api<Project[]>(`/projects/${id}/variants`),
     enabled: Boolean(id),
-  });
-}
-
-export function useCreateVariant(): UseMutationResult<
-  Project,
-  ApiError,
-  { baseId: string; name: string; rootDir: string }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ baseId, name, rootDir }) =>
-      api<Project>(`/projects/${baseId}/variants`, { method: "POST", body: { name, rootDir } }),
-    onSuccess: (_r, { baseId }) => {
-      void queryClient.invalidateQueries({ queryKey: ["projects"] });
-      void queryClient.invalidateQueries({ queryKey: ["project-variants", baseId] });
-    },
   });
 }
 
@@ -435,48 +392,6 @@ export function useProjectDirectives(id: string): UseQueryResult<ProjectDirectiv
     queryKey: ["project-directives", id],
     queryFn: () => api<ProjectDirective[]>(`/projects/${id}/directives`),
     enabled: Boolean(id),
-  });
-}
-
-export function useCreateDirective(): UseMutationResult<
-  ProjectDirective,
-  ApiError,
-  { projectId: string; data: ProjectDirectiveCreate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ projectId, data }) =>
-      api<ProjectDirective>(`/projects/${projectId}/directives`, { method: "POST", body: data }),
-    onSuccess: (_r, { projectId }) =>
-      void queryClient.invalidateQueries({ queryKey: ["project-directives", projectId] }),
-  });
-}
-
-export function useUpdateDirective(): UseMutationResult<
-  ProjectDirective,
-  ApiError,
-  { projectId: string; id: string; data: ProjectDirectiveUpdate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ projectId, id, data }) =>
-      api<ProjectDirective>(`/projects/${projectId}/directives/${id}`, { method: "PUT", body: data }),
-    onSuccess: (_r, { projectId }) =>
-      void queryClient.invalidateQueries({ queryKey: ["project-directives", projectId] }),
-  });
-}
-
-export function useDeleteDirective(): UseMutationResult<
-  void,
-  ApiError,
-  { projectId: string; id: string }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ projectId, id }) =>
-      api<void>(`/projects/${projectId}/directives/${id}`, { method: "DELETE" }),
-    onSuccess: (_r, { projectId }) =>
-      void queryClient.invalidateQueries({ queryKey: ["project-directives", projectId] }),
   });
 }
 

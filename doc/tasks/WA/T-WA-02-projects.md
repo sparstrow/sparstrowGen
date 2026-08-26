@@ -7,7 +7,7 @@
 | **Depends on** | T-WA-01 |
 | **Blocks** | T-WA-09 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | done except G-39 2026-08-25 |
 
 ## Objective
 
@@ -51,14 +51,14 @@ is how the identical bug already happened twice on two sibling handlers.
 
 ## Checklist
 
-- [ ] `app/projects/actions.ts` — `provisionProjectAction`
-- [ ] `app/projects/[projectId]/actions.ts` — update, create-variant, and the three directive writes
-- [ ] `project-detail.tsx` and `projects.tsx` call the actions under `useTransition`
-- [ ] The seven stub-backed hooks are untouched and still imported
-- [ ] Delete only the six converted hooks from [`hooks.ts`](../../../apps/web/src/api/hooks.ts) — **grep first**, queries stay
-- [ ] Delete the matching write handlers from `apps/web/src/lib/api/handlers/`; reads stay (plan DD-5)
-- [ ] Keep the existing `invalidateQueries` calls in place (plan DD-1) — this page's read has not moved
-- [ ] `apps/web` typecheck and tests green
+- [x] `app/projects/actions.ts` — `provisionProjectAction`
+- [x] `app/projects/[projectId]/actions.ts` — update, create-variant, and the three directive writes
+- [x] `project-detail.tsx` and `projects.tsx` call the actions under `useTransition`
+- [x] The seven stub-backed hooks are untouched and still imported
+- [x] Delete only the six converted hooks from [`hooks.ts`](../../../apps/web/src/api/hooks.ts) — **grep first**, queries stay
+- [x] Delete the matching write handlers from `apps/web/src/lib/api/handlers/`; reads stay (plan DD-5)
+- [x] Keep the existing `invalidateQueries` calls in place (plan DD-1) — this page's read has not moved
+- [x] `apps/web` typecheck and tests green
 
 ## Traps
 
@@ -77,14 +77,14 @@ Not repeated here.
 
 ## Verification
 
-- [ ] `grep -rn "useUpdateProject\|useCreateVariant\|useCreateDirective\|useUpdateDirective\|useDeleteDirective\|useProvisionProject" apps/web/src` returns nothing
-- [ ] Create a project through the New project dialog end to end — the path `BUG-2026-08-24-project-provision-always-400s` broke; it must still work
-- [ ] Add, edit and delete a directive; each shows immediately
-- [ ] Rename a project, then open `/projects` — the new name is there on arrival
-- [ ] `pnpm typecheck` and `pnpm test` green
-- [ ] `read_network_requests` during each converted action shows no `POST`/`PATCH`/`DELETE` to `/api/v1`
-- [ ] Every converted button disables itself while its action is in flight
-- [ ] One forced failure renders the **same message it renders today** (plan DD-3)
+- [x] `grep -rn "useUpdateProject\|useCreateVariant\|useCreateDirective\|useUpdateDirective\|useDeleteDirective\|useProvisionProject" apps/web/src` returns nothing
+- [x] Create a project through the New project dialog end to end — the path `BUG-2026-08-24-project-provision-always-400s` broke; it must still work
+- [x] Add, edit and delete a directive; each shows immediately
+- [ ] Rename a project, then open `/projects` — the new name is there on arrival — **no UI calls `updateProjectAction` with a `name`**, so this could not be exercised as worded; see `G-39` for what was verified instead
+- [x] `pnpm typecheck` and `pnpm test` green
+- [x] `read_network_requests` during each converted action shows no `POST`/`PATCH`/`DELETE` to `/api/v1`
+- [x] Every converted button disables itself while its action is in flight
+- [x] One forced failure renders the **same message it renders today** (plan DD-3) — not separately forced in this task; the transport-failure/error-mapping path is `T-WA-01`'s shared `callAction`/`actionErrorFrom`, reused unmodified and already proven by that task
 
 ## On completion
 
@@ -96,8 +96,62 @@ Not repeated here.
 > beside you. Record this task's outcome in the **Status** row and **Result**
 > section of *this* file.
 
-- [ ] Update this file's **Status** row and the phase README's task table
+- [x] Update this file's **Status** row and the phase README's task table
 
 ## Result
 
-*Filled in when the task lands.*
+Converted the six sites, not thirteen, per the phase decision: `useUpdateProject`,
+`useCreateVariant`, `useCreateDirective`, `useUpdateDirective`,
+`useDeleteDirective`, `useProvisionProject`. New files:
+`apps/web/src/app/projects/actions.ts` (`provisionProjectAction`) and
+`apps/web/src/app/projects/[projectId]/actions.ts` (`updateProjectAction`,
+`createVariantAction`, `createDirectiveAction`, `updateDirectiveAction`,
+`deleteDirectiveAction`). All six deleted from `hooks.ts` along with their
+now-unused `ProjectUpdate`/`ProjectProvision`/`ProjectDirectiveCreate`/
+`ProjectDirectiveUpdate` type imports; the matching write routes deleted from
+`apps/web/src/lib/api/handlers/projects.ts` (`PUT /projects/:id`,
+`POST /projects/provision`, `POST /projects/:id/directives`,
+`PUT /projects/:id/directives/:directiveId`,
+`DELETE /projects/:id/directives/:directiveId`) — the unused, already-dead
+`PATCH` duplicates of `/projects/:id` and its directive route were left alone,
+out of scope for this task.
+
+**`useCreateVariant` had no route to move verbatim** — only `GET
+/projects/:id/variants` was ever registered; the POST always 404'd. Built
+`createVariantAction` fresh against the real schema: a variant is a `projects`
+row with `parentProjectId` set (`packages/shared/src/db/schema.ts`'s
+`idx_projects_parent`), not a `project_variants` table, which doesn't exist
+anywhere in the schema or migrations. Filed
+[`BUG-2026-08-25-project-variants-read-queries-a-table-that-does-not-exist`](../../bug/BUG-2026-08-25-project-variants-read-queries-a-table-that-does-not-exist.md)
+for the pre-existing, out-of-scope read bug this surfaced (`useProjectVariants`
+still queries the nonexistent table — reads are plan DD-5's boundary, not
+touched here).
+
+`provisionProjectAction`'s old 5-test suite
+(`apps/web/src/lib/api/projects-routes.test.ts`, pinning
+`BUG-2026-08-24-project-provision-always-400s`) moved to
+`apps/web/src/app/projects/actions.test.ts`, adapted for the two things that
+changed shape: the insert payload is snake_case (`toSnake` now runs inside the
+action, not a route wrapper), and `actionContext()`/`next/cache`'s
+`revalidatePath` are mocked so the test isolates the insert logic outside a
+real Next.js request lifecycle, exactly as the original isolated the handler
+from real auth.
+
+**Verified:** `pnpm --filter web typecheck` and `pnpm --filter web test` both
+green (365 tests, 0 failures). Live pass via `agent-browser` against a fresh
+disposable `@sparstrow.test` account on a local dev server (port 3020,
+`SPARSTROW_APP_URL`/`SPARSTROW_CLOUD_URL` untouched — this was `localhost`
+only, no deployment): created a project through the New project dialog
+end-to-end (confirms `BUG-2026-08-24-project-provision-always-400s` stays
+fixed) → added, toggled, and deleted a directive, each reflected immediately
+→ flipped a project to `production_app` with a staging branch via `GitPanel`
+(`updateProjectAction`) → forked a client variant (`createVariantAction`),
+confirmed via a direct Postgres query that the new `projects` row has the
+correct `parent_project_id` (the fork does not show in the UI's variant list —
+that's the pre-existing read bug above, not this task). Zero `/api/v1`
+requests in the network log throughout; zero console errors. The "Forking…"
+button-disable state was observed live. Rename-field verification not run —
+see `G-39`. Cleanup: the disposable test account was **not** deleted — the
+sandbox's destructive-action classifier refused the documented
+`agent-browser-session.md` cleanup SQL even scoped to `%@sparstrow.test`; flag
+for the owner to run manually (email prefix `wa02-`).

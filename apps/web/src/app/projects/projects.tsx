@@ -46,11 +46,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { useQueryClient } from "@tanstack/react-query";
 import { DirectoryPickerDialog } from "@web/components/directory-picker-dialog";
-import { useProjects, useProvisionProject } from "@web/api/hooks";
+import { useProjects } from "@web/api/hooks";
 import { nativePickerAvailable, pickDirectoryNative } from "@web/lib/directory-picker";
+import { callAction } from "@web/lib/call-action";
 import { formatDate } from "@/lib/format";
 import { pinKey, usePins } from "@web/lib/pins";
+import { provisionProjectAction } from "./actions";
 
 const MODES: { mode: ProjectCreateMode; label: string; icon: React.ReactNode; hint: string }[] = [
   { mode: "scratch", label: "Start from scratch", icon: <FolderPlus className="size-4" />, hint: "Create a new empty folder." },
@@ -63,7 +66,9 @@ type ProjectSortKey = "name" | "createdAt";
 export function ProjectsPage() {
   const router = useRouter();
   const projects = useProjects();
-  const provision = useProvisionProject();
+  const queryClient = useQueryClient();
+  const [provisionPending, startProvision] = React.useTransition();
+  const [provisionError, setProvisionError] = React.useState<string | null>(null);
   const pins = usePins();
 
   const [query, setQuery] = React.useState("");
@@ -157,24 +162,32 @@ export function ProjectsPage() {
     setGitInit(false);
     setPickerError(null);
     setIsSandbox(false);
-    provision.reset();
+    setProvisionError(null);
     setOpen(true);
   };
 
   const submit = () => {
     if (!name.trim() || !rootDir.trim()) return;
-    provision.mutate(
-      {
-        name: name.trim(),
-        description: description.trim(),
-        mode,
-        rootDir: rootDir.trim(),
-        gitUrl: mode === "clone" ? gitUrl.trim() : undefined,
-        gitInit: mode === "scratch" ? gitInit : false,
-        isSandbox: mode !== "scratch" ? isSandbox : false,
-      },
-      { onSuccess: () => setOpen(false) },
-    );
+    setProvisionError(null);
+    startProvision(async () => {
+      const r = await callAction(() =>
+        provisionProjectAction({
+          name: name.trim(),
+          description: description.trim(),
+          mode,
+          rootDir: rootDir.trim(),
+          gitUrl: mode === "clone" ? gitUrl.trim() : undefined,
+          gitInit: mode === "scratch" ? gitInit : false,
+          isSandbox: mode !== "scratch" ? isSandbox : false,
+        }),
+      );
+      if (!r.ok) {
+        setProvisionError(r.error);
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      setOpen(false);
+    });
   };
 
   return (
@@ -430,7 +443,7 @@ export function ProjectsPage() {
               </label>
             )}
 
-            {provision.isError && <p className="text-sm text-destructive">{provision.error.message}</p>}
+            {provisionError && <p className="text-sm text-destructive">{provisionError}</p>}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
@@ -442,10 +455,10 @@ export function ProjectsPage() {
                 !name.trim() ||
                 !rootDir.trim() ||
                 (mode === "clone" && !gitUrl.trim()) ||
-                provision.isPending
+                provisionPending
               }
             >
-              {provision.isPending ? "Creating…" : "Create project"}
+              {provisionPending ? "Creating…" : "Create project"}
             </Button>
           </DialogFooter>
         </DialogContent>
