@@ -84,6 +84,15 @@ export function actionErrorFrom(err: unknown): ActionResult<never> {
     if (e.code === "PGRST204" || e.code === "42703") {
       return actionFail(e.message || "Unknown field in request body");
     }
+    // The remaining three codes `router.ts#handleError` special-cases --
+    // found missing here while verifying T-WA-03's `deleteAgentAction`
+    // (BUG-2026-08-26-agent-update-always-404s's sibling finding). Without
+    // these, a converted action fell through to the generic branch below and
+    // showed the raw Postgres error text instead of the same friendly
+    // message `/api/v1` always gave for these three cases.
+    if (e.code === "42501") return actionFail("Forbidden by Row Level Security");
+    if (e.code === "23505") return actionFail("Resource already exists (unique violation)");
+    if (e.code === "23503") return actionFail("Invalid reference (foreign key violation)");
   }
   console.error("Server Action error:", err);
   return actionFail(e?.message || "Internal Server Error");

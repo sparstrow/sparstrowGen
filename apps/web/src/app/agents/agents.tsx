@@ -52,23 +52,63 @@ import { NewAgentButton } from "@web/components/new-agent-button";
 import { SkillViewer } from "@web/components/skill-viewer";
 import {
   useAgents,
-  useCreateAgent,
-  useDeleteAgent,
-  useSetAgentSkills,
   useSkillAssignments,
   useSkills,
   useTestSpawnAgent,
-  useUpdateAgent,
 } from "@web/api/hooks";
 import { formatDate } from "@/lib/format";
+import { useQueryClient } from "@tanstack/react-query";
+import { callAction } from "@web/lib/call-action";
+import {
+  createAgentAction,
+  deleteAgentAction,
+  setAgentSkillsAction,
+  updateAgentAction,
+} from "./actions";
+import type { AgentCreate, AgentUpdate } from "@sparstrow/shared";
 
 export function AgentsPage() {
   const router = useRouter();
   const agents = useAgents();
-  const createAgent = useCreateAgent();
-  const updateAgent = useUpdateAgent();
-  const deleteAgent = useDeleteAgent();
   const testSpawn = useTestSpawnAgent();
+
+  const queryClient = useQueryClient();
+  const invalidateAgents = () => queryClient.invalidateQueries({ queryKey: ["agents"] });
+
+  const [createPending, startCreate] = React.useTransition();
+  const [createError, setCreateError] = React.useState<string | null>(null);
+  const [updatePending, startUpdate] = React.useTransition();
+  const [updateError, setUpdateError] = React.useState<string | null>(null);
+  const [deletePending, startDelete] = React.useTransition();
+  const [skillsPending, startSkills] = React.useTransition();
+  const [skillsError, setSkillsError] = React.useState<string | null>(null);
+
+  const runCreate = (payload: AgentCreate, onSuccess?: (agent: Agent) => void) => {
+    setCreateError(null);
+    startCreate(async () => {
+      const r = await callAction(() => createAgentAction(payload));
+      if (!r.ok) {
+        setCreateError(r.error);
+        return;
+      }
+      invalidateAgents();
+      onSuccess?.(r.data);
+    });
+  };
+
+  const runUpdate = (id: string, data: AgentUpdate, onSuccess?: (agent: Agent) => void) => {
+    setUpdateError(null);
+    startUpdate(async () => {
+      const r = await callAction(() => updateAgentAction(id, data));
+      if (!r.ok) {
+        setUpdateError(r.error);
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: ["agents"] });
+      void queryClient.invalidateQueries({ queryKey: ["agent", id] });
+      onSuccess?.(r.data);
+    });
+  };
 
   // Manual create dialog (F2 "Manually create" / Agent Creator handoff).
   const [manualOpen, setManualOpen] = React.useState(false);
@@ -80,7 +120,6 @@ export function AgentsPage() {
   // Workspace-skill assignment (Multica pattern): checkbox dialog per agent.
   const skills = useSkills();
   const skillAssignments = useSkillAssignments();
-  const setAgentSkills = useSetAgentSkills();
   const [skillsFor, setSkillsFor] = React.useState<Agent | null>(null);
   const [draftSkillIds, setDraftSkillIds] = React.useState<Set<string>>(new Set());
   const assignedSkillIds = React.useCallback(
@@ -90,30 +129,30 @@ export function AgentsPage() {
   );
   const skillName = (id: string) => skills.data?.find((s) => s.id === id)?.name ?? id;
   const openSkills = (agent: Agent) => {
-    setAgentSkills.reset();
+    setSkillsError(null);
     setDraftSkillIds(new Set(assignedSkillIds(agent.id)));
     setSkillsFor(agent);
   };
 
   const openManual = () => {
     setManualSeed(null);
-    createAgent.reset();
+    setCreateError(null);
     setManualOpen(true);
   };
   // Intake 0001: the Agent Creator is a dedicated full page (session-backed).
   const openCreator = () => {
-    createAgent.reset();
+    setCreateError(null);
     void router.push("/agents/create");
   };
   const openViewer = (agent: Agent, edit = false) => {
-    updateAgent.reset();
+    setUpdateError(null);
     setViewer({ agent, edit });
   };
 
   const duplicate = (agent: Agent) => {
     const values = agentToForm(agent);
     values.name = `${agent.name} copy`;
-    createAgent.mutate(formToPayload(values));
+    runCreate(formToPayload(values));
   };
 
   // Keep the open SkillViewer pointed at fresh data after a save.
@@ -121,9 +160,8 @@ export function AgentsPage() {
     ? ((agents.data ?? []).find((a) => a.id === viewer.agent.id) ?? viewer.agent)
     : null;
 
-  const manualError =
-    createAgent.error != null ? (createAgent.error as Error).message : null;
-  const saveError = updateAgent.error != null ? (updateAgent.error as Error).message : null;
+  const manualError = createError;
+  const saveError = updateError;
 
   // Multica-style toolbar: free-text search + segmented count filter + sort.
   const [query, setQuery] = React.useState("");
@@ -300,9 +338,7 @@ export function AgentsPage() {
                   <TableCell>
                     <Switch
                       checked={agent.enabled}
-                      onCheckedChange={(enabled) =>
-                        updateAgent.mutate({ id: agent.id, data: { enabled } })
-                      }
+                      onCheckedChange={(enabled) => runUpdate(agent.id, { enabled })}
                     />
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
@@ -361,23 +397,18 @@ export function AgentsPage() {
         open={viewer != null}
         startInEdit={viewer?.edit ?? false}
         onOpenChange={(open) => !open && setViewer(null)}
-        saving={updateAgent.isPending}
+        saving={updatePending}
         saveError={saveError}
-        onSave={(payload) =>
-          viewer &&
-          updateAgent.mutate({ id: viewer.agent.id, data: payload })
-        }
+        onSave={(payload) => viewer && runUpdate(viewer.agent.id, payload)}
       />
 
       <AgentFormDialog
         open={manualOpen}
         onOpenChange={setManualOpen}
         seed={manualSeed}
-        pending={createAgent.isPending}
+        pending={createPending}
         error={manualError}
-        onSubmit={(payload) =>
-          createAgent.mutate(payload, { onSuccess: () => setManualOpen(false) })
-        }
+        onSubmit={(payload) => runCreate(payload, () => setManualOpen(false))}
       />
 
       {/* Manage skills dialog */}
@@ -431,24 +462,29 @@ export function AgentsPage() {
               ))}
             </div>
           )}
-          {setAgentSkills.isError && (
-            <p className="text-sm text-destructive">{setAgentSkills.error.message}</p>
-          )}
+          {skillsError && <p className="text-sm text-destructive">{skillsError}</p>}
           <DialogFooter>
             <Button variant="outline" onClick={() => setSkillsFor(null)}>
               Cancel
             </Button>
             <Button
-              disabled={setAgentSkills.isPending}
-              onClick={() =>
-                skillsFor &&
-                setAgentSkills.mutate(
-                  { agentId: skillsFor.id, skillIds: [...draftSkillIds] },
-                  { onSuccess: () => setSkillsFor(null) },
-                )
-              }
+              disabled={skillsPending}
+              onClick={() => {
+                if (!skillsFor) return;
+                const agentId = skillsFor.id;
+                const skillIds = [...draftSkillIds];
+                startSkills(async () => {
+                  const r = await callAction(() => setAgentSkillsAction(agentId, skillIds));
+                  if (!r.ok) {
+                    setSkillsError(r.error);
+                    return;
+                  }
+                  void queryClient.invalidateQueries({ queryKey: ["skills"] });
+                  setSkillsFor(null);
+                });
+              }}
             >
-              {setAgentSkills.isPending ? "Saving…" : "Save skills"}
+              {skillsPending ? "Saving…" : "Save skills"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -469,11 +505,17 @@ export function AgentsPage() {
             </Button>
             <Button
               variant="destructive"
-              disabled={deleteAgent.isPending}
-              onClick={() =>
-                deleting &&
-                deleteAgent.mutate(deleting.id, { onSuccess: () => setDeleting(null) })
-              }
+              disabled={deletePending}
+              onClick={() => {
+                if (!deleting) return;
+                const id = deleting.id;
+                startDelete(async () => {
+                  const r = await callAction(() => deleteAgentAction(id));
+                  if (!r.ok) return;
+                  invalidateAgents();
+                  setDeleting(null);
+                });
+              }}
             >
               Delete
             </Button>

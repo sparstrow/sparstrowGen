@@ -109,42 +109,6 @@ export function useAgent(id: string): UseQueryResult<Agent, ApiError> {
   });
 }
 
-export function useCreateAgent(): UseMutationResult<Agent, ApiError, AgentCreate> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: AgentCreate) => api<Agent>("/agents", { method: "POST", body }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["agents"] });
-    },
-  });
-}
-
-export function useUpdateAgent(): UseMutationResult<
-  Agent,
-  ApiError,
-  { id: string; data: AgentUpdate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) => api<Agent>(`/agents/${id}`, { method: "PUT", body: data }),
-    onSuccess: (_agent, { id }) => {
-      void queryClient.invalidateQueries({ queryKey: ["agents"] });
-      void queryClient.invalidateQueries({ queryKey: ["agent", id] });
-    },
-  });
-}
-
-export function useDeleteAgent(): UseMutationResult<void, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<void>(`/agents/${id}`, { method: "DELETE" }),
-    onSuccess: (_void, id) => {
-      void queryClient.invalidateQueries({ queryKey: ["agents"] });
-      void queryClient.invalidateQueries({ queryKey: ["agent", id] });
-    },
-  });
-}
-
 /** POST /agents/draft -> one Agent Creator turn (validated, clamped). */
 export function useDraftAgent(): UseMutationResult<DraftTurn, ApiError, DraftRequest> {
   return useMutation({
@@ -502,19 +466,6 @@ export function useImportUrlSkill(): UseMutationResult<
   });
 }
 
-export function useSetAgentSkills(): UseMutationResult<
-  Skill[],
-  ApiError,
-  { agentId: string; skillIds: string[] }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ agentId, skillIds }) =>
-      api<Skill[]>(`/agents/${agentId}/skills`, { method: "PUT", body: { skillIds } }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skills"] }),
-  });
-}
-
 export function useTeams(): UseQueryResult<TeamIndexItem[], ApiError> {
   return useQuery({
     queryKey: ["teams"],
@@ -806,6 +757,12 @@ export function useChatSession(id: string | null): UseQueryResult<ChatSessionDet
   });
 }
 
+/**
+ * `T-WA-03` converted `agent-create.tsx`'s call site to
+ * `app/chat/actions.ts`'s `createChatSessionAction`, but `chat.tsx` still
+ * calls this hook — `T-WA-07` owns that conversion and deletes this hook
+ * once it lands (phase README's shared-hook pattern).
+ */
 export function useCreateChatSession(): UseMutationResult<
   ChatSession,
   ApiError,
@@ -821,6 +778,13 @@ export function useCreateChatSession(): UseMutationResult<
   });
 }
 
+/**
+ * `T-WA-03` converted `agent-create.tsx`'s call site to
+ * `app/chat/actions.ts`'s `updateChatSessionAction` (which also fixes
+ * `BUG-2026-08-26-chat-session-updates-always-404` — this hook's `PATCH`
+ * had no matching route at all). `chat.tsx` still calls this hook — `T-WA-07`
+ * owns that conversion and deletes this hook once it lands.
+ */
 export function useUpdateChatSession(): UseMutationResult<
   ChatSession,
   ApiError,

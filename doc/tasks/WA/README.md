@@ -193,7 +193,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 |---|---|---|---|---|
 | [T-WA-01 — the convention, and `teams` as the worked example](T-WA-01-convention-and-teams.md) | `[S]` | foundational — unblocks every task below | — | ✅ done 2026-08-24 |
 | [T-WA-02 — projects](T-WA-02-projects.md) | `[C]` | foundational | T-WA-01 | done except G-39 2026-08-25 |
-| [T-WA-03 — agents](T-WA-03-agents.md) | `[C]` | foundational | T-WA-01 | not started |
+| [T-WA-03 — agents](T-WA-03-agents.md) | `[C]` | foundational | T-WA-01 | done 2026-08-26 |
 | [T-WA-04 — tasks, goals, attention](T-WA-04-tasks-goals-attention.md) | `[C]` | foundational | T-WA-01 | done — `useCancelNode` deferred as `D-27` 2026-08-25 |
 | [T-WA-05 — skills](T-WA-05-skills.md) | `[C]` | foundational | T-WA-01 | done except G-40 2026-08-25 |
 | [T-WA-06 — runs, schedule, pipelines](T-WA-06-runs-schedule-pipelines.md) | `[C]` | foundational | T-WA-01 | done except G-42 2026-08-25 |
