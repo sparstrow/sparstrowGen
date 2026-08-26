@@ -27,17 +27,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { RunStatusBadge } from "@web/components/run-status-badge";
 import {
   useAgents,
-  useCreatePipeline,
   useCronJobs,
-  useDeletePipeline,
   usePipelineRuns,
   usePipelines,
   useRunPipeline,
-  useUpdatePipeline,
   useTeam,
 } from "@web/api/hooks";
 import { ManagerChatPanel } from "@web/components/team/manager-chat-panel";
 import { formatDate, shortId } from "@/lib/format";
+import { useQueryClient } from "@tanstack/react-query";
+import { callAction } from "@web/lib/call-action";
+import { createPipelineAction, deletePipelineAction, updatePipelineAction } from "./actions";
 
 interface StepDraft {
   agentId: string;
@@ -50,10 +50,26 @@ const EMPTY_STEP: StepDraft = { agentId: "", promptTemplate: "{{input}}", onFail
 export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?: boolean } = {}) {
   const pipelines = usePipelines(teamId);
   const agents = useAgents();
-  const createPipeline = useCreatePipeline();
-  const updatePipeline = useUpdatePipeline();
-  const deletePipeline = useDeletePipeline();
   const runPipeline = useRunPipeline();
+
+  const queryClient = useQueryClient();
+  const invalidatePipelines = () => queryClient.invalidateQueries({ queryKey: ["pipelines"] });
+  const [createPending, startCreate] = React.useTransition();
+  const [updatePending, startUpdate] = React.useTransition();
+  const [deletePending, startDelete] = React.useTransition();
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+
+  const runUpdate = (id: string, data: Record<string, unknown>, onSuccess?: () => void) => {
+    startUpdate(async () => {
+      const r = await callAction(() => updatePipelineAction(id, data));
+      if (!r.ok) {
+        setSaveError(r.error);
+        return;
+      }
+      invalidatePipelines();
+      onSuccess?.();
+    });
+  };
 
   const [editorOpen, setEditorOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Pipeline | null>(null);
@@ -115,7 +131,7 @@ export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?
   const removeStep = (i: number) => setSteps((prev) => prev.filter((_, idx) => idx !== i));
 
   const stepsValid = steps.length > 0 && steps.every((s) => s.agentId && s.promptTemplate.trim());
-  const saving = createPipeline.isPending || updatePipeline.isPending;
+  const saving = createPending || updatePending;
 
   const submit = () => {
     const body = {
@@ -123,11 +139,21 @@ export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?
       description,
       steps: steps.map((s, i) => ({ ...s, position: i })),
     };
-    const onSuccess = () => setEditorOpen(false);
+    setSaveError(null);
     if (editing) {
-      updatePipeline.mutate({ id: editing.id, data: body }, { onSuccess });
+      runUpdate(editing.id, body, () => setEditorOpen(false));
     } else {
-      createPipeline.mutate({ ...body, projectId: null, teamId: null, enabled: true }, { onSuccess });
+      startCreate(async () => {
+        const r = await callAction(() =>
+          createPipelineAction({ ...body, projectId: null, teamId: null, enabled: true }),
+        );
+        if (!r.ok) {
+          setSaveError(r.error);
+          return;
+        }
+        invalidatePipelines();
+        setEditorOpen(false);
+      });
     }
   };
 
@@ -251,9 +277,7 @@ export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?
                 <div className="flex items-center gap-2">
                   <Switch
                     checked={p.enabled}
-                    onCheckedChange={(enabled) =>
-                      updatePipeline.mutate({ id: p.id, data: { enabled } })
-                    }
+                    onCheckedChange={(enabled) => runUpdate(p.id, { enabled })}
                   />
                   <Button
                     size="sm"
@@ -393,11 +417,7 @@ export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?
               </Button>
             </div>
 
-            {(createPipeline.isError || updatePipeline.isError) && (
-              <p className="text-sm text-destructive">
-                {createPipeline.error?.message ?? updatePipeline.error?.message}
-              </p>
-            )}
+            {saveError && <p className="text-sm text-destructive">{saveError}</p>}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditorOpen(false)}>
@@ -458,12 +478,18 @@ export function PipelinesPage({ teamId, readOnly }: { teamId?: string; readOnly?
         onOpenChange={(open) => !open && setConfirmDelete(null)}
         title={confirmDelete ? `Delete “${confirmDelete.name}”?` : "Delete pipeline?"}
         description="The pipeline and its step configuration are removed. Past runs are kept. This can't be undone."
-        pending={deletePipeline.isPending}
+        pending={deletePending}
         pendingLabel="Deleting…"
-        onConfirm={() =>
-          confirmDelete &&
-          deletePipeline.mutate(confirmDelete.id, { onSuccess: () => setConfirmDelete(null) })
-        }
+        onConfirm={() => {
+          if (!confirmDelete) return;
+          const id = confirmDelete.id;
+          startDelete(async () => {
+            const r = await callAction(() => deletePipelineAction(id));
+            if (!r.ok) return;
+            invalidatePipelines();
+            setConfirmDelete(null);
+          });
+        }}
       />
     </div>
   );
