@@ -1082,47 +1082,31 @@ dashboard", which is true and useful. That is a correct answer, not a complete o
   the dashboard is open anyway.
 
 
-### G-35 — The app has two role vocabularies for a person; only one of them does anything
+### G-35 — Any workspace member has full read and write on all workspace content
 
 **Raised:** 2026-08-24, auditing what access decisions already exist before
 answering [`OQ-6`](OpenQuestions.md).
+**Narrowed:** 2026-08-25 (M18, `T-M18-04`). The inert `users.role` column, which
+created a second deceptive vocabulary (`admin | developer | viewer`), was dropped
+outright. A person's level lives on their workspace membership (`workspace_members.role`),
+which is enforced. Proof: `schema.ts:63` has no `role` column, and
+`profile-routes.test.ts:258`'s test asserting it was stripped is deleted.
 
-Two columns describe a person's role, with different vocabularies:
-
-| Column | Vocabulary | Enforced? |
-|---|---|---|
-| `workspace_members.role` | `owner \| admin \| member` | **Yes** — by RLS, via `private.current_admin_workspace_ids()` |
-| `users.role` | `admin \| developer \| viewer` | **No** — nowhere, in any policy or handler |
-
-`users.role` ([`schema.ts:71`](../packages/shared/src/db/schema.ts:71)) carries a
-documented three-value vocabulary suggesting a permission level. Nothing reads
-it. No RLS policy references it, no handler branches on it, and the profile
-route deliberately strips it from its response — there is a test asserting
-exactly that
-([`profile-routes.test.ts:258`](../apps/web/src/lib/api/profile-routes.test.ts:258)).
-It is inert.
-
-**And the enforced one is narrower than it looks.** `workspace_members.role`
+**Still open: the enforced role is narrower than it looks.** `workspace_members.role`
 gates four things only: renaming or deleting a workspace, daemon tokens,
-deleting someone else's pairing code, and updating a runtime command. Every
-content table — projects, tasks, agents, runs, chat, memory — is governed by
-the generic member policy applied in the loop at
+deleting someone else's pairing code, and updating a runtime command (plus M18's
+machine/location bindings). Every content table — projects, tasks, agents, runs,
+chat, memory — is governed by the generic member policy applied in the loop at
 [`001_rls.sql:124`](../packages/shared/drizzle/policies/001_rls.sql:124), which
 asks only *are you a member of this workspace*. **Any member has full read and
 write on all workspace content.** There is no viewer, and no read-only anything.
 
-- **If wrong:** the danger is not a bypass — nothing is being circumvented,
-  because `users.role` was never a control. The danger is that it reads like
-  one. An agent (or a person) adding a feature "for viewers" would find a
-  column that appears to support it, build against it, and ship something with
-  no enforcement behind it at all. The narrow scope of the *real* role is the
-  same trap in reverse: "we have roles" is true and misleading in the same
-  breath.
-- **Clears when:** the access model is decided (see [`specs/2026-08-24-what-an-agent-is-allowed-to-do.md`](specs/2026-08-24-what-an-agent-is-allowed-to-do.md), FR-013) and
-  `users.role` is either given a meaning and enforced, or dropped. Dropping it
-  is the cheaper half and does not need the full model — it needs only the
-  decision that a person's level lives on their workspace membership, not on
-  their profile.
+- **If wrong:** "we have roles" is true and misleading in the same breath. A
+  feature built "for admins" but backed by a generic content table would ship
+  with no enforcement behind it at all.
+- **Clears when:** the access model decides whether content remains flat-member
+  access, or if `workspace_members.role` is extended to gate content (e.g.,
+  viewers).
 
 ### G-36 — Electron has no local-UI fallback; the offline screen was typechecked, never seen
 
