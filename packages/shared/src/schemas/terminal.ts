@@ -35,6 +35,14 @@ export type TerminalRefusal = z.infer<typeof terminalRefusalSchema>;
  * `agentId` as a machine-local id the browser cannot resolve on its own, so
  * this carries the agent's name alongside it (mirrors how `terminals.tsx`
  * already falls back to `shortId` when it can't find a match today).
+ *
+ * `ageMs` and `attached` were added by `T-M16-05`, after this schema first
+ * shipped in `T-M16-01` — safe to widen additively since nothing outside
+ * this module's own tests consumed the type yet. `ageMs` is computed on the
+ * MACHINE and sent as a number rather than left for the browser to diff
+ * against `createdAt` itself, the same reasoning `HeartbeatResponse.serverTime`
+ * uses: the two clocks are in different domains and a diffed timestamp would
+ * silently absorb whatever skew exists between them.
  */
 export const terminalSessionInfoSchema = z.object({
   id: z.string().min(1),
@@ -43,6 +51,10 @@ export const terminalSessionInfoSchema = z.object({
   cols: z.number().int().positive(),
   rows: z.number().int().positive(),
   createdAt: isoDateSchema,
+  /** Milliseconds since createdAt, as of when this was sent. */
+  ageMs: z.number().int().nonnegative(),
+  /** Whether any sink — local WS or cloud bridge — is currently attached. */
+  attached: z.boolean(),
 });
 export type TerminalSessionInfo = z.infer<typeof terminalSessionInfoSchema>;
 

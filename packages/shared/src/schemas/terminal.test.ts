@@ -24,6 +24,8 @@ const SESSION = {
   cols: 220,
   rows: 50,
   createdAt: "2026-08-26T00:00:00.000Z",
+  ageMs: 1234,
+  attached: true,
 };
 
 describe("topic helpers", () => {
