@@ -33,12 +33,13 @@ import {
   useAgents,
   useChatSession,
   useChatSessions,
-  useCreateAgent,
-  useCreateChatSession,
   useRetryAgentDraftTurn,
-  useUpdateChatSession,
 } from "@web/api/hooks";
 import { formatDate } from "@/lib/format";
+import { useQueryClient } from "@tanstack/react-query";
+import { callAction } from "@web/lib/call-action";
+import { createAgentAction } from "../actions";
+import { createChatSessionAction, updateChatSessionAction } from "@web/app/chat/actions";
 
 const STARTERS = [
   "Build a code reviewer for my TypeScript repo",
@@ -76,13 +77,15 @@ function applyDraft(v: AgentFormValues, d: AgentDraft): AgentFormValues {
  */
 export function AgentCreatePage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const agents = useAgents();
-  const createAgent = useCreateAgent();
   const sessions = useChatSessions({ kind: "agent-creator" });
-  const createSession = useCreateChatSession();
-  const updateSession = useUpdateChatSession();
   const postTurn = useAgentDraftTurn();
   const retryTurn = useRetryAgentDraftTurn();
+
+  const [createAgentPending, startCreateAgent] = React.useTransition();
+  const [createAgentError, setCreateAgentError] = React.useState<string | null>(null);
+  const [createSessionPending, startCreateSession] = React.useTransition();
 
   const [sessionId, setSessionId] = React.useState<string | null>(null);
   const detail = useChatSession(sessionId);
@@ -99,7 +102,7 @@ export function AgentCreatePage() {
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
   const messages: ChatMessage[] = detail.data?.messages ?? [];
-  const busy = postTurn.isPending || retryTurn.isPending || createSession.isPending;
+  const busy = postTurn.isPending || retryTurn.isPending || createSessionPending;
   // Intake 0008's bug, on this page: the server persists the user row before
   // running the model, and a refetch racing that window (near-certain right
   // after createSession's onSuccess sets sessionId) returns a transcript that
@@ -182,20 +185,18 @@ export function AgentCreatePage() {
     if (sessionId) {
       postTo(sessionId, text);
     } else {
-      createSession.mutate(
-        { kind: "agent-creator" },
-        {
-          onSuccess: (s) => {
-            hydratedRef.current = s.id; // fresh session — nothing to rehydrate
-            setSessionId(s.id);
-            postTo(s.id, text);
-          },
-          onError: (err) => {
-            setPendingContent(null);
-            setTurnError({ kind: "unknown", reason: err.message, attempts: 0, fallback: null });
-          },
-        },
-      );
+      startCreateSession(async () => {
+        const r = await callAction(() => createChatSessionAction({ kind: "agent-creator" }));
+        if (!r.ok) {
+          setPendingContent(null);
+          setTurnError({ kind: "unknown", reason: r.error, attempts: 0, fallback: null });
+          return;
+        }
+        void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+        hydratedRef.current = r.data.id; // fresh session — nothing to rehydrate
+        setSessionId(r.data.id);
+        postTo(r.data.id, text);
+      });
     }
   };
 
@@ -221,7 +222,7 @@ export function AgentCreatePage() {
 
   const canCreate = values.name.trim().length > 0 && values.model.trim().length > 0;
   const payload = formToPayload(values);
-  const createError = createAgent.error != null ? (createAgent.error as Error).message : null;
+  const createError = createAgentError;
 
   return (
     <div className="flex h-[calc(100vh-7.5rem)] min-h-0 flex-col overflow-hidden rounded-xl border">
@@ -392,21 +393,31 @@ export function AgentCreatePage() {
               </Button>
             ) : (
               <Button
-                disabled={!canCreate || createAgent.isPending}
-                onClick={() =>
-                  createAgent.mutate(payload, {
-                    onSuccess: (agent) => {
-                      setCreated(agent);
-                      // The interview stays as a historical log; archive it so
-                      // the active list stays clean.
-                      if (sessionId) {
-                        updateSession.mutate({ id: sessionId, data: { status: "archived" } });
-                      }
-                    },
-                  })
-                }
+                disabled={!canCreate || createAgentPending}
+                onClick={() => {
+                  setCreateAgentError(null);
+                  startCreateAgent(async () => {
+                    const r = await callAction(() => createAgentAction(payload));
+                    if (!r.ok) {
+                      setCreateAgentError(r.error);
+                      return;
+                    }
+                    setCreated(r.data);
+                    void queryClient.invalidateQueries({ queryKey: ["agents"] });
+                    // The interview stays as a historical log; archive it so
+                    // the active list stays clean.
+                    if (sessionId) {
+                      void callAction(() => updateChatSessionAction(sessionId, { status: "archived" })).then(
+                        () => {
+                          void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+                          void queryClient.invalidateQueries({ queryKey: ["chat-session", sessionId] });
+                        },
+                      );
+                    }
+                  });
+                }}
               >
-                {createAgent.isPending ? "Creating…" : "Create agent"}
+                {createAgentPending ? "Creating…" : "Create agent"}
               </Button>
             )}
           </div>

@@ -1365,3 +1365,30 @@ fix has something to flip green.
 - **Clears when:** a daemon is paired to walk `cancelRunAction` live, and
   `BUG-2026-08-25-creating-a-pipeline-always-400s` is fixed so a pipeline can
   actually be created, edited, and deleted through the UI.
+
+### G-43 — `T-WA-03`'s `deleteAgentAction` FK-violation refusal not exercised live
+
+**Raised:** 2026-08-26, verifying `T-WA-03` live.
+
+`createAgentAction` (both the manual form and the Agent Creator's own
+create), `updateAgentAction` (the enabled toggle and a full edit via
+`SkillViewer`), `setAgentSkillsAction`, and a plain `deleteAgentAction` (no
+references) were all proven live end-to-end against a fresh disposable
+workspace, each confirmed via a page reload rather than optimistic UI state
+alone.
+
+**Not exercised:** the task's own verification step "delete an agent that is
+referenced by a team: the same refusal message as today." No team existed in
+the disposable workspace to create that reference from, and building one
+was out of this task's scope. `deleteAgentAction`'s delete-then-check-count
+shape is an unmodified move of the original handler's logic — same
+`.delete().select("id")`, same `actionErrorFrom`/`handleError` mapping for
+whatever Postgres returns on a foreign-key violation — so there is nothing
+this conversion could have changed about that specific path.
+
+- **If wrong:** low — the only way this regresses is if `actionErrorFrom`
+  handles the FK-violation error code differently than `handleError` did,
+  and both share the same `23503` → "Invalid reference" mapping already
+  (`apps/web/src/lib/action-result.ts`, `apps/web/src/lib/api/router.ts`).
+- **Clears when:** an agent referenced by a team is deleted live and shows
+  the expected refusal.
