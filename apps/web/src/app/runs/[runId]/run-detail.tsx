@@ -8,18 +8,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RunStatusBadge } from "@web/components/run-status-badge";
 import { RunTranscript } from "@web/components/run-transcript";
-import { useAgents, useCancelRun, useRun, useRunEvents } from "@web/api/hooks";
+import { useAgents, useRun, useRunEvents } from "@web/api/hooks";
 import { useLiveEvents } from "@web/lib/live-events";
 import { mergeRunEvents } from "@web/lib/merge-run-events";
 import { cn } from "@/lib/utils";
 import { formatCost, formatDate, formatDuration } from "@/lib/format";
+import { callAction } from "@web/lib/call-action";
+import { cancelRunAction } from "../actions";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function RunDetailPage() {
   const { runId } = useParams<{ runId: string }>();
   const run = useRun(runId);
   const agents = useAgents();
   const fetchedEvents = useRunEvents(runId);
-  const cancelRun = useCancelRun();
+  const queryClient = useQueryClient();
+  const [cancelPending, startCancel] = React.useTransition();
   const liveSource = useLiveEvents();
   const [liveEvents, setLiveEvents] = React.useState<RunEvent[]>([]);
   const [memoryOpen, setMemoryOpen] = React.useState(false);
@@ -83,8 +87,15 @@ export function RunDetailPage() {
           <Button
             variant="destructive"
             size="sm"
-            onClick={() => cancelRun.mutate(r.id)}
-            disabled={cancelRun.isPending}
+            onClick={() =>
+              startCancel(async () => {
+                const result = await callAction(() => cancelRunAction(r.id));
+                if (!result.ok) return;
+                void queryClient.invalidateQueries({ queryKey: ["runs"] });
+                void queryClient.invalidateQueries({ queryKey: ["run", r.id] });
+              })
+            }
+            disabled={cancelPending}
           >
             <OctagonX className="size-4" /> Cancel
           </Button>

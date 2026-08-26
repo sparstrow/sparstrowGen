@@ -1320,3 +1320,48 @@ including `runTaskAction`'s RPC-failure park-status fallback.
   two blocking bugs above, not in this task's code.
 - **Clears when:** both bugs above are fixed and these five actions are
   walked live through their real UI.
+
+### G-42 — `T-WA-06`'s `cancelRunAction` and full pipeline edit/delete not exercised live
+
+**Raised:** 2026-08-25, verifying `T-WA-06` live.
+
+`createRunAction` (run creation, including its `start_run` RPC failure
+mapping — reproduced live as "No machine is online that can run
+claude-code."), `createCronJobAction`, `updateCronJobAction` (the enabled
+toggle and a full edit), and `deleteCronJobAction` were all proven live
+end-to-end against a fresh disposable workspace, including a page reload
+confirming persistence after both the toggle and the delete.
+
+Two things could not be:
+
+- **`cancelRunAction`** needs a real, in-flight `runs` row to cancel. No
+  daemon is paired in this environment, so `createRunAction` never succeeds
+  far enough to produce one — the same "no machine online" wall
+  `createRunAction`'s own verification hit. `T-WA-04`'s `runTaskAction` hit
+  and cleared this identical wall by pairing a real daemon; that was not
+  repeated here to keep this task's verification pass scoped.
+- **`updatePipelineAction`'s full edit and `deletePipelineAction`** need a
+  real `pipelines` row, and none can currently be created —
+  [`BUG-2026-08-25-creating-a-pipeline-always-400s`](bug/BUG-2026-08-25-creating-a-pipeline-always-400s.md),
+  pre-existing and unrelated to this task's own conversion (it moved the
+  same broken insert verbatim). `updatePipelineAction`'s `enabled`-only path
+  has no such dependency and **was** proven live, since a pipeline's
+  `enabled` toggle is the one write this bug doesn't block — but there was
+  no way to reach a full edit or a delete through the UI.
+
+**Verified instead:** unit tests for both
+(`apps/web/src/app/runs/actions.test.ts`,
+`apps/web/src/app/pipelines/actions.test.ts`) covering `cancelRunAction`'s
+success and RPC-failure-mapping paths, and `createPipelineAction`'s/
+`updatePipelineAction`'s/`deletePipelineAction`'s DB logic against realistic
+mocked responses — including a regression test reproducing the exact
+`BUG-2026-08-25-creating-a-pipeline-always-400s` failure shape, so a future
+fix has something to flip green.
+
+- **If wrong:** low — both actions are near-identical in shape to
+  `runTaskAction`/`deleteCronJobAction`, which were proven live in this same
+  pass and the previous task respectively; the risk is confined to the
+  DB-write logic itself, already covered by the unit tests.
+- **Clears when:** a daemon is paired to walk `cancelRunAction` live, and
+  `BUG-2026-08-25-creating-a-pipeline-always-400s` is fixed so a pipeline can
+  actually be created, edited, and deleted through the UI.

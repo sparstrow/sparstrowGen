@@ -635,33 +635,6 @@ export function useRunEvents(
   });
 }
 
-export interface CreateRunInput {
-  agentId: string;
-  projectId?: string | null;
-  prompt: string;
-}
-
-export function useCreateRun(): UseMutationResult<Run, ApiError, CreateRunInput> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: CreateRunInput) => api<Run>("/runs", { method: "POST", body }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["runs"] });
-    },
-  });
-}
-
-export function useCancelRun(): UseMutationResult<Run, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<Run>(`/runs/${id}/cancel`, { method: "POST" }),
-    onSuccess: (_run, id) => {
-      void queryClient.invalidateQueries({ queryKey: ["runs"] });
-      void queryClient.invalidateQueries({ queryKey: ["run", id] });
-    },
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Tasks
 // ---------------------------------------------------------------------------
@@ -1222,30 +1195,6 @@ export function useCreatePipeline(): UseMutationResult<Pipeline, ApiError, Pipel
   });
 }
 
-export function useUpdatePipeline(): UseMutationResult<
-  Pipeline,
-  ApiError,
-  { id: string; data: PipelineUpdate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) =>
-      api<Pipeline>(`/pipelines/${id}`, { method: "PUT", body: data }),
-    onSuccess: (_p, { id }) => {
-      void queryClient.invalidateQueries({ queryKey: ["pipelines"] });
-      void queryClient.invalidateQueries({ queryKey: ["pipeline", id] });
-    },
-  });
-}
-
-export function useDeletePipeline(): UseMutationResult<void, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<void>(`/pipelines/${id}`, { method: "DELETE" }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["pipelines"] }),
-  });
-}
-
 export function useRunPipeline(): UseMutationResult<
   PipelineRun,
   ApiError,
@@ -1273,35 +1222,6 @@ export function usePipelineRuns(pipelineId: string): UseQueryResult<PipelineRun[
 
 export function useCronJobs(teamId?: string): UseQueryResult<CronJob[], ApiError> {
   return useQuery({ queryKey: ["cron-jobs", teamId], queryFn: () => api<CronJob[]>(`/cron-jobs${qs({ teamId })}`) });
-}
-
-export function useCreateCronJob(): UseMutationResult<CronJob, ApiError, CronJobCreate> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: CronJobCreate) => api<CronJob>("/cron-jobs", { method: "POST", body }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["cron-jobs"] }),
-  });
-}
-
-export function useUpdateCronJob(): UseMutationResult<
-  CronJob,
-  ApiError,
-  { id: string; data: CronJobUpdate }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) =>
-      api<CronJob>(`/cron-jobs/${id}`, { method: "PUT", body: data }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["cron-jobs"] }),
-  });
-}
-
-export function useDeleteCronJob(): UseMutationResult<void, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<void>(`/cron-jobs/${id}`, { method: "DELETE" }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["cron-jobs"] }),
-  });
 }
 
 export function useRunCronJobNow(): UseMutationResult<{ ok: boolean }, ApiError, string> {
