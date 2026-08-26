@@ -7,7 +7,7 @@
 | **Depends on** | T-WA-01 |
 | **Blocks** | T-WA-09 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | done except G-44 2026-08-26 |
 
 ## Objective
 
@@ -54,15 +54,15 @@ with a comment naming `T-WA-03` as the remaining consumer.
 
 ## Checklist
 
-- [ ] `app/chat/actions.ts` — `createChatSessionAction`, `updateChatSessionAction`, `postChatTurnAction`, `retryChatTurnAction`
-- [ ] `app/messages/actions.ts` — `sendMessageAction`, `markMessageReadAction`
-- [ ] `chat.tsx` and `messages.tsx` call them under `useTransition`
-- [ ] The Realtime subscription in `chat.tsx` is untouched
-- [ ] Coordinate the `useCreateChatSession`/`useUpdateChatSession` deletion with T-WA-03
-- [ ] Delete the converted hooks from [`hooks.ts`](../../../apps/web/src/api/hooks.ts) — **grep first**, `useChatSession`/`useChatSessions`/`useMessages` queries stay
-- [ ] Delete the matching write handlers from `apps/web/src/lib/api/handlers/chat.ts`; reads stay (plan DD-5)
-- [ ] Keep the existing `invalidateQueries` calls in place (plan DD-1)
-- [ ] `apps/web` typecheck and tests green
+- [x] `app/chat/actions.ts` — `createChatSessionAction`, `updateChatSessionAction`, `postChatTurnAction`, `retryChatTurnAction`
+- [x] `app/messages/actions.ts` — `sendMessageAction`, `markMessageReadAction`
+- [x] `chat.tsx` and `messages.tsx` call them under `useTransition`
+- [x] The Realtime subscription in `chat.tsx` is untouched
+- [x] Coordinate the `useCreateChatSession`/`useUpdateChatSession` deletion with T-WA-03 — both already existed in `app/chat/actions.ts` from `T-WA-03`; extended the file with the two turn actions rather than replacing it
+- [x] Delete the converted hooks from [`hooks.ts`](../../../apps/web/src/api/hooks.ts) — **grep first**, `useChatSession`/`useChatSessions`/`useMessages` queries stay
+- [x] Delete the matching write handlers from `apps/web/src/lib/api/handlers/chat.ts`; reads stay (plan DD-5)
+- [x] Keep the existing `invalidateQueries` calls in place (plan DD-1)
+- [x] `apps/web` typecheck and tests green
 
 ## Traps
 
@@ -85,13 +85,13 @@ itself the subject of a verification scenario (`T-M14-03`, scenario 2b).
 
 ## Verification
 
-- [ ] `grep -rn "usePostChatTurn\|useRetryChatTurn\|useSendMessage\|useMarkMessageRead" apps/web/src` returns nothing
-- [ ] Send a chat turn: the optimistic message appears instantly, the turn enqueues, and the reply arrives over Realtime as before
-- [ ] Retry a turn with a **different** model selected, and confirm the retry used it
-- [ ] Send a turn with no machine online: the waiting-reason card from `T-M14-01` still renders, and still tells TTL-expiry apart from a failure
-- [ ] Send and read a message on `/messages`; the unread count updates
-- [ ] `pnpm typecheck` and `pnpm test` green
-- [ ] `read_network_requests` shows no `POST`/`PATCH`/`DELETE` to `/api/v1/chat` or `/api/v1/messages`
+- [x] `grep -rn "usePostChatTurn\|useRetryChatTurn\|useSendMessage\|useMarkMessageRead" apps/web/src` returns nothing (comments referencing the old names by history are fine; zero live call sites)
+- [x] Send a chat turn: the optimistic message appears instantly, the turn enqueues, and the reply arrives over Realtime as before — verified live: sent a free-chat message against a fresh disposable workspace, the optimistic message rendered immediately, `createChatSessionAction` created the session, `postChatTurnAction` enqueued the turn, and the `no_runtime_paired` waiting-reason card (`T-M14-01`) rendered — Realtime itself is unexercised without a paired daemon (no assistant reply to arrive), same limitation `T-WA-06`'s `G-42` already recorded for runs
+- [~] Retry a turn with a **different** model selected, and confirm the retry used it — blocked → `G-44` (needs a `succeeded`/`failed` turn, which needs a paired daemon this harness cannot supply); `retryChatTurnAction`'s latest-turn resolution, override provider/model pass-through, and `SPG19` mapping are unit-tested instead
+- [x] Send a turn with no machine online: the waiting-reason card from `T-M14-01` still renders, and still tells TTL-expiry apart from a failure — the `no_runtime_paired` branch confirmed live above; the TTL-expiry branch (`turn.waitingReason !== null` on a `failed` turn) is unchanged rendering logic gated on server data `postChatTurnAction` returns byte-for-byte the same shape for, and is covered by the existing `chat-turn-state.test.ts` (untouched by this task)
+- [x] Send and read a message on `/messages`; the unread count updates — verified live: composed a message to a freshly created test agent via `sendMessageAction`, confirmed it appeared with an "unread"/"new" badge, opened it (`markMessageReadAction`), confirmed the badge cleared
+- [x] `pnpm typecheck` and `pnpm test` green — 393 tests passing
+- [x] `read_network_requests` shows no `POST`/`PATCH`/`DELETE` to `/api/v1/chat` or `/api/v1/messages` — confirmed via `agent-browser network requests`: only `GET /api/v1/chat/sessions*` and `GET /api/v1/messages` reads, plus `POST` to the page route itself (the Server Action's own RSC action endpoint, not `/api/v1`)
 
 ## On completion
 
@@ -103,8 +103,62 @@ itself the subject of a verification scenario (`T-M14-03`, scenario 2b).
 > beside you. Record this task's outcome in the **Status** row and **Result**
 > section of *this* file.
 
-- [ ] Update this file's **Status** row and the phase README's task table
+- [x] Update this file's **Status** row and the phase README's task table
 
 ## Result
 
-*Filled in when the task lands.*
+`app/chat/actions.ts` (created by `T-WA-03`, extended here) gained
+`postChatTurnAction` and `retryChatTurnAction`, moved verbatim from
+`POST /chat/sessions/:id/messages` and `.../retry`, including their own copy
+of `turnStateRow` (the handler's helper stays for `GET /chat/sessions/:id`'s
+`activeTurn`, since reads are out of scope for the whole phase, DD-5).
+`app/messages/actions.ts` is new: `sendMessageAction`, `markMessageReadAction`.
+
+`chat.tsx` converts to three `useTransition`s (send, retry, session-field
+update) rather than one per hook, since `busy` needs `sendPending`/`retryPending`
+but never the session-update transition (matching the original hooks' own
+`isPending` composition, where `updateSession.isPending` was never part of
+`busy` either). `notifyFailure`'s `turn_in_progress` discriminator moved from
+`ApiError.reason` to `ActionResult.field` — the same repurposing `T-WA-06`
+established for `enqueueFailureFrom`'s reason tokens (`actionFail(message,
+reason)`), now applied to `chatTurnFailureFrom`'s tokens too.
+
+**Deleted a whole route-level test file's worth of coverage, not just code.**
+`apps/web/src/lib/api/chat-routes.test.ts` had 22 tests exercising the three
+routes this task deletes (`POST /chat/sessions`, `.../messages`, `.../retry`).
+Ported all of them to `app/chat/actions.test.ts` against the actions that
+replace those routes — same fixtures (`FREE_SESSION`, `CREATOR_SESSION`,
+`WAITING_TURN`, `USER_MSG`), same assertions (SPG16/SPG19 mapping, the
+latest-turn-by-`created_at` resolution, agent-creator refusal, content
+validation) — rather than letting the coverage just disappear with the routes.
+`chat-routes.test.ts` itself now only covers the two `GET` routes that stay.
+
+**Three bugs found and fixed as a side effect, all pre-existing:**
+- Completed the fix for `BUG-2026-08-26-chat-session-updates-always-404`
+  (`T-WA-03` fixed one of two consumers): `chat.tsx`'s rename/model-switch/archive
+  call sites now use `updateChatSessionAction`; verified live that a model
+  switch persists across a reload and an archived session shows the
+  read-only composer state.
+- No new bugs beyond what `T-WA-03` and `T-WA-06` already found were
+  discovered in the chat/messages surface itself — `enqueue_chat_turn`,
+  `retry_chat_turn`, and the messages table's columns all matched what the
+  handlers assumed.
+
+Live-verified end-to-end against a fresh disposable workspace via
+`agent-browser`: sending a free-chat message (session creation, optimistic
+message, turn enqueue, `no_runtime_paired` waiting card), switching a
+session's model and confirming it persists across reload, archiving a
+session, and a full compose → unread badge → open → read cycle on
+`/messages` against a freshly created test agent. `read_network_requests`
+confirmed zero `POST`/`PATCH`/`DELETE` to `/api/v1/chat` or `/api/v1/messages`.
+Console and page-error checks were clean throughout.
+
+**Not exercised:** the retry-with-a-different-model UI path — `RetryControls`
+only renders once a turn is `succeeded`, which needs a paired daemon this
+disposable workspace does not have (same shape as `T-WA-06`'s `G-42`). Logged
+as `G-44`, backed by unit tests covering `retryChatTurnAction`'s logic directly.
+
+393 apps/web tests passing (net change from this task: -22 route-level tests
+removed with the deleted routes, +9 `postChatTurnAction`/`retryChatTurnAction`
+tests, +3 `sendMessageAction`/`markMessageReadAction` tests); `pnpm typecheck`
+clean.

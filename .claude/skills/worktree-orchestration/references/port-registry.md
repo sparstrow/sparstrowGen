@@ -37,8 +37,8 @@ for allow-listing the next range — don't quietly assign an unlisted port.
 |---|---|---|---|---|
 | 3000 | 🔒 reserved | — | main checkout (no worktree) | — |
 | 3010 | 🔒 locked | `feature/supabase-email-delivery` | `.claude/worktrees/supabase-email-delivery` | 2026-08-16 |
-| 3020 | 🔒 locked | `task/T-WA-03-agents` | `.claude/worktrees/task-T-WA-03-agents` | 2026-08-26 |
-| 3030 | 🟢 available | — | — | — |
+| 3020 | 🟢 available | — | — | — |
+| 3030 | 🔒 locked | `task/T-WA-07-chat-messages` | `.claude/worktrees/task-T-WA-07-chat-messages` | 2026-08-26 |
 | 3040 | 🟢 available | — | — | — |
 | 3050 | 🟢 available | — | — | — |
 | 3060 | 🟢 available | — | — | — |

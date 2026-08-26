@@ -1,6 +1,6 @@
 # BUG-2026-08-26-chat-session-updates-always-404
 
-**Status:** 🟡 investigating (fixed for one of two call sites — see Resolution)
+**Status:** 🟢 resolved
 **Reported by:** agent — converting `T-WA-03`'s `agent-create.tsx` writes to Server Actions
 **Reported:** 2026-08-26
 
@@ -59,19 +59,21 @@ pieces of UI have quietly done nothing since they shipped.
 
 ## Resolution
 
-**Partially fixed.** `T-WA-03` built `updateChatSessionAction` in
+**Fully fixed.** `T-WA-03` built `updateChatSessionAction` in
 `apps/web/src/app/chat/actions.ts` — a real Server Action doing the
 `chat_sessions` update the missing route never did — and converted
-`agent-create.tsx`'s one call site to it. `chat.tsx`'s three call sites are
-`T-WA-07`'s scope (same band, same phase) and are expected to convert to
-this same action rather than leaving `useUpdateChatSession` in place. Status
-stays 🟡 until `T-WA-07` lands and this is verified fixed for `/chat` itself,
-not just the Agent Creator.
+`agent-create.tsx`'s one call site to it. `T-WA-07` converted `chat.tsx`'s
+remaining three call sites (rename, model switch, archive) onto the same
+action and deleted `useUpdateChatSession` from `hooks.ts`.
 
-Verified live 2026-08-26, the one call site this task owns: created an
-agent through the Agent Creator (which auto-archives its interview session
-on success); no error surfaced and the archive call
-(`updateChatSessionAction(sessionId, {status: "archived"})`) is
-fire-and-forget with nothing else observable from the UI at that point —
-backed additionally by a unit test exercising the same update directly
-against a mocked `chat_sessions` row.
+Verified live 2026-08-26 for both consumers:
+- Agent Creator: created an agent through the Agent Creator (which
+  auto-archives its interview session on success); no error surfaced.
+- `/chat`: switched a live session's model (`sonnet` → `opus`) via the
+  header's model select, confirmed via `GET /chat/sessions/:id` that the
+  change persisted across a reload; archived the same session from the
+  header's archive button and confirmed the "This session is archived and
+  read-only" composer state rendered.
+
+Backed additionally by unit tests exercising the same update directly
+against a mocked `chat_sessions` row (`apps/web/src/app/chat/actions.test.ts`).

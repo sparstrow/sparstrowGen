@@ -1392,3 +1392,38 @@ this conversion could have changed about that specific path.
   (`apps/web/src/lib/action-result.ts`, `apps/web/src/lib/api/router.ts`).
 - **Clears when:** an agent referenced by a team is deleted live and shows
   the expected refusal.
+
+### G-44 — `T-WA-07`'s retry-with-a-different-model path not exercised live
+
+**Raised:** 2026-08-26, verifying `T-WA-07` live.
+
+`createChatSessionAction` + `postChatTurnAction` (send a free-chat message:
+optimistic user message, session creation, `enqueue_chat_turn`, the
+`no_runtime_paired` waiting-reason card from `T-M14-01`), `updateChatSessionAction`
+(model switch and archive, both from `chat.tsx` itself this time, confirmed
+persisting across a reload), `sendMessageAction`, and `markMessageReadAction`
+(a full compose → appear-unread → open → read cycle against a freshly created
+agent) were all proven live end-to-end against a fresh disposable workspace.
+
+**Not exercised:** `retryChatTurnAction` via the browser's own `RetryControls`
+picker (verification item "retry a turn with a different model selected").
+`RetryControls` only renders once a turn reaches `status: "succeeded"`, and a
+turn in this disposable workspace can only ever reach `waiting` — there is no
+paired daemon to advance it to `in_progress`/`succeeded`/`failed`, the same
+missing-daemon shape as `G-42`'s `cancelRunAction`. Manufacturing a
+`succeeded` or `failed` `chat_turns` row by hand (direct SQL) to force the UI
+path was judged out of proportion to what it would prove, since
+`retryChatTurnAction`'s own logic — resolving the session's **latest** turn by
+`created_at` rather than trusting a passed-in id, passing the override
+provider/model through to `retry_chat_turn`, and mapping `SPG19` to
+`field: "turn_not_retryable"` — is exercised directly in
+`apps/web/src/app/chat/actions.test.ts`, ported from the route-level tests
+`chat-routes.test.ts` had before the route was deleted.
+
+- **If wrong:** low — the untested surface is entirely inside `chat.tsx`'s
+  existing `retry()` function (unchanged control flow, just swapped from
+  `retryTurn.mutate` to `callAction(() => retryChatTurnAction(...))`) and the
+  RPC argument-passing already covered by the unit test above.
+- **Clears when:** a paired daemon (or a hand-seeded `succeeded`/`failed` turn
+  row) lets `RetryControls` render in a live pass, and a retry with a
+  different model is confirmed to use it.
