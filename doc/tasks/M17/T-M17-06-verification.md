@@ -131,16 +131,22 @@ them.
 
 ## On completion
 
-- [ ] Tick 21.6 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+> **Do not edit [`../MasterTaskQueue.md`](../MasterTaskQueue.md) from this
+> branch.** Its Status column is a mirror, flipped once per band in the commit
+> that lands the band branch on `development` (`AGENTS.md` §2.9). Sibling
+> tasks in this band are adjacent rows in one table, so ticking your own row
+> conflicts with every one of them — including the parallel forks working
+> beside you. Record this task's outcome in the **Status** row and **Result**
+> section of *this* file.
+
 - [ ] Update this file's **Status** row and the phase README's
-- [ ] Mark the M17 band complete in the queue
 - [ ] `KnownGaps.md` entries for SC-006, for FR-009 if unreached live, and for
       anything else ticked on weaker evidence than it asked for
 - [ ] Update the plan's **Status** row to `✅ Completed` and fill its **Result**
 - [ ] Update the spec's index row in [`../../specs/README.md`](../../specs/README.md)
 - [ ] File any bug or security issue found, in the same turn, per `AGENTS.md` §5
 - [ ] Judge whether this is production-ready and, if so, open the
-      `development` → `staging` promotion PR (§2 rule 7)
+      `development` → `staging` promotion PR (§2 rule 8)
 
 ## Result
 

@@ -127,14 +127,25 @@ allowed; shipping without saying so is not.
 
 ## On completion
 
-- [ ] Tick <n.n> in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] Update this file's **Status** row
+- [ ] `pnpm typecheck` and `pnpm test` green
+- [ ] Update this file's **Status** row — one of `queued` · `in progress` ·
+      `done` · `done except <id>` · `blocked → OQ-n`, followed by the date.
+      **This row is the authoritative record of this task's state.**
+- [ ] Open the PR **into this band's `band/<n>-<slug>` branch**, not
+      `development` (`AGENTS.md` §2.2), then `gh pr merge <n> --auto --squash`
 <!--
 Add when they apply:
   - [ ] Update the phase README's task table
   - [ ] KnownGaps.md entry for anything ticked on weaker evidence than asked
   - [ ] Knowledge Center pass (AGENTS.md §3.2)
 -->
+
+> **Do not edit [`../MasterTaskQueue.md`](../MasterTaskQueue.md) from a task
+> branch.** Its Status column mirrors the row above and is flipped once per
+> band, in the commit that lands the band branch on `development` — see
+> [`../tasks/README.md`](../tasks/README.md#who-updates-the-queue-and-when).
+> A task branch that ticks the queue conflicts with every sibling task in its
+> band, because their rows are adjacent lines in one table.
 
 ## Result
 

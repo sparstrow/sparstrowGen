@@ -140,7 +140,15 @@ The last two are sections C and D of
 [`../tasks/M7/T-M7-04-verification.md`](../tasks/M7/T-M7-04-verification.md),
 which cannot be completed until this has been.
 
-## 4 — Testing a feature branch's own Vercel preview (before merging into `development`)
+## 4 — Testing a branch's own Vercel preview (before merging into `development`)
+
+**Which branch's preview?** Since 2026-08-25 (`AGENTS.md` §2.2) the live
+verification pass belongs to the **band branch** — `band/<n>-<slug>` — once the
+whole band is assembled on it, not to each individual task branch. A task
+branch's own preview is still available and useful for spot-checking mid-task;
+it just isn't the gate. For a single-task band, the task branch *is* the band
+and its preview is the gate. Everything below applies to any pushed branch
+either way.
 
 **2026-08-21.** Vercel deploys a live preview for every pushed branch automatically —
 not just `staging`/`development`/`main`. While narrowing the env-var scope below, this
