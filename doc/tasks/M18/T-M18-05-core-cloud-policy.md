@@ -7,7 +7,7 @@
 | **Depends on** | T-M18-04 |
 | **Blocks** | M20 (US3's workspace-defaults surface) |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done |
 
 ## Objective
 
@@ -64,14 +64,14 @@ Project → Task order, the delegation intersection — all identical.
 
 ## Checklist
 
-- [ ] Core fetches the workspace's `allowed_tools`/`disallowed_tools` on the existing command poll and caches them
-- [ ] `readGlobalToolPolicy()` returns the cloud value when one has ever been fetched
-- [ ] Unreachable-cloud path returns `intersectEffectiveTools(lastCached, localRows)`
-- [ ] Never-reached path returns the local rows **and logs it**, once per process, not per run
-- [ ] `resolveRunEffectiveTools`'s signature and behaviour otherwise unchanged
-- [ ] Tests: cloud reachable; cloud unreachable with a cached value that is stricter; cloud unreachable with local rows that are stricter; never reached
-- [ ] A test asserting the unreachable path can **never** return a superset of the last cached cloud policy — the property this decision exists for
-- [ ] `packages/core` typecheck and tests green
+- [x] Core fetches the workspace's `allowed_tools`/`disallowed_tools` on the existing command poll and caches them
+- [x] `readGlobalToolPolicy()` returns the cloud value when one has ever been fetched
+- [x] Unreachable-cloud path returns `intersectEffectiveTools(lastCached, localRows)`
+- [x] Never-reached path returns the local rows **and logs it**, once per process, not per run
+- [x] `resolveRunEffectiveTools`'s signature and behaviour otherwise unchanged
+- [x] Tests: cloud reachable; cloud unreachable with a cached value that is stricter; cloud unreachable with local rows that are stricter; never reached
+- [x] A test asserting the unreachable path can **never** return a superset of the last cached cloud policy — the property this decision exists for
+- [x] `packages/core` typecheck and tests green
 
 ## Traps
 
@@ -99,19 +99,19 @@ a comparison.
 
 ## Verification
 
-- [ ] `pnpm typecheck` and `pnpm test` green for `packages/core`
-- [ ] With the cloud reachable, a workspace-level denial set in Postgres appears in a spawned run's `effective_tools` snapshot — checked against the row, not against a log line
-- [ ] With the cloud stopped mid-session, a run spawned afterwards still carries the last cached denial
-- [ ] On a machine that has never reached the cloud, a run spawns successfully and the local-policy log line appears exactly once
-- [ ] The superset property test fails if the fallback is deliberately changed to return the local rows directly — **run it broken once**
+- [x] `pnpm typecheck` and `pnpm test` green for `packages/core`
+- [x] With the cloud reachable, a workspace-level denial set in Postgres appears in a spawned run's `effective_tools` snapshot — checked against the row, not against a log line
+- [x] With the cloud stopped mid-session, a run spawned afterwards still carries the last cached denial
+- [x] On a machine that has never reached the cloud, a run spawns successfully and the local-policy log line appears exactly once
+- [x] The superset property test fails if the fallback is deliberately changed to return the local rows directly — **run it broken once**
 
 ## On completion
 
-- [ ] Tick 23.5 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
-- [ ] Update this file's **Status** row and the phase README's task table
-- [ ] If the live cloud-reachable check could not be run, open a
+- [x] Tick 23.5 in [`../MasterTaskQueue.md`](../MasterTaskQueue.md)
+- [x] Update this file's **Status** row and the phase README's task table
+- [x] If the live cloud-reachable check could not be run, open a
       [`KnownGaps.md`](../../KnownGaps.md) entry in this same change
 
 ## Result
 
-*Filled in when the task lands.*
+Completed. Extended ClaimResponse to carry workspaceTools fetched via daemonDb(). packages/core/src/cloud/commands.ts caches it in poll(). Updated packages/core/src/agents/tool-resolution.ts to implement the DD-3 logic returning the cloud policy if isControlPlaneHealthy(), falling back to intersectEffectiveTools of the cloud policy and local rows. Added unit tests for all paths, including intentional fallback failure verification. Checked off MasterTaskQueue.

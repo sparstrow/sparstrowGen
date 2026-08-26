@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | [`../specs/2026-08-24-what-an-agent-is-allowed-to-do.md`](../specs/2026-08-24-what-an-agent-is-allowed-to-do.md) — **Owner-reviewed 2026-08-24, accepted** |
-| **Status** | Draft — M18 next |
+| **Status** | In progress — M19 next |
 | **Trigger** | The owner, 2026-08-24, refusing to settle a machine's file-sharing boundary as a one-off rule: "we should not just think and [be] bound to only one access. We should [design] project access settings for users, agents on what level they can access and configure." |
 | **Depends on** | M4 (the `settings.set` per-machine path US4 reuses), M16 (a machine can be asked a question — needed only by M21's folder enforcement, not by the model itself) |
 | **Touches** | `packages/shared/src/tool-policy.ts`, `packages/shared/src/access/` (new), `packages/shared/src/db/schema.ts`, `packages/shared/drizzle/policies/`, `packages/core/src/agents/tool-resolution.ts`, `packages/core/src/orchestrator/`, `apps/web/src/app/agents/`, `apps/web/src/app/projects/[projectId]/`, `apps/web/src/app/machines/`, `apps/web/src/app/settings/`, `apps/web/src/content/knowledge/` |
@@ -295,3 +295,8 @@ sandbox, that is a `KnownGaps.md` entry in the same change, not a ticked box.
 ## Result
 
 *Filled in as the phases land.*
+
+ # #   R e s u l t 
+ 
+ * * M 1 8   f i n i s h e d   2 0 2 6 - 0 8 - 2 5 * * .   T h e   f o u n d a t i o n a l   v o c a b u l a r y ,   t o o l   c a t a l o g u e ,   p r o v e n a n c e   r e s o l v e r ,   s c h e m a ,   a n d   s t r i c t   c l o u d   f a l l b a c k   l o g i c   a r e   i m p l e m e n t e d   a n d   p r o v e n .   S C - 0 0 6   i s   s a t i s f i e d .  
+ 

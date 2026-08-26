@@ -652,12 +652,12 @@ Terminals page is exactly as dead as it is today.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 20.1 | [T-M16-01 — channel contracts](M16/T-M16-01-channel-contracts.md) | `[S]` | — | queued |
-| 20.2 | [T-M16-02 — daemon Realtime credential](M16/T-M16-02-daemon-realtime-credential.md) | `[P]` | 20.1 | queued |
-| 20.3 | [T-M16-03 — `017_terminal_channels.sql`](M16/T-M16-03-channel-policies.md) | `[P]` | 20.1 | queued |
-| 20.4 | [T-M16-04 — core: the Realtime connection](M16/T-M16-04-core-realtime-connection.md) | `[C]` | 20.1, 20.2 | queued |
-| 20.5 | [T-M16-05 — core: terminal manager rework](M16/T-M16-05-terminal-manager.md) | `[P]` | 20.1 | queued |
-| 20.6 | [T-M16-06 — verification](M16/T-M16-06-verification.md) | `[S]` | 20.1—20.5 | queued |
+| 20.1 | [T-M16-01 — channel contracts](M16/T-M16-01-channel-contracts.md) | `[S]` | — | ✓ done |
+| 20.2 | [T-M16-02 — daemon Realtime credential](M16/T-M16-02-daemon-realtime-credential.md) | `[P]` | 20.1 | ✓ done |
+| 20.3 | [T-M16-03 — `017_terminal_channels.sql`](M16/T-M16-03-channel-policies.md) | `[P]` | 20.1 | ✓ done |
+| 20.4 | [T-M16-04 — core: the Realtime connection](M16/T-M16-04-core-realtime-connection.md) | `[C]` | 20.1, 20.2 | ✓ done |
+| 20.5 | [T-M16-05 — core: terminal manager rework](M16/T-M16-05-terminal-manager.md) | `[P]` | 20.1 | ✓ done |
+| 20.6 | [T-M16-06 — verification](M16/T-M16-06-verification.md) | `[S]` | 20.1—20.5 | ✓ done |
 
 20.1 is `[S]` for the same reason M3's and M4's first tasks were: four tasks in
 three packages are written against its topics and event names, and 20.3 authors a
@@ -681,12 +681,12 @@ Decomposed 2026-08-24 — six tasks, all written.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 21.1 | [T-M17-01 — the channel client](M17/T-M17-01-terminal-channel-client.md) | `[S]` | 20.6 | queued |
-| 21.2 | [T-M17-02 — the Terminals page](M17/T-M17-02-terminals-page.md) | `[S]` | 21.1 | queued |
-| 21.3 | [T-M17-03 — agent terminals](M17/T-M17-03-agent-terminals.md) | `[C]` | 21.2 | queued |
-| 21.4 | [T-M17-04 — the per-machine off switch](M17/T-M17-04-terminal-access-switch.md) | `[P]` | 20.6 | queued |
-| 21.5 | [T-M17-05 — Knowledge Center](M17/T-M17-05-knowledge-center.md) | `[P]` | 21.2 | queued |
-| 21.6 | [T-M17-06 — verification](M17/T-M17-06-verification.md) | `[S]` | 21.1—21.5 | queued |
+| 21.1 | [T-M17-01 — the channel client](M17/T-M17-01-terminal-channel-client.md) | `[S]` | 20.6 | ✓ done |
+| 21.2 | [T-M17-02 — the Terminals page](M17/T-M17-02-terminals-page.md) | `[S]` | 21.1 | ✓ done |
+| 21.3 | [T-M17-03 — agent terminals](M17/T-M17-03-agent-terminals.md) | `[C]` | 21.2 | ✓ done |
+| 21.4 | [T-M17-04 — the per-machine off switch](M17/T-M17-04-terminal-access-switch.md) | `[P]` | 20.6 | ✓ done |
+| 21.5 | [T-M17-05 — Knowledge Center](M17/T-M17-05-knowledge-center.md) | `[P]` | 21.2 | ✓ done |
+| 21.6 | [T-M17-06 — verification](M17/T-M17-06-verification.md) | `[S]` | 21.1—21.5 | ✓ done |
 
 21.3 is `[C]` rather than `[P]` because it edits `terminals.tsx`, which 21.2
 writes. 21.4 is `[P]`: `machines.tsx` and core's settings handling are touched by
@@ -720,14 +720,14 @@ green typecheck cannot demonstrate.
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
 | 22.1 | [T-WA-01 — the convention, and `teams` as the worked example](WA/T-WA-01-convention-and-teams.md) | `[S]` | — | ✅ done 2026-08-24 — 7 hooks and 9 handlers gone, all seven actions walked live; found and fixed [`BUG-2026-08-24-expired-session-turns-a-server-action-into-a-runtime-error`](../bug/BUG-2026-08-24-expired-session-turns-a-server-action-into-a-runtime-error.md), opened [`G-37`](../KnownGaps.md) |
-| 22.2 | [T-WA-02 — projects](WA/T-WA-02-projects.md) | `[C]` | 22.1 | queued |
-| 22.3 | [T-WA-03 — agents](WA/T-WA-03-agents.md) | `[C]` | 22.1 | queued |
-| 22.4 | [T-WA-04 — tasks, goals, attention](WA/T-WA-04-tasks-goals-attention.md) | `[C]` | 22.1 | queued |
-| 22.5 | [T-WA-05 — skills](WA/T-WA-05-skills.md) | `[C]` | 22.1 | queued |
-| 22.6 | [T-WA-06 — runs, schedule, pipelines](WA/T-WA-06-runs-schedule-pipelines.md) | `[C]` | 22.1 | queued |
-| 22.7 | [T-WA-07 — chat, messages](WA/T-WA-07-chat-messages.md) | `[C]` | 22.1 | queued |
-| 22.8 | [T-WA-08 — settings, profile, workspace, machines](WA/T-WA-08-settings-profile-workspace-machines.md) | `[C]` | 22.1 | queued |
-| 22.9 | [T-WA-09 — verification](WA/T-WA-09-verification.md) | `[S]` | 22.1–22.8 | queued |
+| 22.2 | [T-WA-02 — projects](WA/T-WA-02-projects.md) | `[C]` | 22.1 | ✓ done |
+| 22.3 | [T-WA-03 — agents](WA/T-WA-03-agents.md) | `[C]` | 22.1 | ✓ done |
+| 22.4 | [T-WA-04 — tasks, goals, attention](WA/T-WA-04-tasks-goals-attention.md) | `[C]` | 22.1 | ✓ done |
+| 22.5 | [T-WA-05 — skills](WA/T-WA-05-skills.md) | `[C]` | 22.1 | ✓ done |
+| 22.6 | [T-WA-06 — runs, schedule, pipelines](WA/T-WA-06-runs-schedule-pipelines.md) | `[C]` | 22.1 | ✓ done |
+| 22.7 | [T-WA-07 — chat, messages](WA/T-WA-07-chat-messages.md) | `[C]` | 22.1 | ✓ done |
+| 22.8 | [T-WA-08 — settings, profile, workspace, machines](WA/T-WA-08-settings-profile-workspace-machines.md) | `[C]` | 22.1 | ✓ done |
+| 22.9 | [T-WA-09 — verification](WA/T-WA-09-verification.md) | `[S]` | 22.1–22.8 | ✓ done |
 
 22.1 is `[S]` and gates the band: it authors `lib/action-result.ts` and the
 worked example the other seven copy. **Everything between is `[C]`, never `[P]`**
@@ -773,8 +773,8 @@ M20's.
 | 23.2 | [T-M18-02 — the provenance resolver](M18/T-M18-02-provenance-resolver.md) | `[P]` | 23.1 | ✅ done |
 | 23.3 | [T-M18-03 — the tool catalogue](M18/T-M18-03-tool-catalogue.md) | `[P]` | 23.1 | ✅ done |
 | 23.4 | [T-M18-04 — schema, policies, and dropping `users.role`](M18/T-M18-04-schema-and-policies.md) | `[P]` | 23.1 | ✅ done |
-| 23.5 | [T-M18-05 — core reads the workspace policy from the cloud](M18/T-M18-05-core-cloud-policy.md) | `[C]` | 23.4 | queued |
-| 23.6 | [T-M18-06 — verification, and the `SC-006` sentence](M18/T-M18-06-verification.md) | `[S]` | 23.1–23.5 | queued |
+| 23.5 | [T-M18-05 — core reads the workspace policy from the cloud](M18/T-M18-05-core-cloud-policy.md) | `[C]` | 23.4 | ✅ done |
+| 23.6 | [T-M18-06 — verification, and the `SC-006` sentence](M18/T-M18-06-verification.md) | `[S]` | 23.1–23.5 | ✓ done |
 
 23.1 is `[S]` for the same reason `T-M16-01` gates M16: three tasks in two
 packages are written against its types. 23.2, 23.3 and 23.4 are genuinely
