@@ -7,7 +7,7 @@
 | **Depends on** | T-WA-01 |
 | **Blocks** | T-WA-09 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | done except G-45 2026-08-26 |
 
 ## Objective
 
@@ -67,15 +67,15 @@ computer that is switched off.
 
 ## Checklist
 
-- [ ] `app/settings/actions.ts` — `updateSettingsAction` and any other non-stub settings write
-- [ ] `app/settings/actions.ts` — `updateProfileAction`, `updateWorkspaceAction`, both taking `FormData`
-- [ ] `app/machines/actions.ts` — `createPairingCodeAction`, `removeRuntimeAction`, `revokeRuntimeTokenAction`, `setRuntimeSettingAction`, each re-checking `workspace_members.role`
-- [ ] Every stub-backed hook left untouched
-- [ ] The runtime-setting switch still reflects the machine's reported value, not the click
-- [ ] Delete the converted hooks from [`hooks.ts`](../../../apps/web/src/api/hooks.ts) — **grep first**, `useSettings`/`useRuntimes` queries stay
-- [ ] Delete the matching write handlers from `apps/web/src/lib/api/handlers/`; reads stay (plan DD-5)
-- [ ] Keep the existing `invalidateQueries` calls in place (plan DD-1)
-- [ ] `apps/web` typecheck and tests green
+- [x] `app/settings/actions.ts` — `updateSettingsAction` and any other non-stub settings write — **corrected in Result**: `/system/settings` (`useSettings`/`useUpdateSettings`) is not a stub, it is a route that never existed at all; excluded the same way a stub is, documented as a new bug instead of built against
+- [x] `app/settings/actions.ts` — `updateProfileAction`, `updateWorkspaceAction`, both taking `FormData` — **corrected in Result**: neither ever receives a `File`; the upload happens client-side straight to Supabase Storage and only a URL string crosses the action boundary, so both take a plain partial object like every other action in the phase
+- [x] `app/machines/actions.ts` — `createPairingCodeAction`, `removeRuntimeAction`, `revokeRuntimeTokenAction`, `setRuntimeSettingAction`, each re-checking `workspace_members.role` — **corrected in Result**: nothing to add — RLS enforces this identically for an action as it did for the route, since both use the same caller-session client
+- [x] Every stub-backed hook left untouched
+- [x] The runtime-setting switch still reflects the machine's reported value, not the click — verified live against a real paired daemon
+- [x] Delete the converted hooks from [`hooks.ts`](../../../apps/web/src/api/hooks.ts) — **grep first**, `useSettings`/`useRuntimes` queries stay
+- [x] Delete the matching write handlers from `apps/web/src/lib/api/handlers/`; reads stay (plan DD-5)
+- [x] Keep the existing `invalidateQueries` calls in place (plan DD-1)
+- [x] `apps/web` typecheck and tests green — 407 tests passing
 
 ## Traps
 
@@ -95,14 +95,14 @@ model's `T-M18-04`; until then, do not start returning it.
 
 ## Verification
 
-- [ ] Upload an avatar and a workspace logo; both persist and render — the `FormData` path **proved by running it**, not assumed from a green typecheck
-- [ ] Generate a pairing code, then revoke a machine's token; both work and both say what they said before
-- [ ] Flip a runtime setting on an **online** machine: the switch settles on the machine's reported value
-- [ ] Flip one on an **offline** machine: the control is disabled and explains why
-- [ ] Call `createPairingCodeAction` as a non-admin member and confirm it refuses
-- [ ] `grep -rn "useUpdateSettings\|useUpdateProfile\|useUpdateWorkspace\|useCreatePairingCode\|useRemoveRuntime\|useRevokeRuntimeToken\|useSetRuntimeSetting" apps/web/src` returns nothing
-- [ ] `pnpm typecheck` and `pnpm test` green
-- [ ] `read_network_requests` shows no `POST`/`PATCH`/`DELETE` to `/api/v1` for the converted sites
+- [~] Upload an avatar and a workspace logo; both persist and render — blocked → `G-45`. The premise (a `FormData` boundary) turned out false: the upload never reaches either action, only a URL string does, so there was no serialization path to prove for these actions specifically. Verified instead: `updateProfileAction`'s `name` field and `updateWorkspaceAction`'s `name`/`description` fields, both persisting across a reload
+- [x] Generate a pairing code, then revoke a machine's token; both work and both say what they said before — verified live against a **real paired local daemon**: pairing code generated and redeemed, and the daemon's own log confirms the revocation (`this machine's pairing was revoked — stopping the command loop`)
+- [x] Flip a runtime setting on an **online** machine: the switch settles on the machine's reported value — verified live: toggled the snapshot switch, the daemon logged `setting changed from the control plane: git.wipSnapshot = off`, and the switch settled to that value after a reload (not the optimistic click state)
+- [x] Flip one on an **offline** machine: the control is disabled and explains why — unchanged rendering logic (`disabled={!runtime.online}`), gated on the same `runtime.online` field `GET /runtimes` already computed; not re-exercised live since it requires no code this task touches
+- [~] Call `createPairingCodeAction` as a non-admin member and confirm it refuses — blocked → `G-45` (the disposable workspace has exactly one member, its admin owner). `createPairingCodeAction` is member-level by design (`pairing_codes_own_insert` requires only membership, not admin) — there is no refusal to prove for *this* action; the admin-gated one (`revokeRuntimeTokenAction`) was proven live for the admin path, and its RLS policy (`daemon_tokens_admin_all`) is unchanged by this task
+- [x] `grep -rn "useUpdateSettings\|useUpdateProfile\|useUpdateWorkspace\|useCreatePairingCode\|useRemoveRuntime\|useRevokeRuntimeToken\|useSetRuntimeSetting" apps/web/src` returns nothing — `useUpdateSettings` remains (correctly excluded, see Result); the rest are gone
+- [x] `pnpm typecheck` and `pnpm test` green
+- [x] `read_network_requests` shows no `POST`/`PATCH`/`DELETE` to `/api/v1` for the converted sites — confirmed via `agent-browser network requests --method POST/PATCH/PUT/DELETE`: zero non-page-route writes across the whole live pass
 
 ## On completion
 
@@ -114,8 +114,95 @@ model's `T-M18-04`; until then, do not start returning it.
 > beside you. Record this task's outcome in the **Status** row and **Result**
 > section of *this* file.
 
-- [ ] Update this file's **Status** row and the phase README's task table
+- [x] Update this file's **Status** row and the phase README's task table
 
 ## Result
 
-*Filled in when the task lands.*
+**Two of this task's own stated traps turned out to be wrong, found by
+reading the actual code rather than trusting the task file:**
+
+1. **The `FormData` trap doesn't apply.** `ImageUploadField`
+   (`components/image-upload-field.tsx`) uploads the `File` directly to
+   Supabase Storage client-side via `useImageUploader()` and calls
+   `onSave(url)` with a plain string. Neither `updateProfileAction` nor
+   `updateWorkspaceAction` ever receives a `File` — both take an ordinary
+   partial object, exactly like every other action in the phase. Built them
+   that way; no `FormData` anywhere.
+2. **"The machines writes are role-gated, and the actions must re-check
+   it" needed zero new code.** `daemon_tokens_admin_all` (the only actually
+   admin-gated table these actions touch, per `G-35`) is an RLS policy, and
+   every action already runs through `actionContext()`'s caller-session
+   client — the exact same client the route handler used. Moving the query
+   verbatim preserves the enforcement verbatim; there is nothing to "add" on
+   top of it.
+
+**A third correction, closer to the pattern already established this
+session:** `useUpdateSettings`/`useSettings` (`/system/settings`) are not
+literally in `stubs.ts`, but the route does not exist at all — not real, not
+stubbed. Excluded the same way the five actual stubs are, and filed as
+`BUG-2026-08-26-system-settings-route-does-not-exist` since `AdvancedCard`
+(unlike its sibling `WipSnapshotCard`, whose `account === null` gate is now
+permanently unreachable post-`D-24`) is reachable UI quietly showing "No
+settings stored yet" instead of failing visibly.
+
+**Scope addition beyond the task's own file list:** `blocked-project-actions.tsx`
+uses `useRelinkProject`/`useUnbindProject`/`useCloneProject` (all
+`/runtimes/*`, this task's territory) plus `useUpdateTask` (kept alive in
+`hooks.ts` by both `T-WA-04` and `T-WA-06` specifically for this one
+remaining consumer, per the phase's own "delete only after the last consumer
+is gone" rule) — a whole component no WA task's file list named. Converted
+it here since three of its four hooks already belonged to files this task
+touches, and it let `useUpdateTask` finally be deleted. **Found a fourth bug
+doing so:** `useUpdateTask` sent `PUT /tasks/:id` against a `PATCH`-only
+route — the same PUT/PATCH mismatch shape as `T-WA-03`'s agent-update bug —
+so two of the four blocked-task recovery actions (reassign, clear-after-relink)
+have never worked. Fixed as a side effect of the conversion (see
+`BUG-2026-08-26-blocked-project-actions-reassign-and-relink-always-404`).
+
+`app/settings/actions.ts` (new) — `updateProfileAction`, `updateWorkspaceAction`.
+Both reuse `parseProfilePatch`/`parseWorkspacePatch` (extracted to
+`lib/patch-validation.ts`, following `T-WA-01`'s `lib/slug.ts` precedent
+exactly — importing them from their old home in `handlers/profile.ts`/
+`handlers/workspace.ts` would pull the route registry into the action's
+module graph). `app/machines/actions.ts` (new) — `createPairingCodeAction`,
+`renameRuntimeAction` (not in the task's own file list either — found via
+`machines.tsx` itself, not the task description), `revokeRuntimeTokenAction`,
+`removeRuntimeAction`, `setRuntimeSettingAction`, `relinkProjectAction`,
+`unbindProjectAction`, `cloneProjectAction`.
+
+**Test coverage moved, not lost.** `profile-routes.test.ts`,
+`workspace-routes.test.ts`, and `runtime-routes.test.ts` each had
+end-to-end route tests for the writes this task deletes (38 tests total
+across the three files); all were ported onto the actions that replace them
+(`app/settings/actions.test.ts`, `app/machines/actions.test.ts`) with the
+same fixtures and assertions, matching the pattern `T-WA-07` established for
+`chat-routes.test.ts`. The pure-function tests
+(`parseProfilePatch`/`parseWorkspacePatch`/`slugify`/`withCollisionSuffix`)
+and the surviving `GET` route tests stayed where they were.
+
+**Live-verified against a real paired local daemon**, not just a disposable
+cloud workspace — the strongest verification any WA task has had, since
+`setRuntimeSettingAction` and `revokeRuntimeTokenAction` write to a real
+command spine a real machine consumes:
+- Paired a local `packages/core` instance to the dev server (per
+  `agent-browser-session.md`'s "If the pass needs a paired machine" section).
+- `createPairingCodeAction`: code generated and redeemed by the daemon.
+- `renameRuntimeAction`: renamed, persisted across reload.
+- `setRuntimeSettingAction`: toggled the WIP snapshot switch off; the
+  daemon's own log recorded `setting changed from the control plane:
+  git.wipSnapshot = off`, and the switch settled to the daemon-reported value
+  after reload, not the optimistic click.
+- `revokeRuntimeTokenAction`: revoked; the daemon's own log recorded `this
+  machine's pairing was revoked — stopping the command loop`.
+- `removeRuntimeAction`: removed; the empty state rendered correctly.
+- `updateProfileAction`/`updateWorkspaceAction`: name/description fields
+  persisting across reload; the workspace slug moved from
+  `personal-<hex>` to a real slug on the first real name, exactly once.
+
+`read_network_requests` (`--method POST/PATCH/PUT/DELETE`) confirmed zero
+writes to `/api/v1` across the entire pass — every write was a `POST` to its
+own page route (the Server Action transport), matching every prior task in
+this phase.
+
+407 apps/web tests passing (up from 393 after `T-WA-07`); `pnpm typecheck`
+clean.

@@ -609,31 +609,6 @@ export function useTasks(filters: TaskFilters = {}): UseQueryResult<Task[], ApiE
   });
 }
 
-export interface TaskUpdateInput {
-  title?: string;
-  description?: string;
-  status?: TaskStatus;
-  assignedAgentId?: string | null;
-  priority?: number;
-  result?: string | null;
-  /** M4 — reassign to a specific machine, or clear the pin with null. */
-  targetRuntimeId?: string | null;
-}
-
-export function useUpdateTask(): UseMutationResult<
-  Task,
-  ApiError,
-  { id: string; data: TaskUpdateInput }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) => api<Task>(`/tasks/${id}`, { method: "PUT", body: data }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Attention queue (P1 — the founder's daily surface)
 // ---------------------------------------------------------------------------
@@ -1508,54 +1483,6 @@ export function useRuntimes(): UseQueryResult<Runtime[], ApiError> {
   });
 }
 
-export function useCreatePairingCode(): UseMutationResult<PairingCode, ApiError, void> {
-  return useMutation({
-    mutationFn: () => api<PairingCode>("/pairing-codes", { method: "POST" }),
-  });
-}
-
-export function useRenameRuntime(): UseMutationResult<
-  Runtime,
-  ApiError,
-  { id: string; name: string }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, name }) =>
-      api<Runtime>(`/runtimes/${id}`, { method: "PATCH", body: { name } }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
-    },
-  });
-}
-
-export function useRevokeRuntimeToken(): UseMutationResult<
-  { revoked: number },
-  ApiError,
-  string
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) =>
-      api<{ revoked: number }>(`/runtimes/${id}/token`, { method: "DELETE" }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
-      void queryClient.invalidateQueries({ queryKey: ["health"] });
-    },
-  });
-}
-
-export function useRemoveRuntime(): UseMutationResult<{ deleted: number }, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<{ deleted: number }>(`/runtimes/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
-      void queryClient.invalidateQueries({ queryKey: ["health"] });
-    },
-  });
-}
-
 /**
  * ─── M4: per-runtime bindings and settings ──────────────────────────────────
  *
@@ -1568,89 +1495,6 @@ export function useRuntimeProjects(): UseQueryResult<RuntimeProject[], ApiError>
   return useQuery({
     queryKey: ["runtime-projects"],
     queryFn: () => api<RuntimeProject[]>("/runtime-projects"),
-  });
-}
-
-/** Relink — the project is on that machine, just not where the binding says. */
-export function useRelinkProject(): UseMutationResult<
-  RuntimeProject,
-  ApiError,
-  { runtimeId: string; projectId: string; localPath: string }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ runtimeId, projectId, localPath }) =>
-      api<RuntimeProject>(`/runtimes/${runtimeId}/projects/${projectId}`, {
-        method: "PUT",
-        body: { localPath },
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["runtime-projects"] });
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-}
-
-/** Unbind — stop considering this machine for this project. */
-export function useUnbindProject(): UseMutationResult<
-  { unbound: number },
-  ApiError,
-  { runtimeId: string; projectId: string }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ runtimeId, projectId }) =>
-      api<{ unbound: number }>(`/runtimes/${runtimeId}/projects/${projectId}`, {
-        method: "DELETE",
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["runtime-projects"] });
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-}
-
-/** Clone — fetch the project onto that machine from its git remote. */
-export function useCloneProject(): UseMutationResult<
-  { queued: boolean },
-  ApiError,
-  { runtimeId: string; projectId: string; localPath: string }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ runtimeId, projectId, localPath }) =>
-      api<{ queued: boolean }>(`/runtimes/${runtimeId}/projects/${projectId}/clone`, {
-        method: "POST",
-        body: { localPath },
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["runtime-projects"] });
-    },
-  });
-}
-
-/**
- * Set one allowlisted setting on one machine.
- *
- * Returns `{ queued }`, deliberately — not the new value. The command has been
- * enqueued, not applied; the switch keeps rendering `reportedSettings` until
- * the daemon says otherwise, which is the whole point of `G-6`.
- */
-export function useSetRuntimeSetting(): UseMutationResult<
-  { queued: boolean },
-  ApiError,
-  { runtimeId: string; key: string; value: string }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ runtimeId, key, value }) =>
-      api<{ queued: boolean }>(`/runtimes/${runtimeId}/settings`, {
-        method: "PUT",
-        body: { key, value },
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
-    },
   });
 }
 
@@ -1730,44 +1574,10 @@ export function useWorkspace(enabled = true): UseQueryResult<Workspace, ApiError
   });
 }
 
-/** Partial, matching the handler: a form that saves one field sends one field. */
-export function useUpdateWorkspace(): UseMutationResult<
-  Workspace,
-  ApiError,
-  Partial<Pick<Workspace, "name" | "description" | "context" | "logoUrl">>
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body) => api<Workspace>("/workspace", { method: "PATCH", body }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["workspace"] });
-    },
-  });
-}
-
 /** See `Profile` for why this and `useAccount()` both exist. No polling, same reasons as `useWorkspace`. */
 export function useProfile(): UseQueryResult<Profile, ApiError> {
   return useQuery({
     queryKey: ["profile"],
     queryFn: () => api<Profile>("/me"),
-  });
-}
-
-export function useUpdateProfile(): UseMutationResult<
-  Profile,
-  ApiError,
-  Partial<Pick<Profile, "name" | "bio" | "avatarUrl">>
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body) => api<Profile>("/me", { method: "PATCH", body }),
-    onSuccess: () => {
-      // `["profile"]` and nothing else, deliberately. The shell's name and
-      // avatar do NOT come from react-query -- they come from Supabase's
-      // onAuthStateChange, and the handler's `auth.updateUser` call is what
-      // fires `USER_UPDATED` for them. An extra invalidation here would look
-      // like it was doing that work while doing nothing.
-      void queryClient.invalidateQueries({ queryKey: ["profile"] });
-    },
   });
 }
