@@ -336,6 +336,28 @@ export function resizeSession(id: string, cols: number, rows: number): boolean {
   return true;
 }
 
+/**
+ * Write raw bytes to a session's pty — the cloud bridge's (`T-M16-04`)
+ * equivalent of `attachSocket`'s inline `ws.on("message")` handling, since a
+ * `TerminalSink` is output-only by design and has no business writing input.
+ */
+export function writeToSession(id: string, data: string): boolean {
+  const session = sessions.get(id);
+  if (!session) return false;
+  session.pty.write(data);
+  return true;
+}
+
+/**
+ * The session's current scrollback, without attaching anything — what
+ * `terminal.attach`'s reply embeds inline as `replay` (T-M16-01), since the
+ * requester isn't subscribed to the session's own topic yet when the reply
+ * is sent and so cannot receive a sink's normal replay-on-attach write.
+ */
+export function peekRing(id: string): string | null {
+  return sessions.get(id)?.ring ?? null;
+}
+
 export function killSession(id: string, reason: TerminalCloseReason = "closed"): boolean {
   const session = sessions.get(id);
   if (!session) return false;

@@ -17,6 +17,7 @@
     "@fastify/websocket": "^11.1.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "@sparstrow/shared": "workspace:*",
+    "@supabase/realtime-js": "^2.112.4",
     "better-sqlite3": "^12.2.0",
     "chokidar": "^4.0.3",
     "croner": "^9.0.0",

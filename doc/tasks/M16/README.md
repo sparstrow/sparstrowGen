@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-24-a-terminal-on-my-machine.md`](../../specs/2026-08-24-a-terminal-on-my-machine.md) |
 | **Depends on** | M3 (pairing + daemon bearer token), M4 (`settings.set`), M5 (the broadcast pattern this extends) — all shipped |
 | **Blocks** | M17 |
-| **Status** | in progress (T-M16-01, T-M16-02, T-M16-03, T-M16-05 done; only T-M16-04 and T-M16-06 remain) |
+| **Status** | in progress — every task done except T-M16-06 (verification) |
 | **Open questions** | none |
 
 ## Tasks
@@ -19,7 +19,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | [T-M16-01 — channel contracts](T-M16-01-channel-contracts.md) | `[S]` | foundational | — | done (2026-08-26) |
 | [T-M16-02 — daemon Realtime credential](T-M16-02-daemon-realtime-credential.md) | `[P]` | foundational | T-M16-01 | done (2026-08-26) |
 | [T-M16-03 — `018_terminal_channels.sql`](T-M16-03-channel-policies.md) | `[P]` | foundational | T-M16-01 | done (2026-08-26) |
-| [T-M16-04 — core: the Realtime connection](T-M16-04-core-realtime-connection.md) | `[C]` | foundational | T-M16-01, T-M16-02 | not started |
+| [T-M16-04 — core: the Realtime connection](T-M16-04-core-realtime-connection.md) | `[C]` | foundational | T-M16-01, T-M16-02 | done (2026-08-26) |
 | [T-M16-05 — core: terminal manager rework](T-M16-05-terminal-manager.md) | `[P]` | foundational | T-M16-01 | done (2026-08-26) |
 | [T-M16-06 — verification](T-M16-06-verification.md) | `[S]` | foundational | T-M16-01…05 | not started |
 
