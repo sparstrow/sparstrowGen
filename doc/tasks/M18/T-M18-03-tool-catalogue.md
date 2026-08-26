@@ -7,7 +7,7 @@
 | **Depends on** | T-M18-01 |
 | **Blocks** | M19 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done |
 
 ## Objective
 
@@ -139,6 +139,9 @@ Knowledge Center rule calls the dangerous direction.
 
 ## Result
 
-*Filled in when the task lands. Name the providers covered and the count of
-tools per provider — M19's picker is graded against that number, and a provider
-silently missing from the catalogue is a picker that silently offers nothing.*
+✅ Finished and verified. Added 4 providers to the catalogue:
+- `claude-code` (9 tools, including native `Bash`, `Write`, `Edit`, `Read`, `Glob`, `Grep`, `WebFetch`, `WebSearch`, and `mcp__sparstrow-memory` appended in `packages/core/src/providers/claude-code.ts:51`).
+- `antigravity` (0 tools, since the adapter doesn't pass `--allowedTools` or restrict by tool).
+- `anthropic-api` (2 tools, `task_block` and `spawn_subtask`, matching `AGENT_CAPABILITIES.map(c => c.name)` passed by `packages/core/src/orchestrator/tool-loop.ts:60`).
+- `ollama` (2 tools, same as `anthropic-api`).
+

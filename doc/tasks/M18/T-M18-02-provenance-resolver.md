@@ -7,7 +7,7 @@
 | **Depends on** | T-M18-01 |
 | **Blocks** | M19 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done |
 
 ## Objective
 
@@ -139,5 +139,4 @@ depends on 01 only for ordering in the queue, not for a symbol.
 - [ ] Update this file's **Status** row and the phase README's task table
 
 ## Result
-
-*Filled in when the task lands.*
+✅ Finished and verified. Added `PolicyLevel`, `ToolProvenance`, and `EffectiveToolsWithProvenance` types. Implemented `resolveEffectiveToolsWithProvenance` and `intersectEffectiveToolsWithProvenance`. Tests pass with property-based testing comparing legacy outputs.

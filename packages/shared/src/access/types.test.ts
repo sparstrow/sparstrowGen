@@ -40,7 +40,7 @@ describe("access/types", () => {
       expect(schemas).not.toHaveProperty("ResolvedAccessSchema");
       
       type ExtractedSchemas = keyof typeof schemas;
-      // @ts-expect-error - ResolvedAccessSchema should not exist
+      // check that ResolvedAccessSchema does not exist
       const check: "ResolvedAccessSchema" extends ExtractedSchemas ? true : false = false;
       expect(check).toBe(false);
     });
