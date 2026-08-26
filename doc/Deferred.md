@@ -920,3 +920,44 @@ leaving it implied.
   path — fire-and-forget, never on the critical path, so a failed write delays
   no keystroke. Explicitly not a mirror of live session state, which is what
   DD-5 rejects.
+
+---
+
+## D-27 — Live cancellation of an in-flight plan node/run
+
+**Parked:** 2026-08-25 — the owner answered
+[`OQ-8`](OpenQuestions.md) (now closed, answer recorded there) with **option
+B**: clicking "Cancel this step" on a goal's plan graph should actually stop
+the work, not just relabel it. That is a real, cross-package feature, not a
+`T-WA-04`-sized Server Action conversion, so it is parked here rather than
+folded into `T-WA-04` (already merged, `useCancelNode` shipped unconverted) or
+band 22 (`WA` — mechanical write-transport conversion only, no new backend
+behavior per plan DD-6).
+
+Building it for real needs, at minimum:
+- A genuine `cancelled` value on `TaskStatus`
+  (`packages/shared/src/schemas/task.ts`) distinct from `failed`, since a
+  stopped step and a broken one must not read the same everywhere the app
+  displays task status (board, attention queue, reporting).
+- A stop-signal contract from the control plane down to the daemon actually
+  executing the run — nothing in `packages/core`/`packages/daemon` today
+  receives or honors a cancel signal for an in-flight process. This is the
+  real scope: designing how a daemon polls for or is pushed a cancel request,
+  how it kills the child process cleanly, and how the `runs` row and the
+  linked task settle afterward.
+- Wiring `cancelNodeAction` (`app/tasks/goals/[goalId]/actions.ts`) to that
+  contract once it exists, replacing the currently-unconverted
+  `useCancelNode` hook and its 404ing `POST /goals/:id/nodes/:nodeId/cancel`
+  call site.
+
+**If wrong (i.e. left parked):** low — the button stays exactly as broken as
+it is today (calls a route that has never existed), which is the same
+no-worse-than-status-quo state `T-WA-04` already shipped it in. No user is
+worse off than before this was raised.
+
+**Unpark when:** this becomes prioritized work. Given the scope (a real
+daemon-side dispatch contract touching `packages/core`, the control plane's
+`runs` table, and the web UI), the next step when picked up is a
+`doc/specs/` entry per the normal idea → spec → plan → tasks lifecycle, not a
+task dropped directly into an existing band — this is a new feature, not a
+conversion.

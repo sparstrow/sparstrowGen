@@ -7,7 +7,7 @@
 | **Depends on** | T-WA-01 |
 | **Blocks** | T-WA-09 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | done except OQ-8 2026-08-25 |
+| **Status** | done — `useCancelNode` deferred as `D-27` (`OQ-8` answered: option B) 2026-08-25 |
 
 ## Objective
 
@@ -51,7 +51,7 @@ DD-2 rules out as a barrel in disguise.
 
 - [x] `app/tasks/actions.ts` — create, update, delete, run, answer, approve, deny
 - [x] `app/tasks/goals/[goalId]/actions.ts` — cancel goal, retry node
-- [~] `app/tasks/goals/[goalId]/actions.ts` — cancel node → blocked, see `OQ-8`: no `TaskStatus` value means "cancelled", and no exposed action can actually stop a live process
+- [~] `app/tasks/goals/[goalId]/actions.ts` — cancel node → `OQ-8` answered (option B: real stop-signal, not a relabel); building it is out of this task's scope, deferred as `D-27`
 - [x] All four files call the actions under `useTransition`
 - [x] `useCreateGoal` left untouched
 - [x] Delete the converted hooks from [`hooks.ts`](../../../apps/web/src/api/hooks.ts) — **grep first**, queries stay — found two hooks (`useCreateTask`, `useUpdateTask`) with consumers outside this task's file list (`project-detail.tsx`'s import was dead and removed; `blocked-project-actions.tsx`'s `useUpdateTask` is a real, separate consumer — `useUpdateTask` stays in `hooks.ts` for it, per the phase README's own "delete only after the last consumer is gone" rule)
@@ -82,7 +82,7 @@ deleting.
 - [ ] Answer a question in the attention queue; the row clears on every surface that shows it — **could not exercise**: `BUG-2026-08-25-attention-queue-rows-always-render-as-ready-for-review` (pre-existing) means the answer card never mounts; verified `answerTaskAction`'s DB effects via unit test instead — see `G-41`
 - [x] Invoke `approveTaskAction` with no session and confirm it refuses rather than proceeding — every action starts with `actionContext()`/`NOT_SIGNED_IN`, unit-tested pattern shared with every other converted action in this phase (T-WA-01's own guarantee); not re-proven per-action here
 - [x] Run a task from the board; it dispatches exactly as before — live: assigned an agent, ran it, confirmed the `start_run` RPC's park-status fallback (`no_runtime_available` → `todo`, with the RPC's own message on `result`) persisted correctly
-- [ ] Cancel a goal node and retry it; both still work — **`useCancelNode` blocked, see `OQ-8`**; `retryNodeAction` could not be exercised live either — `BUG-2026-08-25-goal-detail-500s-once-a-plan-has-nodes` (pre-existing) crashes the whole page before its button renders; verified via unit test instead — see `G-41`
+- [ ] Cancel a goal node and retry it; both still work — **`useCancelNode` deferred, see `D-27`** (owner chose real live cancellation over a relabel, which is new feature scope, not this task's); `retryNodeAction` could not be exercised live either — `BUG-2026-08-25-goal-detail-500s-once-a-plan-has-nodes` (pre-existing) crashes the whole page before its button renders; verified via unit test instead — see `G-41`
 - [x] `pnpm typecheck` and `pnpm test` green
 - [x] `read_network_requests` shows no `POST`/`PATCH`/`DELETE` to `/api/v1/tasks` or `/api/v1/goals/*`
 - [x] Every converted button disables itself while its action is in flight
@@ -119,11 +119,14 @@ uniformly:
   of its own — it resolves to the node's linked task and delegates to
   `runTaskAction`, reusing already-real dispatch logic rather than inventing
   new behavior.
-- `useCancelNode`: **blocked, `OQ-8`.** No `TaskStatus` value means
-  "cancelled" (closest is `failed`, semantically wrong), and no exposed
-  action anywhere in this repo can actually stop a live process. Left
-  completely unconverted — same as `useCreateGoal`, zero behavior change from
-  today.
+- `useCancelNode`: **`OQ-8` raised and now answered — option B.** The owner
+  chose real live cancellation (an actual stop-signal to the daemon) over a
+  status-only relabel. That is new feature scope — a daemon-side cancel
+  contract that does not exist yet, plus a real `cancelled` `TaskStatus`
+  value — not a `T-WA-04`-sized conversion, so it is parked as
+  [`D-27`](../../Deferred.md) rather than built here. Left completely
+  unconverted in this task — same as `useCreateGoal`, zero behavior change
+  from today.
 
 **`useAnswerTask` also had no reachable backing**, for a different reason:
 the hook called `PATCH /tasks/:id/answer`; only a `POST` version was ever
