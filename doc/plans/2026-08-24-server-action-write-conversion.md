@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | n/a (internal) — this changes how a write is transported, not what the owner can do. No screen gains or loses a control. |
-| **Status** | Draft — WA1 next |
+| **Status** | In progress — WA2 next |
 | **Trigger** | The owner, 2026-08-24, answering [`OQ-7`](../OpenQuestions.md) with **option A**: rewrite every existing write to the one-step way now, rather than converting opportunistically. |
 | **Depends on** | [`retire-the-vite-app`](2026-08-24-retire-the-vite-app.md) — complete. `T-VR-05` is the worked read conversion this builds on. |
 | **Touches** | `apps/web/src/app/**/actions.ts` (new), `apps/web/src/api/hooks.ts`, the 21 client components listed in WA1, `apps/web/src/lib/api/handlers/*.ts`, `apps/web/CLAUDE.md` |
@@ -255,4 +255,58 @@ the same change, not a ticked box resting on a green typecheck.
 
 ## Result
 
-*Filled in as the phases land.*
+**WA1 (`doc/tasks/WA/`) landed 2026-08-26 — all 9 tasks done.** Full detail
+lives in each task's own Result section and in `T-WA-09`'s (the phase's
+verification task); this is the plan-level summary.
+
+Roughly 70 real write call sites across 21+ files (two more files —
+`blocked-project-actions.tsx`, `manager-chat-panel.tsx` — than the plan's
+original 27-file inventory named, both found mid-phase and folded into the
+task already touching their neighbouring files) converted from
+`useMutation` + `/api/v1` to `"use server"` actions with `callAction()` +
+`useTransition()`. The ~20 DD-6 exclusions held: every stub-backed hook
+was checked against its actual registered route (not assumed from its name)
+and left alone, plus two hooks that turned out to hit a route that never
+existed at all (`useSettings`/`useUpdateSettings` — `/system/settings`,
+`BUG-2026-08-26-system-settings-route-does-not-exist`) rather than a real
+stub, treated the same way.
+
+**Two cross-cluster defects were found and one fixed, the class of bug
+`T-M13-05`/`T-VR-06` motivated this task's existence to catch:**
+- `manager-chat-panel.tsx`'s pipeline-publish button 404'd since `T-WA-06`
+  deleted the route under a hook it correctly kept alive for this exact
+  consumer, but never checked the consumer's own call site still worked.
+  Fixed in `T-WA-09`.
+- `memory.tsx`'s six write hooks were never assigned to any task in this
+  phase's decomposition — not a regression, a gap in the plan's own 27-file
+  inventory. Parked as `D-28` (`doc/Deferred.md`) rather than converted
+  inline, since fixing it is a task-sized piece of work, not a
+  verification-task-sized correction.
+
+**Two genuinely pre-existing bugs were fixed as side effects of moving
+already-correct handler logic into an action that has no HTTP verb to
+mismatch** (`BUG-2026-08-26-agent-update-always-404s`,
+`BUG-2026-08-26-blocked-project-actions-reassign-and-relink-always-404`), and
+one shared-helper gap (`actionErrorFrom` missing 3 of 5 Postgres error code
+mappings) was found and fixed retroactively across every already-converted
+action (`BUG-2026-08-26-action-error-mapping-missing-three-codes`).
+
+**Verification:** `pnpm typecheck` and `pnpm test` green across the
+workspace throughout. The "no write reaches `/api/v1`" rendered-browser
+check — flagged in this plan's own Verification section as needing a
+deployed preview — was completed for Teams, Projects, and Agents against the
+band branch's own Vercel preview with a real signed-in session, plus two
+cross-cutting checks (unauthenticated refusal, transport-failure message)
+that cover every converted action regardless of page. It was **not**
+completed for the remaining eight tasks' surfaces on that same preview pass
+— the preview became intermittently unreachable partway through (confirmed
+via `curl` to be a connectivity issue, not the deployment itself failing).
+Each of those eight tasks already has its own page-specific live evidence in
+its own Result section; what's missing is `T-WA-09`'s additional
+cross-cluster confirmation of them, tracked as `G-46`.
+
+`hooks.ts`: 2226 lines (after `T-WA-01`) → 1575 lines (−29%).
+
+**Recommendation:** promote WA1 to `development` with `D-28` and `G-46`
+carried forward as the honest record of what remains — neither is a known
+break in what shipped.

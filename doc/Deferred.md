@@ -961,3 +961,52 @@ daemon-side dispatch contract touching `packages/core`, the control plane's
 `doc/specs/` entry per the normal idea → spec → plan → tasks lifecycle, not a
 task dropped directly into an existing band — this is a new feature, not a
 conversion.
+
+---
+
+## D-28 — `memory.tsx`'s six writes were never assigned to a WA-phase task
+
+**Parked:** 2026-08-26 — found by `T-WA-09`'s mandated sweep
+(`grep -rnE "use(Mutation|Create|Update|...)...\(\)" --include=*.tsx`), which
+turned up real, non-stub write hooks with no task in `doc/tasks/WA/` naming
+`apps/web/src/app/memory/memory.tsx` at all. Every other real hit the sweep
+found (`manager-chat-panel.tsx`'s `useCreatePipeline`,
+`blocked-project-actions.tsx`'s four hooks) was at least a *known* remaining
+consumer some earlier task's Result section had flagged and left for later;
+`memory.tsx` was never mentioned by any task file in this phase, which is why
+this is `Deferred.md` and not a same-turn fix — it is not one or two call
+sites next to a file this session already had open, it is a whole
+unconverted page.
+
+**Six real, working routes, all unconverted:**
+- `useCreateMemoryNote` → `POST /memory/notes`
+- `useDeleteMemoryNote` → `DELETE /memory/notes/:id` (two call sites: the
+  main list's delete action, and the "reject" action on a quarantined note)
+- `useBulkDeleteNotes` → `POST /memory/notes/bulk-delete`
+- `useApproveNote` → `POST /memory/notes/:id/approve`
+- `useArchiveNote` → `POST /memory/notes/:id/archive`
+
+(`useUpdateNoteRaw` → `PUT /memory/notes/:id/raw` is correctly excluded — that
+path is a `stubs.ts` host-local pattern, a real DD-6 exclusion, not part of
+this gap.)
+
+**Why not fixed inline by `T-WA-09`:** this is comparable in size to any one
+of `T-WA-02` through `T-WA-08` individually — six hooks, a dedicated
+`app/memory/actions.ts`, its own test file, its own live verification pass —
+not a one- or two-call-site correction. Converting it as a side effect of the
+*verification* task would be exactly the scope inflation `AGENTS.md` §9
+warns against, and would leave this task's own actual job (proving the other
+eight tasks didn't break anything) half-done.
+
+**If wrong (i.e. left parked):** low — these six writes keep going through
+`/api/v1` exactly as they do today. Nothing about band 22 landing makes them
+worse; they are simply not yet part of the phase's stated "every write is a
+Server Action" outcome. The risk is purely that `WA1`'s Result section
+(`doc/tasks/WA/README.md`) would overstate completeness if this gap isn't
+named there.
+
+**Unpark when:** band 22 closes (zero open task/band branches, per
+`AGENTS.md` §2.9's queue-regeneration precondition) and a new task can be
+decomposed for it — either folded into whatever comes after `WA1`/`WA2`, or
+its own small band. Whoever picks this up should re-run the same sweep first
+in case anything else has drifted since 2026-08-26.
