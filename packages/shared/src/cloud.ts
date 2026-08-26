@@ -15,7 +15,7 @@
 // `moduleResolution: Bundler`, and Next consumes this directory as TypeScript
 // source — a `./constants.js` specifier typechecks fine and then fails to
 // resolve at bundle time, which is a runtime 500 no typecheck will ever catch.
-import { SETTING_WIP_SNAPSHOT, SETTING_WIP_SNAPSHOT_KEEP } from "./constants";
+import { SETTING_WIP_SNAPSHOT, SETTING_WIP_SNAPSHOT_KEEP, SETTING_TERMINAL_ACCESS } from "./constants";
 import type { RunEventType } from "./schemas/run";
 
 /** How often a paired daemon posts a heartbeat. */
@@ -274,6 +274,7 @@ export interface SettingsSetPayload {
 export const DAEMON_SETTABLE_KEYS: readonly string[] = [
   SETTING_WIP_SNAPSHOT,
   SETTING_WIP_SNAPSHOT_KEEP,
+  SETTING_TERMINAL_ACCESS,
 ];
 
 /** A command as handed to the daemon by the claim endpoint. */
@@ -816,3 +817,83 @@ export interface ChatTurnBroadcast {
   status: "running" | "succeeded" | "failed";
   error?: string | null;
 }
+
+// ─── M16 — the terminal channel ─────────────────────────────────────────────
+//
+// Two topic families rather than one. Control is per machine because a
+// browser needs to ask "what sessions exist" before any session exists to
+// have a topic of its own; a session's bytes are per session because a
+// machine may run up to `MAX_TERMINAL_SESSIONS` of them at once and nothing
+// should have to filter one session's output out of another's.
+//
+// Message shapes for both live in `./schemas/terminal.ts` — this file owns
+// only the topic strings, the event names carried inside them, and the
+// numeric limits, mirroring how `runTranscriptTopic`/`chatTurnTopic` split
+// from `../schemas/run.ts`/`./schemas/chat.ts` above.
+
+/**
+ * Control: requests from a browser, replies from the machine.
+ *
+ * Per machine, not per browser — two tabs issuing `terminal.list` at once
+ * both receive both replies, and each request's `requestId` is how a tab
+ * finds its own. Shaped exactly like `runTranscriptTopic`/`chatTurnTopic` so
+ * the policy in `018_terminal_channels.sql` is the same
+ * `split_part(realtime.topic(), ':', 2)` membership test with no join.
+ *
+ * The id in the topic is not what grants access — the RLS policy is. A
+ * non-member who guesses the topic is refused at subscribe, same as the run
+ * and chat topics.
+ */
+export function machineControlTopic(workspaceId: string, runtimeId: string): string {
+  return `machine:${workspaceId}:${runtimeId}`;
+}
+
+/**
+ * One session's bytes, both directions. Policy: `018_terminal_channels.sql`.
+ */
+export function terminalSessionTopic(workspaceId: string, sessionId: string): string {
+  return `terminal:${workspaceId}:${sessionId}`;
+}
+
+/** Browser → machine, on the control topic. Client-sendable. */
+export const MACHINE_REQUEST_EVENT = "request";
+/** Machine → browser, on the control topic. NOT client-sendable — `018_terminal_channels.sql` denies it. */
+export const MACHINE_REPLY_EVENT = "reply";
+/** Browser → machine, on a session topic. Client-sendable. */
+export const TERMINAL_INPUT_EVENT = "input";
+/** Machine → browser, on a session topic. NOT client-sendable — `018_terminal_channels.sql` denies it. */
+export const TERMINAL_OUTPUT_EVENT = "output";
+
+/** How many terminal sessions one machine may hold open at once. */
+export const MAX_TERMINAL_SESSIONS = 10;
+
+/** Longest a machine batches PTY output before broadcasting it. */
+export const TERMINAL_OUTPUT_FLUSH_MS = 30;
+
+/** Bytes of PTY output that force an early flush, ahead of the interval above. */
+export const TERMINAL_OUTPUT_FLUSH_BYTES = 8 * 1024;
+
+/**
+ * Ceiling on one broadcast message. Half the Realtime cap, same reasoning as
+ * `TRANSCRIPT_BATCH_MAX_BYTES`: the envelope and JSON escaping of what is
+ * already near-binary terminal output inflate the wire size above the flush
+ * threshold above.
+ */
+export const TERMINAL_OUTPUT_MAX_BYTES = 64 * 1024;
+
+/** Sustained input rate a session is throttled to once it exceeds it. */
+export const TERMINAL_THROTTLE_BYTES_PER_SEC = 256 * 1024;
+
+/** How long input must stay under the throttle before it is lifted. */
+export const TERMINAL_THROTTLE_SUSTAIN_MS = 3_000;
+
+/**
+ * How long a control request waits for a reply before the page gives up on
+ * the machine and says so — FR-014's timeout, mirroring
+ * `COMMAND_POLL_INTERVAL_MS`'s job of naming a wait the UI must not exceed
+ * silently.
+ */
+export const MACHINE_REQUEST_TIMEOUT_MS = 10_000;
+
+/** Lifetime of the credential a daemon mints to authenticate to Realtime. */
+export const DAEMON_REALTIME_TOKEN_TTL_S = 600;

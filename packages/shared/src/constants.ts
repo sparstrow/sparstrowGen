@@ -114,6 +114,12 @@ export function resolveWipSnapshotKeep(raw: string | null | undefined): number {
 }
 
 /**
+ * M16 — per-machine on/off switch for the terminal channel (US4). Same
+ * true/false-string convention as `SETTING_WIP_SNAPSHOT`; absent means on.
+ */
+export const SETTING_TERMINAL_ACCESS = "terminal.access";
+
+/**
  * T-M9-04 — the one Supabase Storage bucket for avatar and workspace-logo
  * images. Named once, here, so the upload component's client-side check, the
  * server's `isOwnStorageUrl` origin check, and the SQL policy comment
