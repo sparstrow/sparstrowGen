@@ -167,6 +167,11 @@ before starting the checklist. Band 23's own already-archived docs
 (`CompletedMasterQueue.md`, `T-M18-04`) were left untouched — they're another
 band's landed history, not live planning text.
 
+**Amended 2026-08-26 (during `T-M16-05`):** `TerminalSessionInfo` gained
+`ageMs` and `attached` — `listSessions()` needs to report both and this
+schema hadn't anticipated either. Purely additive; nothing outside this
+module's own tests had consumed the type in between, so nothing broke.
+
 Everything else matches the Decisions section verbatim: two topic helpers in
 `cloud.ts` (`machineControlTopic`, `terminalSessionTopic`), the four event
 constants, the four request/reply Zod schemas in the new
