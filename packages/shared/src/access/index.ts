@@ -1,3 +1,3 @@
-export * from "./types";
-export * from "./schemas.js";
-export * from "./tool-catalogue.js";
+export * from './types';
+export * from './schemas';
+export * from './tool-catalogue';
