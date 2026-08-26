@@ -1229,3 +1229,36 @@ and Mono surfaces in both modes, which `DESIGN.md` §2 requires.
   against a deployed preview and ticked, or explicitly rewritten to say what
   was run instead. Cheapest inside `I-10`'s settings design pass, which will
   be re-opening these surfaces anyway.
+
+### G-39 — `T-WA-02`'s "rename a project" verification has no UI to exercise it
+
+**Raised:** 2026-08-25, verifying `T-WA-02` (`updateProjectAction`) live.
+
+The task's Verification section asks to "rename a project, then open
+`/projects` — the new name is there on arrival." `apps/web/src/app/projects/[projectId]/project-detail.tsx`'s
+`GitPanel` is the only call site of `updateProjectAction` in this task, and it
+only ever sends `executionProfile`/`stagingBranch` — there is no project-name
+or description edit control anywhere in `project-detail.tsx` or `projects.tsx`
+to actually exercise a rename through the UI. `useUpdateProject`, the hook this
+task deleted, had exactly the same single call site before conversion, so this
+is not a regression the conversion introduced — the UI to rename a project has
+never existed on these pages.
+
+Verified instead: `updateProjectAction` itself, live, via the one real call
+site — flipping a project to `production_app` with a staging branch, both
+persisted (confirmed against the `projects` row directly) and reflected back
+in the UI without a page reload. The write path — auth, `toSnake`, the
+`workspace_id`/`id` scoped update, `revalidatePath`, `actionErrorFrom` mapping
+— is exercised end to end; only the specific "name" field of `ProjectUpdate`
+went untouched, because nothing calls the action with one.
+
+- **If wrong:** low — `updateProjectAction` updates whatever fields
+  `ProjectUpdate` carries via one generic `.update(payload)` call, so a name
+  change is not a distinct code path from the profile-field change already
+  proven live. The risk is confined to the day a rename UI is actually built
+  and wires up wrong, not to this task's code.
+- **Clears when:** a task adds a rename control to `project-detail.tsx` or
+  `projects.tsx` and exercises it live, or someone runs
+  `updateProjectAction(id, { name: "..." })` directly against a disposable
+  project and confirms `/projects` shows the new name without a query
+  invalidation bug.
