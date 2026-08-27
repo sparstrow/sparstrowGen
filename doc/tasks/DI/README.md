@@ -43,7 +43,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
-| [T-DI-01 — the session topic carries the runtime id](T-DI-01-session-topic-runtime-id.md) | `[S]` | foundational | — | not started |
+| [T-DI-01 — the session topic carries the runtime id](T-DI-01-session-topic-runtime-id.md) | `[S]` | foundational | — | done (2026-08-27) |
 | [T-DI-02 — the daemon identity: schema, helper, policies](T-DI-02-daemon-identity-schema.md) | `[S]` | foundational | T-DI-01 | not started |
 | [T-DI-03 — the token route mints a Supabase session](T-DI-03-token-route-supabase-session.md) | `[S]` | foundational | T-DI-02 | not started |
 | [T-DI-04 — core adapts to the new credential](T-DI-04-core-credential-lifetime.md) | `[P]` | foundational | T-DI-03 | not started |

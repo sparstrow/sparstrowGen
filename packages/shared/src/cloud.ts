@@ -849,10 +849,25 @@ export function machineControlTopic(workspaceId: string, runtimeId: string): str
 }
 
 /**
- * One session's bytes, both directions. Policy: `018_terminal_channels.sql`.
+ * One session's bytes, both directions. Policies: `018_terminal_channels.sql`
+ * (the browser's half) and `019_daemon_realtime_identity.sql` (the machine's).
+ *
+ * **The runtime id is in here for the daemon's policy, not the browser's**
+ * (`T-DI-01`, plan decision `DI-2`). A session id is machine-local and `D-26`
+ * means no cloud row exists to join it against, so without the runtime id the
+ * machine-side `output` policy could only check *"is the sender a daemon in
+ * this workspace"* — letting one of the owner's machines publish onto another
+ * of their machines' session topics. With it, `019` checks the pair
+ * `(workspace, runtime)` against `private.current_daemon_scope()` and a machine
+ * is confined to its own sessions.
+ *
+ * The workspace id stays FIRST so the browser policies remain a membership test
+ * with no join — `DD-3`'s reason, unchanged. Positions are load-bearing:
+ * `split_part(topic, ':', 2)` is the workspace and `':', 3` the runtime in both
+ * policy files.
  */
-export function terminalSessionTopic(workspaceId: string, sessionId: string): string {
-  return `terminal:${workspaceId}:${sessionId}`;
+export function terminalSessionTopic(workspaceId: string, runtimeId: string, sessionId: string): string {
+  return `terminal:${workspaceId}:${runtimeId}:${sessionId}`;
 }
 
 /** Browser → machine, on the control topic. Client-sendable. */

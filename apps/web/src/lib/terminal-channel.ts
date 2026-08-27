@@ -252,7 +252,7 @@ export class RealtimeTerminalChannel implements TerminalChannel {
     void this.workspaceId().then((workspaceId) => {
       if (closed || !workspaceId) return;
 
-      const topic = terminalSessionTopic(workspaceId, sessionId);
+      const topic = terminalSessionTopic(workspaceId, this.runtimeId, sessionId);
       channel = this.supabase.channel(topic, { config: { broadcast: { self: false }, private: true } });
       channel.on("broadcast", { event: TERMINAL_OUTPUT_EVENT }, ({ payload }: { payload: unknown }) => {
         guard("output", () => {

@@ -294,9 +294,14 @@ export interface SessionChannel {
 export function openSessionChannel(sessionId: string): SessionChannel | null {
   if (!client) return null;
   const workspaceId = getWorkspaceId();
-  if (!workspaceId) return null;
+  // Both come from this machine's own pairing state, never from a message —
+  // the same rule `establish()` follows for the control topic (M16 phase
+  // decision 3). `019`'s policy checks this pair, so a runtime id taken from
+  // an inbound payload would be a machine publishing under another's name.
+  const runtimeId = getRuntimeId();
+  if (!workspaceId || !runtimeId) return null;
 
-  const topic = terminalSessionTopic(workspaceId, sessionId);
+  const topic = terminalSessionTopic(workspaceId, runtimeId, sessionId);
   const channel = client.channel(topic, {
     config: { broadcast: { self: false }, private: true },
   });
