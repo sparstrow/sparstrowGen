@@ -14,6 +14,7 @@ that drift apart.
 | A phase spec — what a phase's tasks share | [`phase-spec.md`](phase-spec.md) | `doc/tasks/<phase>/README.md` |
 | A task — one executable unit of work | [`task.md`](task.md) | `doc/tasks/<phase>/T-<phase>-<nn>-<slug>.md` |
 | A verification task — proving a phase for real | [`verification-task.md`](verification-task.md) | `doc/tasks/<phase>/T-<phase>-<nn>-verification.md` |
+| Feedback — raw reaction, not yet triaged | [`feedback.md`](feedback.md) | `doc/feedback/FB-<YYYY-MM-DD>-<slug>.md` |
 | A bug — something behaving wrong | [`bug.md`](bug.md) | `doc/bug/BUG-<YYYY-MM-DD>-<slug>.md` |
 | A security issue — a trust-boundary problem | [`security.md`](security.md) | `doc/security/SEC-<YYYY-MM-DD>-<slug>.md` |
 | A runbook — steps only a human can do | [`runbook.md`](runbook.md) | `doc/runbooks/<topic>.md` |
