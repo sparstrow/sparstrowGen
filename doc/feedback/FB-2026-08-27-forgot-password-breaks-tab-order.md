@@ -1,0 +1,35 @@
+# FB-2026-08-27-forgot-password-breaks-tab-order
+
+**Status:** 🔴 new
+**Reported by:** owner
+**Reported:** 2026-08-27
+**Area:** Auth — sign-in form (`/login`, sign-in mode)
+
+## Raw feedback
+
+> I want the forgot password button to moved after the password textbox. I
+> have a habbit of writing email and clicking tab to go to the password box
+> and type the password and hit enter to signin fast. But the forgot password
+> button is in the middle so I had to hit tab twice.
+
+## Context
+
+On the sign-in form, "Forgot password?" currently sits between the Email and
+Password fields (in the row alongside the Password label, but earlier in tab
+order than the Password input itself — it sits between Email and Password in
+the DOM). The owner's keyboard flow is: type email → Tab → type password →
+Enter. Because "Forgot password?" is a focusable button positioned in that
+same tab sequence before the password input, Tab lands there first instead of
+in the Password field, breaking the fast keyboard flow.
+
+Owner's expectation: move "Forgot password?" so it comes after the Password
+textbox in tab order, so Email → Tab → Password → Enter works in one Tab
+press.
+
+## Triage
+
+<!-- Not triaged yet. -->
+
+## Resolution
+
+<!-- Not resolved yet. -->

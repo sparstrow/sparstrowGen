@@ -80,3 +80,4 @@ came in.
 |---|---|---|---|
 | [`FB-2026-08-27-signup-missing-confirm-password`](FB-2026-08-27-signup-missing-confirm-password.md) | 🔴 new | Auth — sign-up form | Sign-up form has only one Password field, no confirmation |
 | [`FB-2026-08-27-email-confirm-cross-browser-pkce-error`](FB-2026-08-27-email-confirm-cross-browser-pkce-error.md) | 🔴 new | Auth — email confirmation link | Confirming from a different browser than sign-up shows a raw PKCE/developer error instead of a usable sign-in path |
+| [`FB-2026-08-27-forgot-password-breaks-tab-order`](FB-2026-08-27-forgot-password-breaks-tab-order.md) | 🔴 new | Auth — sign-in form | "Forgot password?" sits before the Password field in tab order, breaking the email→Tab→password→Enter flow |
