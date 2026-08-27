@@ -36,7 +36,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useQueryClient } from "@tanstack/react-query";
-import { useRuntimes, type Runtime } from "@web/api/hooks";
+import { useRuntimes, useWorkspace, type Runtime } from "@web/api/hooks";
 import { callAction } from "@web/lib/call-action";
 import { relativeTime } from "@/lib/format";
 import {
@@ -48,8 +48,10 @@ import {
 } from "./actions";
 import {
   DEFAULT_WIP_SNAPSHOT_KEEP,
+  SETTING_TERMINAL_ACCESS,
   SETTING_WIP_SNAPSHOT,
   SETTING_WIP_SNAPSHOT_KEEP,
+  isTerminalAccessEnabled,
   isWipSnapshotEnabled,
   machineState,
   type MachineState,
@@ -251,7 +253,7 @@ function MachineTile({ state }: { state: MachineState }) {
   );
 }
 
-function RuntimeRow({ runtime }: { runtime: Runtime }) {
+function RuntimeRow({ runtime, canManageTerminals }: { runtime: Runtime; canManageTerminals: boolean }) {
   const queryClient = useQueryClient();
   const [, startRename] = React.useTransition();
   const [revokePending, startRevoke] = React.useTransition();
@@ -379,6 +381,7 @@ function RuntimeRow({ runtime }: { runtime: Runtime }) {
 
       <ItemFooter>
         <SnapshotControl runtime={runtime} />
+        <TerminalAccessControl runtime={runtime} canManage={canManageTerminals} />
       </ItemFooter>
 
       <ConfirmDialog
@@ -506,6 +509,65 @@ function SnapshotControl({ runtime }: { runtime: Runtime }) {
   );
 }
 
+/**
+ * T-M17-04 — same shape as `SnapshotControl` immediately above: renders the
+ * machine's own CONFIRMED value from `reportedSettings`, never an optimistic
+ * local one (`G-6`), and disables with a reason when the command can't be
+ * delivered. Differs in one way `SnapshotControl` doesn't need: this grant
+ * is FR-009-gated, so a non-admin member never gets a control that would
+ * silently no-op — the switch itself is disabled with why, matching
+ * Terminals' own role check (`T-M17-02`).
+ */
+function TerminalAccessControl({ runtime, canManage }: { runtime: Runtime; canManage: boolean }) {
+  const queryClient = useQueryClient();
+  const [, startTransition] = React.useTransition();
+  const [pending, setPending] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const reported = runtime.reportedSettings ?? {};
+  const enabled = isTerminalAccessEnabled(reported[SETTING_TERMINAL_ACCESS]);
+
+  const send = (value: string) => {
+    setPending(true);
+    setError(null);
+    startTransition(async () => {
+      const r = await callAction(() => setRuntimeSettingAction(runtime.id, SETTING_TERMINAL_ACCESS, value));
+      if (!r.ok) setError(r.error);
+      else void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
+      setPending(false);
+    });
+  };
+
+  return (
+    <div className="w-full border-t border-border/60 pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs font-medium">Browser terminals</p>
+          <p className="text-xs text-muted-foreground">
+            {!canManage
+              ? "Only workspace owners and admins can change this."
+              : !runtime.online
+                ? "This machine is unreachable — its settings can be changed when it reconnects."
+                : "Lets a signed-in browser open a shell on this machine. Turning it off ends any open sessions."}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {pending ? <Loader2 className="size-3.5 animate-spin text-muted-foreground" /> : null}
+          <Switch
+            checked={enabled}
+            disabled={!canManage || !runtime.online || pending}
+            onCheckedChange={(next) => send(next ? "on" : "off")}
+            aria-label={`Browser terminals on ${runtime.name}`}
+          />
+        </div>
+      </div>
+
+      {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
+    </div>
+  );
+}
+
 /** Skeletons shaped like the rows they stand in for, so nothing jumps on arrival. */
 function MachineRowSkeleton() {
   return (
@@ -574,6 +636,11 @@ function RuntimesError({
 
 export function MachinesPage() {
   const runtimes = useRuntimes();
+  const workspace = useWorkspace();
+  // T-M17-04 — the same role check Terminals itself uses (FR-009): a member
+  // who is not owner/admin cannot open a terminal, so cannot switch whether
+  // anyone else can either. Fail-closed while the role hasn't loaded yet.
+  const canManageTerminals = workspace.data?.role === "owner" || workspace.data?.role === "admin";
   const [createPending, startCreate] = React.useTransition();
   const [createError, setCreateError] = React.useState<string | null>(null);
   const [issued, setIssued] = React.useState<{
@@ -716,7 +783,7 @@ export function MachinesPage() {
       ) : (
         <ItemGroup className="gap-2">
           {machines.map((runtime) => (
-            <RuntimeRow key={runtime.id} runtime={runtime} />
+            <RuntimeRow key={runtime.id} runtime={runtime} canManageTerminals={canManageTerminals} />
           ))}
         </ItemGroup>
       )}

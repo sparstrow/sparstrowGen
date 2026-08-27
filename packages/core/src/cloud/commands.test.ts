@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { COMMAND_POLL_INTERVAL_MS, SETTING_WIP_SNAPSHOT } from "@sparstrow/shared";
+import { COMMAND_POLL_INTERVAL_MS, SETTING_TERMINAL_ACCESS, SETTING_WIP_SNAPSHOT } from "@sparstrow/shared";
 import { eq } from "drizzle-orm";
 import { config } from "../config.js";
 import { closeDb, getDb, openDb } from "../db/connection.js";
@@ -20,6 +20,11 @@ vi.mock("../logger.js", () => ({
 
 vi.mock("../orchestrator/one-shot.js", () => ({
   completeOnce: vi.fn().mockReturnValue(new Promise(() => {})),
+}));
+
+const killAllSessionsMock = vi.fn();
+vi.mock("../terminal/manager.js", () => ({
+  killAllSessions: (...args: unknown[]) => killAllSessionsMock(...args),
 }));
 
 const now = "2026-08-10T00:00:00Z";
@@ -70,6 +75,7 @@ describe("command loop", () => {
   let originalCloudUrl: string;
 
   beforeEach(() => {
+    killAllSessionsMock.mockClear();
     vi.useFakeTimers();
     originalSecretsDir = config.secretsDir;
     originalCloudUrl = config.cloudUrl;
@@ -373,6 +379,52 @@ describe("command loop", () => {
 
     const row = getDb().select().from(settings).where(eq(settings.key, SETTING_WIP_SNAPSHOT)).get();
     expect(row?.value).toBe("off");
+  });
+
+  it("T-M17-04: switching SETTING_TERMINAL_ACCESS off kills every live session on the machine", async () => {
+    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+
+    let claimed = false;
+    routeFetch({
+      "/ack": () => jsonResponse(200, { ok: true }),
+      "/commands": () => {
+        if (claimed) return jsonResponse(200, { commands: [] });
+        claimed = true;
+        return jsonResponse(200, {
+          commands: [
+            command({ kind: "settings.set", payload: { key: SETTING_TERMINAL_ACCESS, value: "off" } }),
+          ],
+        });
+      },
+    });
+
+    startCommandLoop();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(killAllSessionsMock).toHaveBeenCalledWith("access_revoked");
+  });
+
+  it("T-M17-04: switching SETTING_TERMINAL_ACCESS on (or setting an unrelated key) does not kill anything", async () => {
+    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+
+    let claimed = false;
+    routeFetch({
+      "/ack": () => jsonResponse(200, { ok: true }),
+      "/commands": () => {
+        if (claimed) return jsonResponse(200, { commands: [] });
+        claimed = true;
+        return jsonResponse(200, {
+          commands: [
+            command({ kind: "settings.set", payload: { key: SETTING_TERMINAL_ACCESS, value: "on" } }),
+          ],
+        });
+      },
+    });
+
+    startCommandLoop();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(killAllSessionsMock).not.toHaveBeenCalled();
   });
 
   it("refuses a setting outside the allowlist", async () => {
