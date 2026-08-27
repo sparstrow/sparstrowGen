@@ -3,7 +3,8 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
+      "env": ["NODE_ENV", "DATABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_JWT_SIGNING_KEY"]
     },
     "dev": {
       "cache": false,
