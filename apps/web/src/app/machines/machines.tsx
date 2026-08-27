@@ -38,6 +38,7 @@ import { Switch } from "@/components/ui/switch";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRuntimes, type Runtime } from "@web/api/hooks";
 import { callAction } from "@web/lib/call-action";
+import { relativeTime } from "@/lib/format";
 import {
   createPairingCodeAction,
   removeRuntimeAction,
@@ -75,18 +76,6 @@ import { cn } from "@/lib/utils";
  */
 const CHECKOUT_NOTE =
   "sparstrow isn't published yet — the machine needs a checkout of this repository to run it. Packaged installers are coming.";
-
-function relativeTime(iso: string | null): string {
-  if (!iso) return "never";
-  const ms = Date.now() - new Date(iso).getTime();
-  if (Number.isNaN(ms)) return "unknown";
-  if (ms < 60_000) return "just now";
-  const minutes = Math.floor(ms / 60_000);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
 
 /**
  * The code, with a live countdown.
