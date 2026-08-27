@@ -1546,7 +1546,8 @@ claim that they are unverified everywhere.
 ### G-47 — M16 (a live channel to a machine) is built and unit-tested; nothing has actually connected to Realtime
 
 **Raised:** 2026-08-26, closing `T-M16-01` … `T-M16-05` and attempting
-`T-M16-06`.
+`T-M16-06`. **Updated:** 2026-08-26, same day — §D's SQL-assertion half run
+against the real (staging) project and closed; see below.
 
 All five build tasks are done — 22 new tests across `packages/shared` and
 `packages/core` (channel-contract schemas, the four RLS policies applied to
@@ -1574,23 +1575,30 @@ not have:
   evidence for the code path even without a rendered xterm.js session. The
   transcript/chat-still-streaming check and the typecheck/test bullet **did**
   run — see `T-M16-04`'s Result.
-- **§D (the policies refuse the right people) — not run at all**, and this
-  is the one the task's own Objective flagged in advance as the likely gap.
-  It asks for SQL assertions against **synthetic sessions** on the preview's
-  project rather than a second real account, which this repo's own house
-  style (`verify-rls.sh`, `verify-command-spine.mjs`) normally satisfies by
-  standing up a **disposable local Postgres container** with the real
-  migrations replayed onto it — never the actual Supabase project, so a
-  synthetic admin/member/cross-workspace session can be fabricated freely.
-  Docker Desktop was not running in this environment; starting it was
-  attempted and did not come up within this session. Fabricating the
-  equivalent sessions directly against the **real** project's database
-  instead — inserting throwaway `auth.users`/`workspace_members` rows to get
-  an admin of A, a member of A, and an admin of B — was deliberately not
-  done: that mutates real production-adjacent data for a check this repo's
-  own precedent says should never need to touch it. `T-M16-03`'s Result
-  already recorded the same deferral for its own narrower verification list,
-  for the same reason.
+- **§D (the policies refuse the right people) — run 2026-08-26, on the
+  owner's confirmation that this project is currently a staging database,
+  not live**, against the **real** project rather than a disposable Docker
+  container (Docker still wasn't available). 13 assertions, all inside a
+  single transaction that ends in `ROLLBACK` — synthetic workspaces/users
+  (`verify-018-*` ids) never committed, confirmed empty afterward:
+  `private.current_admin_workspace_ids()` correctly includes workspace A for
+  an admin of A, excludes it for a plain member of A, and excludes it for an
+  admin of unrelated workspace B; exactly six `realtime.messages` policies
+  exist with the expected names; no `INSERT` policy touches a `run:`/`chat:`
+  topic; `terminal_channel_admin_send`/`machine_channel_admin_send` each pin
+  their event (`input`/`request`) and do not admit the forgeable one
+  (`output`/`reply`); both `_read` policies gate on
+  `current_admin_workspace_ids()`, not plain membership. **What this did
+  NOT exercise:** `realtime.topic()` itself — that GUC is populated by the
+  live Realtime server during an actual subscribe/broadcast attempt, and
+  there is no public SQL setter for it outside that connection, so the
+  script read the compiled policy predicates from `pg_policies` and
+  independently exercised the helper function instead of driving a real
+  broadcast end-to-end. That is strong evidence the policy logic is correct,
+  not a byte-for-byte replay of the wire path — the live version of this
+  check (a second real signed-in session, refused at subscribe and at send)
+  is still §A/§B territory and still needs a real deployment + paired
+  machine.
 - **§E (the lifetime change behaves) — the four points needing a live shell
   or a real 15-minute wait weren't run**, but the underlying mechanism for
   every one of them is unit-tested in `manager.test.ts` against a fake PTY
@@ -1609,19 +1617,18 @@ not have:
   sit on, and nothing about a faked `RealtimeClient` can catch a mismatch
   against the real `@supabase/realtime-js` wire protocol or a real Supabase
   project's actual behavior (message framing, channel topic prefixing,
-  auth-rejection timing). Medium for §D — the four policies were written
-  against the same `split_part(realtime.topic(), ':', 2)` shape 010/015
-  already prove correct in production, and the event pin is the one new
-  idea, but a mistake there is a real cross-workspace or output-forgery
-  vulnerability, not a cosmetic bug. Low for §C/§E, which have strong
-  proxy evidence already.
+  auth-rejection timing). Low-medium for §D's remaining slice (the live
+  subscribe/broadcast path through `realtime.topic()` itself) — the
+  predicate logic is now directly confirmed against the real project, so
+  what's left is specifically "does the Realtime server populate and gate on
+  that GUC the way the policy assumes," which §A/§B's live pass will also
+  exercise. Low for §C/§E, which have strong proxy evidence already.
 - **Clears when:** (1) the owner sets `SUPABASE_JWT_SIGNING_KEY` on the
   deployment and a real machine pairs against it, closing §A and §B with an
-  actual subscribed channel and a real refresh-under-load; (2) either Docker
-  becomes available in a future session to run the disposable-container
-  version of §D, or the owner authorizes fabricating synthetic sessions
-  directly against the real project once weighed against the risk above;
-  (3) `T-M17-04` ships and its own verification proves the
+  actual subscribed channel and a real refresh-under-load — this also closes
+  §D's remaining live-subscribe/broadcast slice, since a second real signed-in
+  session refused at subscribe and at send is the same underlying mechanism;
+  (2) `T-M17-04` ships and its own verification proves the
   access-switch-kills-existing-sessions bullet. `T-M17-06` (the browser-side
   pass) is where §A/§B's evidence gets a second, independent confirmation
   from the UI side once M17 exists to click.

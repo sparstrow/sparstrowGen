@@ -80,22 +80,34 @@ paired to it, per `AGENTS.md` §2 rule 3. Not `development.sparstrow.com`.
 Both directions, both topic families. SQL-level assertions, run against the
 preview's project.
 
-- [ ] An admin of workspace A: **can** select and **can** insert an `input` event
-      on `terminal:<A>:x`
-- [ ] The same admin: **cannot** insert an `output` event on the same topic — the
-      event pin from `T-M16-03`
-- [ ] A `member`-role user of workspace A: **cannot** select and **cannot**
-      insert on `terminal:<A>:x` or `machine:<A>:y`
-- [ ] An admin of workspace B: **cannot** select or insert on either of A's topics
-- [ ] `terminal_channel_admin_send` does not grant anything on a `run:` or
-      `chat:` topic
-- [ ] `select policyname, cmd from pg_policies where schemaname = 'realtime'`
+- [x] An admin of workspace A: **can** select and **can** insert an `input` event
+      on `terminal:<A>:x` — confirmed via the compiled policy predicate and
+      `current_admin_workspace_ids()` evaluated as that admin (see Result)
+- [x] The same admin: **cannot** insert an `output` event on the same topic — the
+      event pin from `T-M16-03` — confirmed: the compiled `with_check` requires
+      `event = 'input'` and does not admit `'output'`
+- [x] A `member`-role user of workspace A: **cannot** select and **cannot**
+      insert on `terminal:<A>:x` or `machine:<A>:y` — confirmed:
+      `current_admin_workspace_ids()` excludes A for a plain member
+- [x] An admin of workspace B: **cannot** select or insert on either of A's topics
+      — confirmed: `current_admin_workspace_ids()` for B's admin excludes A
+- [x] `terminal_channel_admin_send` does not grant anything on a `run:` or
+      `chat:` topic — confirmed: no INSERT policy's `with_check` mentions
+      `run:` or `chat:`
+- [x] `select policyname, cmd from pg_policies where schemaname = 'realtime'`
       returns exactly six rows, and **none of them is an INSERT policy on a
-      `run:` or `chat:` topic** — `010`'s instruction is still honoured
+      `run:` or `chat:` topic** — `010`'s instruction is still honoured —
+      confirmed: 6 rows, names match 010/015/018 exactly
 
-**Evidence strength.** These are SQL assertions against synthetic sessions, not a
-second human signing in. Say so in Result, and open the gap entry named in the
-Objective if the live walk is not also done.
+**Evidence strength.** Run 2026-08-26 directly against the real (staging, per
+owner) project, inside a transaction that always ends in `ROLLBACK` — nothing
+inserted was ever committed, confirmed empty afterward. This is SQL assertions
+against synthetic sessions and the compiled policy catalog, not a second human
+signing in through the actual Realtime WebSocket — `realtime.topic()` itself
+(populated by the live Realtime server at subscribe/broadcast time) was not
+exercised, since there is no public SQL setter for it outside that connection.
+The live subscribe/broadcast version of this check still belongs to §A/§B and
+needs a real deployment + paired machine; recorded in `KnownGaps.md` G-47.
 
 ## E — The lifetime change behaves
 
@@ -137,21 +149,22 @@ re-read of every unit suite those five tasks wrote, confirming each one
 actually exercises the behavior its own task claims rather than merely
 existing. No bug or security issue was found while doing that.
 
-**Everything else in §A, §B, §D, and the live-shell half of §E was not run**,
-each for a specific, named reason — full account in
-[`KnownGaps.md`](../../KnownGaps.md) **G-47**, opened in this same change per
-this task's own Objective section (which flagged §D's live half as the
-likely gap in advance) and per the completion checklist above:
+**§D was run 2026-08-26**, after the owner confirmed this project is
+currently a staging database, not live: 13 SQL assertions against the real
+project's `018_terminal_channels.sql` policies and `private.current_admin_workspace_ids()`,
+inside a transaction ending in `ROLLBACK` (nothing committed, confirmed empty
+afterward) — all 13 passed. Full detail in the §D section above and in
+`KnownGaps.md` G-47, including the one thing this did NOT exercise
+(`realtime.topic()` itself, populated only by a live Realtime connection).
+
+**§A, §B, and the live-shell half of §E were not run**, each for a specific,
+named reason — full account in [`KnownGaps.md`](../../KnownGaps.md) **G-47**:
 
 - §A/§B need `SUPABASE_JWT_SIGNING_KEY` set on a real deployment (the owner
   action `T-M16-02` already added to `runbooks/README.md`) and a real
-  machine paired against it. Neither exists yet.
-- §D needs either a disposable local Postgres container (this repo's own
-  house style for exactly this, per `verify-rls.sh`/`verify-command-spine.mjs`
-  — Docker was not running in this environment and did not come up within
-  this session) or fabricating synthetic auth/membership rows directly
-  against the real project, which was deliberately not done given the
-  smaller, safer alternative this repo already has a pattern for.
+  machine paired against it. Neither exists yet. This also covers the one
+  slice of §D that direct SQL assertions can't reach — a real subscribe/send
+  attempt through the actual Realtime connection.
 - §E's four points needing a live shell or a real 15-minute wait have strong
   proxy evidence instead — the identical code paths are driven directly in
   `manager.test.ts` with a fake PTY and fake timers, described task-by-task
