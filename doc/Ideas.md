@@ -315,7 +315,7 @@ RLS-scoped client, which would widen the service role's blast radius past
 [`auth.ts`](../apps/web/src/lib/daemon/auth.ts) states explicitly.
 
 The leftover row is inert by construction — no membership, no `public.users`
-row, and no `private.daemon_identities` row after the cascade — so it can reach
+row, and no `public.daemon_identities` row after the cascade — so it can reach
 nothing. This is a tidiness idea, not a security one.
 
 **What would make it real work:** enough unpair/re-pair churn that the Auth →

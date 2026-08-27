@@ -52,7 +52,7 @@ begin
   -- would surface to the caller as "bootstrap failed for an unknown reason",
   -- and the whole point of this branch is that it is a known reason.
   if exists (
-    select 1 from private.daemon_identities di
+    select 1 from public.daemon_identities di
     where di.user_id = v_user_id::uuid
   ) then
     raise exception 'daemon identities cannot bootstrap a workspace'
@@ -136,7 +136,7 @@ grant execute on function public.bootstrap_workspace() to authenticated;
 -- Both halves must be asserted — a guard that also breaks signup is worse than
 -- the hole it closes:
 --
---   * as a daemon identity (a user_id present in private.daemon_identities):
+--   * as a daemon identity (a user_id present in public.daemon_identities):
 --       select public.bootstrap_workspace();
 --     → raises 42501 'daemon identities cannot bootstrap a workspace'
 --

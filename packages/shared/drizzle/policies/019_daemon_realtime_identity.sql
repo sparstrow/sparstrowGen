@@ -64,10 +64,22 @@
 
 -- ── The identity map ─────────────────────────────────────────────────────────
 --
--- In `private`, not on `runtimes`: `runtimes` is exposed through the Data API
--- and readable by every workspace member, so an auth_user_id column there would
--- hand every member the daemon's identity. `private` is not exposed, which is
--- where 001 already puts things only policies should read.
+-- **In `public`, with RLS on and ZERO policies** — not a column on `runtimes`,
+-- and not in `private`. Both alternatives were tried first:
+--
+--   * A column on `runtimes` is wrong: that table is readable by every
+--     workspace member, so it would hand every member the daemon's identity.
+--   * `private` is where 001 puts things only policies should read, and was
+--     the obvious home — but PostgREST only exposes configured schemas, so a
+--     table there is unreachable by supabase-js. The token route (T-DI-03)
+--     resolves-or-creates this mapping with the service-role client, exactly
+--     as `auth.ts` already reads `daemon_tokens`, and could not do so.
+--
+-- `public` + RLS + no policies is equally closed and actually usable: RLS with
+-- no policy denies every `anon` and `authenticated` caller by default, and
+-- `service_role` bypasses RLS. The explicit revoke below makes that intent
+-- legible rather than inherited, per the Supabase security checklist's rule
+-- that every table in an exposed schema has RLS enabled.
 --
 -- `runtime_id` is UNIQUE because one machine has exactly one identity — that is
 -- what lets the token route treat creation as an upsert rather than a
@@ -76,17 +88,20 @@
 -- Every FK cascades: removing a machine (or its workspace) removes the mapping,
 -- and `current_daemon_scope()` then returns nothing for that auth user forever.
 
-create table if not exists private.daemon_identities (
+create table if not exists public.daemon_identities (
   user_id      uuid primary key references auth.users(id) on delete cascade,
   runtime_id   text not null unique references public.runtimes(id) on delete cascade,
   workspace_id text not null references public.workspaces(id) on delete cascade,
   created_at   timestamptz not null default now()
 );
 
--- Belt and braces. The `private` schema is not exposed to the Data API, so
--- this is already unreachable; saying it explicitly means a future change that
--- exposes the schema does not silently publish this table.
-revoke all on private.daemon_identities from anon, authenticated;
+alter table public.daemon_identities enable row level security;
+
+-- No policies, deliberately: nothing but the service role may read or write
+-- this. Unlike every other table in this directory, there is no member-scoped
+-- policy to add — a workspace member has no business knowing which auth user
+-- backs their machine.
+revoke all on public.daemon_identities from anon, authenticated;
 
 -- ── The lookup ───────────────────────────────────────────────────────────────
 --
@@ -96,8 +111,9 @@ revoke all on private.daemon_identities from anon, authenticated;
 -- once per statement rather than once per candidate row.
 --
 -- SECURITY DEFINER is load-bearing for correctness, not just speed: this reads
--- public.daemon_tokens, which has RLS enabled. An INVOKER function would
--- re-enter that policy as an identity with no membership and find nothing.
+-- public.daemon_tokens and public.daemon_identities, both of which have RLS
+-- enabled — and daemon_identities has no policies at all. An INVOKER function
+-- would find nothing in either, for every caller.
 --
 -- **Revocation is enforced HERE, which is why nothing else has to clean up.**
 -- The `exists` requires a live (non-revoked) token, so revoking a pairing cuts
@@ -115,7 +131,7 @@ security definer
 set search_path = ''
 as $$
   select di.workspace_id, di.runtime_id
-  from private.daemon_identities di
+  from public.daemon_identities di
   where di.user_id = (select auth.uid())
     and exists (
       select 1

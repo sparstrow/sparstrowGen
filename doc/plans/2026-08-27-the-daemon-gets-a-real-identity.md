@@ -58,7 +58,7 @@ the split, and it is why this plan has no per-story rows.
 | Work | Why no story owns it |
 |---|---|
 | Session topics carry the runtime id | A string shape in `@sparstrow/shared`; changes nothing the owner sees |
-| `private.daemon_identities` + `private.current_daemon_scope()` | A mapping table and a lookup function, invisible above the RLS layer |
+| `public.daemon_identities` + `private.current_daemon_scope()` | A mapping table and a lookup function, invisible above the RLS layer |
 | Two new `realtime.messages` policies for the daemon | Authorization; demos to nobody |
 | Token minting via Supabase's own Auth instead of self-signing | Same endpoint, same response shape, different provenance |
 | Core adapting to a Supabase-issued credential's lifetime | A refresh timer |

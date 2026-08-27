@@ -25,11 +25,19 @@ publish the two event kinds a machine is allowed to publish.
 
 Plan **DI-1**, **DI-3** and **DI-5** govern this task.
 
-**`private.daemon_identities`, not a column on `runtimes`.** `runtimes` is
-exposed through the Data API and readable by every workspace member; an
-`auth_user_id` column there would hand every member the daemon's identity. The
-`private` schema is not exposed, which is where `001_rls.sql` already puts
-things only policies should read.
+**A dedicated table, not a column on `runtimes`.** `runtimes` is exposed
+through the Data API and readable by every workspace member; an `auth_user_id`
+column there would hand every member the daemon's identity.
+
+> **Corrected during `T-DI-03`:** this task originally specified
+> `private.daemon_identities`, reasoning that `private` is where `001_rls.sql`
+> puts things only policies should read. That is wrong for this table —
+> PostgREST only exposes configured schemas, so the token route's service-role
+> client cannot reach `private` at all. It is `public.daemon_identities` with
+> RLS enabled and **zero policies**, which is equally closed (RLS with no policy
+> denies every `anon`/`authenticated` caller; `service_role` bypasses RLS) and
+> actually usable. The sketch below is left in its original form; `019` is the
+> current shape.
 
 ```sql
 create table if not exists private.daemon_identities (
