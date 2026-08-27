@@ -62,7 +62,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
 | [T-M17-01 — the channel client](T-M17-01-terminal-channel-client.md) | `[S]` | foundational to this phase | M16 | done (2026-08-27) |
-| [T-M17-02 — the Terminals page](T-M17-02-terminals-page.md) | `[S]` | US1, US2 | T-M17-01 | not started |
+| [T-M17-02 — the Terminals page](T-M17-02-terminals-page.md) | `[S]` | US1, US2 | T-M17-01 | done except live shell verification (2026-08-27, `G-48`) |
 | [T-M17-03 — agent terminals](T-M17-03-agent-terminals.md) | `[C]` | US3 | T-M17-02 | not started |
 | [T-M17-04 — the per-machine off switch](T-M17-04-terminal-access-switch.md) | `[P]` | US4 | M16 | not started |
 | [T-M17-05 — Knowledge Center](T-M17-05-knowledge-center.md) | `[P]` | all | T-M17-02 | not started |

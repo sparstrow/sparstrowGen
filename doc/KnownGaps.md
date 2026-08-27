@@ -1660,3 +1660,54 @@ not have:
   proves the access-switch-kills-existing-sessions bullet. `T-M17-06` (the
   browser-side pass) is where §A/§B's evidence gets a second, independent
   confirmation from the UI side once M17 exists to click.
+
+### G-48 — `T-M17-02`'s live pass reached the never-paired, unreachable-timeout and loading states; the actual shell (open/type/output) did not
+
+**Raised:** 2026-08-27, during `T-M17-02` (the Terminals page). The owner
+explicitly authorized creating a disposable `@sparstrow.test` account per
+`doc/runbooks/agent-browser-session.md` for this pass, after this agent
+paused to flag the tension between that runbook and its own general
+no-account-creation rule.
+
+**What ran, live, against a real signed-in browser session and a real
+paired scratch daemon (`agent-browser`, not the Claude Browser pane —
+`BUG-2026-08-24-claude-browser-pane-reports-hidden-visibility` still
+applies):** the never-paired empty state (before pairing anything); the
+machine-naming + loading pane, correctly naming the machine while
+`terminal.list` was in flight; the unreachable/timeout error state once
+that request timed out, with a working "Try again"; console clean
+throughout, in both light and dark theme. This same pass **found and fixed
+a real bug**, not a gap: `sessionsQuery`'s `status` reverts to `"pending"`
+on every background retry of a query that has never once succeeded
+(verified react-query v5 behavior, not a misunderstanding), which flickered
+the page between the loading pane and the error pane every ~14s. Fixed by
+deriving the visible state from `dataUpdatedAt`/`errorUpdatedAt` (which
+don't reset on a pending retry) rather than raw `isLoading`/`isError`,
+mirroring `machines.tsx`'s own two-tier `RuntimesError` pattern.
+
+**What did not run:** everything downstream of the control channel actually
+authenticating — opening a shell, typing, seeing output, resize, reconnect,
+throttle, the four session-end reasons, the six refusal sentences besides
+the timeout path. Not a supervision refusal this time (the owner had
+already authorized the account) — a genuine environment blocker, tracked as
+its own row now: [`doc/runbooks/README.md`](../doc/runbooks/README.md)'s
+`SUPABASE_JWT_SIGNING_KEY` row. Vercel's **Development**-tagged copy of that
+key pulls down with an empty or absent `kid`, so `mintRealtimeToken()`
+throws its own "no `kid`" error rather than the "not set" one `G-47`
+recorded — confirmed live by pulling the real value into a scratch
+`.env.local` (removed after, nothing committed) and running a real paired
+daemon against it. Preview's copy is fine per `G-47`'s own evidence (401,
+not 500) — this is narrower than G-47's original gap, not a reopening of it.
+
+- **If wrong:** medium. The channel-client unit tests (`T-M17-01`, 22 cases)
+  and this page's own logic for attach/replay/resize/reconnect are
+  code-reviewed and typecheck/test green, but none of it has crossed a real
+  Realtime connection from the browser side — the same class of risk `G-47`
+  names for the daemon side. A wire-shape mismatch between what this page
+  sends and what a real subscribed session actually delivers would not be
+  caught by any test that ran here.
+- **Clears when:** (1) the owner fixes the Development-environment key
+  (`doc/runbooks/README.md`'s row) — the fastest unlock, five minutes on the
+  Vercel dashboard once the correct current key is at hand; or (2) `T-M17-06`
+  runs its browser-side pass against the band's own Vercel preview instead
+  of localhost, where the Preview-tagged key already works.
