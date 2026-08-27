@@ -888,6 +888,17 @@ export const TERMINAL_THROTTLE_BYTES_PER_SEC = 256 * 1024;
 export const TERMINAL_THROTTLE_SUSTAIN_MS = 3_000;
 
 /**
+ * The one wire signal a throttled session carries — literal text written
+ * into the output stream (`manager.ts`'s `engageThrottle`), not a separate
+ * event; DD-8 never gave the throttle its own message shape. Shared so
+ * `terminals.tsx` (`T-M17-02`) can detect it to drive a banner without
+ * keeping its own copy of the exact string to drift against the one that
+ * actually gets sent.
+ */
+export const TERMINAL_THROTTLE_NOTICE =
+  "\r\n[output throttled — rate limit reached, resuming automatically]\r\n";
+
+/**
  * How long a control request waits for a reply before the page gives up on
  * the machine and says so — FR-014's timeout, mirroring
  * `COMMAND_POLL_INTERVAL_MS`'s job of naming a wait the UI must not exceed

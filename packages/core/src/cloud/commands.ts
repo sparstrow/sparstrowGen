@@ -1,6 +1,8 @@
 import {
   COMMAND_POLL_INTERVAL_MS,
   DAEMON_SETTABLE_KEYS,
+  SETTING_TERMINAL_ACCESS,
+  isTerminalAccessEnabled,
   type AckRequest,
   type ChatTurnStartPayload,
   type ClaimResponse,
@@ -23,6 +25,7 @@ import { reportSettings } from "./registration.js";
 import { resolveAgent } from "./resolve.js";
 import { markDispatched } from "./run-reporter.js";
 import { cacheWorkspacePolicy } from "../agents/tool-resolution.js";
+import { killAllSessions } from "../terminal/manager.js";
 
 /**
  * M4 — the loop that turns a row in Postgres into a process on this machine.
@@ -272,6 +275,15 @@ function applySetting(payload: SettingsSetPayload): Outcome {
     .run();
 
   logger.info({ key: payload.key, value }, "setting changed from the control plane");
+
+  // T-M17-04, scenario 3 — a machine that stops allowing terminals while
+  // some are open has not stopped allowing terminals if it leaves them
+  // running. Killed here, on the machine, not left for the page to merely
+  // stop showing (phase trap: the UI cannot end a process, only the machine
+  // can).
+  if (payload.key === SETTING_TERMINAL_ACCESS && !isTerminalAccessEnabled(value)) {
+    killAllSessions("access_revoked");
+  }
 
   // Report the new value back, so the Machines card shows what this machine
   // confirmed rather than what the browser sent. Fire-and-forget: the setting

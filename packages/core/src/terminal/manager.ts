@@ -8,6 +8,7 @@ import {
   TERMINAL_OUTPUT_FLUSH_MS,
   TERMINAL_OUTPUT_MAX_BYTES,
   TERMINAL_THROTTLE_BYTES_PER_SEC,
+  TERMINAL_THROTTLE_NOTICE,
   TERMINAL_THROTTLE_SUSTAIN_MS,
   type TerminalSessionInfo,
 } from "@sparstrow/shared";
@@ -143,14 +144,12 @@ function scheduleFlush(session: ActiveSession): void {
   session.flushTimer = setTimeout(() => flush(session), TERMINAL_OUTPUT_FLUSH_MS);
 }
 
-const THROTTLE_NOTICE = "\r\n[output throttled — rate limit reached, resuming automatically]\r\n";
-
 function engageThrottle(session: ActiveSession): void {
   session.throttled = true;
   // Send what was already coalesced before cutting sinks off, so the
   // flood's first burst isn't silently swallowed along with the rest of it.
   flush(session);
-  for (const sink of session.sinks) sink.write(THROTTLE_NOTICE);
+  for (const sink of session.sinks) sink.write(TERMINAL_THROTTLE_NOTICE);
 }
 
 /**

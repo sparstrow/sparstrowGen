@@ -3,7 +3,7 @@ title: Providers & execution modes
 section: Concepts
 description: CLI vs direct-API execution — what's different, what's identical, and how to choose.
 order: 1
-updated: 2026-08-22
+updated: 2026-08-27
 ---
 
 Every agent names a **provider**, and the provider determines its **execution mode**.
@@ -23,6 +23,12 @@ You never pick a mode directly — it's derived, so it can't drift.
 directives, tool-permission clamping, run transcripts, cost tracking, provenance,
 cancellation. A run reads the same in [Runs](/knowledge/runs-and-transcripts) no matter
 which engine produced it.
+
+**A CLI provider can also be reached directly, outside of any run.** From
+[Terminals](/knowledge/terminals), *Agent terminal* drops you straight into that CLI's
+own interactive session on the machine — `claude` or `agy` talking back to you live,
+not a run with a transcript. Direct-API providers have no CLI to open this way, so only
+CLI-kind agents are offered there.
 
 ## Choosing
 

@@ -118,6 +118,26 @@ export function resolveWipSnapshotKeep(raw: string | null | undefined): number {
  * true/false-string convention as `SETTING_WIP_SNAPSHOT`; absent means on.
  */
 export const SETTING_TERMINAL_ACCESS = "terminal.access";
+const DEFAULT_TERMINAL_ACCESS = true;
+const TERMINAL_ACCESS_OFF_WORDS = ["off", "false", "0", "no"];
+
+/**
+ * `T-M17-02`/`T-M17-04`'s shared reader — same reasoning as
+ * `isWipSnapshotEnabled` just above: the Terminals page (deciding which empty
+ * state to show) and the Machines toggle (deciding what to render as checked)
+ * must not each carry their own copy of what counts as "off".
+ *
+ * `packages/core/src/cloud/terminal-bridge.ts`'s `terminalAccessEnabled()`
+ * — the actual enforcement point, per FR-011 — is NOT this function: it reads
+ * the daemon's own local `settings` table, not `reportedSettings` off a
+ * `Runtime`, so it has no shared type to read this against. It re-implements
+ * the same word list locally. If either list is ever widened, the other must
+ * be checked by hand.
+ */
+export function isTerminalAccessEnabled(raw: string | null | undefined): boolean {
+  if (raw == null) return DEFAULT_TERMINAL_ACCESS;
+  return !TERMINAL_ACCESS_OFF_WORDS.includes(raw.trim().toLowerCase());
+}
 
 /**
  * T-M9-04 — the one Supabase Storage bucket for avatar and workspace-logo

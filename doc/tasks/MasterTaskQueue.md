@@ -276,31 +276,9 @@ notes: [`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-20).
 
 ### Band 21 — M17 the terminal itself (2026-08-24)
 
-Phase spec: [`M17/README.md`](M17/README.md). Same plan as band 20.
-Decomposed 2026-08-24 — six tasks, all written.
-
-| # | Task | Tag | Depends on | Status |
-|---|---|---|---|---|
-| 21.1 | [T-M17-01 — the channel client](M17/T-M17-01-terminal-channel-client.md) | `[S]` | 20.6 | queued |
-| 21.2 | [T-M17-02 — the Terminals page](M17/T-M17-02-terminals-page.md) | `[S]` | 21.1 | queued |
-| 21.3 | [T-M17-03 — agent terminals](M17/T-M17-03-agent-terminals.md) | `[C]` | 21.2 | queued |
-| 21.4 | [T-M17-04 — the per-machine off switch](M17/T-M17-04-terminal-access-switch.md) | `[P]` | 20.6 | queued |
-| 21.5 | [T-M17-05 — Knowledge Center](M17/T-M17-05-knowledge-center.md) | `[P]` | 21.2 | queued |
-| 21.6 | [T-M17-06 — verification](M17/T-M17-06-verification.md) | `[S]` | 21.1—21.5 | queued |
-
-21.3 is `[C]` rather than `[P]` because it edits `terminals.tsx`, which 21.2
-writes. 21.4 is `[P]`: `machines.tsx` and core's settings handling are touched by
-nothing else in the band, so it can run alongside the whole web half.
-
-**21.5 closes [`BUG-2026-08-24-terminals-article-describes-a-transport-that-no-longer-exists`](../bug/BUG-2026-08-24-terminals-article-describes-a-transport-that-no-longer-exists.md)**
-— pre-existing drift, filed 2026-08-24 while planning this work: the Terminals
-Knowledge Center article describes a transport that no longer exists and states
-the opposite of the machine's real session behaviour.
-
-**Runs against nothing else.** Bands 19 and 20 must be complete first. Any other
-work touching `apps/web/src/app/terminals/`, `machines.tsx`, or
-`packages/core/src/terminal/` must wait rather than run `[P]` alongside — the
-file overlap is total.
+✅ **Archived 2026-08-27 — done except `G-48`, which does not block the
+archive per `doc/tasks/README.md`'s own rule.** Full task table, tags and
+notes: [`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-21).
 
 ### Band 22 — WA every write becomes a Server Action (2026-08-24)
 

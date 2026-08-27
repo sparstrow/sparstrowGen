@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isoDateSchema } from "./common";
+import { providerIdSchema } from "./agent";
 
 /**
  * M16 — the terminal channel's wire contract.
@@ -119,6 +120,17 @@ export const terminalListReplySchema = z.object({
   sessions: z.array(terminalSessionInfoSchema),
   /** So a stale client can tell "no sessions" apart from "different machine boot". */
   machineStartedAt: isoDateSchema,
+  /**
+   * T-M17-03 — which provider ids THIS machine can serve an interactive
+   * session for (`provider.kind === "cli"` in its own registry), so the
+   * browser's agent picker can filter to what will actually work rather
+   * than discovering `agent_not_interactive` after the fact. A property of
+   * the machine's registry, not the cloud `agents` row — two machines on
+   * different core versions can legitimately disagree, which is why this
+   * travels on `terminal.list`'s reply instead of living on the agent
+   * contract.
+   */
+  interactiveProviders: z.array(providerIdSchema),
 });
 export type TerminalListReply = z.infer<typeof terminalListReplySchema>;
 

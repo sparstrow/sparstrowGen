@@ -1042,47 +1042,6 @@ export function useRunCronJobNow(): UseMutationResult<{ ok: boolean }, ApiError,
 }
 
 // ---------------------------------------------------------------------------
-// Terminals
-// ---------------------------------------------------------------------------
-
-export interface TerminalSession {
-  id: string;
-  agentId: string | null;
-  cols: number;
-  rows: number;
-  createdAt: string;
-}
-
-export function useTerminalSessions(): UseQueryResult<TerminalSession[], ApiError> {
-  return useQuery({
-    queryKey: ["terminal-sessions"],
-    queryFn: () => api<TerminalSession[]>("/terminal/sessions"),
-  });
-}
-
-export function useCreateTerminalSession(): UseMutationResult<
-  TerminalSession,
-  ApiError,
-  { agentId?: string; cols?: number; rows?: number }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body) =>
-      api<TerminalSession>("/terminal/sessions", { method: "POST", body }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["terminal-sessions"] }),
-  });
-}
-
-export function useKillTerminalSession(): UseMutationResult<void, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) =>
-      api<void>(`/terminal/sessions/${id}`, { method: "DELETE" }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["terminal-sessions"] }),
-  });
-}
-
-// ---------------------------------------------------------------------------
 // System
 // ---------------------------------------------------------------------------
 
@@ -1516,6 +1475,13 @@ export interface Workspace {
   context: string;
   logoUrl: string | null;
   createdAt: string;
+  /**
+   * The CALLER's own role in this workspace ("owner" | "admin" | "member"),
+   * not a property of the workspace itself — added by `T-M17-02` for the
+   * Terminals page's FR-009 check (owner/admin only). Defaults to "member"
+   * if the lookup fails for any reason, which is the fail-closed direction.
+   */
+  role: string;
 }
 
 /**

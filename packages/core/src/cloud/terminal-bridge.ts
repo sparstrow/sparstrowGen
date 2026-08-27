@@ -14,7 +14,7 @@ import {
 import { getDb } from "../db/connection.js";
 import { agents, settings } from "../db/schema.js";
 import { config } from "../config.js";
-import { getProvider } from "../providers/index.js";
+import { getProvider, listProviders } from "../providers/index.js";
 import { logger } from "../logger.js";
 import {
   attachSink,
@@ -42,6 +42,13 @@ import { onMachineRequest, openSessionChannel, sendMachineReply, type SessionCha
 const MACHINE_STARTED_AT = new Date().toISOString();
 
 const OFF_WORDS = ["off", "false", "0", "no"];
+
+/** T-M17-03 — set once, at module load, same reasoning as `MACHINE_STARTED_AT`:
+ *  the registry is static per process, so there is nothing to recompute per
+ *  request. */
+const INTERACTIVE_PROVIDERS = listProviders()
+  .filter((p) => p.kind === "cli")
+  .map((p) => p.id);
 
 /**
  * FR-011's enforcement point. `T-M17-04` builds the switch and its UI; this
@@ -114,6 +121,7 @@ async function handleList(req: TerminalListRequest): Promise<MachineReply> {
     kind: "terminal.list",
     sessions: listSessions(),
     machineStartedAt: MACHINE_STARTED_AT,
+    interactiveProviders: INTERACTIVE_PROVIDERS,
   };
 }
 
