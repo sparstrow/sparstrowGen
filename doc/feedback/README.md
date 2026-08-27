@@ -78,3 +78,4 @@ came in.
 
 | ID | Status | Area | Summary |
 |---|---|---|---|
+| [`FB-2026-08-27-signup-missing-confirm-password`](FB-2026-08-27-signup-missing-confirm-password.md) | 🔴 new | Auth — sign-up form | Sign-up form has only one Password field, no confirmation |
