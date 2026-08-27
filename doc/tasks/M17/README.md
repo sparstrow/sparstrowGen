@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-24-a-terminal-on-my-machine.md`](../../specs/2026-08-24-a-terminal-on-my-machine.md) |
 | **Depends on** | M16, entirely |
 | **Blocks** | nothing |
-| **Status** | not started |
+| **Status** | done except the interactive-session live pass (2026-08-27) — see [`KnownGaps.md`](../../KnownGaps.md) G-48 |
 | **Open questions** | none |
 
 ## The stories this serves
@@ -66,7 +66,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | [T-M17-03 — agent terminals](T-M17-03-agent-terminals.md) | `[C]` | US3 | T-M17-02 | done except live verification (2026-08-27, `G-48`) |
 | [T-M17-04 — the per-machine off switch](T-M17-04-terminal-access-switch.md) | `[P]` | US4 | M16 | done except two session-lifetime checks (2026-08-27, `G-48`) |
 | [T-M17-05 — Knowledge Center](T-M17-05-knowledge-center.md) | `[P]` | all | T-M17-02 | done (2026-08-27) |
-| [T-M17-06 — verification](T-M17-06-verification.md) | `[S]` | all | T-M17-01…05 | not started |
+| [T-M17-06 — verification](T-M17-06-verification.md) | `[S]` | all | T-M17-01…05 | done except the interactive-session live pass (2026-08-27, `G-48`) |
 
 `T-M17-03` is `[C]` rather than `[P]` because it edits `terminals.tsx`, which
 `T-M17-02` writes. `T-M17-04` is `[P]` because its files — `machines.tsx` and

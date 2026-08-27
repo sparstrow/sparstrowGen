@@ -1545,6 +1545,13 @@ claim that they are unverified everywhere.
 
 ### G-47 — M16 (a live channel to a machine) is built and unit-tested; nothing has actually connected to Realtime
 
+> **Reopened 2026-08-27 by `G-48`, during `T-M17-06`.** The "clears when"
+> item below marked `SUPABASE_JWT_SIGNING_KEY` **done, 2026-08-26** — true
+> that day, not true as of 2026-08-27: the key was replaced with a
+> malformed value (missing `kid`) sometime early on 2026-08-27, breaking
+> both Preview and Development. `G-48` carries the current evidence and fix
+> path; this entry is kept for its own history rather than rewritten.
+
 **Raised:** 2026-08-26, closing `T-M16-01` … `T-M16-05` and attempting
 `T-M16-06`. **Updated:** 2026-08-26, same day, twice — first when §D's
 SQL-assertion half ran against the real (staging) project and closed; then
@@ -1661,7 +1668,7 @@ not have:
   browser-side pass) is where §A/§B's evidence gets a second, independent
   confirmation from the UI side once M17 exists to click.
 
-### G-48 — `T-M17-02`'s live pass reached the never-paired, unreachable-timeout and loading states; the actual shell (open/type/output) did not
+### G-48 — M17's live passes (`T-M17-02` through `T-M17-06`) reached every state that doesn't need the control channel to authenticate; the actual shell (open/type/output) never did, on either Vercel environment
 
 **Raised:** 2026-08-27, during `T-M17-02` (the Terminals page). The owner
 explicitly authorized creating a disposable `@sparstrow.test` account per
@@ -1691,13 +1698,52 @@ throttle, the four session-end reasons, the six refusal sentences besides
 the timeout path. Not a supervision refusal this time (the owner had
 already authorized the account) — a genuine environment blocker, tracked as
 its own row now: [`doc/runbooks/README.md`](../doc/runbooks/README.md)'s
-`SUPABASE_JWT_SIGNING_KEY` row. Vercel's **Development**-tagged copy of that
-key pulls down with an empty or absent `kid`, so `mintRealtimeToken()`
-throws its own "no `kid`" error rather than the "not set" one `G-47`
-recorded — confirmed live by pulling the real value into a scratch
-`.env.local` (removed after, nothing committed) and running a real paired
-daemon against it. Preview's copy is fine per `G-47`'s own evidence (401,
-not 500) — this is narrower than G-47's original gap, not a reopening of it.
+`SUPABASE_JWT_SIGNING_KEY` row. Confirmed live by pulling the real value
+into a scratch `.env.local` (removed after, nothing committed) and running
+a real paired daemon against it: `mintRealtimeToken()` throws its own "no
+`kid`" error rather than the "not set" one `G-47` recorded, meaning the key
+is present but the JSON it decodes to has no `kid` field.
+
+**Corrected 2026-08-27, during `T-M17-06`: this is not narrower than `G-47`
+— it reopens it, and on both environments, not one.** `vercel env ls
+preview` shows `SUPABASE_JWT_SIGNING_KEY` as a single value scoped to
+**`Preview, Development` together** (one stored secret, two tags), last
+updated **~13 hours before this check** — i.e. sometime after `G-47`
+confirmed Preview's copy worked (2026-08-26, "401 unauthenticated" on
+`sparstrowgen-git-band-20-m16-terminal-channel-…`, not 500) and before this
+task's own preview-deployment pass (2026-08-27), which hit the identical
+500/no-`kid` failure against the **band 21** preview
+(`sparstrowgen-git-claude-band-21-cfe736-sparstrow.vercel.app`) that `G-47`'s
+own check never reached. Read together, this is a key **rotation that
+landed a malformed value sometime early on 2026-08-27**, breaking a control
+plane that was genuinely working the day before — not a gap that was always
+there. The original "Preview's copy is fine" sentence above is now wrong
+and left in place only so this correction is legible against it.
+
+**`T-M17-06`'s own pass, 2026-08-27, against the band 21 preview
+(`sparstrowgen-git-claude-band-21-cfe736-sparstrow.vercel.app`), with a real
+paired headless `core` process and a real signed-in session:** confirmed
+the never-paired, machine-off (SC-005), and unreachable/timeout states live;
+confirmed the terminal-access toggle's full round trip including the
+daemon's own log line; confirmed a machine revoke is detected and stops the
+daemon within one poll cycle; confirmed all four `T-M17-05` Knowledge Center
+articles render correctly; confirmed SC-004's grep is clean; confirmed both
+themes and both Paper/Mono surface characters render correctly (screenshots
+on file) — none of which needed the broken control channel. **US1/US2/US3's
+actual interactive scenarios, SC-001/002/003, and the four states still
+gated behind `terminal.list` succeeding remain unreached**, for the reason
+above. `T-M17-03`'s `interactiveProviders` filtering (US3.2) has strong
+non-live evidence instead: `terminal-bridge.test.ts` asserts it against the
+**real** provider registry, not a mock. **SC-006** (a machine-service-only
+install) stays unprovable as literally worded — standalone service install
+without a repo checkout is `D-10`, not built — but the weaker form the spec
+actually cares about (a browser reaching a machine it isn't sitting on) is
+what every live check in this pass already used, headless `core` with no
+desktop shell. **FR-009's live non-admin refusal** was deliberately not
+attempted — this task's own Objective says to record it here rather than
+create a second account for it or write a membership row directly (`G-47`'s
+own precedent already ruled the latter out as beyond an agent's authority
+unsupervised).
 
 - **If wrong:** medium. The channel-client unit tests (`T-M17-01`, 22 cases)
   and this page's own logic for attach/replay/resize/reconnect are
@@ -1706,8 +1752,12 @@ not 500) — this is narrower than G-47's original gap, not a reopening of it.
   names for the daemon side. A wire-shape mismatch between what this page
   sends and what a real subscribed session actually delivers would not be
   caught by any test that ran here.
-- **Clears when:** (1) the owner fixes the Development-environment key
-  (`doc/runbooks/README.md`'s row) — the fastest unlock, five minutes on the
-  Vercel dashboard once the correct current key is at hand; or (2) `T-M17-06`
-  runs its browser-side pass against the band's own Vercel preview instead
-  of localhost, where the Preview-tagged key already works.
+- **Clears when:** (1) the owner re-exports the current ES256 signing key
+  from **Project Settings → API → JWT Keys** and sets it on **both** Preview
+  and Development (`doc/runbooks/README.md`'s row — confirmed 2026-08-27 that
+  narrowing this to "Development only" was wrong, it is one value covering
+  both tags); (2) a real daemon then holds a subscribed control channel
+  through a `terminal.open`/`terminal.attach` round trip on a real preview,
+  closing US1/US2/US3 and SC-001/002/003 together; (3) an owner-supervised
+  second account (or the owner's own second browser) exercises FR-009's live
+  refusal.
