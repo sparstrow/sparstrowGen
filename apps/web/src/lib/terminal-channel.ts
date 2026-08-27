@@ -72,6 +72,26 @@ export interface TerminalChannel {
   /** Client-sendable events only — input. (Resize travels via a fresh `terminal.attach` request, not this — T-M16-01.) */
   send(sessionId: string, message: TerminalInput): void;
   onConnectionChange(cb: (connected: boolean) => void): () => void;
+  /**
+   * Tears down the control channel and every still-attached session channel.
+   * Added by `T-M17-02`: an instance is scoped to one machine (phase decision
+   * 2), so switching machines means constructing a new one, and without this
+   * the old instance's control-channel subscription — and any session
+   * channels a pane never got around to detaching — would sit open on
+   * Realtime forever. Idempotent; safe to call on an instance that never
+   * finished connecting.
+   */
+  close(): void;
+}
+
+/** Rejects every request still in flight when `close()` is called — distinct
+ *  from `TerminalRequestTimeoutError`, since the machine was never given the
+ *  chance to answer. */
+export class TerminalChannelClosedError extends Error {
+  constructor(public readonly kind: MachineRequestKind) {
+    super(`terminal channel closed while "${kind}" was still in flight`);
+    this.name = "TerminalChannelClosedError";
+  }
 }
 
 /** A request that timed out — the machine did not answer (FR-014). Distinct
@@ -103,7 +123,9 @@ function guard(where: string, fn: () => void): void {
 
 interface PendingRequest {
   resolve: (reply: MachineReply) => void;
+  reject: (err: Error) => void;
   timer: ReturnType<typeof setTimeout>;
+  kind: MachineRequestKind;
 }
 
 interface SessionEntry {
@@ -197,7 +219,7 @@ export class RealtimeTerminalChannel implements TerminalChannel {
         this.pending.delete(requestId);
         reject(new TerminalRequestTimeoutError(kind));
       }, MACHINE_REQUEST_TIMEOUT_MS);
-      this.pending.set(requestId, { resolve, timer });
+      this.pending.set(requestId, { resolve, reject, timer, kind });
 
       void channel.send({ type: "broadcast", event: MACHINE_REQUEST_EVENT, payload: message }).catch(() => {
         // Swallow — the pending timeout is what surfaces this to the caller,
@@ -272,6 +294,25 @@ export class RealtimeTerminalChannel implements TerminalChannel {
     return () => {
       this.connectionListeners.delete(cb);
     };
+  }
+
+  close(): void {
+    for (const [, pendingRequest] of this.pending) {
+      clearTimeout(pendingRequest.timer);
+      pendingRequest.reject(new TerminalChannelClosedError(pendingRequest.kind));
+    }
+    this.pending.clear();
+
+    for (const [, entry] of this.sessionChannels) {
+      void this.supabase.removeChannel(entry.channel);
+    }
+    this.sessionChannels.clear();
+
+    if (this.controlChannel) {
+      void this.supabase.removeChannel(this.controlChannel);
+      this.controlChannel = null;
+    }
+    this.controlChannelPromise = null;
   }
 
   private endSession(sessionId: string, reason: TerminalEndReason): void {

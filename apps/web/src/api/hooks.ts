@@ -1516,6 +1516,13 @@ export interface Workspace {
   context: string;
   logoUrl: string | null;
   createdAt: string;
+  /**
+   * The CALLER's own role in this workspace ("owner" | "admin" | "member"),
+   * not a property of the workspace itself — added by `T-M17-02` for the
+   * Terminals page's FR-009 check (owner/admin only). Defaults to "member"
+   * if the lookup fails for any reason, which is the fail-closed direction.
+   */
+  role: string;
 }
 
 /**

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MACHINE_REPLY_EVENT, MACHINE_REQUEST_EVENT, MACHINE_REQUEST_TIMEOUT_MS, TERMINAL_INPUT_EVENT } from "@sparstrow/shared";
-import { RealtimeTerminalChannel, TerminalRequestTimeoutError } from "./terminal-channel";
+import { RealtimeTerminalChannel, TerminalChannelClosedError, TerminalRequestTimeoutError } from "./terminal-channel";
 
 /**
  * `@web/utils/supabase/client` is mocked entirely — this suite is about the
@@ -383,5 +383,58 @@ describe("RealtimeTerminalChannel", () => {
 
     expect(controlChannel().sent[0]?.event).toBe(MACHINE_REQUEST_EVENT);
     expect(controlChannel().sent[0]?.type).toBe("broadcast");
+  });
+
+  describe("close()", () => {
+    it("tears down the control channel and every attached session channel", async () => {
+      const channel = new RealtimeTerminalChannel("rt_1");
+      // Never replied to — close() rejects it; the outcome of this particular
+      // request isn't this test's concern (covered by the next test).
+      channel.request("terminal.list", {}).catch(() => {});
+      channel.attach("term_1", { onOutput: () => {}, onThrottled: () => {}, onEnded: () => {} });
+      await flush();
+      const control = controlChannel();
+      const session = sessionChannel("term_1");
+
+      channel.close();
+
+      expect(removeChannelSpy).toHaveBeenCalledWith(control);
+      expect(removeChannelSpy).toHaveBeenCalledWith(session);
+    });
+
+    it("rejects an in-flight request with TerminalChannelClosedError, not the timeout error", async () => {
+      const channel = new RealtimeTerminalChannel("rt_1");
+      const promise = channel.request("terminal.list", {});
+      await flush();
+
+      channel.close();
+
+      await expect(promise).rejects.toBeInstanceOf(TerminalChannelClosedError);
+      await expect(promise).rejects.not.toBeInstanceOf(TerminalRequestTimeoutError);
+    });
+
+    it("is idempotent — calling it twice, or before anything ever connected, does not throw", async () => {
+      const channel = new RealtimeTerminalChannel("rt_1");
+      expect(() => channel.close()).not.toThrow();
+      expect(() => channel.close()).not.toThrow();
+    });
+
+    it("reconnecting after close() opens a fresh control channel rather than reusing the torn-down one", async () => {
+      const channel = new RealtimeTerminalChannel("rt_1");
+      // Never replied to — close() rejects it, and the rejection is expected
+      // and ignored here since this test is about channel identity, not this
+      // request's outcome (covered by the previous test).
+      channel.request("terminal.list", {}).catch(() => {});
+      await flush();
+      const first = controlChannel();
+
+      channel.close();
+      void channel.request("terminal.list", {});
+      await flush();
+
+      const controlTopics = fake.channels.filter((c) => c.topic === "machine:ws_1:rt_1");
+      expect(controlTopics).toHaveLength(2);
+      expect(controlTopics[1]).not.toBe(first);
+    });
   });
 });
