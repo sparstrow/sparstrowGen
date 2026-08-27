@@ -133,6 +133,7 @@ describe("RealtimeTerminalChannel", () => {
       kind: "terminal.list",
       sessions: [],
       machineStartedAt: "2026-08-27T00:00:00Z",
+      interactiveProviders: [],
     });
 
     await expect(promise).resolves.toMatchObject({ kind: "terminal.list", sessions: [] });
@@ -149,6 +150,7 @@ describe("RealtimeTerminalChannel", () => {
         kind: "terminal.list",
         sessions: [],
         machineStartedAt: "2026-08-27T00:00:00Z",
+        interactiveProviders: [],
       }),
     ).not.toThrow();
   });
@@ -170,6 +172,7 @@ describe("RealtimeTerminalChannel", () => {
       kind: "terminal.list",
       sessions: [],
       machineStartedAt: "2026-08-27T00:00:00Z",
+      interactiveProviders: [],
     });
 
     await expect(p1).resolves.toMatchObject({ kind: "terminal.list" });

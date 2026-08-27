@@ -295,7 +295,16 @@ export function TerminalsPage() {
     });
   };
 
-  const enabledAgents = (agents.data ?? []).filter((a) => a.enabled);
+  // T-M17-03 — "enabled" alone isn't enough: an agent whose provider has no
+  // interactive mode must never reach the picker (US3.2). Which providers
+  // count is a fact about THIS machine's own registry, not the cloud agent
+  // row, so it comes from `terminal.list`'s reply rather than being assumed
+  // client-side — a second machine on a different core version could
+  // legitimately disagree.
+  const interactiveProviders = sessionsQuery.data?.interactiveProviders ?? [];
+  const interactiveAgents = (agents.data ?? []).filter(
+    (a) => a.enabled && interactiveProviders.includes(a.provider),
+  );
   const sessions = sessionsQuery.data?.sessions ?? [];
   const activeSession = sessions.find((s) => s.id === activeId) ?? null;
 
@@ -407,21 +416,30 @@ export function TerminalsPage() {
           </div>
         ) : null}
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={newAgentId} onValueChange={setNewAgentId}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Interactive agent…" />
-            </SelectTrigger>
-            <SelectContent>
-              {enabledAgents.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.name} · {a.provider}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button disabled={!newAgentId || openPending} onClick={() => openSession(newAgentId)}>
-            <Plus className="size-4" /> Agent terminal
-          </Button>
+          {interactiveAgents.length > 0 ? (
+            <>
+              <Select value={newAgentId} onValueChange={setNewAgentId}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Interactive agent…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {interactiveAgents.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name} · {a.provider}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button disabled={!newAgentId || openPending} onClick={() => openSession(newAgentId)}>
+                <Plus className="size-4" /> Agent terminal
+              </Button>
+            </>
+          ) : (
+            // Never an empty dropdown (phase trap) — say why there's nothing to pick.
+            <p className="text-xs text-muted-foreground">
+              No enabled agent on {target.name} can serve an interactive session.
+            </p>
+          )}
           <Button variant="outline" disabled={openPending} onClick={() => openSession(null)}>
             <Plus className="size-4" /> Shell
           </Button>

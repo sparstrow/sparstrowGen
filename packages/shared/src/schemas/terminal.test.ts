@@ -104,15 +104,27 @@ describe("control requests", () => {
 });
 
 describe("control replies", () => {
-  it("terminal.list reply carries sessions and machineStartedAt", () => {
+  it("terminal.list reply carries sessions, machineStartedAt and interactiveProviders", () => {
     const reply = {
       requestId: "req1",
       kind: "terminal.list",
       sessions: [SESSION],
       machineStartedAt: "2026-08-26T00:00:00.000Z",
+      interactiveProviders: ["claude-code", "antigravity"],
     };
     expect(terminalListReplySchema.safeParse(reply).success).toBe(true);
     expect(machineReplySchema.safeParse(reply).success).toBe(true);
+  });
+
+  it("terminal.list reply rejects a provider id outside the closed set", () => {
+    const reply = {
+      requestId: "req1",
+      kind: "terminal.list",
+      sessions: [SESSION],
+      machineStartedAt: "2026-08-26T00:00:00.000Z",
+      interactiveProviders: ["not-a-real-provider"],
+    };
+    expect(terminalListReplySchema.safeParse(reply).success).toBe(false);
   });
 
   it("terminal.open reply accepts either a session or an error, not both missing", () => {
