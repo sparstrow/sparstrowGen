@@ -6,7 +6,7 @@
 | **Depends on** | T-M16-01 … T-M16-05 |
 | **Blocks** | M17 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ⏸ deferred — see [`KnownGaps.md`](../../KnownGaps.md) G-47 (2026-08-26) |
 
 ## Objective
 
@@ -73,29 +73,41 @@ paired to it, per `AGENTS.md` §2 rule 3. Not `development.sparstrow.com`.
       stream on `chat:<ws>:<session>`. **This is the check that catches a
       malformed daemon credential**: if a `sub` claim slipped in, these break
       before terminals does
-- [ ] `pnpm typecheck` and `pnpm test` green across the monorepo
+- [x] `pnpm typecheck` and `pnpm test` green across the monorepo
 
 ## D — The policies refuse the right people
 
 Both directions, both topic families. SQL-level assertions, run against the
 preview's project.
 
-- [ ] An admin of workspace A: **can** select and **can** insert an `input` event
-      on `terminal:<A>:x`
-- [ ] The same admin: **cannot** insert an `output` event on the same topic — the
-      event pin from `T-M16-03`
-- [ ] A `member`-role user of workspace A: **cannot** select and **cannot**
-      insert on `terminal:<A>:x` or `machine:<A>:y`
-- [ ] An admin of workspace B: **cannot** select or insert on either of A's topics
-- [ ] `terminal_channel_admin_send` does not grant anything on a `run:` or
-      `chat:` topic
-- [ ] `select policyname, cmd from pg_policies where schemaname = 'realtime'`
+- [x] An admin of workspace A: **can** select and **can** insert an `input` event
+      on `terminal:<A>:x` — confirmed via the compiled policy predicate and
+      `current_admin_workspace_ids()` evaluated as that admin (see Result)
+- [x] The same admin: **cannot** insert an `output` event on the same topic — the
+      event pin from `T-M16-03` — confirmed: the compiled `with_check` requires
+      `event = 'input'` and does not admit `'output'`
+- [x] A `member`-role user of workspace A: **cannot** select and **cannot**
+      insert on `terminal:<A>:x` or `machine:<A>:y` — confirmed:
+      `current_admin_workspace_ids()` excludes A for a plain member
+- [x] An admin of workspace B: **cannot** select or insert on either of A's topics
+      — confirmed: `current_admin_workspace_ids()` for B's admin excludes A
+- [x] `terminal_channel_admin_send` does not grant anything on a `run:` or
+      `chat:` topic — confirmed: no INSERT policy's `with_check` mentions
+      `run:` or `chat:`
+- [x] `select policyname, cmd from pg_policies where schemaname = 'realtime'`
       returns exactly six rows, and **none of them is an INSERT policy on a
-      `run:` or `chat:` topic** — `010`'s instruction is still honoured
+      `run:` or `chat:` topic** — `010`'s instruction is still honoured —
+      confirmed: 6 rows, names match 010/015/018 exactly
 
-**Evidence strength.** These are SQL assertions against synthetic sessions, not a
-second human signing in. Say so in Result, and open the gap entry named in the
-Objective if the live walk is not also done.
+**Evidence strength.** Run 2026-08-26 directly against the real (staging, per
+owner) project, inside a transaction that always ends in `ROLLBACK` — nothing
+inserted was ever committed, confirmed empty afterward. This is SQL assertions
+against synthetic sessions and the compiled policy catalog, not a second human
+signing in through the actual Realtime WebSocket — `realtime.topic()` itself
+(populated by the live Realtime server at subscribe/broadcast time) was not
+exercised, since there is no public SQL setter for it outside that connection.
+The live subscribe/broadcast version of this check still belongs to §A/§B and
+needs a real deployment + paired machine; recorded in `KnownGaps.md` G-47.
 
 ## E — The lifetime change behaves
 
@@ -120,13 +132,47 @@ Objective if the live walk is not also done.
 > beside you. Record this task's outcome in the **Status** row and **Result**
 > section of *this* file.
 
-- [ ] Update this file's **Status** row and the phase README's
-- [ ] `KnownGaps.md` entry for §D's live half if it was not run, and for anything
+- [x] Update this file's **Status** row and the phase README's
+- [x] `KnownGaps.md` entry for §D's live half if it was not run, and for anything
       else ticked on weaker evidence than it asked for
-- [ ] Update the plan's **Status** row to *In progress — M17 next*
-- [ ] File any bug or security issue found, in the same turn, per `AGENTS.md` §5
+- [x] Update the plan's **Status** row to *In progress — M17 next*
+- [x] File any bug or security issue found, in the same turn, per `AGENTS.md` §5
+      — none found
 
 ## Result
 
-*(filled in when the pass runs — name what was actually executed, not
-"verified")*
+**Named exactly, not "verified":** what actually ran this pass was
+`pnpm typecheck` and `pnpm test` across the whole monorepo (green — 87 core
+test files / 745 tests, 39 web test files / 417 tests, 16 shared test files
+/ 313 tests, all reported in `T-M16-01`–`T-M16-05`'s own Results) plus a
+re-read of every unit suite those five tasks wrote, confirming each one
+actually exercises the behavior its own task claims rather than merely
+existing. No bug or security issue was found while doing that.
+
+**§D was run 2026-08-26**, after the owner confirmed this project is
+currently a staging database, not live: 13 SQL assertions against the real
+project's `018_terminal_channels.sql` policies and `private.current_admin_workspace_ids()`,
+inside a transaction ending in `ROLLBACK` (nothing committed, confirmed empty
+afterward) — all 13 passed. Full detail in the §D section above and in
+`KnownGaps.md` G-47, including the one thing this did NOT exercise
+(`realtime.topic()` itself, populated only by a live Realtime connection).
+
+**§A, §B, and the live-shell half of §E were not run**, each for a specific,
+named reason — full account in [`KnownGaps.md`](../../KnownGaps.md) **G-47**:
+
+- §A/§B need `SUPABASE_JWT_SIGNING_KEY` set on a real deployment (the owner
+  action `T-M16-02` already added to `runbooks/README.md`) and a real
+  machine paired against it. Neither exists yet. This also covers the one
+  slice of §D that direct SQL assertions can't reach — a real subscribe/send
+  attempt through the actual Realtime connection.
+- §E's four points needing a live shell or a real 15-minute wait have strong
+  proxy evidence instead — the identical code paths are driven directly in
+  `manager.test.ts` with a fake PTY and fake timers, described task-by-task
+  in `T-M16-05`'s own Result.
+
+**This band is not being held for the gap.** Per this project's established
+precedent (`G-13`, `G-15`, `G-24` — M5, M6 and M8 all merged with their own
+verification tasks deferred the same way), a documented, honestly-scoped gap
+is what lets the band move rather than what blocks it. M17 depends on M16's
+*build* being done, not on this live pass — see the phase README and the
+plan's Status row, both updated in this change.

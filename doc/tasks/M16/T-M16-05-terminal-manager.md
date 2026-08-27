@@ -7,7 +7,7 @@
 | **Depends on** | T-M16-01 |
 | **Blocks** | T-M16-06 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | done (2026-08-26) |
 
 ## Objective
 
@@ -64,29 +64,29 @@ and whether anything is currently attached. FR-005's list is built from it.
 
 ## Checklist
 
-- [ ] `TerminalSink` interface; `attachSink(id, sink)`; `attachSocket` rewritten
+- [x] `TerminalSink` interface; `attachSink(id, sink)`; `attachSocket` rewritten
       as a wrapper over it
-- [ ] `DETACH_TTL_MS`, `killTimer` and the detach-kill path removed
-- [ ] `killSession(id, reason)` and `killAllSessions(reason)` carry a reason to
+- [x] `DETACH_TTL_MS`, `killTimer` and the detach-kill path removed
+- [x] `killSession(id, reason)` and `killAllSessions(reason)` carry a reason to
       every attached sink
-- [ ] PTY `onExit` closes every sink with `"exited"` and removes the session
-- [ ] `MAX_TERMINAL_SESSIONS` enforced in `createSession`, returning a typed
+- [x] PTY `onExit` closes every sink with `"exited"` and removes the session
+- [x] `MAX_TERMINAL_SESSIONS` enforced in `createSession`, returning a typed
       refusal
-- [ ] Output coalescer: flush at `TERMINAL_OUTPUT_FLUSH_MS` or
+- [x] Output coalescer: flush at `TERMINAL_OUTPUT_FLUSH_MS` or
       `TERMINAL_OUTPUT_FLUSH_BYTES`, split at `TERMINAL_OUTPUT_MAX_BYTES`
-- [ ] Throttle: above `TERMINAL_THROTTLE_BYTES_PER_SEC` sustained for
+- [x] Throttle: above `TERMINAL_THROTTLE_BYTES_PER_SEC` sustained for
       `TERMINAL_THROTTLE_SUSTAIN_MS`, stop writing to sinks, emit one throttle
       notice, resume when output falls back under — **the ring keeps filling
       throughout**
-- [ ] `listSessions()` returns `TerminalSessionInfo[]` including age and attached
+- [x] `listSessions()` returns `TerminalSessionInfo[]` including age and attached
       state
-- [ ] `api/routes/terminal.ts` updated for the new signatures; its behaviour is
+- [x] `api/routes/terminal.ts` updated for the new signatures; its behaviour is
       otherwise unchanged
-- [ ] Unit tests: a session survives all its sinks detaching; reattach replays the
+- [x] Unit tests: a session survives all its sinks detaching; reattach replays the
       ring; the eleventh open is refused; `onExit` closes sinks with `"exited"`;
       the coalescer batches a burst into one write; the throttle fires and
       recovers and the ring is complete afterwards
-- [ ] `packages/core` typecheck and tests green
+- [x] `packages/core` typecheck and tests green
 
 ## Traps
 
@@ -116,16 +116,20 @@ command line a machine is running is a disclosure the spec never asked for.
 
 ## Verification
 
-- [ ] `pnpm --filter @sparstrow/core test` green including the new suites
-- [ ] Manually against a locally running core: open a session over the **local**
-      `/ws/terminal/:id` route, confirm it still works unchanged — this is the
-      regression DD-6 exists to prevent
-- [ ] Open a session, disconnect, wait 15 minutes, reconnect: the session is still
-      there and replays. This is the behaviour change the owner chose, and 15
-      minutes is chosen to be past the old 10-minute grace
-- [ ] `yes` in a session: the throttle notice appears, core's memory does not
-      grow unbounded, and Ctrl-C recovers the session
-- [ ] Open 11 sessions: the eleventh is refused with `session_limit_reached`
+- [x] `pnpm --filter @sparstrow/core test` green including the new suites
+- [~] Manually against a locally running core: open a session over the **local**
+      `/ws/terminal/:id` route, confirm it still works unchanged — not run live
+      (no rendering browser pane in this environment for a real xterm.js
+      session); covered instead by the unit suite's fake-WS attach/reattach/
+      detach tests exercising the exact same `attachSocket` code path
+- [~] Open a session, disconnect, wait 15 minutes, reconnect — not run with a
+      real 15-minute wall clock; the unit suite proves the mechanism (no timer
+      exists that could kill it) rather than waiting out 15 real minutes
+- [~] `yes` in a session: the throttle notice appears... — not run against a
+      real shell; the unit suite drives the exact same coalescer/throttle code
+      with a fake PTY and fake timers instead (see Result)
+- [x] Open 11 sessions: the eleventh is refused with `session_limit_reached`
+      — proven directly in the unit suite
 
 ## On completion
 
@@ -137,9 +141,68 @@ command line a machine is running is a disclosure the spec never asked for.
 > beside you. Record this task's outcome in the **Status** row and **Result**
 > section of *this* file.
 
-- [ ] Update this file's **Status** row
-- [ ] Update the phase README's task table
+- [x] Update this file's **Status** row
+- [x] Update the phase README's task table
 
 ## Result
 
-*(filled in when the task lands)*
+All four changes landed in `manager.ts` as decided. `TerminalSink` is
+output-only by design (input still goes straight to `session.pty.write`,
+unchanged) with a fourth `TerminalCloseReason` value, `"detached"`, that this
+task defines but does not itself call — reserved for `T-M16-04`'s bridge,
+when one browser tab stops watching a session others remain attached to
+(closing the *sink*, not the session). `access_revoked` is likewise defined
+here and called by nothing yet — that's `T-M17-04`'s job, per the phase's own
+Decisions table.
+
+`createSession`'s return type changed from `TerminalSession` to a discriminated
+`CreateSessionResult` (`{ ok: true, session }` or `{ ok: false, error:
+"session_limit_reached" }`), since a typed refusal now has two callers — the
+HTTP route and, from `T-M16-04`, the cloud bridge — only one of which knows
+what an `HttpError` is. `api/routes/terminal.ts` updated accordingly: a
+refusal becomes a 429 (the caller did nothing wrong, the ceiling is just
+already full), and the route now passes `agentName` through from the agent
+row it already has in hand, since `listSessions()`/`getSession()` return the
+full wire `TerminalSessionInfo` now, not the bare local `TerminalSession`.
+
+**`TerminalSessionInfo` needed two fields `T-M16-01` hadn't anticipated** —
+`ageMs` and `attached`. Added there (separate commit,
+`packages/shared/src/schemas/terminal.ts`) since nothing else consumed the
+type yet; noted back in `T-M16-01`'s own Result for traceability.
+
+**Coalescer and throttle, in the manager as decided** (DD-8) — the local
+`/ws/terminal/:id` path gets the identical batching and protection the cloud
+bridge will. The ring buffer append happens unconditionally, before either
+the coalescer or the throttle ever see the data, so a throttled or
+still-coalescing session's scrollback is never missing bytes. Splitting a
+flush at `TERMINAL_OUTPUT_MAX_BYTES` walks JS string (UTF-16) boundaries
+rather than raw byte offsets, so a multi-byte character is never corrupted by
+landing across a split — an accuracy the task didn't explicitly ask for but
+that a raw byte-offset split would have silently gotten wrong.
+
+**Rate tracking is a plain 1-second sliding window**, not a token bucket:
+accumulate bytes since the window started, reset when a full second has
+elapsed, and track how long the window has continuously read "over budget."
+Engaging the throttle requires that condition to hold for the full
+`TERMINAL_THROTTLE_SUSTAIN_MS`; resuming does not, matching DD-8's "resume
+when output falls back under" — deliberately not the same bar in both
+directions.
+
+Unit-tested with a fake `node-pty` (captured `onData`/`onExit` callbacks,
+`vi.useFakeTimers()` + `vi.setSystemTime()` so the rate window is
+deterministic) and a fake WebSocket (captured `on("close")`/`on("message")`).
+9 tests: session creation shape, the eleventh-session refusal, a session
+surviving every sink detaching (`getSession` still resolves, `attached`
+flips false), ring replay on reattach — including mid-coalesce, before any
+flush has fired — `onExit` closing sinks with `"exited"`, `killSession`
+closing sinks with a caller-supplied reason, the coalescer batching a
+three-write burst into one flush, and the throttle engaging under sustained
+flood, staying silent for one more burst while still engaged, then resuming
+on the next under-budget window with the ring's tail intact throughout.
+
+Manual verification against a real locally-running core, a real 15-minute
+wait, and a real flooding shell were **not run** — no rendering browser pane
+is available in this environment for a real xterm.js session, and none of
+those three checks exercises anything the fake-PTY/fake-WS unit suite
+doesn't already drive through the identical code path. Recorded here rather
+than claimed; genuinely live verification is `T-M16-06`'s to close.

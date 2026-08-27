@@ -31,7 +31,7 @@ that consume them.
 FR-001 — *"ask an online machine a question and show the answer, while the
 owner waits"* — reads like the centre of this plan and is not in it. M16's DD-2
 mints the daemon Realtime credential, DD-3 defines the control channel, and its
-`017_terminal_channels.sql` writes the send/subscribe policies. A folder listing
+`018_terminal_channels.sql` writes the send/subscribe policies. A folder listing
 is a request on that channel with a different `kind`.
 
 The consequence for sequencing is absolute: **nothing here can start before

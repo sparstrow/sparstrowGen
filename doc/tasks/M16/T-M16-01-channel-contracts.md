@@ -7,7 +7,7 @@
 | **Depends on** | — |
 | **Blocks** | T-M16-02, T-M16-03, T-M16-04, T-M16-05 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | done (2026-08-26) |
 
 ## Objective
 
@@ -102,19 +102,19 @@ setting uses; absent means **on**.
 
 ## Checklist
 
-- [ ] `packages/shared/src/schemas/terminal.ts` — envelopes and Zod schemas for
+- [x] `packages/shared/src/schemas/terminal.ts` — envelopes and Zod schemas for
       every request kind, every reply, `TerminalSessionInfo`, input and output
       messages
-- [ ] `packages/shared/src/cloud.ts` — the two topic helpers, the four event
+- [x] `packages/shared/src/cloud.ts` — the two topic helpers, the four event
       constants, the limits above, `SETTING_TERMINAL_ACCESS`, and its entry in
       `DAEMON_SETTABLE_KEYS`
-- [ ] `packages/shared/src/index.ts` re-exports the new module
-- [ ] Unit tests: each schema accepts a valid message and rejects a malformed one;
+- [x] `packages/shared/src/index.ts` re-exports the new module
+- [x] Unit tests: each schema accepts a valid message and rejects a malformed one;
       the topic helpers produce exactly the documented strings
-- [ ] A doc comment on each topic helper naming `017_terminal_channels.sql` as
+- [x] A doc comment on each topic helper naming `018_terminal_channels.sql` as
       the policy that must match it — the same cross-reference `chatTurnTopic`
       carries
-- [ ] `packages/shared` typecheck and tests green
+- [x] `packages/shared` typecheck and tests green
 
 ## Traps
 
@@ -133,10 +133,10 @@ editing the policy widens or breaks the grant silently.
 
 ## Verification
 
-- [ ] `pnpm --filter @sparstrow/shared test` green, including the new schema tests
-- [ ] `pnpm typecheck` green across the monorepo — nothing else imports these yet,
+- [x] `pnpm --filter @sparstrow/shared test` green, including the new schema tests
+- [x] `pnpm typecheck` green across the monorepo — nothing else imports these yet,
       so this proves the module compiles and exports cleanly
-- [ ] `grep` for the four event constants shows them defined once and used by name
+- [x] `grep` for the four event constants shows them defined once and used by name
       nowhere yet — later tasks are what consume them
 
 ## On completion
@@ -149,9 +149,44 @@ editing the policy widens or breaks the grant silently.
 > beside you. Record this task's outcome in the **Status** row and **Result**
 > section of *this* file.
 
-- [ ] Update this file's **Status** row
-- [ ] Update the phase README's task table
+- [x] Update this file's **Status** row
+- [x] Update the phase README's task table
 
 ## Result
 
-*(filled in when the task lands)*
+Built exactly as decided, with one correction found before writing any code:
+**the SQL policy file is `018_terminal_channels.sql`, not `017`.** Band 23
+(M18) landed `017_access_model.sql` on 2026-08-25 — a day after this file was
+written — so `017` was already taken. Both phases' own docs anticipated this
+exact race and named the resolution ("whichever lands second takes `018`, do
+not renumber the one already landed"); M16 is the one landing second here.
+Renumbered in this task file, the phase README, `MasterTaskQueue.md`, and both
+plan docs (`2026-08-24-a-terminal-on-my-machine.md`,
+`2026-08-24-reaching-my-machine-from-the-browser.md`) in a separate commit
+before starting the checklist. Band 23's own already-archived docs
+(`CompletedMasterQueue.md`, `T-M18-04`) were left untouched — they're another
+band's landed history, not live planning text.
+
+**Amended 2026-08-26 (during `T-M16-05`):** `TerminalSessionInfo` gained
+`ageMs` and `attached` — `listSessions()` needs to report both and this
+schema hadn't anticipated either. Purely additive; nothing outside this
+module's own tests had consumed the type in between, so nothing broke.
+
+Everything else matches the Decisions section verbatim: two topic helpers in
+`cloud.ts` (`machineControlTopic`, `terminalSessionTopic`), the four event
+constants, the four request/reply Zod schemas in the new
+`schemas/terminal.ts` (`terminal.list` has no error reply — the table never
+gave it one), `TerminalRefusal` as a six-member enum, all eight limit
+constants, and `SETTING_TERMINAL_ACCESS` added to `DAEMON_SETTABLE_KEYS`.
+
+One shape decision the Decisions table left open: `terminal.attach`'s reply
+carries `replay` as a plain `string` (the session's ring buffer contents, the
+same value `manager.ts`'s `attachSocket` already replays over the old
+WebSocket path) rather than a structured type — nothing downstream needs more
+than the raw bytes to render a reconnect.
+
+17 new tests in `schemas/terminal.test.ts` (topic strings, every schema's
+accept/reject pair) plus the existing 294 all pass — 311 total. Monorepo
+`pnpm typecheck` is green with `core`/`desktop`/`memory-cli`/`memory-mcp`/`ui`
+all cache-hit, confirming nothing outside `@sparstrow/shared` was touched or
+needed to import the new module yet, as expected for this task.

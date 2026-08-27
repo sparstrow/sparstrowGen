@@ -1542,3 +1542,93 @@ claim that they are unverified everywhere.
   `/messages`, `/skills`, `/tasks`, `/goals`, `/runs`, `/schedule`,
   `/pipelines`, `/machines`, and `/settings` specifically for cross-cluster
   breakage (a page reading a shape a sibling task's hook deletion changed).
+
+### G-47 — M16 (a live channel to a machine) is built and unit-tested; nothing has actually connected to Realtime
+
+**Raised:** 2026-08-26, closing `T-M16-01` … `T-M16-05` and attempting
+`T-M16-06`. **Updated:** 2026-08-26, same day — §D's SQL-assertion half run
+against the real (staging) project and closed; see below.
+
+All five build tasks are done — 22 new tests across `packages/shared` and
+`packages/core` (channel-contract schemas, the four RLS policies applied to
+the project's actual Supabase database and confirmed via `pg_policies`, the
+signing-path discovery, the terminal manager's coalescer/throttle/ceiling,
+and the Realtime connection's refresh/backoff/revocation handling against a
+faked `RealtimeClient`) — and `pnpm typecheck`/`pnpm test` are green
+workspace-wide. **Not one byte has crossed a real Realtime connection**,
+because every remaining check in `T-M16-06` needs something this pass did
+not have:
+
+- **§A (the wire works) and §B (the connection looks after itself) — not run
+  at all.** Both need `SUPABASE_JWT_SIGNING_KEY` set on a real deployment
+  (the owner action `T-M16-02` added to
+  [`runbooks/README.md`](runbooks/README.md)) and a real machine paired to
+  it. Until that variable is set, `POST /api/daemon/realtime/token` 500s by
+  design (`mintRealtimeToken` throws by name rather than minting with no
+  key) — there is nothing today's build could have connected to even if a
+  machine were paired and pointed at a preview.
+- **§C's local-route regression check — not run live**, for the same reason
+  `G-13`/`G-16` weren't: no rendering browser in this environment. Partially
+  covered anyway: `manager.test.ts`'s fake-WebSocket tests exercise
+  `attachSocket` — the exact function the local `/ws/terminal/:id` route
+  calls — for attach, detach-survives, and reattach-replays, which is real
+  evidence for the code path even without a rendered xterm.js session. The
+  transcript/chat-still-streaming check and the typecheck/test bullet **did**
+  run — see `T-M16-04`'s Result.
+- **§D (the policies refuse the right people) — run 2026-08-26, on the
+  owner's confirmation that this project is currently a staging database,
+  not live**, against the **real** project rather than a disposable Docker
+  container (Docker still wasn't available). 13 assertions, all inside a
+  single transaction that ends in `ROLLBACK` — synthetic workspaces/users
+  (`verify-018-*` ids) never committed, confirmed empty afterward:
+  `private.current_admin_workspace_ids()` correctly includes workspace A for
+  an admin of A, excludes it for a plain member of A, and excludes it for an
+  admin of unrelated workspace B; exactly six `realtime.messages` policies
+  exist with the expected names; no `INSERT` policy touches a `run:`/`chat:`
+  topic; `terminal_channel_admin_send`/`machine_channel_admin_send` each pin
+  their event (`input`/`request`) and do not admit the forgeable one
+  (`output`/`reply`); both `_read` policies gate on
+  `current_admin_workspace_ids()`, not plain membership. **What this did
+  NOT exercise:** `realtime.topic()` itself — that GUC is populated by the
+  live Realtime server during an actual subscribe/broadcast attempt, and
+  there is no public SQL setter for it outside that connection, so the
+  script read the compiled policy predicates from `pg_policies` and
+  independently exercised the helper function instead of driving a real
+  broadcast end-to-end. That is strong evidence the policy logic is correct,
+  not a byte-for-byte replay of the wire path — the live version of this
+  check (a second real signed-in session, refused at subscribe and at send)
+  is still §A/§B territory and still needs a real deployment + paired
+  machine.
+- **§E (the lifetime change behaves) — the four points needing a live shell
+  or a real 15-minute wait weren't run**, but the underlying mechanism for
+  every one of them is unit-tested in `manager.test.ts` against a fake PTY
+  and fake timers: survives-all-sinks-detached (there is no timer left that
+  could kill it, proven directly rather than waited out), the eleventh
+  session refused, the throttle engaging/recovering with the ring intact,
+  and `onExit` closing with `"exited"`. `SETTING_TERMINAL_ACCESS=false`
+  refusing `terminal.open` (and, from `T-M16-04`, `terminal.attach`) is
+  proven in `terminal-bridge.test.ts` against a real in-memory settings
+  table — only "existing sessions are killed" when the switch flips live
+  (`T-M17-04`'s enforcement, not built yet) is genuinely untested anywhere.
+
+- **If wrong:** high for §A/§B specifically — a Realtime connection that
+  fails to actually authenticate, subscribe, or refresh against the real
+  service would be a foundational defect this entire phase and all of M17
+  sit on, and nothing about a faked `RealtimeClient` can catch a mismatch
+  against the real `@supabase/realtime-js` wire protocol or a real Supabase
+  project's actual behavior (message framing, channel topic prefixing,
+  auth-rejection timing). Low-medium for §D's remaining slice (the live
+  subscribe/broadcast path through `realtime.topic()` itself) — the
+  predicate logic is now directly confirmed against the real project, so
+  what's left is specifically "does the Realtime server populate and gate on
+  that GUC the way the policy assumes," which §A/§B's live pass will also
+  exercise. Low for §C/§E, which have strong proxy evidence already.
+- **Clears when:** (1) the owner sets `SUPABASE_JWT_SIGNING_KEY` on the
+  deployment and a real machine pairs against it, closing §A and §B with an
+  actual subscribed channel and a real refresh-under-load — this also closes
+  §D's remaining live-subscribe/broadcast slice, since a second real signed-in
+  session refused at subscribe and at send is the same underlying mechanism;
+  (2) `T-M17-04` ships and its own verification proves the
+  access-switch-kills-existing-sessions bullet. `T-M17-06` (the browser-side
+  pass) is where §A/§B's evidence gets a second, independent confirmation
+  from the UI side once M17 exists to click.
