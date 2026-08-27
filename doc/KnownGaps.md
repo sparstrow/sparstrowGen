@@ -1720,6 +1720,34 @@ plane that was genuinely working the day before — not a gap that was always
 there. The original "Preview's copy is fine" sentence above is now wrong
 and left in place only so this correction is legible against it.
 
+**Corrected again 2026-08-27, live with the owner in the Supabase
+dashboard: the "clears when" fix below is not obtainable, at all, not just
+malformed.** Walked the owner's own JWT Keys screen together — the "Key
+Details" modal for the current signing key shows only "Public key set (JSON
+Web Key Set format)" (`key_ops: ["verify"]`, no `d`), and a freshly created
+standby ES256 key showed the identical public-only shape at the moment of
+creation, no one-time private-key reveal anywhere in the flow. This is not
+this project's misconfiguration — Supabase's asymmetric JWT Signing Keys
+never expose the private half of an ES256/RS256 key through the dashboard or
+API, by design; only the Legacy JWT Secret (HS256, being phased out) was ever
+exportable. **`mintRealtimeToken()`'s whole approach — read the project's own
+private signing key from an env var and sign with it — cannot work for this
+project's current key, ever, not just today.** The "no `kid`"/malformed
+symptoms recorded above were real, but chasing a well-formed value to paste
+in is chasing something that does not exist to be pasted.
+
+**Tracing this further also surfaced a second, independent blocker**, filed
+as [`BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls`](../bug/BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls.md):
+even a token Supabase itself validly signs would still be refused by
+`018_terminal_channels.sql`'s RLS, because those four policies gate solely on
+`private.current_admin_workspace_ids()`, which needs a real `auth.uid()` —
+and `mintRealtimeToken()`'s claims deliberately carry no `sub`. Fixing the
+signing problem alone does not close this gap; both need a resolution, and
+the two are entangled (whatever mints a Supabase-signed token also decides
+what `sub` it carries, which decides whether `018`'s policies can recognize
+it). A redesign is being scoped now rather than patching the runbook row to
+describe an impossible action.
+
 **`T-M17-06`'s own pass, 2026-08-27, against the band 21 preview
 (`sparstrowgen-git-claude-band-21-cfe736-sparstrow.vercel.app`), with a real
 paired headless `core` process and a real signed-in session:** confirmed
@@ -1752,12 +1780,15 @@ unsupervised).
   names for the daemon side. A wire-shape mismatch between what this page
   sends and what a real subscribed session actually delivers would not be
   caught by any test that ran here.
-- **Clears when:** (1) the owner re-exports the current ES256 signing key
-  from **Project Settings → API → JWT Keys** and sets it on **both** Preview
-  and Development (`doc/runbooks/README.md`'s row — confirmed 2026-08-27 that
-  narrowing this to "Development only" was wrong, it is one value covering
-  both tags); (2) a real daemon then holds a subscribed control channel
-  through a `terminal.open`/`terminal.attach` round trip on a real preview,
-  closing US1/US2/US3 and SC-001/002/003 together; (3) an owner-supervised
-  second account (or the owner's own second browser) exercises FR-009's live
+- **Clears when:** (1) the token-minting design is redesigned so Supabase
+  itself signs the daemon's credential (the private key cannot be exported —
+  confirmed above) **and** the result can pass `018_terminal_channels.sql`'s
+  admin-membership RLS without making the daemon a real `workspace_members`
+  row — see `BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls`
+  for why both parts are required together; `doc/runbooks/README.md`'s row is
+  superseded by this and should not be actioned as currently worded; (2) a
+  real daemon then holds a subscribed control channel through a
+  `terminal.open`/`terminal.attach` round trip on a real preview, closing
+  US1/US2/US3 and SC-001/002/003 together; (3) an owner-supervised second
+  account (or the owner's own second browser) exercises FR-009's live
   refusal.
