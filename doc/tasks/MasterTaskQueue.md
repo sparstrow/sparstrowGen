@@ -292,6 +292,38 @@ PR #129 without this flip; caught while promoting band 22, per
 `doc/tasks/README.md`'s "check the other bands too" step).** Full task
 table, tags and notes: [`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-23).
 
+### Band 25 — DI the daemon gets a real identity (2026-08-27) · **run this first**
+
+Plan: [`../plans/2026-08-27-the-daemon-gets-a-real-identity.md`](../plans/2026-08-27-the-daemon-gets-a-real-identity.md).
+Spec: [`../specs/2026-08-24-a-terminal-on-my-machine.md`](../specs/2026-08-24-a-terminal-on-my-machine.md)
+— no new spec; this delivers stories that one already owns.
+Phase spec: [`DI/README.md`](DI/README.md). Decomposed 2026-08-27.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 25.1 | [T-DI-01 — the session topic carries the runtime id](DI/T-DI-01-session-topic-runtime-id.md) | `[S]` | — | queued |
+| 25.2 | [T-DI-02 — the daemon identity: schema, helper, policies](DI/T-DI-02-daemon-identity-schema.md) | `[S]` | 25.1 | queued |
+| 25.3 | [T-DI-03 — the token route mints a Supabase session](DI/T-DI-03-token-route-supabase-session.md) | `[S]` | 25.2 | queued |
+| 25.4 | [T-DI-04 — core adapts to the new credential](DI/T-DI-04-core-credential-lifetime.md) | `[P]` | 25.3 | queued |
+| 25.5 | [T-DI-05 — verification: the live pass that has never run](DI/T-DI-05-verification.md) | `[S]` | 25.1–25.4 | queued |
+
+25.1–25.3 are `[S]` in a chain: each defines the contract the next compiles or
+authorizes against, and they touch overlapping files. 25.4 is `[P]` — it lives
+entirely in `packages/core` and needs only 25.3's response shape.
+
+**This band is ahead of band 24 in priority despite the higher number.** M16 and
+M17 both merged and neither has ever carried a byte: the daemon could not sign a
+credential Supabase would accept (`G-48` — Supabase never exports an asymmetric
+private key, confirmed live in the dashboard 2026-08-27), *and* the credential
+`DD-2` specified could never have passed `018_terminal_channels.sql`'s RLS
+anyway, because it deliberately carries no `sub` and those policies resolve the
+caller through `workspace_members` ([`BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls`](../bug/BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls.md)).
+Two independent blockers, each hiding the other, both found on 2026-08-27.
+
+**No UI work.** M17's surfaces, states and sentences are all built and stay
+exactly as they are. This band changes one topic string, adds one table, one
+function and four policies, and rewrites one module's internals.
+
 ### Band 24 — M22–M24 reaching my machine from the browser (2026-08-24)
 
 Plan: [`../plans/2026-08-24-reaching-my-machine-from-the-browser.md`](../plans/2026-08-24-reaching-my-machine-from-the-browser.md).
@@ -335,7 +367,7 @@ bands 20 and 21 own it.
 | ~~`/runs/[runId]` transcript~~ | ~~M5 (7.6)~~ | **Resolved 2026-08-22.** `T-M11-02` dispatched a real run and watched `/runs/[runId]` populate live — cloud/local `run_events` counts matched exactly (3/3 and 13/13 across two runs). Rendering the transcript for every provider is not fully closed — see [`BUG-2026-08-22-antigravity-transcript-not-rendered`](../bug/BUG-2026-08-22-antigravity-transcript-not-rendered.md) — but the page is no longer empty by construction. |
 | Realtime doorbell for dispatch | **Deferred → [D-12](../Deferred.md)** | Not blocked work. The 3s poll is correct and always-on; the doorbell is a latency improvement that M5's decision 1 declined to buy with a second daemon auth model. |
 | Agent definitions differ between cloud and machine | **Deferred → [D-9](../Deferred.md)** | Not blocked work. M4 resolves a cloud agent to a local one by slug and blocks legibly on a miss; syncing definitions is a separate feature with its own conflict model. |
-| **Band 24 (M22–M24) in its entirety** | **Band 20 (M16)** | Hard, not soft. This plan builds no transport of its own — a browser reaches a machine over M16's `machine:<workspace_id>:<runtime_id>` control channel or not at all, and building a second path is the relay service M16's DD-1 rejected. Its tasks are also not written yet, on purpose: they extend an envelope `T-M16-01` defines. |
+| **Band 24 (M22–M24) in its entirety** | **Band 25 (DI)**, not band 20 | Hard, not soft. This plan builds no transport of its own — a browser reaches a machine over M16's `machine:<workspace_id>:<runtime_id>` control channel or not at all, and building a second path is the relay service M16's DD-1 rejected. **Corrected 2026-08-27:** the blocker used to read "band 20 (M16)", which was true and insufficient — band 20 merged, and its transport has still never carried a byte. The real gate is band 25, which makes a daemon able to authenticate to that channel and pass its RLS. Band 24's tasks are also not written yet, on purpose: they extend an envelope `T-M16-01` defines, and now also a topic shape `T-DI-01` changes. |
 | **23.4's `users.role` drop** | **Owner action** | A column drop is `AGENTS.md` §3.7 destructive even when the column is provably inert (nothing reads it; the profile route strips it with a test). Everything else in 23.4 proceeds without it. |
 | **M24 (Browse) specifically** | **M20, in band 23's plan** | The folder picker's boundary is what a machine says it shares — the access model's US4, which is `OQ-6`'s answer. A picker built before that exists is `OQ-6` option A, which the owner rejected. M23 (project files) has no such dependency and ships first. |
 

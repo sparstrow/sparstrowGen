@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | [`../specs/2026-08-24-a-terminal-on-my-machine.md`](../specs/2026-08-24-a-terminal-on-my-machine.md) (Draft; the four framing decisions were taken by the owner 2026-08-24 and planning authorized in the same turn) |
-| **Status** | ✅ Completed — M16 done except G-47; M17 done except the interactive-session live pass, both gaps folded into [`KnownGaps.md`](../KnownGaps.md) G-48 (a Vercel `SUPABASE_JWT_SIGNING_KEY` regression, not a code gap in either phase) |
+| **Status** | ⚠️ Built, never working — M16 and M17 both merged; the wire has never carried a byte. **`DD-2` is superseded** by [`2026-08-27-the-daemon-gets-a-real-identity`](2026-08-27-the-daemon-gets-a-real-identity.md), which fixes both blockers (see the note under `DD-2`). Gaps: [`G-47`](../KnownGaps.md), [`G-48`](../KnownGaps.md), [`BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls`](../bug/BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls.md) |
 | **Trigger** | The owner, 2026-08-24: "lets build the terminal." |
 | **Depends on** | M3 (pairing + daemon token), M4 (per-machine settings via `settings.set`), M5 (the Realtime broadcast pattern this extends). All code-complete. |
 | **Touches** | `packages/shared/src/cloud.ts`, `packages/shared/src/schemas/terminal.ts` (new), `packages/shared/drizzle/policies/018_terminal_channels.sql` (new), `apps/web/src/app/api/daemon/realtime/token/route.ts` (new), `apps/web/src/lib/daemon/realtime-token.ts` (new), `apps/web/src/lib/terminal-channel.ts` (new), `apps/web/src/app/terminals/terminals.tsx`, `apps/web/src/app/machines/machines.tsx`, `apps/web/src/content/knowledge/*.md`, `packages/core/src/cloud/realtime.ts` (new), `packages/core/src/cloud/terminal-bridge.ts` (new), `packages/core/src/terminal/manager.ts`, `packages/core/src/api/routes/terminal.ts`, `packages/core/src/index.ts` |
@@ -107,6 +107,30 @@ The cost the owner accepted: Realtime bills per message, so coalescing is not
 optional (DD-8).
 
 ### DD-2 — The daemon gets its own short-lived, workspace-scoped Realtime credential
+
+> ⚠️ **SUPERSEDED 2026-08-27 by
+> [`DI-1`](2026-08-27-the-daemon-gets-a-real-identity.md).** Kept in place
+> because two of its four bullets are still exactly right, and because the
+> fourth is the reason a second failure went unnoticed for two weeks.
+>
+> **What was wrong:** the signing key. This decision assumed the project's
+> private signing key could be read from the Supabase dashboard. It cannot —
+> Supabase never exposes the private half of an asymmetric key, confirmed live
+> in the owner's own dashboard on both the current ES256 key and a freshly
+> created standby one. There was never a value to put in
+> `SUPABASE_JWT_SIGNING_KEY`.
+>
+> **What was subtly wrong:** the fourth bullet's conclusion, not its reasoning.
+> Omitting `sub` does avoid the `uuid`-cast hazard it names — but it also makes
+> `auth.uid()` null, and `018_terminal_channels.sql`'s four policies resolve the
+> caller through `workspace_members` keyed on exactly that. So the daemon's own
+> token could never have passed its own channel's RLS, however it was signed.
+> The hazard was real; the fix traded it for a bigger one.
+>
+> `DI-1` resolves both at once: a real Supabase Auth identity per runtime, never
+> a workspace member, recognised by new policies through a mapping table. A
+> Supabase user id *is* a uuid, so the cast hazard disappears rather than being
+> worked around.
 
 This is the piece M5 named and declined. It is four things:
 
