@@ -3,7 +3,7 @@ title: Limitations & gotchas
 section: Reference
 description: The honest list — what Sparstrowgen deliberately doesn't do, and the sharp edges to know about.
 order: 1
-updated: 2026-08-22
+updated: 2026-08-27
 ---
 
 Knowing the edges is part of knowing the tool. These are current and deliberate unless
@@ -31,6 +31,11 @@ marked otherwise.
 - **Humans merge.** No agent can merge a PR or push a trunk branch — ever.
 - **Nothing self-approves.** Delegations, quarantined imports, and memory contradictions
   wait in the attention queue until you act.
+- **Browser terminals are owner/admin only, capped at ten per machine, and
+  throttle a flooding command rather than freezing.** A terminal runs with
+  your own full user permissions — not a policy-clamped set — from any
+  browser you're signed in on, which is the largest single grant this app
+  hands out. See [Terminals](/knowledge/terminals).
 
 ## Sign-in
 
@@ -78,12 +83,13 @@ marked otherwise.
   from the last check-in, so a crash and a clean shutdown look the same for that
   window — which is why the app says "unreachable" rather than naming a cause.
 - **Pairing codes are single-use and expire.** Generate a new one per machine.
-- **Some settings are per-machine, not per-workspace** — work-in-progress snapshots,
-  for one. You can change them from the browser, but you change them *for one machine
-  at a time*, on the [Machines](/knowledge/machines) page, because machines can
-  legitimately disagree: a
+- **Some settings are per-machine, not per-workspace** — work-in-progress snapshots and
+  whether a machine allows browser terminals, for two. You can change them from the
+  browser, but you change them *for one machine at a time*, on the
+  [Machines](/knowledge/machines) page, because machines can legitimately disagree: a
   laptop with a small disk and a workstation with a large one have different right
-  answers. The switch is disabled while a machine is offline rather than queueing a
+  answers about snapshots, and a machine's owner may simply want terminals off on that
+  one. Both switches are disabled while a machine is offline rather than queueing a
   change against a computer that is switched off.
 - **Platform quotas come from the hosting plan** (auth requests, connections, realtime
   channels) and change with it. Read them from the Supabase dashboard rather than
