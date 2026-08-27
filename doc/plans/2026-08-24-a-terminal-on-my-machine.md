@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | [`../specs/2026-08-24-a-terminal-on-my-machine.md`](../specs/2026-08-24-a-terminal-on-my-machine.md) (Draft; the four framing decisions were taken by the owner 2026-08-24 and planning authorized in the same turn) |
-| **Status** | In progress — M16 built and unit-tested (T-M16-01–05 done); live verification deferred, see [`KnownGaps.md`](../KnownGaps.md) G-47; M17 next |
+| **Status** | In progress — M16 done except G-47 (built, unit-tested, §C/§D live-verified against the real project; §A/§B's live-wire pass needs the owner's own hands, see [`KnownGaps.md`](../KnownGaps.md) G-47); M17 next |
 | **Trigger** | The owner, 2026-08-24: "lets build the terminal." |
 | **Depends on** | M3 (pairing + daemon token), M4 (per-machine settings via `settings.set`), M5 (the Realtime broadcast pattern this extends). All code-complete. |
 | **Touches** | `packages/shared/src/cloud.ts`, `packages/shared/src/schemas/terminal.ts` (new), `packages/shared/drizzle/policies/018_terminal_channels.sql` (new), `apps/web/src/app/api/daemon/realtime/token/route.ts` (new), `apps/web/src/lib/daemon/realtime-token.ts` (new), `apps/web/src/lib/terminal-channel.ts` (new), `apps/web/src/app/terminals/terminals.tsx`, `apps/web/src/app/machines/machines.tsx`, `apps/web/src/content/knowledge/*.md`, `packages/core/src/cloud/realtime.ts` (new), `packages/core/src/cloud/terminal-bridge.ts` (new), `packages/core/src/terminal/manager.ts`, `packages/core/src/api/routes/terminal.ts`, `packages/core/src/index.ts` |
