@@ -270,38 +270,9 @@ different agents.
 
 ### Band 20 — M16 a live channel to a machine (2026-08-24)
 
-Phase spec: [`M16/README.md`](M16/README.md). Plan:
-[`2026-08-24-a-terminal-on-my-machine.md`](../plans/2026-08-24-a-terminal-on-my-machine.md).
-Decomposed 2026-08-24 — six tasks, all written.
-
-**Foundational: nothing in this band is visible to the owner.** It builds the
-daemon-side Realtime credential that M5 named and declined, the two channel
-families, their policies, and the terminal manager rework. At the end of it the
-Terminals page is exactly as dead as it is today.
-
-| # | Task | Tag | Depends on | Status |
-|---|---|---|---|---|
-| 20.1 | [T-M16-01 — channel contracts](M16/T-M16-01-channel-contracts.md) | `[S]` | — | queued |
-| 20.2 | [T-M16-02 — daemon Realtime credential](M16/T-M16-02-daemon-realtime-credential.md) | `[P]` | 20.1 | queued |
-| 20.3 | [T-M16-03 — `018_terminal_channels.sql`](M16/T-M16-03-channel-policies.md) | `[P]` | 20.1 | queued |
-| 20.4 | [T-M16-04 — core: the Realtime connection](M16/T-M16-04-core-realtime-connection.md) | `[C]` | 20.1, 20.2 | queued |
-| 20.5 | [T-M16-05 — core: terminal manager rework](M16/T-M16-05-terminal-manager.md) | `[P]` | 20.1 | queued |
-| 20.6 | [T-M16-06 — verification](M16/T-M16-06-verification.md) | `[S]` | 20.1—20.5 | queued |
-
-20.1 is `[S]` for the same reason M3's and M4's first tasks were: four tasks in
-three packages are written against its topics and event names, and 20.3 authors a
-policy that pins two of those names literally. 20.4 is `[C]` rather than `[P]`
-because it edits `packages/core/src/index.ts`, which 20.5 also touches.
-
-**20.2 needs an owner action** — a signing credential set on the Vercel project.
-That task adds the row to [`../runbooks/README.md`](../runbooks/README.md).
-Nothing else in the band is blocked on it; 20.6 is.
-
-**This band unblocks more than M17.** The request/reply half of
-[`reaching-my-machine-from-the-browser`](../specs/2026-08-24-reaching-my-machine-from-the-browser.md)
-and the [`I-11`](../Ideas.md) surfaces behind it become buildable once a machine
-can be asked a question at all. Neither is built here, and both still need their
-own owner review — see that spec's status.
+✅ **Archived 2026-08-26 — done except `G-47`, which does not block the
+archive per `doc/tasks/README.md`'s own rule.** Full task table, tags and
+notes: [`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-20).
 
 ### Band 21 — M17 the terminal itself (2026-08-24)
 

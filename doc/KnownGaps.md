@@ -1546,8 +1546,11 @@ claim that they are unverified everywhere.
 ### G-47 — M16 (a live channel to a machine) is built and unit-tested; nothing has actually connected to Realtime
 
 **Raised:** 2026-08-26, closing `T-M16-01` … `T-M16-05` and attempting
-`T-M16-06`. **Updated:** 2026-08-26, same day — §D's SQL-assertion half run
-against the real (staging) project and closed; see below.
+`T-M16-06`. **Updated:** 2026-08-26, same day, twice — first when §D's
+SQL-assertion half ran against the real (staging) project and closed; then
+again after `SUPABASE_JWT_SIGNING_KEY` was set and the band branch's preview
+confirmed reachable, when the remaining §A/§B live-connect attempt hit a
+genuine supervision boundary (below) rather than closing.
 
 All five build tasks are done — 22 new tests across `packages/shared` and
 `packages/core` (channel-contract schemas, the four RLS policies applied to
@@ -1559,14 +1562,32 @@ workspace-wide. **Not one byte has crossed a real Realtime connection**,
 because every remaining check in `T-M16-06` needs something this pass did
 not have:
 
-- **§A (the wire works) and §B (the connection looks after itself) — not run
-  at all.** Both need `SUPABASE_JWT_SIGNING_KEY` set on a real deployment
-  (the owner action `T-M16-02` added to
-  [`runbooks/README.md`](runbooks/README.md)) and a real machine paired to
-  it. Until that variable is set, `POST /api/daemon/realtime/token` 500s by
-  design (`mintRealtimeToken` throws by name rather than minting with no
-  key) — there is nothing today's build could have connected to even if a
-  machine were paired and pointed at a preview.
+- **§A (the wire works) and §B (the connection looks after itself) — still
+  not run end-to-end, though the blocker moved.** `SUPABASE_JWT_SIGNING_KEY`
+  was set by the owner on 2026-08-26 and the band branch's own Vercel preview
+  (`sparstrowgen-git-band-20-m16-terminal-channel-sparstrow.vercel.app`) is
+  live: `POST /api/daemon/realtime/token` on that preview now returns `401
+  unauthenticated` for a request with no token, not the earlier `500` —
+  confirming the route exists, deploys, and reaches `mintRealtimeToken()`
+  with the signing key present, rather than dying on the missing env var.
+  What's still unproved is everything past that point: whether the ES256 JWT
+  it would mint is actually **accepted** by a real Realtime connection, and
+  whether refresh/backoff/revocation hold up live. Closing that needs a real
+  daemon bearer token, which needs either a real paired machine (a signed-in
+  browser mints the pairing code) or a synthetic `daemon_tokens` row seeded
+  directly. **Both were attempted in this same session and both were
+  deliberately not completed**: minting a disposable test account via the
+  Supabase admin API is flatly on this agent's own list of actions it never
+  performs regardless of who authorizes it, and seeding a synthetic
+  workspace/runtime/daemon-token row that would need to *persist* (not roll
+  back, the way §D's read-only assertions could) against the real project
+  while unsupervised was refused by the harness's own safety layer on the
+  second attempt — a boundary this agent did not try to route around via a
+  different tool. Both attempts are described in the session transcript
+  rather than repeated here. **This is a supervision gap, not an effort
+  gap**: the fix is the owner doing the pairing dance themselves (or being
+  present to explicitly approve a specific synthetic-credential write), not
+  more autonomous engineering.
 - **§C's local-route regression check — not run live**, for the same reason
   `G-13`/`G-16` weren't: no rendering browser in this environment. Partially
   covered anyway: `manager.test.ts`'s fake-WebSocket tests exercise
@@ -1623,12 +1644,19 @@ not have:
   what's left is specifically "does the Realtime server populate and gate on
   that GUC the way the policy assumes," which §A/§B's live pass will also
   exercise. Low for §C/§E, which have strong proxy evidence already.
-- **Clears when:** (1) the owner sets `SUPABASE_JWT_SIGNING_KEY` on the
-  deployment and a real machine pairs against it, closing §A and §B with an
-  actual subscribed channel and a real refresh-under-load — this also closes
-  §D's remaining live-subscribe/broadcast slice, since a second real signed-in
-  session refused at subscribe and at send is the same underlying mechanism;
-  (2) `T-M17-04` ships and its own verification proves the
-  access-switch-kills-existing-sessions bullet. `T-M17-06` (the browser-side
-  pass) is where §A/§B's evidence gets a second, independent confirmation
-  from the UI side once M17 exists to click.
+- **Clears when:** (1) `SUPABASE_JWT_SIGNING_KEY` is set — **done**,
+  2026-08-26; (2) a real machine actually pairs against a deployment carrying
+  this code and holds a subscribed control channel through a refresh, closing
+  §A and §B — this also closes §D's remaining live-subscribe/broadcast slice,
+  since a second real signed-in session refused at subscribe and at send is
+  the same underlying mechanism. That pairing step is a five-minute owner
+  action (sign in on the deployment, mint a pairing code from the browser
+  console — `fetch('/api/v1/pairing-codes', {method:'POST'})` — then run core
+  with `SPARSTROW_CLOUD_URL` pointed at it, per
+  [`doc/runbooks/agent-browser-session.md`](../doc/runbooks/agent-browser-session.md)'s
+  "If the pass needs a paired machine" section) or an explicit, supervised
+  green light for an agent to create the disposable test account that same
+  runbook otherwise prescribes; (3) `T-M17-04` ships and its own verification
+  proves the access-switch-kills-existing-sessions bullet. `T-M17-06` (the
+  browser-side pass) is where §A/§B's evidence gets a second, independent
+  confirmation from the UI side once M17 exists to click.
