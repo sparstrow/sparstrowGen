@@ -79,3 +79,4 @@ came in.
 | ID | Status | Area | Summary |
 |---|---|---|---|
 | [`FB-2026-08-27-signup-missing-confirm-password`](FB-2026-08-27-signup-missing-confirm-password.md) | 🔴 new | Auth — sign-up form | Sign-up form has only one Password field, no confirmation |
+| [`FB-2026-08-27-email-confirm-cross-browser-pkce-error`](FB-2026-08-27-email-confirm-cross-browser-pkce-error.md) | 🔴 new | Auth — email confirmation link | Confirming from a different browser than sign-up shows a raw PKCE/developer error instead of a usable sign-in path |
