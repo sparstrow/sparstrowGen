@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | [`doc/specs/2026-08-27-chat-session-and-conversation-ux.md`](../specs/2026-08-27-chat-session-and-conversation-ux.md) |
-| **Status** | In progress — CS1, CS2 done 2026-08-28; CS3/CS5 next (parallel) |
+| **Status** | In progress — CS1, CS2, CS3 done 2026-08-28; CS4 unblocked, CS5 next (parallel) |
 | **Trigger** | Owner approved the spec 2026-08-27 and authorized planning, tasking, and implementation in the same turn, asking to stop only for decisions. |
 | **Depends on** | — (chat's cloud dispatch path, M12–M15, is already shipped and is what this plan extends) |
 | **Touches** | `apps/web/src/app/chat/`, `apps/web/src/lib/api/handlers/chat.ts`, `packages/core/src/chat/service.ts`, `packages/core/src/providers/antigravity.ts`, `packages/core/src/providers/types.ts`, `packages/shared/src/schemas/chat.ts`, `packages/shared/src/db/schema.ts`, `packages/shared/drizzle/policies/` |

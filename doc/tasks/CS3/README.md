@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-27-chat-session-and-conversation-ux.md`](../../specs/2026-08-27-chat-session-and-conversation-ux.md) |
 | **Depends on** | — |
 | **Blocks** | CS4 |
-| **Status** | not started |
+| **Status** | done (2026-08-28) |
 | **Open questions** | none |
 
 ## Tasks
@@ -17,7 +17,7 @@
 | [T-CS3-01 — `agy models` discovery in the provider](T-CS3-01-antigravity-discover.md) | `[P]` | foundational — unblocks CS4 | — | done (2026-08-28) |
 | [T-CS3-02 — `provider_model_cache` table + RLS](T-CS3-02-cache-table.md) | `[P]` | foundational — unblocks CS4 | — | done (2026-08-28) |
 | [T-CS3-03 — the `providers.discover_models` dispatch, end to end](T-CS3-03-dispatch.md) | `[S]` | foundational — unblocks CS4 | T-CS3-01, T-CS3-02 | done (2026-08-28) |
-| [T-CS3-04 — verification](T-CS3-04-verification.md) | `[S]` | foundational | T-CS3-01, T-CS3-02, T-CS3-03 | not started |
+| [T-CS3-04 — verification](T-CS3-04-verification.md) | `[S]` | foundational | T-CS3-01, T-CS3-02, T-CS3-03 | done (2026-08-28) |
 
 T-CS3-01 (touches only `packages/core/src/providers/antigravity.ts` and its
 test) and T-CS3-02 (touches only `packages/shared/src/db/schema.ts` and a new
