@@ -7,7 +7,7 @@
 | **Depends on** | — |
 | **Blocks** | T-CS1-02 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | done (2026-08-28) |
 
 ## The scenario this satisfies
 
@@ -41,20 +41,23 @@ await updateChatSessionAction(sessionId, { title: newTitle });
 
 ## Checklist
 
-- [ ] `ChatSessionMenu` component: takes `sessionId`, `currentTitle`, and an
-      `onRequestDelete` callback (invoked on the Delete entry, no
-      implementation here — T-CS1-02 supplies the dialog it opens)
-- [ ] Rename entry opens an inline edit (reuse the session's existing title
-      display element rather than a separate modal, matching how the rest of
-      `/chat` avoids modal-for-everything)
-- [ ] Empty-title guard: if the owner saves with a blank/whitespace-only
-      title, fall back to the previous title rather than persisting `""`
-- [ ] Mount `ChatSessionMenu` on each rail row (`chat.tsx`, session list)
-- [ ] Mount `ChatSessionMenu` in the conversation header, replacing/joining
-      the existing Archive icon's position
-- [ ] Renaming the open session updates both the rail row and the header
-      without a reload (shared state, not two independent fetches)
-- [ ] `apps/web` typecheck and tests green
+- [x] `ChatSessionMenu` component: takes `onRename`/`onRequestDelete`
+      callbacks (Delete invokes the callback only — T-CS1-02 supplies the
+      dialog it opens). Defined locally in `chat.tsx` alongside its sibling
+      small components (`GhostSelect`, `Composer`, …) rather than a separate
+      file — matches this file's own convention, deviating from the plan's
+      guessed file layout
+- [x] Rename entry opens an inline edit (the row/header title element itself
+      becomes an `<Input>`, no modal)
+- [x] Empty-title guard: saving a blank/whitespace-only title keeps the
+      previous title, no network call made
+- [x] Mounted `ChatSessionMenu` on each rail row and in the conversation
+      header (Archive icon kept as-is for now; T-CS1-02 unifies it into the
+      confirmation dialog)
+- [x] Renaming the open session updates both the rail row and the header
+      immediately (shared `renamingId`/`renameValue` state in `ChatPage`,
+      not two independent fetches) — confirmed live from both directions
+- [x] `apps/web` typecheck and tests green (451 tests, 0 failures)
 
 ## Traps
 
@@ -69,19 +72,22 @@ await updateChatSessionAction(sessionId, { title: newTitle });
 
 ## Verification
 
-- [ ] Rename a session via the rail row menu; confirm the header shows the
-      new title without a reload
-- [ ] Rename the currently-open session via the header menu; confirm the
-      rail row updates without a reload
-- [ ] Reload the page; confirm the renamed title persisted
-- [ ] Attempt to save an empty title; confirm the previous title is kept,
-      not blanked
+- [x] Rename a session via the rail row menu; confirm the header shows the
+      new title without a reload — confirmed live (agent-browser, real
+      signed-in session, magic-link per `doc/runbooks/agent-browser-session.md`)
+- [x] Rename the currently-open session via the header menu; confirm the
+      rail row updates without a reload — confirmed live, same session
+- [x] Reload the page; confirm the renamed title persisted — confirmed
+- [x] Attempt to save an empty title; confirm the previous title is kept,
+      not blanked — confirmed
+- [x] No console errors across the above; dark mode screenshot checked, no
+      layout issues
 - [ ] Full acceptance-scenario walk deferred to [T-CS1-03](T-CS1-03-verification.md)
 
 ## On completion
 
-- [ ] `pnpm typecheck` and `pnpm test` green
-- [ ] Update this file's **Status** row
+- [x] `pnpm typecheck` and `pnpm test` green
+- [x] Update this file's **Status** row
 - [ ] Open the PR into `band/26-chat-session-and-conversation-ux`, then
       `gh pr merge <n> --auto --squash`
 - [ ] Update the phase README's task table
@@ -91,4 +97,29 @@ await updateChatSessionAction(sessionId, { title: newTitle });
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+**2026-08-28 — done.** `ChatSessionMenu` (Rename working, Delete a stub
+calling `onRequestDelete`) mounted on the rail row and the conversation
+header in `apps/web/src/app/chat/chat.tsx`, defined locally alongside the
+file's other small components rather than in a separate file — the plan's
+guessed file layout didn't match this file's actual convention, so the code
+won per the decomposing-plans skill's own rule.
+
+Verified live: signed in via a disposable `@sparstrow.test` account through
+the magic-link procedure, `agent-browser` (the Claude Browser pane's
+`document.visibilityState` bug made it unusable for this — confirmed, not
+assumed, per `doc/runbooks/agent-browser-session.md`). Sent a real first
+message to create a session, then:
+- Renamed from the rail row → header updated immediately, no reload.
+- Renamed from the header → rail row updated immediately, no reload.
+- Reloaded the page → rename persisted.
+- Cleared the title and pressed Enter → previous title kept, nothing
+  blanked, no network call.
+- No console errors; dark mode screenshot checked, no layout issues.
+
+`pnpm --filter web typecheck` clean, `pnpm --filter web test` 451/451
+green. Disposable test account and its workspace cleaned up per the
+runbook's SQL-equivalent cleanup (also incidentally cleared one leftover
+`@sparstrow.test` account from an earlier, unrelated verification pass).
+
+Not covered here (T-CS1-02's scope): Delete itself, and the
+Archive/Delete/Cancel confirmation dialog.

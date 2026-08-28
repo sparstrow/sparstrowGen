@@ -10,10 +10,13 @@ import {
   FolderKanban,
   MessageSquare,
   MonitorPlay,
+  MoreHorizontal,
   PanelRight,
+  Pencil,
   Plus,
   RefreshCw,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import {
   KNOWN_MODELS,
@@ -26,6 +29,14 @@ import {
   type ProviderId,
 } from "@sparstrow/shared";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -70,6 +81,47 @@ const KIND_ICONS: Record<ChatSessionKind, typeof MessageSquare> = {
   agent: Bot,
   "agent-creator": Sparkles,
 };
+
+/**
+ * Per-session actions (rail row + conversation header). Rename is wired here
+ * directly (`onRename` toggles the shared inline-edit state in `ChatPage`);
+ * Delete only calls `onRequestDelete` — T-CS1-02 supplies what that does.
+ */
+function ChatSessionMenu({
+  onRename,
+  onRequestDelete,
+  triggerClassName,
+}: {
+  onRename: () => void;
+  onRequestDelete: () => void;
+  triggerClassName?: string;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className={cn(
+          "rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none",
+          triggerClassName,
+        )}
+      >
+        <MoreHorizontal className="size-4" />
+        <span className="sr-only">Session actions</span>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onRename}>
+          <Pencil className="size-4" /> Rename
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+          onClick={onRequestDelete}
+        >
+          <Trash2 className="size-4" /> Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 /** Borderless select used inside the composer footer and toolbar. */
 function GhostSelect({
@@ -523,6 +575,44 @@ export function ChatPage() {
     });
   };
 
+  // T-CS1-01 — rename is inline (no modal): the title display swaps for an
+  // input while `renamingId` matches the session being edited.
+  const [renamingId, setRenamingId] = React.useState<string | null>(null);
+  const [renameValue, setRenameValue] = React.useState("");
+  const [renameError, setRenameError] = React.useState<string | null>(null);
+  const [renamePending, startRenamePending] = React.useTransition();
+
+  const startRename = (s: ChatSession) => {
+    setRenamingId(s.id);
+    setRenameValue(sessionLabel(s));
+    setRenameError(null);
+  };
+  const cancelRename = () => {
+    setRenamingId(null);
+    setRenameError(null);
+  };
+  // Blank/whitespace-only saves keep the previous title rather than
+  // persisting "" (US1 scenario 6) — checked before any network call.
+  const commitRename = (s: ChatSession) => {
+    const trimmed = renameValue.trim();
+    if (trimmed.length === 0 || trimmed === sessionLabel(s)) {
+      setRenamingId(null);
+      setRenameError(null);
+      return;
+    }
+    setRenameError(null);
+    startRenamePending(async () => {
+      const r = await callAction(() => updateChatSessionAction(s.id, { title: trimmed }));
+      if (!r.ok) {
+        setRenameError(r.error);
+        return; // stay in edit mode so the owner can retry, per the phase's own trap
+      }
+      setRenamingId(null);
+      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+      void queryClient.invalidateQueries({ queryKey: ["chat-session", s.id] });
+    });
+  };
+
   const projectName = (id: string | null) =>
     id ? (projects.data?.find((p) => p.id === id)?.name ?? id) : null;
   const agentName = (id: string | null) =>
@@ -718,10 +808,19 @@ export function ChatPage() {
           ) : (
             (sessions.data ?? []).map((s) => {
               const Icon = KIND_ICONS[s.kind];
+              const renaming = renamingId === s.id;
               return (
-                <button
+                <div
                   key={s.id}
-                  onClick={() => setSelectedId(s.id)}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => !renaming && setSelectedId(s.id)}
+                  onKeyDown={(e) => {
+                    if (!renaming && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      setSelectedId(s.id);
+                    }
+                  }}
                   className={cn(
                     "group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors",
                     s.id === selectedId ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60",
@@ -730,14 +829,44 @@ export function ChatPage() {
                 >
                   <Icon className="size-4 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-medium leading-5">
-                      {sessionLabel(s)}
-                    </span>
+                    {renaming ? (
+                      <Input
+                        autoFocus
+                        value={renameValue}
+                        disabled={renamePending}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          e.stopPropagation();
+                          if (e.key === "Enter") commitRename(s);
+                          if (e.key === "Escape") cancelRename();
+                        }}
+                        onBlur={() => commitRename(s)}
+                        className="h-6 px-1 text-[13px]"
+                      />
+                    ) : (
+                      <span className="block truncate text-[13px] font-medium leading-5">
+                        {sessionLabel(s)}
+                      </span>
+                    )}
                     <span className="block truncate text-[11px] text-muted-foreground">
-                      {KIND_LABELS[s.kind]} · {formatDate(s.lastMessageAt ?? s.createdAt)}
+                      {renaming && renameError
+                        ? renameError
+                        : `${KIND_LABELS[s.kind]} · ${formatDate(s.lastMessageAt ?? s.createdAt)}`}
                     </span>
                   </span>
-                </button>
+                  <span
+                    className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ChatSessionMenu
+                      onRename={() => startRename(s)}
+                      onRequestDelete={() => {
+                        // T-CS1-02 wires the Archive/Delete/Cancel confirmation here.
+                      }}
+                    />
+                  </span>
+                </div>
               );
             })
           )}
@@ -753,7 +882,25 @@ export function ChatPage() {
           <>
             <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b px-4">
               <div className="flex min-w-0 items-center gap-2">
-                <p className="truncate text-sm font-medium">{sessionLabel(session)}</p>
+                {renamingId === session.id ? (
+                  <div className="min-w-0 flex-1">
+                    <Input
+                      autoFocus
+                      value={renameValue}
+                      disabled={renamePending}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename(session);
+                        if (e.key === "Escape") cancelRename();
+                      }}
+                      onBlur={() => commitRename(session)}
+                      className="h-7 max-w-xs text-sm"
+                    />
+                    {renameError && <p className="mt-1 text-xs text-destructive">{renameError}</p>}
+                  </div>
+                ) : (
+                  <p className="truncate text-sm font-medium">{sessionLabel(session)}</p>
+                )}
                 <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
                   {session.kind === "project"
                     ? projectName(session.projectId)
@@ -783,6 +930,13 @@ export function ChatPage() {
                 >
                   <PanelRight className="size-4" />
                 </Button>
+                <ChatSessionMenu
+                  triggerClassName="size-8 flex items-center justify-center"
+                  onRename={() => startRename(session)}
+                  onRequestDelete={() => {
+                    // T-CS1-02 wires the Archive/Delete/Cancel confirmation here.
+                  }}
+                />
               </div>
             </div>
 
