@@ -394,7 +394,26 @@ would discard an image on its own:
 | Provider parse (claude-code) | [`claude-code.ts:240`](../packages/core/src/providers/claude-code.ts:240) | `.filter(b => b?.type === "text")` |
 | Turn result | `extractResult` in both providers | collapses the event stream to `resultText: string \| null` |
 | Storage | [`schema.ts:854`](../packages/shared/src/db/schema.ts:854) | `chat_messages.content` is `text().notNull()` |
-| Render | `ChatTurnView`, `apps/web/src/app/chat/chat.tsx` | takes a string; grep finds no image/media handling anywhere under `app/chat` |
+| Render | [`markdown.tsx`](../apps/web/src/components/chat/markdown.tsx) | assistant turns already render markdown; no `img` override in the `components` map |
+
+**Two of those rows were overstated when this entry was first written, and the
+correction matters** (see
+[the Multica comparison](research/2026-08-28-multica-chat-comparison.md)):
+
+- **The text column is not a blocker.** Multica's `chat_message.content` is
+  `TEXT NOT NULL` too, and shows media fine — by relating attachment rows to
+  the message rather than by widening the column.
+- **The renderer is not a wall, it is unfinished.** Assistant turns go through
+  `react-markdown` (GFM + highlighting) with overrides for headings, lists,
+  links, tables and code — but none for `img`, so `![alt](url)` falls through
+  to the default `<img>` and *renders today*, just unstyled: no `max-width`,
+  no rounding, no lazy load, no broken-image state. The original claim ("grep
+  finds no media handling under `app/chat`") was literally true and
+  misleading; the renderer lives one directory over. User turns are plain
+  `whitespace-pre-wrap` and render no markdown at all.
+
+The genuinely empty layers are the first two: nothing produces a media
+reference, and nothing uploads a produced file anywhere.
 
 The right preview pane already exists and is deliberately honest rather than
 absent — `chat.tsx` renders either a project card pointing at `/terminals` or
@@ -431,8 +450,38 @@ icon matches the runtime better than the instinct to reach for a thumbnail.
 
 ### A shape
 
-The preview pane gains two collapsible sections instead of "Nothing to
-preview", sourced separately because their data genuinely is separate:
+**Revised 2026-08-28** after reading how Multica solved the same problem
+([comparison](research/2026-08-28-multica-chat-comparison.md)). The shape below
+originally framed a choice between inline rendering and a folder view. That
+framing was too narrow: media is neither text nor a directory, it is **a row
+related to the message**.
+
+Multica's model, which is worth adopting more or less wholesale: an
+`attachment` table whose `uploader_type` is `member` **or `agent`**; the agent
+uploads each file as it produces it, scoped to the running task and not yet
+bound to a message; on task completion every task-scoped attachment binds to
+the assistant message that completion creates. An assistant message is created
+even when its text is empty, so a reply can be just an image. Attachments never
+enter `content`.
+
+Three things that buys us, each of which makes this *smaller* than this entry
+first assumed:
+
+- **It answers decision 2 below** rather than leaving it open. Artifacts scope
+  to the *task*, which every session kind has — so "what does the output folder
+  mean for a `free` session with no cwd" stops being a question. It never
+  refers to a directory.
+- **It drops the live-channel dependency from the storage path.** The daemon
+  uploads to cloud storage, the same direction CS5's attachment upload already
+  travels. `host-fs` and M16/M17 stay relevant to *browsing a machine*
+  (`I-11`), not to showing what a turn produced.
+- **The permission check is now buildable.** Theirs is "only the task's
+  assigned agent may upload against that task"; band 25 (DI) gave each daemon a
+  real Supabase Auth identity, which is exactly that primitive.
+
+Under this model the surfaces stop competing. The preview pane gains two
+collapsible sections instead of "Nothing to preview", sourced separately
+because their data genuinely is separate:
 
 - **In** — the attachments already on the session's messages. Substantially a
   *view* over data US4/CS5 is building, not new plumbing.
@@ -440,11 +489,16 @@ preview", sourced separately because their data genuinely is separate:
   folder, so provenance survives ("this came from that request"). Images get
   thumbnails; everything else gets a name, size, and a way to open it.
 
-Inline rendering, if it happens at all, then becomes a thin thing: an
-assistant message shows a thumbnail strip for the image-typed entries of its
-own Out list, and the pane stays the complete view. Building the pane first
-means inline is cheap; building inline first means the pane has to re-derive
-everything.
+Inline rendering then becomes a thin thing rather than a competing option: an
+assistant message shows a thumbnail strip for the image-typed attachments bound
+to it, and the pane stays the complete view across the whole session.
+
+And an `img` override in
+[`markdown.tsx`](../apps/web/src/components/chat/markdown.tsx)'s `components`
+map is worth doing **before** any of this and independently of which model
+wins, because every model needs it: images already render there and currently
+do so with no width constraint, no rounding, no lazy load and no broken-image
+state.
 
 ### What it touches
 
@@ -476,10 +530,11 @@ None of these is answered here.
 
 1. **Pane, transcript, or both?** The owner asked "should we add…", which is
    a question, and the two surfaces have different costs.
-2. **What is "output" scoped to, for a session with no project?** `free`
-   sessions are not machine-affine and have no cwd, so "the output folder"
-   may not refer to anything. A per-turn artifact list sidesteps this; a
-   literal folder does not.
+2. ~~**What is "output" scoped to, for a session with no project?**~~
+   **Answered by the shape above, if it is adopted** — scope artifacts to the
+   task, not to a directory, exactly as Multica does. Every session kind has a
+   task; only some have a cwd. The remaining decision is whether to adopt that
+   model, not what "output folder" means.
 3. **Does generated media travel to the cloud, or stay on the machine?**
    CS5's upload path puts attachments in cloud storage; the symmetric choice
    for outputs is not obviously the same, since outputs can be large and are
@@ -490,11 +545,15 @@ None of these is answered here.
 
 ### What would make it real
 
-The cheap first move that pays off regardless of whether this is ever built:
-make layer one stop being silent. Giving `parseStepUpdate` the same
-unrecognised-input fallback `parseLine` already has turns the next "it says it
-generated an image" into evidence instead of a shrug, and answers decision 4
-without a specification.
+Two cheap moves, both of which pay off regardless of whether this is ever
+built:
+
+1. **An `img` override in the chat markdown map** — images already render and
+   currently render badly. Independent of every decision above.
+2. **Make layer one stop being silent.** Giving `parseStepUpdate` the same
+   unrecognised-input fallback `parseLine` already has turns the next "it says
+   it generated an image" into evidence instead of a shrug, and answers
+   decision 4 without a specification.
 
 **What would shrink it:** if it turns out no configured provider emits or
 writes media at all, the "Out" half has no source and this collapses to a view
