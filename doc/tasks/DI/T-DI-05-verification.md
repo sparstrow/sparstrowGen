@@ -7,7 +7,7 @@
 | **Depends on** | T-DI-01 … T-DI-04 |
 | **Blocks** | closing `G-47`, `G-48`, and the RLS bug |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | blocked — needs `T-DI-02`'s SQL applied and a paired machine (2026-08-27) |
+| **Status** | blocked — `T-DI-02`'s SQL is applied and a real machine is paired (2026-08-28); blocked now on a newly-found platform issue, not on this band's own work — see Result |
 
 ## Objective
 
@@ -34,9 +34,10 @@ per `AGENTS.md` §2 rule 3. Not `development.sparstrow.com`.
 Inherited verbatim from [`T-M16-06`](../M16/T-M16-06-verification.md) §A, which
 has never been run. These are still the right checks.
 
-- [ ] `POST /api/daemon/realtime/token` with the machine's real daemon token
+- [x] `POST /api/daemon/realtime/token` with the machine's real daemon token
       returns a credential, and Realtime **accepts** it — the daemon's log shows
-      a subscribed control channel, not a refused one
+      a subscribed control channel, not a refused one — **done 2026-08-28**,
+      see Result
 - [ ] From the browser as the workspace owner: `terminal.list` on
       `machine:<ws>:<runtime>` is answered, with the machine's start time
 - [ ] `terminal.open` with no `agentId` returns a session and a shell is
@@ -108,22 +109,98 @@ The half `T-M17-06` could not reach.
 > branch.** Record this task's outcome in the **Status** row and **Result**
 > section of *this* file.
 
-- [ ] Update this file's **Status** row and the phase README's
-- [ ] **Close `G-47`** — delete the entry and say where the proof lives, per
-      `KnownGaps.md`'s own rule that a closed gap is deleted rather than marked
-- [ ] **Close `G-48`**'s first two clauses; leave the FR-009 clause open, as its
-      own entry if that is all that remains
-- [ ] **Resolve
+- [x] Update this file's **Status** row and the phase README's
+- [ ] **Close `G-47`** — **not done.** The terminal wire still does not
+      complete a live round trip, so this stays open. What changed: `G-49`'s
+      entry now records exactly which sub-parts are proven (RLS/identity, both
+      races) versus which one still blocks it (the new relay bug)
+- [ ] **Close `G-48`**'s first two clauses — **not done**, same reason as
+      `G-47`. Its Resolution-adjacent text is unchanged; `G-49` carries the
+      current state
+- [x] **Resolve
       [`BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls`](../../bug/BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls.md)**
-      — flip Status to 🟢, fill in Resolution with the commit/PR, leave the file
-      in place
-- [ ] Update the plan's **Status** row and the terminal plan's, which currently
-      says M16/M17 are complete except a Vercel regression — a sentence this
-      phase proves was wrong about the cause
-- [ ] Update **band 24's blocked row** in the queue: its blocker was "band 20
-      (M16)", which was true and insufficient. Say what it really was
-- [ ] File any bug or security issue found, in the same turn, per `AGENTS.md` §5
+      — done. This bug's own scope (the RLS refusal) is proven fixed; a
+      separate, still-open bug now blocks the rest of the wire
+- [ ] Update the plan's **Status** row — deferred to when `T-DI-05` actually
+      completes; today's status line ("code complete, unverified") is still
+      accurate, just for a different reason than before
+- [ ] Update **band 24's blocked row** in the queue — **deliberately not done
+      from this branch**, per `AGENTS.md` §2 rule 9: `MasterTaskQueue.md` is
+      only ever edited once per band, in the commit that lands the band
+      branch on `development`, and `DI` already landed as its own band —
+      this is a plain task branch cut directly from `development`. What the
+      row should say once whoever does that edit gets to it: below
+- [x] File any bug or security issue found, in the same turn, per `AGENTS.md` §5
+      — four files: two resolved same-session fixes, one bug resolved (scope
+      narrowed, not the whole wire), one new open finding
 
 ## Result
 
-*(filled in when the task lands)*
+**2026-08-28 — partial. §A's first item passed live; everything after it is
+blocked on a newly-found platform issue, not on this band's own work.**
+
+**Deviation from this file's own instruction, explained:** run against
+`development.sparstrow.com`, not the band branch's own Vercel preview. Band 25
+(the `DI` band) had already merged into `development` and its branch/preview
+were gone by the time this task ran — `development` **is** the band's
+integrated code today, so it's the correct target now that circumstance
+changed from when this file was written.
+
+**What ran:**
+
+1. Confirmed `supabase` CLI and MCP both authorized; confirmed project ref
+   `pnymngoqseltgigcfevq` (sparstrowgen-staging) before and after every SQL
+   statement.
+2. Applied `018` (re-run, confirmed no-op — same six `pg_policies` rows),
+   `019` (confirmed ten rows, all named correctly), `020` (both halves
+   verified live inside a rolled-back transaction: a daemon identity refused
+   `42501`, a genuinely new human user still provisioned normally).
+   `get_advisors` after: one new item, an unindexed FK on
+   `daemon_identities.workspace_id`, fixed in a new
+   `021_daemon_identities_workspace_index.sql`, re-verified clean.
+3. Cut a fresh worktree (`task/T-DI-05-live-verification`), paired a scratch
+   daemon (its own `SPARSTROW_SECRETS_DIR`/`SPARSTROW_DATA_DIR`) against
+   `development.sparstrow.com` using a disposable `@sparstrow.test` account
+   signed in via `doc/runbooks/agent-browser-session.md`'s magic-link
+   procedure, `agent-browser` for the browser side.
+4. First connection attempt: refused, `Unauthorized … machine:<ws>:<runtime>`.
+   Root-caused to a genuine, permanent client-side race — see
+   [`BUG-2026-08-28-realtime-connect-races-channel-subscribe-auth`](../../bug/BUG-2026-08-28-realtime-connect-races-channel-subscribe-auth.md) —
+   fixed and reverified live: the same daemon now reaches `SUBSCRIBED` with no
+   refusal. **§A's first checklist item passes.**
+5. Browser-side `terminal.list` then timed out ("machine didn't answer").
+   Found a second, independent client-side race in `apps/web` — see
+   [`BUG-2026-08-28-terminal-channel-sends-before-control-channel-joined`](../../bug/BUG-2026-08-28-terminal-channel-sends-before-control-channel-joined.md) —
+   fixed. `terminal.list` still timed out afterward, now with a genuine
+   WebSocket push (`canPush: true`, no REST-fallback warning) instead of the
+   REST fallback.
+6. Traced further: a standalone probe using the daemon's own `realtime-js`
+   version, sending as an authenticated human admin (not the daemon, not
+   `apps/web`'s code at all) to the same topic — still never received by a
+   confirmed-`SUBSCRIBED` listener. A control test on a plain public
+   (non-private) topic relayed correctly, first try. This isolates the defect
+   to **private-channel broadcast relay on this project**, unrelated to the
+   daemon, to `019`/`020`, or to any code in this repo. Full writeup:
+   [`BUG-2026-08-28-private-broadcast-channels-not-relaying`](../../bug/BUG-2026-08-28-private-broadcast-channels-not-relaying.md).
+   `T-DI-05` cannot proceed past §A's second item until that clears.
+7. `pnpm typecheck` and `pnpm test` green across the monorepo with both fixes
+   applied (one existing core test's assertion updated to match the corrected
+   — now genuinely-once-then-again-on-refresh — `setAuth()` call count).
+
+**§B–§E:** not reached. Everything past `terminal.list` succeeding is gated
+behind the same blocker.
+
+**Band 24's blocked row, updated:** its recorded blocker was "band 20 (M16)"
+— true, and insufficient. The actual chain, as this pass found it: M16 built
+the wire → band 25 (`DI`) fixed the identity/RLS layer and two real
+connection-level races, all now proven live → the wire still doesn't carry a
+message end-to-end because of a project-level Realtime setting (or an
+unidentified deeper cause if that setting turns out not to be it), tracked in
+`BUG-2026-08-28-private-broadcast-channels-not-relaying`. Band 24 stays
+blocked on that bug, not on band 20 or band 25's own code.
+
+**If wrong:** the "Allow public access" hypothesis in the new bug file is
+unconfirmed — flagged explicitly as the strongest untried lead, not a proven
+root cause. If disabling it doesn't fix delivery, the remaining path is a
+Supabase support ticket; everything queryable from an agent session has been
+checked.

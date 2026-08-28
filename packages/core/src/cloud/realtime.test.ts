@@ -116,12 +116,16 @@ describe("realtime connection", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(createdClients).toHaveLength(1);
     const client = createdClients[0]!;
-    expect(client.setAuth).not.toHaveBeenCalled();
+    // `establish()` awaits one `setAuth()` call itself now, before
+    // subscribing — see `BUG-2026-08-28-realtime-connect-races-channel-subscribe-auth`.
+    // Without it, `channel.subscribe()`'s join payload races connect()'s own
+    // fire-and-forget auth and is built with no `access_token` at all.
+    expect(client.setAuth).toHaveBeenCalledTimes(1);
 
     // 80% of 10s = 8s.
     await vi.advanceTimersByTimeAsync(8_000);
     expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2);
-    expect(client.setAuth).toHaveBeenCalled();
+    expect(client.setAuth).toHaveBeenCalledTimes(2);
     // Same client instance -- a refresh must never reconnect.
     expect(RealtimeClient).toHaveBeenCalledTimes(1);
     expect(client.disconnect).not.toHaveBeenCalled();
