@@ -113,17 +113,32 @@ out above), not this repo's client code (the Inspector uses neither
 `apps/web`'s nor `packages/core`'s code at all), and not even *external*
 delivery specifically — a connection can't hear **its own** broadcast either.
 
-**Untried lead, needs the owner: "Database connection pool size" is set to
-2**, on the same Realtime Settings page, described in the dashboard as
-*"Realtime Authorization uses this database pool to check client access."*
-Two is a very small pool for an authorization check that (per the `postgres`
-vs `authenticated` split above) appears to succeed but leave something
-incomplete afterward — consistent with a check that completes and then
-can't acquire a connection to finish registering the subscription for
-delivery. Attempting to raise it live (typing into the field) was blocked by
-this session's own safety classifier as a live production settings change,
-same as the public-access toggle was before the owner flipped it themselves.
-**Not yet tried.**
+**"Database connection pool size" — raised live to 10, ruled out.** 2026-08-28,
+with the owner's explicit go-ahead. Confirmed via `pg_stat_activity`-adjacent
+UI (the Settings page itself) that the save succeeded and persisted at 10 —
+Supabase's own confirmation dialog warned this would disconnect all clients,
+consistent with a full Realtime service cycle, not a config value that just
+sits unread. Waited ~10s for the cycle to complete, then re-ran both
+reproductions:
+
+- **The real app** (`tdi05-verify-machine`, a live paired daemon on
+  `development.sparstrow.com`, browser hard-reloaded fresh): `terminal.list`
+  still times out — "tdi05-verify-machine didn't answer" — identical to
+  before the change.
+- **The Inspector**, same topic (`machine:3041ac5c-…:fe9c65c6-…`), same
+  `authenticated`-role daemon identity: join still succeeds, no presence
+  `sync`/`join` ever appears, and a fresh "Broadcast a message" self-test is
+  still never received by the same connection that sent it — the message
+  list stays at the one `"Subscribed to PostgreSQL"` entry.
+- **Control, re-run for parity:** switched the same Inspector session to
+  `postgres` role on the identical topic — `sync`/`join` presence events
+  appear within one second, exactly as before the pool size change. The
+  service is demonstrably healthy and responsive; only `authenticated`-role
+  delivery is broken.
+
+This closes off the strongest untried lead without moving the needle at all.
+Whatever is dropping `authenticated`-role messages is not resource-starved on
+this dimension.
 
 ## Impact
 
@@ -152,21 +167,30 @@ project-level setting this agent cannot read or change.
 
 ## Resolution
 
-*(open. "Allow public access to channels" is confirmed disabled and is not
-the cause. Next step is the owner's call between:*
+*(still open. Both hypotheses this agent could test from inside a Supabase
+project's own dashboard are now ruled out — "Allow public access to
+channels" (disabled, no change) and "Database connection pool size" (2→10,
+no change). Everything queryable or adjustable from an agent session, short
+of Supabase's own infrastructure, has been checked. The remaining path is a
+Supabase support ticket, built from the Inspector's clean
+`postgres`-vs-`authenticated` reproduction on this bug file:*
 
-1. *Raise "Database connection pool size" (currently 2) on the same Realtime
-   Settings page and retest — this session's Inspector-based diagnosis
-   (`authenticated` role's own self-broadcast never returns, `postgres`
-   role's does) points here as the strongest untried lead, but it is a live
-   production infrastructure change this session's safety classifier
-   correctly declined to make unsupervised.*
-2. *File a Supabase support ticket with this bug's reproduction — the
-   Inspector-based `postgres`-vs-`authenticated` split is concrete, minimal,
-   and doesn't depend on this repo's code at all, which should make it easy
-   for Supabase's own team to act on directly.*
+- *Same project (`pnymngoqseltgigcfevq`), same private topic, same message.*
+- *As `postgres`: presence events and a self-sent broadcast both arrive
+  within a second.*
+- *As `authenticated`, impersonating a real user the project's own RLS
+  policy grants access to (verified true by direct SQL simulation): the join
+  itself reports success, but presence never syncs and the connection never
+  receives even its own broadcast.*
+- *Ruled out on this end: RLS correctness, client library version, topic/
+  event naming, `self: true/false`, schema grants, the public-access toggle,
+  and the connection pool size — see Investigation above for how each was
+  checked.*
 
-*Either way, re-run this file's reproduction steps 1–6 after — a fix should
-show connection A receiving the broadcast in step 5, and separately, the
-Inspector's `authenticated`-role self-broadcast test should round-trip the
-same way the `postgres`-role one already does.)*
+*This is minimal and doesn't depend on this repo's code at all, which should
+make it straightforward for Supabase's own team to reproduce and act on. Once
+a fix lands (or Supabase points at a project-side setting this agent can't
+reach), re-run this file's reproduction steps 1–6 — a fix should show
+connection A receiving the broadcast in step 5, and the Inspector's
+`authenticated`-role self-broadcast test should round-trip the same way the
+`postgres`-role one already does.)*
