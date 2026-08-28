@@ -43,6 +43,7 @@ function payload(over: Partial<ChatTurnStartPayload> = {}): ChatTurnStartPayload
     model: "sonnet",
     attempt: 1,
     messages: [{ role: "user", content: "hi" }],
+    attachments: [],
     ...over,
   };
 }
@@ -313,5 +314,136 @@ describe("runChatTurnCommand", () => {
     const maxStreamedSeq = Math.max(...eventBodies.flatMap((b) => b.events.map((e) => e.seq)));
     const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result") as { seq: number }[];
     expect(resultBodies[0]!.seq).toBeGreaterThan(maxStreamedSeq);
+  });
+
+  // T-CS5-03
+  describe("attachments", () => {
+    function signRoute(signedUrl = "http://storage.test/signed/a.txt") {
+      return { "/chat/attachments/sign": () => jsonResponse(200, { signedUrl }) };
+    }
+
+    it("free session: downloads into a fresh tempDir, clamps to cwd+Read for this call only, and names the path in the prompt", async () => {
+      vi.mocked(completeOnce).mockResolvedValue({ text: "ok", sessionId: "s", isError: false });
+      const fetchMock = routeFetch({
+        ...signRoute(),
+        "storage.test/signed/a.txt": () => new Response("attachment bytes", { status: 200 }),
+        "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }),
+      });
+
+      runChatTurnCommand(
+        payload({ attachments: [{ storagePath: "ws_1/chs_1/a.txt", filename: "notes.txt" }] }),
+      );
+      await vi.runAllTimersAsync();
+
+      const [agentArg, promptArg] = vi.mocked(completeOnce).mock.calls[0]!;
+      const agent = agentArg as { cwd: string | null; allowedTools: string[] };
+      expect(agent.allowedTools).toEqual(["Read"]);
+      expect(agent.cwd).toBeTruthy();
+      expect(promptArg as string).toContain(agent.cwd!);
+      expect(promptArg as string).toContain('originally named "notes.txt"');
+
+      // The tempDir is this turn's own, cleaned up once the turn settles --
+      // not the session's, not the agent's, and not left behind.
+      expect(fs.existsSync(agent.cwd!)).toBe(false);
+
+      const signBody = bodiesFor(fetchMock, "/chat/attachments/sign")[0];
+      expect(signBody).toEqual({ storagePath: "ws_1/chs_1/a.txt" });
+    });
+
+    it("project session: places the file in rootDir, unchanged agent (no cwd/allowedTools override)", async () => {
+      getDb()
+        .insert(projects)
+        .values({ id: "prj_local1", name: "Demo", slug: "demo", rootDir: tmpDir, createdAt: now, updatedAt: now })
+        .run();
+      vi.mocked(completeOnce).mockResolvedValue({ text: "ok", sessionId: "s", isError: false });
+      routeFetch({
+        ...signRoute(),
+        "storage.test/signed/a.txt": () => new Response("attachment bytes", { status: 200 }),
+        "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }),
+      });
+
+      runChatTurnCommand(
+        payload({
+          sessionKind: "project",
+          projectId: "cloud_prj_1",
+          projectSlug: "demo",
+          attachments: [{ storagePath: "ws_1/chs_1/a.txt", filename: "notes.txt" }],
+        }),
+      );
+      await vi.runAllTimersAsync();
+
+      const [agentArg, promptArg] = vi.mocked(completeOnce).mock.calls[0]!;
+      const agent = agentArg as { cwd: string; allowedTools: string[] };
+      expect(agent.cwd).toBe(tmpDir); // still the project's own rootDir, not a tempDir
+      expect(agent.allowedTools).toEqual(["Read", "Grep", "Glob"]); // unchanged from chatAgent()'s project branch
+      expect(promptArg as string).toContain(tmpDir);
+
+      // Downloaded straight into the real project directory -- confirm the
+      // file actually landed, not just that the prompt claims a path.
+      const downloaded = fs.readdirSync(tmpDir).filter((f) => f.endsWith("-notes.txt"));
+      expect(downloaded).toHaveLength(1);
+    });
+
+    it("a turn with no attachments never calls the sign route", async () => {
+      vi.mocked(completeOnce).mockResolvedValue({ text: "ok", sessionId: "s", isError: false });
+      const fetchMock = routeFetch({ "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }) });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      expect(bodiesFor(fetchMock, "/chat/attachments/sign")).toHaveLength(0);
+    });
+
+    it("fails the turn legibly, without ever calling completeOnce, when the download itself fails", async () => {
+      const fetchMock = routeFetch({
+        ...signRoute(),
+        "storage.test/signed/a.txt": () => new Response("not found", { status: 404 }),
+        "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }),
+      });
+
+      runChatTurnCommand(
+        payload({ attachments: [{ storagePath: "ws_1/chs_1/a.txt", filename: "notes.txt" }] }),
+      );
+      await vi.runAllTimersAsync();
+
+      expect(completeOnce).not.toHaveBeenCalled();
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result");
+      expect(resultBodies).toHaveLength(1);
+      expect(resultBodies[0]).toMatchObject({ status: "failed" });
+      expect((resultBodies[0] as { error: string }).error).toMatch(/404/);
+    });
+
+    it("times out a hung download rather than hanging the turn past its own budget", async () => {
+      // routeFetch's handlers don't see the request `init`, so a hung
+      // connection that genuinely honours AbortSignal (as real fetch does)
+      // needs its own mock here rather than routeFetch's simpler one.
+      const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+        const url = String(input);
+        if (url.includes("/chat/attachments/sign")) {
+          return jsonResponse(200, { signedUrl: "http://storage.test/signed/a.txt" });
+        }
+        if (url.includes("storage.test/signed/a.txt")) {
+          // Never resolves on its own -- exactly a hung connection. Only
+          // rejects if the caller's AbortSignal actually fires, same as a
+          // real fetch would.
+          return new Promise<Response>((_resolve, reject) => {
+            const signal = (init as RequestInit | undefined)?.signal;
+            signal?.addEventListener("abort", () => reject(new Error("The operation was aborted.")));
+          });
+        }
+        if (url.includes("/chat/turns/ct_1/result")) return jsonResponse(200, { ok: true });
+        return jsonResponse(200, {});
+      });
+
+      runChatTurnCommand(
+        payload({ attachments: [{ storagePath: "ws_1/chs_1/a.txt", filename: "notes.txt" }] }),
+      );
+      await vi.runAllTimersAsync();
+
+      expect(completeOnce).not.toHaveBeenCalled();
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result");
+      expect(resultBodies[0]).toMatchObject({ status: "failed" });
+      expect((resultBodies[0] as { error: string }).error).toMatch(/timed out/);
+    });
   });
 });

@@ -1,3 +1,6 @@
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { eq } from "drizzle-orm";
 import type {
   Agent,
@@ -8,6 +11,7 @@ import type {
   ProviderId,
   RunStartPayload,
 } from "@sparstrow/shared";
+import { config } from "../config.js";
 import { getDb } from "../db/connection.js";
 import { agents, projects } from "../db/schema.js";
 import { logger } from "../logger.js";
@@ -121,6 +125,84 @@ function resolveChatAgent(payload: ChatTurnStartPayload): { ok: true; value: Age
 }
 
 /**
+ * T-CS5-03 — one attachment, downloaded to local disk before the prompt is
+ * built. Bounded (this task's own Trap: must not hang the turn past
+ * `TURN_TIMEOUT_MS`) and fails legibly rather than silently.
+ */
+const ATTACHMENT_DOWNLOAD_TIMEOUT_MS = 30_000;
+
+interface PendingAttachment {
+  storagePath: string;
+  filename: string;
+}
+
+interface PlacedAttachment {
+  localPath: string;
+  filename: string;
+}
+
+/** `POST /api/daemon/chat/attachments/sign` — see that route's own header for
+ *  why this is minted lazily, on demand, rather than carried in the payload. */
+async function signAttachmentUrl(storagePath: string): Promise<string> {
+  const { signedUrl } = await cloudFetch<{ signedUrl: string }>("/chat/attachments/sign", {
+    method: "POST",
+    body: { storagePath },
+    retries: 1,
+    timeoutMs: 15_000,
+  });
+  return signedUrl;
+}
+
+async function downloadToFile(signedUrl: string, destPath: string): Promise<void> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ATTACHMENT_DOWNLOAD_TIMEOUT_MS);
+  try {
+    const res = await fetch(signedUrl, { signal: controller.signal });
+    if (!res.ok) throw new Error(`attachment download returned ${res.status}`);
+    const bytes = Buffer.from(await res.arrayBuffer());
+    fs.writeFileSync(destPath, bytes);
+  } catch (err) {
+    // Named explicitly rather than left as fetch's own AbortError message,
+    // so `classifyTurnError` (chat/service.ts) buckets this the same way it
+    // already buckets a completeOnce timeout — one consistent "timeout"
+    // experience in TurnErrorBanner, not two differently-worded ones.
+    if (controller.signal.aborted) throw new Error("attachment download timed out");
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Downloads every pending attachment into `destDir`, uuid-prefixed so a
+ * `project` session's own repo files are never collided with or overwritten
+ * (this task's own Trap) — the original name is kept only as a suffix, for
+ * the prompt note to reference something recognizable.
+ */
+async function placeAttachments(
+  attachments: PendingAttachment[],
+  destDir: string,
+): Promise<PlacedAttachment[]> {
+  const placed: PlacedAttachment[] = [];
+  for (const att of attachments) {
+    const signedUrl = await signAttachmentUrl(att.storagePath);
+    const safeName = `${crypto.randomUUID()}-${path.basename(att.filename)}`;
+    const localPath = path.join(destDir, safeName);
+    await downloadToFile(signedUrl, localPath);
+    placed.push({ localPath, filename: att.filename });
+  }
+  return placed;
+}
+
+function attachmentPromptNote(placed: PlacedAttachment[]): string {
+  if (placed.length === 0) return "";
+  const lines = placed.map(
+    (p) => `The user attached a file at ${p.localPath} (originally named "${p.filename}").`,
+  );
+  return `\n\n${lines.join("\n")}`;
+}
+
+/**
  * Batches `onEvent` deltas and flushes them to T-M12-03's events route on a
  * short timer rather than one POST per line — "batched reasonably, not
  * per-line" per this task's own doc. Best-effort: a lost live delta is not a
@@ -201,10 +283,41 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
   // would leave the turn stuck in_progress. See that task's Result section.
   let seq = 0;
 
-  const prompt = buildTranscriptPrompt(payload.messages);
+  // T-CS5-03. `project`-with-a-real-rootDir places files where the agent's
+  // existing `allowedTools: ["Read","Grep","Glob"]` already reaches them —
+  // no override needed. Everything else (`free`, `agent`, or a `project`
+  // session with no rootDir configured) gets its own scratch directory for
+  // this turn only, and is clamped to `Read` there — overriding whatever
+  // the resolved agent's own normal tool configuration is, deliberately:
+  // an `agent`-kind session may have broader permissions as its everyday
+  // default, and an attachment must not inherit them. See
+  // doc/security/SEC-2026-08-28-antigravity-headless-tools-unrestricted.md
+  // for why this restriction is real for `claude-code` but currently a
+  // no-op for `antigravity` — `agy` wires neither `allowedTools` nor a
+  // working `cwd` sandbox; this still sets both, correctly, so the
+  // restriction takes effect the moment that provider gap closes.
+  let effectiveAgent = agent;
+  let attachmentTempDir: string | null = null;
+  let attachmentNote = "";
 
   try {
-    const result = await completeOnce(agent, prompt, {
+    if (payload.attachments.length > 0) {
+      const placeInProjectRoot = payload.sessionKind === "project" && Boolean(agent.cwd);
+      const destDir = placeInProjectRoot
+        ? agent.cwd!
+        : (attachmentTempDir = fs.mkdtempSync(path.join(config.tmpDir, "chat-attach-")));
+
+      const placed = await placeAttachments(payload.attachments, destDir);
+      attachmentNote = attachmentPromptNote(placed);
+
+      if (!placeInProjectRoot) {
+        effectiveAgent = { ...agent, cwd: attachmentTempDir, allowedTools: ["Read"] };
+      }
+    }
+
+    const prompt = buildTranscriptPrompt(payload.messages) + attachmentNote;
+
+    const result = await completeOnce(effectiveAgent, prompt, {
       timeoutMs: TURN_TIMEOUT_MS,
       onEvent: (delta) => pusher.push({ seq: ++seq, replyText: delta.replyText }),
     });
@@ -222,6 +335,14 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
     const message = err instanceof Error ? err.message : String(err);
     logger.warn({ turnId: payload.turnId, err: message }, "chat turn execution failed");
     await postResult(payload.turnId, { seq: ++seq, replyText: "", status: "failed", error: message });
+  } finally {
+    // Synchronous, unlike `completeOnce`'s own fire-and-forget tempDir
+    // cleanup: this directory can hold a scoped-Read grant's ENTIRE
+    // contents, so it should stop existing the moment the turn is done,
+    // not "eventually."
+    if (attachmentTempDir) {
+      fs.rmSync(attachmentTempDir, { recursive: true, force: true });
+    }
   }
 }
 

@@ -138,6 +138,7 @@ policies/022_chat_auto_title.sql       CS2 — sessions auto-title from the firs
 policies/023_provider_model_cache.sql  CS3 — provider_model_cache table, SELECT-only RLS
 policies/024_provider_model_dispatch.sql  CS3 — request_model_discovery + record_provider_models
 policies/025_chat_attachments_storage.sql  CS5 — chat-attachments bucket + chat_message_attachments RLS
+policies/026_chat_attachments_dispatch.sql  CS5 — enqueue_chat_turn gains p_attachments; assign_or_park_chat_turn embeds them in the dispatch payload
 ```
 
 **Applied to staging 2026-08-18** as migrations `setup_identity_fields`,

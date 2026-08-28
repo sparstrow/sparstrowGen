@@ -1906,3 +1906,44 @@ failure.
 fail (Playwright MCP route interception, per the runbook's step 5) and
 confirms the dialog stays open with a legible message rather than closing
 silently or showing a raw error.
+
+### G-51 — `claude-code`'s `--allowedTools`/`cwd` scoping for a chat turn is unverified live; `antigravity`'s is confirmed NOT to work at all
+
+**Raised:** 2026-08-28, while implementing `T-CS5-03` (Band 26, CS5 chat
+attachments — `doc/tasks/CS5/T-CS5-03-delivery.md`), whose own Trap demands
+confirming (not assuming) that `Read` genuinely cannot escape `cwd` before
+calling the free/agent attachment scoping "done."
+
+**`antigravity` is not a gap — it's a confirmed, filed defect**:
+[`SEC-2026-08-28-antigravity-headless-tools-unrestricted`](security/SEC-2026-08-28-antigravity-headless-tools-unrestricted.md).
+Live-verified that `agy`'s `view_file` reads an absolute path outside its
+spawn's `cwd` without refusal, and that `allowedTools`/`disallowedTools` are
+never wired into that provider's spawn at all — `agy` has no equivalent
+flag. This predates CS5 and affects every existing `free`/`project`/`agent`
+antigravity chat turn, not just attachments.
+
+**`claude-code`'s side of the same question is a genuine gap, not a
+defect**: this environment's `claude` CLI has an expired OAuth token
+(`"OAuth access token has expired. Re-authenticate to continue."` on every
+call), the same pre-existing, unrelated limitation already on record
+elsewhere in this file (search "subscriptionType: null") — re-authenticating
+a real Claude subscription is outside this repo's code and not something an
+agent should do unattended. Whether `--allowedTools Read` genuinely refuses
+an absolute path outside `cwd` for `claude-code` specifically was therefore
+**not** confirmed either way this pass.
+
+**If wrong (i.e. if `claude-code` also does not enforce this):** high. The
+entire free/agent half of CS5's attachment delivery mechanism — the only
+half meant to grant scoped rather than full access — would be security
+theater on both supported CLI providers, not just one. `project`-session
+chat (which relies on the same `cwd`+`allowedTools` shape, pre-dating CS5)
+would carry the same exposure the antigravity security report already
+describes, but for `claude-code` too.
+
+**Clears when:** the `claude` CLI is re-authenticated in a test environment
+and the exact same live probe run against `antigravity` above (spawn with
+`cwd` set to a directory containing only an attachment, `--allowedTools
+Read`, ask it to read an absolute path outside `cwd`) is repeated against a
+real `claude-code` headless spawn. A refusal closes this entry outright; a
+successful read promotes it to a second `doc/security/` entry at least as
+severe as antigravity's.

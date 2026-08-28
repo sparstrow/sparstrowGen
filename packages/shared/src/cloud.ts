@@ -705,6 +705,22 @@ export interface ChatTurnStartPayload {
    * not the final prompt window.
    */
   messages: Array<{ role: "user" | "assistant"; content: string }>;
+  /**
+   * CS5 (Band 26, T-CS5-03) — files attached to the turn's user message,
+   * looked up from `chat_message_attachments` at dispatch time
+   * (`private.assign_or_park_chat_turn`, `026_chat_attachments_dispatch.sql`).
+   *
+   * Deliberately NO signed URL here, correcting the plan's own approximate
+   * framing: a parked turn can wait indefinitely for a runtime to come
+   * online (`private.rescan_waiting_chat_turns`, re-invoked on every daemon
+   * poll, not just at send time), and a short-lived signed URL minted once
+   * at the ORIGINAL dispatch attempt would already have expired by the time
+   * a later rescan actually assigns it. The daemon mints its own short-lived
+   * signed URL on demand, immediately before downloading — see
+   * `packages/core/src/cloud/chat-turn.ts`'s attachment step and the new
+   * `POST /api/daemon/chat/attachments/sign` route.
+   */
+  attachments: Array<{ storagePath: string; filename: string }>;
 }
 
 /**
