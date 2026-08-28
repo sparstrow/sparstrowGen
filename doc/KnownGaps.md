@@ -1792,3 +1792,61 @@ unsupervised).
   US1/US2/US3 and SC-001/002/003 together; (3) an owner-supervised second
   account (or the owner's own second browser) exercises FR-009's live
   refusal.
+
+**Item 1 is code-complete as of 2026-08-27 — see `G-49`, which now carries the
+remaining live-pass work (items 2 and 3 above) forward.** The `DI` band
+(`doc/plans/2026-08-27-the-daemon-gets-a-real-identity.md`) built the
+redesign in full: `019_daemon_realtime_identity.sql` is the daemon's own RLS
+path, and `mintRealtimeToken()` now obtains a real Supabase session instead of
+self-signing. Landing on `development` unverified, per this file's own
+precedent (`G-13`, `G-15`, `G-24`, and this same gap's own earlier handling).
+
+### G-49 — the `DI` band is code-complete and has never touched a database or a running machine
+
+**Raised:** 2026-08-27, landing `doc/plans/2026-08-27-the-daemon-gets-a-real-identity.md`
+on `development`. Supersedes `G-48`'s item 1 (see above) and is what `G-48`'s
+items 2–3 now live under.
+
+**What is true:** `T-DI-01` through `T-DI-04` are done. `pnpm typecheck` is
+green (7/7 tasks) and every package's test suite is green **run separately** —
+`apps/web` 451, `@sparstrow/core` 750, `@sparstrow/shared` 316. Two real bugs
+were found and fixed along the way, both in already-merged code, neither
+caused by this band: `BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls`
+(the RLS half of `G-48`) and `BUG-2026-08-27-realtime-refresh-never-took-effect`
+(core's credential refresh was a no-op — realtime-js's `accessToken` callback
+outranks `setAuth(token)`, and core's callback closed over the connect-time
+credential; the existing test could not have caught it, since it asserted
+`setAuth` was called with a token string that never changed between mints).
+
+**What has never been checked, at all:**
+
+- `019_daemon_realtime_identity.sql` and `020_bootstrap_refuses_daemon.sql`
+  have not been applied to any Supabase project. No agent in the session that
+  wrote them could — the Supabase CLI was not logged in and the MCP server
+  needs an interactive OAuth grant this session's environment does not
+  provide. `018` was also re-run in text (its comments changed in `T-DI-01`)
+  but not re-applied, since its predicate is unchanged.
+- A real daemon has never held a subscribed control channel with this design.
+  `T-DI-05` — every item in `T-M16-06` §A/§B plus `T-M17-06`'s interactive
+  half — has not run once.
+- The three regression tests added in `T-DI-04` were verified to fail against
+  the bug they cover, by actually reverting the fix locally and re-running.
+  That proves the tests are load-bearing; it does not prove the fix is
+  correct against a real Realtime connection, only against a faked one.
+
+**If wrong:** the same class of risk `G-47` and `G-48` already named for this
+exact wire, now doubled — a wire-shape or RLS-predicate mistake in `019`/`020`
+would not be caught by anything that ran here, because nothing here could run
+against Postgres at all. The mocked-admin-client tests in `T-DI-03` prove the
+call sequence (`generateLink` → `verifyOtp`, identity created once, reused
+thereafter) and prove nothing about whether Supabase's actual Auth API accepts
+that sequence or whether the resulting token's claims satisfy
+`current_daemon_scope()`.
+
+**Clears when:** (1) an owner (or an authorized agent) runs `018`, `019`, `020`
+in order against the real project and their `-- Verify` blocks pass — row in
+[`doc/runbooks/README.md`](../runbooks/README.md); (2) `T-DI-05` runs in full
+against a real preview with a real paired machine, closing the same
+US1/US2/US3/SC-001/002/003 items `G-48` named; (3) FR-009's live non-admin
+refusal, which stays open regardless — same second-account limitation as
+`G-15`/`G-24`/`G-47`/`G-48`.

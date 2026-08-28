@@ -301,11 +301,11 @@ Phase spec: [`DI/README.md`](DI/README.md). Decomposed 2026-08-27.
 
 | # | Task | Tag | Depends on | Status |
 |---|---|---|---|---|
-| 25.1 | [T-DI-01 — the session topic carries the runtime id](DI/T-DI-01-session-topic-runtime-id.md) | `[S]` | — | queued |
-| 25.2 | [T-DI-02 — the daemon identity: schema, helper, policies](DI/T-DI-02-daemon-identity-schema.md) | `[S]` | 25.1 | queued |
-| 25.3 | [T-DI-03 — the token route mints a Supabase session](DI/T-DI-03-token-route-supabase-session.md) | `[S]` | 25.2 | queued |
-| 25.4 | [T-DI-04 — core adapts to the new credential](DI/T-DI-04-core-credential-lifetime.md) | `[P]` | 25.3 | queued |
-| 25.5 | [T-DI-05 — verification: the live pass that has never run](DI/T-DI-05-verification.md) | `[S]` | 25.1–25.4 | queued |
+| 25.1 | [T-DI-01 — the session topic carries the runtime id](DI/T-DI-01-session-topic-runtime-id.md) | `[S]` | — | done (2026-08-27) |
+| 25.2 | [T-DI-02 — the daemon identity: schema, helper, policies](DI/T-DI-02-daemon-identity-schema.md) | `[S]` | 25.1 | written, not applied — owner (2026-08-27) |
+| 25.3 | [T-DI-03 — the token route mints a Supabase session](DI/T-DI-03-token-route-supabase-session.md) | `[S]` | 25.2 | done except live checks (2026-08-27) |
+| 25.4 | [T-DI-04 — core adapts to the new credential](DI/T-DI-04-core-credential-lifetime.md) | `[P]` | 25.3 | done (2026-08-27) |
+| 25.5 | [T-DI-05 — verification: the live pass that has never run](DI/T-DI-05-verification.md) | `[S]` | 25.1–25.4 | blocked → owner applies SQL, then a live pass |
 
 25.1–25.3 are `[S]` in a chain: each defines the contract the next compiles or
 authorizes against, and they touch overlapping files. 25.4 is `[P]` — it lives
@@ -323,6 +323,15 @@ Two independent blockers, each hiding the other, both found on 2026-08-27.
 **No UI work.** M17's surfaces, states and sentences are all built and stay
 exactly as they are. This band changes one topic string, adds one table, one
 function and four policies, and rewrites one module's internals.
+
+**Landed on `development` 2026-08-27, code-complete and unverified** — see
+[`KnownGaps.md` `G-49`](../KnownGaps.md). `T-DI-01` and `T-DI-04` are fully
+done; `T-DI-02`'s SQL is written but not applied to any database (needs a
+Supabase CLI login or MCP authorization no agent in this session had);
+`T-DI-03` is done except the live checks that need `T-DI-02`'s SQL; `T-DI-05`
+is blocked on both. Also found and fixed, in already-merged M16 code:
+[`BUG-2026-08-27-realtime-refresh-never-took-effect`](../bug/BUG-2026-08-27-realtime-refresh-never-took-effect.md)
+— core's credential refresh had never taken effect.
 
 ### Band 24 — M22–M24 reaching my machine from the browser (2026-08-24)
 
