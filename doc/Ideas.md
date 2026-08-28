@@ -332,3 +332,23 @@ leaves behind before it deletes anything.
 
 *Surfaced 2026-08-27 while planning the daemon identity; parked in the plan's
 own Scope boundaries rather than built.*
+
+---
+
+## I-15 — Per-machine status indicator in the header, replacing the global connection badge
+
+The header's connection badge (`app-shell.tsx`) reads "live"/"offline" from
+the Realtime run/chat channel connection state, not from whether any paired
+machine is reachable — see
+[`BUG-2026-08-27-header-badge-shows-offline-with-active-machine`](bug/BUG-2026-08-27-header-badge-shows-offline-with-active-machine.md).
+Even relabelled correctly, a single global pill can't answer "which of my
+machines is up" once a workspace has more than one paired.
+
+Shape: an aggregate `n/total online` pill in the header, sourced from the same
+heartbeat-derived `machineState()` query `machines.tsx` already computes (not
+from `useLiveEvents`), reusing its `active`/`draining`/`unreachable` dot
+vocabulary so the header and `/machines` can never visually disagree.
+Click/hover expands a popover listing each machine by name with its own dot.
+Zero machines paired is neutral, not red.
+
+*Surfaced while documenting `BUG-2026-08-27-header-badge-shows-offline-with-active-machine`.*
