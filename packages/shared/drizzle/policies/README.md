@@ -131,6 +131,8 @@ policies/015_chat_broadcast.sql        M12 — who may subscribe to a chat turn'
 policies/016_chat_turn_transcript.sql  M12 — recent messages travel in the chat.turn payload
 policies/017_access_model.sql          M18 — machine_shared_locations, agent_machine_restrictions
 policies/018_terminal_channels.sql     M16 — terminal/machine channel read + send policies
+policies/019_daemon_realtime_identity.sql  DI — the daemon's own identity + its half of 018's channels
+policies/020_bootstrap_refuses_daemon.sql  DI — bootstrap_workspace() refuses a daemon identity
 ```
 
 **Applied to staging 2026-08-18** as migrations `setup_identity_fields`,
@@ -259,6 +261,35 @@ role/cross-workspace/event-forgery negative assertions are intentionally
 *not* done here as raw SQL impersonation — T-M16-06 §D does the live
 two-session version instead, matching T-M5-06 §E and T-M12-06's precedent of
 using a real second browser session rather than simulating one in SQL.
+
+**019 is 018's mirror image, and the two are only correct together.** 018 is
+the *browser's* half of the terminal channels (may send `request` and
+`input`); 019 is the *machine's* (may send `reply` and `output`). Reading
+either alone gives a misleading picture of who can do what on those topics.
+
+019 is also the first file here to grant anything to an identity that is
+deliberately **not a workspace member.** Each paired machine gets its own
+Supabase Auth user, never inserted into `workspace_members`, so
+`private.current_workspace_ids()` is empty for it and every policy 001/010/015
+wrote denies it exactly as it denies an anonymous caller. Its only reachable
+privilege is 019's four policies, on its own machine's two topics, resolved
+through `private.current_daemon_scope()`. `doc/tasks/M3/README.md` decision 1
+rejected a daemon auth user *that looks like a member* — that objection is
+respected here, not overridden; see 019's own header for the full argument and
+for why a Custom Access Token Hook was rejected in favour of the mapping table.
+
+**Revocation is enforced inside `current_daemon_scope()`**, which requires a
+live (non-revoked) `daemon_tokens` row. That is why nothing else has to clean
+up when a pairing is revoked, and why the orphaned `auth.users` row a removed
+machine leaves behind is inert rather than dangerous (`I-14`).
+
+**020 replaces `bootstrap_workspace()` wholesale**, because Postgres cannot
+patch a function body in place. It is 004's function verbatim plus one guard —
+verify with a diff before applying, and if 004 has changed since, re-copy it
+rather than editing around it. The guard exists because a daemon's token is a
+real `authenticated` JWT: everything else denies it for lack of membership, and
+`bootstrap_workspace()` is the one function that exists precisely to serve a
+member-less caller.
 
 ### Accepted advisor findings
 

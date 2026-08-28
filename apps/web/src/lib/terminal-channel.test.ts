@@ -96,7 +96,7 @@ function controlChannel(): FakeChannel {
 }
 
 function sessionChannel(sessionId: string): FakeChannel {
-  const ch = fake.channels.find((c) => c.topic === `terminal:ws_1:${sessionId}`);
+  const ch = fake.channels.find((c) => c.topic === `terminal:ws_1:rt_1:${sessionId}`);
   if (!ch) throw new Error("session channel not created yet");
   return ch;
 }
@@ -228,7 +228,7 @@ describe("RealtimeTerminalChannel", () => {
     warn.mockRestore();
   });
 
-  it("attach() subscribes on terminal:<workspaceId>:<sessionId>, private, and delivers output", async () => {
+  it("attach() subscribes on terminal:<workspaceId>:<runtimeId>:<sessionId>, private, and delivers output", async () => {
     const channel = new RealtimeTerminalChannel("rt_1");
     const received: string[] = [];
     channel.attach("term_1", { onOutput: (c) => received.push(c), onThrottled: () => {}, onEnded: () => {} });
@@ -291,7 +291,7 @@ describe("RealtimeTerminalChannel", () => {
     detach();
     await flush();
 
-    expect(fake.channels.find((c) => c.topic === "terminal:ws_1:term_1")).toBeUndefined();
+    expect(fake.channels.find((c) => c.topic === "terminal:ws_1:rt_1:term_1")).toBeUndefined();
     expect(removeChannelSpy).not.toHaveBeenCalled();
   });
 

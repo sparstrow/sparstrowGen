@@ -38,6 +38,21 @@ import { CloudAuthError, cloudFetch, getRuntimeId, getWorkspaceId, isPaired } fr
 let client: RealtimeClient | null = null;
 let controlChannel: RealtimeChannel | null = null;
 let refreshTimer: NodeJS.Timeout | null = null;
+/**
+ * The token the `accessToken` callback below hands back — updated by every
+ * refresh.
+ *
+ * **This must be mutable state, not a value captured in the callback's
+ * closure.** `RealtimeClient`'s own docblock (realtime-js 2.112,
+ * `RealtimeClient.setAuth`): *"When an `accessToken` callback IS configured,
+ * the callback is the source of truth... even after a bootstrap/override
+ * `setAuth(token)` call."* A callback closing over the credential `establish()`
+ * minted therefore OUTRANKS every later `setAuth`, so the client keeps
+ * presenting the original token forever and the connection dies at its `exp`.
+ * That was the shipped behaviour until `T-DI-04`; see
+ * `BUG-2026-08-27-realtime-refresh-never-took-effect`.
+ */
+let currentToken: string | null = null;
 let backoffTimer: NodeJS.Timeout | null = null;
 let pairingCheckTimer: NodeJS.Timeout | null = null;
 let backoffAttempt = 0;
@@ -75,6 +90,9 @@ function teardown(): void {
     clearTimeout(refreshTimer);
     refreshTimer = null;
   }
+  // Cleared with the client it belonged to, so a later `establish()` can never
+  // hand a stale token to a fresh connection.
+  currentToken = null;
   const channel = controlChannel;
   controlChannel = null;
   if (channel) void channel.unsubscribe();
@@ -122,7 +140,13 @@ async function refresh(): Promise<void> {
   if (stopped || !client) return;
   try {
     const credential = await mintCredential();
-    await client.setAuth(credential.token);
+    // Order matters: publish the new token to the `accessToken` callback FIRST,
+    // then call `setAuth()` with no argument, which is realtime-js's documented
+    // way to re-pull from that callback. Passing the token as an argument
+    // instead is the override form, and with a callback configured the callback
+    // still wins — which is precisely how this refresh used to do nothing.
+    currentToken = credential.token;
+    await client.setAuth();
     scheduleRefresh(credential);
     logHealthy();
   } catch (err) {
@@ -196,9 +220,13 @@ async function establish(): Promise<void> {
     // core has no browser session and no `@supabase/ssr`; `createClient()`
     // would try to manage a user session that does not exist here.
     const wsUrl = `${credential.supabaseUrl.replace(/^http/, "ws")}/realtime/v1`;
+    currentToken = credential.token;
     const realtime = new RealtimeClient(wsUrl, {
       params: { apikey: credential.supabaseAnonKey },
-      accessToken: () => Promise.resolve(credential.token),
+      // Reads the module-level `currentToken`, never `credential.token` — see
+      // that variable's docblock. Closing over `credential` here is what made
+      // every refresh a no-op.
+      accessToken: () => Promise.resolve(currentToken ?? credential.token),
     });
     realtime.connect();
 
@@ -294,9 +322,14 @@ export interface SessionChannel {
 export function openSessionChannel(sessionId: string): SessionChannel | null {
   if (!client) return null;
   const workspaceId = getWorkspaceId();
-  if (!workspaceId) return null;
+  // Both come from this machine's own pairing state, never from a message —
+  // the same rule `establish()` follows for the control topic (M16 phase
+  // decision 3). `019`'s policy checks this pair, so a runtime id taken from
+  // an inbound payload would be a machine publishing under another's name.
+  const runtimeId = getRuntimeId();
+  if (!workspaceId || !runtimeId) return null;
 
-  const topic = terminalSessionTopic(workspaceId, sessionId);
+  const topic = terminalSessionTopic(workspaceId, runtimeId, sessionId);
   const channel = client.channel(topic, {
     config: { broadcast: { self: false }, private: true },
   });

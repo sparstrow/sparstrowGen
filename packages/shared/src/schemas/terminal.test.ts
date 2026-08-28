@@ -34,7 +34,18 @@ describe("topic helpers", () => {
   });
 
   it("terminalSessionTopic produces the documented string", () => {
-    expect(terminalSessionTopic("ws1", "term_abc123")).toBe("terminal:ws1:term_abc123");
+    expect(terminalSessionTopic("ws1", "rt1", "term_abc123")).toBe("terminal:ws1:rt1:term_abc123");
+  });
+
+  // The positions are what `018` and `019` split_part on, so a transposed
+  // argument is a policy that silently authorizes the wrong pair rather than a
+  // type error — all three parameters are opaque strings.
+  it("puts workspace, runtime and session in the order the policies read them", () => {
+    const parts = terminalSessionTopic("ws1", "rt1", "term_abc123").split(":");
+    expect(parts[0]).toBe("terminal");
+    expect(parts[1]).toBe("ws1"); // split_part(topic, ':', 2)
+    expect(parts[2]).toBe("rt1"); // split_part(topic, ':', 3)
+    expect(parts[3]).toBe("term_abc123");
   });
 });
 

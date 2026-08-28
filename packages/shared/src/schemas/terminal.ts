@@ -189,9 +189,10 @@ export type MachineReply = z.infer<typeof machineReplySchema>;
 
 // ─── Session channel: raw bytes, both directions ────────────────────────────
 //
-// The topic is per session already (`terminal:<workspaceId>:<sessionId>`), so
-// unlike the chat broadcast — one topic serving many turns — nothing here
-// repeats an id the topic already carries.
+// The topic is per session already
+// (`terminal:<workspaceId>:<runtimeId>:<sessionId>`), so unlike the chat
+// broadcast — one topic serving many turns — nothing here repeats an id the
+// topic already carries.
 
 export const terminalInputMessageSchema = z.object({
   data: z.string(),
