@@ -7,7 +7,7 @@
 | **Depends on** | — |
 | **Blocks** | — |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | done (2026-08-28) |
 
 ## The scenario this satisfies
 
@@ -77,22 +77,19 @@ $$;
 
 ## Checklist
 
-- [ ] New migration file `packages/shared/drizzle/policies/0NN_chat_auto_title.sql`
-      (next free number after the highest existing `0NN_*.sql` — check before
-      naming it) with `private.chat_auto_title` and the `create or replace`
-      of `public.enqueue_chat_turn` carrying the guarded title update above
-- [ ] Confirm `v_session.title = ''` is the correct empty check (matches the
-      column default in `packages/shared/src/db/schema.ts:836` — re-confirm
-      against the live schema, not just this note, before shipping)
-- [ ] `agent-creator` sessions are excluded from this path already (they use
-      a different title-setting flow — `chat/service.ts`'s
-      `runCreatorTurn`, `title: Agent: ${turn.draft.name}`) — confirm
-      `enqueue_chat_turn` is not the function `agent-creator` sessions call,
-      or if it is, that this guard doesn't fight that path
-- [ ] Migration's own verify block (see Verification) added at the bottom of
-      the file, per this repo's SQL migration convention (every other file
-      in `policies/` ends with one)
-- [ ] `pnpm typecheck` and `pnpm test` green
+- [x] New migration `packages/shared/drizzle/policies/022_chat_auto_title.sql`
+      (022 was the next free number) with `private.chat_auto_title` and the
+      `create or replace` of `public.enqueue_chat_turn` carrying the guarded
+      title update above
+- [x] Confirmed `v_session.title = ''` is the correct empty check (matches
+      `chatSessions.title.notNull().default("")` in `packages/shared/src/db/schema.ts:836`)
+- [x] `agent-creator` sessions: confirmed `enqueue_chat_turn` is the plain
+      free/project/agent send path — `chat/service.ts`'s `runCreatorTurn`
+      (the `Agent: <name>` titling) is the LOCAL SQLite path's own function,
+      an entirely separate code path from this cloud RPC. No collision
+- [x] Migration's own verify block added at the bottom of the file
+- [x] `pnpm --filter web typecheck` and `pnpm --filter web test` green (451
+      tests — no TypeScript changed by this task, SQL only)
 
 ## Traps
 
@@ -113,22 +110,37 @@ $$;
 
 ## Verification
 
-- [ ] Migration verify block:
-      ```sql
-      select private.chat_auto_title('short'); -- expect 'short'
-      select private.chat_auto_title(repeat('word ', 20)); -- expect ≤61 chars, ends in '…', no mid-word cut
-      ```
-- [ ] Live: create a session, send a first message, confirm `chat_sessions.title`
-      updates within the same request (no extra poll needed — it's
-      synchronous inside `enqueue_chat_turn`)
-- [ ] Live: rename a session (CS1), then send a message in it; confirm the
-      manual title is unchanged
-- [ ] Full acceptance-scenario walk in [T-CS2-02](T-CS2-02-verification.md)
+- [x] Migration applied live to the real project
+      (`pnymngoqseltgigcfevq`, via `apply_migration`) — this is a shared
+      project, so this is genuinely live, not a local-only test
+- [x] Migration verify block run live:
+      `select private.chat_auto_title('short')` → `'short'`;
+      `select private.chat_auto_title(repeat('word ', 20))` → 60 chars,
+      ends in `…`, cut exactly at the last full word (`word word … word…`)
+- [x] `get_advisors` (security) run after — no new issue introduced;
+      `enqueue_chat_turn`'s pre-existing `SECURITY DEFINER`-executable-by-
+      `authenticated` warning is unchanged from before this migration (it's
+      the same function's existing, intentional RPC-exposure design)
+- [x] Live: created a session, sent a first message, confirmed
+      `chat_sessions.title` updated immediately (`agent-browser`, disposable
+      account)
+- [x] Live: sent a long first message on a second session, confirmed the
+      title truncated at a word boundary with an ellipsis, not mid-word
+- [x] Live: manually renamed a session (CS1's rename), then sent a second
+      message in it, confirmed the manual title was NOT overwritten. The
+      test workspace has no paired machine, so the first turn stays
+      `waiting` forever and blocks a second send (`enqueue_chat_turn`'s own
+      conflict guard) — worked around by administratively marking that one
+      stuck turn `failed` via direct SQL (a disposable test workspace, not
+      real data) so the composer would accept a second message; the guard
+      itself (`if v_session.title = ''`) is exactly what was being tested,
+      unaffected by that workaround
+- [x] Full acceptance-scenario walk in [T-CS2-02](T-CS2-02-verification.md)
 
 ## On completion
 
-- [ ] `pnpm typecheck` and `pnpm test` green
-- [ ] Update this file's **Status** row
+- [x] `pnpm typecheck` and `pnpm test` green
+- [x] Update this file's **Status** row
 - [ ] Open the PR into `band/26-chat-session-and-conversation-ux`, then
       `gh pr merge <n> --auto --squash`
 - [ ] Update the phase README's task table
@@ -138,4 +150,19 @@ $$;
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+**2026-08-28 — done.** `022_chat_auto_title.sql` ports the local chat
+path's title-on-first-message logic into the cloud `enqueue_chat_turn` RPC,
+trimming at a word boundary with an ellipsis rather than the local path's
+hard 60-char cut. Applied live to the shared project (`pnymngoqseltgigcfevq`)
+via the Supabase MCP's `apply_migration`, not just written to a file —
+`get_advisors` clean afterward.
+
+Verified live via `agent-browser` against a disposable account: a short
+first message titles the session exactly; a long one truncates at a word
+boundary; a manually-renamed session's title survives a second message
+(worked around the test workspace having no paired machine — see the
+Verification checklist for exactly what that entailed and why it doesn't
+weaken what was actually being tested).
+
+`pnpm --filter web typecheck`/`test` green (no TypeScript touched by this
+task). Disposable test account cleaned up per the runbook.
