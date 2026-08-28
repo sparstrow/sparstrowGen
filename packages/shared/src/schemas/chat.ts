@@ -101,6 +101,31 @@ export type ChatSessionListQuery = z.infer<typeof chatSessionListQuerySchema>;
  */
 export const CHAT_MESSAGE_MAX_BYTES = 64_000;
 
+/**
+ * CS5 (Band 26, T-CS5-02) — a file already uploaded to the `chat-attachments`
+ * bucket (`createChatAttachmentUploader`), waiting to be attached to the
+ * message the caller is about to send. Never a URL — `storagePath` is the
+ * object key; reads happen later through a signed URL (T-CS5-03), never
+ * anything stored durably that could resolve the file without RLS.
+ */
+export const chatAttachmentUploadSchema = z.object({
+  storagePath: z.string().min(1),
+  filename: z.string().min(1),
+  mimeType: z.string().min(1),
+  sizeBytes: z.number().int().positive(),
+});
+export type ChatAttachmentUpload = z.infer<typeof chatAttachmentUploadSchema>;
+
+/**
+ * How many attachments one message may carry. The spec's own Edge Cases
+ * section leaves "what happens with more than one file" open at the UX
+ * level (CS6's to answer — how it's displayed, whether there's a lower,
+ * UI-enforced limit) — this is only a request-boundary sanity clamp, the
+ * same kind `CHAT_MESSAGE_MAX_BYTES` already is for `content`, not a
+ * product decision about how many a user should realistically attach.
+ */
+export const CHAT_ATTACHMENTS_MAX_PER_MESSAGE = 10;
+
 /** POST /chat/sessions/:id/messages — one user turn. `draft` is only honored on
  *  agent-creator sessions (untrusted WIP context, clamped server-side). */
 export const chatTurnRequestSchema = z.object({
@@ -111,6 +136,7 @@ export const chatTurnRequestSchema = z.object({
       message: `content must not exceed ${CHAT_MESSAGE_MAX_BYTES} bytes`,
     }),
   draft: z.record(z.unknown()).optional(),
+  attachments: z.array(chatAttachmentUploadSchema).max(CHAT_ATTACHMENTS_MAX_PER_MESSAGE).optional(),
 });
 export type ChatTurnRequest = z.infer<typeof chatTurnRequestSchema>;
 

@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-27-chat-session-and-conversation-ux.md`](../../specs/2026-08-27-chat-session-and-conversation-ux.md) |
 | **Depends on** | — |
 | **Blocks** | CS6 |
-| **Status** | in progress — T-CS5-01 done 2026-08-28, T-CS5-02 (upload flow) next |
+| **Status** | in progress — T-CS5-01/02 done 2026-08-28, T-CS5-03 (delivery) next |
 | **Open questions** | none |
 
 ## Tasks
@@ -15,7 +15,7 @@
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
 | [T-CS5-01 — private bucket + attachments table + RLS](T-CS5-01-storage-schema.md) | `[S]` | foundational — unblocks CS6 | — | done (2026-08-28) |
-| [T-CS5-02 — upload flow](T-CS5-02-upload.md) | `[S]` | foundational — unblocks CS6 | T-CS5-01 | not started |
+| [T-CS5-02 — upload flow](T-CS5-02-upload.md) | `[S]` | foundational — unblocks CS6 | T-CS5-01 | done (2026-08-28) |
 | [T-CS5-03 — signed URL in the dispatch payload, daemon download, scoped Read](T-CS5-03-delivery.md) | `[S]` | foundational — unblocks CS6 | T-CS5-01, T-CS5-02 | not started |
 | [T-CS5-04 — verification](T-CS5-04-verification.md) | `[S]` | foundational | T-CS5-01–03 | not started |
 
