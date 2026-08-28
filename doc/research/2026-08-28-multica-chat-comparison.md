@@ -193,6 +193,32 @@ treating resume as an optimisation. That is strictly better than either
 system's current behaviour. It is an idea, not a decision, and it is not
 scoped here.
 
+## 6. Codebase work in chat — they route it away from chat entirely
+
+Added 2026-08-28 after the owner asked how a *project* chat should handle
+files an agent edits, creates or deletes.
+
+Their server's handler package contains **no diff, pull-request, git, repo,
+branch or review handler**. The README instead puts codebase work behind
+"review gates where work lands in pull requests before merging" — reviewed on
+the git host, not inside the product. Their chat documentation positions chat
+as the surface for work that "hasn't formed a clear issue yet: sorting out
+ideas, checking on the workspace, discussing an approach, or having an agent
+finish a small task first," with issues as the place for "a clear assignee,
+status, priority, and deliverable."
+
+So the pattern is: **chat produces artifacts; the issue/PR track produces
+changes.** They never mix the two, and they build no diff viewer at all.
+
+That is useful corroboration rather than a thing to copy — we have no issue
+board and our project chats are a real editing surface. But it supports the
+seam recorded in [`I-17`](../Ideas.md): what a turn *produced* and what a turn
+*changed* are different problems, and the second one is not solved by
+extending the first.
+
+*Caveat: their web components directory could not be enumerated (404), so this
+is a server-side and documentation reading, not an exhaustive one.*
+
 ## Verdict summary
 
 | Dimension | Them | Us | Call |
@@ -203,6 +229,7 @@ scoped here.
 | Auto-title | deterministic now, LLM later, CAS-safe | spec says LLM-or-nothing | **Adopt** — note left for CS2 |
 | Session continuity | CLI `session_id` + `work_dir`, machine-bound | replay, runtime-portable | **Keep ours.** Cost is bounded history; resume-as-optimisation is the best-of-both |
 | Download auth | 60s signed capability URL for credential-less native downloads | n/a | Not applicable since `D-24` made desktop a window on the hosted app |
+| Codebase changes in chat | routed away from chat to issues → PRs; no in-app diff at all | project chats edit in place, app sees nothing | **Neither** — corroborates the artifact/change seam in `I-17`, but our project chat is a real editing surface and theirs isn't |
 
 ## What this changed
 

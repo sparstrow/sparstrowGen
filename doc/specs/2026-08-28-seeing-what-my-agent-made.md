@@ -70,6 +70,11 @@ lands, the image is visible in it. Reload the page; it is still there.
 5. **Given** a turn that fails partway after producing a file, **When** I look at
    the conversation, **Then** I can still see what it managed to produce, along
    with the failure — partial work is not thrown away.
+6. **Given** a conversation about one of my projects, **When** the agent edits,
+   creates or deletes files inside that project's folder, **Then** those files
+   are **not** shown as things the agent "made" and no copy of them is kept —
+   they belong to the project, and the app does not duplicate a folder I already
+   have. See the scope boundary under Assumptions.
 
 ---
 
@@ -227,6 +232,10 @@ something is missing.
 - **FR-015**: The system SHOULD retain produced files for as long as the
   conversation exists. [NEEDS CLARIFICATION: whether a retention window is needed
   before storage cost becomes a problem — see Assumptions]
+- **FR-016**: The system MUST NOT keep a copy of any file the agent writes
+  inside a folder belonging to one of the owner's projects, and MUST NOT list
+  such files as things the agent produced. Those files belong to the project and
+  are reached through the project, not duplicated into the conversation.
 
 ### Key entities
 
@@ -273,6 +282,33 @@ something is missing.
   spec knowingly leaves a limit unset. Both are cheap to set once and expensive
   to change after a year of files, so they want a decision before building, not
   during.
+- **Deliberately excluded, and the most important boundary here: files an agent
+  changes inside one of my projects.** Raised by the owner 2026-08-28 while
+  reviewing this draft — *"what if we chat about the project… agents can make
+  file edits, create new files, media, delete etc."* That is a different
+  problem wearing the same clothes, and it is elaborated as
+  [`I-17`](../Ideas.md).
+
+  The distinction this spec turns on is **artifact versus change**. Here, an
+  agent *produces* something that has no other home, so the app keeps it. In a
+  project, an agent *changes a folder that already exists on a machine* — and
+  copying those files into the app would create a second, immediately-stale
+  copy of a repository that already owns and versions them. Media is not the
+  special case in that situation; a generated logo and an edited source file
+  have the same problem, which is that the app does not know the turn touched
+  either.
+
+  **What this means for building this spec:** produced items are things with no
+  home of their own. Anything written inside a bound project folder is out of
+  scope, is not copied, and is not listed here. Getting this wrong duplicates
+  the owner's repository into app storage, so FR-016 states it as a
+  requirement rather than leaving it as prose.
+
+  The viewing half of that problem already has an owner-accepted home:
+  [`reaching-my-machine`](2026-08-24-reaching-my-machine-from-the-browser.md)
+  US1 reads a project's real files from a browser, and needs only to render an
+  image rather than offer it as text. Worth shipping before `I-17` is scoped —
+  it may turn out to be enough on its own.
 - **Deliberately excluded: browsing arbitrary folders on a machine.** The owner's
   word "folder" is honoured as a list of what a conversation produced, not as a
   file browser. General machine browsing stays with [`I-11`](../Ideas.md), which
