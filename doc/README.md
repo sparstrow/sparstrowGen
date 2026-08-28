@@ -36,7 +36,9 @@ doc/
 
 ```
 idea ──────────────► Ideas.md
-  │
+  │                  NOT a one-line stub. What is true in the code today,
+  │                  the reframe, an arguable shape, the decisions it needs
+  │                  — answered nowhere. Skill: `elaborating-ideas`
   │ (owner picks it up)
   ▼
 spec ──────────────► doc/specs/<date>-<slug>.md

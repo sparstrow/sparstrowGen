@@ -1,6 +1,6 @@
 # FB-2026-08-28-chat-generated-media-not-shown-in-chat
 
-**Status:** 🔴 new
+**Status:** 🟢 routed
 **Reported by:** owner
 **Reported:** 2026-08-28
 **Area:** Chat — assistant message rendering
@@ -29,8 +29,29 @@ diagnosis of which side caused it.
 
 ## Triage
 
-<!-- Not triaged yet. -->
+**An idea, not a bug** — and merged with its sibling
+[`FB-2026-08-28-media-input-output-folder-preview-pane`](FB-2026-08-28-media-input-output-folder-preview-pane.md)
+into a single entry, [`I-16`](../Ideas.md), because elaborating them
+established they are one idea rather than two.
+
+This was initially held as "blocked until we know whether the model really
+generates image files or only claims to." That framing was wrong, and naming
+why is the useful part: the chat pipeline is text-only at four independent
+layers — provider parse, `extractResult`, the `chat_messages.content` text
+column, and `ChatTurnView` — so a perfectly well-formed image event would
+have produced this same screenshot. Nothing could have been shown either way,
+which makes the diagnosis a consequence to check for later, not a gate.
+
+Not filed as a bug: nothing here behaves incorrectly against what was built.
+Media rendering was never implemented, so its absence is a missing capability.
+The one thing that edges toward a defect — `parseStepUpdate` dropping an
+unrecognised `step_type` silently, where `parseLine`'s own `default:` case
+deliberately surfaces unknowns as `raw` — is recorded in `I-16` as the cheap
+first move rather than as a bug, because no such step has actually been
+observed. It is an evidence gap, not proven wrong behaviour.
 
 ## Resolution
 
-<!-- Not resolved yet. -->
+Routed to [`I-16`](../Ideas.md) — *Media as a first-class chat artifact*,
+elaborated 2026-08-28 at the owner's direction. Nothing built; an idea is a
+destination, not a commitment.

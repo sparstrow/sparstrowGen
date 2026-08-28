@@ -1,11 +1,22 @@
 # Ideas
 
 Unscoped. No commitment, no decision behind them, possibly never built. If an
-idea graduates, it becomes a plan in `doc/plans/` — or gets a decision and moves
-to `Deferred.md`.
+idea graduates it becomes a **spec** in `doc/specs/` — owner review first, per
+`doc/README.md`'s lifecycle — or gets a decision and moves to `Deferred.md`.
+(I-10 is the worked example: it spawned a spec and stayed open, because the
+spec took only one dimension of it.)
 
 Distinct from `Deferred.md`: those were agreed and parked. These were merely
 noticed.
+
+**Writing an entry here is a procedure — invoke the
+[`elaborating-ideas`](../.claude/skills/elaborating-ideas/SKILL.md) skill.**
+An idea's whole value is that it makes something *thinkable*: what is true in
+the code today, the reframe that changes what the idea is about, a shape
+concrete enough to argue with, what it collides with, and the decisions it
+would need — named, and answered nowhere. An entry that decides its own open
+questions has become an unreviewed spec; one written without opening the code
+reads exactly like one that was.
 
 ---
 
@@ -352,3 +363,145 @@ Click/hover expands a popover listing each machine by name with its own dot.
 Zero machines paired is neutral, not red.
 
 *Surfaced while documenting `BUG-2026-08-27-header-badge-shows-offline-with-active-machine`.*
+
+---
+
+## I-16 — Media as a first-class chat artifact: what a turn produced, not just what it said
+
+### What was noticed
+
+Two things, in one message, 2026-08-28 —
+[`FB-2026-08-28-chat-generated-media-not-shown-in-chat`](feedback/FB-2026-08-28-chat-generated-media-not-shown-in-chat.md)
+and
+[`FB-2026-08-28-media-input-output-folder-preview-pane`](feedback/FB-2026-08-28-media-input-output-folder-preview-pane.md):
+
+> the models can also generate media which I should see accordingly in the chat
+
+> On the right preview pane, should we add another folder icon preview, on
+> input and output folder for media.
+
+The trigger was a `free` chat on `antigravity` where the assistant answered
+"I've generated a picture of a man for you!" and nothing rendered.
+
+### What is true today
+
+The chat pipeline is text-only at four independent layers, each of which
+would discard an image on its own:
+
+| Layer | Where | What it does to anything that isn't text |
+|---|---|---|
+| Provider parse (antigravity) | [`antigravity.ts:218`](../packages/core/src/providers/antigravity.ts:218) | `agent_response` reads `step.text_delta` and nothing else |
+| Provider parse (claude-code) | [`claude-code.ts:240`](../packages/core/src/providers/claude-code.ts:240) | `.filter(b => b?.type === "text")` |
+| Turn result | `extractResult` in both providers | collapses the event stream to `resultText: string \| null` |
+| Storage | [`schema.ts:854`](../packages/shared/src/db/schema.ts:854) | `chat_messages.content` is `text().notNull()` |
+| Render | `ChatTurnView`, `apps/web/src/app/chat/chat.tsx` | takes a string; grep finds no image/media handling anywhere under `app/chat` |
+
+The right preview pane already exists and is deliberately honest rather than
+absent — `chat.tsx` renders either a project card pointing at `/terminals` or
+"Nothing to preview". So the owner is proposing content for a shell that is
+already built and already reserves the space.
+
+One detail worth keeping: `parseStepUpdate` returns `[]` for any `step_type`
+it doesn't recognise, while `parseLine`'s own `default:` case deliberately
+surfaces unrecognised events as `raw` — its comment says "surface it rather
+than dropping it silently." If `agy` ever emits a media-bearing step, the
+inner function drops it with no trace, contradicting the outer function's
+stated principle. **Not confirmed as a defect** — no such step has been
+observed — which is precisely the problem.
+
+### The reframe
+
+**The question "did the model really generate an image, or only claim to?"
+is unanswerable from inside the app, and answering it first is the wrong
+move.** A perfect, well-formed image event dies at layer one. The owner's
+observation — nothing appeared — is the only possible outcome today
+regardless of what the CLI actually did. Treating this as blocked on that
+diagnosis is what kept it parked; the diagnosis is a consequence of the
+first layer's silence, not a prerequisite for it.
+
+**The second, more useful reframe: the owner's own second idea is the right
+shape for the first.** These read as two requests but they are one, and the
+folder one is the better-founded half. CLI coding agents do not hand back
+image bytes inline — they write files. `agy` runs on the owner's machine with
+`--add-dir` scoping, so a generated picture is a file on disk, in a directory,
+next to the other things that turn touched. A filesystem-shaped view is the
+honest representation of what a turn actually produced; inline rendering is a
+presentation choice layered on top of it. The instinct to reach for a folder
+icon matches the runtime better than the instinct to reach for a thumbnail.
+
+### A shape
+
+The preview pane gains two collapsible sections instead of "Nothing to
+preview", sourced separately because their data genuinely is separate:
+
+- **In** — the attachments already on the session's messages. Substantially a
+  *view* over data US4/CS5 is building, not new plumbing.
+- **Out** — files the turn wrote, listed per turn rather than as one flat
+  folder, so provenance survives ("this came from that request"). Images get
+  thumbnails; everything else gets a name, size, and a way to open it.
+
+Inline rendering, if it happens at all, then becomes a thin thing: an
+assistant message shows a thumbnail strip for the image-typed entries of its
+own Out list, and the pane stays the complete view. Building the pane first
+means inline is cheap; building inline first means the pane has to re-derive
+everything.
+
+### What it touches
+
+- **[`I-11`](#i-11--the-rest-of-the-machine-reaching-surfaces) — folder
+  browsing.** I-11 lists folder browsing among the seven machine-reaching
+  surfaces waiting on the live channel, and that channel **landed** with
+  M16/M17 (bands 20–21). This idea is a concrete first consumer of it with a
+  user story attached, which is more than I-11 itself has. They divide
+  cleanly: I-11 is general browsing of a machine; this is the artifacts of a
+  chat turn. If both are built, this is a filtered view over that.
+- **`host-fs` cannot serve it.**
+  [`host-fs.ts`](../packages/core/src/api/routes/host-fs.ts) is registered
+  only when `deployment === "local"` and refuses non-loopback callers, and the
+  cloud app stubs `/host-fs/(.*)` out entirely
+  ([`stubs.ts:27`](../apps/web/src/lib/api/handlers/stubs.ts:27), "Local
+  filesystem access"). The existing folder-picker code is not reusable here;
+  this needs the runtime-command channel. That is a fact about the route, not
+  a decision to make.
+- **[US4 of the chat UX spec](specs/2026-08-27-chat-session-and-conversation-ux.md)
+  (band 26 / CS5)** already builds attachment upload, persistence and
+  redisplay — the "In" half. This idea should not re-specify it; it wants a
+  second *view* over it. The "Out" half has no equivalent anywhere.
+- **[`I-13`](#i-13--chat-session-right-click-menu-and-an-app-wide-keyboard-shortcuts-page)**
+  is adjacent only — both add chat surfaces — and they share no data.
+
+### Decisions this needs
+
+None of these is answered here.
+
+1. **Pane, transcript, or both?** The owner asked "should we add…", which is
+   a question, and the two surfaces have different costs.
+2. **What is "output" scoped to, for a session with no project?** `free`
+   sessions are not machine-affine and have no cwd, so "the output folder"
+   may not refer to anything. A per-turn artifact list sidesteps this; a
+   literal folder does not.
+3. **Does generated media travel to the cloud, or stay on the machine?**
+   CS5's upload path puts attachments in cloud storage; the symmetric choice
+   for outputs is not obviously the same, since outputs can be large and are
+   already durable where they were written.
+4. **Does anything even emit media today?** A fact to establish rather than a
+   decision — but nothing above depends on the answer, and the first move
+   below produces it as a side effect.
+
+### What would make it real
+
+The cheap first move that pays off regardless of whether this is ever built:
+make layer one stop being silent. Giving `parseStepUpdate` the same
+unrecognised-input fallback `parseLine` already has turns the next "it says it
+generated an image" into evidence instead of a shrug, and answers decision 4
+without a specification.
+
+**What would shrink it:** if it turns out no configured provider emits or
+writes media at all, the "Out" half has no source and this collapses to a view
+over CS5's attachments — worth much less, and better folded into US4 than
+built separately. That is the outcome to check for before scoping.
+
+*Raised 2026-08-28 by the owner, alongside the antigravity model-picker bug.
+Elaborated the same day at the owner's direction — "this is an idea, so we
+need to think and elaborate the idea" — which is also what produced the
+[`elaborating-ideas`](../.claude/skills/elaborating-ideas/SKILL.md) skill.*

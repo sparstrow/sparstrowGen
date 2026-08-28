@@ -68,6 +68,18 @@ route it to multiple destinations in its Triage section.
    place — like `bug/` and `security/`, this folder is a historical record,
    not a queue that empties out.
 
+**Routing to `Ideas.md` is not a way of deferring triage.** It is a real
+destination with real work attached — invoke the
+[`elaborating-ideas`](../../.claude/skills/elaborating-ideas/SKILL.md) skill
+and write an `I-n` entry that establishes what is true in the code today, the
+reframe, an arguable shape, and the decisions it needs. Feedback copied into
+`Ideas.md` as a one-line restatement has not been triaged; it has been moved.
+
+Beware in particular of parking an item behind an unknown ("blocked until we
+know whether X"). That is usually a sign the item is an idea whose middle has
+not been explored — `I-16` is the worked example, where the unknown turned out
+to be irrelevant to the first move.
+
 A feedback item that turns out to need no action (already covered, working
 as intended, out of scope) still gets triaged and closed — say so in Triage,
 skip Resolution, flip straight to `🟢 routed`. Silently ignoring an item is
@@ -86,5 +98,7 @@ came in.
 | [`FB-2026-08-27-chat-no-auto-rename-from-first-prompt`](FB-2026-08-27-chat-no-auto-rename-from-first-prompt.md) | 🟡 triaged | Chat — session list | Every session stays titled "New conversation"; wants auto-rename from the first prompt → [spec](../specs/2026-08-27-chat-session-and-conversation-ux.md) US2 |
 | [`FB-2026-08-27-chat-no-manual-rename-delete`](FB-2026-08-27-chat-no-manual-rename-delete.md) | 🟡 triaged | Chat — session list | No manual rename or delete control for a chat session anywhere in the UI → [spec](../specs/2026-08-27-chat-session-and-conversation-ux.md) US1 |
 | [`FB-2026-08-27-agents-page-missing-builtin-agents-model-editing`](FB-2026-08-27-agents-page-missing-builtin-agents-model-editing.md) | 🔴 new | Agents page — built-in agents | Built-in agents (Agent Creator, etc.) have hardcoded model versions and don't appear on the Agents page; wants them shown there with editable model/provider, but not deletable |
+| [`FB-2026-08-28-chat-generated-media-not-shown-in-chat`](FB-2026-08-28-chat-generated-media-not-shown-in-chat.md) | 🟢 routed | Chat — assistant message rendering | Model says it generated an image; nothing renders. **Idea** → [`I-16`](../Ideas.md) — the pipeline is text-only at four layers, so the "did it really generate one?" question was never the gate |
+| [`FB-2026-08-28-media-input-output-folder-preview-pane`](FB-2026-08-28-media-input-output-folder-preview-pane.md) | 🟢 routed | Chat — right preview pane | Input/output media folders in the preview pane. **Idea** → [`I-16`](../Ideas.md), merged with the item above — the better-founded half of the pair, and a first consumer of [`I-11`](../Ideas.md)'s folder browsing |
 | [`FB-2026-08-28-chat-generated-media-not-shown-in-chat`](FB-2026-08-28-chat-generated-media-not-shown-in-chat.md) | 🔴 new | Chat — assistant message rendering | Model claims to have generated an image but nothing renders in the transcript |
 | [`FB-2026-08-28-media-input-output-folder-preview-pane`](FB-2026-08-28-media-input-output-folder-preview-pane.md) | 🔴 new | Chat — right preview pane | Proposal: folder-style input/output media browser in the right preview pane |
