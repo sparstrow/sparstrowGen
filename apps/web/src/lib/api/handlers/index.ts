@@ -16,6 +16,7 @@ import "./system";
 import "./runtimes";
 import "./workspace";
 import "./profile";
+import "./providers";
 
 // Stubs must be registered last to act as fallbacks for wildcard routes
 import "./stubs";

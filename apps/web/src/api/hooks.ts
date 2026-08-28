@@ -72,6 +72,7 @@ import type {
   ChatSessionListQuery,
   ChatTurn,
   ChatTurnRequest,
+  ProviderModelCacheRow,
 } from "@sparstrow/shared";
 import { api, type ApiError } from "@web/lib/api-client";
 
@@ -697,6 +698,22 @@ export function useChatSession(id: string | null): UseQueryResult<ChatSessionDet
     queryKey: ["chat-session", id],
     queryFn: () => api<ChatSessionDetail>(`/chat/sessions/${id}`),
     enabled: Boolean(id),
+  });
+}
+
+/**
+ * T-CS4-01 (US3). This workspace's cached model list for `provider`, or
+ * `null` if no discovery has ever landed. Read-only — triggering a fresh
+ * discovery is `requestModelDiscoveryAction` (`chat/actions.ts`, T-CS3-03),
+ * a Server Action, not a query here.
+ */
+export function useProviderModelCache(
+  provider: ProviderId | null,
+): UseQueryResult<ProviderModelCacheRow | null, ApiError> {
+  return useQuery({
+    queryKey: ["provider-model-cache", provider],
+    queryFn: () => api<ProviderModelCacheRow | null>(`/providers/model-cache${qs({ provider: provider ?? undefined })}`),
+    enabled: Boolean(provider),
   });
 }
 
