@@ -219,6 +219,25 @@ export async function deleteChatSessionAction(id: string): Promise<ActionResult<
 }
 
 /**
+ * T-CS3-03. Asks an online, capable runtime to check its live model list
+ * for `provider` (US3). A no-op, not a failure, when nothing is available
+ * right now — CS4's picker reads whatever is already cached (possibly
+ * nothing/stale) and says so; there is nothing here to surface as an error.
+ */
+export async function requestModelDiscoveryAction(provider: string): Promise<ActionResult<void>> {
+  const ctx = await actionContext();
+  if (!ctx) return actionFail(NOT_SIGNED_IN);
+
+  const { error } = await ctx.supabase.rpc("request_model_discovery", {
+    p_workspace_id: ctx.workspaceId,
+    p_provider: provider,
+  });
+  if (error) return actionErrorFrom(error);
+
+  return actionOk(undefined);
+}
+
+/**
  * Moved verbatim from `POST /chat/sessions/:id/messages` (`T-WA-07`).
  *
  * `enqueue_chat_turn` inserts the turn and the user message in one

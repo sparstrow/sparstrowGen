@@ -9,6 +9,7 @@ import {
   type ClaimedCommand,
   type CommandFailureReason,
   type ProjectClonePayload,
+  type ProviderDiscoverModelsPayload,
   type RunCancelPayload,
   type RunStartPayload,
   type SettingsSetPayload,
@@ -21,6 +22,7 @@ import { CloudAuthError, cloudFetch, invalidatePairingCache, isPaired } from "./
 import { cloneProject } from "./bindings.js";
 import { runChatTurnCommand } from "./chat-turn.js";
 import { pullOnce } from "./memory-sync.js";
+import { discoverProviderModels } from "./provider-discovery.js";
 import { reportSettings } from "./registration.js";
 import { resolveAgent } from "./resolve.js";
 import { markDispatched } from "./run-reporter.js";
@@ -137,6 +139,12 @@ async function dispatch(command: ClaimedCommand): Promise<void> {
       }
       case "settings.set":
         await ackResult(command, applySetting(command.payload as unknown as SettingsSetPayload));
+        return;
+      case "providers.discover_models":
+        await ackResult(
+          command,
+          await discoverProviderModels(command.payload as unknown as ProviderDiscoverModelsPayload),
+        );
         return;
       case "memory.sync":
         // M6's doorbell. The command carries no payload — this machine already

@@ -27,6 +27,11 @@ vi.mock("../terminal/manager.js", () => ({
   killAllSessions: (...args: unknown[]) => killAllSessionsMock(...args),
 }));
 
+const getProviderMock = vi.fn();
+vi.mock("../providers/index.js", () => ({
+  getProvider: (...args: unknown[]) => getProviderMock(...args),
+}));
+
 const now = "2026-08-10T00:00:00Z";
 
 function jsonResponse(status: number, body: unknown = {}): Response {
@@ -490,6 +495,70 @@ describe("command loop", () => {
     expect(pulls).toBeGreaterThan(afterStartup);
     // Finding nothing new is success. Acking `failed` here would put a red mark
     // on the board for the command's most common outcome.
+    const ack = fetchMock.mock.calls.find(([url]) => String(url).includes("/ack"));
+    expect(JSON.parse(String((ack?.[1] as RequestInit).body))).toMatchObject({ status: "done" });
+  });
+
+  it("dispatches providers.discover_models: calls the provider, POSTs the result, acks done (T-CS3-03)", async () => {
+    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    const discoverModels = vi.fn().mockResolvedValue({
+      models: ["Gemini 3.7 Flash (High)"],
+      live: true,
+      detail: null,
+    });
+    getProviderMock.mockReturnValue({ id: "antigravity", kind: "cli", discoverModels });
+
+    let claimed = false;
+    const fetchMock = routeFetch({
+      "/ack": () => jsonResponse(200, { ok: true }),
+      "/providers/discover-models": () => jsonResponse(200, { ok: true }),
+      "/commands": () => {
+        if (claimed) return jsonResponse(200, { commands: [] });
+        claimed = true;
+        return jsonResponse(200, {
+          commands: [command({ kind: "providers.discover_models", payload: { provider: "antigravity" } })],
+        });
+      },
+    });
+
+    startCommandLoop();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(discoverModels).toHaveBeenCalledOnce();
+    const posted = fetchMock.mock.calls.find(([url]) => String(url).includes("/providers/discover-models"));
+    expect(posted).toBeDefined();
+    expect(JSON.parse(String((posted?.[1] as RequestInit).body))).toMatchObject({
+      provider: "antigravity",
+      models: ["Gemini 3.7 Flash (High)"],
+      live: true,
+    });
+    const ack = fetchMock.mock.calls.find(([url]) => String(url).includes("/ack"));
+    expect(JSON.parse(String((ack?.[1] as RequestInit).body))).toMatchObject({ status: "done" });
+  });
+
+  it("acks providers.discover_models done (not failed) when the provider has no live discovery", async () => {
+    // Not this machine's fault -- claude-code doesn't implement discoverModels
+    // at all (Band 26 plan decision: its aliases don't drift). The control
+    // plane shouldn't dispatch this provider here, but there's nothing to
+    // retry, so this is success, not a red mark on the board.
+    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    getProviderMock.mockReturnValue({ id: "claude-code", kind: "cli" });
+
+    let claimed = false;
+    const fetchMock = routeFetch({
+      "/ack": () => jsonResponse(200, { ok: true }),
+      "/commands": () => {
+        if (claimed) return jsonResponse(200, { commands: [] });
+        claimed = true;
+        return jsonResponse(200, {
+          commands: [command({ kind: "providers.discover_models", payload: { provider: "claude-code" } })],
+        });
+      },
+    });
+
+    startCommandLoop();
+    await vi.advanceTimersByTimeAsync(0);
+
     const ack = fetchMock.mock.calls.find(([url]) => String(url).includes("/ack"));
     expect(JSON.parse(String((ack?.[1] as RequestInit).body))).toMatchObject({ status: "done" });
   });
