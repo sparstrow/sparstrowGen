@@ -1,14 +1,48 @@
 import { execFile } from "node:child_process";
+import * as pty from "node-pty";
 import type { Agent, PermissionMode, ProviderHealth, RunResult } from "@sparstrow/shared";
 import { KNOWN_MODELS } from "@sparstrow/shared";
 import { config } from "../config.js";
 import type {
+  CliModelDiscovery,
   CliProvider,
   HeadlessSpawnOptions,
   InteractiveSpawnOptions,
   NormalizedEvent,
   SpawnSpec,
 } from "./types.js";
+
+/**
+ * Turns `agy models`' raw pty output (ANSI cursor/clear sequences, the
+ * spinner's braille glyphs, `\r\n` lines, two columns separated by
+ * variable-width space padding) into the model list's LABEL column —
+ * "Gemini 3.1 Pro (High)", not the slug "gemini-3.1-pro-high".
+ *
+ * The label is the form `KNOWN_MODELS.antigravity` already carries and
+ * `--model` is verified to accept (this class's own `buildHeadlessSpawn`
+ * comment, confirmed at agy v1.1.0). The slug is confirmed only for the
+ * interactive `/model` command's newer "by name, slug or label" matching
+ * (1.1.22 changelog) — not proven for the `--model` flag this class
+ * actually spawns with, so returning it here would risk a session
+ * persisting a model string headless spawns can't use.
+ *
+ * Exported for its own test — verified against a real captured byte-for-
+ * byte transcript from a live agy v1.1.22 process, not a hand-guessed one.
+ */
+export function parseAgyModelsOutput(raw: string): string[] {
+  const cleaned = raw
+    .replace(/\x1b\][^\x07\x1b]*(\x07|\x1b\\)/g, "") // OSC ... BEL/ST (window-title sets)
+    .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "") // CSI sequences (cursor move/clear/hide)
+    .replace(/[⠀-⣿]/g, "") // braille spinner glyphs
+    .replace(/Fetching available models\.\.\./g, "");
+
+  const models: string[] = [];
+  for (const line of cleaned.split(/\r?\n/)) {
+    const m = line.trim().match(/^([^\s]+)\s{2,}(.+)$/);
+    if (m?.[2]) models.push(m[2].trim());
+  }
+  return models;
+}
 
 /**
  * Provider for Google's Antigravity CLI (`agy`, verified against v1.1.0) — the
@@ -46,6 +80,86 @@ export class AntigravityCliProvider implements CliProvider {
 
   listModels(): string[] {
     return KNOWN_MODELS.antigravity ?? [];
+  }
+
+  /**
+   * `agy models` REQUIRES a real TTY — found live, not assumed, while
+   * building this (T-CS3-01/Band 26). It renders an animated spinner
+   * ("⠋ Fetching available models...") via ConPTY cursor-control sequences
+   * before printing the list; run through a plain pipe (`execFile`, no
+   * `shell`/pty), it hangs indefinitely and Node's own `timeout` option is
+   * the only thing that ever ends it — confirmed with `signal: 'SIGTERM'`
+   * on the killed child, not a clean exit. `--version`, and the real
+   * `--print`/`stream-json` headless spawn this class already does for
+   * actual runs, do NOT have this requirement — it is specific to the
+   * `models` subcommand's interactive listing UI.
+   *
+   * The fix is `node-pty` (already a dependency here for the Terminals
+   * feature — `packages/core/src/terminal/manager.ts`), which gives the
+   * child a real pseudo-terminal. Verified this actually resolves it:
+   * identical spawn, `node-pty`, exits 0 with the real list. Output then
+   * arrives as raw terminal bytes, not clean lines — `parseAgyModelsOutput`
+   * above turns that back into the label list.
+   *
+   * Windows-specific: `node-pty` needs the extension-qualified name
+   * (`agy.exe`) — the bare `agy` that `execFile`/the OS shell resolve fine
+   * elsewhere gives ConPTY a literal "File not found", confirmed live.
+   */
+  async discoverModels(): Promise<CliModelDiscovery> {
+    const exe =
+      process.platform === "win32" && !/\.(exe|cmd|bat)$/i.test(config.antigravityPath)
+        ? `${config.antigravityPath}.exe`
+        : config.antigravityPath;
+
+    return new Promise((resolve) => {
+      let child: pty.IPty;
+      try {
+        child = pty.spawn(exe, ["models"], {
+          name: "xterm-color",
+          cols: 120,
+          rows: 30,
+          cwd: process.cwd(),
+          env: process.env as Record<string, string>,
+        });
+      } catch (err) {
+        resolve({
+          models: this.listModels(),
+          live: false,
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        return;
+      }
+
+      let out = "";
+      let settled = false;
+      const finish = (result: CliModelDiscovery) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(result);
+      };
+
+      const timer = setTimeout(() => {
+        child.kill();
+        finish({ models: this.listModels(), live: false, detail: "agy models timed out" });
+      }, 20_000);
+
+      child.onData((chunk) => {
+        out += chunk;
+      });
+      child.onExit(({ exitCode }) => {
+        if (exitCode !== 0) {
+          finish({ models: this.listModels(), live: false, detail: `agy models exited ${exitCode}` });
+          return;
+        }
+        const models = parseAgyModelsOutput(out);
+        finish(
+          models.length > 0
+            ? { models, live: true, detail: null }
+            : { models: this.listModels(), live: false, detail: "agy models returned no parseable output" },
+        );
+      });
+    });
   }
 
   /** Map Sparstrow permission modes to agy flags — exhaustive over PermissionMode. */
