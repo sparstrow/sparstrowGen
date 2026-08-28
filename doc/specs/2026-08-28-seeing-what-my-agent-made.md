@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Status** | Draft |
+| **Status** | ✅ Owner-reviewed 2026-08-28 — accepted, all three stories, no changes requested |
 | **Created** | 2026-08-28 |
 | **Trigger** | Owner, 2026-08-28: *"the models can also generate media which I should see accordingly in the chat"* and *"On the right preview pane, should we add another folder icon preview, on input and output folder for media."* Elaborated as [`I-16`](../Ideas.md); shaped by [the Multica comparison](../research/2026-08-28-multica-chat-comparison.md) |
-| **Plan** | not planned yet |
+| **Plan** | [`2026-08-28-seeing-what-my-agent-made`](../plans/2026-08-28-seeing-what-my-agent-made.md) — Draft |
 | **Open questions** | none blocking — two inline `[NEEDS CLARIFICATION]` markers on limits |
 
 ## The experience today
@@ -324,4 +324,16 @@ something is missing.
 
 ## Owner review
 
-**Reviewed:** — pending
+**Reviewed:** 2026-08-28 — **accepted**, in the owner's words: *"I approve the
+spec, i think there is no questions for me. go ahead with planning, tasking,
+executing, and verifying."*
+
+Nothing was re-prioritized or cut. US1/US2/US3 stand as written, as do the two
+framing choices taken the same day (both surfaces rather than one; produced
+files kept so they stay viewable with the machine off) and the project-folder
+scope boundary added after the owner raised it — see FR-016 and `I-17`.
+
+The two inline `[NEEDS CLARIFICATION]` markers (FR-011 maximum kept size,
+FR-015 retention) were **not** resolved at review. They are limits, not
+direction, so they do not block planning; the plan proposes concrete values and
+they become real decisions there rather than blocking here.
