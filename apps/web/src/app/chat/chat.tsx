@@ -53,13 +53,20 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChatTurnView, ThinkingDots, TurnErrorBanner } from "@web/components/chat/chat-bits";
-import { useAgents, useChatSession, useChatSessions, useProjects } from "@web/api/hooks";
+import {
+  useAgents,
+  useChatSession,
+  useChatSessions,
+  useProjects,
+  useProviderModelCache,
+} from "@web/api/hooks";
 import { useLiveEvents } from "@web/lib/live-events";
 import { callAction } from "@web/lib/call-action";
 import {
   createChatSessionAction,
   deleteChatSessionAction,
   postChatTurnAction,
+  requestModelDiscoveryAction,
   retryChatTurnAction,
   updateChatSessionAction,
 } from "./actions";
@@ -216,6 +223,128 @@ function GhostSelect({
   );
 }
 
+/**
+ * T-CS4-01 (US3). `antigravity`'s model list, live from `provider_model_cache`
+ * (T-CS3-02) instead of the static `KNOWN_MODELS` every other provider still
+ * uses. `relevant` gates both the read and the dispatch on antigravity
+ * actually being selected somewhere in the composer — without it, this fired
+ * a `requestModelDiscoveryAction` on every `/chat` load regardless of which
+ * provider was showing, exactly the "dispatch nobody asked for" the phase's
+ * own Traps note warns against (caught live during this task's own browser
+ * verification, not assumed). Once `relevant` goes true it fires
+ * `requestModelDiscoveryAction` (T-CS3-03) at most once per mount when the
+ * cache is missing or older than the 1-hour staleness window (plan Decision
+ * 2) — never continuously.
+ */
+function useAntigravityModels(relevant: boolean) {
+  const cache = useProviderModelCache(relevant ? "antigravity" : null);
+  const [refreshing, setRefreshing] = React.useState(false);
+  const triggeredRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!relevant || cache.isLoading || triggeredRef.current) return;
+    const row = cache.data;
+    const staleMs = 60 * 60 * 1000;
+    const isStale = !row || Date.now() - new Date(row.checkedAt).getTime() > staleMs;
+    if (!isStale) return;
+
+    triggeredRef.current = true;
+    setRefreshing(true);
+    void requestModelDiscoveryAction("antigravity").finally(() => {
+      // Poll-bound, same latency budget CS3's own dispatch accepts (a few
+      // seconds) -- one re-fetch after that window, not continuous polling.
+      setTimeout(() => {
+        void cache.refetch().finally(() => setRefreshing(false));
+      }, 4000);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- triggeredRef guards this to fire once per mount regardless of how often cache.data/isLoading change.
+  }, [relevant, cache.isLoading, cache.data]);
+
+  return {
+    models: cache.data?.models ?? [],
+    hasCache: Boolean(cache.data),
+    stale: cache.data ? !cache.data.live : false,
+    refreshing,
+  };
+}
+
+type AntigravityModelState = ReturnType<typeof useAntigravityModels>;
+
+function modelsForProvider(provider: ProviderId, antigravity: AntigravityModelState): string[] {
+  return provider === "antigravity" ? antigravity.models : KNOWN_MODELS[provider] ?? [];
+}
+
+/** US3 scenario 3 -- the antigravity list can be missing, mid-refresh, or stale. */
+function AntigravityFreshnessNote({ antigravity }: { antigravity: AntigravityModelState }) {
+  if (antigravity.refreshing) {
+    return <span className="text-[10px] text-muted-foreground">checking for updates…</span>;
+  }
+  if (antigravity.stale) {
+    return <span className="text-[10px] text-muted-foreground">may not be current</span>;
+  }
+  return null;
+}
+
+/**
+ * Shared by every model dropdown in this file. `claude-code` (and any future
+ * static-list provider) renders exactly as before; `antigravity`'s empty
+ * state is the explicit message the phase spec asks for -- "no models
+ * available yet" instead of a blank `Select` -- not a silent fallback to the
+ * static list, which would defeat the reason this phase exists.
+ */
+function ModelPicker({
+  provider,
+  value,
+  onValueChange,
+  antigravity,
+  extraOption,
+}: {
+  provider: ProviderId;
+  value: string;
+  onValueChange: (v: string) => void;
+  antigravity: AntigravityModelState;
+  extraOption?: string | null;
+}) {
+  const options = modelsForProvider(provider, antigravity);
+  const items = [...new Set([extraOption, ...options].filter((m): m is string => Boolean(m)))];
+  const itemsKey = items.join("|");
+
+  // Self-heals the race a provider switch's own onValueChange can't avoid:
+  // it picks a default model synchronously, but antigravity's list often
+  // hasn't loaded yet at that instant (a fresh `relevant` flip, T-CS4-01's
+  // own useAntigravityModels), so the synchronous pick is "" or a stale
+  // static-list value. Once the real list lands, snap to it -- caught live
+  // during this task's own browser verification as a Model select stuck
+  // blank after switching to antigravity before the cache resolved.
+  React.useEffect(() => {
+    if (provider === "antigravity" && antigravity.hasCache && items.length > 0 && !items.includes(value)) {
+      onValueChange(items[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- itemsKey stands in for items (a fresh array every render).
+  }, [provider, antigravity.hasCache, itemsKey, value]);
+
+  if (provider === "antigravity" && !antigravity.hasCache) {
+    return (
+      <span className="px-2 text-xs text-muted-foreground">
+        no models available yet — checking…
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <GhostSelect title="Model" value={value} onValueChange={onValueChange}>
+        {items.map((m) => (
+          <SelectItem key={m} value={m}>
+            {m}
+          </SelectItem>
+        ))}
+      </GhostSelect>
+      {provider === "antigravity" && <AntigravityFreshnessNote antigravity={antigravity} />}
+    </div>
+  );
+}
+
 /** Left rail of the split-pane layout: filters + the saved-session list. */
 function ChatThreadList({ children }: { children: React.ReactNode }) {
   return <aside className="flex h-full flex-col bg-sidebar">{children}</aside>;
@@ -364,11 +493,17 @@ function RetryControls({
   model,
   busy,
   onRetry,
+  antigravity,
+  onSelectAntigravity,
 }: {
   provider: ProviderId;
   model: string;
   busy: boolean;
   onRetry: (override: { provider: string; model: string }) => void;
+  antigravity: AntigravityModelState;
+  /** Latches `ChatPage`'s antigravity relevance flag -- this component's own
+   *  provider selection is local state the parent can't otherwise see. */
+  onSelectAntigravity: () => void;
 }) {
   const [p, setP] = React.useState(provider);
   const [m, setM] = React.useState(model);
@@ -389,7 +524,8 @@ function RetryControls({
         onValueChange={(v) => {
           const next = v as ProviderId;
           setP(next);
-          setM(KNOWN_MODELS[next]?.[0] ?? "");
+          if (next === "antigravity") onSelectAntigravity();
+          setM(modelsForProvider(next, antigravity)[0] ?? "");
         }}
       >
         {CLI_PROVIDERS.map((cp) => (
@@ -398,13 +534,7 @@ function RetryControls({
           </SelectItem>
         ))}
       </GhostSelect>
-      <GhostSelect title="Model" value={m} onValueChange={setM}>
-        {(KNOWN_MODELS[p] ?? []).map((mm) => (
-          <SelectItem key={mm} value={mm}>
-            {mm}
-          </SelectItem>
-        ))}
-      </GhostSelect>
+      <ModelPicker provider={p} value={m} onValueChange={setM} antigravity={antigravity} />
     </div>
   );
 }
@@ -450,6 +580,18 @@ export function ChatPage() {
   const [draftAgentId, setDraftAgentId] = React.useState("");
   const [draftProvider, setDraftProvider] = React.useState<ProviderId>("claude-code");
   const [draftModel, setDraftModel] = React.useState("sonnet");
+
+  // T-CS4-01 -- `antigravity` becomes relevant the moment it's selected
+  // anywhere in the composer (active session, draft, or RetryControls' own
+  // independent picker) and stays relevant for the rest of the page's life.
+  // Latched rather than recomputed from `session`/`draftProvider` alone:
+  // RetryControls keeps its own local provider state, invisible here, so a
+  // one-way flip (set by its own onValueChange below) is what makes its
+  // antigravity selection see live data too, not just the main composer's.
+  const [antigravityTouched, setAntigravityTouched] = React.useState(false);
+  const antigravityActive =
+    antigravityTouched || session?.provider === "antigravity" || draftProvider === "antigravity";
+  const antigravity = useAntigravityModels(antigravityActive);
 
   const [input, setInput] = React.useState("");
   const [previewOpen, setPreviewOpen] = React.useState(false);
@@ -755,7 +897,10 @@ export function ChatPage() {
           value={session.provider}
           onValueChange={(v) => {
             const provider = v as ProviderId;
-            updateSessionField(session.id, { provider, model: KNOWN_MODELS[provider]?.[0] ?? "sonnet" });
+            updateSessionField(session.id, {
+              provider,
+              model: modelsForProvider(provider, antigravity)[0] ?? "sonnet",
+            });
           }}
         >
           {CLI_PROVIDERS.map((p) => (
@@ -764,23 +909,13 @@ export function ChatPage() {
             </SelectItem>
           ))}
         </GhostSelect>
-        <GhostSelect
-          title="Model — switch anytime; the conversation continues"
+        <ModelPicker
+          provider={session.provider}
           value={session.model ?? ""}
           onValueChange={(model) => updateSessionField(session.id, { model })}
-        >
-          {[
-            ...new Set(
-              [session.model, ...(KNOWN_MODELS[session.provider] ?? [])].filter(
-                (m): m is string => Boolean(m),
-              ),
-            ),
-          ].map((m) => (
-            <SelectItem key={m} value={m}>
-              {m}
-            </SelectItem>
-          ))}
-        </GhostSelect>
+          antigravity={antigravity}
+          extraOption={session.model}
+        />
       </>
     ) : null
   ) : (
@@ -830,7 +965,7 @@ export function ChatPage() {
             onValueChange={(v) => {
               const provider = v as ProviderId;
               setDraftProvider(provider);
-              setDraftModel(KNOWN_MODELS[provider]?.[0] ?? "");
+              setDraftModel(modelsForProvider(provider, antigravity)[0] ?? "");
             }}
           >
             {CLI_PROVIDERS.map((p) => (
@@ -839,13 +974,12 @@ export function ChatPage() {
               </SelectItem>
             ))}
           </GhostSelect>
-          <GhostSelect title="Model" value={draftModel} onValueChange={setDraftModel}>
-            {(KNOWN_MODELS[draftProvider] ?? []).map((m) => (
-              <SelectItem key={m} value={m}>
-                {m}
-              </SelectItem>
-            ))}
-          </GhostSelect>
+          <ModelPicker
+            provider={draftProvider}
+            value={draftModel}
+            onValueChange={setDraftModel}
+            antigravity={antigravity}
+          />
         </>
       )}
     </>
@@ -1089,11 +1223,13 @@ export function ChatPage() {
                             model={
                               turn.model ??
                               session.model ??
-                              KNOWN_MODELS[retryProvider]?.[0] ??
+                              modelsForProvider(retryProvider, antigravity)[0] ??
                               ""
                             }
                             busy={busy}
                             onRetry={retry}
+                            antigravity={antigravity}
+                            onSelectAntigravity={() => setAntigravityTouched(true)}
                           />
                         );
                       })()}
