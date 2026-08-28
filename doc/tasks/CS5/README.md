@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-27-chat-session-and-conversation-ux.md`](../../specs/2026-08-27-chat-session-and-conversation-ux.md) |
 | **Depends on** | — |
 | **Blocks** | CS6 |
-| **Status** | in progress — T-CS5-01/02 done 2026-08-28, T-CS5-03 (delivery) next |
+| **Status** | in progress — T-CS5-01/02/03 done 2026-08-28, T-CS5-04 (verification) next |
 | **Open questions** | none |
 
 ## Tasks
@@ -16,7 +16,7 @@
 |---|---|---|---|---|
 | [T-CS5-01 — private bucket + attachments table + RLS](T-CS5-01-storage-schema.md) | `[S]` | foundational — unblocks CS6 | — | done (2026-08-28) |
 | [T-CS5-02 — upload flow](T-CS5-02-upload.md) | `[S]` | foundational — unblocks CS6 | T-CS5-01 | done (2026-08-28) |
-| [T-CS5-03 — signed URL in the dispatch payload, daemon download, scoped Read](T-CS5-03-delivery.md) | `[S]` | foundational — unblocks CS6 | T-CS5-01, T-CS5-02 | not started |
+| [T-CS5-03 — signed URL in the dispatch payload, daemon download, scoped Read](T-CS5-03-delivery.md) | `[S]` | foundational — unblocks CS6 | T-CS5-01, T-CS5-02 | done (2026-08-28) |
 | [T-CS5-04 — verification](T-CS5-04-verification.md) | `[S]` | foundational | T-CS5-01–03 | not started |
 
 All four are `[S]`: -02 needs -01's table/bucket to exist to write into, and
@@ -63,7 +63,13 @@ existing file tools can reach — before CS6 builds the UI that produces one.
   disk, at a path the turn's prompt names.
 - For a `project` session, that path is inside the project's own `rootDir`.
   For `free`/`agent` sessions, it's inside that turn's own scratch `tempDir`,
-  and the turn is granted a `Read` tool scoped to only that directory.
+  and the turn is granted a `Read` tool scoped to only that directory —
+  **implemented for both `claude-code` and `antigravity`, but live-confirmed
+  to actually work only if the underlying provider enforces it.**
+  `antigravity` does not (T-CS5-03's own live test, filed as
+  [`SEC-2026-08-28-antigravity-headless-tools-unrestricted`](../../security/SEC-2026-08-28-antigravity-headless-tools-unrestricted.md));
+  `claude-code`'s side is unconfirmed, not proven safe
+  ([`KnownGaps.md` G-51](../../KnownGaps.md)).
 - `pnpm typecheck` and `pnpm test` stay green.
 
 **Not in this phase:** any composer UI (CS6). Any real multimodal/inline
@@ -96,12 +102,13 @@ an assumption to carry silently.
 
 | Path | Change |
 |---|---|
-| `packages/shared/drizzle/policies/0NN_chat_attachments_storage.sql` | new: `chat-attachments` bucket, its RLS, `chat_message_attachments` table + RLS |
-| `packages/shared/src/db/schema.ts` | edit: `chatMessageAttachments` table |
-| `packages/shared/src/constants.ts` | edit: `CHAT_ATTACHMENT_BUCKET`, allowed types/size, alongside the existing `PUBLIC_IMAGE_*` constants |
-| `apps/web/src/lib/storage/attachment-uploader.ts` | new, generalizing `image-uploader.ts`'s shape for arbitrary files against the new private bucket |
-| `packages/shared/drizzle/policies/016_chat_turn_transcript.sql` (or a new migration replacing/extending it) | edit: `assign_or_park_chat_turn`'s payload gains a signed-URL attachment list |
-| `packages/core/src/cloud/chat-turn.ts` | edit: download attachment(s) to disk before building the prompt; grant scoped `Read` for `free`/`agent` turns |
+| `packages/shared/drizzle/policies/025_chat_attachments_storage.sql` | done: `chat-attachments` bucket, its RLS, `chat_message_attachments` table + RLS |
+| `packages/shared/src/db/schema.ts` | done: `chatMessageAttachments` table |
+| `packages/shared/src/constants.ts` | done: `CHAT_ATTACHMENT_BUCKET`, allowed types/size (widened past the avatar floor — see T-CS5-01), alongside the existing `PUBLIC_IMAGE_*` constants |
+| `apps/web/src/lib/storage/attachment-uploader.ts` | done: generalizes `image-uploader.ts`'s shape for arbitrary files against the new private bucket |
+| `packages/shared/drizzle/policies/026_chat_attachments_dispatch.sql` | done: `enqueue_chat_turn` gains `p_attachments` and creates the attachment rows atomically, BEFORE dispatch (correcting T-CS5-02's own post-hoc insert — see T-CS5-03's Result); `assign_or_park_chat_turn` embeds `{storagePath, filename}` per attachment in the payload — deliberately no signed URL, see next row |
+| `apps/web/src/app/api/daemon/chat/attachments/sign/route.ts` | new (not in the original plan): mints a short-lived signed URL on demand, right before the daemon downloads — a parked-then-rescanned turn can outlive any TTL baked into the payload at dispatch time |
+| `packages/core/src/cloud/chat-turn.ts` | done: downloads attachment(s) to disk before building the prompt; grants scoped `Read` + a fresh tempDir for `free`/`agent` turns (and a `project` session with no `rootDir`) |
 
 ## Traps
 
@@ -113,13 +120,16 @@ an assumption to carry silently.
 - **The daemon downloading a large attachment must not block the turn
   indefinitely** — apply a reasonable timeout to the download step, and fail
   the turn legibly (same `classifyTurnError` shape chat already uses) rather
-  than hanging past `TURN_TIMEOUT_MS`.
+  than hanging past `TURN_TIMEOUT_MS`. Done: a 30s download timeout, worded
+  so `classifyTurnError` reads it as `"timeout"`.
 - **A `free`/`agent` turn's scoped `Read` grant must not persist past the
-  turn.** `EffectiveTools` (`packages/shared/src/schemas/task.ts` /
-  `run.ts`) is the existing per-run clamp mechanism — read how it's
-  constructed and torn down before inventing a parallel one; a leaked grant
-  that survives into the next turn on the same session is a real permission
-  bug, not a cosmetic one.
+  turn.** No `EffectiveTools`-style shared mechanism was reused — the
+  override lives entirely in a local variable inside one
+  `executeChatTurn()` call and a fresh per-turn tempDir, with nothing
+  written back to the session or agent row. **Found while satisfying this
+  exact Trap: the grant itself does not currently restrict anything for
+  `antigravity`** — see
+  [`SEC-2026-08-28-antigravity-headless-tools-unrestricted`](../../security/SEC-2026-08-28-antigravity-headless-tools-unrestricted.md).
 
 ## Verification
 

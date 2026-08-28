@@ -148,3 +148,18 @@ URL ever produced). `pnpm --filter web typecheck`/`test` green (462 tests,
 +7 new). One open item deliberately left for CS6: the spec's own "more than
 one attachment" edge case has only a sanity-clamp answer here
 (`CHAT_ATTACHMENTS_MAX_PER_MESSAGE = 10`), not a UX decision.
+
+**Correction, 2026-08-28, by `T-CS5-03`:** this task's own "attachment-row
+insert as an extension of `postChatTurnAction`, after `enqueue_chat_turn`
+returns" design had a real bug T-CS5-03 found and fixed: `enqueue_chat_turn`
+calls `assign_or_park_chat_turn` **synchronously, inside its own
+transaction**, so for the common case (a runtime already online) dispatch
+happens and the payload is built BEFORE this task's separate, later insert
+ever ran — the attachments array would have been empty every time. Per
+`026_chat_attachments_dispatch.sql`, the insert now happens INSIDE
+`enqueue_chat_turn` itself, atomically, before it dispatches;
+`postChatTurnAction`'s separate insert step (this task's own code, above)
+was removed. This task's live-verification pass above still stands as proof
+the underlying upload/table/RLS mechanics work — what it did not catch was
+that the CALLING ORDER it verified doesn't hold once a runtime is already
+online, since that pass had no daemon paired to dispatch through.

@@ -273,9 +273,23 @@ export async function postChatTurnAction(
     return actionFail(`content must not exceed ${CHAT_MESSAGE_MAX_BYTES} bytes`);
   }
 
+  // T-CS5-03 correction (was a separate post-hoc insert in T-CS5-02):
+  // `enqueue_chat_turn` calls `assign_or_park_chat_turn` SYNCHRONOUSLY,
+  // inside its own transaction, to dispatch the turn immediately when a
+  // runtime is already online -- the common case, not the edge case. An
+  // attachment row created AFTER this RPC returns would already have
+  // missed that dispatch's payload every time. `enqueue_chat_turn` now
+  // creates the attachment rows itself, atomically, before it dispatches --
+  // see `026_chat_attachments_dispatch.sql`'s own header for the full story.
   const { data, error } = await ctx.supabase.rpc("enqueue_chat_turn", {
     p_session_id: sessionId,
     p_content: content,
+    p_attachments: (input.attachments ?? []).map((a) => ({
+      storage_path: a.storagePath,
+      filename: a.filename,
+      mime_type: a.mimeType,
+      size_bytes: a.sizeBytes,
+    })),
   });
 
   if (error) {
@@ -288,31 +302,6 @@ export async function postChatTurnAction(
     await turnStateRow(ctx.supabase, ctx.workspaceId, data),
     CHAT_TURN_OPAQUE_KEYS,
   ) as ChatTurnState;
-
-  // T-CS5-02 -- attachments were uploaded to Storage BEFORE this action ran
-  // (`createChatAttachmentUploader`), but their `chat_message_attachments`
-  // row can only be created now, once `enqueue_chat_turn` above has created
-  // the real user message they reference (this task's own Trap: a mismatch
-  // here is exactly the seam CS6 would otherwise discover the hard way).
-  // Best-effort past this point: the message and its turn are already real
-  // and already dispatched, so a failed attachment insert must not be
-  // reported back as a failed send -- CS6 decides how (or whether) to
-  // surface this from server logs.
-  if (input.attachments?.length && turnState.userMessage) {
-    const rows = input.attachments.map((a) => ({
-      id: generateId("cma_"),
-      workspace_id: ctx.workspaceId,
-      message_id: turnState.userMessage!.id,
-      storage_path: a.storagePath,
-      filename: a.filename,
-      mime_type: a.mimeType,
-      size_bytes: a.sizeBytes,
-    }));
-    const { error: attachErr } = await ctx.supabase.from("chat_message_attachments").insert(rows);
-    if (attachErr) {
-      console.error("postChatTurnAction: failed to record uploaded attachment(s)", attachErr);
-    }
-  }
 
   revalidatePath("/chat");
   return actionOk(turnState);
