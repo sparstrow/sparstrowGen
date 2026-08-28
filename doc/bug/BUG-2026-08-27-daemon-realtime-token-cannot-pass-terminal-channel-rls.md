@@ -1,6 +1,6 @@
 # BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — investigating `G-48` (the malformed `SUPABASE_JWT_SIGNING_KEY`) with the owner, tracing how a fixed signing key would actually get used
 **Reported:** 2026-08-27
 
@@ -97,6 +97,31 @@ environment problem.
 
 ## Resolution
 
-*(pending — being scoped with the owner as of 2026-08-27; a design decision on
-how the daemon's identity should be granted access without becoming a full
-workspace member is needed before a task can be opened)*
+**Fixed by the `DI` band** (`doc/plans/2026-08-27-the-daemon-gets-a-real-identity.md`):
+`019_daemon_realtime_identity.sql` gives each paired machine a real Supabase
+Auth identity (never a `workspace_members` row — decision `DI-1`) plus
+`private.current_daemon_scope()` and four `realtime.messages` policies scoped
+to that identity's own `(workspace_id, runtime_id)` pair. `mintRealtimeToken()`
+(`T-DI-03`) now obtains a real Supabase-signed session for that identity
+instead of self-signing, which also closes `G-48`'s signing-key half.
+
+**Verified live, 2026-08-28, `T-DI-05`, against `pnymngoqseltgigcfevq`
+(sparstrowgen-staging) and a real paired daemon on `development.sparstrow.com`:**
+
+- `018` (re-run), `019`, `020` applied; `pg_policies` shows the expected ten
+  rows.
+- The daemon's minted session JWT carries the correct `sub` (its
+  `daemon_identities.user_id`), `role: authenticated`.
+- A direct SQL simulation of `019`'s exact `using`/`with check` booleans, with
+  `request.jwt.claim.sub` and `realtime.topic` set to the daemon's real
+  values, evaluates `true` for its own `(workspace, runtime)` pair.
+- The real daemon's Realtime connection reaches `SUBSCRIBED` on
+  `machine:<ws>:<runtime>` with **no** `Unauthorized` refusal — the exact
+  symptom this bug described is gone.
+
+**This closes the RLS-refusal defect specifically, and only that.** A real
+`terminal.list` round trip still does not complete — not because of this
+policy set (verified correct above), but because of a separate, deeper
+platform-level issue found in the same pass:
+[`BUG-2026-08-28-private-broadcast-channels-not-relaying`](BUG-2026-08-28-private-broadcast-channels-not-relaying.md).
+`T-DI-05` is blocked on that bug now, not on this one.

@@ -229,6 +229,16 @@ async function establish(): Promise<void> {
       accessToken: () => Promise.resolve(currentToken ?? credential.token),
     });
     realtime.connect();
+    // `connect()` fires its own auth resolution but does not await it — it is
+    // fire-and-forget so unrelated callers of `connect()` never block on a
+    // network round trip. `channel.subscribe()` reads `accessTokenValue`
+    // SYNCHRONOUSLY to build the join payload, so without this await every
+    // first join races connect()'s in-flight auth and loses: the payload
+    // carries no `access_token` at all, Realtime treats the join as
+    // unauthenticated, and `to authenticated` policies refuse it. Since
+    // `establish()` always rebuilds the client from scratch, that race repeats
+    // identically on every backoff retry — not intermittent, permanent.
+    await realtime.setAuth();
 
     const topic = machineControlTopic(workspaceId, runtimeId);
     const channel = realtime.channel(topic, {
