@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-27-chat-session-and-conversation-ux.md`](../../specs/2026-08-27-chat-session-and-conversation-ux.md) |
 | **Depends on** | — |
 | **Blocks** | nothing |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-28 |
 | **Open questions** | none |
 
 ## The story this serves
@@ -44,7 +44,7 @@ affected UI, and it already handles all four states for whatever string
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
 | [T-CS2-01 — auto-title on first message](T-CS2-01-auto-title.md) | `[S]` | US2 | — | done (2026-08-28) |
-| [T-CS2-02 — verification](T-CS2-02-verification.md) | `[S]` | US2 | T-CS2-01 | not started |
+| [T-CS2-02 — verification](T-CS2-02-verification.md) | `[S]` | US2 | T-CS2-01 | ✅ done (2026-08-28) |
 
 ## Objective
 
