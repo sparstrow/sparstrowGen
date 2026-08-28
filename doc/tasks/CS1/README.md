@@ -59,7 +59,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
-| [T-CS1-01 — per-session menu, with rename](T-CS1-01-menu-and-rename.md) | `[S]` | US1 | — | not started |
+| [T-CS1-01 — per-session menu, with rename](T-CS1-01-menu-and-rename.md) | `[S]` | US1 | — | done (2026-08-28) |
 | [T-CS1-02 — delete, with the Archive/Delete/Cancel confirmation](T-CS1-02-delete-confirmation.md) | `[S]` | US1 | T-CS1-01 | not started |
 | [T-CS1-03 — verification](T-CS1-03-verification.md) | `[S]` | US1 | T-CS1-01, T-CS1-02 | not started |
 
