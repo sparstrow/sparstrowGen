@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-27-chat-session-and-conversation-ux.md`](../../specs/2026-08-27-chat-session-and-conversation-ux.md) |
 | **Depends on** | — |
 | **Blocks** | CS6 |
-| **Status** | in progress — T-CS5-01/02/03 done 2026-08-28, T-CS5-04 (verification) next |
+| **Status** | done (2026-08-28) |
 | **Open questions** | none |
 
 ## Tasks
@@ -17,7 +17,7 @@
 | [T-CS5-01 — private bucket + attachments table + RLS](T-CS5-01-storage-schema.md) | `[S]` | foundational — unblocks CS6 | — | done (2026-08-28) |
 | [T-CS5-02 — upload flow](T-CS5-02-upload.md) | `[S]` | foundational — unblocks CS6 | T-CS5-01 | done (2026-08-28) |
 | [T-CS5-03 — signed URL in the dispatch payload, daemon download, scoped Read](T-CS5-03-delivery.md) | `[S]` | foundational — unblocks CS6 | T-CS5-01, T-CS5-02 | done (2026-08-28) |
-| [T-CS5-04 — verification](T-CS5-04-verification.md) | `[S]` | foundational | T-CS5-01–03 | not started |
+| [T-CS5-04 — verification](T-CS5-04-verification.md) | `[S]` | foundational | T-CS5-01–03 | done (2026-08-28) |
 
 All four are `[S]`: -02 needs -01's table/bucket to exist to write into, and
 -03 needs a real attachment row (from -02) to build a signed URL for and a
