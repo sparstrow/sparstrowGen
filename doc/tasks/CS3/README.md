@@ -14,7 +14,7 @@
 
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
-| [T-CS3-01 — `agy models` discovery in the provider](T-CS3-01-antigravity-discover.md) | `[P]` | foundational — unblocks CS4 | — | not started |
+| [T-CS3-01 — `agy models` discovery in the provider](T-CS3-01-antigravity-discover.md) | `[P]` | foundational — unblocks CS4 | — | done (2026-08-28) |
 | [T-CS3-02 — `provider_model_cache` table + RLS](T-CS3-02-cache-table.md) | `[P]` | foundational — unblocks CS4 | — | not started |
 | [T-CS3-03 — the `providers.discover_models` dispatch, end to end](T-CS3-03-dispatch.md) | `[S]` | foundational — unblocks CS4 | T-CS3-01, T-CS3-02 | not started |
 | [T-CS3-04 — verification](T-CS3-04-verification.md) | `[S]` | foundational | T-CS3-01, T-CS3-02, T-CS3-03 | not started |
@@ -34,13 +34,18 @@ that isn't obvious" — its aliases are stable, not dated snapshots).
 
 ## The shape of what was found
 
-- `antigravity.ts`'s `healthCheck()` already spawns the CLI directly for a
-  one-off, non-streaming call: `execFile(config.antigravityPath, ["--version"],
-  { timeout: 20_000, windowsHide: true }, callback)`
-  (`packages/core/src/providers/antigravity.ts:303`). `agy models` is the
-  same shape of call — this task follows that exact pattern, not the full
-  `buildHeadlessSpawn`/`SpawnSpec`/NDJSON-parsing pipeline built for actual
-  agent runs, which would be substantial overkill for listing models.
+- **Correction found building T-CS3-01, replacing this plan's own
+  assumption**: `agy models` does NOT follow `healthCheck()`'s
+  `execFile(..., "--version", ...)` pattern despite looking like the same
+  shape of one-off call. It requires a real TTY (renders an animated
+  spinner via ConPTY cursor control before printing) and **hangs
+  indefinitely** on a plain pipe — confirmed live, not assumed; the process
+  has to be killed by Node's own timeout, `signal: 'SIGTERM'`, never a clean
+  exit. `--version` and the real headless agent-run spawn are unaffected;
+  this is specific to the `models` subcommand's listing UI. Fixed with
+  `node-pty` (already a dependency here for Terminals,
+  `packages/core/src/terminal/manager.ts`) instead of `execFile` — full
+  writeup in `T-CS3-01`'s own "The shape of what was found".
 - `KNOWN_MODELS.antigravity`'s own comment
   (`packages/shared/src/constants.ts:23`) already confirms `agy models`
   is a real, working subcommand — hand-copied from it at CLI v1.1.0 — so
@@ -114,7 +119,7 @@ writing this, per that band's own RLS pattern), upserts into
 | Path | Change |
 |---|---|
 | `packages/core/src/providers/types.ts` | edit: optional `discoverModels` on `CliProvider` |
-| `packages/core/src/providers/antigravity.ts` | edit: implement `discoverModels()` via `execFile("agy", ["models"], …)` |
+| `packages/core/src/providers/antigravity.ts` | edit: implement `discoverModels()` via `node-pty` (not `execFile` — see "what was found"), plus the exported `parseAgyModelsOutput` helper |
 | `packages/shared/src/db/schema.ts` | edit: `runtimeCommands.kind` comment; new `providerModelCache` table |
 | `packages/shared/drizzle/policies/0NN_provider_model_cache.sql` | new: table DDL, RLS, `record_provider_models` function, dispatch function for `providers.discover_models` |
 | `packages/core/src/cloud/commands.ts` | edit: new `case "providers.discover_models"` in `dispatch()` |

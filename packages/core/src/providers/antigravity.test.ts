@@ -1,9 +1,34 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Agent, PermissionMode } from "@sparstrow/shared";
 import { KNOWN_MODELS } from "@sparstrow/shared";
 import { config } from "../config.js";
-import { AntigravityCliProvider } from "./antigravity.js";
+import { AntigravityCliProvider, parseAgyModelsOutput } from "./antigravity.js";
 import type { HeadlessSpawnOptions, NormalizedEvent } from "./types.js";
+
+vi.mock("node-pty", () => ({ spawn: vi.fn() }));
+import * as pty from "node-pty";
+
+interface FakePty {
+  kill: ReturnType<typeof vi.fn>;
+  emitData: (chunk: string) => void;
+  emitExit: (exitCode: number) => void;
+}
+
+function makeFakePty(): FakePty {
+  let dataHandler: ((data: string) => void) | null = null;
+  let exitHandler: ((e: { exitCode: number }) => void) | null = null;
+  return {
+    kill: vi.fn(),
+    onData: (cb: (data: string) => void) => {
+      dataHandler = cb;
+    },
+    onExit: (cb: (e: { exitCode: number }) => void) => {
+      exitHandler = cb;
+    },
+    emitData: (chunk: string) => dataHandler?.(chunk),
+    emitExit: (exitCode: number) => exitHandler?.({ exitCode }),
+  } as unknown as FakePty;
+}
 
 const provider = new AntigravityCliProvider();
 
@@ -151,6 +176,76 @@ describe("AntigravityCliProvider — result + models", () => {
 
   it("lists the known antigravity model tokens", () => {
     expect(provider.listModels()).toEqual(KNOWN_MODELS.antigravity);
+  });
+});
+
+// Byte-for-byte captured from a live agy v1.1.22 process spawned through
+// node-pty (T-CS3-01, Band 26) -- NOT hand-guessed. `agy models` requires a
+// real TTY: run through a plain pipe (no pty), it hangs indefinitely rather
+// than exiting (confirmed: killed by Node's own `timeout`, `signal:
+// 'SIGTERM'`, not a clean exit) -- this raw transcript is what a real
+// pseudo-terminal actually receives: ANSI cursor-hide/clear/move sequences,
+// braille spinner frames, occasional OSC window-title sets from *other*
+// unrelated processes sharing the console (the "npm" one below is real
+// capture noise, not something agy itself emits), then the model lines
+// separated by \r\n with the two columns padded with spaces, not a tab.
+const REAL_AGY_MODELS_PTY_OUTPUT =
+  "\u001b[?9001h\u001b[?1004h\u001b[?25l\u001b[2J\u001b[m\u001b[H⠋ Fetching available models...\u001b]0;C:\\Users\\gsrih\\AppData\\Local\\agy\\bin\\agy.exe\u0007\u001b[?25h\u001b[?25l\u001b[H⠙ Fetching available models...\u001b[?25h\u001b]0;npm\u0007\u001b[?25l\u001b[H⠹ Fetching available models...\u001b[?25h\u001b]0;npm exec shadcn@latest mcp\u0007\u001b[?25l\u001b[H⠸ Fetching available models...\u001b[?25h\u001b[?25l\u001b[H⠼ Fetching available models...\u001b[?25h\u001b[?25l\u001b[H⠴ Fetching available models...\u001b[?25h\u001b[?25l\u001b[H⠦ Fetching available models...\u001b[?25h\u001b[?25l\u001b[H\u001b[K\u001b[?25hgemini-3.7-flash-high     Gemini 3.7 Flash (High)\r\ngemini-3.1-pro-high       Gemini 3.1 Pro (High)\r\nclaude-sonnet-4-6         Claude Sonnet 4.6 (Thinking)\r\n";
+
+describe("parseAgyModelsOutput (T-CS3-01)", () => {
+  it("recovers the label column from a real captured pty transcript, ANSI/spinner/OSC chrome and all", () => {
+    expect(parseAgyModelsOutput(REAL_AGY_MODELS_PTY_OUTPUT)).toEqual([
+      "Gemini 3.7 Flash (High)",
+      "Gemini 3.1 Pro (High)",
+      "Claude Sonnet 4.6 (Thinking)",
+    ]);
+  });
+
+  it("returns nothing for pure spinner noise with no model lines", () => {
+    expect(parseAgyModelsOutput("\u001b[?25l\u001b[H⠋ Fetching available models...\u001b[?25h")).toEqual([]);
+  });
+});
+
+describe("AntigravityCliProvider — discoverModels (T-CS3-01)", () => {
+  const mockSpawn = vi.mocked(pty.spawn);
+
+  it("returns live:true with the parsed label list on a clean exit", async () => {
+    const fake = makeFakePty();
+    mockSpawn.mockReturnValue(fake as unknown as pty.IPty);
+
+    const promise = provider.discoverModels!();
+    fake.emitData(REAL_AGY_MODELS_PTY_OUTPUT);
+    fake.emitExit(0);
+
+    expect(await promise).toEqual({
+      models: ["Gemini 3.7 Flash (High)", "Gemini 3.1 Pro (High)", "Claude Sonnet 4.6 (Thinking)"],
+      live: true,
+      detail: null,
+    });
+  });
+
+  it("falls back to the static list on a nonzero exit, live:false", async () => {
+    const fake = makeFakePty();
+    mockSpawn.mockReturnValue(fake as unknown as pty.IPty);
+
+    const promise = provider.discoverModels!();
+    fake.emitExit(1);
+
+    const result = await promise;
+    expect(result.live).toBe(false);
+    expect(result.detail).toMatch(/exited 1/);
+    expect(result.models).toEqual(KNOWN_MODELS.antigravity);
+  });
+
+  it("falls back to the static list when spawn itself throws (e.g. binary not found)", async () => {
+    mockSpawn.mockImplementation(() => {
+      throw new Error("File not found");
+    });
+
+    const result = await provider.discoverModels!();
+    expect(result.live).toBe(false);
+    expect(result.detail).toMatch(/File not found/);
+    expect(result.models).toEqual(KNOWN_MODELS.antigravity);
   });
 });
 
