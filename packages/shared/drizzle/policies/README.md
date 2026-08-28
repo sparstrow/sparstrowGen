@@ -133,6 +133,11 @@ policies/017_access_model.sql          M18 — machine_shared_locations, agent_m
 policies/018_terminal_channels.sql     M16 — terminal/machine channel read + send policies
 policies/019_daemon_realtime_identity.sql  DI — the daemon's own identity + its half of 018's channels
 policies/020_bootstrap_refuses_daemon.sql  DI — bootstrap_workspace() refuses a daemon identity
+policies/021_daemon_identities_workspace_index.sql  DI — daemon_identities FK index
+policies/022_chat_auto_title.sql       CS2 — sessions auto-title from the first message
+policies/023_provider_model_cache.sql  CS3 — provider_model_cache table, SELECT-only RLS
+policies/024_provider_model_dispatch.sql  CS3 — request_model_discovery + record_provider_models
+policies/025_chat_attachments_storage.sql  CS5 — chat-attachments bucket + chat_message_attachments RLS
 ```
 
 **Applied to staging 2026-08-18** as migrations `setup_identity_fields`,

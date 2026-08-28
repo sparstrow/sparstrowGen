@@ -879,6 +879,36 @@ export const chatMessages = pgTable(
 );
 
 /**
+ * CS5 (Band 26) — a file attached to a chat message, stored in the private
+ * `chat-attachments` bucket (`025_chat_attachments_storage.sql`), never
+ * `public-images` (that bucket's own header forbids it). `storagePath` is
+ * the object key, never a public URL — reads go through a short-lived
+ * signed URL minted on demand (T-CS5-03), nothing durable is stored here
+ * that could resolve to the file without going through RLS first.
+ */
+export const chatMessageAttachments = pgTable(
+  "chat_message_attachments",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    messageId: text("message_id")
+      .notNull()
+      .references(() => chatMessages.id, { onDelete: "cascade" }),
+    storagePath: text("storage_path").notNull(),
+    filename: text("filename").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_chat_message_attachments_message").on(t.messageId),
+    index("idx_chat_message_attachments_workspace").on(t.workspaceId),
+  ],
+);
+
+/**
  * M12 — cloud-only chat-turn dispatch state. No local SQLite mirror: local
  * chat is synchronous and single-machine, with no dispatch state to track.
  *
