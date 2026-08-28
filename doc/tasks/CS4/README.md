@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-27-chat-session-and-conversation-ux.md`](../../specs/2026-08-27-chat-session-and-conversation-ux.md) |
 | **Depends on** | CS3 |
 | **Blocks** | nothing |
-| **Status** | in progress — T-CS4-01 done 2026-08-28, T-CS4-02 (verification) next |
+| **Status** | done (2026-08-28) |
 | **Open questions** | none |
 
 ## The story this serves
@@ -46,7 +46,7 @@ reflects reality, not the static constant.
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
 | [T-CS4-01 — composer reads the cache, triggers refresh](T-CS4-01-picker.md) | `[S]` | US3 | CS3 | done (2026-08-28) |
-| [T-CS4-02 — verification](T-CS4-02-verification.md) | `[S]` | US3 | T-CS4-01 | not started |
+| [T-CS4-02 — verification](T-CS4-02-verification.md) | `[S]` | US3 | T-CS4-01 | done (2026-08-28) |
 
 ## Objective
 
