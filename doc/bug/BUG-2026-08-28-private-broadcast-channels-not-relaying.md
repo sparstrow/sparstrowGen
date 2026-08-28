@@ -167,30 +167,39 @@ project-level setting this agent cannot read or change.
 
 ## Resolution
 
-*(still open. Both hypotheses this agent could test from inside a Supabase
-project's own dashboard are now ruled out — "Allow public access to
-channels" (disabled, no change) and "Database connection pool size" (2→10,
-no change). Everything queryable or adjustable from an agent session, short
-of Supabase's own infrastructure, has been checked. The remaining path is a
-Supabase support ticket, built from the Inspector's clean
-`postgres`-vs-`authenticated` reproduction on this bug file:*
+*(still open, now with Supabase support. Both hypotheses this agent could*
+*test from inside the project's own dashboard are ruled out — "Allow public*
+*access to channels" (disabled, no change) and "Database connection pool*
+*size" (2→10, no change). Everything queryable or adjustable from an agent*
+*session, short of Supabase's own infrastructure, has been checked.*
 
-- *Same project (`pnymngoqseltgigcfevq`), same private topic, same message.*
+**Support ticket filed 2026-08-28**, from the owner's own Supabase account
+(`sparstrowgen` org, `sparstrowgen-staging` project,
+`pnymngoqseltgigcfevq`), category "APIs and client libraries", service
+"Realtime", library "JavaScript", severity "Normal — System impaired".
+Confirmation screen read "Support request sent — your ticket has been
+logged for sparstrowgen-staging", with replies going to
+`domains@sparstrow.com`; the dashboard didn't surface a ticket number at
+submission time, so the reply email is the reference until one shows up
+there. "Allow support access to your project" was left enabled (the
+form's own recommended default) so a human or the AI diagnostic tool can
+inspect the project directly. The submitted body carried:*
+
+- *Same project, same private topic, same message.*
 - *As `postgres`: presence events and a self-sent broadcast both arrive
   within a second.*
 - *As `authenticated`, impersonating a real user the project's own RLS
   policy grants access to (verified true by direct SQL simulation): the join
   itself reports success, but presence never syncs and the connection never
   receives even its own broadcast.*
-- *Ruled out on this end: RLS correctness, client library version, topic/
+- *Ruled out on our end: RLS correctness, client library version, topic/
   event naming, `self: true/false`, schema grants, the public-access toggle,
   and the connection pool size — see Investigation above for how each was
   checked.*
 
-*This is minimal and doesn't depend on this repo's code at all, which should
-make it straightforward for Supabase's own team to reproduce and act on. Once
-a fix lands (or Supabase points at a project-side setting this agent can't
-reach), re-run this file's reproduction steps 1–6 — a fix should show
-connection A receiving the broadcast in step 5, and the Inspector's
-`authenticated`-role self-broadcast test should round-trip the same way the
-`postgres`-role one already does.)*
+*Next: wait for Supabase's reply at `domains@sparstrow.com`. Once a fix*
+*lands (or Supabase points at a project-side setting this agent can't*
+*reach), re-run this file's reproduction steps 1–6 — a fix should show*
+*connection A receiving the broadcast in step 5, and the Inspector's*
+*`authenticated`-role self-broadcast test should round-trip the same way*
+*the `postgres`-role one already does.)*
