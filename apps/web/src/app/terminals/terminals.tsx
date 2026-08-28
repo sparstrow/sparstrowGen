@@ -399,8 +399,17 @@ export function TerminalsPage() {
             : "Something went wrong reaching that machine."
         }
         action={
-          <Button variant="outline" size="sm" onClick={() => void sessionsQuery.refetch()}>
-            <RefreshCw className="size-4" />
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={sessionsQuery.isFetching}
+            onClick={() => void sessionsQuery.refetch()}
+          >
+            {sessionsQuery.isFetching ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <RefreshCw className="size-4" />
+            )}
             Try again
           </Button>
         }
