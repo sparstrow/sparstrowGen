@@ -57,12 +57,23 @@ async function turnStateRow(
 registerRoute({
   method: "GET",
   pattern: "/chat/sessions",
-  handler: async ({ supabase, workspaceId }: HandlerContext) => {
-    const { data, error } = await supabase
+  handler: async ({ supabase, workspaceId, searchParams }: HandlerContext) => {
+    let query = supabase
       .from("chat_sessions")
       .select("*")
       .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: false });
+
+    const kind = searchParams.get("kind");
+    const projectId = searchParams.get("projectId");
+    const agentId = searchParams.get("agentId");
+    const status = searchParams.get("status");
+    if (kind) query = query.eq("kind", kind);
+    if (projectId) query = query.eq("project_id", projectId);
+    if (agentId) query = query.eq("agent_id", agentId);
+    if (status) query = query.eq("status", status);
+
+    const { data, error } = await query;
     if (error) throw error;
     return ok(data);
   }

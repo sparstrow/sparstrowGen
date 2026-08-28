@@ -4,7 +4,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import {
-  Archive,
   ArrowUp,
   Bot,
   FolderKanban,
@@ -30,6 +29,14 @@ import {
 } from "@sparstrow/shared";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -51,6 +58,7 @@ import { useLiveEvents } from "@web/lib/live-events";
 import { callAction } from "@web/lib/call-action";
 import {
   createChatSessionAction,
+  deleteChatSessionAction,
   postChatTurnAction,
   retryChatTurnAction,
   updateChatSessionAction,
@@ -85,7 +93,8 @@ const KIND_ICONS: Record<ChatSessionKind, typeof MessageSquare> = {
 /**
  * Per-session actions (rail row + conversation header). Rename is wired here
  * directly (`onRename` toggles the shared inline-edit state in `ChatPage`);
- * Delete only calls `onRequestDelete` — T-CS1-02 supplies what that does.
+ * Delete calls `onRequestDelete`, which `ChatPage` wires to
+ * `ChatSessionDeleteDialog` below.
  */
 function ChatSessionMenu({
   onRename,
@@ -120,6 +129,58 @@ function ChatSessionMenu({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/**
+ * The Archive / Delete / Cancel confirmation US1 asks for — deliberately
+ * three buttons, not `ConfirmDialog`'s shared two (Cancel + one confirm):
+ * that component is used elsewhere in the app for plain "are you sure?"
+ * gates and adding a third action to its shared API would change what every
+ * other caller renders. `pendingAction` (not just a boolean) drives the
+ * Archive button's own busy label distinctly from Delete's.
+ */
+function ChatSessionDeleteDialog({
+  open,
+  onOpenChange,
+  onArchive,
+  onDelete,
+  pendingAction,
+  error,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onArchive: () => void;
+  onDelete: () => void;
+  pendingAction: "archive" | "delete" | null;
+  error: string | null;
+}) {
+  const pending = pendingAction !== null;
+  return (
+    <Dialog open={open} onOpenChange={(v) => !pending && onOpenChange(v)}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Remove this conversation?</DialogTitle>
+          <DialogDescription>
+            Archive keeps it, out of your active list, and you can bring it back
+            later. Delete permanently removes this conversation and its message
+            history — that can&apos;t be undone.
+          </DialogDescription>
+        </DialogHeader>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <DialogFooter className="gap-2 sm:justify-end">
+          <Button variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button variant="outline" disabled={pending} onClick={onArchive}>
+            {pendingAction === "archive" ? "Archiving…" : "Archive"}
+          </Button>
+          <Button variant="destructive" disabled={pending} onClick={onDelete}>
+            {pendingAction === "delete" ? "Deleting…" : "Delete"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -613,6 +674,56 @@ export function ChatPage() {
     });
   };
 
+  // T-CS1-02 — the Archive/Delete/Cancel confirmation. `deleteDialogId` is
+  // which session it's open for (null = closed); a single dialog instance
+  // serves both the rail row and the header, same as rename above.
+  const [deleteDialogId, setDeleteDialogId] = React.useState<string | null>(null);
+  const [deletePendingAction, setDeletePendingAction] = React.useState<"archive" | "delete" | null>(
+    null,
+  );
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+
+  const closeDeleteDialog = () => {
+    setDeleteDialogId(null);
+    setDeleteError(null);
+  };
+  const confirmArchive = () => {
+    const id = deleteDialogId;
+    if (!id) return;
+    setDeleteError(null);
+    setDeletePendingAction("archive");
+    startUpdate(async () => {
+      const r = await callAction(() => updateChatSessionAction(id, { status: "archived" }));
+      setDeletePendingAction(null);
+      if (!r.ok) {
+        setDeleteError(r.error);
+        return;
+      }
+      setDeleteDialogId(null);
+      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+      void queryClient.invalidateQueries({ queryKey: ["chat-session", id] });
+    });
+  };
+  const confirmDelete = () => {
+    const id = deleteDialogId;
+    if (!id) return;
+    setDeleteError(null);
+    setDeletePendingAction("delete");
+    startUpdate(async () => {
+      const r = await callAction(() => deleteChatSessionAction(id));
+      setDeletePendingAction(null);
+      if (!r.ok) {
+        setDeleteError(r.error);
+        return;
+      }
+      setDeleteDialogId(null);
+      // Deleting the open session must not leave the pane pointed at a
+      // now-gone id (phase Trap) — send the owner back to the rail root.
+      if (selectedId === id) setSelectedId(null);
+      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+    });
+  };
+
   const projectName = (id: string | null) =>
     id ? (projects.data?.find((p) => p.id === id)?.name ?? id) : null;
   const agentName = (id: string | null) =>
@@ -861,9 +972,7 @@ export function ChatPage() {
                   >
                     <ChatSessionMenu
                       onRename={() => startRename(s)}
-                      onRequestDelete={() => {
-                        // T-CS1-02 wires the Archive/Delete/Cancel confirmation here.
-                      }}
+                      onRequestDelete={() => setDeleteDialogId(s.id)}
                     />
                   </span>
                 </div>
@@ -910,17 +1019,6 @@ export function ChatPage() {
                 </span>
               </div>
               <div className="flex shrink-0 items-center">
-                {session.status === "active" && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 text-muted-foreground"
-                    title="Archive session"
-                    onClick={() => updateSessionField(session.id, { status: "archived" })}
-                  >
-                    <Archive className="size-4" />
-                  </Button>
-                )}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -933,9 +1031,7 @@ export function ChatPage() {
                 <ChatSessionMenu
                   triggerClassName="size-8 flex items-center justify-center"
                   onRename={() => startRename(session)}
-                  onRequestDelete={() => {
-                    // T-CS1-02 wires the Archive/Delete/Cancel confirmation here.
-                  }}
+                  onRequestDelete={() => setDeleteDialogId(session.id)}
                 />
               </div>
             </div>
@@ -1135,6 +1231,15 @@ export function ChatPage() {
           </div>
         </aside>
       )}
+
+      <ChatSessionDeleteDialog
+        open={deleteDialogId !== null}
+        onOpenChange={(v) => !v && closeDeleteDialog()}
+        onArchive={confirmArchive}
+        onDelete={confirmDelete}
+        pendingAction={deletePendingAction}
+        error={deleteError}
+      />
     </div>
   );
 }

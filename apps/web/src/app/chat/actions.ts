@@ -196,6 +196,29 @@ export async function updateChatSessionAction(
 }
 
 /**
+ * T-CS1-02. A hard delete, not a soft one — distinct from the `archived`
+ * status `updateChatSessionAction` already sets. Needs no extra
+ * authorization: `chat_sessions` sits under the generic workspace-member RLS
+ * policy (`001_rls.sql`, `for all`), and `chat_messages`/`chat_turns` both
+ * reference it `ON DELETE CASCADE`, so one row delete here removes the
+ * session's entire history with no further application code.
+ */
+export async function deleteChatSessionAction(id: string): Promise<ActionResult<void>> {
+  const ctx = await actionContext();
+  if (!ctx) return actionFail(NOT_SIGNED_IN);
+
+  const { error } = await ctx.supabase
+    .from("chat_sessions")
+    .delete()
+    .eq("workspace_id", ctx.workspaceId)
+    .eq("id", id);
+  if (error) return actionErrorFrom(error);
+
+  revalidatePath("/chat");
+  return actionOk(undefined);
+}
+
+/**
  * Moved verbatim from `POST /chat/sessions/:id/messages` (`T-WA-07`).
  *
  * `enqueue_chat_turn` inserts the turn and the user message in one
