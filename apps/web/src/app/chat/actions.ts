@@ -284,10 +284,38 @@ export async function postChatTurnAction(
     return actionFail(failure.message, failure.reason);
   }
 
+  const turnState = toCamel(
+    await turnStateRow(ctx.supabase, ctx.workspaceId, data),
+    CHAT_TURN_OPAQUE_KEYS,
+  ) as ChatTurnState;
+
+  // T-CS5-02 -- attachments were uploaded to Storage BEFORE this action ran
+  // (`createChatAttachmentUploader`), but their `chat_message_attachments`
+  // row can only be created now, once `enqueue_chat_turn` above has created
+  // the real user message they reference (this task's own Trap: a mismatch
+  // here is exactly the seam CS6 would otherwise discover the hard way).
+  // Best-effort past this point: the message and its turn are already real
+  // and already dispatched, so a failed attachment insert must not be
+  // reported back as a failed send -- CS6 decides how (or whether) to
+  // surface this from server logs.
+  if (input.attachments?.length && turnState.userMessage) {
+    const rows = input.attachments.map((a) => ({
+      id: generateId("cma_"),
+      workspace_id: ctx.workspaceId,
+      message_id: turnState.userMessage!.id,
+      storage_path: a.storagePath,
+      filename: a.filename,
+      mime_type: a.mimeType,
+      size_bytes: a.sizeBytes,
+    }));
+    const { error: attachErr } = await ctx.supabase.from("chat_message_attachments").insert(rows);
+    if (attachErr) {
+      console.error("postChatTurnAction: failed to record uploaded attachment(s)", attachErr);
+    }
+  }
+
   revalidatePath("/chat");
-  return actionOk(
-    toCamel(await turnStateRow(ctx.supabase, ctx.workspaceId, data), CHAT_TURN_OPAQUE_KEYS) as ChatTurnState,
-  );
+  return actionOk(turnState);
 }
 
 /**

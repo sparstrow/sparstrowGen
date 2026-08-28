@@ -156,13 +156,28 @@ function mockChatTurnCtx(opts: {
   turns?: Row[];
   messages?: Row[];
   rpc?: Record<string, { data?: Row | null; error?: { code?: string; message: string } | null }>;
+  /** T-CS5-02 -- set to make the attachments insert itself fail, to prove a
+   *  failed attachment insert does not fail an already-sent message. */
+  attachmentInsertError?: { message: string } | null;
 }) {
   const rpcCalls: Array<{ name: string; params: unknown }> = [];
+  const attachmentInserts: Row[] = [];
   const supabase = {
     from(table: string) {
       if (table === "chat_sessions") return fakeTable(opts.sessions ?? []);
       if (table === "chat_turns") return fakeTable(opts.turns ?? []);
       if (table === "chat_messages") return fakeTable(opts.messages ?? []);
+      if (table === "chat_message_attachments") {
+        return {
+          insert(rows: Row[]) {
+            attachmentInserts.push(...rows);
+            return Promise.resolve({
+              data: null,
+              error: opts.attachmentInsertError ?? null,
+            });
+          },
+        };
+      }
       throw new Error(`mockChatTurnCtx: unexpected table ${table}`);
     },
     async rpc(name: string, params: unknown) {
@@ -174,7 +189,7 @@ function mockChatTurnCtx(opts: {
     },
   };
   vi.mocked(actionContext).mockResolvedValue({ supabase: supabase as never, workspaceId: "ws_1" });
-  return { rpcCalls };
+  return { rpcCalls, attachmentInserts };
 }
 
 const FREE_SESSION: Row = { id: "chs_1", workspace_id: "ws_1", kind: "free" };
@@ -278,6 +293,61 @@ describe("postChatTurnAction", () => {
       expect(result.error).toBe("This session already has a reply in progress.");
       expect(result.field).toBe("turn_in_progress");
     }
+  });
+
+  // T-CS5-02
+  it("attaches uploaded files to the real user message enqueue_chat_turn just created", async () => {
+    const { attachmentInserts } = mockChatTurnCtx({
+      sessions: [FREE_SESSION],
+      messages: [USER_MSG],
+      rpc: { enqueue_chat_turn: { data: WAITING_TURN } },
+    });
+    const result = await postChatTurnAction("chs_1", {
+      content: "see attached",
+      attachments: [
+        { storagePath: "ws_1/chs_1/a.txt", filename: "notes.txt", mimeType: "text/plain", sizeBytes: 42 },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    expect(attachmentInserts).toHaveLength(1);
+    expect(attachmentInserts[0]).toMatchObject({
+      workspace_id: "ws_1",
+      message_id: USER_MSG.id, // the REAL message id, not a placeholder invented before enqueue_chat_turn ran
+      storage_path: "ws_1/chs_1/a.txt",
+      filename: "notes.txt",
+      mime_type: "text/plain",
+      size_bytes: 42,
+    });
+  });
+
+  it("does not touch chat_message_attachments when no attachments were sent", async () => {
+    const { attachmentInserts } = mockChatTurnCtx({
+      sessions: [FREE_SESSION],
+      messages: [USER_MSG],
+      rpc: { enqueue_chat_turn: { data: WAITING_TURN } },
+    });
+    await postChatTurnAction("chs_1", { content: "no attachments here" });
+    expect(attachmentInserts).toHaveLength(0);
+  });
+
+  it("still reports the send as successful when the attachment insert itself fails", async () => {
+    // The message and its turn are already real by this point (enqueue_chat_turn
+    // already succeeded) -- a failed attachment insert is a secondary-effect
+    // failure, not a reason to tell the owner their message wasn't sent.
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockChatTurnCtx({
+      sessions: [FREE_SESSION],
+      messages: [USER_MSG],
+      rpc: { enqueue_chat_turn: { data: WAITING_TURN } },
+      attachmentInsertError: { message: "boom" },
+    });
+    const result = await postChatTurnAction("chs_1", {
+      content: "see attached",
+      attachments: [
+        { storagePath: "ws_1/chs_1/a.txt", filename: "notes.txt", mimeType: "text/plain", sizeBytes: 42 },
+      ],
+    });
+    expect(result.ok).toBe(true);
   });
 });
 
