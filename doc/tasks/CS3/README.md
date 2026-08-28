@@ -15,7 +15,7 @@
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
 | [T-CS3-01 — `agy models` discovery in the provider](T-CS3-01-antigravity-discover.md) | `[P]` | foundational — unblocks CS4 | — | done (2026-08-28) |
-| [T-CS3-02 — `provider_model_cache` table + RLS](T-CS3-02-cache-table.md) | `[P]` | foundational — unblocks CS4 | — | not started |
+| [T-CS3-02 — `provider_model_cache` table + RLS](T-CS3-02-cache-table.md) | `[P]` | foundational — unblocks CS4 | — | done (2026-08-28) |
 | [T-CS3-03 — the `providers.discover_models` dispatch, end to end](T-CS3-03-dispatch.md) | `[S]` | foundational — unblocks CS4 | T-CS3-01, T-CS3-02 | not started |
 | [T-CS3-04 — verification](T-CS3-04-verification.md) | `[S]` | foundational | T-CS3-01, T-CS3-02, T-CS3-03 | not started |
 
@@ -120,8 +120,9 @@ writing this, per that band's own RLS pattern), upserts into
 |---|---|
 | `packages/core/src/providers/types.ts` | edit: optional `discoverModels` on `CliProvider` |
 | `packages/core/src/providers/antigravity.ts` | edit: implement `discoverModels()` via `node-pty` (not `execFile` — see "what was found"), plus the exported `parseAgyModelsOutput` helper |
-| `packages/shared/src/db/schema.ts` | edit: `runtimeCommands.kind` comment; new `providerModelCache` table |
-| `packages/shared/drizzle/policies/0NN_provider_model_cache.sql` | new: table DDL, RLS, `record_provider_models` function, dispatch function for `providers.discover_models` |
+| `packages/shared/src/db/schema.ts` | edit: `runtimeCommands.kind` comment; new `providerModelCache` table — done |
+| `packages/shared/drizzle/policies/023_provider_model_cache.sql` | done: table DDL + SELECT-only RLS (own file, bespoke policy — not the shared `001_rls.sql` loop, see T-CS3-02's own correction) |
+| `packages/shared/drizzle/policies/024_provider_model_dispatch.sql` (T-CS3-03) | `record_provider_models` function, dispatch function for `providers.discover_models` |
 | `packages/core/src/cloud/commands.ts` | edit: new `case "providers.discover_models"` in `dispatch()` |
 
 ## Traps
