@@ -1542,3 +1542,311 @@ claim that they are unverified everywhere.
   `/messages`, `/skills`, `/tasks`, `/goals`, `/runs`, `/schedule`,
   `/pipelines`, `/machines`, and `/settings` specifically for cross-cluster
   breakage (a page reading a shape a sibling task's hook deletion changed).
+
+### G-47 — M16 (a live channel to a machine) is built and unit-tested; nothing has actually connected to Realtime
+
+> **Reopened 2026-08-27 by `G-48`, during `T-M17-06`.** The "clears when"
+> item below marked `SUPABASE_JWT_SIGNING_KEY` **done, 2026-08-26** — true
+> that day, not true as of 2026-08-27: the key was replaced with a
+> malformed value (missing `kid`) sometime early on 2026-08-27, breaking
+> both Preview and Development. `G-48` carries the current evidence and fix
+> path; this entry is kept for its own history rather than rewritten.
+
+**Raised:** 2026-08-26, closing `T-M16-01` … `T-M16-05` and attempting
+`T-M16-06`. **Updated:** 2026-08-26, same day, twice — first when §D's
+SQL-assertion half ran against the real (staging) project and closed; then
+again after `SUPABASE_JWT_SIGNING_KEY` was set and the band branch's preview
+confirmed reachable, when the remaining §A/§B live-connect attempt hit a
+genuine supervision boundary (below) rather than closing.
+
+All five build tasks are done — 22 new tests across `packages/shared` and
+`packages/core` (channel-contract schemas, the four RLS policies applied to
+the project's actual Supabase database and confirmed via `pg_policies`, the
+signing-path discovery, the terminal manager's coalescer/throttle/ceiling,
+and the Realtime connection's refresh/backoff/revocation handling against a
+faked `RealtimeClient`) — and `pnpm typecheck`/`pnpm test` are green
+workspace-wide. **Not one byte has crossed a real Realtime connection**,
+because every remaining check in `T-M16-06` needs something this pass did
+not have:
+
+- **§A (the wire works) and §B (the connection looks after itself) — still
+  not run end-to-end, though the blocker moved.** `SUPABASE_JWT_SIGNING_KEY`
+  was set by the owner on 2026-08-26 and the band branch's own Vercel preview
+  (`sparstrowgen-git-band-20-m16-terminal-channel-sparstrow.vercel.app`) is
+  live: `POST /api/daemon/realtime/token` on that preview now returns `401
+  unauthenticated` for a request with no token, not the earlier `500` —
+  confirming the route exists, deploys, and reaches `mintRealtimeToken()`
+  with the signing key present, rather than dying on the missing env var.
+  What's still unproved is everything past that point: whether the ES256 JWT
+  it would mint is actually **accepted** by a real Realtime connection, and
+  whether refresh/backoff/revocation hold up live. Closing that needs a real
+  daemon bearer token, which needs either a real paired machine (a signed-in
+  browser mints the pairing code) or a synthetic `daemon_tokens` row seeded
+  directly. **Both were attempted in this same session and both were
+  deliberately not completed**: minting a disposable test account via the
+  Supabase admin API is flatly on this agent's own list of actions it never
+  performs regardless of who authorizes it, and seeding a synthetic
+  workspace/runtime/daemon-token row that would need to *persist* (not roll
+  back, the way §D's read-only assertions could) against the real project
+  while unsupervised was refused by the harness's own safety layer on the
+  second attempt — a boundary this agent did not try to route around via a
+  different tool. Both attempts are described in the session transcript
+  rather than repeated here. **This is a supervision gap, not an effort
+  gap**: the fix is the owner doing the pairing dance themselves (or being
+  present to explicitly approve a specific synthetic-credential write), not
+  more autonomous engineering.
+- **§C's local-route regression check — not run live**, for the same reason
+  `G-13`/`G-16` weren't: no rendering browser in this environment. Partially
+  covered anyway: `manager.test.ts`'s fake-WebSocket tests exercise
+  `attachSocket` — the exact function the local `/ws/terminal/:id` route
+  calls — for attach, detach-survives, and reattach-replays, which is real
+  evidence for the code path even without a rendered xterm.js session. The
+  transcript/chat-still-streaming check and the typecheck/test bullet **did**
+  run — see `T-M16-04`'s Result.
+- **§D (the policies refuse the right people) — run 2026-08-26, on the
+  owner's confirmation that this project is currently a staging database,
+  not live**, against the **real** project rather than a disposable Docker
+  container (Docker still wasn't available). 13 assertions, all inside a
+  single transaction that ends in `ROLLBACK` — synthetic workspaces/users
+  (`verify-018-*` ids) never committed, confirmed empty afterward:
+  `private.current_admin_workspace_ids()` correctly includes workspace A for
+  an admin of A, excludes it for a plain member of A, and excludes it for an
+  admin of unrelated workspace B; exactly six `realtime.messages` policies
+  exist with the expected names; no `INSERT` policy touches a `run:`/`chat:`
+  topic; `terminal_channel_admin_send`/`machine_channel_admin_send` each pin
+  their event (`input`/`request`) and do not admit the forgeable one
+  (`output`/`reply`); both `_read` policies gate on
+  `current_admin_workspace_ids()`, not plain membership. **What this did
+  NOT exercise:** `realtime.topic()` itself — that GUC is populated by the
+  live Realtime server during an actual subscribe/broadcast attempt, and
+  there is no public SQL setter for it outside that connection, so the
+  script read the compiled policy predicates from `pg_policies` and
+  independently exercised the helper function instead of driving a real
+  broadcast end-to-end. That is strong evidence the policy logic is correct,
+  not a byte-for-byte replay of the wire path — the live version of this
+  check (a second real signed-in session, refused at subscribe and at send)
+  is still §A/§B territory and still needs a real deployment + paired
+  machine.
+- **§E (the lifetime change behaves) — the four points needing a live shell
+  or a real 15-minute wait weren't run**, but the underlying mechanism for
+  every one of them is unit-tested in `manager.test.ts` against a fake PTY
+  and fake timers: survives-all-sinks-detached (there is no timer left that
+  could kill it, proven directly rather than waited out), the eleventh
+  session refused, the throttle engaging/recovering with the ring intact,
+  and `onExit` closing with `"exited"`. `SETTING_TERMINAL_ACCESS=false`
+  refusing `terminal.open` (and, from `T-M16-04`, `terminal.attach`) is
+  proven in `terminal-bridge.test.ts` against a real in-memory settings
+  table — only "existing sessions are killed" when the switch flips live
+  (`T-M17-04`'s enforcement, not built yet) is genuinely untested anywhere.
+
+- **If wrong:** high for §A/§B specifically — a Realtime connection that
+  fails to actually authenticate, subscribe, or refresh against the real
+  service would be a foundational defect this entire phase and all of M17
+  sit on, and nothing about a faked `RealtimeClient` can catch a mismatch
+  against the real `@supabase/realtime-js` wire protocol or a real Supabase
+  project's actual behavior (message framing, channel topic prefixing,
+  auth-rejection timing). Low-medium for §D's remaining slice (the live
+  subscribe/broadcast path through `realtime.topic()` itself) — the
+  predicate logic is now directly confirmed against the real project, so
+  what's left is specifically "does the Realtime server populate and gate on
+  that GUC the way the policy assumes," which §A/§B's live pass will also
+  exercise. Low for §C/§E, which have strong proxy evidence already.
+- **Clears when:** (1) `SUPABASE_JWT_SIGNING_KEY` is set — **done**,
+  2026-08-26; (2) a real machine actually pairs against a deployment carrying
+  this code and holds a subscribed control channel through a refresh, closing
+  §A and §B — this also closes §D's remaining live-subscribe/broadcast slice,
+  since a second real signed-in session refused at subscribe and at send is
+  the same underlying mechanism. That pairing step is a five-minute owner
+  action (sign in on the deployment, mint a pairing code from the browser
+  console — `fetch('/api/v1/pairing-codes', {method:'POST'})` — then run core
+  with `SPARSTROW_CLOUD_URL` pointed at it, per
+  [`doc/runbooks/agent-browser-session.md`](../doc/runbooks/agent-browser-session.md)'s
+  "If the pass needs a paired machine" section) or an explicit, supervised
+  green light for an agent to create the disposable test account that same
+  runbook otherwise prescribes; (3) `T-M17-04` ships and its own verification
+  proves the access-switch-kills-existing-sessions bullet. `T-M17-06` (the
+  browser-side pass) is where §A/§B's evidence gets a second, independent
+  confirmation from the UI side once M17 exists to click.
+
+### G-48 — M17's live passes (`T-M17-02` through `T-M17-06`) reached every state that doesn't need the control channel to authenticate; the actual shell (open/type/output) never did, on either Vercel environment
+
+**Raised:** 2026-08-27, during `T-M17-02` (the Terminals page). The owner
+explicitly authorized creating a disposable `@sparstrow.test` account per
+`doc/runbooks/agent-browser-session.md` for this pass, after this agent
+paused to flag the tension between that runbook and its own general
+no-account-creation rule.
+
+**What ran, live, against a real signed-in browser session and a real
+paired scratch daemon (`agent-browser`, not the Claude Browser pane —
+`BUG-2026-08-24-claude-browser-pane-reports-hidden-visibility` still
+applies):** the never-paired empty state (before pairing anything); the
+machine-naming + loading pane, correctly naming the machine while
+`terminal.list` was in flight; the unreachable/timeout error state once
+that request timed out, with a working "Try again"; console clean
+throughout, in both light and dark theme. This same pass **found and fixed
+a real bug**, not a gap: `sessionsQuery`'s `status` reverts to `"pending"`
+on every background retry of a query that has never once succeeded
+(verified react-query v5 behavior, not a misunderstanding), which flickered
+the page between the loading pane and the error pane every ~14s. Fixed by
+deriving the visible state from `dataUpdatedAt`/`errorUpdatedAt` (which
+don't reset on a pending retry) rather than raw `isLoading`/`isError`,
+mirroring `machines.tsx`'s own two-tier `RuntimesError` pattern.
+
+**What did not run:** everything downstream of the control channel actually
+authenticating — opening a shell, typing, seeing output, resize, reconnect,
+throttle, the four session-end reasons, the six refusal sentences besides
+the timeout path. Not a supervision refusal this time (the owner had
+already authorized the account) — a genuine environment blocker, tracked as
+its own row now: [`doc/runbooks/README.md`](../doc/runbooks/README.md)'s
+`SUPABASE_JWT_SIGNING_KEY` row. Confirmed live by pulling the real value
+into a scratch `.env.local` (removed after, nothing committed) and running
+a real paired daemon against it: `mintRealtimeToken()` throws its own "no
+`kid`" error rather than the "not set" one `G-47` recorded, meaning the key
+is present but the JSON it decodes to has no `kid` field.
+
+**Corrected 2026-08-27, during `T-M17-06`: this is not narrower than `G-47`
+— it reopens it, and on both environments, not one.** `vercel env ls
+preview` shows `SUPABASE_JWT_SIGNING_KEY` as a single value scoped to
+**`Preview, Development` together** (one stored secret, two tags), last
+updated **~13 hours before this check** — i.e. sometime after `G-47`
+confirmed Preview's copy worked (2026-08-26, "401 unauthenticated" on
+`sparstrowgen-git-band-20-m16-terminal-channel-…`, not 500) and before this
+task's own preview-deployment pass (2026-08-27), which hit the identical
+500/no-`kid` failure against the **band 21** preview
+(`sparstrowgen-git-claude-band-21-cfe736-sparstrow.vercel.app`) that `G-47`'s
+own check never reached. Read together, this is a key **rotation that
+landed a malformed value sometime early on 2026-08-27**, breaking a control
+plane that was genuinely working the day before — not a gap that was always
+there. The original "Preview's copy is fine" sentence above is now wrong
+and left in place only so this correction is legible against it.
+
+**Corrected again 2026-08-27, live with the owner in the Supabase
+dashboard: the "clears when" fix below is not obtainable, at all, not just
+malformed.** Walked the owner's own JWT Keys screen together — the "Key
+Details" modal for the current signing key shows only "Public key set (JSON
+Web Key Set format)" (`key_ops: ["verify"]`, no `d`), and a freshly created
+standby ES256 key showed the identical public-only shape at the moment of
+creation, no one-time private-key reveal anywhere in the flow. This is not
+this project's misconfiguration — Supabase's asymmetric JWT Signing Keys
+never expose the private half of an ES256/RS256 key through the dashboard or
+API, by design; only the Legacy JWT Secret (HS256, being phased out) was ever
+exportable. **`mintRealtimeToken()`'s whole approach — read the project's own
+private signing key from an env var and sign with it — cannot work for this
+project's current key, ever, not just today.** The "no `kid`"/malformed
+symptoms recorded above were real, but chasing a well-formed value to paste
+in is chasing something that does not exist to be pasted.
+
+**Tracing this further also surfaced a second, independent blocker**, filed
+as [`BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls`](../bug/BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls.md):
+even a token Supabase itself validly signs would still be refused by
+`018_terminal_channels.sql`'s RLS, because those four policies gate solely on
+`private.current_admin_workspace_ids()`, which needs a real `auth.uid()` —
+and `mintRealtimeToken()`'s claims deliberately carry no `sub`. Fixing the
+signing problem alone does not close this gap; both need a resolution, and
+the two are entangled (whatever mints a Supabase-signed token also decides
+what `sub` it carries, which decides whether `018`'s policies can recognize
+it). A redesign is being scoped now rather than patching the runbook row to
+describe an impossible action.
+
+**`T-M17-06`'s own pass, 2026-08-27, against the band 21 preview
+(`sparstrowgen-git-claude-band-21-cfe736-sparstrow.vercel.app`), with a real
+paired headless `core` process and a real signed-in session:** confirmed
+the never-paired, machine-off (SC-005), and unreachable/timeout states live;
+confirmed the terminal-access toggle's full round trip including the
+daemon's own log line; confirmed a machine revoke is detected and stops the
+daemon within one poll cycle; confirmed all four `T-M17-05` Knowledge Center
+articles render correctly; confirmed SC-004's grep is clean; confirmed both
+themes and both Paper/Mono surface characters render correctly (screenshots
+on file) — none of which needed the broken control channel. **US1/US2/US3's
+actual interactive scenarios, SC-001/002/003, and the four states still
+gated behind `terminal.list` succeeding remain unreached**, for the reason
+above. `T-M17-03`'s `interactiveProviders` filtering (US3.2) has strong
+non-live evidence instead: `terminal-bridge.test.ts` asserts it against the
+**real** provider registry, not a mock. **SC-006** (a machine-service-only
+install) stays unprovable as literally worded — standalone service install
+without a repo checkout is `D-10`, not built — but the weaker form the spec
+actually cares about (a browser reaching a machine it isn't sitting on) is
+what every live check in this pass already used, headless `core` with no
+desktop shell. **FR-009's live non-admin refusal** was deliberately not
+attempted — this task's own Objective says to record it here rather than
+create a second account for it or write a membership row directly (`G-47`'s
+own precedent already ruled the latter out as beyond an agent's authority
+unsupervised).
+
+- **If wrong:** medium. The channel-client unit tests (`T-M17-01`, 22 cases)
+  and this page's own logic for attach/replay/resize/reconnect are
+  code-reviewed and typecheck/test green, but none of it has crossed a real
+  Realtime connection from the browser side — the same class of risk `G-47`
+  names for the daemon side. A wire-shape mismatch between what this page
+  sends and what a real subscribed session actually delivers would not be
+  caught by any test that ran here.
+- **Clears when:** (1) the token-minting design is redesigned so Supabase
+  itself signs the daemon's credential (the private key cannot be exported —
+  confirmed above) **and** the result can pass `018_terminal_channels.sql`'s
+  admin-membership RLS without making the daemon a real `workspace_members`
+  row — see `BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls`
+  for why both parts are required together; `doc/runbooks/README.md`'s row is
+  superseded by this and should not be actioned as currently worded; (2) a
+  real daemon then holds a subscribed control channel through a
+  `terminal.open`/`terminal.attach` round trip on a real preview, closing
+  US1/US2/US3 and SC-001/002/003 together; (3) an owner-supervised second
+  account (or the owner's own second browser) exercises FR-009's live
+  refusal.
+
+**Item 1 is code-complete as of 2026-08-27 — see `G-49`, which now carries the
+remaining live-pass work (items 2 and 3 above) forward.** The `DI` band
+(`doc/plans/2026-08-27-the-daemon-gets-a-real-identity.md`) built the
+redesign in full: `019_daemon_realtime_identity.sql` is the daemon's own RLS
+path, and `mintRealtimeToken()` now obtains a real Supabase session instead of
+self-signing. Landing on `development` unverified, per this file's own
+precedent (`G-13`, `G-15`, `G-24`, and this same gap's own earlier handling).
+
+### G-49 — the `DI` band is code-complete and has never touched a database or a running machine
+
+**Raised:** 2026-08-27, landing `doc/plans/2026-08-27-the-daemon-gets-a-real-identity.md`
+on `development`. Supersedes `G-48`'s item 1 (see above) and is what `G-48`'s
+items 2–3 now live under.
+
+**What is true:** `T-DI-01` through `T-DI-04` are done. `pnpm typecheck` is
+green (7/7 tasks) and every package's test suite is green **run separately** —
+`apps/web` 451, `@sparstrow/core` 750, `@sparstrow/shared` 316. Two real bugs
+were found and fixed along the way, both in already-merged code, neither
+caused by this band: `BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls`
+(the RLS half of `G-48`) and `BUG-2026-08-27-realtime-refresh-never-took-effect`
+(core's credential refresh was a no-op — realtime-js's `accessToken` callback
+outranks `setAuth(token)`, and core's callback closed over the connect-time
+credential; the existing test could not have caught it, since it asserted
+`setAuth` was called with a token string that never changed between mints).
+
+**What has never been checked, at all:**
+
+- `019_daemon_realtime_identity.sql` and `020_bootstrap_refuses_daemon.sql`
+  have not been applied to any Supabase project. No agent in the session that
+  wrote them could — the Supabase CLI was not logged in and the MCP server
+  needs an interactive OAuth grant this session's environment does not
+  provide. `018` was also re-run in text (its comments changed in `T-DI-01`)
+  but not re-applied, since its predicate is unchanged.
+- A real daemon has never held a subscribed control channel with this design.
+  `T-DI-05` — every item in `T-M16-06` §A/§B plus `T-M17-06`'s interactive
+  half — has not run once.
+- The three regression tests added in `T-DI-04` were verified to fail against
+  the bug they cover, by actually reverting the fix locally and re-running.
+  That proves the tests are load-bearing; it does not prove the fix is
+  correct against a real Realtime connection, only against a faked one.
+
+**If wrong:** the same class of risk `G-47` and `G-48` already named for this
+exact wire, now doubled — a wire-shape or RLS-predicate mistake in `019`/`020`
+would not be caught by anything that ran here, because nothing here could run
+against Postgres at all. The mocked-admin-client tests in `T-DI-03` prove the
+call sequence (`generateLink` → `verifyOtp`, identity created once, reused
+thereafter) and prove nothing about whether Supabase's actual Auth API accepts
+that sequence or whether the resulting token's claims satisfy
+`current_daemon_scope()`.
+
+**Clears when:** (1) an owner (or an authorized agent) runs `018`, `019`, `020`
+in order against the real project and their `-- Verify` blocks pass — row in
+[`doc/runbooks/README.md`](../runbooks/README.md); (2) `T-DI-05` runs in full
+against a real preview with a real paired machine, closing the same
+US1/US2/US3/SC-001/002/003 items `G-48` named; (3) FR-009's live non-admin
+refusal, which stays open regardless — same second-account limitation as
+`G-15`/`G-24`/`G-47`/`G-48`.

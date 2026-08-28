@@ -21,6 +21,8 @@ import { startRunReporter, stopRunReporter } from "./cloud/run-reporter.js";
 import { startTranscriptPusher, stopTranscriptPusher } from "./cloud/transcripts.js";
 import { startMemorySync, stopMemorySync } from "./cloud/memory-sync.js";
 import { startBindingReporter, stopBindingReporter } from "./cloud/bindings.js";
+import { startRealtimeConnection, stopRealtimeConnection } from "./cloud/realtime.js";
+import { startTerminalBridge } from "./cloud/terminal-bridge.js";
 import { initDelegationWatcher, sweepWaitingParents } from "./taskboard/delegation.js";
 import { sweepOrphanedPipelineRuns } from "./orchestrator/pipeline-executor.js";
 import { initGoalWatcher, reconcileGoals } from "./goap/service.js";
@@ -141,6 +143,13 @@ async function main(): Promise<void> {
   // unavailable to the enqueue-time check — a failure that reads like a
   // dispatch bug rather than a missing report.
   startBindingReporter();
+  // M16: the machine's own live channel. The bridge registers its handler
+  // before the connection is started, same ordering reason as the two
+  // subscribers above — a request answered on the very first tick needs
+  // somewhere to be routed already. No-op while unpaired, like everything
+  // else in this block.
+  startTerminalBridge();
+  startRealtimeConnection();
 
   const shutdown = async (signal: string) => {
     logger.info({ signal }, "shutting down");
@@ -162,7 +171,12 @@ async function main(): Promise<void> {
       stopDelegationWatcher();
       stopGoalWatcher();
       stopNightlyGraphRefresh();
+      // Kill sessions (which closes each one's bridge sink and Realtime
+      // channel) BEFORE tearing down the connection those sinks send
+      // through — the reverse order would have every close() racing an
+      // already-disconnected client.
       killAllSessions();
+      stopRealtimeConnection();
       await stopAllViz();
       await shutdownGraphPool();
       await stopVaultWatcher();

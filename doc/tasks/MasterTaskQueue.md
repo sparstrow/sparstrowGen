@@ -270,66 +270,15 @@ different agents.
 
 ### Band 20 — M16 a live channel to a machine (2026-08-24)
 
-Phase spec: [`M16/README.md`](M16/README.md). Plan:
-[`2026-08-24-a-terminal-on-my-machine.md`](../plans/2026-08-24-a-terminal-on-my-machine.md).
-Decomposed 2026-08-24 — six tasks, all written.
-
-**Foundational: nothing in this band is visible to the owner.** It builds the
-daemon-side Realtime credential that M5 named and declined, the two channel
-families, their policies, and the terminal manager rework. At the end of it the
-Terminals page is exactly as dead as it is today.
-
-| # | Task | Tag | Depends on | Status |
-|---|---|---|---|---|
-| 20.1 | [T-M16-01 — channel contracts](M16/T-M16-01-channel-contracts.md) | `[S]` | — | queued |
-| 20.2 | [T-M16-02 — daemon Realtime credential](M16/T-M16-02-daemon-realtime-credential.md) | `[P]` | 20.1 | queued |
-| 20.3 | [T-M16-03 — `017_terminal_channels.sql`](M16/T-M16-03-channel-policies.md) | `[P]` | 20.1 | queued |
-| 20.4 | [T-M16-04 — core: the Realtime connection](M16/T-M16-04-core-realtime-connection.md) | `[C]` | 20.1, 20.2 | queued |
-| 20.5 | [T-M16-05 — core: terminal manager rework](M16/T-M16-05-terminal-manager.md) | `[P]` | 20.1 | queued |
-| 20.6 | [T-M16-06 — verification](M16/T-M16-06-verification.md) | `[S]` | 20.1—20.5 | queued |
-
-20.1 is `[S]` for the same reason M3's and M4's first tasks were: four tasks in
-three packages are written against its topics and event names, and 20.3 authors a
-policy that pins two of those names literally. 20.4 is `[C]` rather than `[P]`
-because it edits `packages/core/src/index.ts`, which 20.5 also touches.
-
-**20.2 needs an owner action** — a signing credential set on the Vercel project.
-That task adds the row to [`../runbooks/README.md`](../runbooks/README.md).
-Nothing else in the band is blocked on it; 20.6 is.
-
-**This band unblocks more than M17.** The request/reply half of
-[`reaching-my-machine-from-the-browser`](../specs/2026-08-24-reaching-my-machine-from-the-browser.md)
-and the [`I-11`](../Ideas.md) surfaces behind it become buildable once a machine
-can be asked a question at all. Neither is built here, and both still need their
-own owner review — see that spec's status.
+✅ **Archived 2026-08-26 — done except `G-47`, which does not block the
+archive per `doc/tasks/README.md`'s own rule.** Full task table, tags and
+notes: [`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-20).
 
 ### Band 21 — M17 the terminal itself (2026-08-24)
 
-Phase spec: [`M17/README.md`](M17/README.md). Same plan as band 20.
-Decomposed 2026-08-24 — six tasks, all written.
-
-| # | Task | Tag | Depends on | Status |
-|---|---|---|---|---|
-| 21.1 | [T-M17-01 — the channel client](M17/T-M17-01-terminal-channel-client.md) | `[S]` | 20.6 | queued |
-| 21.2 | [T-M17-02 — the Terminals page](M17/T-M17-02-terminals-page.md) | `[S]` | 21.1 | queued |
-| 21.3 | [T-M17-03 — agent terminals](M17/T-M17-03-agent-terminals.md) | `[C]` | 21.2 | queued |
-| 21.4 | [T-M17-04 — the per-machine off switch](M17/T-M17-04-terminal-access-switch.md) | `[P]` | 20.6 | queued |
-| 21.5 | [T-M17-05 — Knowledge Center](M17/T-M17-05-knowledge-center.md) | `[P]` | 21.2 | queued |
-| 21.6 | [T-M17-06 — verification](M17/T-M17-06-verification.md) | `[S]` | 21.1—21.5 | queued |
-
-21.3 is `[C]` rather than `[P]` because it edits `terminals.tsx`, which 21.2
-writes. 21.4 is `[P]`: `machines.tsx` and core's settings handling are touched by
-nothing else in the band, so it can run alongside the whole web half.
-
-**21.5 closes [`BUG-2026-08-24-terminals-article-describes-a-transport-that-no-longer-exists`](../bug/BUG-2026-08-24-terminals-article-describes-a-transport-that-no-longer-exists.md)**
-— pre-existing drift, filed 2026-08-24 while planning this work: the Terminals
-Knowledge Center article describes a transport that no longer exists and states
-the opposite of the machine's real session behaviour.
-
-**Runs against nothing else.** Bands 19 and 20 must be complete first. Any other
-work touching `apps/web/src/app/terminals/`, `machines.tsx`, or
-`packages/core/src/terminal/` must wait rather than run `[P]` alongside — the
-file overlap is total.
+✅ **Archived 2026-08-27 — done except `G-48`, which does not block the
+archive per `doc/tasks/README.md`'s own rule.** Full task table, tags and
+notes: [`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-21).
 
 ### Band 22 — WA every write becomes a Server Action (2026-08-24)
 
@@ -342,6 +291,47 @@ file overlap is total.
 PR #129 without this flip; caught while promoting band 22, per
 `doc/tasks/README.md`'s "check the other bands too" step).** Full task
 table, tags and notes: [`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-23).
+
+### Band 25 — DI the daemon gets a real identity (2026-08-27) · **run this first**
+
+Plan: [`../plans/2026-08-27-the-daemon-gets-a-real-identity.md`](../plans/2026-08-27-the-daemon-gets-a-real-identity.md).
+Spec: [`../specs/2026-08-24-a-terminal-on-my-machine.md`](../specs/2026-08-24-a-terminal-on-my-machine.md)
+— no new spec; this delivers stories that one already owns.
+Phase spec: [`DI/README.md`](DI/README.md). Decomposed 2026-08-27.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 25.1 | [T-DI-01 — the session topic carries the runtime id](DI/T-DI-01-session-topic-runtime-id.md) | `[S]` | — | done (2026-08-27) |
+| 25.2 | [T-DI-02 — the daemon identity: schema, helper, policies](DI/T-DI-02-daemon-identity-schema.md) | `[S]` | 25.1 | written, not applied — owner (2026-08-27) |
+| 25.3 | [T-DI-03 — the token route mints a Supabase session](DI/T-DI-03-token-route-supabase-session.md) | `[S]` | 25.2 | done except live checks (2026-08-27) |
+| 25.4 | [T-DI-04 — core adapts to the new credential](DI/T-DI-04-core-credential-lifetime.md) | `[P]` | 25.3 | done (2026-08-27) |
+| 25.5 | [T-DI-05 — verification: the live pass that has never run](DI/T-DI-05-verification.md) | `[S]` | 25.1–25.4 | blocked → owner applies SQL, then a live pass |
+
+25.1–25.3 are `[S]` in a chain: each defines the contract the next compiles or
+authorizes against, and they touch overlapping files. 25.4 is `[P]` — it lives
+entirely in `packages/core` and needs only 25.3's response shape.
+
+**This band is ahead of band 24 in priority despite the higher number.** M16 and
+M17 both merged and neither has ever carried a byte: the daemon could not sign a
+credential Supabase would accept (`G-48` — Supabase never exports an asymmetric
+private key, confirmed live in the dashboard 2026-08-27), *and* the credential
+`DD-2` specified could never have passed `018_terminal_channels.sql`'s RLS
+anyway, because it deliberately carries no `sub` and those policies resolve the
+caller through `workspace_members` ([`BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls`](../bug/BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls.md)).
+Two independent blockers, each hiding the other, both found on 2026-08-27.
+
+**No UI work.** M17's surfaces, states and sentences are all built and stay
+exactly as they are. This band changes one topic string, adds one table, one
+function and four policies, and rewrites one module's internals.
+
+**Landed on `development` 2026-08-27, code-complete and unverified** — see
+[`KnownGaps.md` `G-49`](../KnownGaps.md). `T-DI-01` and `T-DI-04` are fully
+done; `T-DI-02`'s SQL is written but not applied to any database (needs a
+Supabase CLI login or MCP authorization no agent in this session had);
+`T-DI-03` is done except the live checks that need `T-DI-02`'s SQL; `T-DI-05`
+is blocked on both. Also found and fixed, in already-merged M16 code:
+[`BUG-2026-08-27-realtime-refresh-never-took-effect`](../bug/BUG-2026-08-27-realtime-refresh-never-took-effect.md)
+— core's credential refresh had never taken effect.
 
 ### Band 24 — M22–M24 reaching my machine from the browser (2026-08-24)
 
@@ -386,7 +376,7 @@ bands 20 and 21 own it.
 | ~~`/runs/[runId]` transcript~~ | ~~M5 (7.6)~~ | **Resolved 2026-08-22.** `T-M11-02` dispatched a real run and watched `/runs/[runId]` populate live — cloud/local `run_events` counts matched exactly (3/3 and 13/13 across two runs). Rendering the transcript for every provider is not fully closed — see [`BUG-2026-08-22-antigravity-transcript-not-rendered`](../bug/BUG-2026-08-22-antigravity-transcript-not-rendered.md) — but the page is no longer empty by construction. |
 | Realtime doorbell for dispatch | **Deferred → [D-12](../Deferred.md)** | Not blocked work. The 3s poll is correct and always-on; the doorbell is a latency improvement that M5's decision 1 declined to buy with a second daemon auth model. |
 | Agent definitions differ between cloud and machine | **Deferred → [D-9](../Deferred.md)** | Not blocked work. M4 resolves a cloud agent to a local one by slug and blocks legibly on a miss; syncing definitions is a separate feature with its own conflict model. |
-| **Band 24 (M22–M24) in its entirety** | **Band 20 (M16)** | Hard, not soft. This plan builds no transport of its own — a browser reaches a machine over M16's `machine:<workspace_id>:<runtime_id>` control channel or not at all, and building a second path is the relay service M16's DD-1 rejected. Its tasks are also not written yet, on purpose: they extend an envelope `T-M16-01` defines. |
+| **Band 24 (M22–M24) in its entirety** | **Band 25 (DI)**, not band 20 | Hard, not soft. This plan builds no transport of its own — a browser reaches a machine over M16's `machine:<workspace_id>:<runtime_id>` control channel or not at all, and building a second path is the relay service M16's DD-1 rejected. **Corrected 2026-08-27:** the blocker used to read "band 20 (M16)", which was true and insufficient — band 20 merged, and its transport has still never carried a byte. The real gate is band 25, which makes a daemon able to authenticate to that channel and pass its RLS. Band 24's tasks are also not written yet, on purpose: they extend an envelope `T-M16-01` defines, and now also a topic shape `T-DI-01` changes. |
 | **23.4's `users.role` drop** | **Owner action** | A column drop is `AGENTS.md` §3.7 destructive even when the column is provably inert (nothing reads it; the profile route strips it with a test). Everything else in 23.4 proceeds without it. |
 | **M24 (Browse) specifically** | **M20, in band 23's plan** | The folder picker's boundary is what a machine says it shares — the access model's US4, which is `OQ-6`'s answer. A picker built before that exists is `OQ-6` option A, which the owner rejected. M23 (project files) has no such dependency and ships first. |
 

@@ -666,3 +666,90 @@ band's `MasterTaskQueue.md` rows were never flipped when it landed — caught
 and corrected here while promoting band 22 (`doc/tasks/README.md`'s "check
 the other bands too" step), from each task file's own already-`done` Status
 row, not from re-verifying the work itself.
+
+### Band 20 — M16 a live channel to a machine (2026-08-24)
+
+Phase spec: [`M16/README.md`](M16/README.md). Plan:
+[`2026-08-24-a-terminal-on-my-machine.md`](../plans/2026-08-24-a-terminal-on-my-machine.md).
+Decomposed 2026-08-24 — six tasks, all written.
+
+**Foundational: nothing in this band is visible to the owner.** It builds the
+daemon-side Realtime credential that M5 named and declined, the two channel
+families, their policies, and the terminal manager rework. At the end of it the
+Terminals page is exactly as dead as it is today.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 20.1 | [T-M16-01 — channel contracts](M16/T-M16-01-channel-contracts.md) | `[S]` | — | done (2026-08-26) |
+| 20.2 | [T-M16-02 — daemon Realtime credential](M16/T-M16-02-daemon-realtime-credential.md) | `[P]` | 20.1 | done (2026-08-26) |
+| 20.3 | [T-M16-03 — `018_terminal_channels.sql`](M16/T-M16-03-channel-policies.md) | `[P]` | 20.1 | done (2026-08-26) |
+| 20.4 | [T-M16-04 — core: the Realtime connection](M16/T-M16-04-core-realtime-connection.md) | `[C]` | 20.1, 20.2 | done (2026-08-26) |
+| 20.5 | [T-M16-05 — core: terminal manager rework](M16/T-M16-05-terminal-manager.md) | `[P]` | 20.1 | done (2026-08-26) |
+| 20.6 | [T-M16-06 — verification](M16/T-M16-06-verification.md) | `[S]` | 20.1—20.5 | done except G-47 (2026-08-26) |
+
+20.1 is `[S]` for the same reason M3's and M4's first tasks were: four tasks in
+three packages are written against its topics and event names, and 20.3 authors a
+policy that pins two of those names literally. 20.4 is `[C]` rather than `[P]`
+because it edits `packages/core/src/index.ts`, which 20.5 also touches.
+
+**20.2 needs an owner action** — a signing credential set on the Vercel project.
+That task adds the row to [`../runbooks/README.md`](../runbooks/README.md).
+Nothing else in the band is blocked on it; 20.6 is.
+
+**This band unblocks more than M17.** The request/reply half of
+[`reaching-my-machine-from-the-browser`](../specs/2026-08-24-reaching-my-machine-from-the-browser.md)
+and the [`I-11`](../Ideas.md) surfaces behind it become buildable once a machine
+can be asked a question at all. Neither is built here, and both still need their
+own owner review — see that spec's status.
+
+**Band complete except `G-47`** — landed on `development` via the band's own
+PR into it. All five build tasks (`20.1`–`20.5`) done and unit-tested; `20.6`
+closed §C and §D live, against the band branch's own preview and the real
+(staging) project respectively, but §A/§B's live-wire pass hit a genuine
+supervision boundary rather than closing (full account: `KnownGaps.md` G-47).
+This band's own precedent (`G-13`, `G-15`, `G-24`) is what lets it move with
+that gap documented rather than blocking on it.
+
+### Band 21 — M17 the terminal itself (2026-08-24)
+
+Phase spec: [`M17/README.md`](M17/README.md). Same plan as band 20.
+Decomposed 2026-08-24 — six tasks, all written.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 21.1 | [T-M17-01 — the channel client](M17/T-M17-01-terminal-channel-client.md) | `[S]` | 20.6 | done (2026-08-27) |
+| 21.2 | [T-M17-02 — the Terminals page](M17/T-M17-02-terminals-page.md) | `[S]` | 21.1 | done except live shell verification (2026-08-27, `G-48`) |
+| 21.3 | [T-M17-03 — agent terminals](M17/T-M17-03-agent-terminals.md) | `[C]` | 21.2 | done except live verification (2026-08-27, `G-48`) |
+| 21.4 | [T-M17-04 — the per-machine off switch](M17/T-M17-04-terminal-access-switch.md) | `[P]` | 20.6 | done except two session-lifetime checks (2026-08-27, `G-48`) |
+| 21.5 | [T-M17-05 — Knowledge Center](M17/T-M17-05-knowledge-center.md) | `[P]` | 21.2 | done (2026-08-27) |
+| 21.6 | [T-M17-06 — verification](M17/T-M17-06-verification.md) | `[S]` | 21.1—21.5 | done except the interactive-session live pass (2026-08-27, `G-48`) |
+
+21.3 is `[C]` rather than `[P]` because it edits `terminals.tsx`, which 21.2
+writes. 21.4 is `[P]`: `machines.tsx` and core's settings handling are touched by
+nothing else in the band, so it can run alongside the whole web half.
+
+**21.5 closed [`BUG-2026-08-24-terminals-article-describes-a-transport-that-no-longer-exists`](../bug/BUG-2026-08-24-terminals-article-describes-a-transport-that-no-longer-exists.md)**
+— pre-existing drift, filed 2026-08-24 while planning this work: the Terminals
+Knowledge Center article described a transport that no longer exists and stated
+the opposite of the machine's real session behaviour. Resolved in place; a
+sibling instance of the same class of drift, found while verifying the fix, was
+filed separately as
+[`BUG-2026-08-27-dashboard-article-describes-a-transport-that-no-longer-exists`](../bug/BUG-2026-08-27-dashboard-article-describes-a-transport-that-no-longer-exists.md)
+rather than fixed here, out of scope for this band.
+
+**Band complete except `G-48`** — landed on `development` via the band's own
+PR into it. All six tasks built, unit-tested, and typechecked green; `21.6`'s
+live pass ran against the band's own real Vercel preview with a real paired
+machine (owner-authorized disposable account), reaching every state that
+doesn't need the terminal control channel to actually authenticate —
+never-paired, machine-off (SC-005), the off-switch's full round trip, a
+pairing revoke, all four Knowledge Center articles, SC-004, both themes, both
+Paper/Mono surfaces. That same live pass also found and fixed a real bug
+(`T-M17-02`'s react-query loading/error flicker) and discovered `G-47`'s
+"Preview is fine" note had gone stale: `SUPABASE_JWT_SIGNING_KEY` is one
+Vercel secret tagged for both Preview and Development, and it was replaced
+with a malformed value sometime early on 2026-08-27, blocking the actual
+interactive-session scenarios on both. `G-47` and `G-48` both carry the
+corrected evidence and the fix (a five-minute owner action on the Vercel
+dashboard). This band's own precedent, and band 20's `G-47` before it, is
+what lets it move with that gap documented rather than blocking on it.

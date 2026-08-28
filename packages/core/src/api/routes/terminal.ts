@@ -34,6 +34,7 @@ export async function terminalRoutes(app: FastifyInstance): Promise<void> {
     let args: string[] = [];
     let cwd = config.dataDir;
     let agentId: string | null = null;
+    let agentName: string | null = null;
 
     if (body.agentId) {
       const row = db.select().from(agents).where(eq(agents.id, body.agentId)).get();
@@ -57,9 +58,10 @@ export async function terminalRoutes(app: FastifyInstance): Promise<void> {
         : spec.args;
       cwd = spec.cwd ?? config.dataDir;
       agentId = agent.id;
+      agentName = agent.name;
     }
 
-    const session = createSession({
+    const result = createSession({
       command,
       args,
       cwd,
@@ -67,9 +69,14 @@ export async function terminalRoutes(app: FastifyInstance): Promise<void> {
       cols: body.cols,
       rows: body.rows,
       agentId,
+      agentName,
     });
+    if (!result.ok) {
+      // 429: the caller did nothing wrong, the ceiling is just already full.
+      throw new HttpError(429, result.error);
+    }
     reply.code(201);
-    return session;
+    return result.session;
   });
 
   app.get("/terminal/sessions/:id", async (request) => {

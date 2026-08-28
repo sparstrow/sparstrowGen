@@ -126,6 +126,13 @@ policies/010_transcript_broadcast.sql  M5 — who may subscribe to a run's trans
 policies/011_drop_auto_confirm.sql     drop the auth.users auto-confirm trigger
 policies/012_no_invented_names.sql     M9 — bootstrap stops inventing names + one-time cleanup
 policies/013_storage_images.sql        M9 — the public-images bucket and its write policies
+policies/014_chat_turn_dispatch.sql    M12 — enqueue/retry/assign a chat turn
+policies/015_chat_broadcast.sql        M12 — who may subscribe to a chat turn's live reply
+policies/016_chat_turn_transcript.sql  M12 — recent messages travel in the chat.turn payload
+policies/017_access_model.sql          M18 — machine_shared_locations, agent_machine_restrictions
+policies/018_terminal_channels.sql     M16 — terminal/machine channel read + send policies
+policies/019_daemon_realtime_identity.sql  DI — the daemon's own identity + its half of 018's channels
+policies/020_bootstrap_refuses_daemon.sql  DI — bootstrap_workspace() refuses a daemon identity
 ```
 
 **Applied to staging 2026-08-18** as migrations `setup_identity_fields`,
@@ -227,6 +234,62 @@ row with a primary key, so a row lock is the precise tool. The code row is
 fetched **without** filtering on `consumed_at`, deliberately: filtering would
 make the loser of a race see zero rows and report "unknown code", sending
 someone hunting for a typo in a code that was simply already used.
+
+**018 is the first file here with an INSERT policy on `realtime.messages`,
+and the first gated on admin role rather than plain membership.** 010's and
+015's "no insert policy, deliberately" reasoning is unchanged and still
+applies to transcript and chat broadcasts — 018 grants a narrower thing on
+two new topic families: an admin may send a keystroke (`input`) or a control
+request (`request`) on a machine they may already open a shell on directly.
+The event pin (`event = 'input'` / `event = 'request'`) is what keeps that
+narrow: without it the same grant would let a client publish `output` or
+`reply` and forge what another tab watching the same channel displays.
+
+Confirmed directly against this project (not just the docs) before writing
+the send policies: `realtime.messages` has a `text` column named `event`
+holding the broadcast event name —
+
+```sql
+select column_name, data_type from information_schema.columns
+where table_schema = 'realtime' and table_name = 'messages';
+```
+
+Applied with `scripts/apply-sql.mjs` like every file since 009; re-run
+immediately after to confirm it is a no-op, and `pg_policies` shows exactly
+the expected six rows (010's, 015's, and 018's four). The deeper
+role/cross-workspace/event-forgery negative assertions are intentionally
+*not* done here as raw SQL impersonation — T-M16-06 §D does the live
+two-session version instead, matching T-M5-06 §E and T-M12-06's precedent of
+using a real second browser session rather than simulating one in SQL.
+
+**019 is 018's mirror image, and the two are only correct together.** 018 is
+the *browser's* half of the terminal channels (may send `request` and
+`input`); 019 is the *machine's* (may send `reply` and `output`). Reading
+either alone gives a misleading picture of who can do what on those topics.
+
+019 is also the first file here to grant anything to an identity that is
+deliberately **not a workspace member.** Each paired machine gets its own
+Supabase Auth user, never inserted into `workspace_members`, so
+`private.current_workspace_ids()` is empty for it and every policy 001/010/015
+wrote denies it exactly as it denies an anonymous caller. Its only reachable
+privilege is 019's four policies, on its own machine's two topics, resolved
+through `private.current_daemon_scope()`. `doc/tasks/M3/README.md` decision 1
+rejected a daemon auth user *that looks like a member* — that objection is
+respected here, not overridden; see 019's own header for the full argument and
+for why a Custom Access Token Hook was rejected in favour of the mapping table.
+
+**Revocation is enforced inside `current_daemon_scope()`**, which requires a
+live (non-revoked) `daemon_tokens` row. That is why nothing else has to clean
+up when a pairing is revoked, and why the orphaned `auth.users` row a removed
+machine leaves behind is inert rather than dangerous (`I-14`).
+
+**020 replaces `bootstrap_workspace()` wholesale**, because Postgres cannot
+patch a function body in place. It is 004's function verbatim plus one guard —
+verify with a diff before applying, and if 004 has changed since, re-copy it
+rather than editing around it. The guard exists because a daemon's token is a
+real `authenticated` JWT: everything else denies it for lack of membership, and
+`bootstrap_workspace()` is the one function that exists precisely to serve a
+member-less caller.
 
 ### Accepted advisor findings
 

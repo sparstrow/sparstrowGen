@@ -1,6 +1,6 @@
 # BUG-2026-08-24-terminals-article-describes-a-transport-that-no-longer-exists
 
-**Status:** 🔴 open — fix queued as [`T-M17-05`](../tasks/M17/T-M17-05-knowledge-center.md)
+**Status:** 🟢 resolved — [`T-M17-05`](../tasks/M17/T-M17-05-knowledge-center.md)
 **Reported by:** agent — reading the Knowledge Center while planning
 [the terminal spec](../specs/2026-08-24-a-terminal-on-my-machine.md)
 **Reported:** 2026-08-24
@@ -74,3 +74,16 @@ describing a dead feature accurately, then rewriting it again a phase later — 
 the honest interim sentence ("terminals do not work in the browser") is one the
 same plan deletes. If M16/M17 are dropped or deferred, this bug reopens as
 standalone work and the interim sentence is what it gets.
+
+**Resolved 2026-08-27, `T-M17-05`.** `terminals.md` rewritten against what
+M16/M17 actually ship — reachable from any browser you're signed in on,
+owner/admin only, sessions survive until closed with a ten-session ceiling,
+the per-machine off switch, output suppression under flood. All three false
+sentences from the table above are gone; verified with
+`grep -rn "local WebSocket\|no detach/reattach" apps/web/src/content/knowledge/`
+returning no match in `terminals.md` (a *different*, unrelated stale claim
+turned up in `dashboard.md` — filed separately as
+[`BUG-2026-08-27-dashboard-article-describes-a-transport-that-no-longer-exists`](BUG-2026-08-27-dashboard-article-describes-a-transport-that-no-longer-exists.md)
+rather than fixed here, out of this task's scope). Article gained the
+required `## Known Limitations & Boundaries` section and its `updated:`
+date moved to 2026-08-27.

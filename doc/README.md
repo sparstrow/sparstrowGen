@@ -20,6 +20,8 @@ doc/
 │                             shouldn't act on your behalf for). Not a
 │                             lifecycle stage — these don't graduate into
 │                             code, they just sit here as reference.
+├── feedback/                  raw owner/user reaction, not yet triaged
+│   └── README.md             ← format, workflow, index
 ├── bug/                       owner-reported or agent-found wrong behavior
 │   └── README.md             ← format, workflow, index
 ├── security/                  vulnerabilities, trust-boundary violations
@@ -123,6 +125,7 @@ read by the agent who picks this up in three weeks.
 | "Only a human can do this part (external dashboard, OAuth app, secrets)" | `runbooks/` |
 | "This is behaving wrong" — owner-reported or agent-found | `bug/` |
 | "This is a vulnerability / trust-boundary issue" — owner-reported or agent-found | `security/` |
+| "Here's some raw feedback — not sure yet if it's a bug, an idea, or a real feature" | `feedback/` |
 
 Once you know the destination, [`templates/`](templates/README.md) has the
 skeleton for it — plans, phase specs, tasks, verification tasks, bugs,

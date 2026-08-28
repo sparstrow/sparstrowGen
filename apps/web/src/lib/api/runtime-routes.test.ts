@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DAEMON_SETTABLE_KEYS, SETTING_WIP_SNAPSHOT } from "@sparstrow/shared";
+import { DAEMON_SETTABLE_KEYS, SETTING_TERMINAL_ACCESS, SETTING_WIP_SNAPSHOT } from "@sparstrow/shared";
 import { matchRoute } from "./router";
 import "./handlers";
 
@@ -36,8 +36,10 @@ describe("the settings allowlist the action enforces", () => {
   it("contains the WIP snapshot switch and nothing unexpected", () => {
     // Three copies of this list exist by design (daemon, action, UI). The
     // daemon's is the one that matters; this asserts the shared constant they
-    // all read has not quietly grown.
+    // all read has not quietly grown. Updated to 3 in M16 (T-M16-01), which
+    // added SETTING_TERMINAL_ACCESS for US4's per-machine terminal switch.
     expect(DAEMON_SETTABLE_KEYS).toContain(SETTING_WIP_SNAPSHOT);
-    expect(DAEMON_SETTABLE_KEYS).toHaveLength(2);
+    expect(DAEMON_SETTABLE_KEYS).toContain(SETTING_TERMINAL_ACCESS);
+    expect(DAEMON_SETTABLE_KEYS).toHaveLength(3);
   });
 });

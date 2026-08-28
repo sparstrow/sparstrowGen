@@ -26,6 +26,7 @@ export * from "./schemas/goal";
 export * from "./schemas/pipeline-draft";
 export * from "./schemas/chat";
 export * from "./schemas/system-update";
+export * from "./schemas/terminal";
 export * from "./db/schema";
 export * from "./theme/colour";
 export * from "./theme/tokens";

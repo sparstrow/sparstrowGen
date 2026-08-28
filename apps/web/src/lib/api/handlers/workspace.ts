@@ -47,6 +47,28 @@ registerRoute({
       .maybeSingle();
     if (error) throw error;
     if (!data) return fail(404, "Not Found");
-    return ok(data);
+
+    // T-M17-02 — the caller's own role in this workspace, not a property of
+    // the workspace row itself (hence a second query rather than a join
+    // widening `SELECT` above). `terminals.tsx` needs this to render "not
+    // permitted" (FR-009) instead of "unreachable" for a member who is
+    // neither owner nor admin — a distinction the Realtime control channel's
+    // own subscribe/timeout signals cannot make on their own, since RLS
+    // refuses the SUBSCRIBE regardless of whether the machine is online.
+    // `ctx.supabase` carries the caller's session, so this reads only their
+    // own membership row.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data: membership } = user
+      ? await supabase
+          .from("workspace_members")
+          .select("role")
+          .eq("workspace_id", workspaceId)
+          .eq("user_id", user.id)
+          .maybeSingle()
+      : { data: null };
+
+    return ok({ ...data, role: membership?.role ?? "member" });
   },
 });
