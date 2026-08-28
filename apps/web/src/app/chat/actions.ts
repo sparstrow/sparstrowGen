@@ -22,6 +22,7 @@ import {
   type ActionResult,
 } from "@web/lib/action-result";
 import { chatTurnFailureFrom } from "@web/lib/api/enqueue";
+import { attachmentsByMessageId } from "@web/lib/chat-attachments";
 import { OPAQUE_COLUMNS } from "@web/lib/case";
 
 const CHAT_SESSIONS_OPAQUE = ["draft"];
@@ -63,8 +64,20 @@ async function turnStateRow(
     .order("created_at", { ascending: true });
   if (error) throw error;
 
-  const userMessage = (messages ?? []).find((m: any) => m.role === "user") ?? null;
-  const assistantMessage = (messages ?? []).find((m: any) => m.role === "assistant") ?? null;
+  // CS6 (T-CS6-01) — embedded here so the send/retry response already shows
+  // the just-sent attachment's chip without a second fetch.
+  const attachmentMap = await attachmentsByMessageId(
+    supabase,
+    workspaceId,
+    (messages ?? []).map((m: any) => m.id as string),
+  );
+  const withAttachments = (messages ?? []).map((m: any) => ({
+    ...m,
+    attachments: attachmentMap.get(m.id as string) ?? [],
+  }));
+
+  const userMessage = withAttachments.find((m: any) => m.role === "user") ?? null;
+  const assistantMessage = withAttachments.find((m: any) => m.role === "assistant") ?? null;
 
   return {
     ...turnRow,
@@ -267,8 +280,12 @@ export async function postChatTurnAction(
   if (!session) return actionFail("That chat session does not exist.");
   if (session.kind === "agent-creator") return agentCreatorNotAvailable("Sending a message");
 
-  const content = input.content;
-  if (!content || !content.trim()) return actionFail("content is required.");
+  const content = input.content ?? "";
+  // CS6 (T-CS6-01) — a message with an attachment but no text must still be
+  // sendable (phase Trap); only refuse when there's neither.
+  if (!content.trim() && !input.attachments?.length) {
+    return actionFail("content is required.");
+  }
   if (Buffer.byteLength(content, "utf8") > CHAT_MESSAGE_MAX_BYTES) {
     return actionFail(`content must not exceed ${CHAT_MESSAGE_MAX_BYTES} bytes`);
   }

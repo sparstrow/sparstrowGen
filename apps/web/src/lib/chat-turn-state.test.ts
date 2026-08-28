@@ -14,6 +14,7 @@ const msg = (id: string, role: "user" | "assistant", content: string) => ({
   content,
   meta: null,
   createdAt: "2026-08-23T00:00:00Z",
+  attachments: [],
 });
 
 function turn(overrides: Partial<ChatTurnState> = {}): ChatTurnState {

@@ -10,16 +10,22 @@ import {
   MessageSquare,
   MonitorPlay,
   MoreHorizontal,
+  Paperclip,
   PanelRight,
   Pencil,
   Plus,
   RefreshCw,
   Sparkles,
   Trash2,
+  X,
 } from "lucide-react";
 import {
+  CHAT_ATTACHMENT_BUCKET,
+  checkChatAttachmentFile,
   KNOWN_MODELS,
   PROVIDER_KINDS,
+  type ChatAttachmentUpload,
+  type ChatMessage,
   type ChatSession,
   type ChatSessionKind,
   type ChatSessionUpdate,
@@ -53,12 +59,15 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChatTurnView, ThinkingDots, TurnErrorBanner } from "@web/components/chat/chat-bits";
+import { createChatAttachmentUploader } from "@web/lib/storage/attachment-uploader";
+import { createClient } from "@web/utils/supabase/client";
 import {
   useAgents,
   useChatSession,
   useChatSessions,
   useProjects,
   useProviderModelCache,
+  useWorkspace,
 } from "@web/api/hooks";
 import { useLiveEvents } from "@web/lib/live-events";
 import { callAction } from "@web/lib/call-action";
@@ -345,6 +354,43 @@ function ModelPicker({
   );
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * T-CS6-01 (US4). The pre-send chip — a file already uploaded
+ * (`createChatAttachmentUploader`, T-CS5-02) and waiting to be attached to
+ * the next message. Removable: `onRemove` best-effort-deletes the uploaded
+ * object, since no `chat_message_attachments` row references it yet (that
+ * row is only created inside `enqueue_chat_turn`, at send time).
+ */
+function PendingAttachmentChip({
+  attachment,
+  onRemove,
+}: {
+  attachment: ChatAttachmentUpload;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 rounded-lg border bg-muted/50 px-2.5 py-1.5 text-xs">
+      <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />
+      <span className="max-w-[200px] truncate">{attachment.filename}</span>
+      <span className="text-muted-foreground">{formatFileSize(attachment.sizeBytes)}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="ml-0.5 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+        aria-label={`Remove ${attachment.filename}`}
+      >
+        <X className="size-3.5" />
+      </button>
+    </div>
+  );
+}
+
 /** Left rail of the split-pane layout: filters + the saved-session list. */
 function ChatThreadList({ children }: { children: React.ReactNode }) {
   return <aside className="flex h-full flex-col bg-sidebar">{children}</aside>;
@@ -362,6 +408,14 @@ function Composer({
   disabled,
   placeholder,
   controls,
+  pendingAttachment,
+  attachmentUploading,
+  attachmentError,
+  onAttachClick,
+  onRemoveAttachment,
+  fileInputRef,
+  onFileInputChange,
+  onDropFile,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -369,9 +423,50 @@ function Composer({
   disabled: boolean;
   placeholder: string;
   controls: React.ReactNode;
+  pendingAttachment: ChatAttachmentUpload | null;
+  attachmentUploading: boolean;
+  attachmentError: string | null;
+  onAttachClick: () => void;
+  onRemoveAttachment: () => void;
+  fileInputRef: React.Ref<HTMLInputElement>;
+  onFileInputChange: (file: File) => void;
+  onDropFile: (file: File) => void;
 }) {
+  const [dragActive, setDragActive] = React.useState(false);
+  // T-CS6-01's own Trap: scope the drop handler to actual file drags, not
+  // every drag event, so selecting/copying message text is unaffected —
+  // `dataTransfer.types` includes "Files" only for a real file drag, never
+  // for a text selection being dragged within the page.
+  const isFileDrag = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
+
   return (
-    <div className="rounded-xl border bg-background shadow-sm transition-shadow focus-within:border-ring/60 focus-within:shadow-md">
+    <div
+      onDragOver={(e) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        setDragActive(true);
+      }}
+      onDragLeave={(e) => {
+        if (!isFileDrag(e)) return;
+        setDragActive(false);
+      }}
+      onDrop={(e) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        setDragActive(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) onDropFile(file);
+      }}
+      className={cn(
+        "rounded-xl border bg-background shadow-sm transition-shadow focus-within:border-ring/60 focus-within:shadow-md",
+        dragActive && "border-primary ring-2 ring-primary/30",
+      )}
+    >
+      {dragActive && (
+        <div className="flex items-center justify-center rounded-t-xl border-b border-dashed bg-primary/5 px-4 py-3 text-xs text-primary">
+          Drop to attach
+        </div>
+      )}
       <textarea
         rows={1}
         value={value}
@@ -386,12 +481,54 @@ function Composer({
         placeholder={placeholder}
         className="max-h-44 min-h-[52px] w-full resize-none bg-transparent px-4 pt-3.5 text-[15px] leading-6 outline-none placeholder:text-muted-foreground/70 disabled:opacity-50 [field-sizing:content]"
       />
+      {(pendingAttachment || attachmentUploading) && (
+        <div className="px-2.5 pt-1.5">
+          {pendingAttachment ? (
+            <PendingAttachmentChip attachment={pendingAttachment} onRemove={onRemoveAttachment} />
+          ) : (
+            <div className="flex items-center gap-1.5 rounded-lg border bg-muted/50 px-2.5 py-1.5 text-xs text-muted-foreground">
+              <Paperclip className="size-3.5 shrink-0" />
+              Uploading…
+            </div>
+          )}
+        </div>
+      )}
+      {attachmentError && (
+        <p className="px-2.5 pt-1.5 text-xs text-destructive">{attachmentError}</p>
+      )}
       <div className="flex items-center justify-between gap-2 px-2.5 pb-2.5 pt-1">
-        <div className="flex min-w-0 flex-wrap items-center gap-0.5">{controls}</div>
+        <div className="flex min-w-0 flex-wrap items-center gap-0.5">
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onFileInputChange(file);
+              e.target.value = "";
+            }}
+          />
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-7 shrink-0 rounded-md text-muted-foreground hover:text-foreground"
+            onClick={onAttachClick}
+            disabled={disabled || attachmentUploading}
+            aria-label="Attach a file"
+            title="Attach a file"
+          >
+            <Paperclip className="size-4" />
+          </Button>
+          {controls}
+        </div>
         <Button
           size="icon"
           className="size-8 shrink-0 rounded-full"
-          disabled={disabled || value.trim().length === 0}
+          disabled={
+            disabled ||
+            attachmentUploading ||
+            (value.trim().length === 0 && !pendingAttachment)
+          }
           onClick={onSend}
           aria-label="Send message"
         >
@@ -627,6 +764,22 @@ export function ChatPage() {
   >(null);
   const [createError, setCreateError] = React.useState<string | null>(null);
 
+  // T-CS6-01 (US4) -- a single pending attachment on the draft. Uploaded
+  // immediately on drop/select (bytes go to Storage independently of
+  // sending, per T-CS5-02's design), removable before the message is sent.
+  // Multiple attachments per message are deliberately out of scope here —
+  // the spec's own Edge Cases section leaves "more than one file" open at
+  // the UX level (CS5's T-CS5-02 Result); this UI answers it as "one at a
+  // time" rather than guessing at a multi-file design nobody asked for.
+  const workspaceQuery = useWorkspace();
+  const supabase = React.useMemo(() => createClient(), []);
+  const attachmentUploader = React.useMemo(() => createChatAttachmentUploader(supabase), [supabase]);
+  const [pendingAttachment, setPendingAttachment] = React.useState<ChatAttachmentUpload | null>(null);
+  const [attachmentUploading, setAttachmentUploading] = React.useState(false);
+  const [attachmentError, setAttachmentError] = React.useState<string | null>(null);
+  const [isDraggingFile, setIsDraggingFile] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
   const messages = detail.data?.messages ?? [];
   const messageIds = React.useMemo(() => new Set(messages.map((m) => m.id)), [messages]);
   // A union, not a branch on whether a turn exists yet (found by actually
@@ -694,7 +847,35 @@ export function ChatPage() {
     }
   };
 
-  const postTo = async (sessionId: string, content: string) => {
+  // T-CS6-01 -- attaching a file before any message exists yet needs a real
+  // session id to upload under (`<workspace_id>/<session_id>/…`, T-CS5-01's
+  // path shape), so this is the SAME lazy-creation step `send()` already
+  // did inline, pulled out so the attach flow can trigger it too, not just
+  // Send.
+  const ensureSessionId = async (): Promise<string | null> => {
+    if (selectedId) return selectedId;
+    const r = await callAction(() =>
+      createChatSessionAction({
+        kind: draftKind,
+        ...(draftKind === "project" ? { projectId: draftProjectId } : {}),
+        ...(draftKind === "agent" ? { agentId: draftAgentId } : {}),
+        ...(draftKind === "free" ? { provider: draftProvider, model: draftModel } : {}),
+      }),
+    );
+    if (!r.ok) {
+      setCreateError(r.error);
+      return null;
+    }
+    void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+    setSelectedId(r.data.id);
+    return r.data.id;
+  };
+
+  const postTo = async (
+    sessionId: string,
+    content: string,
+    attachment: ChatAttachmentUpload | null,
+  ) => {
     // Null the held turn BEFORE the request starts, not after it resolves.
     // Found by actually sending a second message in the browser: without
     // this, `turn` keeps pointing at the PREVIOUS (terminal) turn for the
@@ -705,9 +886,15 @@ export function ChatPage() {
     // them honest instead of each needing its own "is this turn actually
     // CURRENT" guard.
     updateTurn(() => null);
-    const r = await callAction(() => postChatTurnAction(sessionId, { content }));
+    const r = await callAction(() =>
+      postChatTurnAction(sessionId, {
+        content,
+        attachments: attachment ? [attachment] : undefined,
+      }),
+    );
     if (!r.ok) {
       setInput(content);
+      if (attachment) setPendingAttachment(attachment);
       notifyFailure(sessionId, r);
       return;
     }
@@ -718,34 +905,55 @@ export function ChatPage() {
 
   const send = () => {
     const content = input.trim();
-    if (!content || busy) return;
+    // T-CS6-01's own Trap: an attachment with no text is still sendable.
+    if (busy || (!content && !pendingAttachment)) return;
+    const attachment = pendingAttachment;
     setInput("");
+    setPendingAttachment(null);
+    setAttachmentError(null);
     setComposerNotice(null);
     setCreateError(null);
-    if (selectedId) {
-      startSend(() => postTo(selectedId, content));
-      return;
-    }
-    // First message of a fresh conversation: create the session from the
-    // composer's context controls, then post.
     startSend(async () => {
-      const r = await callAction(() =>
-        createChatSessionAction({
-          kind: draftKind,
-          ...(draftKind === "project" ? { projectId: draftProjectId } : {}),
-          ...(draftKind === "agent" ? { agentId: draftAgentId } : {}),
-          ...(draftKind === "free" ? { provider: draftProvider, model: draftModel } : {}),
-        }),
-      );
-      if (!r.ok) {
+      const sessionId = await ensureSessionId();
+      if (!sessionId) {
         setInput(content);
-        setCreateError(r.error);
+        setPendingAttachment(attachment);
         return;
       }
-      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
-      setSelectedId(r.data.id);
-      await postTo(r.data.id, content);
+      await postTo(sessionId, content, attachment);
     });
+  };
+
+  const handleFileSelected = (file: File) => {
+    const checkMessage = checkChatAttachmentFile(file);
+    if (checkMessage) {
+      setAttachmentError(checkMessage);
+      return;
+    }
+    setAttachmentError(null);
+    setAttachmentUploading(true);
+    void (async () => {
+      try {
+        const sessionId = await ensureSessionId();
+        const workspaceId = workspaceQuery.data?.id;
+        if (!sessionId || !workspaceId) {
+          setAttachmentError("Could not start a conversation to attach this file to.");
+          return;
+        }
+        const uploaded = await attachmentUploader.upload(file, `${workspaceId}/${sessionId}`);
+        setPendingAttachment(uploaded);
+      } catch (err) {
+        setAttachmentError(err instanceof Error ? err.message : "Upload failed.");
+      } finally {
+        setAttachmentUploading(false);
+      }
+    })();
+  };
+
+  const removePendingAttachment = () => {
+    if (pendingAttachment) void attachmentUploader.remove(pendingAttachment.storagePath);
+    setPendingAttachment(null);
+    setAttachmentError(null);
   };
 
   const retry = (override?: { provider: string; model: string }) => {
@@ -1276,6 +1484,14 @@ export function ChatPage() {
                           : (session.model ?? "the model")
                       }…`}
                       controls={modelControls}
+                      pendingAttachment={pendingAttachment}
+                      attachmentUploading={attachmentUploading}
+                      attachmentError={attachmentError}
+                      onAttachClick={() => fileInputRef.current?.click()}
+                      onRemoveAttachment={removePendingAttachment}
+                      fileInputRef={fileInputRef}
+                      onFileInputChange={handleFileSelected}
+                      onDropFile={handleFileSelected}
                     />
                     {composerNotice && (
                       <p
@@ -1322,6 +1538,14 @@ export function ChatPage() {
                         : "Pick an agent below to begin…"
                   }
                   controls={modelControls}
+                  pendingAttachment={pendingAttachment}
+                  attachmentUploading={attachmentUploading}
+                  attachmentError={attachmentError}
+                  onAttachClick={() => fileInputRef.current?.click()}
+                  onRemoveAttachment={removePendingAttachment}
+                  fileInputRef={fileInputRef}
+                  onFileInputChange={handleFileSelected}
+                  onDropFile={handleFileSelected}
                 />
               </div>
               {createError && !busy && (
