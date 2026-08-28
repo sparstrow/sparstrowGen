@@ -77,21 +77,53 @@ Ruled out, with evidence for each:
 - **Missing schema grants** (`authenticated`/`anon` USAGE on `private`/
   `realtime`) — checked via `has_schema_privilege`; both present.
 
-**Strong remaining lead, from Supabase's own docs** (`search_docs`,
-"Realtime Authorization"):
+**"Allow public access to channels" — checked live, 2026-08-28, ruled out.**
+The owner found and disabled this exact Realtime Settings toggle (labeled
+"Allow public access to channels" in the live dashboard UI, matching the
+docs' "Allow public access"). Both the daemon and the browser's control
+channel were reconnected fresh afterward (a new `SUBSCRIBED` join, not a
+cached pre-toggle connection). Symptom unchanged — `terminal.list` still
+timed out, and the isolated relay probe (steps 1–6 above) still reproduced
+identically. This is not the cause, or not the whole of it.
 
-> To enforce private channels you need to disable the 'Allow public access'
-> setting in [Realtime Settings](/dashboard/project/_/realtime/settings)
+**Root-caused further using Supabase's own Realtime Inspector**
+(`/dashboard/project/pnymngoqseltgigcfevq/realtime/inspector`), 2026-08-28.
+Joined the exact `machine:<ws>:<runtime>` topic (private, RLS-checked) under
+two different roles:
 
-This is a **project-level dashboard toggle**, invisible to SQL, the
-Management API paths tried, and the `supabase` CLI (`supabase realtime
---help` has no config subcommand; `supabase config` only has `push`). It is
-the only documented per-project Realtime setting connected to private-channel
-behavior, and it is not something this agent could read or change from this
-session — `supabase login`'s access token was not locatable in a standard
-config path on this machine, and no Supabase dashboard browser session was
-established. **Not yet confirmed as root cause — this is the strongest
-untried lead, not a proven fix.**
+- **As `postgres` (superuser, bypasses RLS):** presence `sync`/`join` events
+  appear immediately on join. Using the Inspector's own "Broadcast a
+  message" button, a self-sent test message round-trips back to the same
+  connection within the same second.
+- **As `authenticated`, impersonating the real, correctly-RLS-authorized
+  daemon identity** (the Inspector's own "Authenticated → Project → User"
+  picker, searched by email and selected): the join itself reports success
+  (`{"message":"Subscribed to PostgreSQL","status":"ok",...}`) — but **no
+  presence `sync`/`join` ever appears**, and the identical
+  "Broadcast a message" self-test shows a `"Successfully broadcasted
+  message"` toast client-side and then **never appears in that same
+  connection's own event stream.** Same topic, same private config, only the
+  role differs.
+
+This is the cleanest evidence yet: it isolates the defect to **message
+delivery specifically for `authenticated`-role connections on this Realtime
+tenant**, after the authorization check has already passed — not RLS
+(already proven correct via direct SQL), not the public-access toggle (ruled
+out above), not this repo's client code (the Inspector uses neither
+`apps/web`'s nor `packages/core`'s code at all), and not even *external*
+delivery specifically — a connection can't hear **its own** broadcast either.
+
+**Untried lead, needs the owner: "Database connection pool size" is set to
+2**, on the same Realtime Settings page, described in the dashboard as
+*"Realtime Authorization uses this database pool to check client access."*
+Two is a very small pool for an authorization check that (per the `postgres`
+vs `authenticated` split above) appears to succeed but leave something
+incomplete afterward — consistent with a check that completes and then
+can't acquire a connection to finish registering the subscription for
+delivery. Attempting to raise it live (typing into the field) was blocked by
+this session's own safety classifier as a live production settings change,
+same as the public-access toggle was before the owner flipped it themselves.
+**Not yet tried.**
 
 ## Impact
 
@@ -120,12 +152,21 @@ project-level setting this agent cannot read or change.
 
 ## Resolution
 
-*(open — needs the owner to check Project Settings → Realtime → "Allow public
-access" at
-[`/dashboard/project/pnymngoqseltgigcfevq/realtime/settings`](https://supabase.com/dashboard/project/pnymngoqseltgigcfevq/realtime/settings)
-and, per Supabase's own docs, disable it if it is currently enabled. Row
-added to `doc/runbooks/README.md`. Once flipped, re-run this file's
-reproduction steps 1–6 — a fix should show connection A receiving the
-broadcast in step 5 and no code change should be needed. If disabling it does
-NOT fix the symptom, the next step is a Supabase support ticket, since
-everything queryable from this session has been checked.)*
+*(open. "Allow public access to channels" is confirmed disabled and is not
+the cause. Next step is the owner's call between:*
+
+1. *Raise "Database connection pool size" (currently 2) on the same Realtime
+   Settings page and retest — this session's Inspector-based diagnosis
+   (`authenticated` role's own self-broadcast never returns, `postgres`
+   role's does) points here as the strongest untried lead, but it is a live
+   production infrastructure change this session's safety classifier
+   correctly declined to make unsupervised.*
+2. *File a Supabase support ticket with this bug's reproduction — the
+   Inspector-based `postgres`-vs-`authenticated` split is concrete, minimal,
+   and doesn't depend on this repo's code at all, which should make it easy
+   for Supabase's own team to act on directly.*
+
+*Either way, re-run this file's reproduction steps 1–6 after — a fix should
+show connection A receiving the broadcast in step 5, and separately, the
+Inspector's `authenticated`-role self-broadcast test should round-trip the
+same way the `postgres`-role one already does.)*
