@@ -13,13 +13,18 @@ function jsonResponse(status: number, body: unknown = {}): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
-function credentialBody(expiresInMs = 600_000) {
+function credentialBody(expiresInMs = 600_000, token = "rt-token") {
   return {
-    token: "rt-token",
+    token,
     expiresAt: new Date(Date.now() + expiresInMs).toISOString(),
     supabaseUrl: "https://example.supabase.co",
     supabaseAnonKey: "anon-key",
   };
+}
+
+/** Only the field these tests care about: what token the client would send. */
+interface FakeClientOptions {
+  accessToken?: () => Promise<string>;
 }
 
 function makeFakeChannel() {
@@ -57,6 +62,7 @@ describe("realtime connection", () => {
   let originalSecretsDir: string;
   let originalCloudUrl: string;
   let createdClients: ReturnType<typeof makeFakeClient>[];
+  let clientOptions: FakeClientOptions[];
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -68,9 +74,15 @@ describe("realtime connection", () => {
     invalidatePairingCache();
 
     createdClients = [];
-    vi.mocked(RealtimeClient).mockImplementation(() => {
+    clientOptions = [];
+    vi.mocked(RealtimeClient).mockImplementation((_url, options) => {
       const c = makeFakeClient();
       createdClients.push(c);
+      // Captured so a test can ask what token the client would ACTUALLY send.
+      // realtime-js treats this callback as the source of truth over
+      // `setAuth(token)`, so asserting on `setAuth`'s argument alone proves
+      // nothing about the token in use.
+      clientOptions.push(options as FakeClientOptions);
       return c as unknown as RealtimeClient;
     });
   });
@@ -109,10 +121,61 @@ describe("realtime connection", () => {
     // 80% of 10s = 8s.
     await vi.advanceTimersByTimeAsync(8_000);
     expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2);
-    expect(client.setAuth).toHaveBeenCalledWith("rt-token");
+    expect(client.setAuth).toHaveBeenCalled();
     // Same client instance -- a refresh must never reconnect.
     expect(RealtimeClient).toHaveBeenCalledTimes(1);
     expect(client.disconnect).not.toHaveBeenCalled();
+  });
+
+  it("actually puts the NEW token in front of the client, not just a setAuth call", async () => {
+    // The regression test for BUG-2026-08-27-realtime-refresh-never-took-effect.
+    // realtime-js's `accessToken` callback outranks `setAuth(token)` -- its own
+    // docblock says so -- and core's callback used to close over the credential
+    // minted at connect time. Every refresh therefore did nothing, while a test
+    // asserting `setAuth` had been called with a token passed happily.
+    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    let mint = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      mint += 1;
+      return jsonResponse(200, credentialBody(10_000, `token-${mint}`));
+    });
+
+    startRealtimeConnection();
+    await vi.advanceTimersByTimeAsync(0);
+    const accessToken = clientOptions[0]?.accessToken;
+    expect(accessToken).toBeTypeOf("function");
+    await expect(accessToken!()).resolves.toBe("token-1");
+
+    await vi.advanceTimersByTimeAsync(8_000);
+    // The client is asked for a token on every reconnect and auth send. If this
+    // still returns token-1, the connection dies at the first credential's exp
+    // no matter how many times the refresh timer fires.
+    await expect(accessToken!()).resolves.toBe("token-2");
+  });
+
+  it("refreshes on an hour-long credential too, not just the old ten-minute one", async () => {
+    // Supabase decides the TTL now (T-DI-03), and it is typically an hour
+    // rather than the 600s M16 assumed. Nothing may be hard-coded to that
+    // old order of magnitude.
+    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    let mint = 0;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      mint += 1;
+      return jsonResponse(200, credentialBody(3_600_000, `token-${mint}`));
+    });
+
+    startRealtimeConnection();
+    await vi.advanceTimersByTimeAsync(0);
+    const accessToken = clientOptions[0]?.accessToken;
+
+    // Well past the old 600s TTL, nowhere near 80% of an hour: no refresh yet.
+    await vi.advanceTimersByTimeAsync(700_000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // 80% of an hour = 48 minutes.
+    await vi.advanceTimersByTimeAsync(2_180_000);
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+    await expect(accessToken!()).resolves.toBe("token-2");
   });
 
   it("backs off on repeated failure, retrying with increasing delay rather than a tight loop", async () => {

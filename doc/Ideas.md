@@ -302,3 +302,33 @@ the ones that attempt got wrong by answering them itself.
 *Surfaced 2026-08-24 from an owner request to design the chat right-click menu;
 parked by the owner the same day as a design addition wanting its own proper
 pass.*
+
+## I-14 — Sweep orphaned daemon auth identities
+
+Each paired machine gets its own Supabase Auth user (plan
+[`2026-08-27-the-daemon-gets-a-real-identity`](plans/2026-08-27-the-daemon-gets-a-real-identity.md),
+`DI-1`). When a machine is unpaired or removed, that identity is deliberately
+left behind rather than deleted — `DI-3` explains why: deleting it would need
+the Auth admin API from a Server Action that today runs as the *caller's*
+RLS-scoped client, which would widen the service role's blast radius past
+`/api/daemon/*`, a boundary
+[`auth.ts`](../apps/web/src/lib/daemon/auth.ts) states explicitly.
+
+The leftover row is inert by construction — no membership, no `public.users`
+row, and no `public.daemon_identities` row after the cascade — so it can reach
+nothing. This is a tidiness idea, not a security one.
+
+**What would make it real work:** enough unpair/re-pair churn that the Auth →
+Users list becomes hard to read, or an audit that wants the count to be exact.
+Neither is true today with one owner and a handful of machines.
+
+**If picked up:** the deletion needs a service-role path that does not live in a
+Server Action — most likely a `/api/daemon/*`-adjacent internal route, or a
+scheduled sweep matching on `app_metadata` plus the absence of a
+`daemon_identities` row. Note the lesson from
+[`BUG-2026-08-18-orphaned-account-rows-on-staging`](bug/BUG-2026-08-18-orphaned-account-rows-on-staging.md):
+`auth.admin.deleteUser` does not cascade, so anything built here proves what it
+leaves behind before it deletes anything.
+
+*Surfaced 2026-08-27 while planning the daemon identity; parked in the plan's
+own Scope boundaries rather than built.*

@@ -3,7 +3,7 @@ title: Tool permissions
 section: Concepts
 description: The four-layer policy that decides what any run may do — deny wins, empty inherits, snapshot at spawn.
 order: 2
-updated: 2026-07-13
+updated: 2026-08-27
 ---
 
 Tools are what make agents powerful — and what make guardrails necessary. The factory
@@ -45,4 +45,7 @@ Three rules govern the merge:
 - Tool names differ between providers (a CLI's editor tool vs the registry's) — policies
   apply per provider's tool naming; check the effective-tools line when mixing engines.
 - Permissions govern *agents*. Your own [Terminals](/knowledge/terminals) are outside
-  this system entirely.
+  this system entirely — a terminal runs with your own user's full permissions, not a
+  policy-clamped set. That's a larger grant than it sounds now that a terminal is
+  reachable from any browser you're signed in on, which is why opening or changing one
+  is restricted to workspace owners and admins.

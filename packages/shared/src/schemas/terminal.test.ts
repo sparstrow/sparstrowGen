@@ -34,7 +34,18 @@ describe("topic helpers", () => {
   });
 
   it("terminalSessionTopic produces the documented string", () => {
-    expect(terminalSessionTopic("ws1", "term_abc123")).toBe("terminal:ws1:term_abc123");
+    expect(terminalSessionTopic("ws1", "rt1", "term_abc123")).toBe("terminal:ws1:rt1:term_abc123");
+  });
+
+  // The positions are what `018` and `019` split_part on, so a transposed
+  // argument is a policy that silently authorizes the wrong pair rather than a
+  // type error — all three parameters are opaque strings.
+  it("puts workspace, runtime and session in the order the policies read them", () => {
+    const parts = terminalSessionTopic("ws1", "rt1", "term_abc123").split(":");
+    expect(parts[0]).toBe("terminal");
+    expect(parts[1]).toBe("ws1"); // split_part(topic, ':', 2)
+    expect(parts[2]).toBe("rt1"); // split_part(topic, ':', 3)
+    expect(parts[3]).toBe("term_abc123");
   });
 });
 
@@ -104,15 +115,27 @@ describe("control requests", () => {
 });
 
 describe("control replies", () => {
-  it("terminal.list reply carries sessions and machineStartedAt", () => {
+  it("terminal.list reply carries sessions, machineStartedAt and interactiveProviders", () => {
     const reply = {
       requestId: "req1",
       kind: "terminal.list",
       sessions: [SESSION],
       machineStartedAt: "2026-08-26T00:00:00.000Z",
+      interactiveProviders: ["claude-code", "antigravity"],
     };
     expect(terminalListReplySchema.safeParse(reply).success).toBe(true);
     expect(machineReplySchema.safeParse(reply).success).toBe(true);
+  });
+
+  it("terminal.list reply rejects a provider id outside the closed set", () => {
+    const reply = {
+      requestId: "req1",
+      kind: "terminal.list",
+      sessions: [SESSION],
+      machineStartedAt: "2026-08-26T00:00:00.000Z",
+      interactiveProviders: ["not-a-real-provider"],
+    };
+    expect(terminalListReplySchema.safeParse(reply).success).toBe(false);
   });
 
   it("terminal.open reply accepts either a session or an error, not both missing", () => {

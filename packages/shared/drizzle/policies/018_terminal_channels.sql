@@ -2,9 +2,26 @@
 --
 -- M16, T-M16-03. Who may listen to, and who may send on, the two terminal
 -- Realtime channels — the control channel (`machine:<workspace_id>:<runtime_id>`)
--- and a session's own bytes (`terminal:<workspace_id>:<session_id>`). Topic
--- helpers and event constants: packages/shared/src/cloud.ts. Message shapes:
+-- and a session's own bytes
+-- (`terminal:<workspace_id>:<runtime_id>:<session_id>`). Topic helpers and
+-- event constants: packages/shared/src/cloud.ts. Message shapes:
 -- packages/shared/src/schemas/terminal.ts.
+--
+-- ── This file is the BROWSER's half only ────────────────────────────────────
+--
+-- Amended by T-DI-01. The machine's half — a daemon publishing `reply` and
+-- `output` — lives in 019_daemon_realtime_identity.sql and is the mirror
+-- image of this file: the same topics, the opposite two events, resolved
+-- through `private.current_daemon_scope()` instead of admin membership.
+-- Read the two together; neither is the whole picture.
+--
+-- The session topic gained a runtime id (plan decision DI-2) so 019's `output`
+-- policy can confine a machine to its OWN sessions. A session id is
+-- machine-local and D-26 means no cloud row exists to join it against, so
+-- without it the machine-side check could only reach "some daemon in this
+-- workspace". **Nothing in THIS file checks the runtime id**: an admin may
+-- already reach every machine in their workspace, and narrowing that here
+-- would be a behaviour change smuggled into a rename.
 --
 -- ── Why this file grants a client send right at all ─────────────────────────
 --
@@ -123,22 +140,24 @@ with check (
 --   from pg_policies
 --   where schemaname = 'realtime' and tablename = 'messages';
 --
--- Expect six rows total: `transcript_broadcast_member_read` (010, SELECT),
--- `chat_turn_broadcast_member_read` (015, SELECT), and this file's four —
--- `terminal_channel_admin_read` / `machine_channel_admin_read` (SELECT),
--- `terminal_channel_admin_send` / `machine_channel_admin_send` (INSERT).
+-- Expect six rows from 010, 015 and this file: `transcript_broadcast_member_read`
+-- (010, SELECT), `chat_turn_broadcast_member_read` (015, SELECT), and this
+-- file's four — `terminal_channel_admin_read` / `machine_channel_admin_read`
+-- (SELECT), `terminal_channel_admin_send` / `machine_channel_admin_send`
+-- (INSERT). **Ten once 019 is applied**, which adds the machine's four.
 -- Confirm the project ref before and after running this — applying to the
--- wrong project succeeds silently and returns the same six rows there too.
+-- wrong project succeeds silently and returns the same rows there too.
 --
--- Negative tests both directions, both channels:
+-- Negative tests both directions, both channels (`r` below is any runtime id —
+-- these policies deliberately do not look at it):
 --   * a non-admin member of workspace A: SELECT and INSERT on
---     `terminal:<A>:x` / `machine:<A>:x` both refused
---   * an admin of A: SELECT and INSERT on `terminal:<A>:x` / `machine:<A>:x`
+--     `terminal:<A>:r:x` / `machine:<A>:r` both refused
+--   * an admin of A: SELECT and INSERT on `terminal:<A>:r:x` / `machine:<A>:r`
 --     both succeed
 --   * an admin of workspace B: SELECT and INSERT on an A topic refused,
 --     regardless of B's own admin status
---   * an admin of A inserting `event = 'output'` on `terminal:<A>:x`, or
---     `event = 'reply'` on `machine:<A>:x`, is refused; the same admin
+--   * an admin of A inserting `event = 'output'` on `terminal:<A>:r:x`, or
+--     `event = 'reply'` on `machine:<A>:r`, is refused; the same admin
 --     inserting `event = 'input'` / `event = 'request'` succeeds
 --
 -- The live browser-side assertion — a real second session refused at

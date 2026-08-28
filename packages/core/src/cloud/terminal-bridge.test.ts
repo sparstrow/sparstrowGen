@@ -66,6 +66,14 @@ describe("terminal bridge", () => {
     );
   });
 
+  it("terminal.list's interactiveProviders is exactly this registry's cli-kind providers, not the direct-API ones", async () => {
+    await bridge.handleMachineRequest({ requestId: "r1", kind: "terminal.list" });
+    const reply = sendMachineReply.mock.calls.at(-1)?.[0] as { interactiveProviders: string[] };
+    expect(reply.interactiveProviders.sort()).toEqual(["antigravity", "claude-code"]);
+    expect(reply.interactiveProviders).not.toContain("anthropic-api");
+    expect(reply.interactiveProviders).not.toContain("ollama");
+  });
+
   it("terminal.close on an unknown session replies unknown_session", async () => {
     await bridge.handleMachineRequest({ requestId: "r2", kind: "terminal.close", sessionId: "term_missing" });
     expect(sendMachineReply).toHaveBeenCalledWith({ requestId: "r2", kind: "terminal.close", error: "unknown_session" });

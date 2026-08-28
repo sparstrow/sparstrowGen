@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | [`../specs/2026-08-24-a-terminal-on-my-machine.md`](../specs/2026-08-24-a-terminal-on-my-machine.md) (Draft; the four framing decisions were taken by the owner 2026-08-24 and planning authorized in the same turn) |
-| **Status** | In progress — M16 done except G-47 (built, unit-tested, §C/§D live-verified against the real project; §A/§B's live-wire pass needs the owner's own hands, see [`KnownGaps.md`](../KnownGaps.md) G-47); M17 next |
+| **Status** | ⚠️ Built, never working — M16 and M17 both merged; the wire has never carried a byte. **`DD-2` is superseded** by [`2026-08-27-the-daemon-gets-a-real-identity`](2026-08-27-the-daemon-gets-a-real-identity.md), which fixes both blockers (see the note under `DD-2`). Gaps: [`G-47`](../KnownGaps.md), [`G-48`](../KnownGaps.md), [`BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls`](../bug/BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls.md) |
 | **Trigger** | The owner, 2026-08-24: "lets build the terminal." |
 | **Depends on** | M3 (pairing + daemon token), M4 (per-machine settings via `settings.set`), M5 (the Realtime broadcast pattern this extends). All code-complete. |
 | **Touches** | `packages/shared/src/cloud.ts`, `packages/shared/src/schemas/terminal.ts` (new), `packages/shared/drizzle/policies/018_terminal_channels.sql` (new), `apps/web/src/app/api/daemon/realtime/token/route.ts` (new), `apps/web/src/lib/daemon/realtime-token.ts` (new), `apps/web/src/lib/terminal-channel.ts` (new), `apps/web/src/app/terminals/terminals.tsx`, `apps/web/src/app/machines/machines.tsx`, `apps/web/src/content/knowledge/*.md`, `packages/core/src/cloud/realtime.ts` (new), `packages/core/src/cloud/terminal-bridge.ts` (new), `packages/core/src/terminal/manager.ts`, `packages/core/src/api/routes/terminal.ts`, `packages/core/src/index.ts` |
@@ -107,6 +107,30 @@ The cost the owner accepted: Realtime bills per message, so coalescing is not
 optional (DD-8).
 
 ### DD-2 — The daemon gets its own short-lived, workspace-scoped Realtime credential
+
+> ⚠️ **SUPERSEDED 2026-08-27 by
+> [`DI-1`](2026-08-27-the-daemon-gets-a-real-identity.md).** Kept in place
+> because two of its four bullets are still exactly right, and because the
+> fourth is the reason a second failure went unnoticed for two weeks.
+>
+> **What was wrong:** the signing key. This decision assumed the project's
+> private signing key could be read from the Supabase dashboard. It cannot —
+> Supabase never exposes the private half of an asymmetric key, confirmed live
+> in the owner's own dashboard on both the current ES256 key and a freshly
+> created standby one. There was never a value to put in
+> `SUPABASE_JWT_SIGNING_KEY`.
+>
+> **What was subtly wrong:** the fourth bullet's conclusion, not its reasoning.
+> Omitting `sub` does avoid the `uuid`-cast hazard it names — but it also makes
+> `auth.uid()` null, and `018_terminal_channels.sql`'s four policies resolve the
+> caller through `workspace_members` keyed on exactly that. So the daemon's own
+> token could never have passed its own channel's RLS, however it was signed.
+> The hazard was real; the fix traded it for a bigger one.
+>
+> `DI-1` resolves both at once: a real Supabase Auth identity per runtime, never
+> a workspace member, recognised by new policies through a mapping table. A
+> Supabase user id *is* a uuid, so the cast hazard disappears rather than being
+> worked around.
 
 This is the piece M5 named and declined. It is four things:
 
@@ -298,15 +322,47 @@ against a real paired machine.
 
 | Spec criterion | How it gets checked |
 |---|---|
-| **SC-001** (echo under 200 ms) | `T-M17-05`, timed in the browser against a machine on a different network. Recorded as a number, not an impression |
-| **SC-002** (progressive output) | `T-M17-05`, a command printing for 10 s, observed arriving in parts |
-| **SC-003** (session survives an hour) | `T-M17-05`, started, tab closed, reopened in a different browser |
-| **SC-004** (no "unavailable in the web app") | `T-M17-05`, Terminals opened in all four empty/error states |
-| **SC-005** (machine stopped → name + last seen) | `T-M17-05`, machine deliberately stopped |
-| **SC-006** (machine service only, no desktop app) | **Cannot be proved as stated** — installing the service without the desktop app is [`D-10`](../Deferred.md) and does not exist. `T-M17-05` proves the weaker form (a browser on a computer that is not the machine) and opens a `KnownGaps.md` entry for the difference, per the shipping-without-proof rule |
-| **SC-007** (machine refuses when switched off) | `T-M17-05`, asserted against the machine's own refusal, not the page hiding a button |
+| **SC-001** (echo under 200 ms) | `T-M17-06`, timed in the browser against a machine on a different network. Recorded as a number, not an impression |
+| **SC-002** (progressive output) | `T-M17-06`, a command printing for 10 s, observed arriving in parts |
+| **SC-003** (session survives an hour) | `T-M17-06`, started, tab closed, reopened in a different browser |
+| **SC-004** (no "unavailable in the web app") | `T-M17-06`, Terminals opened in all four empty/error states |
+| **SC-005** (machine stopped → name + last seen) | `T-M17-06`, machine deliberately stopped |
+| **SC-006** (machine service only, no desktop app) | **Cannot be proved as stated** — installing the service without the desktop app is [`D-10`](../Deferred.md) and does not exist. `T-M17-06` proves the weaker form (a browser on a computer that is not the machine) and opens a `KnownGaps.md` entry for the difference, per the shipping-without-proof rule |
+| **SC-007** (machine refuses when switched off) | `T-M17-06`, asserted against the machine's own refusal, not the page hiding a button |
 | FR-009 (owner/admin only) | `T-M16-06` §D asserts the policy directly in SQL with two roles. The **live** two-member walk needs a second account and is expected to open a gap entry, same shape as `G-15`/`G-24` |
 
 ## Result
 
-*(filled in as the plan lands)*
+Both phases shipped. **M16** (band 20): the two Realtime topic families,
+the daemon credential, the control-channel bridge, and the terminal
+manager's sink/lifetime/throttle rework — done except `G-47`'s live-wire
+pass. **M17** (band 21, this plan's other half): the browser channel
+client, the re-plumbed Terminals page with all four empty/error states and
+FR-009's role gate, agent terminals filtered against the machine's real
+provider registry, the per-machine off switch (killing live sessions on
+the daemon itself when flipped), and the Knowledge Center brought current —
+done except the interactive-session live pass. Both open pieces are one
+gap now, not two: `KnownGaps.md` **G-48**, since `T-M17-06`'s own live pass
+found the same infrastructure regression (`SUPABASE_JWT_SIGNING_KEY`
+malformed on both Vercel Preview and Development, not just one) blocking
+both. A live bug was also found and fixed along the way, independent of
+that gap: `T-M17-02`'s live pass caught react-query v5 reverting a
+never-succeeded query to `"pending"` on every background retry, flickering
+the Terminals page between its loading and error panes.
+
+Every task's own unit suite is green (`@sparstrow/shared`, `@sparstrow/core`,
+`web`, run per-package — the monorepo-wide `pnpm test` intermittently trips
+one pre-existing, unrelated flaky test under full parallel load, flagged
+separately, not a regression here). Everything reachable without the
+blocked control channel was live-verified against band 21's own real
+Vercel preview with a real paired machine, not simulated: never-paired,
+machine-off (SC-005), the off-switch's full round trip including the
+daemon's own confirmation log, a real pairing revoke detected and stopping
+the daemon within one poll cycle, all four rewritten Knowledge Center
+articles, SC-004's clean grep, both themes, and both Paper/Mono surface
+characters. Judged production-ready to promote into `development` on the
+same basis `G-47`/band 20 already established as this repo's precedent —
+built, unit-tested, and live-verified everywhere the environment allows,
+with the one remaining gap pointing at a five-minute owner fix rather than
+more engineering. Full verification detail:
+[`T-M17-06`](../tasks/M17/T-M17-06-verification.md).
