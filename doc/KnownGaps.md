@@ -1878,3 +1878,31 @@ preview with a real paired machine, closing the same
 US1/US2/US3/SC-001/002/003 items `G-48` named; (3) FR-009's live non-admin
 refusal, which stays open regardless — same second-account limitation as
 `G-15`/`G-24`/`G-47`/`G-48`.
+
+### G-50 — CS1's confirmation-dialog Error state was read-verified, not live-forced
+
+**Raised:** 2026-08-28, closing `T-CS1-03` (Band 26, chat session rename/
+delete — `doc/tasks/CS1/T-CS1-03-verification.md`).
+
+`ChatSessionDeleteDialog`'s failure path (`setDeleteError(r.error)`, dialog
+stays open, no silent close) was read against the code and matches the
+already-live-proven rename error path exactly — same `callAction` result
+shape, same "stay open and show `r.error`" logic. It was not independently
+exercised live: doing so needs a deliberately injected network cut or RLS
+denial mid-request, which this pass didn't force (no mock-network tooling
+was reached for; this repo's `agent-browser` cannot force a non-2xx
+response, per `doc/runbooks/agent-browser-session.md`'s own noted gap — the
+Playwright MCP fallback that runbook describes for exactly this case wasn't
+invoked this pass).
+
+**If wrong:** low. The shared pattern (`callAction` → `ActionResult` →
+`if (!r.ok) { setError(...); return }`) is identical in shape to
+`updateChatSessionAction`'s rename path, which this same pass genuinely did
+prove live (T-CS1-01's Result). A defect here would most likely be
+copy-paste drift in the dialog component specifically, not a shared-pattern
+failure.
+
+**Clears when:** a future pass forces a `chat_sessions` delete/update to
+fail (Playwright MCP route interception, per the runbook's step 5) and
+confirms the dialog stays open with a legible message rather than closing
+silently or showing a raw error.

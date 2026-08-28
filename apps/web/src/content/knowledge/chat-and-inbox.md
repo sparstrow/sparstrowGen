@@ -3,7 +3,7 @@ title: Chat & Inbox
 section: Surfaces
 description: Free-form sessions with agents, and the message inbox where agents reach you (and each other).
 order: 6
-updated: 2026-08-23
+updated: 2026-08-28
 ---
 
 ## Chat — talk to your agents
@@ -31,6 +31,13 @@ Didn't like a reply, or it failed? **Retry** re-asks without retyping —
 picking a different model first, if you want the second attempt to use one.
 The original reply stays in the conversation; retry adds a new one rather
 than replacing it.
+
+A new session names itself from your first message once it's sent, so the
+session list stops filling up with identical "New conversation" rows. From a
+session's own menu (the rail row, or the conversation header) you can
+**rename** it at any time, or choose to remove it — **Archive** takes it out
+of your active list without deleting anything, and **Delete** permanently
+removes the conversation and its message history, which can't be undone.
 
 [Try in App — Start a Chat](/chat)
 
@@ -68,3 +75,6 @@ be on the Dashboard, not just here.
   task run does.
 - Chat is one agent per session; to make several agents cooperate, use
   [Pipelines](/knowledge/pipelines) or [Goals](/knowledge/tasks-and-goals).
+- **No unarchive control exists yet.** Archiving a session removes it from
+  the active list; bringing it back currently needs the "Archived" filter to
+  find it, not a dedicated restore action.

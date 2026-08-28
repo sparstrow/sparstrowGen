@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-27-chat-session-and-conversation-ux.md`](../../specs/2026-08-27-chat-session-and-conversation-ux.md) |
 | **Depends on** | — |
 | **Blocks** | nothing |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-28 |
 | **Open questions** | none |
 
 ## The story this serves
@@ -61,7 +61,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 |---|---|---|---|---|
 | [T-CS1-01 — per-session menu, with rename](T-CS1-01-menu-and-rename.md) | `[S]` | US1 | — | done (2026-08-28) |
 | [T-CS1-02 — delete, with the Archive/Delete/Cancel confirmation](T-CS1-02-delete-confirmation.md) | `[S]` | US1 | T-CS1-01 | done (2026-08-28) |
-| [T-CS1-03 — verification](T-CS1-03-verification.md) | `[S]` | US1 | T-CS1-01, T-CS1-02 | not started |
+| [T-CS1-03 — verification](T-CS1-03-verification.md) | `[S]` | US1 | T-CS1-01, T-CS1-02 | ✅ done (2026-08-28) |
 
 This file holds what they share. Individual tasks reference it rather than
 restating it.
