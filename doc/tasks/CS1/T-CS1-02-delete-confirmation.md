@@ -7,7 +7,7 @@
 | **Depends on** | T-CS1-01 |
 | **Blocks** | — |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | done (2026-08-28) |
 
 ## The scenario this satisfies
 
@@ -53,22 +53,23 @@ history will be permanently removed and can't be recovered."*
 
 ## Checklist
 
-- [ ] `deleteChatSessionAction(sessionId)` in `actions.ts`, following the
+- [x] `deleteChatSessionAction(sessionId)` in `actions.ts`, following the
       existing action pattern in this file exactly (auth context, error
       shape, revalidation)
-- [ ] `ChatSessionDeleteDialog` (or inline in `ChatSessionMenu`): three
-      buttons — Archive, Delete, Cancel — Delete styled as destructive
-- [ ] Archive button calls the existing `updateChatSessionAction(id, {
-      status: "archived" })` — no new code, just routed through this dialog
-      instead of (or in addition to) the header icon
-- [ ] Delete button calls `deleteChatSessionAction`; buttons disabled while
+- [x] `ChatSessionDeleteDialog`, a dedicated component (not folded into
+      `ChatSessionMenu`): three buttons — Archive, Delete, Cancel — Delete
+      styled destructive
+- [x] Archive button calls the existing `updateChatSessionAction(id, {
+      status: "archived" })`. **Removed** the standalone header Archive icon
+      it duplicated — one path for session lifecycle actions, not two
+- [x] Delete button calls `deleteChatSessionAction`; buttons disabled while
       the request is in flight
-- [ ] Deleting the **currently open** session navigates the owner away
-      (rail root, or the next session in the list) rather than leaving the
-      pane pointed at a now-deleted id
-- [ ] A failed delete/archive keeps the dialog open and states what went
+- [x] Deleting the **currently open** session navigates the owner away —
+      confirmed live: deleting the open session lands back on the empty
+      composer state, not a broken pane
+- [x] A failed delete/archive keeps the dialog open and states what went
       wrong (no silent close on error)
-- [ ] `apps/web` typecheck and tests green
+- [x] `apps/web` typecheck and tests green (451 tests)
 
 ## Traps
 
@@ -85,20 +86,23 @@ history will be permanently removed and can't be recovered."*
 
 ## Verification
 
-- [ ] Delete a session via the confirmation; confirm it's gone from the
-      rail, and gone after a reload (query `chat_sessions` directly, or
-      confirm a 404-equivalent on its old id)
-- [ ] Delete the **currently open** session; confirm the owner lands
-      somewhere sensible, not a broken pane
-- [ ] Archive via the same dialog; confirm existing archive behavior
-      (session leaves the active list, is not destroyed)
-- [ ] Cancel; confirm the session is untouched
+- [x] Delete a session via the confirmation; confirm it's gone from the
+      rail, and gone after a reload — confirmed both via the UI and a direct
+      query (`chat_sessions` row gone, its `chat_messages` cascade-deleted
+      too)
+- [x] Delete the **currently open** session; confirm the owner lands
+      somewhere sensible, not a broken pane — confirmed, lands on the empty
+      composer state
+- [x] Archive via the same dialog; confirm existing archive behavior
+      (session leaves the active list, is not destroyed) — confirmed, and
+      confirmed it reappears when the "Archived" filter is toggled on
+- [x] Cancel; confirm the session is untouched — confirmed
 - [ ] Full acceptance-scenario walk deferred to [T-CS1-03](T-CS1-03-verification.md)
 
 ## On completion
 
-- [ ] `pnpm typecheck` and `pnpm test` green
-- [ ] Update this file's **Status** row
+- [x] `pnpm typecheck` and `pnpm test` green
+- [x] Update this file's **Status** row
 - [ ] Open the PR into `band/26-chat-session-and-conversation-ux`, then
       `gh pr merge <n> --auto --squash`
 - [ ] Update the phase README's task table
@@ -108,4 +112,29 @@ history will be permanently removed and can't be recovered."*
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+**2026-08-28 — done.** `deleteChatSessionAction` added to `actions.ts`
+(hard delete, RLS-scoped, no new policy needed — confirmed live via a
+direct post-delete query that the row and its cascaded messages were both
+gone). `ChatSessionDeleteDialog` built as its own component (three buttons:
+Archive/Delete/Cancel) rather than extending `ConfirmDialog`'s shared
+two-button API, per the phase decision. The standalone header Archive icon
+`ChatSessionMenu` made redundant was removed.
+
+**Found and fixed a real, pre-existing bug while verifying live**: `GET
+/chat/sessions` (`apps/web/src/lib/api/handlers/chat.ts`) silently ignored
+every filter (`kind`/`projectId`/`agentId`/`status`) the client already sent
+— archiving a session updated the database correctly but the session never
+left the rail's default list, because the list query never actually filtered
+by status (or kind/project) at all. Not introduced by this task or T-CS1-01;
+it's been broken since this route shipped in M12–M15, and nothing before
+this task exercised "archive, then confirm it left the list" end to end.
+Documented and fixed in the same change:
+[`BUG-2026-08-28-chat-sessions-list-ignores-filters`](../../bug/BUG-2026-08-28-chat-sessions-list-ignores-filters.md).
+
+Verified live (`agent-browser`, disposable account): Cancel leaves the
+session untouched; Archive removes it from the default list and it
+reappears under the "Archived" toggle; Delete removes it and its messages
+permanently (confirmed via a direct service-role query, not just the UI);
+deleting the currently-open session lands on the empty composer state, not
+a broken pane. `pnpm --filter web typecheck` clean, `pnpm --filter web
+test` 451/451 green. Disposable test account cleaned up per the runbook.
