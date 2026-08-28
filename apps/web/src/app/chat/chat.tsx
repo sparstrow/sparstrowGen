@@ -232,6 +232,28 @@ function GhostSelect({
   );
 }
 
+// A genuinely live discovery result is trusted for a full hour (plan Decision
+// 2). Anything else -- no cache yet, or the last attempt fell back to
+// antigravity.ts's static list because no runtime was online/capable or the
+// CLI failed -- is worth trying again, not treated as fresh just because
+// `checked_at` was recently bumped. See BUG-2026-08-28-antigravity-model-
+// picker-can-get-stuck-stale.md: the old isStale check only looked at
+// checked_at's age, so a failed/fallback report (which still updates
+// checked_at) silently pinned the picker for the rest of the hour.
+const ANTIGRAVITY_TRUST_WINDOW_MS = 60 * 60 * 1000;
+// How long to wait after dispatching before refetching the cache -- matches
+// antigravity.ts's own 20s CLI timeout (discoverModels), so a real, slow-but-
+// successful discovery has time to land before we give up on this attempt.
+const ANTIGRAVITY_DISCOVERY_WAIT_MS = 20_000;
+// Gap between an unresolved attempt's refetch and the next one, so an
+// offline/never-configured runtime doesn't get hammered every render.
+const ANTIGRAVITY_RETRY_GAP_MS = 10_000;
+
+function isTrustedProviderModelRow(row: { live: boolean; checkedAt: string } | null | undefined): boolean {
+  if (!row || !row.live) return false;
+  return Date.now() - new Date(row.checkedAt).getTime() < ANTIGRAVITY_TRUST_WINDOW_MS;
+}
+
 /**
  * T-CS4-01 (US3). `antigravity`'s model list, live from `provider_model_cache`
  * (T-CS3-02) instead of the static `KNOWN_MODELS` every other provider still
@@ -240,34 +262,59 @@ function GhostSelect({
  * a `requestModelDiscoveryAction` on every `/chat` load regardless of which
  * provider was showing, exactly the "dispatch nobody asked for" the phase's
  * own Traps note warns against (caught live during this task's own browser
- * verification, not assumed). Once `relevant` goes true it fires
- * `requestModelDiscoveryAction` (T-CS3-03) at most once per mount when the
- * cache is missing or older than the 1-hour staleness window (plan Decision
- * 2) — never continuously.
+ * verification, not assumed).
+ *
+ * Retries on a bounded timer rather than once per mount (fixed in
+ * BUG-2026-08-28-antigravity-model-picker-can-get-stuck-stale.md): the
+ * original one-shot `triggeredRef` latch meant that if no online/capable
+ * runtime existed at the moment this fired -- the exact case
+ * `request_model_discovery`'s "no online, capable runtime right now, no-op"
+ * path anticipates -- the picker was stuck on "no models available yet"
+ * for the rest of that page load, with nothing left to retry it. Repeated
+ * discovery requests are already expected server-side (see
+ * `023_provider_model_cache.sql`'s idempotency-key comment), so this now
+ * keeps trying on `ANTIGRAVITY_RETRY_GAP_MS` cadence, driven off a ref (not
+ * `cache.data`/`cache.isLoading` in the effect deps) since a repeated null
+ * result doesn't change reference and would never re-trigger a dependency-
+ * driven effect.
  */
 function useAntigravityModels(relevant: boolean) {
   const cache = useProviderModelCache(relevant ? "antigravity" : null);
   const [refreshing, setRefreshing] = React.useState(false);
-  const triggeredRef = React.useRef(false);
+  const cacheRef = React.useRef(cache);
+  cacheRef.current = cache;
 
   React.useEffect(() => {
-    if (!relevant || cache.isLoading || triggeredRef.current) return;
-    const row = cache.data;
-    const staleMs = 60 * 60 * 1000;
-    const isStale = !row || Date.now() - new Date(row.checkedAt).getTime() > staleMs;
-    if (!isStale) return;
+    if (!relevant) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
-    triggeredRef.current = true;
-    setRefreshing(true);
-    void requestModelDiscoveryAction("antigravity").finally(() => {
-      // Poll-bound, same latency budget CS3's own dispatch accepts (a few
-      // seconds) -- one re-fetch after that window, not continuous polling.
-      setTimeout(() => {
-        void cache.refetch().finally(() => setRefreshing(false));
-      }, 4000);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- triggeredRef guards this to fire once per mount regardless of how often cache.data/isLoading change.
-  }, [relevant, cache.isLoading, cache.data]);
+    const cycle = async () => {
+      if (cancelled) return;
+      const { data, isLoading } = cacheRef.current;
+      if (!isLoading && !isTrustedProviderModelRow(data)) {
+        setRefreshing(true);
+        try {
+          await requestModelDiscoveryAction("antigravity");
+        } catch {
+          // Reported failure is itself informative (a stale/fallback row),
+          // not something to retry harder for -- the next scheduled cycle
+          // already covers that.
+        }
+        await new Promise((resolve) => setTimeout(resolve, ANTIGRAVITY_DISCOVERY_WAIT_MS));
+        if (cancelled) return;
+        await cacheRef.current.refetch();
+        setRefreshing(false);
+      }
+      if (!cancelled) timer = setTimeout(cycle, ANTIGRAVITY_RETRY_GAP_MS);
+    };
+
+    void cycle();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [relevant]);
 
   return {
     models: cache.data?.models ?? [],
