@@ -43,7 +43,7 @@ affected UI, and it already handles all four states for whatever string
 
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
-| [T-CS2-01 — auto-title on first message](T-CS2-01-auto-title.md) | `[S]` | US2 | — | not started |
+| [T-CS2-01 — auto-title on first message](T-CS2-01-auto-title.md) | `[S]` | US2 | — | done (2026-08-28) |
 | [T-CS2-02 — verification](T-CS2-02-verification.md) | `[S]` | US2 | T-CS2-01 | not started |
 
 ## Objective
