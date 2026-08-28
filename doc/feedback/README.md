@@ -83,3 +83,5 @@ came in.
 | [`FB-2026-08-27-forgot-password-breaks-tab-order`](FB-2026-08-27-forgot-password-breaks-tab-order.md) | 🔴 new | Auth — sign-in form | "Forgot password?" sits before the Password field in tab order, breaking the email→Tab→password→Enter flow |
 | [`FB-2026-08-27-chat-model-list-hardcoded-not-dynamic`](FB-2026-08-27-chat-model-list-hardcoded-not-dynamic.md) | 🔴 new | Chat — model picker | Provider model lists (Claude, Antigravity) look hardcoded and drift from what the provider actually offers; wants them fetched dynamically |
 | [`FB-2026-08-27-chat-missing-file-upload`](FB-2026-08-27-chat-missing-file-upload.md) | 🔴 new | Chat — composer | No drag-and-drop or upload affordance for files/media in the chat composer |
+| [`FB-2026-08-27-chat-no-auto-rename-from-first-prompt`](FB-2026-08-27-chat-no-auto-rename-from-first-prompt.md) | 🔴 new | Chat — session list | Every session stays titled "New conversation"; wants auto-rename from the first prompt |
+| [`FB-2026-08-27-chat-no-manual-rename-delete`](FB-2026-08-27-chat-no-manual-rename-delete.md) | 🔴 new | Chat — session list | No manual rename or delete control for a chat session anywhere in the UI |
