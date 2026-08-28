@@ -1818,35 +1818,63 @@ outranks `setAuth(token)`, and core's callback closed over the connect-time
 credential; the existing test could not have caught it, since it asserted
 `setAuth` was called with a token string that never changed between mints).
 
-**What has never been checked, at all:**
+**Updated 2026-08-28, `T-DI-05`.** Item 1 below is now done, with evidence.
+Items 2–3 are still open, but the blocker moved — not to a gap in this band's
+own work, but to a newly-found, deeper platform issue that predates it. See
+[`BUG-2026-08-28-private-broadcast-channels-not-relaying`](../bug/BUG-2026-08-28-private-broadcast-channels-not-relaying.md).
 
-- `019_daemon_realtime_identity.sql` and `020_bootstrap_refuses_daemon.sql`
-  have not been applied to any Supabase project. No agent in the session that
-  wrote them could — the Supabase CLI was not logged in and the MCP server
-  needs an interactive OAuth grant this session's environment does not
-  provide. `018` was also re-run in text (its comments changed in `T-DI-01`)
-  but not re-applied, since its predicate is unchanged.
-- A real daemon has never held a subscribed control channel with this design.
-  `T-DI-05` — every item in `T-M16-06` §A/§B plus `T-M17-06`'s interactive
-  half — has not run once.
+**What is now done, with evidence:**
+
+- `018` (re-run, no-op confirmed), `019`, `020` applied to
+  `pnymngoqseltgigcfevq` (sparstrowgen-staging, shared by `development` and
+  `staging`). `pg_policies` shows the expected ten rows for `019`; `020`'s
+  guard verified both halves live (a daemon identity refused `42501`, a
+  genuinely new human user still provisions normally), inside a transaction
+  rolled back after. `get_advisors` run after; the one new finding
+  (`daemon_identities.workspace_id` unindexed FK) fixed in a new `021` file,
+  re-verified clean.
+- **The RLS-refusal defect this band exists to fix is proven closed**, live:
+  a real paired daemon's control channel reaches `SUBSCRIBED` on
+  `machine:<ws>:<runtime>` with no `Unauthorized` refusal — see
+  [`BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls`](../bug/BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls.md)'s
+  Resolution.
+- Two more real, previously-unknown bugs found and fixed getting a real
+  connection this far:
+  [`BUG-2026-08-28-realtime-connect-races-channel-subscribe-auth`](../bug/BUG-2026-08-28-realtime-connect-races-channel-subscribe-auth.md)
+  (core-side — every daemon connection attempt, forever, would have hit this,
+  independent of RLS) and
+  [`BUG-2026-08-28-terminal-channel-sends-before-control-channel-joined`](../bug/BUG-2026-08-28-terminal-channel-sends-before-control-channel-joined.md)
+  (browser-side).
+
+**What still has not been checked, and why:**
+
+- A real `terminal.list` round trip has never completed. Not because of RLS,
+  identity, or either race above (all three independently proven fixed) —
+  because messages broadcast on a `private: true` Realtime channel are not
+  delivered to a subscriber **on this project, at all**, reproduced with two
+  synthetic connections using only pre-existing M16 policies unrelated to
+  this band. Full investigation, what was ruled out, and the strongest
+  remaining lead (a project-level "Allow public access" Realtime Settings
+  toggle) in
+  [`BUG-2026-08-28-private-broadcast-channels-not-relaying`](../bug/BUG-2026-08-28-private-broadcast-channels-not-relaying.md).
+  `T-DI-05` §A's first item and everything after it is blocked on this.
 - The three regression tests added in `T-DI-04` were verified to fail against
   the bug they cover, by actually reverting the fix locally and re-running.
-  That proves the tests are load-bearing; it does not prove the fix is
-  correct against a real Realtime connection, only against a faked one.
+  The refresh mechanism itself has some live evidence now (the connection
+  stayed up, unattended, for several minutes without dropping) but not a full
+  credential-TTL-expiry wait, since the connection never reached a state where
+  that was worth running.
 
-**If wrong:** the same class of risk `G-47` and `G-48` already named for this
-exact wire, now doubled — a wire-shape or RLS-predicate mistake in `019`/`020`
-would not be caught by anything that ran here, because nothing here could run
-against Postgres at all. The mocked-admin-client tests in `T-DI-03` prove the
-call sequence (`generateLink` → `verifyOtp`, identity created once, reused
-thereafter) and prove nothing about whether Supabase's actual Auth API accepts
-that sequence or whether the resulting token's claims satisfy
-`current_daemon_scope()`.
+**If wrong:** low now for the RLS predicates and both races (all three
+independently verified against the real project, not a faked connection).
+High for the new relay finding, unchanged in kind from what `G-47`/`G-48`
+always named for this wire — and now confirmed to reach further than this
+band, since `010`/`015` share the identical `private: true` + RLS pattern.
 
-**Clears when:** (1) an owner (or an authorized agent) runs `018`, `019`, `020`
-in order against the real project and their `-- Verify` blocks pass — row in
-[`doc/runbooks/README.md`](../runbooks/README.md); (2) `T-DI-05` runs in full
-against a real preview with a real paired machine, closing the same
+**Clears when:** (1) **done, 2026-08-28** — `018`/`019`/`020`/`021` applied
+and verified; (2) the "Allow public access" Realtime Settings toggle is
+checked and, if enabled, disabled, and `T-DI-05` runs in full against a real
+preview with a real paired machine, closing the same
 US1/US2/US3/SC-001/002/003 items `G-48` named; (3) FR-009's live non-admin
 refusal, which stays open regardless — same second-account limitation as
 `G-15`/`G-24`/`G-47`/`G-48`.

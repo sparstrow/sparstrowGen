@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-24-a-terminal-on-my-machine.md`](../../specs/2026-08-24-a-terminal-on-my-machine.md) |
 | **Depends on** | M16 and M17, both merged |
 | **Blocks** | Band 24 (M22–M24) — see the queue note; its "blocked by M16" is really "blocked by M16 *working*" |
-| **Status** | code complete, unverified — `T-DI-01`…`04` done; `T-DI-02`'s SQL is written but **not applied**, and `T-DI-05` is blocked on that plus a paired machine (2026-08-27) |
+| **Status** | code complete; this band's own defect (the RLS refusal) is proven fixed live (2026-08-28); `T-DI-05` is now blocked on a newly-found platform issue that predates this band — [`BUG-2026-08-28-private-broadcast-channels-not-relaying`](../../bug/BUG-2026-08-28-private-broadcast-channels-not-relaying.md) |
 | **Open questions** | none |
 
 ## Objective
@@ -44,30 +44,36 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
 | [T-DI-01 — the session topic carries the runtime id](T-DI-01-session-topic-runtime-id.md) | `[S]` | foundational | — | done (2026-08-27) |
-| [T-DI-02 — the daemon identity: schema, helper, policies](T-DI-02-daemon-identity-schema.md) | `[S]` | foundational | T-DI-01 | written, not applied — owner (2026-08-27) |
-| [T-DI-03 — the token route mints a Supabase session](T-DI-03-token-route-supabase-session.md) | `[S]` | foundational | T-DI-02 | done except live checks (2026-08-27) |
+| [T-DI-02 — the daemon identity: schema, helper, policies](T-DI-02-daemon-identity-schema.md) | `[S]` | foundational | T-DI-01 | applied and verified live (2026-08-28) |
+| [T-DI-03 — the token route mints a Supabase session](T-DI-03-token-route-supabase-session.md) | `[S]` | foundational | T-DI-02 | done — live checks now pass (2026-08-28) |
 | [T-DI-04 — core adapts to the new credential](T-DI-04-core-credential-lifetime.md) | `[P]` | foundational | T-DI-03 | done (2026-08-27) |
-| [T-DI-05 — verification: the live pass that has never run](T-DI-05-verification.md) | `[S]` | US1–US3 | T-DI-01…04 | blocked — SQL not applied (2026-08-27) |
+| [T-DI-05 — verification: the live pass that has never run](T-DI-05-verification.md) | `[S]` | US1–US3 | T-DI-01…04 | partial — blocked on a newly-found platform bug (2026-08-28) |
 
-**Where this band actually stands, 2026-08-27.** All the code is written,
-typechecks, and its unit tests pass. **None of it has touched a database or a
-running machine.** Two things stand between here and `T-DI-05`:
+**Where this band actually stands, 2026-08-28.** `018`/`019`/`020` (plus a new
+`021` an advisor check called for) are applied to the real project and
+verified. A real paired daemon and a real signed-in browser both reach
+`SUBSCRIBED` on the terminal control channel with correct RLS authorization —
+this band's own defect is proven fixed. **A message still does not cross the
+wire**, but not because of anything in this band: `T-DI-05` traced it to
+private-channel Realtime broadcast relay not delivering on this project at
+all, reproduced with two synthetic connections using only pre-existing M16
+policies. Full account: `T-DI-05`'s own Result section and
+[`BUG-2026-08-28-private-broadcast-channels-not-relaying`](../../bug/BUG-2026-08-28-private-broadcast-channels-not-relaying.md).
 
-1. **`018`/`019`/`020` must be applied to the Supabase project.** No agent in
-   the session that wrote them could: the CLI is not logged in and the MCP
-   server needs an interactive OAuth grant. Owner row in
-   [`../../runbooks/README.md`](../../runbooks/README.md).
-2. **A machine must be paired against a deployment** that has the above, as in
-   `T-M17-06`'s own pass.
+Nothing here should be described as fixing terminals until `T-DI-05` says so
+— that is now gated on the new bug's resolution, not on this band's own code.
 
-Until both, this band's honest status is *built, unproven* — the same status M16
-and M17 carried, and the reason this band exists at all. Nothing here should be
-described as fixing terminals until `T-DI-05` says so.
-
-**One real bug was found and fixed along the way**, in already-merged M16 code:
-[`BUG-2026-08-27-realtime-refresh-never-took-effect`](../../bug/BUG-2026-08-27-realtime-refresh-never-took-effect.md).
-Core's credential refresh had never taken effect, and the test covering it could
-not have failed.
+**Three real bugs were found and fixed along the way.** One in already-merged
+M16 code:
+[`BUG-2026-08-27-realtime-refresh-never-took-effect`](../../bug/BUG-2026-08-27-realtime-refresh-never-took-effect.md)
+(core's credential refresh had never taken effect, and the test covering it
+could not have failed). Two more found running `T-DI-05` itself, both
+permanent client-side races rather than intermittent flakes:
+[`BUG-2026-08-28-realtime-connect-races-channel-subscribe-auth`](../../bug/BUG-2026-08-28-realtime-connect-races-channel-subscribe-auth.md)
+(core) and
+[`BUG-2026-08-28-terminal-channel-sends-before-control-channel-joined`](../../bug/BUG-2026-08-28-terminal-channel-sends-before-control-channel-joined.md)
+(`apps/web`) — both fixed and verified live, both necessary but not
+sufficient to complete the wire.
 
 Every task through `T-DI-03` is `[S]`: each defines the contract the next one
 compiles or authorizes against, and they touch overlapping files. `T-DI-04` is
