@@ -46,7 +46,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | [T-DI-01 — the session topic carries the runtime id](T-DI-01-session-topic-runtime-id.md) | `[S]` | foundational | — | done (2026-08-27) |
 | [T-DI-02 — the daemon identity: schema, helper, policies](T-DI-02-daemon-identity-schema.md) | `[S]` | foundational | T-DI-01 | written, not applied — owner (2026-08-27) |
 | [T-DI-03 — the token route mints a Supabase session](T-DI-03-token-route-supabase-session.md) | `[S]` | foundational | T-DI-02 | done except live checks (2026-08-27) |
-| [T-DI-04 — core adapts to the new credential](T-DI-04-core-credential-lifetime.md) | `[P]` | foundational | T-DI-03 | not started |
+| [T-DI-04 — core adapts to the new credential](T-DI-04-core-credential-lifetime.md) | `[P]` | foundational | T-DI-03 | done (2026-08-27) |
 | [T-DI-05 — verification: the live pass that has never run](T-DI-05-verification.md) | `[S]` | US1–US3 | T-DI-01…04 | not started |
 
 Every task through `T-DI-03` is `[S]`: each defines the contract the next one

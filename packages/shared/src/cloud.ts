@@ -921,8 +921,17 @@ export const TERMINAL_THROTTLE_NOTICE =
  */
 export const MACHINE_REQUEST_TIMEOUT_MS = 10_000;
 
-/** Lifetime of the credential a daemon mints to authenticate to Realtime. */
-export const DAEMON_REALTIME_TOKEN_TTL_S = 600;
+// DAEMON_REALTIME_TOKEN_TTL_S was here (M16, DD-2). REMOVED by `T-DI-04`.
+//
+// It named the lifetime of a credential this app minted and signed itself. It
+// no longer mints one: `/api/daemon/realtime/token` returns a real Supabase
+// session, so Supabase decides the TTL and the only honest source for it is the
+// `expiresAt` that endpoint returns. Core reads that and nothing else
+// (`realtime.ts`'s `scheduleRefresh`).
+//
+// Deleted rather than re-documented as a "refresh floor": a constant that no
+// longer describes anything real is exactly what a later reader schedules
+// against by mistake.
 
 /**
  * Everything a paired machine needs to open its own Realtime connection,
