@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-24-a-terminal-on-my-machine.md`](../../specs/2026-08-24-a-terminal-on-my-machine.md) |
 | **Depends on** | M16 and M17, both merged |
 | **Blocks** | Band 24 (M22–M24) — see the queue note; its "blocked by M16" is really "blocked by M16 *working*" |
-| **Status** | not started |
+| **Status** | code complete, unverified — `T-DI-01`…`04` done; `T-DI-02`'s SQL is written but **not applied**, and `T-DI-05` is blocked on that plus a paired machine (2026-08-27) |
 | **Open questions** | none |
 
 ## Objective
@@ -47,7 +47,27 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | [T-DI-02 — the daemon identity: schema, helper, policies](T-DI-02-daemon-identity-schema.md) | `[S]` | foundational | T-DI-01 | written, not applied — owner (2026-08-27) |
 | [T-DI-03 — the token route mints a Supabase session](T-DI-03-token-route-supabase-session.md) | `[S]` | foundational | T-DI-02 | done except live checks (2026-08-27) |
 | [T-DI-04 — core adapts to the new credential](T-DI-04-core-credential-lifetime.md) | `[P]` | foundational | T-DI-03 | done (2026-08-27) |
-| [T-DI-05 — verification: the live pass that has never run](T-DI-05-verification.md) | `[S]` | US1–US3 | T-DI-01…04 | not started |
+| [T-DI-05 — verification: the live pass that has never run](T-DI-05-verification.md) | `[S]` | US1–US3 | T-DI-01…04 | blocked — SQL not applied (2026-08-27) |
+
+**Where this band actually stands, 2026-08-27.** All the code is written,
+typechecks, and its unit tests pass. **None of it has touched a database or a
+running machine.** Two things stand between here and `T-DI-05`:
+
+1. **`018`/`019`/`020` must be applied to the Supabase project.** No agent in
+   the session that wrote them could: the CLI is not logged in and the MCP
+   server needs an interactive OAuth grant. Owner row in
+   [`../../runbooks/README.md`](../../runbooks/README.md).
+2. **A machine must be paired against a deployment** that has the above, as in
+   `T-M17-06`'s own pass.
+
+Until both, this band's honest status is *built, unproven* — the same status M16
+and M17 carried, and the reason this band exists at all. Nothing here should be
+described as fixing terminals until `T-DI-05` says so.
+
+**One real bug was found and fixed along the way**, in already-merged M16 code:
+[`BUG-2026-08-27-realtime-refresh-never-took-effect`](../../bug/BUG-2026-08-27-realtime-refresh-never-took-effect.md).
+Core's credential refresh had never taken effect, and the test covering it could
+not have failed.
 
 Every task through `T-DI-03` is `[S]`: each defines the contract the next one
 compiles or authorizes against, and they touch overlapping files. `T-DI-04` is

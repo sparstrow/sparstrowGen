@@ -7,7 +7,7 @@
 | **Depends on** | T-DI-01 … T-DI-04 |
 | **Blocks** | closing `G-47`, `G-48`, and the RLS bug |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | blocked — needs `T-DI-02`'s SQL applied and a paired machine (2026-08-27) |
 
 ## Objective
 
