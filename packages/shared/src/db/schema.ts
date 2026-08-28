@@ -946,6 +946,30 @@ export const chatTurns = pgTable(
   ],
 );
 
+/**
+ * T-CS3-02 (Band 26, CS chat session & conversation UX). One row per
+ * (workspace, provider) caching the last live model-discovery result, so
+ * the chat composer's model picker never blocks on a dispatch round trip.
+ * Written only by `public.record_provider_models` (023_provider_model_cache.sql,
+ * T-CS3-03) -- a workspace member can SELECT their own workspace's rows but
+ * has no direct INSERT/UPDATE grant, so a client can't forge a fake "live"
+ * result straight past the function's own validation.
+ */
+export const providerModelCache = pgTable(
+  "provider_model_cache",
+  {
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    models: jsonb("models").$type<string[]>().notNull().default([]),
+    live: boolean("live").notNull().default(false),
+    detail: text("detail"),
+    checkedAt: timestamp("checked_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.provider] })],
+);
+
 // ─── 10. Pipelines & schedules ─────────────────────────────────────────────────
 
 export const pipelines = pgTable(
