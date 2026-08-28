@@ -51,6 +51,26 @@ export interface ChatMessageMeta {
   [key: string]: unknown;
 }
 
+/**
+ * CS6 (Band 26, T-CS6-01) — the client-facing read shape for one row of
+ * `chat_message_attachments` (T-CS5-01). `storagePath` IS included here,
+ * unlike the daemon's own dispatch payload — this is read back by a
+ * workspace member who already has RLS SELECT access to the object itself
+ * (`025_chat_attachments_storage.sql`), so naming the path here grants
+ * nothing the bucket's own policy doesn't already allow; it's what lets the
+ * composer mint its own signed URL on click, the same
+ * `createSignedUrl` call the daemon makes, under the caller's own session
+ * rather than a service-role one.
+ */
+export const chatMessageAttachmentSchema = z.object({
+  id: idSchema,
+  storagePath: z.string(),
+  filename: z.string(),
+  mimeType: z.string(),
+  sizeBytes: z.number(),
+});
+export type ChatMessageAttachment = z.infer<typeof chatMessageAttachmentSchema>;
+
 export const chatMessageSchema = z.object({
   id: idSchema,
   sessionId: idSchema,
@@ -58,6 +78,7 @@ export const chatMessageSchema = z.object({
   content: z.string(),
   meta: z.record(z.unknown()).nullable().default(null),
   createdAt: isoDateSchema,
+  attachments: z.array(chatMessageAttachmentSchema).default([]),
 });
 export type ChatMessage = Omit<z.infer<typeof chatMessageSchema>, "meta"> & {
   meta: ChatMessageMeta | null;
@@ -126,12 +147,19 @@ export type ChatAttachmentUpload = z.infer<typeof chatAttachmentUploadSchema>;
  */
 export const CHAT_ATTACHMENTS_MAX_PER_MESSAGE = 10;
 
-/** POST /chat/sessions/:id/messages — one user turn. `draft` is only honored on
- *  agent-creator sessions (untrusted WIP context, clamped server-side). */
+/**
+ * POST /chat/sessions/:id/messages — one user turn. `draft` is only honored
+ * on agent-creator sessions (untrusted WIP context, clamped server-side).
+ *
+ * `content` allows empty — CS6's own Trap: a message with an attachment but
+ * no text must still be sendable, and `chat_messages.content` being NOT
+ * NULL means that's an explicit `""`, not a validation error. The action
+ * layer (`postChatTurnAction`) is what actually enforces "text OR an
+ * attachment, not neither."
+ */
 export const chatTurnRequestSchema = z.object({
   content: z
     .string()
-    .min(1)
     .refine((s) => Buffer.byteLength(s, "utf8") <= CHAT_MESSAGE_MAX_BYTES, {
       message: `content must not exceed ${CHAT_MESSAGE_MAX_BYTES} bytes`,
     }),

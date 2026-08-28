@@ -48,6 +48,21 @@ export function createChatAttachmentUploader(supabase: SupabaseClient) {
         sizeBytes: file.size,
       };
     },
+
+    /**
+     * T-CS6-01 — removing an attachment from the draft before sending.
+     * Best-effort, same framing as `image-uploader.ts`'s own `remove()`: no
+     * `chat_message_attachments` row exists yet at this point (that row is
+     * only created inside `enqueue_chat_turn`, at send time), so this is
+     * cleaning up an orphaned object, not a referenced one — a failure here
+     * costs a few wasted kilobytes, not a broken reference.
+     */
+    async remove(storagePath: string): Promise<void> {
+      await supabase.storage
+        .from(CHAT_ATTACHMENT_BUCKET)
+        .remove([storagePath])
+        .catch(() => {});
+    },
   };
 }
 

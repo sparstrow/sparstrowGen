@@ -39,6 +39,7 @@ function message(overrides: Partial<ChatMessage> = {}): ChatMessage {
     content: "hi",
     meta: null,
     createdAt: ts,
+    attachments: [],
     ...overrides,
   };
 }

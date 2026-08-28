@@ -108,12 +108,12 @@ type Row = Record<string, unknown>;
  *  query (`turnStateRow`'s messages lookup) resolves the same way the real
  *  supabase-js query builder does. */
 function fakeTable(rows: Row[]) {
-  const filters: Array<[string, unknown]> = [];
+  const filters: Array<(r: Row) => boolean> = [];
   let orderSpec: { col: string; ascending: boolean } | null = null;
   let limitN: number | null = null;
 
   function apply(): Row[] {
-    let result = rows.filter((r) => filters.every(([k, v]) => r[k] === v));
+    let result = rows.filter((r) => filters.every((f) => f(r)));
     if (orderSpec) {
       const { col, ascending } = orderSpec;
       result = [...result].sort((a, b) => {
@@ -130,7 +130,12 @@ function fakeTable(rows: Row[]) {
   const builder: any = {
     select: () => builder,
     eq(col: string, val: unknown) {
-      filters.push([col, val]);
+      filters.push((r) => r[col] === val);
+      return builder;
+    },
+    // T-CS6-01 -- `attachmentsByMessageId` batches its lookup with `.in()`.
+    in(col: string, vals: unknown[]) {
+      filters.push((r) => vals.includes(r[col]));
       return builder;
     },
     order(col: string, o: { ascending: boolean }) {
@@ -155,6 +160,7 @@ function mockChatTurnCtx(opts: {
   sessions?: Row[];
   turns?: Row[];
   messages?: Row[];
+  attachments?: Row[];
   rpc?: Record<string, { data?: Row | null; error?: { code?: string; message: string } | null }>;
 }) {
   const rpcCalls: Array<{ name: string; params: unknown }> = [];
@@ -163,6 +169,7 @@ function mockChatTurnCtx(opts: {
       if (table === "chat_sessions") return fakeTable(opts.sessions ?? []);
       if (table === "chat_turns") return fakeTable(opts.turns ?? []);
       if (table === "chat_messages") return fakeTable(opts.messages ?? []);
+      if (table === "chat_message_attachments") return fakeTable(opts.attachments ?? []);
       throw new Error(`mockChatTurnCtx: unexpected table ${table}`);
     },
     async rpc(name: string, params: unknown) {
@@ -320,6 +327,58 @@ describe("postChatTurnAction", () => {
     await postChatTurnAction("chs_1", { content: "no attachments here" });
     expect(rpcCalls[0]).toMatchObject({ params: { p_attachments: [] } });
   });
+
+  // T-CS6-01 -- the composer shows the just-sent attachment immediately,
+  // without a second fetch, because the action's own return value already
+  // carries it (026_chat_attachments_dispatch.sql created the row inside
+  // enqueue_chat_turn; this just proves the read-back embeds it).
+  it("embeds the newly-created attachment in the returned userMessage", async () => {
+    mockChatTurnCtx({
+      sessions: [FREE_SESSION],
+      messages: [USER_MSG],
+      attachments: [
+        {
+          id: "cma_1",
+          workspace_id: "ws_1",
+          message_id: USER_MSG.id,
+          storage_path: "ws_1/chs_1/a.txt",
+          filename: "notes.txt",
+          mime_type: "text/plain",
+          size_bytes: 42,
+        },
+      ],
+      rpc: { enqueue_chat_turn: { data: WAITING_TURN } },
+    });
+    const result = await postChatTurnAction("chs_1", {
+      content: "see attached",
+      attachments: [
+        { storagePath: "ws_1/chs_1/a.txt", filename: "notes.txt", mimeType: "text/plain", sizeBytes: 42 },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.userMessage.attachments).toEqual([
+        { id: "cma_1", storagePath: "ws_1/chs_1/a.txt", filename: "notes.txt", mimeType: "text/plain", sizeBytes: 42 },
+      ]);
+    }
+  });
+
+  // T-CS6-01's own Trap: empty text is sendable when an attachment is present.
+  it("accepts empty content when an attachment is present", async () => {
+    mockChatTurnCtx({
+      sessions: [FREE_SESSION],
+      messages: [{ ...USER_MSG, content: "" }],
+      rpc: { enqueue_chat_turn: { data: WAITING_TURN } },
+    });
+    const result = await postChatTurnAction("chs_1", {
+      content: "",
+      attachments: [
+        { storagePath: "ws_1/chs_1/a.txt", filename: "notes.txt", mimeType: "text/plain", sizeBytes: 42 },
+      ],
+    });
+    expect(result.ok).toBe(true);
+  });
+
 });
 
 describe("retryChatTurnAction", () => {
