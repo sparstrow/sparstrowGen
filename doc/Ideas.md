@@ -368,6 +368,14 @@ Zero machines paired is neutral, not red.
 
 ## I-16 — Media as a first-class chat artifact: what a turn produced, not just what it said
 
+> **Graduated 2026-08-28** to
+> [`specs/2026-08-28-seeing-what-my-agent-made.md`](specs/2026-08-28-seeing-what-my-agent-made.md),
+> which absorbs this entry whole — both surfaces and cloud availability were
+> settled by the owner the same day, and the spec's Assumptions record why the
+> alternatives were rejected. **Kept until that spec passes owner review**, so
+> the elaboration below survives if the direction is rejected; delete it once
+> the spec is reviewed and planned.
+
 ### What was noticed
 
 Two things, in one message, 2026-08-28 —
