@@ -216,7 +216,8 @@ export type CommandKind =
   | "project.clone"
   | "settings.set"
   | "memory.sync"
-  | "chat.turn";
+  | "chat.turn"
+  | "providers.discover_models";
 
 /**
  * Ids AND slugs travel together, deliberately.
@@ -256,6 +257,13 @@ export interface ProjectClonePayload {
 export interface SettingsSetPayload {
   key: string;
   value: string;
+}
+
+/** T-CS3-03 (Band 26). `providers.discover_models` carries no more than
+ *  which provider to check -- the daemon already knows its own workspace
+ *  from its own token, same framing as `memory.sync`'s doorbell. */
+export interface ProviderDiscoverModelsPayload {
+  provider: string;
 }
 
 /**

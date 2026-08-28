@@ -306,7 +306,7 @@ export const runtimeCommands = pgTable(
     runtimeId: text("runtime_id")
       .notNull()
       .references(() => runtimes.id, { onDelete: "cascade" }),
-    kind: text("kind").notNull(), // run.start | run.cancel | chat.turn | project.clone | memory.sync
+    kind: text("kind").notNull(), // run.start | run.cancel | chat.turn | project.clone | memory.sync | settings.set | providers.discover_models
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
     status: text("status").notNull().default("pending"), // pending | claimed | done | failed | expired
     idempotencyKey: text("idempotency_key").notNull(),
