@@ -1,6 +1,6 @@
 # FB-2026-08-27-chat-no-manual-rename-delete
 
-**Status:** 🔴 new
+**Status:** 🟡 triaged
 **Reported by:** owner
 **Reported:** 2026-08-27
 **Area:** Chat — session list (`/chat`)
@@ -41,7 +41,15 @@ piece may not exist yet even server-side; worth confirming at triage time.
 
 ## Triage
 
-<!-- Not triaged yet. -->
+Worth building. Routed into
+[`doc/specs/2026-08-27-chat-session-and-conversation-ux.md`](../specs/2026-08-27-chat-session-and-conversation-ux.md)'s
+US1. Confirmed at triage: no delete action exists in `actions.ts` today, only
+the rename-capable update and the existing archive path — matching this
+file's note. The "is delete real or archive?" question this raised (also
+flagged separately in [`I-13`](../Ideas.md)) was resolved with the owner in
+the same conversation that produced the spec: a real, permanent delete,
+behind an Archive/Delete/Cancel confirmation that warns the conversation is
+gone for good.
 
 ## Resolution
 
