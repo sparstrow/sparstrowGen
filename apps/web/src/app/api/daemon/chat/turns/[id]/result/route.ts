@@ -9,9 +9,11 @@ import { approximateBodyBytes } from "@web/lib/daemon/transcript";
  * M12 — the terminal half of a chat turn's reply.
  *
  * The counterpart to `.../events/route.ts` above: one call, `status` is
- * `succeeded` or `failed`, and on `succeeded` `ingest_chat_turn_reply` inserts
- * the assistant `chat_messages` row — the ONLY place that ever happens. See
- * doc/tasks/M12/T-M12-03.
+ * `succeeded` or `failed`, and `ingest_chat_turn_reply` inserts the assistant
+ * `chat_messages` row — the ONLY place that ever happens. Originally only on
+ * `succeeded`; AM1 (`T-AM1-03`, band 27) widened this to also fire on a
+ * `failed` turn that produced files (FR-013 — partial work is not thrown
+ * away). See doc/tasks/M12/T-M12-03 and doc/tasks/AM1/T-AM1-03-bind-and-reply.md.
  *
  * ─── `seq` must be strictly greater than every prior events call ───────────
  *
@@ -67,6 +69,11 @@ export async function POST(request: Request, { params }: RouteContext) {
 
   const { result } = parsed;
 
+  // AM1 (T-AM1-03). Same camelCase -> snake_case mapping convention
+  // `postChatTurnAction`'s `p_attachments` already established for the
+  // owner's own inbound attachments (`actions.ts`) -- the jsonb the RPC
+  // receives is always snake_case, regardless of which side of the wire
+  // produced the camelCase TS shape.
   const { data, error } = await db.rpc("ingest_chat_turn_reply", {
     p_turn_id: id,
     p_runtime_id: auth.scope.runtimeId,
@@ -74,6 +81,12 @@ export async function POST(request: Request, { params }: RouteContext) {
     p_reply_text: result.replyText,
     p_status: result.status,
     p_error: result.error ?? null,
+    p_produced: (result.produced ?? []).map((f) => ({
+      storage_path: f.storagePath,
+      filename: f.filename,
+      mime_type: f.mimeType,
+      size_bytes: f.sizeBytes,
+    })),
   });
 
   if (error) {
