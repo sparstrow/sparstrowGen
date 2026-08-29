@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft |
+| **Status** | Owner-reviewed 2026-08-27 |
 | **Created** | 2026-08-27 |
 | **Trigger** | Four items captured in `doc/feedback/` on 2026-08-27 (owner): [`chat-no-auto-rename-from-first-prompt`](../feedback/FB-2026-08-27-chat-no-auto-rename-from-first-prompt.md), [`chat-no-manual-rename-delete`](../feedback/FB-2026-08-27-chat-no-manual-rename-delete.md), [`chat-model-list-hardcoded-not-dynamic`](../feedback/FB-2026-08-27-chat-model-list-hardcoded-not-dynamic.md), [`chat-missing-file-upload`](../feedback/FB-2026-08-27-chat-missing-file-upload.md), grouped into one spec at the owner's direction (three auth-area feedback items from the same batch were deliberately deferred to a later pass). The rename/delete pair overlaps a question [`I-13`](../Ideas.md) already left open — whether "delete" means a real delete or the archive the backend already half-supports — resolved with the owner in the same conversation that produced this spec: a real, permanent delete, behind a confirmation offering Archive / Delete / Cancel and a clear warning about what's lost. |
 | **Plan** | not planned yet |
@@ -307,4 +307,4 @@ message and persists across reloads.
 
 ## Owner review
 
-**Reviewed:** <not yet reviewed>
+**Reviewed:** 2026-08-27 — accepted, no changes requested.

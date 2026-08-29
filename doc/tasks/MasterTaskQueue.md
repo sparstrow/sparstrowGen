@@ -333,6 +333,26 @@ is blocked on both. Also found and fixed, in already-merged M16 code:
 [`BUG-2026-08-27-realtime-refresh-never-took-effect`](../bug/BUG-2026-08-27-realtime-refresh-never-took-effect.md)
 — core's credential refresh had never taken effect.
 
+**25.5 updated 2026-08-28** — `T-DI-02`'s SQL is now applied and a real
+daemon paired live (PR #149). Two genuine platform-adjacent races were found
+and fixed in the same pass:
+[`BUG-2026-08-28-realtime-connect-races-channel-subscribe-auth`](../bug/BUG-2026-08-28-realtime-connect-races-channel-subscribe-auth.md)
+and
+[`BUG-2026-08-28-terminal-channel-sends-before-control-channel-joined`](../bug/BUG-2026-08-28-terminal-channel-sends-before-control-channel-joined.md).
+`T-DI-05` is now blocked on neither of those, but on a third, non-repo issue
+found while chasing the remaining timeout:
+[`BUG-2026-08-28-private-broadcast-channels-not-relaying`](../bug/BUG-2026-08-28-private-broadcast-channels-not-relaying.md)
+— private-channel broadcast relay not working on this Supabase project,
+escalated to Supabase, outside this repo's code. Full task file is the
+authoritative record; this line is the mirror.
+
+### Band 26 — CS chat session & conversation UX (2026-08-27)
+
+✅ **Archived 2026-08-28 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-26--cs-chat-session--conversation-ux-2026-08-27).
+`T-CS6-02` found and fixed two cross-story regressions that each phase's own
+verification had passed over; `G-52` and `G-53` remain open.
+
 ### Band 24 — M22–M24 reaching my machine from the browser (2026-08-24)
 
 Plan: [`../plans/2026-08-24-reaching-my-machine-from-the-browser.md`](../plans/2026-08-24-reaching-my-machine-from-the-browser.md).

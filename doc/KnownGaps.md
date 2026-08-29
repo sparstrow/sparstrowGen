@@ -1878,3 +1878,136 @@ preview with a real paired machine, closing the same
 US1/US2/US3/SC-001/002/003 items `G-48` named; (3) FR-009's live non-admin
 refusal, which stays open regardless — same second-account limitation as
 `G-15`/`G-24`/`G-47`/`G-48`.
+
+### G-50 — CS1's confirmation-dialog Error state was read-verified, not live-forced
+
+**Raised:** 2026-08-28, closing `T-CS1-03` (Band 26, chat session rename/
+delete — `doc/tasks/CS1/T-CS1-03-verification.md`).
+
+`ChatSessionDeleteDialog`'s failure path (`setDeleteError(r.error)`, dialog
+stays open, no silent close) was read against the code and matches the
+already-live-proven rename error path exactly — same `callAction` result
+shape, same "stay open and show `r.error`" logic. It was not independently
+exercised live: doing so needs a deliberately injected network cut or RLS
+denial mid-request, which this pass didn't force (no mock-network tooling
+was reached for; this repo's `agent-browser` cannot force a non-2xx
+response, per `doc/runbooks/agent-browser-session.md`'s own noted gap — the
+Playwright MCP fallback that runbook describes for exactly this case wasn't
+invoked this pass).
+
+**If wrong:** low. The shared pattern (`callAction` → `ActionResult` →
+`if (!r.ok) { setError(...); return }`) is identical in shape to
+`updateChatSessionAction`'s rename path, which this same pass genuinely did
+prove live (T-CS1-01's Result). A defect here would most likely be
+copy-paste drift in the dialog component specifically, not a shared-pattern
+failure.
+
+**Clears when:** a future pass forces a `chat_sessions` delete/update to
+fail (Playwright MCP route interception, per the runbook's step 5) and
+confirms the dialog stays open with a legible message rather than closing
+silently or showing a raw error.
+
+### G-51 — `claude-code`'s `--allowedTools`/`cwd` scoping for a chat turn is unverified live; `antigravity`'s is confirmed NOT to work at all
+
+**Raised:** 2026-08-28, while implementing `T-CS5-03` (Band 26, CS5 chat
+attachments — `doc/tasks/CS5/T-CS5-03-delivery.md`), whose own Trap demands
+confirming (not assuming) that `Read` genuinely cannot escape `cwd` before
+calling the free/agent attachment scoping "done."
+
+**`antigravity` is not a gap — it's a confirmed, filed defect**:
+[`SEC-2026-08-28-antigravity-headless-tools-unrestricted`](security/SEC-2026-08-28-antigravity-headless-tools-unrestricted.md).
+Live-verified that `agy`'s `view_file` reads an absolute path outside its
+spawn's `cwd` without refusal, and that `allowedTools`/`disallowedTools` are
+never wired into that provider's spawn at all — `agy` has no equivalent
+flag. This predates CS5 and affects every existing `free`/`project`/`agent`
+antigravity chat turn, not just attachments.
+
+**`claude-code`'s side of the same question is a genuine gap, not a
+defect**: this environment's `claude` CLI has an expired OAuth token
+(`"OAuth access token has expired. Re-authenticate to continue."` on every
+call), the same pre-existing, unrelated limitation already on record
+elsewhere in this file (search "subscriptionType: null") — re-authenticating
+a real Claude subscription is outside this repo's code and not something an
+agent should do unattended. Whether `--allowedTools Read` genuinely refuses
+an absolute path outside `cwd` for `claude-code` specifically was therefore
+**not** confirmed either way this pass.
+
+**If wrong (i.e. if `claude-code` also does not enforce this):** high. The
+entire free/agent half of CS5's attachment delivery mechanism — the only
+half meant to grant scoped rather than full access — would be security
+theater on both supported CLI providers, not just one. `project`-session
+chat (which relies on the same `cwd`+`allowedTools` shape, pre-dating CS5)
+would carry the same exposure the antigravity security report already
+describes, but for `claude-code` too.
+
+**Clears when:** the `claude` CLI is re-authenticated in a test environment
+and the exact same live probe run against `antigravity` above (spawn with
+`cwd` set to a directory containing only an attachment, `--allowedTools
+Read`, ask it to read an absolute path outside `cwd`) is repeated against a
+real `claude-code` headless spawn. A refusal closes this entry outright; a
+successful read promotes it to a second `doc/security/` entry at least as
+severe as antigravity's.
+
+### G-52 — no chat turn has ever been proved to USE an attached file's content
+
+**Raised:** 2026-08-28, closing `T-CS6-02` (Band 26 — `doc/tasks/CS6/T-CS6-02-verification.md`).
+
+US4's independent test asks for the strong bar: attach a file with a
+distinctive fact, ask about it, and confirm the reply names that fact rather
+than merely acknowledging that an attachment exists. **That assertion is
+unproved.**
+
+Everything up to the model is proved, and the boundary is worth stating
+precisely rather than as "couldn't test it". A real runtime was paired and
+`active` — a second `@sparstrow/core` on port 48760 with its own
+secrets/data dirs, per
+[`agent-browser-session.md`](runbooks/agent-browser-session.md), leaving the
+owner's own daemon untouched. It claimed the turn, and the server log shows
+it fetching the attachment through `POST /api/daemon/chat/attachments/sign`
+before running. So delivery — upload, row, storage path, signed fetch,
+hand-off — is genuinely exercised end to end.
+
+What failed is the last hop: every turn ended `status = failed`,
+`error = "the provider timed out"`, because neither `claude-code` nor `agy`
+is authenticated in this environment. The file reached the CLI's doorstep and
+no CLI answered.
+
+**If wrong:** moderate. A failure here would mean the file arrives but is
+scoped, pathed or permissioned such that the CLI's `Read` tool cannot open
+it — plausible, because `T-CS5-03`'s whole job was to place it "in a place
+the CLI providers' existing file tools can reach", and that placement is
+exactly what this gap leaves untested. The feature would look complete and do
+nothing useful. Related: `G-51` already records that `antigravity`'s tool
+scoping is confirmed not to work at all.
+
+**Clears when:** any pass runs a chat turn with an attachment on a machine
+with an authenticated CLI provider, and the reply names a fact that exists
+only inside the attached file.
+
+### G-53 — deleting a chat session leaves its attachment objects in the bucket
+
+**Raised:** 2026-08-28, while verifying CS1's delete during `T-CS6-02`.
+
+Deleting a session cascades correctly in Postgres — verified directly:
+sessions 3→2, messages 3→2, `chat_message_attachments` 3→2, and **zero**
+orphaned attachment rows. The `storage.objects` in the `chat-attachments`
+bucket are a separate store with no foreign key to any of that, and nothing
+in CS5 or CS6 deletes them, so the bytes remain after the row describing them
+is gone.
+
+Not filed as a bug: nothing behaves incorrectly against what was built, and
+the objects are unreachable through the app once their rows are gone (the
+bucket is private and every read path joins through
+`chat_message_attachments`). Accepted limitation, not wrong behaviour.
+
+**If wrong:** low today, growing. The cost is storage the owner pays for and
+cannot see or clear from the UI, plus content that outlives a conversation
+the owner believes they deleted — a privacy expectation more than a security
+boundary, since the objects stay unreachable.
+
+**Clears when:** session deletion also removes the bucket objects under that
+session's `<workspace_id>/<session_id>/` prefix, and a test confirms a
+deleted session's prefix is empty. This is the same cleanup obligation
+[`seeing-what-my-agent-made`](specs/2026-08-28-seeing-what-my-agent-made.md)'s
+FR-012 takes on for agent-produced files — whichever lands first should do it
+for both, since they share the bucket and the prefix scheme.

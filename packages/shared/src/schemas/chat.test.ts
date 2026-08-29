@@ -6,8 +6,12 @@ describe("chatTurnRequestSchema", () => {
     expect(chatTurnRequestSchema.safeParse({ content: "what does this repo do?" }).success).toBe(true);
   });
 
-  it("rejects empty content", () => {
-    expect(chatTurnRequestSchema.safeParse({ content: "" }).success).toBe(false);
+  // T-CS6-01 -- empty content is schema-valid (an attachment-only send must
+  // be allowed); "text or an attachment, not neither" is enforced by
+  // `postChatTurnAction` itself, not this schema, which nothing actually
+  // `.parse()`s at runtime today (see that action's own comment).
+  it("accepts empty content -- 'text or an attachment' is the action's job, not this schema's", () => {
+    expect(chatTurnRequestSchema.safeParse({ content: "" }).success).toBe(true);
   });
 
   it("rejects content over the byte ceiling", () => {

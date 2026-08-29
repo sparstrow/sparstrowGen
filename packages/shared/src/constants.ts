@@ -178,3 +178,55 @@ export function checkImageFile(file: { type: string; size: number }): string | n
   }
   return null;
 }
+
+/**
+ * CS5 (Band 26, T-CS5-01) — the private `chat-attachments` bucket. A
+ * separate bucket from `public-images`, deliberately: that bucket's own
+ * header forbids putting anything else in it, and every object there has a
+ * permanent public URL, which is exactly wrong for conversation content.
+ * Reads here go through a short-lived signed URL (T-CS5-03), never
+ * `getPublicUrl` — see `025_chat_attachments_storage.sql`.
+ */
+export const CHAT_ATTACHMENT_BUCKET = "chat-attachments";
+
+/** Same ceiling as `public-images` (T-M9-04) until a task finds a reason to diverge (phase decision 2). */
+export const CHAT_ATTACHMENT_MAX_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Widened from `PUBLIC_IMAGE_ALLOWED_TYPES`' image-only floor (phase
+ * decision 2's stated reason to diverge): the entire point of this feature
+ * is a file an agent's `Read` tool can use, and an image-only allowlist
+ * would make it useless for that — a screenshot is the one case a CLI
+ * agent's `Read` tool cannot meaningfully act on today (no vision path,
+ * per the phase README's "shape of what was found"), while text/code/PDF
+ * attachments are exactly what a `Read` grant is for. Kept narrow rather
+ * than "any file": each entry is a type this pipeline can plausibly do
+ * something useful with, not a blanket allowlist.
+ */
+export const CHAT_ATTACHMENT_ALLOWED_TYPES: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "text/plain": "txt",
+  "text/markdown": "md",
+  "text/csv": "csv",
+  "application/json": "json",
+  "application/pdf": "pdf",
+};
+
+/**
+ * The client-side half of "enforced twice" (same T-M9-04 pattern
+ * `checkImageFile` uses) — only a courtesy, since the bucket's own size
+ * limit and MIME allowlist (`025_chat_attachments_storage.sql`) are what
+ * actually holds.
+ */
+export function checkChatAttachmentFile(file: { type: string; size: number }): string | null {
+  if (!(file.type in CHAT_ATTACHMENT_ALLOWED_TYPES)) {
+    return "Only images, PDF, plain text, Markdown, CSV, or JSON files are accepted.";
+  }
+  if (file.size > CHAT_ATTACHMENT_MAX_BYTES) {
+    const mb = (file.size / (1024 * 1024)).toFixed(1);
+    return `File must be 2 MB or smaller (this one is ${mb} MB).`;
+  }
+  return null;
+}
