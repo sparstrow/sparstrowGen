@@ -303,9 +303,18 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
   try {
     if (payload.attachments.length > 0) {
       const placeInProjectRoot = payload.sessionKind === "project" && Boolean(agent.cwd);
+      // `ensureDirs()` creates `config.tmpDir` at startup, but a long-lived
+      // daemon outlives that: on Linux a /tmp reaper can remove it underneath
+      // a running process, and `mkdtempSync` then fails with ENOENT for a
+      // reason that has nothing to do with the attachment. Recreating it is
+      // idempotent and costs one syscall on a path that already exists.
+      // T-CS6-02 found this the hard way — see that task's Result.
       const destDir = placeInProjectRoot
         ? agent.cwd!
-        : (attachmentTempDir = fs.mkdtempSync(path.join(config.tmpDir, "chat-attach-")));
+        : (attachmentTempDir = (() => {
+            fs.mkdirSync(config.tmpDir, { recursive: true });
+            return fs.mkdtempSync(path.join(config.tmpDir, "chat-attach-"));
+          })());
 
       const placed = await placeAttachments(payload.attachments, destDir);
       attachmentNote = attachmentPromptNote(placed);

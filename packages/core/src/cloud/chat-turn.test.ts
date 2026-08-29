@@ -71,13 +71,22 @@ function bodiesFor(fetchMock: ReturnType<typeof routeFetch>, fragment: string): 
 describe("runChatTurnCommand", () => {
   let originalSecretsDir: string;
   let originalCloudUrl: string;
+  let originalTmpDir: string;
 
   beforeEach(() => {
     vi.useFakeTimers();
     originalSecretsDir = config.secretsDir;
     originalCloudUrl = config.cloudUrl;
+    originalTmpDir = config.tmpDir;
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sparstrow-chatturn-"));
     config.secretsDir = tmpDir;
+    // T-CS6-02: point `tmpDir` at this test's own directory too. Left alone,
+    // these tests wrote into the REAL `config.tmpDir` (`<dataDir>/tmp`) —
+    // which passes on any machine that has run the daemon and creates that
+    // directory, and fails with ENOENT on a clean one. That is exactly what
+    // happened: green on a dev box, three failures in CI.
+    config.tmpDir = path.join(tmpDir, "tmp");
+    fs.mkdirSync(config.tmpDir, { recursive: true });
     config.cloudUrl = "http://cloud.test";
     invalidatePairingCache();
     savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
@@ -94,6 +103,7 @@ describe("runChatTurnCommand", () => {
     vi.restoreAllMocks();
     config.secretsDir = originalSecretsDir;
     config.cloudUrl = originalCloudUrl;
+    config.tmpDir = originalTmpDir;
     fs.rmSync(tmpDir, { recursive: true, force: true });
     invalidatePairingCache();
     closeDb();
