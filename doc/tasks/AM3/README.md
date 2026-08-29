@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-28-seeing-what-my-agent-made.md`](../../specs/2026-08-28-seeing-what-my-agent-made.md) |
 | **Depends on** | AM1, and `T-AM2-01` for the viewer |
 | **Blocks** | AM4 |
-| **Status** | not started |
+| **Status** | ✅ done except scenarios needing a produced file → `G-55` (2026-08-29) |
 | **Open questions** | none |
 
 ## The story this serves
@@ -51,8 +51,8 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
-| [T-AM3-01 — the panel becomes the conversation's list](T-AM3-01-panel-list.md) | `[P]` | US2 | T-AM2-01 | done except live verification (T-AM3-02's job) |
-| [T-AM3-02 — verification](T-AM3-02-verification.md) | `[S]` | US2 | T-AM3-01 | not started |
+| [T-AM3-01 — the panel becomes the conversation's list](T-AM3-01-panel-list.md) | `[P]` | US2 | T-AM2-01 | ✅ done — live-verified by `T-AM3-02` |
+| [T-AM3-02 — verification](T-AM3-02-verification.md) | `[S]` | US2 | T-AM3-01 | ✅ done except `G-55` (2026-08-29) |
 
 `T-AM3-01` is `[P]` against `T-AM2-02` — different files, both gated only on
 `T-AM2-01`'s viewer. This is the fork point the plan named, and the two are

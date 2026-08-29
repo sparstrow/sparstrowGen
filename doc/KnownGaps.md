@@ -2149,6 +2149,29 @@ unilaterally even though the daemon-equivalent access was otherwise
 available." The orphaned test object was deleted; no further attempt was made
 to route around the refusal.
 
+**Extended again 2026-08-29, closing `T-AM3-02`.** Same session, continued
+rather than re-set-up. Two more real things closed live: a **project** chat's
+project card was confirmed to render correctly above the produced-items list
+(created a real project, started a real project chat, screenshotted both
+together) — the phase README's own words called this "the regression most
+likely to slip through," and it did not. The panel's **Error** state was
+genuinely exercised, not just read: routed `chat_messages`'s PostgREST
+endpoint to abort via `agent-browser network route`, reloaded, watched the
+real "Couldn't load this conversation's files" message with a Retry button
+appear, removed the route, clicked Retry, and watched it actually recover —
+proving the retry re-runs the read rather than being decorative.
+
+**SC-003 could not even reach its own precondition.** Unlike the other gaps
+in this entry, SC-003 doesn't reduce to "no daemon" alone — it needs a
+stopped daemon (implying one existed and produced something first) and a
+second device to load what it produced. Neither precondition holds here, so
+no substitute form was attempted; a partial run would have proven nothing.
+The **Loading** state also stayed out of reach here specifically because
+`agent-browser network route --body` has no delay option (a gap that
+runbook already documents) and reaching for the Playwright MCP's
+`page.waitForTimeout` fallback was judged not worth it for one skeleton-row
+screenshot.
+
 **Clears when:** a chat turn on a machine with an authenticated CLI provider
 is asked to produce a file, and — the full pipeline, not just the sweep —
 `sweepOutbox` finds it in `kept`, the upload succeeds, and
