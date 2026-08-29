@@ -926,7 +926,9 @@ export function ChatPage() {
     const r = await callAction(() =>
       createChatSessionAction({
         kind: draftKind,
-        ...(draftKind === "project" ? { projectId: draftProjectId } : {}),
+        ...(draftKind === "project"
+          ? { projectId: draftProjectId, provider: draftProvider, model: draftModel }
+          : {}),
         ...(draftKind === "agent" ? { agentId: draftAgentId } : {}),
         ...(draftKind === "free" ? { provider: draftProvider, model: draftModel } : {}),
       }),
@@ -1234,7 +1236,7 @@ export function ChatPage() {
           ))}
         </GhostSelect>
       )}
-      {draftKind === "free" && (
+      {(draftKind === "free" || draftKind === "project") && (
         <>
           <GhostSelect
             title="Provider"

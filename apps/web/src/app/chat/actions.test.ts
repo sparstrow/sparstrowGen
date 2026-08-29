@@ -79,6 +79,35 @@ describe("createChatSessionAction", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("creates a project session with custom provider and model", async () => {
+    mockCtx({
+      projects: [{ data: { id: "prj_1" }, error: null }],
+      chat_sessions: [
+        {
+          data: {
+            id: "chs_3",
+            kind: "project",
+            project_id: "prj_1",
+            provider: "antigravity",
+            model: "gemini-2.0-flash",
+          },
+          error: null,
+        },
+      ],
+    });
+    const result = await createChatSessionAction({
+      kind: "project",
+      projectId: "prj_1",
+      provider: "antigravity",
+      model: "gemini-2.0-flash",
+    } as never);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.provider).toBe("antigravity");
+      expect(result.data.model).toBe("gemini-2.0-flash");
+    }
+  });
+
   it("fails a project session with no project id", async () => {
     mockCtx({});
     const result = await createChatSessionAction({ kind: "project" } as never);
