@@ -7,7 +7,7 @@
 | **Depends on** | — |
 | **Blocks** | T-AM1-02, T-AM1-03 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-29 |
 
 ## Objective
 
@@ -82,19 +82,19 @@ this check is the only boundary.
 
 ## Checklist
 
-- [ ] `CHAT_PRODUCED_MAX_BYTES` and `CHAT_PRODUCED_ALLOWED_TYPES` in
+- [x] `CHAT_PRODUCED_MAX_BYTES` and `CHAT_PRODUCED_ALLOWED_TYPES` in
       `packages/shared/src/constants.ts`, beside CS5's, with the comment above
-- [ ] `producedStoragePath()` and its filename sanitiser, exported from
+- [x] `producedStoragePath()` and its filename sanitiser, exported from
       `@sparstrow/shared`
-- [ ] Unit tests for the sanitiser: a path separator, a `..`, a name with no
+- [x] Unit tests for the sanitiser: a path separator, a `..`, a name with no
       extension, a 300-character name, and two identical names producing two
       different paths
-- [ ] A test asserting `producedStoragePath()` output has exactly two segments
+- [x] A test asserting `producedStoragePath()` output has exactly two segments
       under `storage.foldername` semantics — this is the one that catches a
       well-meaning `produced/` being added later
-- [ ] `sign-upload/route.ts`, with the workspace-prefix check and a test that a
+- [x] `sign-upload/route.ts`, with the workspace-prefix check and a test that a
       foreign prefix is refused with 403
-- [ ] `packages/shared` and `apps/web` typecheck and tests green
+- [x] `packages/shared` and `apps/web` typecheck and tests green
 
 ## Traps
 
@@ -115,17 +115,17 @@ later, with no server-side error to find.
 
 ## Verification
 
-- [ ] `pnpm --filter @sparstrow/shared test` green, sanitiser cases included
-- [ ] `POST /api/daemon/chat/attachments/sign-upload` with a path outside the
+- [x] `pnpm --filter @sparstrow/shared test` green, sanitiser cases included
+- [x] `POST /api/daemon/chat/attachments/sign-upload` with a path outside the
       caller's workspace returns 403 and no URL (unit test with a stubbed
       `authenticateDaemon`)
-- [ ] The two-segment assertion test fails if a `produced/` segment is
+- [x] The two-segment assertion test fails if a `produced/` segment is
       introduced — verify by temporarily adding one, seeing red, reverting
 
 ## On completion
 
-- [ ] `pnpm typecheck` and `pnpm test` green
-- [ ] Update this file's **Status** row
+- [x] `pnpm typecheck` and `pnpm test` green
+- [x] Update this file's **Status** row
 - [ ] Open the PR into `band/27-seeing-what-my-agent-made`, then
       `gh pr merge <n> --auto --squash`
 
@@ -135,4 +135,34 @@ later, with no server-side error to find.
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+Added `CHAT_PRODUCED_MAX_BYTES` (10 MB), `CHAT_PRODUCED_ALLOWED_TYPES` (a
+distinct object from `CHAT_ATTACHMENT_ALLOWED_TYPES`, spreading it plus
+`image/gif` and `image/svg+xml`), `sanitizeProducedFilename`, and
+`producedStoragePath` to `packages/shared/src/constants.ts`. Added
+`apps/web/src/app/api/daemon/chat/attachments/sign-upload/route.ts`, mirroring
+the existing `sign/route.ts` download route's auth and workspace-prefix-check
+shape exactly, using `createSignedUploadUrl` instead of `createSignedUrl`.
+
+**Verified the two-segment test is load-bearing, not decorative**, per this
+task's own Verification item: temporarily changed `producedStoragePath` to
+insert a `produced/` segment, confirmed `pnpm --filter @sparstrow/shared test`
+turned red on exactly the three tests that check path shape, then reverted and
+confirmed green again. The test genuinely catches the regression this whole
+task exists to prevent.
+
+14 new tests in `packages/shared/src/chat-produced.test.ts`, 5 new tests in
+`apps/web/src/app/api/daemon/chat/attachments/sign-upload/route.test.ts`. One
+typecheck fix needed: `sanitizeProducedFilename`'s regex-match extension
+extraction narrowed to possibly-`undefined` under strict mode; guarded with
+`?? ""`.
+
+`pnpm --filter @sparstrow/shared test`: 334/334 passed.
+`pnpm --filter @sparstrow/shared typecheck`: clean.
+`pnpm --filter web typecheck`: clean.
+`apps/web` full test suite: 484/484 passed (ran as part of `pnpm --filter web
+test`, confirmed the new file's 5 tests are counted in that total by also
+running it in isolation).
+
+No UI surface exists yet — nothing here was verified in a browser, correctly,
+per the phase README's Definition of done ("nothing in this phase is visible
+to the owner").

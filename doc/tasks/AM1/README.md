@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-28-seeing-what-my-agent-made.md`](../../specs/2026-08-28-seeing-what-my-agent-made.md) |
 | **Depends on** | CS5/CS6 (band 26) — **landed on `development` 2026-08-29** via [#174](https://github.com/sparstrow/sparstrowGen/pull/174) |
 | **Blocks** | AM2, AM3, AM4 |
-| **Status** | not started |
+| **Status** | ✅ done except live-dispatch checks → `G-55` (2026-08-29) |
 | **Open questions** | none |
 
 ## Tasks
@@ -16,10 +16,10 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
-| [T-AM1-01 — the produced-file contract](T-AM1-01-produced-contract.md) | `[S]` | foundational → AM2 | — | not started |
-| [T-AM1-02 — the outbox a turn hands files back through](T-AM1-02-outbox.md) | `[S]` | foundational → AM2 | T-AM1-01 | not started |
-| [T-AM1-03 — upload, bind, and the reply that is only files](T-AM1-03-bind-and-reply.md) | `[S]` | foundational → AM2 | T-AM1-02 | not started |
-| [T-AM1-04 — verification](T-AM1-04-verification.md) | `[S]` | foundational | T-AM1-01–03 | not started |
+| [T-AM1-01 — the produced-file contract](T-AM1-01-produced-contract.md) | `[S]` | foundational → AM2 | — | ✅ done 2026-08-29 |
+| [T-AM1-02 — the outbox a turn hands files back through](T-AM1-02-outbox.md) | `[S]` | foundational → AM2 | T-AM1-01 | ✅ done except `G-55` (2026-08-29) |
+| [T-AM1-03 — upload, bind, and the reply that is only files](T-AM1-03-bind-and-reply.md) | `[S]` | foundational → AM2 | T-AM1-02 | ✅ done except `G-55` (2026-08-29) |
+| [T-AM1-04 — verification](T-AM1-04-verification.md) | `[S]` | foundational | T-AM1-01–03 | ✅ done except `G-55` (2026-08-29) |
 
 Every task is `[S]`. This phase is a pipeline in the strict sense: 01 defines
 the constants and the storage path that 02's sweep produces and 03's upload
@@ -109,15 +109,45 @@ That makes FR-004 **a migration**, not a TypeScript change — and it drags
 FR-013 in with it: a `failed` turn creates no message, so there is nothing for
 a partially-produced file to hang off. Decision 3 settles that.
 
-### 6. `ingest_chat_turn_reply` has the exact clobber hazard that just cost band 26 a feature
+### 6. Correction (2026-08-29, writing `T-AM1-03`): `ingest_chat_turn_reply` is defined ONCE, not three times — the clobber hazard was on a different function
 
-It is defined **three times** — `014_chat_turn_dispatch.sql`,
-`016_chat_turn_transcript.sql`, `024_provider_model_dispatch.sql`. This is the
-same pattern that silently reverted US2's auto-titling on band 26
-([`BUG-2026-08-28-enqueue-chat-turn-redefinition-drops-auto-title`](../../bug/BUG-2026-08-28-enqueue-chat-turn-redefinition-drops-auto-title.md)):
-a later migration copied an older migration's body and dropped a block, with no
-error and no advisor. See the trap below — this phase writes a fourth
-definition and is therefore directly exposed.
+This finding, as originally written, was wrong, and the mistake is worth
+recording rather than quietly fixing: I had conflated `ingest_chat_turn_reply`
+with `enqueue_chat_turn`. Re-checking before writing `T-AM1-03`'s migration —
+
+```sql
+select pg_get_functiondef(oid) from pg_proc where proname = 'ingest_chat_turn_reply';
+```
+
+against staging (`pnymngoqseltgigcfevq`) shows exactly one definition, matching
+`014_chat_turn_dispatch.sql`'s body. `grep -l "create or replace function
+public.ingest_chat_turn_reply" packages/shared/drizzle/policies/*.sql` returns
+only `014`. `016_chat_turn_transcript.sql` **mentions** it in a comment
+("`ingest_chat_turn_reply` … unchanged") but never redefines it.
+
+The function that actually got clobbered three times —
+`enqueue_chat_turn` — is a *different* function: it enqueues the **user's**
+turn (US2's auto-title lives there), while `ingest_chat_turn_reply` records
+the **assistant's** reply, which is the one `T-AM1-03` touches. So `T-AM1-03`
+writes this function's **second** definition, not a fourth, and the risk this
+finding originally described does not apply to it at the level of severity
+claimed. The general caution — dump the live body before writing `create or
+replace`, always — still stands and is still followed; it is just not, in
+this specific case, guarding against a function with a three-deep clobber
+history.
+
+**A different, real hazard turned up in the same check.** Staging already has
+an applied migration numbered `028`
+(`028_restore_no_invented_names_after_020_regression`, applied
+2026-08-29T07:59Z per `list_migrations`) that does **not** exist on
+`development` or on `band/27` — it came from an unrelated, unmerged branch
+(`claude/electron-staging-prod-setup-546bf3`, no open PR) that applied
+directly to the live database, bypassing this repo's PR flow entirely, and
+per its own commit message touched `sparstrowgen-prod` too. Not this task's
+issue to fix, but it does mean **`028` is not a safe next number** for
+anything in this band — `T-AM1-03` uses `029` instead. Worth someone
+following up on separately: a direct-to-prod migration with no PR is exactly
+what `AGENTS.md` §2's isolated-worktree rule exists to prevent.
 
 ## Definition of done
 
@@ -219,23 +249,24 @@ common enough to deserve their own treatment.
 | Path | Change |
 |---|---|
 | `packages/shared/src/constants.ts` | edit — `CHAT_PRODUCED_MAX_BYTES`, `CHAT_PRODUCED_ALLOWED_TYPES`, `producedStoragePath()` |
-| `packages/shared/src/schemas/chat.ts` | edit — the turn result payload carries produced-file descriptors |
+| `packages/shared/src/cloud.ts` | edit — `ChatTurnResultPayload` carries produced-file descriptors (corrected 2026-08-29: this is a plain interface here, not a zod schema in `schemas/chat.ts` — see `T-AM1-03`'s Decisions) |
 | `apps/web/src/app/api/daemon/chat/attachments/sign-upload/route.ts` | new — mints a signed **upload** URL for the daemon |
 | `apps/web/src/app/api/daemon/chat/turns/[id]/result/route.ts` | edit — passes produced files to the RPC |
-| `packages/shared/drizzle/policies/028_chat_produced_files.sql` | new — `ingest_chat_turn_reply`, fourth definition |
+| `packages/shared/drizzle/policies/029_chat_produced_files.sql` | new — `ingest_chat_turn_reply`'s second definition (see finding 6's correction for why `028` is skipped) |
 | `packages/core/src/cloud/chat-turn.ts` | edit — outbox lifecycle, sweep, upload, the `!result.text` status condition |
 | `packages/core/src/orchestrator/preamble.ts` | edit — the sentence telling an agent the outbox exists |
 
 ## Traps
 
-**`ingest_chat_turn_reply` must be written from the CURRENT DATABASE BODY, not
-from `024`'s file.** Finding 6. Band 26 lost a shipped feature to exactly this
-last week, and both tasks involved verified their own work honestly — the
-regression was invisible from either side. Before writing `028`, dump the live
-definition (`select prosrc from pg_proc where proname =
-'ingest_chat_turn_reply'`) and start from that text. `027_restore_chat_auto_title.sql`'s
-`comment on function` says the same thing for its neighbour; this is the same
-hazard on the adjacent function.
+**Still dump the CURRENT DATABASE BODY before writing `create or replace`, even
+though finding 6's correction shows this particular function has no clobber
+history.** The general rule survives the correction: `enqueue_chat_turn` (the
+adjacent function) genuinely was clobbered three times, band 26 lost a shipped
+feature to it last week, and both tasks involved verified their own work
+honestly — the regression was invisible from either side. Before writing
+`029`, dump the live definition (`select prosrc from pg_proc where proname =
+'ingest_chat_turn_reply'`) and start from that text rather than from `014`'s
+file, on principle, even with no known drift.
 
 **The outbox must not be the agent's `cwd` in a `project` session.** FR-016 is
 the load-bearing requirement of this whole spec, and
@@ -272,4 +303,4 @@ Full procedure in [T-AM1-04 — verification](T-AM1-04-verification.md).
 3. A turn that fails after producing still yields a message carrying the file
 4. An over-limit file is refused, named in the reply, and absent from storage
 5. A `project` chat's file edits produce **no** rows and **no** objects
-6. `get_advisors` clean after `028`
+6. `get_advisors` clean after `029`

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | [`doc/specs/2026-08-28-seeing-what-my-agent-made.md`](../specs/2026-08-28-seeing-what-my-agent-made.md) — ✅ Owner-reviewed 2026-08-28, accepted |
-| **Status** | ✅ Approved and decomposed 2026-08-29 — band 27, phases AM1–AM4 |
+| **Status** | ✅ Completed 2026-08-29, except `G-55` (a live-daemon proof no environment here can supply; see that entry for exactly what is and isn't covered) |
 | **Trigger** | Owner, 2026-08-28: an agent replied *"I've generated a picture of a man for you!"* and the screen stayed empty |
 | **Depends on** | **CS5 — built and merged to `development` 2026-08-29** ([#174](https://github.com/sparstrow/sparstrowGen/pull/174)). Its bucket and attachments table are what this extends rather than duplicates. See Decision 1 and Sequencing |
 | **Touches** | `packages/shared/src/db/schema.ts`, `packages/shared/src/constants.ts`, `packages/shared/src/schemas/chat.ts`, `packages/shared/drizzle/`, `packages/core/src/cloud/chat-turn.ts`, `packages/core/src/orchestrator/preamble.ts`, `packages/core/src/providers/`, `apps/web/src/components/chat/`, `apps/web/src/app/chat/chat.tsx` |

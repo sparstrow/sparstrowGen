@@ -47,5 +47,16 @@ assumed:
 
 ## Resolution
 
-Routed to [`I-16`](../Ideas.md). Not built — the pane/transcript question the
-owner raised ("should we…") is left open there as a decision, not answered.
+Built, in the shape `I-16`'s elaboration settled on rather than the literal
+"folder icon" the owner sketched: the right preview pane's "Nothing to
+preview" became a real list of what a conversation produced (`AM3`), split
+into "Made by your agent" and "Sent by you" sections (`AM4`) — a folder-style
+*view*, not a filesystem browser, per the elaboration's finding that CLI
+agents write files but the honest UI for that is a row related to the
+message, not a directory listing. Reachable on a phone as a sheet from the
+same trigger (`AM3`), not desktop-only. The pane/transcript question this
+entry itself left open — "instead of inline rendering, or in addition to
+it" — was answered **both**: the inline strip (`T-AM2-02`) and the pane
+(`AM3`/`AM4`) ship together, reading the same underlying rows. `I-16` is
+deleted from `Ideas.md` per its own instruction now that the spec it
+graduated to is reviewed and planned.

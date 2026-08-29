@@ -2,14 +2,18 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import type {
-  Agent,
-  ChatTurnEventPush,
-  ChatTurnResultPayload,
-  ChatTurnStartPayload,
-  CommandFailureReason,
-  ProviderId,
-  RunStartPayload,
+import {
+  CHAT_PRODUCED_ALLOWED_TYPES,
+  CHAT_PRODUCED_MAX_BYTES,
+  producedStoragePath,
+  type Agent,
+  type ChatTurnEventPush,
+  type ChatTurnProducedFile,
+  type ChatTurnResultPayload,
+  type ChatTurnStartPayload,
+  type CommandFailureReason,
+  type ProviderId,
+  type RunStartPayload,
 } from "@sparstrow/shared";
 import { config } from "../config.js";
 import { getDb } from "../db/connection.js";
@@ -17,7 +21,7 @@ import { agents, projects } from "../db/schema.js";
 import { logger } from "../logger.js";
 import { buildTranscriptPrompt, chatAgent, TURN_TIMEOUT_MS } from "../chat/service.js";
 import { completeOnce } from "../orchestrator/one-shot.js";
-import { cloudFetch } from "./client.js";
+import { cloudFetch, getWorkspaceId } from "./client.js";
 import { resolveAgent, resolveProject, type ResolutionFailure } from "./resolve.js";
 
 /**
@@ -203,6 +207,191 @@ function attachmentPromptNote(placed: PlacedAttachment[]): string {
 }
 
 /**
+ * AM1 (`T-AM1-02`) — the hand-back mechanism. Phase decision 1: a per-turn
+ * directory the agent may write into, not an MCP tool — chat turns have no
+ * MCP tools at all (`completeOnce` passes `runId: ""`), and this works
+ * identically for `claude-code` and `antigravity`, since writing a file is
+ * the one capability every CLI agent has.
+ *
+ * The last sentence is load-bearing for FR-016: it stops an agent in a
+ * `project` chat from helpfully copying a file it just edited into the
+ * outbox. The outbox itself is never the project root under any session
+ * kind (see `executeChatTurn`), so FR-016 holds structurally — there is no
+ * filter to get wrong at sweep time.
+ */
+function outboxPromptNote(outboxDir: string): string {
+  return (
+    `\n\nAnything you produce for the user — an image, a chart, a document — ` +
+    `write it as a file into ${outboxDir}. Files left there are shown to the ` +
+    `user with your reply. Do not put working notes or intermediate files ` +
+    `there. Do not copy files that already live somewhere on this machine.`
+  );
+}
+
+interface KeptOutboxFile {
+  localPath: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
+interface RefusedOutboxFile {
+  filename: string;
+  sizeBytes: number;
+  reason: "too large to keep" | "unrecognized file type" | "upload failed";
+}
+
+interface OutboxSweepResult {
+  kept: KeptOutboxFile[];
+  refused: RefusedOutboxFile[];
+}
+
+/** `CHAT_PRODUCED_ALLOWED_TYPES` maps mimeType -> extension; the sweep needs
+ *  the reverse to classify a file it finds on disk by its extension alone. */
+const EXTENSION_TO_MIME_TYPE: Record<string, string> = Object.fromEntries(
+  Object.entries(CHAT_PRODUCED_ALLOWED_TYPES).map(([mimeType, ext]) => [ext, mimeType]),
+);
+
+/**
+ * Sweeps the top level of `outboxDir` ONLY — a subdirectory an agent creates
+ * is ignored rather than walked, which keeps "produced a file" from
+ * accidentally meaning "produced a node_modules" (phase README trap).
+ *
+ * Deliberately does not upload or bind anything: `T-AM1-03` consumes `kept`
+ * for that. This task's job stops at "here is what the agent left, and here
+ * is what could not be kept and why."
+ */
+function sweepOutbox(outboxDir: string): OutboxSweepResult {
+  const kept: KeptOutboxFile[] = [];
+  const refused: RefusedOutboxFile[] = [];
+
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(outboxDir, { withFileTypes: true });
+  } catch {
+    // The outbox itself failed to exist by sweep time -- nothing produced.
+    return { kept, refused };
+  }
+
+  for (const entry of entries) {
+    if (!entry.isFile()) continue; // non-recursive, by design
+
+    const filename = entry.name;
+    const fullPath = path.join(outboxDir, filename);
+    const stat = fs.statSync(fullPath);
+
+    const ext = path.extname(filename).slice(1).toLowerCase();
+    const mimeType = EXTENSION_TO_MIME_TYPE[ext];
+
+    if (!mimeType) {
+      refused.push({ filename, sizeBytes: stat.size, reason: "unrecognized file type" });
+      continue;
+    }
+    if (stat.size > CHAT_PRODUCED_MAX_BYTES) {
+      refused.push({ filename, sizeBytes: stat.size, reason: "too large to keep" });
+      continue;
+    }
+
+    kept.push({ localPath: fullPath, filename, mimeType, sizeBytes: stat.size });
+  }
+
+  return { kept, refused };
+}
+
+/**
+ * Phase decision 4 — a refusal is told to the owner in the reply text, since
+ * AM1 ships no UI of its own to say it anywhere else. Formatted as plain
+ * sentences appended to whatever the model already wrote.
+ */
+function refusalNote(refused: RefusedOutboxFile[]): string {
+  if (refused.length === 0) return "";
+  const mb = (bytes: number) => (bytes / (1024 * 1024)).toFixed(1);
+  const lines = refused.map((r) => {
+    switch (r.reason) {
+      case "too large to keep":
+        return `"${r.filename}" (${mb(r.sizeBytes)} MB) could not be kept — it is larger than the ${mb(CHAT_PRODUCED_MAX_BYTES)} MB limit.`;
+      case "unrecognized file type":
+        return `"${r.filename}" could not be kept — its file type is not supported.`;
+      case "upload failed":
+        // AM1 (T-AM1-03) -- a storage hiccup must not lose the agent's text,
+        // so this is reported the same honest way a size/type refusal is.
+        return `"${r.filename}" could not be saved — something went wrong uploading it.`;
+    }
+  });
+  return `\n\n${lines.join("\n")}`;
+}
+
+/** `POST /api/daemon/chat/attachments/sign-upload` — see that route's own
+ *  header for the workspace-prefix check it enforces before minting. */
+async function signUploadUrl(storagePath: string): Promise<string> {
+  const { signedUrl } = await cloudFetch<{ signedUrl: string }>("/chat/attachments/sign-upload", {
+    method: "POST",
+    body: { storagePath },
+    retries: 1,
+    timeoutMs: 15_000,
+  });
+  return signedUrl;
+}
+
+/**
+ * AM1 (T-AM1-03). Bare PUT to the signed URL, no extra headers beyond
+ * content-type -- mirroring `downloadToFile`'s bare GET above, on the theory
+ * that a Supabase Storage signed URL (upload or download) embeds its own
+ * auth as a `?token=` query parameter and needs nothing further. This exact
+ * HTTP call has not been exercised against a live Supabase Storage endpoint
+ * in this environment (no paired daemon) -- see `G-55`'s sibling entry for
+ * this task. If it turns out wrong, the fix is here, in one function.
+ */
+async function uploadToSignedUrl(signedUrl: string, localPath: string, mimeType: string): Promise<void> {
+  const bytes = fs.readFileSync(localPath);
+  const res = await fetch(signedUrl, {
+    method: "PUT",
+    body: bytes,
+    headers: { "content-type": mimeType },
+  });
+  if (!res.ok) throw new Error(`produced file upload returned ${res.status}`);
+}
+
+/**
+ * Uploads every kept outbox file, converting an upload failure into a
+ * refusal sentence rather than losing the agent's text over a storage
+ * hiccup (phase decision: "a storage hiccup must not lose the agent's
+ * text"). Returns both the successfully-uploaded descriptors AND any
+ * upload-time refusals, so the caller can fold the latter into the same
+ * `refusalNote` treatment the sweep's own refusals already get.
+ */
+async function uploadKeptFiles(
+  kept: KeptOutboxFile[],
+  workspaceId: string,
+  sessionId: string,
+): Promise<{ uploaded: ChatTurnProducedFile[]; uploadFailures: RefusedOutboxFile[] }> {
+  const uploaded: ChatTurnProducedFile[] = [];
+  const uploadFailures: RefusedOutboxFile[] = [];
+
+  for (const file of kept) {
+    try {
+      const storagePath = producedStoragePath(workspaceId, sessionId, file.filename, crypto.randomUUID());
+      const signedUrl = await signUploadUrl(storagePath);
+      await uploadToSignedUrl(signedUrl, file.localPath, file.mimeType);
+      uploaded.push({
+        storagePath,
+        filename: file.filename,
+        mimeType: file.mimeType,
+        sizeBytes: file.sizeBytes,
+      });
+    } catch (err) {
+      logger.warn(
+        { filename: file.filename, err: err instanceof Error ? err.message : String(err) },
+        "produced file upload failed — reporting as a refusal rather than losing the turn's text",
+      );
+      uploadFailures.push({ filename: file.filename, sizeBytes: file.sizeBytes, reason: "upload failed" });
+    }
+  }
+
+  return { uploaded, uploadFailures };
+}
+
+/**
  * Batches `onEvent` deltas and flushes them to T-M12-03's events route on a
  * short timer rather than one POST per line — "batched reasonably, not
  * per-line" per this task's own doc. Best-effort: a lost live delta is not a
@@ -299,8 +488,20 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
   let effectiveAgent = agent;
   let attachmentTempDir: string | null = null;
   let attachmentNote = "";
+  // AM1 (T-AM1-02) -- created for EVERY turn, not only attachment turns: an
+  // agent may hand something back on a turn where the owner attached
+  // nothing. Never the project root under any session kind -- that is what
+  // makes FR-016 hold structurally rather than by a filter someone could get
+  // wrong at sweep time.
+  let outboxDir: string | null = null;
 
   try {
+    // Same ENOENT reasoning `attachmentTempDir` below already carries
+    // (T-CS6-02): a long-lived daemon can outlive `ensureDirs()`'s startup
+    // creation of `config.tmpDir`, so recreate it defensively here too.
+    fs.mkdirSync(config.tmpDir, { recursive: true });
+    outboxDir = fs.mkdtempSync(path.join(config.tmpDir, "chat-outbox-"));
+
     if (payload.attachments.length > 0) {
       const placeInProjectRoot = payload.sessionKind === "project" && Boolean(agent.cwd);
       // `ensureDirs()` creates `config.tmpDir` at startup, but a long-lived
@@ -320,11 +521,22 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
       attachmentNote = attachmentPromptNote(placed);
 
       if (!placeInProjectRoot) {
-        effectiveAgent = { ...agent, cwd: attachmentTempDir, allowedTools: ["Read"] };
+        // AM1 (T-AM1-02): `Write` added to the existing `Read`-only clamp --
+        // without it, a turn with BOTH an attachment and a request to
+        // produce something back would silently produce nothing, since the
+        // agent's `cwd` here is a scratch dir it cannot write into. `cwd`
+        // and `--add-dir` still bound what is reachable; this only expands
+        // WHAT may be done inside that already-bounded scratch space.
+        effectiveAgent = { ...agent, cwd: attachmentTempDir, allowedTools: ["Read", "Write"] };
       }
     }
 
-    const prompt = buildTranscriptPrompt(payload.messages) + attachmentNote;
+    // The outbox is reachable regardless of which branch above ran --
+    // `addDirs` grows on whichever agent (original or attachment-clamped)
+    // is about to run.
+    effectiveAgent = { ...effectiveAgent, addDirs: [...effectiveAgent.addDirs, outboxDir] };
+
+    const prompt = buildTranscriptPrompt(payload.messages) + attachmentNote + outboxPromptNote(outboxDir);
 
     const result = await completeOnce(effectiveAgent, prompt, {
       timeoutMs: TURN_TIMEOUT_MS,
@@ -333,11 +545,41 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
 
     await pusher.drain();
 
+    // Swept BEFORE postResult, deliberately not in `finally`: `finally` runs
+    // on the failure path too and removes the outbox, but the upload step
+    // right below needs `kept`'s files to still exist on disk when it reads
+    // them. Sweeping here, before the outbox is ever removed, is what makes
+    // that safe on both the success and failure paths.
+    const { kept, refused: sweepRefused } = sweepOutbox(outboxDir);
+
+    // AM1 (T-AM1-03). Uploaded AFTER completeOnce settles, BEFORE postResult
+    // -- an upload failure becomes a refusal sentence, same treatment as a
+    // sweep-time refusal, rather than losing the turn's text over a storage
+    // hiccup. Needs the workspace id to compose each file's storage path;
+    // `getWorkspaceId()` reads the daemon's own pairing state (set once at
+    // pairing time), not anything from the payload.
+    const workspaceId = getWorkspaceId();
+    const { uploaded, uploadFailures } =
+      kept.length > 0 && workspaceId
+        ? await uploadKeptFiles(kept, workspaceId, payload.sessionId)
+        : { uploaded: [], uploadFailures: [] as RefusedOutboxFile[] };
+
+    const replyText = (result.text ?? "") + refusalNote([...sweepRefused, ...uploadFailures]);
+
+    // AM1 (T-AM1-03), FR-004: a turn that handed something back did work,
+    // even with no text -- `!result.text` alone would mark it `failed`, the
+    // exact bug this phase exists to fix (see the phase README's finding 4).
+    const producedSomething = uploaded.length > 0;
     await postResult(payload.turnId, {
       seq: ++seq,
-      replyText: result.text ?? "",
-      status: result.isError || !result.text ? "failed" : "succeeded",
-      error: result.isError ? (result.errorMessage ?? "the model returned no output") : null,
+      replyText,
+      status: result.isError || (!result.text && !producedSomething) ? "failed" : "succeeded",
+      error: result.isError
+        ? (result.errorMessage ?? "the model returned no output")
+        : !result.text && !producedSomething
+          ? "the model returned no output"
+          : null,
+      produced: uploaded,
     });
   } catch (err) {
     await pusher.drain();
@@ -351,6 +593,9 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
     // not "eventually."
     if (attachmentTempDir) {
       fs.rmSync(attachmentTempDir, { recursive: true, force: true });
+    }
+    if (outboxDir) {
+      fs.rmSync(outboxDir, { recursive: true, force: true });
     }
   }
 }

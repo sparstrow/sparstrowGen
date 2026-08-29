@@ -347,7 +347,10 @@ describe("runChatTurnCommand", () => {
 
       const [agentArg, promptArg] = vi.mocked(completeOnce).mock.calls[0]!;
       const agent = agentArg as { cwd: string | null; allowedTools: string[] };
-      expect(agent.allowedTools).toEqual(["Read"]);
+      // AM1 (T-AM1-02): Write was added alongside Read so a turn that BOTH
+      // reads an attachment and hands something back can actually write to
+      // its outbox -- see that task's own trap.
+      expect(agent.allowedTools).toEqual(["Read", "Write"]);
       expect(agent.cwd).toBeTruthy();
       expect(promptArg as string).toContain(agent.cwd!);
       expect(promptArg as string).toContain('originally named "notes.txt"');
@@ -454,6 +457,343 @@ describe("runChatTurnCommand", () => {
       const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result");
       expect(resultBodies[0]).toMatchObject({ status: "failed" });
       expect((resultBodies[0] as { error: string }).error).toMatch(/timed out/);
+    });
+  });
+
+  // T-AM1-02
+  describe("outbox", () => {
+    function outboxDirFrom(agentArg: unknown): string {
+      const addDirs = (agentArg as { addDirs: string[] }).addDirs;
+      // Appended last, regardless of which branch (plain or attachment-clamped
+      // agent) constructed the rest of addDirs first.
+      return addDirs[addDirs.length - 1]!;
+    }
+
+    it("creates a fresh outbox for every turn, tells the agent about it, and removes it once the turn ends", async () => {
+      let capturedOutbox = "";
+      vi.mocked(completeOnce).mockImplementation(async (agentArg, promptArg) => {
+        capturedOutbox = outboxDirFrom(agentArg);
+        expect(fs.existsSync(capturedOutbox)).toBe(true);
+        expect(promptArg as string).toContain(capturedOutbox);
+        return { text: "done", sessionId: "s", isError: false };
+      });
+      routeFetch({ "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }) });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      expect(capturedOutbox).toBeTruthy();
+      expect(fs.existsSync(capturedOutbox)).toBe(false);
+    });
+
+    it("keeps a file the agent writes into the outbox, and does not add anything to the reply when nothing was refused", async () => {
+      vi.mocked(completeOnce).mockImplementation(async (agentArg) => {
+        const outbox = outboxDirFrom(agentArg);
+        fs.writeFileSync(path.join(outbox, "chart.png"), "fake png bytes");
+        return { text: "Here you go!", sessionId: "s", isError: false };
+      });
+      const fetchMock = routeFetch({ "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }) });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result");
+      expect(resultBodies[0]).toMatchObject({ status: "succeeded", replyText: "Here you go!" });
+    });
+
+    it("ignores a subdirectory the agent creates inside the outbox", async () => {
+      vi.mocked(completeOnce).mockImplementation(async (agentArg) => {
+        const outbox = outboxDirFrom(agentArg);
+        fs.mkdirSync(path.join(outbox, "scratch"));
+        fs.writeFileSync(path.join(outbox, "scratch", "ignored.png"), "x");
+        fs.writeFileSync(path.join(outbox, "chart.png"), "fake png bytes");
+        return { text: "ok", sessionId: "s", isError: false };
+      });
+      const fetchMock = routeFetch({ "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }) });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      // No refusal note for the subdirectory's file -- it was never seen.
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result");
+      expect((resultBodies[0] as { replyText: string }).replyText).toBe("ok");
+    });
+
+    it("refuses an oversized file and names it in the reply, without failing the turn", async () => {
+      vi.mocked(completeOnce).mockImplementation(async (agentArg) => {
+        const outbox = outboxDirFrom(agentArg);
+        const big = Buffer.alloc(11 * 1024 * 1024, 1); // over CHAT_PRODUCED_MAX_BYTES (10 MB)
+        fs.writeFileSync(path.join(outbox, "huge.png"), big);
+        return { text: "made it", sessionId: "s", isError: false };
+      });
+      const fetchMock = routeFetch({ "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }) });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result");
+      const body = resultBodies[0] as { status: string; replyText: string };
+      expect(body.status).toBe("succeeded"); // the turn itself did not fail
+      expect(body.replyText).toContain("made it");
+      expect(body.replyText).toContain("huge.png");
+      expect(body.replyText).toMatch(/too large|larger than/);
+    });
+
+    it("refuses a file of an unrecognized type without failing the turn", async () => {
+      vi.mocked(completeOnce).mockImplementation(async (agentArg) => {
+        const outbox = outboxDirFrom(agentArg);
+        fs.writeFileSync(path.join(outbox, "archive.zip"), "not a real zip");
+        return { text: "done", sessionId: "s", isError: false };
+      });
+      const fetchMock = routeFetch({ "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }) });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result");
+      const body = resultBodies[0] as { replyText: string };
+      expect(body.replyText).toContain("archive.zip");
+    });
+
+    it("a turn that writes nothing to the outbox costs nothing extra in the reply (SC-005)", async () => {
+      vi.mocked(completeOnce).mockResolvedValue({ text: "just words", sessionId: "s", isError: false });
+      const fetchMock = routeFetch({ "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }) });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result");
+      expect(resultBodies[0]).toMatchObject({ status: "succeeded", replyText: "just words" });
+    });
+
+    it("clamp interaction: a turn with BOTH an attachment and an outbox write can do both", async () => {
+      const fetchMock = routeFetch({
+        "/chat/attachments/sign": () => jsonResponse(200, { signedUrl: "http://storage.test/signed/a.txt" }),
+        "storage.test/signed/a.txt": () => new Response("attachment bytes", { status: 200 }),
+        "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }),
+      });
+      vi.mocked(completeOnce).mockImplementation(async (agentArg, promptArg) => {
+        const agent = agentArg as { allowedTools: string[]; cwd: string };
+        // The clamp must include Write, or this file write would be a lie
+        // about what the agent could actually do in a real spawn.
+        expect(agent.allowedTools).toContain("Write");
+        expect(promptArg as string).toContain("notes.txt");
+        const outbox = outboxDirFrom(agentArg);
+        fs.writeFileSync(path.join(outbox, "reply.png"), "img bytes");
+        return { text: "used your file and made one", sessionId: "s", isError: false };
+      });
+
+      runChatTurnCommand(
+        payload({ attachments: [{ storagePath: "ws_1/chs_1/a.txt", filename: "notes.txt" }] }),
+      );
+      await vi.runAllTimersAsync();
+
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result");
+      expect(resultBodies[0]).toMatchObject({ status: "succeeded" });
+    });
+
+    it("project session: the outbox is still separate from the project's rootDir (FR-016)", async () => {
+      getDb()
+        .insert(projects)
+        .values({ id: "prj_local1", name: "Demo", slug: "demo", rootDir: tmpDir, createdAt: now, updatedAt: now })
+        .run();
+
+      let capturedOutbox = "";
+      vi.mocked(completeOnce).mockImplementation(async (agentArg) => {
+        const agent = agentArg as { cwd: string };
+        capturedOutbox = outboxDirFrom(agentArg);
+        // The project's own rootDir is untouched -- the outbox is a sibling
+        // temp directory, never the project folder itself.
+        expect(agent.cwd).toBe(tmpDir);
+        expect(capturedOutbox).not.toBe(tmpDir);
+        expect(capturedOutbox.startsWith(tmpDir)).toBe(false);
+        return { text: "ok", sessionId: "s", isError: false };
+      });
+      routeFetch({ "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }) });
+
+      runChatTurnCommand(
+        payload({ sessionKind: "project", projectId: "cloud_prj_1", projectSlug: "demo" }),
+      );
+      await vi.runAllTimersAsync();
+
+      expect(capturedOutbox).toBeTruthy();
+    });
+  });
+
+  // T-AM1-03. The outbox tests above pre-date the upload step and, left
+  // unmocked, the sign-upload/PUT calls fall through `routeFetch`'s
+  // catch-all (a bare 200) rather than actually failing -- which is why they
+  // still pass without proving the upload wiring itself. These tests mock
+  // both calls explicitly.
+  describe("produced files (upload + bind)", () => {
+    function outboxDirFrom(agentArg: unknown): string {
+      const addDirs = (agentArg as { addDirs: string[] }).addDirs;
+      return addDirs[addDirs.length - 1]!;
+    }
+
+    function uploadRoute(signedUrl = "http://storage.test/upload/signed") {
+      return { "/chat/attachments/sign-upload": () => jsonResponse(200, { signedUrl, token: "tok", path: "x" }) };
+    }
+
+    it("uploads a kept file via sign-upload + PUT and includes it in the posted result's produced field", async () => {
+      vi.mocked(completeOnce).mockImplementation(async (agentArg) => {
+        const outbox = outboxDirFrom(agentArg);
+        fs.writeFileSync(path.join(outbox, "chart.png"), "fake png bytes");
+        return { text: "Here you go!", sessionId: "s", isError: false };
+      });
+      const fetchMock = routeFetch({
+        ...uploadRoute(),
+        "storage.test/upload/signed": () => new Response(null, { status: 200 }),
+        "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }),
+      });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      // The upload itself: a PUT with the file's bytes and its mime type.
+      const putCall = fetchMock.mock.calls.find(
+        ([url, init]) => String(url).includes("storage.test/upload/signed") && (init as RequestInit)?.method === "PUT",
+      );
+      expect(putCall).toBeTruthy();
+      const putInit = putCall![1] as RequestInit;
+      expect(putInit.body?.toString()).toContain("fake png bytes");
+      expect((putInit.headers as Record<string, string>)["content-type"]).toBe("image/png");
+
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result") as {
+        replyText: string;
+        status: string;
+        produced: Array<{ storagePath: string; filename: string; mimeType: string; sizeBytes: number }>;
+      }[];
+      const body = resultBodies[0]!;
+      expect(body.status).toBe("succeeded");
+      expect(body.replyText).toBe("Here you go!");
+      expect(body.produced).toHaveLength(1);
+      expect(body.produced[0]).toMatchObject({ filename: "chart.png", mimeType: "image/png" });
+    });
+
+    it("the produced storagePath has exactly two folder segments and starts with the workspace id (matches 025's storage policy)", async () => {
+      vi.mocked(completeOnce).mockImplementation(async (agentArg) => {
+        const outbox = outboxDirFrom(agentArg);
+        fs.writeFileSync(path.join(outbox, "chart.png"), "bytes");
+        return { text: "ok", sessionId: "s", isError: false };
+      });
+      let requestedStoragePath = "";
+      const fetchMock = routeFetch({
+        "/chat/attachments/sign-upload": () => jsonResponse(200, { signedUrl: "http://storage.test/upload/signed", token: "tok" }),
+        "storage.test/upload/signed": () => new Response(null, { status: 200 }),
+        "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }),
+      });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      const signCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/chat/attachments/sign-upload"));
+      requestedStoragePath = (JSON.parse(String((signCall![1] as RequestInit).body)) as { storagePath: string }).storagePath;
+
+      const folderSegments = requestedStoragePath.split("/").length - 1;
+      expect(folderSegments).toBe(2);
+      expect(requestedStoragePath.startsWith("ws/")).toBe(true); // "ws" is this test file's own pairing workspaceId
+    });
+
+    it("an upload failure becomes a refusal sentence, not a lost turn or a lost reply", async () => {
+      vi.mocked(completeOnce).mockImplementation(async (agentArg) => {
+        const outbox = outboxDirFrom(agentArg);
+        fs.writeFileSync(path.join(outbox, "chart.png"), "bytes");
+        return { text: "made you a chart", sessionId: "s", isError: false };
+      });
+      const fetchMock = routeFetch({
+        ...uploadRoute(),
+        "storage.test/upload/signed": () => new Response("server error", { status: 500 }),
+        "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }),
+      });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result") as {
+        status: string;
+        replyText: string;
+        produced: unknown[];
+      }[];
+      const body = resultBodies[0]!;
+      expect(body.status).toBe("succeeded"); // the model's own work did not fail
+      expect(body.replyText).toContain("made you a chart");
+      expect(body.replyText).toContain("chart.png");
+      expect(body.replyText).toMatch(/could not be saved/);
+      expect(body.produced).toHaveLength(0);
+    });
+
+    it("FR-004: a turn that produced a file and wrote no text is succeeded, not failed", async () => {
+      vi.mocked(completeOnce).mockImplementation(async (agentArg) => {
+        const outbox = outboxDirFrom(agentArg);
+        fs.writeFileSync(path.join(outbox, "chart.png"), "bytes");
+        return { text: "", sessionId: "s", isError: false };
+      });
+      const fetchMock = routeFetch({
+        ...uploadRoute(),
+        "storage.test/upload/signed": () => new Response(null, { status: 200 }),
+        "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }),
+      });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result") as {
+        status: string;
+        error: string | null;
+        produced: unknown[];
+      }[];
+      // Before this task, `!result.text` alone marked this `failed` -- the
+      // exact bug FR-004 exists to fix (phase README finding 4).
+      const body = resultBodies[0]!;
+      expect(body.status).toBe("succeeded");
+      expect(body.error).toBeNull();
+      expect(body.produced).toHaveLength(1);
+    });
+
+    it("a turn with genuinely no text and no produced file is still failed (unchanged pre-existing behavior)", async () => {
+      vi.mocked(completeOnce).mockResolvedValue({ text: "", sessionId: "s", isError: false });
+      const fetchMock = routeFetch({ "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }) });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result") as { status: string; produced: unknown[] }[];
+      const body = resultBodies[0]!;
+      expect(body.status).toBe("failed");
+      expect(body.produced).toHaveLength(0);
+    });
+
+    it("FR-013: a turn that produced a file and then errored still reports the file, alongside the failure", async () => {
+      // The model wrote a file to the outbox before its own run errored --
+      // partial work is not thrown away. `result.isError` still forces
+      // status=failed (the model DID fail), but `produced` is populated
+      // unconditionally, not gated by status -- that is what lets the SQL
+      // side (029_chat_produced_files.sql) bind the file to a message even
+      // on a failed turn.
+      vi.mocked(completeOnce).mockImplementation(async (agentArg) => {
+        const outbox = outboxDirFrom(agentArg);
+        fs.writeFileSync(path.join(outbox, "partial.png"), "bytes");
+        return { text: null, sessionId: "s", isError: true, errorMessage: "usage limit reached" };
+      });
+      const fetchMock = routeFetch({
+        ...uploadRoute(),
+        "storage.test/upload/signed": () => new Response(null, { status: 200 }),
+        "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }),
+      });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result") as {
+        status: string;
+        error: string | null;
+        produced: unknown[];
+      }[];
+      const body = resultBodies[0]!;
+      expect(body.status).toBe("failed");
+      expect(body.error).toBe("usage limit reached");
+      expect(body.produced).toHaveLength(1);
     });
   });
 });

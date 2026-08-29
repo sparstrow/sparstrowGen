@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-28-seeing-what-my-agent-made.md`](../../specs/2026-08-28-seeing-what-my-agent-made.md) |
 | **Depends on** | AM3 |
 | **Blocks** | — |
-| **Status** | not started |
+| **Status** | ✅ done except `G-55` (2026-08-29) |
 | **Open questions** | none |
 
 ## The story this serves
@@ -48,8 +48,8 @@ decision 2.
 
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
-| [T-AM4-01 — fold in what I sent](T-AM4-01-sent-items.md) | `[C]` | US3 | T-AM3-01 | not started |
-| [T-AM4-02 — verification](T-AM4-02-verification.md) | `[S]` | US3 | T-AM4-01 | not started |
+| [T-AM4-01 — fold in what I sent](T-AM4-01-sent-items.md) | `[C]` | US3 | T-AM3-01 | ✅ done |
+| [T-AM4-02 — verification](T-AM4-02-verification.md) | `[S]` | US3 | T-AM4-01 | ✅ done except `G-55` |
 
 `T-AM4-01` is `[C]`, **not** `[P]`: it edits
 `apps/web/src/components/chat/conversation-items.tsx`, which `T-AM3-01`
@@ -130,8 +130,15 @@ remains correct.
 
 | Path | Change |
 |---|---|
-| `apps/web/src/components/chat/conversation-items.tsx` | edit — the group split, and the produced-group empty line |
-| `apps/web/src/lib/chat-attachments.ts` | edit — drop the `assistant`-only filter, if `T-AM3-01` placed it in the query rather than the component |
+| `apps/web/src/components/chat/conversation-items.tsx` | edit — added `filterSentAttachments()` and `SectionLabel`, split `ConversationItems` into two sections |
+| `apps/web/src/components/chat/conversation-items.test.ts` | new — unit tests for the four-case table, T-AM3-01's exclusion test updated in place rather than deleted |
+| `apps/web/vitest.config.ts` | edit — added the missing `@` alias (a pre-existing gap, not planned scope; see `T-AM4-01`'s Result) |
+
+**Correction:** `chat-attachments.ts` needed no change. `T-AM3-01`'s
+`assistant`-only filter lived inside `groupProducedAttachments()` in the
+component, not in the query — `sessionAttachments()` already returned both
+roles. This task added a parallel function rather than dropping a filter that
+turned out not to be misplaced.
 
 ## Traps
 
