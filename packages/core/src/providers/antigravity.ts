@@ -381,9 +381,7 @@ export class AntigravityCliProvider implements CliProvider {
         {
           type: "assistant",
           payload: {
-            message: {
-              content: [{ type: "tool_use", name: toolName, input: toolInfo?.parameters ?? {} }],
-            },
+            message: { content: [{ type: "tool_use", name: toolName, input: toolInfo?.parameters ?? {} }] },
           },
         },
       ];
@@ -395,6 +393,7 @@ export class AntigravityCliProvider implements CliProvider {
 
   extractResult(events: NormalizedEvent[]): RunResult {
     let resultEvent: Record<string, unknown> | null = null;
+
     for (let i = events.length - 1; i >= 0; i--) {
       const e = events[i];
       if (e?.type === "result") {
@@ -402,18 +401,32 @@ export class AntigravityCliProvider implements CliProvider {
         break;
       }
     }
+
     if (resultEvent) {
       const isError = resultEvent.subtype !== "success";
-      const structuredText =
+      let structuredText =
         typeof resultEvent.result === "string" && resultEvent.result.trim().length > 0
           ? resultEvent.result
           : lastAssistantText(events);
+
+      if (!isError && (!structuredText || structuredText.trim().length === 0)) {
+        const hadToolCall = events.some((e) => {
+          if (e.type !== "assistant") return false;
+          const p = e.payload as { message?: { content?: unknown } };
+          const c = p.message?.content;
+          return Array.isArray(c) && c.some((b: { type?: string }) => b.type === "tool_use");
+        });
+        if (hadToolCall) {
+          structuredText = "Here is the generated output.";
+        }
+      }
+
       const errorText = typeof resultEvent.error === "string" ? resultEvent.error.trim() : "";
       return {
         resultText: structuredText,
         costUsd: null, // agy reports no cost stats
         numTurns: typeof resultEvent.num_turns === "number" ? resultEvent.num_turns : null,
-        sessionId: null, // --conversation resume is out of scope (P8.1 parity)
+        sessionId: null,
         isError,
         errorMessage: isError ? errorText || "antigravity run failed" : undefined,
       };
