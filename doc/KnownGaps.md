@@ -2106,8 +2106,23 @@ paired daemon in this environment):
    leaving this named. If the message-creation guard or the
    `jsonb_array_elements` binding has a mistake invisible to reading, the
    failure mode is a `succeeded`/partial-`failed` turn whose files never get
-   an attachment row — visible immediately the first time `T-AM1-04` or AM2
-   runs against a real turn, not a silent long-term drift.
+   an attachment row — visible immediately the first time AM2 runs against a
+   real turn, not a silent long-term drift.
+
+**Extended again 2026-08-29, closing `T-AM1-04` (the phase's own verification
+task).** Same root cause, so folded in here rather than opened as a separate
+gap. `T-AM1-04`'s own checklist (section A) names five assertions that need a
+live dispatch and could not be reached: the full happy path (A1), FR-016 in
+a real `project` chat with a bound `rootDir` (A5 — "the one that matters,"
+in that task's own words), the attachment-and-produce interaction with a
+real agent (A6), and CS5's inbound-attachment path re-walked end to end
+(section B). Everything reachable without a live daemon **was** reached and
+is recorded in that task's Result: the live database function bodies for
+both `ingest_chat_turn_reply` and `enqueue_chat_turn` were dumped and read
+directly (not merely trusted), `get_advisors` re-run clean, and the full
+monorepo typecheck/test suite passed (`@sparstrow/shared` 334/334,
+`@sparstrow/core` 776/780 with 4 pre-existing unrelated skips, `apps/web`
+498/498, `@sparstrow/desktop` 28/28).
 
 **Clears when:** a chat turn on a machine with an authenticated CLI provider
 is asked to produce a file, and — the full pipeline, not just the sweep —
@@ -2116,3 +2131,7 @@ is asked to produce a file, and — the full pipeline, not just the sweep —
 chat_message_attachments a on a.message_id = m.id where m.role = 'assistant'
 order by m.created_at desc limit 1` shows a real row. The same bar `G-52`
 sets for attachment content, on the output side instead of the input side.
+Fully clears only once that same live check is repeated inside a `project`
+chat bound to a real `rootDir`, confirming a file the agent edits inside the
+project folder produces neither a row nor a stored object (FR-016) — the
+requirement this whole spec turns on.
