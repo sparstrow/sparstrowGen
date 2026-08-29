@@ -57,7 +57,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ChatTurnView, ThinkingDots, TurnErrorBanner } from "@web/components/chat/chat-bits";
 import { ConversationItems } from "@web/components/chat/conversation-items";
 import { createChatAttachmentUploader } from "@web/lib/storage/attachment-uploader";
@@ -1451,6 +1451,9 @@ export function ChatPage() {
                   <SheetContent>
                     <SheetHeader>
                       <SheetTitle>Produced files</SheetTitle>
+                      <SheetDescription className="sr-only">
+                        Files your agent made and files you attached in this conversation.
+                      </SheetDescription>
                     </SheetHeader>
                     <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
                       {session?.projectId && (
