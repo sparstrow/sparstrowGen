@@ -2042,3 +2042,34 @@ itself) and owner-confirmed.
 to `development.sparstrow.com` loads the app instead of the paused page —
 check before relying on the deployed environment specifically, not before
 local-dev-server work.
+
+### G-55 — `T-AM1-02`'s outbox has never swept a file a real agent actually wrote
+
+**Raised:** 2026-08-29, closing `T-AM1-02` (band 27 — `doc/tasks/AM1/T-AM1-02-outbox.md`).
+
+The outbox mechanism (creation, `addDirs` grant, the `Read`+`Write` clamp, the
+prompt note, non-recursive sweep, size/type refusal, cleanup) is fully unit
+tested against a **mocked** `completeOnce` that writes files into the outbox
+directly — 8 tests, all passing, including the clamp-interaction case (an
+attachment present alongside an outbox write) and the FR-016 structural check
+(the outbox is never the project's `rootDir`).
+
+What is unproved: whether a **real** `claude-code` or `antigravity` process,
+given the outbox note this task appends to the prompt, will actually write a
+file there when asked to produce one. This environment has no paired daemon —
+the same limitation `G-49`/`G-51`/`G-52` already record for chat-turn work in
+this session.
+
+**If wrong:** moderate, and specifically about the prompt's wording rather
+than the mechanism. If a real agent doesn't act on the outbox instruction (too
+subtle, competes with other prompt content, or a provider's headless mode
+strips or reorders appended text), every downstream phase — the sweep,
+`T-AM1-03`'s upload, AM2's rendering — has nothing to work with, even though
+all of it is independently correct. The mechanism (directory exists, is
+writable, is swept, cleans up) is not what would be wrong; the instruction's
+persuasiveness would be.
+
+**Clears when:** a chat turn on a machine with an authenticated CLI provider
+is asked to produce a file, and the daemon log shows `sweepOutbox` finding it
+in `kept` — the same bar `G-52` sets for attachment content, on the output
+side instead of the input side.

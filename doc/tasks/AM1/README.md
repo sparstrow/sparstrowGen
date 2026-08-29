@@ -17,7 +17,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
 | [T-AM1-01 — the produced-file contract](T-AM1-01-produced-contract.md) | `[S]` | foundational → AM2 | — | ✅ done 2026-08-29 |
-| [T-AM1-02 — the outbox a turn hands files back through](T-AM1-02-outbox.md) | `[S]` | foundational → AM2 | T-AM1-01 | not started |
+| [T-AM1-02 — the outbox a turn hands files back through](T-AM1-02-outbox.md) | `[S]` | foundational → AM2 | T-AM1-01 | ✅ done except `G-55` (2026-08-29) |
 | [T-AM1-03 — upload, bind, and the reply that is only files](T-AM1-03-bind-and-reply.md) | `[S]` | foundational → AM2 | T-AM1-02 | not started |
 | [T-AM1-04 — verification](T-AM1-04-verification.md) | `[S]` | foundational | T-AM1-01–03 | not started |
 
