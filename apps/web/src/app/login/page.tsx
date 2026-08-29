@@ -106,19 +106,30 @@ function LoginForm() {
   const [mode, setMode] = React.useState<Mode>("sign-in");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [confirmPassword, setConfirmPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
   const [pending, setPending] = React.useState<null | "email" | "github" | "google">(null);
   const [notice, setNotice] = React.useState<Notice | null>(null);
 
-  // The callback and confirm routes report failures by bouncing back here with
-  // ?error=. Surface it once, then strip it from the URL so a refresh does not
-  // resurrect a message about something that already happened.
+  // The callback and confirm routes report back by bouncing here with ?error=
+  // (something went wrong) or ?notice= (it worked, but there is a next step --
+  // e.g. a confirmation link opened in a different browser, where the address
+  // is now confirmed and all that is left is signing in). Surface it once,
+  // then strip it from the URL so a refresh does not resurrect a message about
+  // something that already happened.
   const urlError = searchParams.get("error");
+  const urlNotice = searchParams.get("notice");
   React.useEffect(() => {
-    if (!urlError) return;
-    setNotice({ tone: "error", text: humanize(urlError) });
+    if (!urlError && !urlNotice) return;
+    setNotice(
+      urlError
+        ? { tone: "error", text: humanize(urlError) }
+        : // Already written for a person by whoever redirected here, so it does
+          // not go through humanize() (which maps raw Supabase strings).
+          { tone: "success", text: urlNotice as string },
+    );
     router.replace(next === "/" ? "/login" : `/login?next=${encodeURIComponent(next)}`);
-  }, [urlError, router, next]);
+  }, [urlError, urlNotice, router, next]);
 
   // null means "not known yet" -- the buttons stay enabled in that case, so a
   // slow or blocked settings request never hides a provider that works.
@@ -140,6 +151,10 @@ function LoginForm() {
   function switchTo(target: Mode) {
     setMode(target);
     setNotice(null);
+    // Leaving sign-up abandons the confirmation field; carrying a half-typed
+    // value into another mode's submit would fail a check that mode does not
+    // even show.
+    setConfirmPassword("");
     if (target !== "sign-in") setShowPassword(false);
   }
 
@@ -217,6 +232,16 @@ function LoginForm() {
       }
 
       if (mode === "sign-up") {
+        // Checked here rather than only via the input's own validity so the
+        // message reads like the rest of this form's notices, and so a
+        // mismatch never reaches Supabase (which would create the account
+        // with whichever value was in the first box).
+        if (password !== confirmPassword) {
+          setNotice({ tone: "error", text: "Those passwords don't match." });
+          setPending(null);
+          return;
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -381,18 +406,7 @@ function LoginForm() {
 
               {!EMAIL_ONLY.has(mode) ? (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
-                    {mode === "sign-in" ? (
-                      <button
-                        type="button"
-                        className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                        onClick={() => switchTo("forgot")}
-                      >
-                        Forgot password?
-                      </button>
-                    ) : null}
-                  </div>
+                  <Label htmlFor="password">Password</Label>
                   <div className="relative">
                     <Input
                       id="password"
@@ -416,6 +430,25 @@ function LoginForm() {
                       {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                     </button>
                   </div>
+                  {/* Deliberately AFTER the password input in the DOM, not in
+                      the label row above it. Email -> Tab -> password -> Enter
+                      is the fast keyboard path through this form, and a
+                      focusable control sitting between the two fields cost an
+                      extra Tab on every single sign-in. Kept a real, tabbable
+                      button rather than removed from the tab order (DESIGN.md
+                      9.3) -- it just comes after the field it relates to now.
+                      See doc/feedback/FB-2026-08-27-forgot-password-breaks-tab-order.md. */}
+                  {mode === "sign-in" ? (
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                        onClick={() => switchTo("forgot")}
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                  ) : null}
                   {mode === "sign-up" ? (
                     // Do NOT promise breach screening here. It needs a paid
                     // Supabase plan and is off, so the old copy told people
@@ -423,6 +456,33 @@ function LoginForm() {
                     <p className="text-xs text-muted-foreground">
                       At least 6 characters. Choose one you don&apos;t reuse elsewhere.
                     </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* Sign-up only. A typo in a single password box is invisible
+                  until the confirmation round trip fails or the person cannot
+                  sign back in later -- there was no earlier point to catch it.
+                  Shares the show/hide toggle above rather than adding a second
+                  one: revealing the password is what lets someone compare the
+                  two values, so a separate toggle here would be redundant.
+                  See doc/feedback/FB-2026-08-27-signup-missing-confirm-password.md. */}
+              {mode === "sign-up" ? (
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm password</Label>
+                  <Input
+                    id="confirm-password"
+                    type={showPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    autoComplete="new-password"
+                    minLength={6}
+                    required
+                    disabled={busy}
+                    aria-invalid={confirmPassword !== "" && confirmPassword !== password}
+                  />
+                  {confirmPassword !== "" && confirmPassword !== password ? (
+                    <p className="text-xs text-destructive">Those passwords don&apos;t match.</p>
                   ) : null}
                 </div>
               ) : null}
