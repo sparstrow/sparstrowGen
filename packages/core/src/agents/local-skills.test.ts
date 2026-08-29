@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   discoverLocalSkills,
+  discoverProjectSkills,
   normalizeSkillUrl,
   parseSkillFrontmatter,
   readLocalSkill,
@@ -69,6 +70,26 @@ describe("discoverLocalSkills", () => {
     expect(
       discoverLocalSkills([{ path: path.join(tmp, "nope"), provider: "x", kind: "provider" }]),
     ).toEqual([]);
+  });
+});
+
+describe("discoverProjectSkills", () => {
+  it("lists .claude/skills/*/SKILL.md under a project root, sorted by name", () => {
+    const projectRoot = path.join(tmp, "myproject");
+    writeSkill(path.join(projectRoot, ".claude", "skills"), "zeta", "name: Zeta\ndescription: last");
+    writeSkill(path.join(projectRoot, ".claude", "skills"), "alpha", "name: Alpha\ndescription: first");
+
+    const found = discoverProjectSkills(projectRoot);
+    expect(found.map((s) => s.name)).toEqual(["Alpha", "Zeta"]);
+    expect(found[0]!.description).toBe("first");
+    expect(found[0]!.key).toBe("alpha");
+    expect(found[0]!.sourcePath).toBe(
+      path.join(projectRoot, ".claude", "skills", "alpha", "SKILL.md"),
+    );
+  });
+
+  it("returns empty when the project has no .claude/skills dir", () => {
+    expect(discoverProjectSkills(path.join(tmp, "no-skills-here"))).toEqual([]);
   });
 });
 

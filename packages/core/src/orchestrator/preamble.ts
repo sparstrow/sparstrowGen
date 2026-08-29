@@ -5,6 +5,7 @@ import { CAPABILITY_DOCS, renderCapabilityDocs } from "../agents/capability-docs
 import { GRAPH_TOOL_NAMES, snapshotAllows } from "../graph/graph-tools.js";
 import { resolveWriteFilters } from "../memory/scopes.js";
 import { scopeDir } from "../memory/vault.js";
+import { discoverProjectSkills } from "../agents/local-skills.js";
 
 /** What the agent is working on this run (DX-C2), rendered as "## Your assignment". */
 export interface Assignment {
@@ -42,6 +43,13 @@ export interface PreambleOptions {
    * with no snapshot) → graph tools are conservatively NOT advertised.
    */
   effectiveTools?: EffectiveTools | null;
+  /**
+   * The run's project root dir on disk, when known. Used only to advertise
+   * `.claude/skills/*` (Claude Code's project-skill convention) to CLI
+   * providers that have no native discovery for it — see the `isCliInBand`
+   * branch below.
+   */
+  projectRootDir?: string | null;
 }
 
 /**
@@ -98,6 +106,21 @@ export function buildPreamble(
   const lines: string[] = [];
   if (isCliInBand && agent.systemPrompt.trim().length > 0) {
     lines.push("## System instructions", agent.systemPrompt.trim(), "");
+  }
+  // Claude Code discovers `.claude/skills/*` natively when it runs in the
+  // project dir; agy has no equivalent, so it never learns these exist
+  // unless told here. Advertise name+description only — the agent Reads the
+  // SKILL.md itself (like any other repo file) when one looks relevant.
+  if (isCliInBand && opts.projectRootDir) {
+    const projectSkills = discoverProjectSkills(opts.projectRootDir);
+    if (projectSkills.length > 0) {
+      lines.push(
+        "## Project skills",
+        "This repo defines its own skills at `.claude/skills/<name>/SKILL.md`. When a task matches one below, Read its SKILL.md and follow it before proceeding:",
+        ...projectSkills.map((s) => `- **${s.name}** (${s.sourcePath})${s.description ? ` — ${s.description}` : ""}`),
+        "",
+      );
+    }
   }
   lines.push(
     `You are "${agent.name}"${agent.role ? ` — ${agent.role}` : ""}, an agent managed by Sparstrowgen.`,
