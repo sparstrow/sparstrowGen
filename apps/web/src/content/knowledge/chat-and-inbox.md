@@ -69,6 +69,13 @@ newest first, grouped by the message that asked for it. On a wide screen this
 sits in the panel beside the conversation; on a narrower one it opens as a
 sheet from the same button, so it's reachable from a phone too.
 
+The same panel also lists the files you attached to your own messages, kept
+in a section of its own below what the agent made — so one place answers both
+"what went into this conversation" and "what came out of it". A conversation
+where you've attached something but the agent hasn't produced anything yet
+still shows your files; the agent's side just says there's nothing there yet,
+rather than looking like an error.
+
 [Try in App — Start a Chat](/chat)
 
 ## Inbox — messages that wait for you
