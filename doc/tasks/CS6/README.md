@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-27-chat-session-and-conversation-ux.md`](../../specs/2026-08-27-chat-session-and-conversation-ux.md) |
 | **Depends on** | CS5 |
 | **Blocks** | nothing — last phase in this plan |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-28 |
 | **Open questions** | none |
 
 ## The story this serves
@@ -40,7 +40,7 @@ agent's reply reflects it.
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
 | [T-CS6-01 — drag-and-drop / upload UI](T-CS6-01-composer-ui.md) | `[S]` | US4 | CS5 | ✅ done |
-| [T-CS6-02 — verification, and CS1–CS5 walked together](T-CS6-02-verification.md) | `[S]` | US4 | T-CS6-01 | not started |
+| [T-CS6-02 — verification, and CS1–CS5 walked together](T-CS6-02-verification.md) | `[S]` | US4 | T-CS6-01 | ✅ done 2026-08-28 — found and fixed two cross-story regressions |
 
 ## Objective
 

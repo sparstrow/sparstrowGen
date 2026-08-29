@@ -71,6 +71,7 @@ import {
 } from "@web/api/hooks";
 import { useLiveEvents } from "@web/lib/live-events";
 import { callAction } from "@web/lib/call-action";
+import { defaultModelForProvider, modelsForProvider } from "@web/lib/chat-models";
 import {
   createChatSessionAction,
   deleteChatSessionAction,
@@ -326,9 +327,10 @@ function useAntigravityModels(relevant: boolean) {
 
 type AntigravityModelState = ReturnType<typeof useAntigravityModels>;
 
-function modelsForProvider(provider: ProviderId, antigravity: AntigravityModelState): string[] {
-  return provider === "antigravity" ? antigravity.models : KNOWN_MODELS[provider] ?? [];
-}
+// T-CS6-02: `modelsForProvider` / `defaultModelForProvider` live in
+// `@web/lib/chat-models` so the cold-cache invariant they protect can be
+// unit-tested without mounting this component -- same reason
+// `chat-turn-state.ts` sits there.
 
 /** US3 scenario 3 -- the antigravity list can be missing, mid-refresh, or stale. */
 function AntigravityFreshnessNote({ antigravity }: { antigravity: AntigravityModelState }) {
@@ -1154,7 +1156,7 @@ export function ChatPage() {
             const provider = v as ProviderId;
             updateSessionField(session.id, {
               provider,
-              model: modelsForProvider(provider, antigravity)[0] ?? "sonnet",
+              model: defaultModelForProvider(provider, antigravity),
             });
           }}
         >
@@ -1220,7 +1222,11 @@ export function ChatPage() {
             onValueChange={(v) => {
               const provider = v as ProviderId;
               setDraftProvider(provider);
-              setDraftModel(modelsForProvider(provider, antigravity)[0] ?? "");
+              // T-CS6-02: same reasoning as `defaultModelForProvider`'s own
+              // comment -- an empty string here creates the session with
+              // `model: ""` (createChatSession's `?? "sonnet"` does not catch
+              // it, since "" is not nullish), which dispatches `--model ""`.
+              setDraftModel(defaultModelForProvider(provider, antigravity));
             }}
           >
             {CLI_PROVIDERS.map((p) => (
