@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-28-seeing-what-my-agent-made.md`](../../specs/2026-08-28-seeing-what-my-agent-made.md) |
 | **Depends on** | CS5/CS6 (band 26) — **landed on `development` 2026-08-29** via [#174](https://github.com/sparstrow/sparstrowGen/pull/174) |
 | **Blocks** | AM2, AM3, AM4 |
-| **Status** | not started |
+| **Status** | ✅ done except live-dispatch checks → `G-55` (2026-08-29) |
 | **Open questions** | none |
 
 ## Tasks
@@ -19,7 +19,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | [T-AM1-01 — the produced-file contract](T-AM1-01-produced-contract.md) | `[S]` | foundational → AM2 | — | ✅ done 2026-08-29 |
 | [T-AM1-02 — the outbox a turn hands files back through](T-AM1-02-outbox.md) | `[S]` | foundational → AM2 | T-AM1-01 | ✅ done except `G-55` (2026-08-29) |
 | [T-AM1-03 — upload, bind, and the reply that is only files](T-AM1-03-bind-and-reply.md) | `[S]` | foundational → AM2 | T-AM1-02 | ✅ done except `G-55` (2026-08-29) |
-| [T-AM1-04 — verification](T-AM1-04-verification.md) | `[S]` | foundational | T-AM1-01–03 | not started |
+| [T-AM1-04 — verification](T-AM1-04-verification.md) | `[S]` | foundational | T-AM1-01–03 | ✅ done except `G-55` (2026-08-29) |
 
 Every task is `[S]`. This phase is a pipeline in the strict sense: 01 defines
 the constants and the storage path that 02's sweep produces and 03's upload
