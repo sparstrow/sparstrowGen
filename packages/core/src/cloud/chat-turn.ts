@@ -2,14 +2,16 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import type {
-  Agent,
-  ChatTurnEventPush,
-  ChatTurnResultPayload,
-  ChatTurnStartPayload,
-  CommandFailureReason,
-  ProviderId,
-  RunStartPayload,
+import {
+  CHAT_PRODUCED_ALLOWED_TYPES,
+  CHAT_PRODUCED_MAX_BYTES,
+  type Agent,
+  type ChatTurnEventPush,
+  type ChatTurnResultPayload,
+  type ChatTurnStartPayload,
+  type CommandFailureReason,
+  type ProviderId,
+  type RunStartPayload,
 } from "@sparstrow/shared";
 import { config } from "../config.js";
 import { getDb } from "../db/connection.js";
@@ -203,6 +205,114 @@ function attachmentPromptNote(placed: PlacedAttachment[]): string {
 }
 
 /**
+ * AM1 (`T-AM1-02`) — the hand-back mechanism. Phase decision 1: a per-turn
+ * directory the agent may write into, not an MCP tool — chat turns have no
+ * MCP tools at all (`completeOnce` passes `runId: ""`), and this works
+ * identically for `claude-code` and `antigravity`, since writing a file is
+ * the one capability every CLI agent has.
+ *
+ * The last sentence is load-bearing for FR-016: it stops an agent in a
+ * `project` chat from helpfully copying a file it just edited into the
+ * outbox. The outbox itself is never the project root under any session
+ * kind (see `executeChatTurn`), so FR-016 holds structurally — there is no
+ * filter to get wrong at sweep time.
+ */
+function outboxPromptNote(outboxDir: string): string {
+  return (
+    `\n\nAnything you produce for the user — an image, a chart, a document — ` +
+    `write it as a file into ${outboxDir}. Files left there are shown to the ` +
+    `user with your reply. Do not put working notes or intermediate files ` +
+    `there. Do not copy files that already live somewhere on this machine.`
+  );
+}
+
+interface KeptOutboxFile {
+  localPath: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
+interface RefusedOutboxFile {
+  filename: string;
+  sizeBytes: number;
+  reason: string;
+}
+
+interface OutboxSweepResult {
+  kept: KeptOutboxFile[];
+  refused: RefusedOutboxFile[];
+}
+
+/** `CHAT_PRODUCED_ALLOWED_TYPES` maps mimeType -> extension; the sweep needs
+ *  the reverse to classify a file it finds on disk by its extension alone. */
+const EXTENSION_TO_MIME_TYPE: Record<string, string> = Object.fromEntries(
+  Object.entries(CHAT_PRODUCED_ALLOWED_TYPES).map(([mimeType, ext]) => [ext, mimeType]),
+);
+
+/**
+ * Sweeps the top level of `outboxDir` ONLY — a subdirectory an agent creates
+ * is ignored rather than walked, which keeps "produced a file" from
+ * accidentally meaning "produced a node_modules" (phase README trap).
+ *
+ * Deliberately does not upload or bind anything: `T-AM1-03` consumes `kept`
+ * for that. This task's job stops at "here is what the agent left, and here
+ * is what could not be kept and why."
+ */
+function sweepOutbox(outboxDir: string): OutboxSweepResult {
+  const kept: KeptOutboxFile[] = [];
+  const refused: RefusedOutboxFile[] = [];
+
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(outboxDir, { withFileTypes: true });
+  } catch {
+    // The outbox itself failed to exist by sweep time -- nothing produced.
+    return { kept, refused };
+  }
+
+  for (const entry of entries) {
+    if (!entry.isFile()) continue; // non-recursive, by design
+
+    const filename = entry.name;
+    const fullPath = path.join(outboxDir, filename);
+    const stat = fs.statSync(fullPath);
+
+    const ext = path.extname(filename).slice(1).toLowerCase();
+    const mimeType = EXTENSION_TO_MIME_TYPE[ext];
+
+    if (!mimeType) {
+      refused.push({ filename, sizeBytes: stat.size, reason: "unrecognized file type" });
+      continue;
+    }
+    if (stat.size > CHAT_PRODUCED_MAX_BYTES) {
+      refused.push({ filename, sizeBytes: stat.size, reason: "too large to keep" });
+      continue;
+    }
+
+    kept.push({ localPath: fullPath, filename, mimeType, sizeBytes: stat.size });
+  }
+
+  return { kept, refused };
+}
+
+/**
+ * Phase decision 4 — a refusal is told to the owner in the reply text, since
+ * AM1 ships no UI of its own to say it anywhere else. Formatted as plain
+ * sentences appended to whatever the model already wrote.
+ */
+function refusalNote(refused: RefusedOutboxFile[]): string {
+  if (refused.length === 0) return "";
+  const mb = (bytes: number) => (bytes / (1024 * 1024)).toFixed(1);
+  const lines = refused.map((r) =>
+    r.reason === "too large to keep"
+      ? `"${r.filename}" (${mb(r.sizeBytes)} MB) could not be kept — it is larger than the ${mb(CHAT_PRODUCED_MAX_BYTES)} MB limit.`
+      : `"${r.filename}" could not be kept — its file type is not supported.`,
+  );
+  return `\n\n${lines.join("\n")}`;
+}
+
+/**
  * Batches `onEvent` deltas and flushes them to T-M12-03's events route on a
  * short timer rather than one POST per line — "batched reasonably, not
  * per-line" per this task's own doc. Best-effort: a lost live delta is not a
@@ -299,8 +409,20 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
   let effectiveAgent = agent;
   let attachmentTempDir: string | null = null;
   let attachmentNote = "";
+  // AM1 (T-AM1-02) -- created for EVERY turn, not only attachment turns: an
+  // agent may hand something back on a turn where the owner attached
+  // nothing. Never the project root under any session kind -- that is what
+  // makes FR-016 hold structurally rather than by a filter someone could get
+  // wrong at sweep time.
+  let outboxDir: string | null = null;
 
   try {
+    // Same ENOENT reasoning `attachmentTempDir` below already carries
+    // (T-CS6-02): a long-lived daemon can outlive `ensureDirs()`'s startup
+    // creation of `config.tmpDir`, so recreate it defensively here too.
+    fs.mkdirSync(config.tmpDir, { recursive: true });
+    outboxDir = fs.mkdtempSync(path.join(config.tmpDir, "chat-outbox-"));
+
     if (payload.attachments.length > 0) {
       const placeInProjectRoot = payload.sessionKind === "project" && Boolean(agent.cwd);
       // `ensureDirs()` creates `config.tmpDir` at startup, but a long-lived
@@ -320,11 +442,22 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
       attachmentNote = attachmentPromptNote(placed);
 
       if (!placeInProjectRoot) {
-        effectiveAgent = { ...agent, cwd: attachmentTempDir, allowedTools: ["Read"] };
+        // AM1 (T-AM1-02): `Write` added to the existing `Read`-only clamp --
+        // without it, a turn with BOTH an attachment and a request to
+        // produce something back would silently produce nothing, since the
+        // agent's `cwd` here is a scratch dir it cannot write into. `cwd`
+        // and `--add-dir` still bound what is reachable; this only expands
+        // WHAT may be done inside that already-bounded scratch space.
+        effectiveAgent = { ...agent, cwd: attachmentTempDir, allowedTools: ["Read", "Write"] };
       }
     }
 
-    const prompt = buildTranscriptPrompt(payload.messages) + attachmentNote;
+    // The outbox is reachable regardless of which branch above ran --
+    // `addDirs` grows on whichever agent (original or attachment-clamped)
+    // is about to run.
+    effectiveAgent = { ...effectiveAgent, addDirs: [...effectiveAgent.addDirs, outboxDir] };
+
+    const prompt = buildTranscriptPrompt(payload.messages) + attachmentNote + outboxPromptNote(outboxDir);
 
     const result = await completeOnce(effectiveAgent, prompt, {
       timeoutMs: TURN_TIMEOUT_MS,
@@ -333,9 +466,19 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
 
     await pusher.drain();
 
+    // Swept BEFORE postResult, deliberately not in `finally`: `finally` runs
+    // on the failure path too and removes the outbox, but `T-AM1-03`'s
+    // upload step needs `kept`'s files to still exist on disk when it reads
+    // them. Sweeping here, before the outbox is ever removed, is what makes
+    // that safe on both the success and failure paths.
+    const { kept, refused } = sweepOutbox(outboxDir);
+    void kept; // consumed by T-AM1-03's upload/bind step, not yet wired here
+
+    const replyText = (result.text ?? "") + refusalNote(refused);
+
     await postResult(payload.turnId, {
       seq: ++seq,
-      replyText: result.text ?? "",
+      replyText,
       status: result.isError || !result.text ? "failed" : "succeeded",
       error: result.isError ? (result.errorMessage ?? "the model returned no output") : null,
     });
@@ -351,6 +494,9 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
     // not "eventually."
     if (attachmentTempDir) {
       fs.rmSync(attachmentTempDir, { recursive: true, force: true });
+    }
+    if (outboxDir) {
+      fs.rmSync(outboxDir, { recursive: true, force: true });
     }
   }
 }
