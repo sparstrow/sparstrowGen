@@ -7,7 +7,7 @@
 | **Depends on** | T-AM1-01 |
 | **Blocks** | T-AM1-03 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done except a live-daemon check → `G-55` (2026-08-29) |
 
 ## Objective
 
@@ -89,22 +89,22 @@ with a distinct reason, not a fallback to `application/octet-stream`.
 
 ## Checklist
 
-- [ ] Create the per-turn outbox in `executeChatTurn`, unconditionally
-- [ ] Add it to `addDirs`; extend the attachment clamp to `["Read", "Write"]`
-- [ ] Append the outbox note to the prompt, alongside `attachmentNote`
-- [ ] `sweepOutbox(dir)` — non-recursive, returns `{ kept, refused }` where
+- [x] Create the per-turn outbox in `executeChatTurn`, unconditionally
+- [x] Add it to `addDirs`; extend the attachment clamp to `["Read", "Write"]`
+- [x] Append the outbox note to the prompt, alongside `attachmentNote`
+- [x] `sweepOutbox(dir)` — non-recursive, returns `{ kept, refused }` where
       `refused` carries the filename, the size and the reason
-- [ ] Remove the outbox in the `finally` block, synchronously, exactly as
+- [x] Remove the outbox in the `finally` block, synchronously, exactly as
       `attachmentTempDir` already is
-- [ ] Refusal sentences appended to the reply text before the result is posted
+- [x] Refusal sentences appended to the reply text before the result is posted
       (phase decision 4) — `kept` is not consumed yet; T-AM1-03 does that
-- [ ] Tests: a turn with no outbox writes sweeps to empty; a turn with two
+- [x] Tests: a turn with no outbox writes sweeps to empty; a turn with two
       files returns both; an oversized file lands in `refused` and never in
       `kept`; a subdirectory is ignored; the outbox is gone after the turn
-- [ ] **A test for the clamp interaction** — a turn with an attachment resolves
+- [x] **A test for the clamp interaction** — a turn with an attachment resolves
       `allowedTools` containing `Write`. This is trap 3 of the phase README and
       no manual pass will find it
-- [ ] `pnpm --filter @sparstrow/core typecheck` and tests green
+- [x] `pnpm --filter @sparstrow/core typecheck` and tests green
 
 ## Traps
 
@@ -129,19 +129,23 @@ sweep must produce no rows, no upload calls, and no change to the reply text.
 
 ## Verification
 
-- [ ] `pnpm --filter @sparstrow/core test` green, all sweep cases above
+- [x] `pnpm --filter @sparstrow/core test` green, all sweep cases above
 - [ ] Manually: run a chat turn against a real daemon with a prompt asking for
       a file; confirm from the daemon log that the sweep found it and that the
-      outbox directory no longer exists after the turn
-- [ ] The refusal sentence appears in the reply for an oversized file — checked
+      outbox directory no longer exists after the turn — **not reachable in
+      this environment: no paired daemon.** Recorded as `G-55` in
+      `../../KnownGaps.md`
+- [x] The refusal sentence appears in the reply for an oversized file — checked
       by writing an 11 MB file into the outbox from a test double, not by
       persuading a model to generate one
-- [ ] Binding and upload are **not** proved here — that is T-AM1-03
+- [x] Binding and upload are **not** proved here — that is T-AM1-03 (confirmed:
+      `kept` is computed and typed but deliberately unused past a `void kept;`
+      marker until that task wires it up)
 
 ## On completion
 
-- [ ] `pnpm typecheck` and `pnpm test` green
-- [ ] Update this file's **Status** row
+- [x] `pnpm typecheck` and `pnpm test` green
+- [x] Update this file's **Status** row
 - [ ] Open the PR into `band/27-seeing-what-my-agent-made`, then
       `gh pr merge <n> --auto --squash`
 
@@ -150,4 +154,44 @@ sweep must produce no rows, no upload calls, and no change to the reply text.
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+Added the outbox lifecycle to `executeChatTurn` in `packages/core/src/cloud/chat-turn.ts`:
+created unconditionally for every turn (`chat-outbox-` mkdtemp prefix, same
+`config.tmpDir` re-creation defense `T-CS6-02` already established for
+`attachmentTempDir`), added to `effectiveAgent.addDirs` regardless of which
+branch built `effectiveAgent`, and announced via `outboxPromptNote` appended
+after `attachmentNote`. The existing attachment clamp changed from
+`allowedTools: ["Read"]` to `["Read", "Write"]` — without this a turn with
+both an attachment and a request to produce something back would silently
+produce nothing, exactly the phase README's trap 3.
+
+`sweepOutbox` is non-recursive (a subdirectory is ignored, tested explicitly)
+and classifies each top-level file by extension against
+`CHAT_PRODUCED_ALLOWED_TYPES` (inverted to an extension→mimeType map), refusing
+anything over `CHAT_PRODUCED_MAX_BYTES` or of an unrecognized type. Refusals
+are turned into plain sentences and appended to the reply text before
+`postResult`; `kept` is computed, typed, and deliberately left unconsumed
+(`void kept;`) — this task's own scope boundary, since `T-AM1-03` is what adds
+the schema field and upload call that actually use it.
+
+**The sweep runs before `postResult`, and the outbox is removed only in
+`finally`, after that** — the ordering the phase README's own trap calls out:
+sweeping inside `finally` would lose every file on the FR-013 (partial
+success) path, since `finally` also runs when `completeOnce` throws.
+
+Added 8 tests to `chat-turn.test.ts`'s new `describe("outbox", …)` block, and
+updated one existing assertion (`allowedTools` was pinned to `["Read"]`; now
+`["Read", "Write"]`, with a comment explaining why). Total suite: 25/25 in
+this file, 770/774 in the full `@sparstrow/core` suite (4 pre-existing skips,
+unrelated to this change).
+
+`pnpm --filter @sparstrow/core typecheck`: clean.
+`pnpm --filter @sparstrow/core test`: 770 passed, 4 skipped.
+
+**One item genuinely could not be reached**, named up front rather than
+rounded up: running a real chat turn against a live, paired daemon. This
+environment has no daemon pairing available. Recorded as
+[`G-55`](../../KnownGaps.md) — what it would cost if wrong, and what closes
+it.
+
+No UI surface exists after this task either — still correctly nothing to
+verify in a browser.

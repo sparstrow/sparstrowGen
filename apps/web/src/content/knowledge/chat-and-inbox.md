@@ -3,7 +3,7 @@ title: Chat & Inbox
 section: Surfaces
 description: Free-form sessions with agents, and the message inbox where agents reach you (and each other).
 order: 6
-updated: 2026-08-28
+updated: 2026-08-29
 ---
 
 ## Chat — talk to your agents
@@ -52,6 +52,29 @@ open it with its own file tools — so "read this and tell me what's wrong with
 it" works on the actual file rather than on a description of it. If a file is
 too large or of a type that isn't accepted, you're told which, in the
 composer, **before** the message is sent.
+
+[Try in App — Start a Chat](/chat)
+
+### Seeing what an agent made
+
+When an agent's reply hands back something it produced, you see it in that
+reply, not just a sentence claiming it. An image renders as a picture you can
+click to open a larger view; anything else shows as a named row with its kind
+and size, with a way to open or save it. If a reply produced nothing, the
+reply looks exactly like any other — no empty tray, no placeholder.
+
+Everything a conversation has produced also collects in one place: open the
+paperclip icon beside the conversation's title for a list of every file,
+newest first, grouped by the message that asked for it. On a wide screen this
+sits in the panel beside the conversation; on a narrower one it opens as a
+sheet from the same button, so it's reachable from a phone too.
+
+The same panel also lists the files you attached to your own messages, kept
+in a section of its own below what the agent made — so one place answers both
+"what went into this conversation" and "what came out of it". A conversation
+where you've attached something but the agent hasn't produced anything yet
+still shows your files; the agent's side just says there's nothing there yet,
+rather than looking like an error.
 
 [Try in App — Start a Chat](/chat)
 
@@ -106,3 +129,15 @@ be on the Dashboard, not just here.
   view, but the stored copies of attached files are not yet purged from
   storage.** They become unreachable through the app; a cleanup pass that
   removes the underlying files is still to come.
+- **What an agent hands back is capped at 10 MB per file** — larger than what
+  you attach, since a generated image routinely exceeds the composer's 2 MB
+  limit. Anything over the cap is refused, and you're told which file and why,
+  in the reply itself — never dropped silently.
+- **Files an agent creates or edits inside one of your project's own folders
+  are not shown here, and no copy of them is kept.** Those files belong to the
+  project and are reached through it, not duplicated into the conversation —
+  only files an agent hands back explicitly, with nowhere else to live, show
+  up in the reply or the panel.
+- **Clicking a file in the panel opens it, but does not jump you to the
+  message in the transcript that produced it.** The two are separate views
+  over the same conversation, not linked navigation yet.

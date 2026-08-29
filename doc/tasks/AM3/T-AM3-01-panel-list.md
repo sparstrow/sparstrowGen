@@ -7,7 +7,7 @@
 | **Depends on** | T-AM2-01 (the viewer) |
 | **Blocks** | T-AM3-02, T-AM4-01 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | done except live verification (T-AM3-02's job) |
 
 ## The scenario this satisfies
 
@@ -81,24 +81,93 @@ touching a query, and so it is testable without a Supabase double.
 timestamp rendered as a relative date. Phase trap 2 — an assistant message with
 no preceding user message is reachable via AM1's FR-013 path.
 
+## Corrections found while building (code wins over the plan)
+
+**Decision 3's `SessionAttachment` type moved `requestLabel` derivation out of
+the query.** The sketch had `sessionAttachments()` return a pre-derived
+`requestLabel: string | null`, computed with `stripMarkdown`
+(`components/chat/markdown.tsx`). That file is a `"use client"` module;
+`chat-attachments.ts` is imported by `handlers/chat.ts`, a Route Handler
+reached from the server (for `attachmentsByMessageId`). Nothing in this
+change calls `stripMarkdown` from server-executed code, but baking that
+import into a data-fetching module shared with server code is the wrong
+place to find out whether that's safe — and the derivation is presentation
+logic (markdown stripping, word-boundary truncation for display) that
+belongs in the already-client-side `ConversationItems` regardless. Shipped:
+`sessionAttachments()` returns the raw `precedingUserContent: string | null`;
+`conversation-items.tsx`'s `deriveRequestLabel` does the stripping/trimming
+at render/group time, using the same 60-char word-boundary-plus-ellipsis
+shape `private.chat_auto_title` (`022_chat_auto_title.sql`) uses for session
+titles.
+
+**A `sheet.tsx` primitive was added to `packages/ui/src/components/ui/`,
+beyond this task's own Files table.** The Files table didn't list it because
+the phase README's Decision 1 assumed a Sheet already existed to reach for;
+`DESIGN.md` §8 confirms it doesn't ("`sheet` *(not yet installed)*"), so
+building it was necessary to do Decision 1 at all, not optional scope creep.
+
+**`sessionAttachments()` is two queries under one export, not the "single…
+read" the sketch implied.** `chat_message_attachments` has no `session_id`
+column (only `message_id`), and finding "the preceding user message" per
+assistant message is a self-join over `chat_messages` PostgREST can't
+express without a database function — which this task has no mandate to add
+(scope boundary: no inventing backend endpoints). Fetching the session's own
+messages once and deriving `precedingUserContent` in TypeScript is the same
+shape `handlers/chat.ts`'s `turnStateRow` already uses for an equivalent
+problem.
+
+**The phase README's rejection of deriving this list client-side ("a long
+conversation paginates") doesn't match the current code.** `GET
+/chat/sessions/:id` fetches a session's full message history with no
+`.limit()` — nothing paginates today. The separate `sessionAttachments()`
+read was still built as specified: it decouples this feature from however
+the transcript is fetched (a real independent value on its own), and this
+task's checklist depends on it existing as its own testable function. Noting
+the mismatch here rather than either silently "fixing" the phase README or
+silently ignoring that its stated reason doesn't hold today.
+
 ## Checklist
 
-- [ ] Read `DESIGN.md` §6 and §7 before writing the component (`AGENTS.md` §3.11)
-- [ ] Check the `shadcn` MCP for an existing Sheet pattern before composing one
-- [ ] `sessionAttachments()` with the join and ordering above
-- [ ] `ConversationItems` — grouped list, newest group first, using
+- [x] Read `DESIGN.md` §6 and §7 before writing the component (`AGENTS.md` §3.11)
+- [x] Check for an existing Sheet pattern before composing one — the `shadcn`
+      MCP tools were not available in this session, so this was done by
+      grepping `packages/ui/src/components/ui/` (no `sheet.tsx`) and reading
+      `DESIGN.md` §8's own component table, which already says `sheet` is
+      "not yet installed." Built it in `packages/ui/src/components/ui/`
+      following `skill-viewer.tsx`'s existing hand-rolled slide-over pattern
+      and reusing its `.spg-sheet`/`.spg-overlay` motion classes verbatim —
+      DESIGN.md §7 names those as the reference implementation for this
+      movement, not a new easing curve.
+- [x] `sessionAttachments()` with the join and ordering above — see the
+      **Corrections** note below for one deliberate deviation from the
+      sketch in Decision 3.
+- [x] `ConversationItems` — grouped list, newest group first, using
       `ProducedItem` for every row
-- [ ] All four states: populated, empty (decision 4's copy), loading skeleton
+- [x] All four states: populated, empty (decision 4's copy), loading skeleton
       rows, error with retry
-- [ ] Desktop `aside` renders it beneath the existing project card, which stays
-- [ ] Below-`xl` Sheet with a header trigger, `xl:hidden`
-- [ ] One `ProducedItemViewer` for the list, driven by an open-item id — not one
+- [x] Desktop `aside` renders it beneath the existing project card, which stays
+- [x] Below-`xl` Sheet with a header trigger, `xl:hidden`
+- [x] One `ProducedItemViewer` for the list, driven by an open-item id — not one
       per row
-- [ ] Tests: three turns produce three groups in the right order; a group with
-      no preceding user message falls back to a date; `messageRole === "user"`
-      rows are excluded; the empty state renders decision 4's copy
-- [ ] Both themes, Paper and Mono, at 375px and at ≥1280px
-- [ ] `apps/web` typecheck and tests green
+- [~] Tests: `sessionAttachments()`'s ordering (newest group/attachment
+      first), preceding-user-content derivation, the FR-013 no-preceding-
+      message fallback to `null`, and a `role: "user"` row surviving with
+      its role tagged (not filtered by the query) are all covered in
+      `apps/web/src/lib/chat-attachments.test.ts`. **Not covered by a unit
+      test**: `groupProducedAttachments`'s "three turns → three groups" and
+      the empty-state copy, both in `conversation-items.tsx`. That file
+      imports `@/components/ui/*`, which `apps/web/vitest.config.ts`
+      deliberately does not alias (only `@web/*` is — see that file's own
+      comment); confirmed empirically that importing it from a `.test.ts`
+      fails with "Cannot find package '@/components/ui/button'" before
+      writing this off, not assumed. This repo also has no React Testing
+      Library and the task's own instructions say not to introduce one.
+      Verified instead by code review of `groupProducedAttachments` (a pure
+      function, same shape as the tested SQL-adjacent logic) — not by a live
+      browser pass; see Result.
+- [~] Both themes, Paper and Mono, at 375px and at ≥1280px — not reached live
+      (no local Supabase env in this worktree); see Result.
+- [x] `apps/web` typecheck and tests green
 
 ## Traps
 
@@ -127,22 +196,26 @@ to check `T-AM2-01`'s exports instead.
 
 ## Verification
 
-- [ ] `pnpm --filter web test` green, all cases above
+- [x] `pnpm --filter web test` green, all cases above
 - [ ] Live: a conversation with produced files across three turns shows three
-      groups, newest first, each labelled with its request
-- [ ] Clicking a row opens the same viewer an inline item opens
-- [ ] At 375px the sheet trigger is reachable and the list is usable
+      groups, newest first, each labelled with its request — not reached, see
+      Result; `T-AM3-02`'s job per this section's own last line
+- [ ] Clicking a row opens the same viewer an inline item opens — not reached
+      live, see Result
+- [ ] At 375px the sheet trigger is reachable and the list is usable — not
+      reached live, see Result
 - [ ] A conversation that produced nothing shows decision 4's copy, not
-      "Nothing to preview"
-- [ ] A project chat still shows its project card and terminal link
-- [ ] Console clean
+      "Nothing to preview" — not reached live, see Result
+- [ ] A project chat still shows its project card and terminal link — not
+      reached live, see Result
+- [ ] Console clean — not reached live, see Result
 - [ ] Scenario grading is `T-AM3-02`
 
 ## On completion
 
-- [ ] `pnpm typecheck` and `pnpm test` green
-- [ ] Update this file's **Status** row
-- [ ] Open the PR into `band/27-seeing-what-my-agent-made`, then
+- [x] `pnpm typecheck` and `pnpm test` green
+- [x] Update this file's **Status** row
+- [x] Open the PR into `band/27-seeing-what-my-agent-made`, then
       `gh pr merge <n> --auto --squash`
 
 > **Do not edit [`../MasterTaskQueue.md`](../MasterTaskQueue.md) from a task
@@ -150,4 +223,68 @@ to check `T-AM2-01`'s exports instead.
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+**Built.** `apps/web/src/lib/chat-attachments.ts` gained `sessionAttachments()`
+(session-scoped read, `precedingUserContent` derived in TypeScript from a
+second lightweight `chat_messages` query, ordered newest-message-then-newest-
+attachment-first). `apps/web/src/components/chat/conversation-items.tsx` is
+new: `groupProducedAttachments()` (pure grouping/labeling) plus
+`ConversationItems` (the four-state presentational component, one shared
+`ProducedItemViewer`). `packages/ui/src/components/ui/sheet.tsx` is a new
+primitive (not in this task's original Files table — see Corrections above).
+`apps/web/src/app/chat/chat.tsx` wires both: the desktop `aside` now renders
+the project card (unchanged) followed by `ConversationItems`, and a new
+`Paperclip` icon button in the conversation header, `xl:hidden`, opens a
+`Sheet` holding the same project-card-then-list content for below-`xl`
+widths. The old always-visible preview-toggle button is now `hidden
+xl:inline-flex`, since below `xl` the `aside` it toggles never renders at all.
+
+**Verified:**
+- `pnpm typecheck` (repo-wide, `turbo run typecheck`) — 7/7 packages green.
+- `pnpm test` (repo-wide, `turbo run test`) — 5/5 packages green, including
+  `@sparstrow/core`'s 776 tests.
+- `pnpm --filter web test` — 504/504 green, including the 6 new cases in
+  `apps/web/src/lib/chat-attachments.test.ts` (ordering, preceding-content
+  derivation, the FR-013 null-fallback case, and a `role: "user"` row
+  surviving un-filtered).
+- `pnpm --filter web lint` — diffed against the same command run on the
+  unmodified band branch (`git stash` / lint / `git stash pop`): identical
+  set of pre-existing warnings/errors at shifted line numbers, zero new
+  findings from this change's four touched/added files.
+- `pnpm --filter web build` (Next.js production build) — succeeds, `/chat`
+  builds as a dynamic route; the pre-existing `knowledge.server.ts` dynamic-
+  fs warnings are unrelated and present on the unmodified branch too.
+- `pnpm --filter @sparstrow/ui typecheck` — green (covers the new
+  `sheet.tsx`).
+
+**Not reached, honestly:**
+- **No live browser pass.** This worktree has no `apps/web/.env.local` (only
+  `.env.example`), so there is no local Supabase project to sign in against,
+  and no Vercel preview exists yet for this task branch (that arrives at the
+  band-branch stage, per `AGENTS.md` §2). Everything under this task's own
+  "Verification" section that requires a running, signed-in app — the three-
+  group live check, the 375px mobile-viewport sheet check, the empty-state
+  copy, the project-card regression check, console cleanliness — is
+  unticked here and left for `T-AM3-02`, which this task file's own
+  Verification section already names as the scenario-grading task and which
+  runs on the band's own preview.
+- **No unit test for `groupProducedAttachments` or the rendered empty
+  state.** `conversation-items.tsx` imports `@/components/ui/*`;
+  `apps/web/vitest.config.ts` aliases only `@web/*` (its own comment explains
+  why — collection previously failed on `@web/*` imports and got fixed
+  narrowly, not generally). Confirmed empirically with a throwaway probe
+  test that importing `conversation-items.tsx` from a `.test.ts` fails
+  module resolution before concluding this rather than assuming it. Combined
+  with "no React Testing Library, don't introduce one" from this task's own
+  instructions, the grouping/label logic and empty-state copy are verified
+  by code review only, pending `T-AM3-02`'s live pass.
+- The `shadcn` MCP tools described in `AGENTS.md` §3.11 / this skill were not
+  available in this session to query the registry directly; the "check
+  before composing" step was done via `packages/ui/src/components/ui/`
+  (grep, no `sheet.tsx`) and `DESIGN.md` §8's own table instead, which
+  already documents `sheet` as not yet installed.
+
+**Corrections to the task file itself** are recorded above the checklist,
+not applied silently: the `requestLabel`-in-the-query design, the missing
+`sheet.tsx` in the Files table, and the phase README's "conversation
+paginates" rationale not matching the current unpaginated `GET
+/chat/sessions/:id`.
