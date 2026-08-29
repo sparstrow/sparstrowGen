@@ -51,7 +51,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
-| [T-AM3-01 — the panel becomes the conversation's list](T-AM3-01-panel-list.md) | `[P]` | US2 | T-AM2-01 | not started |
+| [T-AM3-01 — the panel becomes the conversation's list](T-AM3-01-panel-list.md) | `[P]` | US2 | T-AM2-01 | done except live verification (T-AM3-02's job) |
 | [T-AM3-02 — verification](T-AM3-02-verification.md) | `[S]` | US2 | T-AM3-01 | not started |
 
 `T-AM3-01` is `[P]` against `T-AM2-02` — different files, both gated only on
