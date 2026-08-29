@@ -353,40 +353,13 @@ authoritative record; this line is the mirror.
 `T-CS6-02` found and fixed two cross-story regressions that each phase's own
 verification had passed over; `G-52` and `G-53` remain open.
 
-### Band 27 — AM seeing what my agent made (2026-08-29) · **run this next**
-
-Plan: [`../plans/2026-08-28-seeing-what-my-agent-made.md`](../plans/2026-08-28-seeing-what-my-agent-made.md).
-Spec: [`../specs/2026-08-28-seeing-what-my-agent-made.md`](../specs/2026-08-28-seeing-what-my-agent-made.md)
-— ✅ owner-reviewed 2026-08-28, accepted, all three stories.
-Phase specs: [`AM1/README.md`](AM1/README.md) · [`AM2/README.md`](AM2/README.md)
-· [`AM3/README.md`](AM3/README.md) · [`AM4/README.md`](AM4/README.md).
-Decomposed 2026-08-29.
-
-| # | Task | Tag | Serves | Depends on | Status |
-|---|---|---|---|---|---|
-| 27.1 | [T-AM1-01 — the produced-file contract](AM1/T-AM1-01-produced-contract.md) | `[S]` | foundational | — | not started |
-| 27.2 | [T-AM1-02 — the outbox a turn hands files back through](AM1/T-AM1-02-outbox.md) | `[S]` | foundational | 27.1 | not started |
-| 27.3 | [T-AM1-03 — upload, bind, and the reply that is only files](AM1/T-AM1-03-bind-and-reply.md) | `[S]` | foundational | 27.2 | not started |
-| 27.4 | [T-AM1-04 — verification](AM1/T-AM1-04-verification.md) | `[S]` | foundational | 27.1–27.3 | not started |
-| 27.5 | [T-AM2-01 — the produced-item viewer](AM2/T-AM2-01-viewer.md) | `[S]` | US1 | 27.4 | not started |
-| 27.6 | [T-AM2-02 — produced items in the reply](AM2/T-AM2-02-in-the-reply.md) | `[P]` | US1 | 27.5 | not started |
-| 27.7 | [T-AM3-01 — the panel becomes the conversation's list](AM3/T-AM3-01-panel-list.md) | `[P]` | US2 | 27.5 | not started |
-| 27.8 | [T-AM2-03 — AM2 verification](AM2/T-AM2-03-verification.md) | `[S]` | US1 | 27.6 | not started |
-| 27.9 | [T-AM3-02 — AM3 verification](AM3/T-AM3-02-verification.md) | `[S]` | US2 | 27.7 | not started |
-| 27.10 | [T-AM4-01 — fold in what I sent](AM4/T-AM4-01-sent-items.md) | `[C]` | US3 | 27.7 | not started |
-| 27.11 | [T-AM4-02 — verification, and the band's close-out](AM4/T-AM4-02-verification.md) | `[S]` | US3 | 27.10 | not started |
-
-**The fork point is 27.5, and it is the only one.** AM1 (27.1–27.4) is a strict
-pipeline — each task defines what the next consumes — so there is no honest
-`[P]` in it, for the same reason CS5 had none. `T-AM2-01` then gates *both*
-story phases, because the spec's Flow requires an inline item and a panel entry
-to open **the same** enlarged view. Once 27.5 lands on the band branch, cut
-27.6 and 27.7 as two worktrees for two agents: they share no file
-(`components/chat/chat-bits.tsx` + `markdown.tsx` versus `app/chat/chat.tsx` +
-a new `conversation-items.tsx`).
-
-**27.10 is `[C]` against 27.7, never `[P]`** — it edits the component 27.7
-creates. One worker at a time on `conversation-items.tsx`.
+✅ **Archived 2026-08-29 — every row done or done-except.** Full task table,
+tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-27--am-seeing-what-my-agent-made-2026-08-29).
+`T-AM4-02` found and fixed a real focus-restoration defect its own closing
+verification pass caught, that no earlier phase verification had; `G-55`
+remains open — the produced-file pipeline has never run end to end against a
+live daemon.
 
 **Cross-phase collisions worth knowing before scheduling:**
 

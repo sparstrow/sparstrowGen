@@ -820,3 +820,53 @@ previously-unreachable `?? "sonnet"` fallback live. Both are documented in
 USE an attached file's content — no CLI provider authenticated in the
 verification environment) and `G-53` (session delete leaves stored objects in
 the bucket).
+
+### Band 27 — AM seeing what my agent made (2026-08-29)
+
+Plan: [`../plans/2026-08-28-seeing-what-my-agent-made.md`](../plans/2026-08-28-seeing-what-my-agent-made.md).
+Spec: [`../specs/2026-08-28-seeing-what-my-agent-made.md`](../specs/2026-08-28-seeing-what-my-agent-made.md)
+— ✅ owner-reviewed 2026-08-28, accepted, all three stories.
+Phase specs: [`AM1/README.md`](AM1/README.md) · [`AM2/README.md`](AM2/README.md)
+· [`AM3/README.md`](AM3/README.md) · [`AM4/README.md`](AM4/README.md).
+Decomposed 2026-08-29.
+
+| # | Task | Tag | Serves | Depends on | Status |
+|---|---|---|---|---|---|
+| 27.1 | [T-AM1-01 — the produced-file contract](AM1/T-AM1-01-produced-contract.md) | `[S]` | foundational | — | ✅ done 2026-08-29 |
+| 27.2 | [T-AM1-02 — the outbox a turn hands files back through](AM1/T-AM1-02-outbox.md) | `[S]` | foundational | 27.1 | ✅ done except `G-55` 2026-08-29 |
+| 27.3 | [T-AM1-03 — upload, bind, and the reply that is only files](AM1/T-AM1-03-bind-and-reply.md) | `[S]` | foundational | 27.2 | ✅ done except `G-55` 2026-08-29 |
+| 27.4 | [T-AM1-04 — verification](AM1/T-AM1-04-verification.md) | `[S]` | foundational | 27.1–27.3 | ✅ done except `G-55` 2026-08-29 |
+| 27.5 | [T-AM2-01 — the produced-item viewer](AM2/T-AM2-01-viewer.md) | `[S]` | US1 | 27.4 | ✅ done except `G-55` 2026-08-29 |
+| 27.6 | [T-AM2-02 — produced items in the reply](AM2/T-AM2-02-in-the-reply.md) | `[P]` | US1 | 27.5 | ✅ done except `G-55` 2026-08-29 |
+| 27.7 | [T-AM3-01 — the panel becomes the conversation's list](AM3/T-AM3-01-panel-list.md) | `[P]` | US2 | 27.5 | ✅ done 2026-08-29 |
+| 27.8 | [T-AM2-03 — AM2 verification](AM2/T-AM2-03-verification.md) | `[S]` | US1 | 27.6 | ✅ done except `G-55` 2026-08-29 |
+| 27.9 | [T-AM3-02 — AM3 verification](AM3/T-AM3-02-verification.md) | `[S]` | US2 | 27.7 | ✅ done except `G-55` 2026-08-29 |
+| 27.10 | [T-AM4-01 — fold in what I sent](AM4/T-AM4-01-sent-items.md) | `[C]` | US3 | 27.7 | ✅ done 2026-08-29 |
+| 27.11 | [T-AM4-02 — verification, and the band's close-out](AM4/T-AM4-02-verification.md) | `[S]` | US3 | 27.10 | ✅ done except `G-55` 2026-08-29 |
+
+**The fork point was 27.5, and it was the only one.** AM1 (27.1–27.4) ran as a
+strict pipeline — each task defined what the next consumed — so there was no
+honest `[P]` in it, for the same reason CS5 had none. `T-AM2-01` gated *both*
+story phases, because the spec's Flow required an inline item and a panel
+entry to open **the same** enlarged view. 27.6 and 27.7 then ran as two
+worktrees for two agents, sharing no file.
+
+**27.10 was `[C]` against 27.7, never `[P]`** — it edited the component 27.7
+created.
+
+**Closed 2026-08-29.** `T-AM4-02`, the band's own closing verification, found
+and fixed a real defect none of the earlier phase verifications caught:
+closing the produced-item viewer lost keyboard focus to `<body>` instead of
+returning it to the trigger, because `ProducedItemViewer` never renders a
+`DialogTrigger` (its opening button lives in a sibling component), so
+Radix's built-in close-focus restoration had nothing to focus back to —
+found via a genuine keyboard walk, not a synthetic click, which had masked
+it in every earlier task's own pass. Fixed once in the shared
+`produced-item.tsx`, covering both surfaces that use it. One assertion left
+open across the whole band: `G-55` — the produced-file pipeline (outbox,
+upload, bind, inline rendering, and the panel's own listing) has never run
+end to end against a live daemon, because no environment available for this
+band's entire verification chain had one. Everything reachable without a
+daemon was reached, including the first genuinely populated content this
+band's chain ever rendered live (`T-AM4-01`, via the composer's own upload
+path, which needs no daemon at all).

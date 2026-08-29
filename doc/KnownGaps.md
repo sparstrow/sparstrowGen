@@ -2056,6 +2056,18 @@ to `development.sparstrow.com` loads the app instead of the paused page —
 check before relying on the deployed environment specifically, not before
 local-dev-server work.
 
+**Confirmed again 2026-08-29, closing band 27.** This is exactly the "band's
+final live verification pass" case this entry already named as blocked.
+Checked via `gh api repos/.../commits/<band-27-HEAD>/status`: the Vercel
+check reports `state: failure`, `description: "Account is blocked."` —
+account-level, not branch- or project-specific, and not something this band's
+own code could cause or fix. Band 27's entire verification chain
+(`T-AM1-04` through `T-AM4-02`) already used the accepted workaround this
+entry names — a local dev server against the same live Supabase project,
+with a real signed-in disposable account — for every live check across five
+tasks, not newly adopted here. The band → `development` PR proceeds on that
+basis rather than waiting on a platform state this repo doesn't control.
+
 ### G-55 — `T-AM1-02`/`T-AM1-03`'s produced-file pipeline has never run end to end against a live daemon
 
 **Raised:** 2026-08-29, closing `T-AM1-02` (band 27 — `doc/tasks/AM1/T-AM1-02-outbox.md`).
