@@ -230,3 +230,67 @@ export function checkChatAttachmentFile(file: { type: string; size: number }): s
   }
   return null;
 }
+
+/**
+ * AM1 (`T-AM1-01`) — files an AGENT hands back, not what a person uploads.
+ * Deliberately 5x `CHAT_ATTACHMENT_MAX_BYTES`: that limit is right for what a
+ * person drags into the composer and wrong for what a model emits — a
+ * generated PNG routinely exceeds 2 MB. Two names, two honest values; see the
+ * plan's Decision 5 for why one shared limit was rejected.
+ */
+export const CHAT_PRODUCED_MAX_BYTES = 10 * 1024 * 1024;
+
+/**
+ * A separate map from `CHAT_ATTACHMENT_ALLOWED_TYPES`, not a reuse of it —
+ * the two answer different questions ("what may a person upload" vs "what may
+ * we keep from an agent") and are expected to diverge. Adds `image/svg+xml`
+ * and `image/gif` over the inbound set: an agent-produced chart or diagram is
+ * plausibly either, and neither carries the upload-attack-surface concerns
+ * `PUBLIC_IMAGE_ALLOWED_TYPES` was narrowed against (this bucket has no public
+ * URL — see `CHAT_ATTACHMENT_BUCKET`'s header).
+ */
+export const CHAT_PRODUCED_ALLOWED_TYPES: Record<string, string> = {
+  ...CHAT_ATTACHMENT_ALLOWED_TYPES,
+  "image/gif": "gif",
+  "image/svg+xml": "svg",
+};
+
+/**
+ * Sanitizes an agent-chosen filename to a single, safe path segment: no
+ * separators, no `..`, collapsed whitespace, capped length, extension
+ * preserved. Never trust a filename an agent wrote as a path component
+ * directly — see `producedStoragePath`'s own header for why.
+ */
+export function sanitizeProducedFilename(rawName: string): string {
+  const base = rawName.replace(/[/\\]/g, "_").replace(/\.\./g, "_").trim();
+  const collapsed = base.replace(/\s+/g, " ") || "file";
+  const extMatch = collapsed.match(/(\.[A-Za-z0-9]{1,10})$/);
+  const ext = extMatch ? (extMatch[1] ?? "") : "";
+  const stem = ext ? collapsed.slice(0, -ext.length) : collapsed;
+  const cappedStem = stem.slice(0, 100 - ext.length) || "file";
+  return `${cappedStem}${ext}`;
+}
+
+/**
+ * `<workspace_id>/<session_id>/<opaque>-<safe filename>` — exactly TWO path
+ * segments, because `025_chat_attachments_storage.sql` enforces
+ * `array_length(storage.foldername(name), 1) = 2` on both select and insert
+ * against this same bucket. A third segment (e.g. a `produced/` prefix) is
+ * silently DENIED to the workspace member who owns the file — it fails as an
+ * empty image in the browser, not as an error anywhere. Produced files reuse
+ * CS5's inbound-attachment path shape rather than inventing a new one; see
+ * the AM1 phase README, finding 3.
+ *
+ * The opaque id is what lets an agent produce two files both named
+ * `chart.png` in one conversation without one silently overwriting the
+ * other — the spec's own edge case, answered as "both kept".
+ */
+export function producedStoragePath(
+  workspaceId: string,
+  sessionId: string,
+  filename: string,
+  opaqueId: string,
+): string {
+  const safeName = sanitizeProducedFilename(filename);
+  return `${workspaceId}/${sessionId}/${opaqueId}-${safeName}`;
+}
