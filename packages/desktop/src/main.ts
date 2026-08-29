@@ -9,6 +9,16 @@ import { createTray } from "./tray";
 import { offlineScreenUrl } from "./offline";
 import { resolveAppUrl } from "./urls";
 
+// 0004 Phase 0: in packaged mode, point every data path at persistent
+// userData and every resource at the install dir BEFORE the supervisor spawns
+// core — the dev repo is never touched by a packaged run. Also resolves this
+// install's baked channel config (stable vs. staging), which APP_URL below
+// needs — must run before it.
+const packagedPaths = applyPackagedEnv();
+// Re-link the core's node_modules from the shipped `vendor` dir before anything
+// tries to spawn it (electron-builder can't ship a dir named node_modules).
+if (packagedPaths) ensureCoreNodeModules(packagedPaths);
+
 /**
  * Where the window points. Resolution lives in `urls.ts` so it can be tested —
  * `main.ts` takes the single-instance lock at import time and cannot be loaded
@@ -19,16 +29,12 @@ import { resolveAppUrl } from "./urls";
  * but they mean different things — where this machine reports to, versus what
  * this window displays — and collapsing them would make pointing a window at
  * staging a code change. See doc/tasks/M7/README.md decision 6.
+ *
+ * The second argument is this install's baked default (channel.ts) — present
+ * only in a packaged, channel-aware build. `SPARSTROW_APP_URL` still wins
+ * whenever an operator sets it.
  */
-const APP_URL = resolveAppUrl(process.env);
-
-// 0004 Phase 0: in packaged mode, point every data path at persistent
-// userData and every resource at the install dir BEFORE the supervisor spawns
-// core — the dev repo is never touched by a packaged run.
-const packagedPaths = applyPackagedEnv();
-// Re-link the core's node_modules from the shipped `vendor` dir before anything
-// tries to spawn it (electron-builder can't ship a dir named node_modules).
-if (packagedPaths) ensureCoreNodeModules(packagedPaths);
+const APP_URL = resolveAppUrl(process.env, packagedPaths?.channel?.appUrl ?? null);
 const repoRoot = packagedPaths ? app.getPath("userData") : findRepoRoot(__dirname);
 const services = new ServiceManager(repoRoot, packagedPaths);
 // Token-authed shell→core client (tray, updater): the token file lives in
@@ -64,8 +70,9 @@ if (!app.requestSingleInstanceLock()) {
     if (app.isPackaged) {
       app.setLoginItemSettings({ openAtLogin: true });
       // 0004 Phase 2: notify-only update checks (packaged only — dev has no
-      // release feed to compare against).
-      setupUpdater(() => mainWindow);
+      // release feed to compare against). The channel argument picks which
+      // GitHub Release feed this install tracks (channel.ts).
+      setupUpdater(() => mainWindow, packagedPaths?.channel?.updateChannel);
     }
   });
 
@@ -96,6 +103,9 @@ function openWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       preload: path.join(__dirname, "preload.js"),
+      // preload cannot import `app` (main-process only) — pass the real
+      // version through argv instead of letting preload guess. See preload.ts.
+      additionalArguments: [`--sparstrow-version=${app.getVersion()}`],
     },
   });
   mainWindow.on("close", (e) => {

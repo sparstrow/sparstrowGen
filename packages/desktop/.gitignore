@@ -1,2 +1,3 @@
 resources-staging/
 release/
+electron-builder.*.generated.json

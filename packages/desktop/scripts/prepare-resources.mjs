@@ -83,4 +83,37 @@ const nodeName = process.platform === "win32" ? "node.exe" : "node";
 fs.copyFileSync(process.execPath, path.join(nodeDir, nodeName));
 console.log(`[prepare] node runtime: ${process.version} (${process.execPath})`);
 
+// 4. Channel config: which backend THIS specific build talks to, baked in so
+// a packaged install works out of the box — see src/channel.ts for why this
+// is a per-install resource file rather than a machine-wide env var (stable
+// and staging now install side by side; a shared env var would let one
+// silently repoint the other).
+const CHANNELS = {
+  stable: {
+    channel: "stable",
+    updateChannel: "latest",
+    appUrl: "https://sparstrow.com",
+    cloudUrl: "https://sparstrow.com",
+  },
+  staging: {
+    channel: "staging",
+    updateChannel: "staging",
+    appUrl: "https://staging.sparstrow.com",
+    cloudUrl: "https://staging.sparstrow.com",
+  },
+};
+// CLI arg takes precedence (dist:stable/dist:staging pass it explicitly, so
+// this never depends on shell env-var syntax, which differs between the bash
+// and cmd.exe/PowerShell steps this repo's workflows and machines mix); the
+// env var is kept as a fallback for a manual local run.
+const buildChannel = process.argv[2] || process.env.SPARSTROW_BUILD_CHANNEL || "stable";
+if (!CHANNELS[buildChannel]) {
+  console.error(
+    `[prepare] unknown SPARSTROW_BUILD_CHANNEL="${buildChannel}" — expected one of: ${Object.keys(CHANNELS).join(", ")}`,
+  );
+  process.exit(1);
+}
+fs.writeFileSync(path.join(staging, "channel.json"), JSON.stringify(CHANNELS[buildChannel], null, 2));
+console.log(`[prepare] channel: ${buildChannel} (${CHANNELS[buildChannel].appUrl})`);
+
 console.log(`[prepare] staged at ${staging}`);

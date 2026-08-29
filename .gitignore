@@ -18,6 +18,10 @@ coverage/
 # agent living solely in an ignored file does not exist for Antigravity.
 .claude/*
 !.claude/skills/
+# The bare `release/` pattern above (build output, e.g. packages/desktop/release/)
+# also matches any directory literally named "release" anywhere, including the
+# release skill below its own name — re-admit it explicitly.
+!.claude/skills/release/
 !.claude/agents/
 !.claude/commands/
 !.claude/hooks/

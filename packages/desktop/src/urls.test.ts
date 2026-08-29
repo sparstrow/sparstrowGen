@@ -69,3 +69,29 @@ describe("isUnconfigured", () => {
     expect(isUnconfigured({ SPARSTROW_APP_URL: "https://app.example.com" })).toBe(false);
   });
 });
+
+describe("resolveAppUrl with a packaged default (channel builds)", () => {
+  it("falls back to the baked default when no env var is set", () => {
+    expect(resolveAppUrl({}, "https://staging.sparstrow.com")).toBe("https://staging.sparstrow.com");
+  });
+
+  it("still lets an explicit env var override the baked default", () => {
+    expect(
+      resolveAppUrl({ SPARSTROW_APP_URL: "http://localhost:3000" }, "https://staging.sparstrow.com"),
+    ).toBe("http://localhost:3000");
+  });
+
+  it("strips trailing slashes from the baked default too", () => {
+    expect(resolveAppUrl({}, "https://staging.sparstrow.com/")).toBe("https://staging.sparstrow.com");
+  });
+
+  it("is null when neither the env var nor a baked default is present — dev, unchanged", () => {
+    expect(resolveAppUrl({}, null)).toBeNull();
+    expect(resolveAppUrl({}, undefined)).toBeNull();
+  });
+
+  it("isUnconfigured reflects the same fallback", () => {
+    expect(isUnconfigured({}, "https://staging.sparstrow.com")).toBe(false);
+    expect(isUnconfigured({}, null)).toBe(true);
+  });
+});

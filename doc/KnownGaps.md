@@ -2011,3 +2011,33 @@ deleted session's prefix is empty. This is the same cleanup obligation
 [`seeing-what-my-agent-made`](specs/2026-08-28-seeing-what-my-agent-made.md)'s
 FR-012 takes on for agent-produced files — whichever lands first should do it
 for both, since they share the bucket and the prefix scheme.
+
+### G-54 — two-channel desktop release: no live NSIS install, no rendered `/changelog`
+
+**Raised:** 2026-08-29, landing
+[`DR`](tasks/DR/README.md) (`doc/plans/2026-08-29-two-channel-desktop-release.md`).
+
+Verified: `pnpm --filter @sparstrow/desktop test` (40/40, including new
+`channel.test.ts` and the added `urls.test.ts` cases) and `pnpm typecheck` /
+`pnpm test` clean repo-wide. **Not verified:** actually building and installing
+the stable and staging NSIS installers side by side on a Windows machine to
+confirm they coexist without collision (separate userData dir, separate Start
+Menu entry, independent auto-update checks) — no Windows install target
+available in this session. Also not verified: a real push to `staging`
+triggering `release-staging.yml` end to end and producing a non-draft
+`vX.Y.Z-staging.N` GitHub Release with a working `staging.yml` update feed —
+this session cannot push to `staging`. And not verified: the `/changelog`
+route actually rendering in a browser (no dev server exercised this pass) —
+covered by typecheck only.
+
+**If wrong:** moderate. If the two installers turn out to share state despite
+the distinct `appId`/`productName` (an Electron version quirk, an OS-level
+Start Menu collision, etc.), a staging build could still affect the
+production install — the exact failure mode the separate-identity decision
+was meant to rule out. If `release-staging.yml` has a syntax or permissions
+issue, staging simply never publishes, silently, until someone checks
+`https://github.com/sparstrow/sparstrowGen/releases` after a push.
+
+**Clears when:** someone with a Windows machine installs both channels side
+by side and confirms independent update checks, and a real `staging` push is
+observed producing a published (non-draft) release.
