@@ -1,14 +1,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import {
   ArrowUp,
   Bot,
   FolderKanban,
   MessageSquare,
-  MonitorPlay,
   MoreHorizontal,
   Paperclip,
   PanelRight,
@@ -58,9 +57,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ChatTurnView, ThinkingDots, TurnErrorBanner } from "@web/components/chat/chat-bits";
+import { ConversationItems } from "@web/components/chat/conversation-items";
 import { createChatAttachmentUploader } from "@web/lib/storage/attachment-uploader";
 import { createClient } from "@web/utils/supabase/client";
+import { sessionAttachments } from "@web/lib/chat-attachments";
 import {
   useAgents,
   useChatSession,
@@ -781,6 +783,11 @@ export function ChatPage() {
 
   const [input, setInput] = React.useState("");
   const [previewOpen, setPreviewOpen] = React.useState(false);
+  // T-AM3-01 (US2) — the below-`xl` path to the same list the `aside` shows.
+  // Its own open state, deliberately not tied to `previewOpen`: an owner who
+  // has closed the desktop preview panel must still be able to reach this on
+  // a phone, where the `aside` never renders at all (`hidden … xl:flex`).
+  const [conversationItemsSheetOpen, setConversationItemsSheetOpen] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const liveEvents = useLiveEvents();
   const queryClient = useQueryClient();
@@ -831,6 +838,19 @@ export function ChatPage() {
 
   const messages = detail.data?.messages ?? [];
   const messageIds = React.useMemo(() => new Set(messages.map((m) => m.id)), [messages]);
+
+  // T-AM3-01 (US2) — the conversation's own index of what it produced, for
+  // the desktop `aside` and the below-`xl` Sheet. Keyed on `messages.length`
+  // rather than wired into every one of `detail`'s own `invalidateQueries`
+  // call sites: any new message (including a files-only reply, AM1's
+  // FR-013 path) changes that count, which is exactly when this list can
+  // change too.
+  const conversationItemsQuery = useQuery({
+    queryKey: ["conversation-items", selectedId, messages.length],
+    queryFn: () => sessionAttachments(supabase, selectedId as string),
+    enabled: Boolean(selectedId),
+  });
+  const conversationItemsRows = conversationItemsQuery.data ?? [];
   // A union, not a branch on whether a turn exists yet (found by actually
   // sending a second local message: the LOCAL host's POST doesn't resolve
   // until the turn is fully terminal -- there is no intermediate `waiting`/
@@ -1414,10 +1434,54 @@ export function ChatPage() {
                 </span>
               </div>
               <div className="flex shrink-0 items-center">
+                {/* T-AM3-01 (US2) — the only path to the produced-files list
+                    below `xl`, where the `aside` is `display: none` rather
+                    than merely narrow. */}
+                <Sheet open={conversationItemsSheetOpen} onOpenChange={setConversationItemsSheetOpen}>
+                  <SheetTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-muted-foreground xl:hidden"
+                      title="Files this conversation produced"
+                    >
+                      <Paperclip className="size-4" />
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent>
+                    <SheetHeader>
+                      <SheetTitle>Produced files</SheetTitle>
+                    </SheetHeader>
+                    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+                      {session?.projectId && (
+                        <div className="mb-6 flex flex-col items-center gap-2 text-center">
+                          <FolderKanban className="size-7 text-muted-foreground/50" />
+                          <p className="text-sm font-medium">{projectName(session.projectId)}</p>
+                          <p className="text-xs leading-relaxed text-muted-foreground">
+                            Running the app from chat lands in a follow-up. For now,{" "}
+                            <Link href="/terminals" className="underline underline-offset-2">
+                              open a terminal
+                            </Link>{" "}
+                            to run it manually.
+                          </p>
+                        </div>
+                      )}
+                      <ConversationItems
+                        attachments={conversationItemsRows}
+                        isLoading={conversationItemsQuery.isLoading}
+                        isError={conversationItemsQuery.isError}
+                        onRetry={() => void conversationItemsQuery.refetch()}
+                      />
+                    </div>
+                  </SheetContent>
+                </Sheet>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={cn("size-8", previewOpen ? "text-foreground" : "text-muted-foreground")}
+                  className={cn(
+                    "hidden size-8 xl:inline-flex",
+                    previewOpen ? "text-foreground" : "text-muted-foreground",
+                  )}
                   title={previewOpen ? "Hide preview" : "Show preview"}
                   onClick={() => setPreviewOpen((v) => !v)}
                 >
@@ -1616,15 +1680,20 @@ export function ChatPage() {
         </Panel>
       </PanelGroup>
 
-      {/* Preview panel — always available; honest when there's nothing to run. */}
+      {/* Preview panel — always available. T-AM3-01 (US2) replaced the old
+          bare "Nothing to preview" with the conversation's own index of what
+          it produced; the project card above it is untouched (phase
+          decision 2). Desktop-only by construction (`hidden … xl:flex`) —
+          the Sheet in the header above is the below-`xl` path to the same
+          list (phase decision 1). */}
       {previewOpen && (
         <aside className="hidden w-80 shrink-0 flex-col border-l bg-sidebar xl:flex">
-          <div className="flex h-12 items-center border-b px-4">
+          <div className="flex h-12 shrink-0 items-center border-b px-4">
             <p className="text-sm font-medium">Preview</p>
           </div>
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-            {session?.projectId ? (
-              <>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+            {session?.projectId && (
+              <div className="mb-6 flex flex-col items-center gap-2 px-2 text-center">
                 <FolderKanban className="size-7 text-muted-foreground/50" />
                 <p className="text-sm font-medium">{projectName(session.projectId)}</p>
                 <p className="text-xs leading-relaxed text-muted-foreground">
@@ -1634,13 +1703,14 @@ export function ChatPage() {
                   </Link>{" "}
                   to run it manually.
                 </p>
-              </>
-            ) : (
-              <>
-                <MonitorPlay className="size-7 text-muted-foreground/50" />
-                <p className="text-sm text-muted-foreground">Nothing to preview</p>
-              </>
+              </div>
             )}
+            <ConversationItems
+              attachments={conversationItemsRows}
+              isLoading={conversationItemsQuery.isLoading}
+              isError={conversationItemsQuery.isError}
+              onRetry={() => void conversationItemsQuery.refetch()}
+            />
           </div>
         </aside>
       )}
