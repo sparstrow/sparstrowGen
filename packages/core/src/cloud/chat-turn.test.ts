@@ -619,4 +619,181 @@ describe("runChatTurnCommand", () => {
       expect(capturedOutbox).toBeTruthy();
     });
   });
+
+  // T-AM1-03. The outbox tests above pre-date the upload step and, left
+  // unmocked, the sign-upload/PUT calls fall through `routeFetch`'s
+  // catch-all (a bare 200) rather than actually failing -- which is why they
+  // still pass without proving the upload wiring itself. These tests mock
+  // both calls explicitly.
+  describe("produced files (upload + bind)", () => {
+    function outboxDirFrom(agentArg: unknown): string {
+      const addDirs = (agentArg as { addDirs: string[] }).addDirs;
+      return addDirs[addDirs.length - 1]!;
+    }
+
+    function uploadRoute(signedUrl = "http://storage.test/upload/signed") {
+      return { "/chat/attachments/sign-upload": () => jsonResponse(200, { signedUrl, token: "tok", path: "x" }) };
+    }
+
+    it("uploads a kept file via sign-upload + PUT and includes it in the posted result's produced field", async () => {
+      vi.mocked(completeOnce).mockImplementation(async (agentArg) => {
+        const outbox = outboxDirFrom(agentArg);
+        fs.writeFileSync(path.join(outbox, "chart.png"), "fake png bytes");
+        return { text: "Here you go!", sessionId: "s", isError: false };
+      });
+      const fetchMock = routeFetch({
+        ...uploadRoute(),
+        "storage.test/upload/signed": () => new Response(null, { status: 200 }),
+        "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }),
+      });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      // The upload itself: a PUT with the file's bytes and its mime type.
+      const putCall = fetchMock.mock.calls.find(
+        ([url, init]) => String(url).includes("storage.test/upload/signed") && (init as RequestInit)?.method === "PUT",
+      );
+      expect(putCall).toBeTruthy();
+      const putInit = putCall![1] as RequestInit;
+      expect(putInit.body?.toString()).toContain("fake png bytes");
+      expect((putInit.headers as Record<string, string>)["content-type"]).toBe("image/png");
+
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result") as {
+        replyText: string;
+        status: string;
+        produced: Array<{ storagePath: string; filename: string; mimeType: string; sizeBytes: number }>;
+      }[];
+      const body = resultBodies[0]!;
+      expect(body.status).toBe("succeeded");
+      expect(body.replyText).toBe("Here you go!");
+      expect(body.produced).toHaveLength(1);
+      expect(body.produced[0]).toMatchObject({ filename: "chart.png", mimeType: "image/png" });
+    });
+
+    it("the produced storagePath has exactly two folder segments and starts with the workspace id (matches 025's storage policy)", async () => {
+      vi.mocked(completeOnce).mockImplementation(async (agentArg) => {
+        const outbox = outboxDirFrom(agentArg);
+        fs.writeFileSync(path.join(outbox, "chart.png"), "bytes");
+        return { text: "ok", sessionId: "s", isError: false };
+      });
+      let requestedStoragePath = "";
+      const fetchMock = routeFetch({
+        "/chat/attachments/sign-upload": () => jsonResponse(200, { signedUrl: "http://storage.test/upload/signed", token: "tok" }),
+        "storage.test/upload/signed": () => new Response(null, { status: 200 }),
+        "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }),
+      });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      const signCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/chat/attachments/sign-upload"));
+      requestedStoragePath = (JSON.parse(String((signCall![1] as RequestInit).body)) as { storagePath: string }).storagePath;
+
+      const folderSegments = requestedStoragePath.split("/").length - 1;
+      expect(folderSegments).toBe(2);
+      expect(requestedStoragePath.startsWith("ws/")).toBe(true); // "ws" is this test file's own pairing workspaceId
+    });
+
+    it("an upload failure becomes a refusal sentence, not a lost turn or a lost reply", async () => {
+      vi.mocked(completeOnce).mockImplementation(async (agentArg) => {
+        const outbox = outboxDirFrom(agentArg);
+        fs.writeFileSync(path.join(outbox, "chart.png"), "bytes");
+        return { text: "made you a chart", sessionId: "s", isError: false };
+      });
+      const fetchMock = routeFetch({
+        ...uploadRoute(),
+        "storage.test/upload/signed": () => new Response("server error", { status: 500 }),
+        "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }),
+      });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result") as {
+        status: string;
+        replyText: string;
+        produced: unknown[];
+      }[];
+      const body = resultBodies[0]!;
+      expect(body.status).toBe("succeeded"); // the model's own work did not fail
+      expect(body.replyText).toContain("made you a chart");
+      expect(body.replyText).toContain("chart.png");
+      expect(body.replyText).toMatch(/could not be saved/);
+      expect(body.produced).toHaveLength(0);
+    });
+
+    it("FR-004: a turn that produced a file and wrote no text is succeeded, not failed", async () => {
+      vi.mocked(completeOnce).mockImplementation(async (agentArg) => {
+        const outbox = outboxDirFrom(agentArg);
+        fs.writeFileSync(path.join(outbox, "chart.png"), "bytes");
+        return { text: "", sessionId: "s", isError: false };
+      });
+      const fetchMock = routeFetch({
+        ...uploadRoute(),
+        "storage.test/upload/signed": () => new Response(null, { status: 200 }),
+        "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }),
+      });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result") as {
+        status: string;
+        error: string | null;
+        produced: unknown[];
+      }[];
+      // Before this task, `!result.text` alone marked this `failed` -- the
+      // exact bug FR-004 exists to fix (phase README finding 4).
+      const body = resultBodies[0]!;
+      expect(body.status).toBe("succeeded");
+      expect(body.error).toBeNull();
+      expect(body.produced).toHaveLength(1);
+    });
+
+    it("a turn with genuinely no text and no produced file is still failed (unchanged pre-existing behavior)", async () => {
+      vi.mocked(completeOnce).mockResolvedValue({ text: "", sessionId: "s", isError: false });
+      const fetchMock = routeFetch({ "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }) });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result") as { status: string; produced: unknown[] }[];
+      const body = resultBodies[0]!;
+      expect(body.status).toBe("failed");
+      expect(body.produced).toHaveLength(0);
+    });
+
+    it("FR-013: a turn that produced a file and then errored still reports the file, alongside the failure", async () => {
+      // The model wrote a file to the outbox before its own run errored --
+      // partial work is not thrown away. `result.isError` still forces
+      // status=failed (the model DID fail), but `produced` is populated
+      // unconditionally, not gated by status -- that is what lets the SQL
+      // side (029_chat_produced_files.sql) bind the file to a message even
+      // on a failed turn.
+      vi.mocked(completeOnce).mockImplementation(async (agentArg) => {
+        const outbox = outboxDirFrom(agentArg);
+        fs.writeFileSync(path.join(outbox, "partial.png"), "bytes");
+        return { text: null, sessionId: "s", isError: true, errorMessage: "usage limit reached" };
+      });
+      const fetchMock = routeFetch({
+        ...uploadRoute(),
+        "storage.test/upload/signed": () => new Response(null, { status: 200 }),
+        "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }),
+      });
+
+      runChatTurnCommand(payload());
+      await vi.runAllTimersAsync();
+
+      const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result") as {
+        status: string;
+        error: string | null;
+        produced: unknown[];
+      }[];
+      const body = resultBodies[0]!;
+      expect(body.status).toBe("failed");
+      expect(body.error).toBe("usage limit reached");
+      expect(body.produced).toHaveLength(1);
+    });
+  });
 });

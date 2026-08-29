@@ -5,8 +5,10 @@ import { eq } from "drizzle-orm";
 import {
   CHAT_PRODUCED_ALLOWED_TYPES,
   CHAT_PRODUCED_MAX_BYTES,
+  producedStoragePath,
   type Agent,
   type ChatTurnEventPush,
+  type ChatTurnProducedFile,
   type ChatTurnResultPayload,
   type ChatTurnStartPayload,
   type CommandFailureReason,
@@ -19,7 +21,7 @@ import { agents, projects } from "../db/schema.js";
 import { logger } from "../logger.js";
 import { buildTranscriptPrompt, chatAgent, TURN_TIMEOUT_MS } from "../chat/service.js";
 import { completeOnce } from "../orchestrator/one-shot.js";
-import { cloudFetch } from "./client.js";
+import { cloudFetch, getWorkspaceId } from "./client.js";
 import { resolveAgent, resolveProject, type ResolutionFailure } from "./resolve.js";
 
 /**
@@ -236,7 +238,7 @@ interface KeptOutboxFile {
 interface RefusedOutboxFile {
   filename: string;
   sizeBytes: number;
-  reason: string;
+  reason: "too large to keep" | "unrecognized file type" | "upload failed";
 }
 
 interface OutboxSweepResult {
@@ -304,12 +306,89 @@ function sweepOutbox(outboxDir: string): OutboxSweepResult {
 function refusalNote(refused: RefusedOutboxFile[]): string {
   if (refused.length === 0) return "";
   const mb = (bytes: number) => (bytes / (1024 * 1024)).toFixed(1);
-  const lines = refused.map((r) =>
-    r.reason === "too large to keep"
-      ? `"${r.filename}" (${mb(r.sizeBytes)} MB) could not be kept — it is larger than the ${mb(CHAT_PRODUCED_MAX_BYTES)} MB limit.`
-      : `"${r.filename}" could not be kept — its file type is not supported.`,
-  );
+  const lines = refused.map((r) => {
+    switch (r.reason) {
+      case "too large to keep":
+        return `"${r.filename}" (${mb(r.sizeBytes)} MB) could not be kept — it is larger than the ${mb(CHAT_PRODUCED_MAX_BYTES)} MB limit.`;
+      case "unrecognized file type":
+        return `"${r.filename}" could not be kept — its file type is not supported.`;
+      case "upload failed":
+        // AM1 (T-AM1-03) -- a storage hiccup must not lose the agent's text,
+        // so this is reported the same honest way a size/type refusal is.
+        return `"${r.filename}" could not be saved — something went wrong uploading it.`;
+    }
+  });
   return `\n\n${lines.join("\n")}`;
+}
+
+/** `POST /api/daemon/chat/attachments/sign-upload` — see that route's own
+ *  header for the workspace-prefix check it enforces before minting. */
+async function signUploadUrl(storagePath: string): Promise<string> {
+  const { signedUrl } = await cloudFetch<{ signedUrl: string }>("/chat/attachments/sign-upload", {
+    method: "POST",
+    body: { storagePath },
+    retries: 1,
+    timeoutMs: 15_000,
+  });
+  return signedUrl;
+}
+
+/**
+ * AM1 (T-AM1-03). Bare PUT to the signed URL, no extra headers beyond
+ * content-type -- mirroring `downloadToFile`'s bare GET above, on the theory
+ * that a Supabase Storage signed URL (upload or download) embeds its own
+ * auth as a `?token=` query parameter and needs nothing further. This exact
+ * HTTP call has not been exercised against a live Supabase Storage endpoint
+ * in this environment (no paired daemon) -- see `G-55`'s sibling entry for
+ * this task. If it turns out wrong, the fix is here, in one function.
+ */
+async function uploadToSignedUrl(signedUrl: string, localPath: string, mimeType: string): Promise<void> {
+  const bytes = fs.readFileSync(localPath);
+  const res = await fetch(signedUrl, {
+    method: "PUT",
+    body: bytes,
+    headers: { "content-type": mimeType },
+  });
+  if (!res.ok) throw new Error(`produced file upload returned ${res.status}`);
+}
+
+/**
+ * Uploads every kept outbox file, converting an upload failure into a
+ * refusal sentence rather than losing the agent's text over a storage
+ * hiccup (phase decision: "a storage hiccup must not lose the agent's
+ * text"). Returns both the successfully-uploaded descriptors AND any
+ * upload-time refusals, so the caller can fold the latter into the same
+ * `refusalNote` treatment the sweep's own refusals already get.
+ */
+async function uploadKeptFiles(
+  kept: KeptOutboxFile[],
+  workspaceId: string,
+  sessionId: string,
+): Promise<{ uploaded: ChatTurnProducedFile[]; uploadFailures: RefusedOutboxFile[] }> {
+  const uploaded: ChatTurnProducedFile[] = [];
+  const uploadFailures: RefusedOutboxFile[] = [];
+
+  for (const file of kept) {
+    try {
+      const storagePath = producedStoragePath(workspaceId, sessionId, file.filename, crypto.randomUUID());
+      const signedUrl = await signUploadUrl(storagePath);
+      await uploadToSignedUrl(signedUrl, file.localPath, file.mimeType);
+      uploaded.push({
+        storagePath,
+        filename: file.filename,
+        mimeType: file.mimeType,
+        sizeBytes: file.sizeBytes,
+      });
+    } catch (err) {
+      logger.warn(
+        { filename: file.filename, err: err instanceof Error ? err.message : String(err) },
+        "produced file upload failed — reporting as a refusal rather than losing the turn's text",
+      );
+      uploadFailures.push({ filename: file.filename, sizeBytes: file.sizeBytes, reason: "upload failed" });
+    }
+  }
+
+  return { uploaded, uploadFailures };
 }
 
 /**
@@ -467,20 +546,40 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
     await pusher.drain();
 
     // Swept BEFORE postResult, deliberately not in `finally`: `finally` runs
-    // on the failure path too and removes the outbox, but `T-AM1-03`'s
-    // upload step needs `kept`'s files to still exist on disk when it reads
+    // on the failure path too and removes the outbox, but the upload step
+    // right below needs `kept`'s files to still exist on disk when it reads
     // them. Sweeping here, before the outbox is ever removed, is what makes
     // that safe on both the success and failure paths.
-    const { kept, refused } = sweepOutbox(outboxDir);
-    void kept; // consumed by T-AM1-03's upload/bind step, not yet wired here
+    const { kept, refused: sweepRefused } = sweepOutbox(outboxDir);
 
-    const replyText = (result.text ?? "") + refusalNote(refused);
+    // AM1 (T-AM1-03). Uploaded AFTER completeOnce settles, BEFORE postResult
+    // -- an upload failure becomes a refusal sentence, same treatment as a
+    // sweep-time refusal, rather than losing the turn's text over a storage
+    // hiccup. Needs the workspace id to compose each file's storage path;
+    // `getWorkspaceId()` reads the daemon's own pairing state (set once at
+    // pairing time), not anything from the payload.
+    const workspaceId = getWorkspaceId();
+    const { uploaded, uploadFailures } =
+      kept.length > 0 && workspaceId
+        ? await uploadKeptFiles(kept, workspaceId, payload.sessionId)
+        : { uploaded: [], uploadFailures: [] as RefusedOutboxFile[] };
 
+    const replyText = (result.text ?? "") + refusalNote([...sweepRefused, ...uploadFailures]);
+
+    // AM1 (T-AM1-03), FR-004: a turn that handed something back did work,
+    // even with no text -- `!result.text` alone would mark it `failed`, the
+    // exact bug this phase exists to fix (see the phase README's finding 4).
+    const producedSomething = uploaded.length > 0;
     await postResult(payload.turnId, {
       seq: ++seq,
       replyText,
-      status: result.isError || !result.text ? "failed" : "succeeded",
-      error: result.isError ? (result.errorMessage ?? "the model returned no output") : null,
+      status: result.isError || (!result.text && !producedSomething) ? "failed" : "succeeded",
+      error: result.isError
+        ? (result.errorMessage ?? "the model returned no output")
+        : !result.text && !producedSomething
+          ? "the model returned no output"
+          : null,
+      produced: uploaded,
     });
   } catch (err) {
     await pusher.drain();

@@ -2012,6 +2012,19 @@ deleted session's prefix is empty. This is the same cleanup obligation
 FR-012 takes on for agent-produced files — whichever lands first should do it
 for both, since they share the bucket and the prefix scheme.
 
+**Extended 2026-08-29, closing `T-AM1-03`.** A second, narrower way to reach
+an orphaned object, unrelated to session deletion: `chat-turn.ts` uploads each
+produced file to storage, then calls `postResult` to bind it via
+`ingest_chat_turn_reply`. If that POST never lands — the result route's own
+header already calls this loss "real", the only backstop being the command's
+lease expiry and a full retried turn — the objects sit in the bucket with no
+`chat_message_attachments` row ever created for them, indistinguishable from
+this entry's session-delete case once orphaned. No reaper is being built for
+either cause; whatever eventually closes one should close both, since the
+fix (a scheduled sweep of unreferenced objects under a workspace's prefix, or
+tightening `postResult`'s delivery guarantee) is the same shape for both
+causes.
+
 ### G-54 — `development.sparstrow.com` is paused: Vercel's free-plan usage is exhausted
 
 **Raised:** 2026-08-29, noticed mid-`T-DI-05` follow-up when a fresh navigation
@@ -2043,7 +2056,7 @@ to `development.sparstrow.com` loads the app instead of the paused page —
 check before relying on the deployed environment specifically, not before
 local-dev-server work.
 
-### G-55 — `T-AM1-02`'s outbox has never swept a file a real agent actually wrote
+### G-55 — `T-AM1-02`/`T-AM1-03`'s produced-file pipeline has never run end to end against a live daemon
 
 **Raised:** 2026-08-29, closing `T-AM1-02` (band 27 — `doc/tasks/AM1/T-AM1-02-outbox.md`).
 
@@ -2069,7 +2082,37 @@ all of it is independently correct. The mechanism (directory exists, is
 writable, is swept, cleans up) is not what would be wrong; the instruction's
 persuasiveness would be.
 
+**Extended 2026-08-29, closing `T-AM1-03`.** Two more surfaces joined this gap
+rather than getting their own entries, since the root cause is identical (no
+paired daemon in this environment):
+
+1. **The upload HTTP call itself.** `uploadToSignedUrl` (`chat-turn.ts`) does
+   a bare `PUT` to the signed URL returned by `sign-upload`, with only a
+   `content-type` header — mirroring `downloadToFile`'s bare `GET`, on the
+   theory that a Supabase Storage signed URL (either direction) embeds its
+   own auth as a `?token=` query parameter and needs nothing further.
+   Confirmed against Supabase's own docs that signed URLs carry a unique
+   `token` query parameter and that the read side already works this way in
+   this exact codebase; **not** confirmed against a live Storage endpoint for
+   the write direction specifically. If wrong, every upload fails with a
+   non-2xx, which the code already turns into a refusal sentence rather than
+   losing the turn — so the failure mode is "produced files never appear",
+   not data loss or a crash.
+2. **`029_chat_produced_files.sql`'s binding logic**, unverified beyond
+   static reading, `get_advisors`, and signature/grant checks. Deliberately
+   not proven with a fabricated row either: `workspaces.owner_id` is a NOT
+   NULL foreign key into `auth.users`, and inserting a synthetic auth user on
+   shared staging to exercise one function call was judged a worse trade than
+   leaving this named. If the message-creation guard or the
+   `jsonb_array_elements` binding has a mistake invisible to reading, the
+   failure mode is a `succeeded`/partial-`failed` turn whose files never get
+   an attachment row — visible immediately the first time `T-AM1-04` or AM2
+   runs against a real turn, not a silent long-term drift.
+
 **Clears when:** a chat turn on a machine with an authenticated CLI provider
-is asked to produce a file, and the daemon log shows `sweepOutbox` finding it
-in `kept` — the same bar `G-52` sets for attachment content, on the output
-side instead of the input side.
+is asked to produce a file, and — the full pipeline, not just the sweep —
+`sweepOutbox` finds it in `kept`, the upload succeeds, and
+`select m.content, a.filename from chat_messages m join
+chat_message_attachments a on a.message_id = m.id where m.role = 'assistant'
+order by m.created_at desc limit 1` shows a real row. The same bar `G-52`
+sets for attachment content, on the output side instead of the input side.
