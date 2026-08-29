@@ -46,22 +46,31 @@ row, Knowledge Center article `updates-and-releases.md`.
 rendered in a browser — no dev server exercised in this pass. See
 `doc/KnownGaps.md`.
 
-## T-DR-03 — Production database cutover — blocked
+## T-DR-03 — Production database cutover — database half done 2026-08-29
 
-Owner said "create it now" (2026-08-29), but the Supabase MCP connection in
-this session was not authorized, and creating a production project isn't
-something to do unilaterally without that authorization or the owner doing it
-directly. Needs:
+Owner created `sparstrowgen-prod` (`styichgxhecmatkholvi`) directly and
+authorized the Supabase MCP connection mid-session, unblocking this task.
 
-- [ ] Owner authorizes the Supabase MCP connection (`claude mcp` / `/mcp`), or
-      creates the project directly in the Supabase dashboard
-- [ ] New Supabase project created for `main`
-- [ ] `main`'s Vercel env vars (`DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
-      anon key, service role key) pointed at it
-- [ ] Auth → URL Configuration set fresh for `sparstrow.com` (does **not**
-      inherit `staging`'s config — see `doc/runbooks/deploy-web-app.md`)
-- [ ] Close `doc/Deferred.md` **D-15**
+- [x] Owner authorizes the Supabase MCP connection / creates the project
+- [x] New Supabase project created for `main`
+- [x] Full schema replayed from empty: 8 drizzle table migrations +
+      27 RLS/policy files, in order — not the stale `apply-to-supabase.sql`
+      snapshot. 39 tables, RLS parity with staging confirmed via
+      `list_tables` + `get_advisors`.
+- [~] `main`'s Vercel env vars (`DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
+      anon key, service role key) pointed at it — blocked on the owner:
+      DB password and service role key are secrets that should go directly
+      from the owner into Vercel, not relayed through chat
+- [~] Auth → URL Configuration set fresh for `sparstrow.com` (does **not**
+      inherit `staging`'s config — see `doc/runbooks/deploy-web-app.md`) —
+      blocked on the owner: no Supabase MCP tool covers Auth config, dashboard
+      only
+- [ ] Close `doc/Deferred.md` **D-15** once the above two land
 
-Everything in T-DR-01/02 works without this — stable's baked default
-(`sparstrow.com`) is live in the code-path sense, but there's no database
-behind it yet, unchanged from before this phase.
+**Found and fixed three real, live bugs while replaying the schema** — not
+anticipated, surfaced only because replaying history from empty is itself a
+verification pass:
+
+- [`BUG-2026-08-29-bootstrap-workspace-020-reverted-012`](../../bug/BUG-2026-08-29-bootstrap-workspace-020-reverted-012.md) — fixed on both projects
+- [`BUG-2026-08-29-missing-migration-files-for-two-live-tables`](../../bug/BUG-2026-08-29-missing-migration-files-for-two-live-tables.md) — fixed on prod, repo history corrected (`0008_*.sql`)
+- [`SEC-2026-08-29-record-provider-models-anon-executable-on-fresh-project`](../../security/SEC-2026-08-29-record-provider-models-anon-executable-on-fresh-project.md) — fixed on prod

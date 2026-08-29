@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | n/a (internal) — build/release infrastructure. The one user-facing piece (the `/changelog` page) was scoped and approved in-chat on 2026-08-29 with the owner via a rendered walkthrough and four explicit decisions (app identity, publish gate, code signing timing, prod DB timing), not a separate spec document. |
-| **Status** | In progress — Band A and B landed; Band C blocked on the owner creating the production Supabase project (see Decisions) |
+| **Status** | In progress — Band A, B and the database half of Band C landed 2026-08-29; Vercel env vars + Supabase Auth URL Configuration for `main` still need the owner (dashboard/CLI actions this agent can't do unilaterally) |
 | **Trigger** | Owner: "I want two things set up — a test electron app on staging + staging DB, and a prod electron app on main + a separate prod DB... I am also expecting this changelog for user facing in the app," 2026-08-29, after hitting the Vercel free-tier limit and asking how Multica does desktop updates/releases. |
 | **Depends on** | — |
 | **Touches** | `packages/desktop/`, `.github/workflows/release.yml`, `.github/workflows/release-staging.yml`, `apps/web/src/app/changelog/`, `apps/web/src/lib/changelog.server.ts`, `apps/web/src/content/changelog/`, `apps/web/src/components/update-banner.tsx`, `apps/web/src/app/settings/`, `.claude/skills/release/` |
@@ -124,14 +124,34 @@ generating the per-channel electron-builder config, `release-staging.yml`.
 deep link, a small link from Settings' version row, and the Knowledge Center
 article (`updates-and-releases.md`) per `AGENTS.md` §3.2.
 
-### Band C — Production database cutover (foundational, blocked)
+### Band C — Production database cutover ✅ database half done 2026-08-29, Vercel/Auth remain
 
-Create the production Supabase project (owner-approved 2026-08-29 as
-"create it now," but the Supabase MCP connection in this session was not
-authorized — needs the owner to authorize it or create the project by hand),
-point `main`'s Vercel env vars + Auth redirect config at it fresh (per
-`doc/runbooks/deploy-web-app.md`'s "it starts from scratch" note), close
-`doc/Deferred.md` **D-15**. Not started.
+The owner created `sparstrowgen-prod` (`styichgxhecmatkholvi`) directly and
+authorized the Supabase MCP connection mid-session. Replayed the full schema
+(8 drizzle table migrations + 27 RLS/policy files, in order) onto it from
+empty — not the stale `apply-to-supabase.sql` snapshot. `list_tables` /
+`get_advisors` confirm exact parity with staging (39 tables, same accepted
+advisor findings). Found and fixed three real bugs along the way, all
+documented and applied to both databases where applicable:
+
+- `doc/bug/BUG-2026-08-29-bootstrap-workspace-020-reverted-012.md` — `020`
+  silently reverted `012`'s no-invented-names fix; live on staging since
+  2026-08-28, fixed on both projects.
+- `doc/bug/BUG-2026-08-29-missing-migration-files-for-two-live-tables.md` —
+  `chat_message_attachments` had no creating migration anywhere; added
+  `0008_*.sql` via `drizzle-kit generate` (tool-authored, not hand-written).
+- `doc/security/SEC-2026-08-29-record-provider-models-anon-executable-on-fresh-project.md`
+  — prod's newer project template grants function EXECUTE to `anon`/
+  `authenticated` more broadly than staging's; `record_provider_models` and
+  `rls_auto_enable()` were anon-callable until fixed.
+
+**Still needs the owner** (not something this agent can do unilaterally):
+Vercel env vars for `main` (`DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) and Supabase
+Auth → URL Configuration for the new project (Site URL `sparstrow.com`,
+redirect URLs) — no MCP tool covers Auth config, and the DB password/service
+role key are secrets that should go directly from the owner into Vercel, not
+through chat. Closes `doc/Deferred.md` **D-15** once those land.
 
 ## Scope boundaries
 
@@ -161,16 +181,26 @@ point `main`'s Vercel env vars + Auth redirect config at it fresh (per
 
 Bands A and B shipped: the desktop app's channel machinery, the
 `release-staging.yml` auto-publish pipeline, the `/changelog` page, and the
-`/release` skill. Band C (the actual production database) is blocked on the
-owner authorizing the Supabase MCP connection or creating the project by hand
-— nothing in Band A/B required it, by design, so stable's baked default
-(`sparstrow.com`) is live in the sense that the code path exists, but there is
-no database behind it yet, unchanged from before this plan.
+`/release` skill. Band C's database half also shipped, once the owner created
+the production Supabase project mid-session and authorized the MCP
+connection: the full schema (39 tables) now exists on `sparstrowgen-prod`
+with the same RLS/policy shape as staging, verified via `list_tables` and
+`get_advisors`. Only the Vercel/Auth dashboard steps remain, and they're
+owner-only by nature (secrets, no MCP coverage for Auth config).
 
-What the plan didn't anticipate: `urls.ts`'s existing "no default hostname"
-rule (from T-VR-01) was strict enough that reproducing the original planned
-mechanism (a runtime env var baked via the NSIS installer) would have broken
-the two-channel coexistence goal outright — a machine-wide env var can't tell
-two installs apart. The per-install `resourcesPath` resource turned out to be
-the only mechanism compatible with both "installers coexist" and "no invented
-hostname in source."
+What the plan didn't anticipate, twice over. First: `urls.ts`'s existing "no
+default hostname" rule (from T-VR-01) was strict enough that reproducing the
+original planned mechanism (a runtime env var baked via the NSIS installer)
+would have broken the two-channel coexistence goal outright — a machine-wide
+env var can't tell two installs apart. The per-install `resourcesPath`
+resource turned out to be the only mechanism compatible with both "installers
+coexist" and "no invented hostname in source." Second, and far larger:
+building the production database from scratch by replaying history — rather
+than trusting a snapshot file or assuming staging's current state was
+correct — surfaced three real, live defects that a same-environment change
+would never have exposed: a silently-reverted bugfix, two tables with no
+recorded migration, and a Supabase project-template security gap. All three
+are now fixed on both databases (where applicable) and documented. The
+general lesson, worth remembering for any future fresh-environment setup in
+this repo: replaying the full migration history from empty is itself a
+verification pass, and it found more than the plan asked it to look for.
