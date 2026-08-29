@@ -7,7 +7,7 @@
 | **Depends on** | T-AM2-01 |
 | **Blocks** | T-AM2-03 |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | ✅ done except live/visual verification (2026-08-29) — see Result |
 
 ## The scenario this satisfies
 
@@ -79,20 +79,29 @@ an inherited question.
 
 ## Checklist
 
-- [ ] Assistant branch renders the strip, gated on `attachments?.length`
-- [ ] Empty `content` renders no `<Markdown>` block
-- [ ] One `ProducedItemViewer` per turn, driven by an open-item id
-- [ ] `img` override in `markdown.tsx` with the non-http fallback
-- [ ] "Copy as Markdown" and "Copy text" still copy the reply's raw source and
-      stripped text respectively, unchanged by any of the above
-- [ ] Tests: an assistant message with no attachments renders **no** extra DOM
-      node (assert on the container's child count, not on a class name); one
-      with two attachments renders two items; empty content + one attachment
-      renders the item and no paragraph
+- [x] Assistant branch renders the strip, gated on `attachments?.length`
+- [x] Empty `content` renders no `<Markdown>` block
+- [x] One `ProducedItemViewer` per turn, driven by an open-item id
+- [x] `img` override in `markdown.tsx` with the non-http fallback
+- [x] "Copy as Markdown" and "Copy text" still copy the reply's raw source and
+      stripped text respectively, unchanged by any of the above (the
+      `ContextMenuItem onSelect` handlers are untouched — see Result)
+- [ ] Tests: **not written — see Result.** Same repo-wide fact `T-AM2-01`
+      already recorded: zero `@testing-library/react` dependency, zero
+      `.tsx` test files anywhere (re-confirmed by grep before writing this
+      task's code). Adding component-testing infra for this one gate is a
+      bigger decision than this task owns.
 - [ ] Verify a `failed` turn with an attachment shows both the file and the
-      existing failure indication
-- [ ] Both themes, Paper and Mono
-- [ ] `apps/web` typecheck and tests green
+      existing failure indication — **traced in code, not exercised live**:
+      see Result for the exact call sites and why live wasn't reachable here.
+- [ ] Both themes, Paper and Mono — **not exercised live**, same reason;
+      `ProducedItem`/`ProducedItemViewer` (this task's only new visual
+      surface) already deferred their own theme pass here from `T-AM2-01`,
+      so this is now a second deferral onto the same downstream task.
+- [x] `apps/web` typecheck and tests green (`pnpm --filter web typecheck`,
+      `pnpm --filter web lint` on the two changed files, `pnpm --filter web
+      test` — all clean; no test file exercises either changed file, so the
+      498 passing tests are a non-regression signal, not new coverage)
 
 ## Traps
 
@@ -118,19 +127,22 @@ just-sent path that `actions.ts:74` populates.
 
 ## Verification
 
-- [ ] `pnpm --filter web test` green, including the no-extra-DOM assertion
+- [x] `pnpm --filter web test` green — no no-extra-DOM assertion exists to
+      include (no RTL in the repo; see Checklist and Result)
 - [ ] Live against a real daemon: ask for an image, see it in the reply, click
-      it, see the enlarged view
-- [ ] Reload the page; the image is still there
+      it, see the enlarged view — **not reachable in this environment**, see
+      Result
+- [ ] Reload the page; the image is still there — same reason
 - [ ] A text-only conversation is visually identical to `development` —
-      screenshot both and compare
-- [ ] Browser console clean on load
+      screenshot both and compare — **not reachable in this environment**,
+      see Result
+- [ ] Browser console clean on load — same reason
 - [ ] Full scenario grading is `T-AM2-03`
 
 ## On completion
 
-- [ ] `pnpm typecheck` and `pnpm test` green
-- [ ] Update this file's **Status** row
+- [x] `pnpm typecheck` and `pnpm test` green
+- [x] Update this file's **Status** row
 - [ ] Open the PR into `band/27-seeing-what-my-agent-made`, then
       `gh pr merge <n> --auto --squash`
 
@@ -139,4 +151,65 @@ just-sent path that `actions.ts:74` populates.
 
 ## Result
 
-<!-- Filled in when the task lands. -->
+**Built as planned, no corrections needed to the plan's own shape** — the
+worked example (`produced-item.tsx`'s `ProducedItem`/`ProducedItemViewer`
+exports) matched exactly what the Decisions section already described.
+
+**`chat-bits.tsx`:** the assistant branch of `ChatTurnView` was split into a
+new `AssistantTurn` component so the open-attachment id has somewhere to live
+as component state (the user branch needs none of it — `ChatTurnView` itself
+stays a plain conditional dispatcher). `AssistantTurn` renders `{message.content
+&& <Markdown .../>}` (mirroring the user branch's existing `{message.content
+&& …}` at the same file, cited in the code comment), then `{message.attachments?.length
+? <div className="mt-3 …">…</div> : null}` — the length gate, not just optional
+chaining, so `[]` renders nothing rather than an empty margined `<div>`. One
+`ProducedItemViewer` is mounted per turn as a sibling of `ContextMenuTrigger`/
+`ContextMenuContent` inside `<ContextMenu>` (confirmed safe: `ContextMenu` is
+`ContextMenuPrimitive.Root`, a provider with no DOM wrapper and no restriction
+on child count/shape), driven by a single `openAttachment` state value passed
+to every `ProducedItem`'s `onOpen`. "Copy as Markdown" / "Copy text" call the
+same `stripMarkdown(message.content)` / `message.content` as before — neither
+handler was touched.
+
+**`markdown.tsx`:** added an `img` override, narrow as specified — only
+`http(s)` sources render as an `<img loading="lazy" className="max-w-full
+rounded-lg border">`; anything else (a Windows path like `C:\out.png`, a bare
+relative path) renders the alt text as a caption (`<span>` with a 12px
+`ImageOff` icon, matching `DESIGN.md` §6's "inline with body text" icon size)
+instead of a broken-image glyph. The comment explicitly states this is a
+separate concern from `ProducedItem` (phase decision 1), for the next reader.
+
+**Scenario 5 (failed turn, partial attachments) — traced through
+`apps/web/src/app/chat/chat.tsx`, not exercised live:** `messages.map((m) =>
+<ChatTurnView key={m.id} message={m} />)` at `chat.tsx:1443` renders every
+persisted message row — including an assistant row with `attachments` set,
+regardless of the turn's later `failed` status — and `chat.tsx:1505-1512`
+separately renders `<TurnErrorBanner>` for a `status === "failed"` turn whose
+`waitingReason` is `null`. Both are independent `messages`/`turn` reads with no
+mutual gating, so a turn that produced a file before failing renders both:
+this task's strip under the persisted assistant message, and the existing
+failure banner beneath it. This wasn't watched happen against a real failing
+turn — no live daemon was available in this environment (below) — so it's
+recorded as code-traced, not observed.
+
+**What was actually run, and what wasn't, and why:**
+
+- `pnpm --filter web typecheck` — clean.
+- `pnpm --filter web lint` (via `npx eslint`, scoped to the two changed files
+  from `apps/web/`) — clean, no warnings.
+- `pnpm --filter web test` — 46 files, 498 tests, all passing; grepped first
+  for any existing test touching `chat-bits.tsx` or `markdown.tsx` (none), so
+  this is a non-regression signal for the rest of the suite, not new coverage
+  of this change.
+- **No live browser/dev-server verification.** This worktree has no
+  `.env.local` (`apps/web/` or repo root) and no reachable local Supabase —
+  `supabase status` fails immediately (`dockerDesktopLinuxEngine` pipe not
+  found; Docker Desktop isn't available in this environment). There is no
+  signed-in session, no daemon, and no way to produce a real chat turn with an
+  attachment to click through. This is the same gap `T-AM2-01`'s Result
+  recorded for the shared component itself, so the visual/live checklist items
+  above (both themes × Paper/Mono, reload-persistence, real-image click-through,
+  console-clean) are a **second deferral onto `T-AM2-03`**, which already owns
+  full scenario grading and needs a live dev server regardless. Not claiming
+  otherwise here rather than rounding up on weaker evidence than the checklist
+  asked for.

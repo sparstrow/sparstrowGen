@@ -3,7 +3,7 @@ title: Chat & Inbox
 section: Surfaces
 description: Free-form sessions with agents, and the message inbox where agents reach you (and each other).
 order: 6
-updated: 2026-08-28
+updated: 2026-08-29
 ---
 
 ## Chat — talk to your agents
@@ -52,6 +52,16 @@ open it with its own file tools — so "read this and tell me what's wrong with
 it" works on the actual file rather than on a description of it. If a file is
 too large or of a type that isn't accepted, you're told which, in the
 composer, **before** the message is sent.
+
+[Try in App — Start a Chat](/chat)
+
+### Seeing what an agent made
+
+When an agent's reply hands back something it produced, you see it in that
+reply, not just a sentence claiming it. An image renders as a picture you can
+click to open a larger view; anything else shows as a named row with its kind
+and size, with a way to open or save it. If a reply produced nothing, the
+reply looks exactly like any other — no empty tray, no placeholder.
 
 [Try in App — Start a Chat](/chat)
 

@@ -64,7 +64,7 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
 | [T-AM2-01 — the produced-item viewer](T-AM2-01-viewer.md) | `[S]` | US1 | AM1 | ✅ done except visual verification → `T-AM2-02` (2026-08-29) |
-| [T-AM2-02 — produced items in the reply](T-AM2-02-in-the-reply.md) | `[P]` | US1 | T-AM2-01 | not started |
+| [T-AM2-02 — produced items in the reply](T-AM2-02-in-the-reply.md) | `[P]` | US1 | T-AM2-01 | ✅ done except live/visual verification → `T-AM2-03` (2026-08-29) |
 | [T-AM2-03 — verification](T-AM2-03-verification.md) | `[S]` | US1 | T-AM2-01, T-AM2-02 | not started |
 
 `T-AM2-01` is `[S]` and **gates AM3 as well as `T-AM2-02`** — both render the
