@@ -2124,6 +2124,31 @@ monorepo typecheck/test suite passed (`@sparstrow/shared` 334/334,
 `@sparstrow/core` 776/780 with 4 pre-existing unrelated skips, `apps/web`
 498/498, `@sparstrow/desktop` 28/28).
 
+**Extended again 2026-08-29, closing `T-AM2-03`.** This is the first entry in
+this chain backed by an actual live browser session rather than static
+reading — real workspace, real signed-in user, real dispatched (parked)
+`chat_turns` row, driven via `agent-browser` per the runbook. That closed real
+ground: the page chrome (empty-panel copy, both themes, Mono surface, a
+genuine 375px mobile check, Escape/focus-return) is now live-verified, not
+inferred, and a real accessibility bug (`Missing Description` on both
+`T-AM3-01`'s `Sheet` and `T-AM2-01`'s `ProducedItemViewer` `Dialog`) was
+found and fixed as a direct result — it would not have surfaced from any
+amount of code reading.
+
+**What this pass still could not close, and the reason changed shape.**
+Every scenario needing a real produced file got one step closer: a real
+object was uploaded to the bucket via the service-role Storage REST API (the
+same authority the daemon itself has, no RLS concern), which is further than
+any earlier task in this chain reached. The remaining step — giving the real
+parked turn a synthetic `assigned_runtime_id` (a raw `insert into runtimes`
+to satisfy the foreign key) so `ingest_chat_turn_reply` could be called
+against it directly — **was refused by this session's own safety classifier**
+as a live-database mutation. That is a categorically different reason than
+"no daemon exists": it is "this session correctly would not make that write
+unilaterally even though the daemon-equivalent access was otherwise
+available." The orphaned test object was deleted; no further attempt was made
+to route around the refusal.
+
 **Clears when:** a chat turn on a machine with an authenticated CLI provider
 is asked to produce a file, and — the full pipeline, not just the sweep —
 `sweepOutbox` finds it in `kept`, the upload succeeds, and

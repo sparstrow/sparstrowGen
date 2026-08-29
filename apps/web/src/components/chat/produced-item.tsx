@@ -3,7 +3,7 @@
 import * as React from "react";
 import { CHAT_ATTACHMENT_BUCKET, type ChatMessageAttachment } from "@sparstrow/shared";
 import { Download, ImageOff, Paperclip } from "lucide-react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@web/utils/supabase/client";
 
@@ -183,6 +183,7 @@ function ProducedItemViewerBody({ attachment }: { attachment: ChatMessageAttachm
   return (
     <>
       <DialogTitle className="sr-only">{attachment.filename}</DialogTitle>
+      <DialogDescription className="sr-only">Enlarged view of {attachment.filename}</DialogDescription>
 
       {state === "loading" && <Skeleton className="aspect-[16/10] w-full" />}
 

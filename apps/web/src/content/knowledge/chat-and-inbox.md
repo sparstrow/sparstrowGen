@@ -116,3 +116,12 @@ be on the Dashboard, not just here.
   view, but the stored copies of attached files are not yet purged from
   storage.** They become unreachable through the app; a cleanup pass that
   removes the underlying files is still to come.
+- **What an agent hands back is capped at 10 MB per file** — larger than what
+  you attach, since a generated image routinely exceeds the composer's 2 MB
+  limit. Anything over the cap is refused, and you're told which file and why,
+  in the reply itself — never dropped silently.
+- **Files an agent creates or edits inside one of your project's own folders
+  are not shown here, and no copy of them is kept.** Those files belong to the
+  project and are reached through it, not duplicated into the conversation —
+  only files an agent hands back explicitly, with nowhere else to live, show
+  up in the reply or the panel.
