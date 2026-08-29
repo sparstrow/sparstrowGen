@@ -1878,3 +1878,34 @@ preview with a real paired machine, closing the same
 US1/US2/US3/SC-001/002/003 items `G-48` named; (3) FR-009's live non-admin
 refusal, which stays open regardless — same second-account limitation as
 `G-15`/`G-24`/`G-47`/`G-48`.
+
+### G-50 — `development.sparstrow.com` is paused: Vercel's free-plan usage is exhausted
+
+**Raised:** 2026-08-29, noticed mid-`T-DI-05` follow-up when a fresh navigation
+to `development.sparstrow.com` returned Vercel's own "This deployment is
+temporarily paused" page instead of the app. Confirmed by the owner: this
+month's free-plan usage allowance is used up, and left as-is for now — not a
+misconfiguration, an accepted limitation.
+
+**What is true:** `staging.sparstrow.com` and `sparstrow.com` (`main`) were not
+checked in the same pass — this entry covers `development` specifically, the
+one an agent actually hit. Vercel resumes deployments automatically once the
+usage window resets or the plan is upgraded; there is no code-side fix. The
+underlying Supabase project (`pnymngoqseltgigcfevq`) is unaffected and still
+reachable directly — the `T-DI-05` follow-up work this same day ran entirely
+against a **local** dev server (`pnpm --filter web dev` pointed at the same
+project) once this was hit, which is the workaround: local-first per
+`AGENTS.md` §2 already covers day-to-day iteration, so this mainly blocks the
+*specific* step that calls for the deployed preview — a band's final live
+verification pass (`AGENTS.md` §2 rule 3) and anything that needs the real
+`development.sparstrow.com` origin (cross-browser links, redirect URLs, Vercel
+preview comments).
+
+**If wrong:** low. This is a dashboard/billing state, not a claim about the
+app; nothing here is "probably fine," it is directly observed (the paused page
+itself) and owner-confirmed.
+
+**Clears when:** the owner resets or upgrades the plan and a fresh navigation
+to `development.sparstrow.com` loads the app instead of the paused page —
+check before relying on the deployed environment specifically, not before
+local-dev-server work.
