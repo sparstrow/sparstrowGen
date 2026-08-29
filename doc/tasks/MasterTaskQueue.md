@@ -348,59 +348,10 @@ authoritative record; this line is the mirror.
 
 ### Band 26 — CS chat session & conversation UX (2026-08-27)
 
-Plan: [`../plans/2026-08-27-chat-session-and-conversation-ux.md`](../plans/2026-08-27-chat-session-and-conversation-ux.md).
-Spec: [`../specs/2026-08-27-chat-session-and-conversation-ux.md`](../specs/2026-08-27-chat-session-and-conversation-ux.md)
-— owner-reviewed 2026-08-27, four stories from the 2026-08-27 feedback batch
-(the 3 auth-area items from the same batch are deliberately not in this
-band — owner chose to focus on chat first).
-Phase specs: [`CS1/README.md`](CS1/README.md) · [`CS2/README.md`](CS2/README.md)
-· [`CS3/README.md`](CS3/README.md) · [`CS4/README.md`](CS4/README.md) ·
-[`CS5/README.md`](CS5/README.md) · [`CS6/README.md`](CS6/README.md).
-Decomposed 2026-08-28.
-
-| # | Task | Tag | Depends on | Status |
-|---|---|---|---|---|
-| 26.1 | [T-CS1-01 — per-session menu, with rename](CS1/T-CS1-01-menu-and-rename.md) | `[S]` | — | queued |
-| 26.2 | [T-CS1-02 — delete, with the Archive/Delete/Cancel confirmation](CS1/T-CS1-02-delete-confirmation.md) | `[S]` | 26.1 | queued |
-| 26.3 | [T-CS1-03 — verification](CS1/T-CS1-03-verification.md) | `[S]` | 26.1, 26.2 | queued |
-| 26.4 | [T-CS2-01 — auto-title on first message](CS2/T-CS2-01-auto-title.md) | `[S]` | — | queued |
-| 26.5 | [T-CS2-02 — verification](CS2/T-CS2-02-verification.md) | `[S]` | 26.4 | queued |
-| 26.6 | [T-CS3-01 — `agy models` discovery in the provider](CS3/T-CS3-01-antigravity-discover.md) | `[P]` | — | queued |
-| 26.7 | [T-CS3-02 — `provider_model_cache` table + RLS](CS3/T-CS3-02-cache-table.md) | `[P]` | — | queued |
-| 26.8 | [T-CS3-03 — the `providers.discover_models` dispatch, end to end](CS3/T-CS3-03-dispatch.md) | `[S]` | 26.6, 26.7 | queued |
-| 26.9 | [T-CS3-04 — verification](CS3/T-CS3-04-verification.md) | `[S]` | 26.6–26.8 | queued |
-| 26.10 | [T-CS4-01 — composer reads the cache, triggers refresh](CS4/T-CS4-01-picker.md) | `[S]` | 26.6–26.9 (all of CS3) | queued |
-| 26.11 | [T-CS4-02 — verification](CS4/T-CS4-02-verification.md) | `[S]` | 26.10 | queued |
-| 26.12 | [T-CS5-01 — private bucket + attachments table + RLS](CS5/T-CS5-01-storage-schema.md) | `[S]` | — | queued |
-| 26.13 | [T-CS5-02 — upload flow](CS5/T-CS5-02-upload.md) | `[S]` | 26.12 | queued |
-| 26.14 | [T-CS5-03 — signed URL in the dispatch payload, daemon download, scoped Read](CS5/T-CS5-03-delivery.md) | `[S]` | 26.12, 26.13 | queued |
-| 26.15 | [T-CS5-04 — verification](CS5/T-CS5-04-verification.md) | `[S]` | 26.12–26.14 | queued |
-| 26.16 | [T-CS6-01 — drag-and-drop / upload UI](CS6/T-CS6-01-composer-ui.md) | `[S]` | 26.12–26.15 (all of CS5) | queued |
-| 26.17 | [T-CS6-02 — verification, and CS1–CS5 walked together](CS6/T-CS6-02-verification.md) | `[S]` | 26.1–26.16 | queued |
-
-**Four independent tracks can start immediately and in parallel: CS1
-(26.1–26.3), CS2 (26.4–26.5), CS3 (26.6–26.9), and CS5 (26.12–26.15).** None
-of the four shares a file with another — CS1/CS2 touch `apps/web/src/app/chat/`
-and one SQL migration respectively; CS3/CS5 are both backend/schema work in
-disjoint tables and providers. CS4 (26.10–26.11) waits on all of CS3; CS6
-(26.16–26.17) waits on all of CS5 and is deliberately last — its
-verification (26.17) re-walks CS1/CS2/CS4 too, since `chat.tsx` is a file
-every one of this band's phases touches and a late phase is where a seam
-between them would first show up.
-
-**26.6 and 26.7 are `[P]`** — no shared file, hand to two workers with zero
-coordination. Every other task in this band is `[S]`: either it authors a
-contract a sibling task compiles or dispatches against (26.1 before 26.2;
-26.12 before 26.13 before 26.14), or it's a phase's own verification task,
-which by convention always runs alone after its phase's other tasks land.
-
-**Two `KnownGaps.md`-worthy unknowns flagged during decomposition, not
-blocking any task:** `agy models`'s exact stdout shape (T-CS3-01) and
-whether an online `antigravity`/CLI-capable runtime is reachable to prove
-any of CS3–CS6's live paths (T-CS3-04, T-CS4-02, T-CS5-04, T-CS6-02) are
-both unverified until a task actually runs against a real install — each
-verification task's own Result section is where that gets recorded
-honestly, per this band's own tasks.
+✅ **Archived 2026-08-28 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-26--cs-chat-session--conversation-ux-2026-08-27).
+`T-CS6-02` found and fixed two cross-story regressions that each phase's own
+verification had passed over; `G-52` and `G-53` remain open.
 
 ### Band 24 — M22–M24 reaching my machine from the browser (2026-08-24)
 
