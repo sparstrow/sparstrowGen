@@ -487,7 +487,15 @@ idea → spec → owner review → plan → tasks → code
   report. Each records what would break if the assumption is wrong and the
   concrete thing that closes it; when you close one, **delete the entry** and say
   where the proof lives.
-* **`doc/Ideas.md`** — unscoped, no commitment, may never be built.
+* **`doc/Ideas.md`** — unscoped, no commitment, may never be built. **An
+  entry here is written by the `elaborating-ideas` skill, not freehand.** An
+  idea's job is to make something *thinkable* — what is true in the code
+  today (with `file.ts:line`), the reframe that changes what it is about, a
+  shape concrete enough to argue with, what it collides with, and the
+  decisions it would need, **answered nowhere**. An idea that answers its own
+  open questions has become a spec that skipped owner review. Length is
+  earned by evidence, not speculation: the entries that changed what got
+  built are long, and the one-paragraph ones have never moved.
 * **`doc/bug/`** — owner-reported or agent-found wrong behavior in the running
   app. One file per bug (`BUG-<date>-<slug>.md`), never deleted, just marked
   resolved in place. Format and index: `doc/bug/README.md`.

@@ -306,7 +306,7 @@ export const runtimeCommands = pgTable(
     runtimeId: text("runtime_id")
       .notNull()
       .references(() => runtimes.id, { onDelete: "cascade" }),
-    kind: text("kind").notNull(), // run.start | run.cancel | chat.turn | project.clone | memory.sync
+    kind: text("kind").notNull(), // run.start | run.cancel | chat.turn | project.clone | memory.sync | settings.set | providers.discover_models
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
     status: text("status").notNull().default("pending"), // pending | claimed | done | failed | expired
     idempotencyKey: text("idempotency_key").notNull(),
@@ -879,6 +879,36 @@ export const chatMessages = pgTable(
 );
 
 /**
+ * CS5 (Band 26) — a file attached to a chat message, stored in the private
+ * `chat-attachments` bucket (`025_chat_attachments_storage.sql`), never
+ * `public-images` (that bucket's own header forbids it). `storagePath` is
+ * the object key, never a public URL — reads go through a short-lived
+ * signed URL minted on demand (T-CS5-03), nothing durable is stored here
+ * that could resolve to the file without going through RLS first.
+ */
+export const chatMessageAttachments = pgTable(
+  "chat_message_attachments",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    messageId: text("message_id")
+      .notNull()
+      .references(() => chatMessages.id, { onDelete: "cascade" }),
+    storagePath: text("storage_path").notNull(),
+    filename: text("filename").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_chat_message_attachments_message").on(t.messageId),
+    index("idx_chat_message_attachments_workspace").on(t.workspaceId),
+  ],
+);
+
+/**
  * M12 — cloud-only chat-turn dispatch state. No local SQLite mirror: local
  * chat is synchronous and single-machine, with no dispatch state to track.
  *
@@ -944,6 +974,30 @@ export const chatTurns = pgTable(
     // predicate on a unique index the way the raw SQL policy file needs to,
     // and enqueue_chat_turn relies on `ON CONFLICT` targeting it by name.
   ],
+);
+
+/**
+ * T-CS3-02 (Band 26, CS chat session & conversation UX). One row per
+ * (workspace, provider) caching the last live model-discovery result, so
+ * the chat composer's model picker never blocks on a dispatch round trip.
+ * Written only by `public.record_provider_models` (023_provider_model_cache.sql,
+ * T-CS3-03) -- a workspace member can SELECT their own workspace's rows but
+ * has no direct INSERT/UPDATE grant, so a client can't forge a fake "live"
+ * result straight past the function's own validation.
+ */
+export const providerModelCache = pgTable(
+  "provider_model_cache",
+  {
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    models: jsonb("models").$type<string[]>().notNull().default([]),
+    live: boolean("live").notNull().default(false),
+    detail: text("detail"),
+    checkedAt: timestamp("checked_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.provider] })],
 );
 
 // ─── 10. Pipelines & schedules ─────────────────────────────────────────────────

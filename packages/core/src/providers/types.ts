@@ -48,11 +48,25 @@ export interface InteractiveSpawnOptions {
   extraEnv?: Record<string, string>;
 }
 
+/** Result of asking a CLI provider to check its own live model list. */
+export interface CliModelDiscovery {
+  models: string[];
+  live: boolean;
+  detail: string | null;
+}
+
 /** A provider that spawns a headless CLI child and streams its stdout (P1–P7). */
 export interface CliProvider {
   readonly id: ProviderId;
   readonly kind: "cli";
   listModels(): string[];
+  /**
+   * Live model discovery, for CLI providers whose model lineup can be
+   * queried without a full agent spawn (CS3, Band 26). Optional: a provider
+   * with no such capability (e.g. claude-code's aliases don't drift) simply
+   * doesn't implement it — callers must check for its presence.
+   */
+  discoverModels?(): Promise<CliModelDiscovery>;
   buildHeadlessSpawn(agent: Agent, prompt: string, opts: HeadlessSpawnOptions): SpawnSpec;
   buildInteractiveSpawn(agent: Agent, opts: InteractiveSpawnOptions): SpawnSpec;
   /** Parse one stdout line into zero or more normalized events. Never throws. */

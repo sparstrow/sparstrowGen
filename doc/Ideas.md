@@ -1,11 +1,22 @@
 # Ideas
 
 Unscoped. No commitment, no decision behind them, possibly never built. If an
-idea graduates, it becomes a plan in `doc/plans/` — or gets a decision and moves
-to `Deferred.md`.
+idea graduates it becomes a **spec** in `doc/specs/` — owner review first, per
+`doc/README.md`'s lifecycle — or gets a decision and moves to `Deferred.md`.
+(I-10 is the worked example: it spawned a spec and stayed open, because the
+spec took only one dimension of it.)
 
 Distinct from `Deferred.md`: those were agreed and parked. These were merely
 noticed.
+
+**Writing an entry here is a procedure — invoke the
+[`elaborating-ideas`](../.claude/skills/elaborating-ideas/SKILL.md) skill.**
+An idea's whole value is that it makes something *thinkable*: what is true in
+the code today, the reframe that changes what the idea is about, a shape
+concrete enough to argue with, what it collides with, and the decisions it
+would need — named, and answered nowhere. An entry that decides its own open
+questions has become an unreviewed spec; one written without opening the code
+reads exactly like one that was.
 
 ---
 
@@ -352,3 +363,337 @@ Click/hover expands a popover listing each machine by name with its own dot.
 Zero machines paired is neutral, not red.
 
 *Surfaced while documenting `BUG-2026-08-27-header-badge-shows-offline-with-active-machine`.*
+
+---
+
+## I-16 — Media as a first-class chat artifact: what a turn produced, not just what it said
+
+> **Graduated 2026-08-28** to
+> [`specs/2026-08-28-seeing-what-my-agent-made.md`](specs/2026-08-28-seeing-what-my-agent-made.md),
+> which absorbs this entry whole — both surfaces and cloud availability were
+> settled by the owner the same day, and the spec's Assumptions record why the
+> alternatives were rejected. **Kept until that spec passes owner review**, so
+> the elaboration below survives if the direction is rejected; delete it once
+> the spec is reviewed and planned.
+
+### What was noticed
+
+Two things, in one message, 2026-08-28 —
+[`FB-2026-08-28-chat-generated-media-not-shown-in-chat`](feedback/FB-2026-08-28-chat-generated-media-not-shown-in-chat.md)
+and
+[`FB-2026-08-28-media-input-output-folder-preview-pane`](feedback/FB-2026-08-28-media-input-output-folder-preview-pane.md):
+
+> the models can also generate media which I should see accordingly in the chat
+
+> On the right preview pane, should we add another folder icon preview, on
+> input and output folder for media.
+
+The trigger was a `free` chat on `antigravity` where the assistant answered
+"I've generated a picture of a man for you!" and nothing rendered.
+
+### What is true today
+
+The chat pipeline is text-only at four independent layers, each of which
+would discard an image on its own:
+
+| Layer | Where | What it does to anything that isn't text |
+|---|---|---|
+| Provider parse (antigravity) | [`antigravity.ts:218`](../packages/core/src/providers/antigravity.ts:218) | `agent_response` reads `step.text_delta` and nothing else |
+| Provider parse (claude-code) | [`claude-code.ts:240`](../packages/core/src/providers/claude-code.ts:240) | `.filter(b => b?.type === "text")` |
+| Turn result | `extractResult` in both providers | collapses the event stream to `resultText: string \| null` |
+| Storage | [`schema.ts:854`](../packages/shared/src/db/schema.ts:854) | `chat_messages.content` is `text().notNull()` |
+| Render | [`markdown.tsx`](../apps/web/src/components/chat/markdown.tsx) | assistant turns already render markdown; no `img` override in the `components` map |
+
+**Two of those rows were overstated when this entry was first written, and the
+correction matters** (see
+[the Multica comparison](research/2026-08-28-multica-chat-comparison.md)):
+
+- **The text column is not a blocker.** Multica's `chat_message.content` is
+  `TEXT NOT NULL` too, and shows media fine — by relating attachment rows to
+  the message rather than by widening the column.
+- **The renderer is not a wall, it is unfinished.** Assistant turns go through
+  `react-markdown` (GFM + highlighting) with overrides for headings, lists,
+  links, tables and code — but none for `img`, so `![alt](url)` falls through
+  to the default `<img>` and *renders today*, just unstyled: no `max-width`,
+  no rounding, no lazy load, no broken-image state. The original claim ("grep
+  finds no media handling under `app/chat`") was literally true and
+  misleading; the renderer lives one directory over. User turns are plain
+  `whitespace-pre-wrap` and render no markdown at all.
+
+The genuinely empty layers are the first two: nothing produces a media
+reference, and nothing uploads a produced file anywhere.
+
+The right preview pane already exists and is deliberately honest rather than
+absent — `chat.tsx` renders either a project card pointing at `/terminals` or
+"Nothing to preview". So the owner is proposing content for a shell that is
+already built and already reserves the space.
+
+One detail worth keeping: `parseStepUpdate` returns `[]` for any `step_type`
+it doesn't recognise, while `parseLine`'s own `default:` case deliberately
+surfaces unrecognised events as `raw` — its comment says "surface it rather
+than dropping it silently." If `agy` ever emits a media-bearing step, the
+inner function drops it with no trace, contradicting the outer function's
+stated principle. **Not confirmed as a defect** — no such step has been
+observed — which is precisely the problem.
+
+### The reframe
+
+**The question "did the model really generate an image, or only claim to?"
+is unanswerable from inside the app, and answering it first is the wrong
+move.** A perfect, well-formed image event dies at layer one. The owner's
+observation — nothing appeared — is the only possible outcome today
+regardless of what the CLI actually did. Treating this as blocked on that
+diagnosis is what kept it parked; the diagnosis is a consequence of the
+first layer's silence, not a prerequisite for it.
+
+**The second, more useful reframe: the owner's own second idea is the right
+shape for the first.** These read as two requests but they are one, and the
+folder one is the better-founded half. CLI coding agents do not hand back
+image bytes inline — they write files. `agy` runs on the owner's machine with
+`--add-dir` scoping, so a generated picture is a file on disk, in a directory,
+next to the other things that turn touched. A filesystem-shaped view is the
+honest representation of what a turn actually produced; inline rendering is a
+presentation choice layered on top of it. The instinct to reach for a folder
+icon matches the runtime better than the instinct to reach for a thumbnail.
+
+### A shape
+
+**Revised 2026-08-28** after reading how Multica solved the same problem
+([comparison](research/2026-08-28-multica-chat-comparison.md)). The shape below
+originally framed a choice between inline rendering and a folder view. That
+framing was too narrow: media is neither text nor a directory, it is **a row
+related to the message**.
+
+Multica's model, which is worth adopting more or less wholesale: an
+`attachment` table whose `uploader_type` is `member` **or `agent`**; the agent
+uploads each file as it produces it, scoped to the running task and not yet
+bound to a message; on task completion every task-scoped attachment binds to
+the assistant message that completion creates. An assistant message is created
+even when its text is empty, so a reply can be just an image. Attachments never
+enter `content`.
+
+Three things that buys us, each of which makes this *smaller* than this entry
+first assumed:
+
+- **It answers decision 2 below** rather than leaving it open. Artifacts scope
+  to the *task*, which every session kind has — so "what does the output folder
+  mean for a `free` session with no cwd" stops being a question. It never
+  refers to a directory.
+- **It drops the live-channel dependency from the storage path.** The daemon
+  uploads to cloud storage, the same direction CS5's attachment upload already
+  travels. `host-fs` and M16/M17 stay relevant to *browsing a machine*
+  (`I-11`), not to showing what a turn produced.
+- **The permission check is now buildable.** Theirs is "only the task's
+  assigned agent may upload against that task"; band 25 (DI) gave each daemon a
+  real Supabase Auth identity, which is exactly that primitive.
+
+Under this model the surfaces stop competing. The preview pane gains two
+collapsible sections instead of "Nothing to preview", sourced separately
+because their data genuinely is separate:
+
+- **In** — the attachments already on the session's messages. Substantially a
+  *view* over data US4/CS5 is building, not new plumbing.
+- **Out** — files the turn wrote, listed per turn rather than as one flat
+  folder, so provenance survives ("this came from that request"). Images get
+  thumbnails; everything else gets a name, size, and a way to open it.
+
+Inline rendering then becomes a thin thing rather than a competing option: an
+assistant message shows a thumbnail strip for the image-typed attachments bound
+to it, and the pane stays the complete view across the whole session.
+
+And an `img` override in
+[`markdown.tsx`](../apps/web/src/components/chat/markdown.tsx)'s `components`
+map is worth doing **before** any of this and independently of which model
+wins, because every model needs it: images already render there and currently
+do so with no width constraint, no rounding, no lazy load and no broken-image
+state.
+
+### What it touches
+
+- **[`I-11`](#i-11--the-rest-of-the-machine-reaching-surfaces) — folder
+  browsing.** I-11 lists folder browsing among the seven machine-reaching
+  surfaces waiting on the live channel, and that channel **landed** with
+  M16/M17 (bands 20–21). This idea is a concrete first consumer of it with a
+  user story attached, which is more than I-11 itself has. They divide
+  cleanly: I-11 is general browsing of a machine; this is the artifacts of a
+  chat turn. If both are built, this is a filtered view over that.
+- **`host-fs` cannot serve it.**
+  [`host-fs.ts`](../packages/core/src/api/routes/host-fs.ts) is registered
+  only when `deployment === "local"` and refuses non-loopback callers, and the
+  cloud app stubs `/host-fs/(.*)` out entirely
+  ([`stubs.ts:27`](../apps/web/src/lib/api/handlers/stubs.ts:27), "Local
+  filesystem access"). The existing folder-picker code is not reusable here;
+  this needs the runtime-command channel. That is a fact about the route, not
+  a decision to make.
+- **[US4 of the chat UX spec](specs/2026-08-27-chat-session-and-conversation-ux.md)
+  (band 26 / CS5)** already builds attachment upload, persistence and
+  redisplay — the "In" half. This idea should not re-specify it; it wants a
+  second *view* over it. The "Out" half has no equivalent anywhere.
+- **[`I-13`](#i-13--chat-session-right-click-menu-and-an-app-wide-keyboard-shortcuts-page)**
+  is adjacent only — both add chat surfaces — and they share no data.
+
+### Decisions this needs
+
+None of these is answered here.
+
+1. **Pane, transcript, or both?** The owner asked "should we add…", which is
+   a question, and the two surfaces have different costs.
+2. ~~**What is "output" scoped to, for a session with no project?**~~
+   **Answered by the shape above, if it is adopted** — scope artifacts to the
+   task, not to a directory, exactly as Multica does. Every session kind has a
+   task; only some have a cwd. The remaining decision is whether to adopt that
+   model, not what "output folder" means.
+3. **Does generated media travel to the cloud, or stay on the machine?**
+   CS5's upload path puts attachments in cloud storage; the symmetric choice
+   for outputs is not obviously the same, since outputs can be large and are
+   already durable where they were written.
+4. **Does anything even emit media today?** A fact to establish rather than a
+   decision — but nothing above depends on the answer, and the first move
+   below produces it as a side effect.
+
+### What would make it real
+
+Two cheap moves, both of which pay off regardless of whether this is ever
+built:
+
+1. **An `img` override in the chat markdown map** — images already render and
+   currently render badly. Independent of every decision above.
+2. **Make layer one stop being silent.** Giving `parseStepUpdate` the same
+   unrecognised-input fallback `parseLine` already has turns the next "it says
+   it generated an image" into evidence instead of a shrug, and answers
+   decision 4 without a specification.
+
+**What would shrink it:** if it turns out no configured provider emits or
+writes media at all, the "Out" half has no source and this collapses to a view
+over CS5's attachments — worth much less, and better folded into US4 than
+built separately. That is the outcome to check for before scoping.
+
+*Raised 2026-08-28 by the owner, alongside the antigravity model-picker bug.
+Elaborated the same day at the owner's direction — "this is an idea, so we
+need to think and elaborate the idea" — which is also what produced the
+[`elaborating-ideas`](../.claude/skills/elaborating-ideas/SKILL.md) skill.*
+
+---
+
+## I-17 — What a turn changed in a project, which is a different problem from what a turn produced
+
+### What was noticed
+
+The owner, 2026-08-28, reading the draft of
+[`seeing-what-my-agent-made`](specs/2026-08-28-seeing-what-my-agent-made.md):
+
+> what if we chat about the project. There is already folders and repository
+> in there. The agents can make file edits, create new files, media, delete
+> etc. how the media is handled then. can we have this as an separate or same
+> idea?
+
+### What is true today
+
+- **Project chats already run somewhere real.** `kind: "project"` is
+  machine-affine by design — [`schema.ts:820`](../packages/shared/src/db/schema.ts:820)
+  says so explicitly, because the session builds context from a project bound
+  to that runtime. The agent works in that directory, with the CLI's own file
+  tools.
+- **The app has no idea what happens in there.** Git usage is a single
+  `git clone` when a project is bound
+  ([`bindings.ts:145`](../packages/core/src/cloud/bindings.ts:145)) — no
+  status, no diff, no branch, no changed-file list anywhere. `runs` records
+  `effective_tools` but nothing about files touched.
+- **Reading project files from a browser is specified and accepted, not
+  built.** [`reaching-my-machine`](specs/2026-08-24-reaching-my-machine-from-the-browser.md)
+  US1 — "see the real folder tree as it exists on the machine… open a file to
+  read it" — was owner-reviewed and accepted 2026-08-24 and is not yet
+  planned. The web app still stubs local filesystem access entirely.
+- So after an agent edits a project during a chat, the only way to learn what
+  it did is to go to the machine and look.
+
+### The reframe
+
+**Media is not the special case — every file is.** The question asks how media
+is handled in a project chat, but a generated logo and an edited `route.ts`
+have exactly the same problem: the app does not know the turn touched either
+of them. Media is simply where the absence is most visible, because it is the
+file you would want to *look* at rather than read.
+
+**The noun is different, and that is the real seam.** In a free chat the agent
+**produces an artifact** that has no other home, so the app must keep it — the
+model the spec adopts. In a project chat the agent **changes a working tree
+that already has a home.** Copying those files into app storage would
+manufacture a second, instantly-stale copy of something the repository already
+owns and git already versions. The right treatment is the opposite of the
+spec's: reference, never copy.
+
+So the split the owner sensed is real, but it does not run between *media and
+other files*. It runs between **artifact and change** — and it happens to line
+up with a boundary the data model already draws for an unrelated reason, which
+is decent evidence it is a genuine seam rather than one invented for this
+feature.
+
+**Corroboration from outside:** Multica does not build an in-app diff either.
+Their server has no diff, PR, git or review handler, and their README puts
+codebase work behind "review gates where work lands in pull requests" — i.e.
+reviewed on the git host, not in the product. Their chat is positioned as the
+surface for work that "hasn't formed a clear issue yet." (Their web components
+could not be enumerated — a 404 — so this is a server-side and docs reading,
+not exhaustive.)
+
+### A shape
+
+A project-chat turn ends with a compact **what changed** summary attached to
+its reply: paths added, modified, and deleted, grouped by turn. Each path links
+through to the file viewer `reaching-my-machine` US1 specifies, where an image
+previews and a text file reads.
+
+The property that makes this work, and that neither "copy everything" nor "show
+nothing" achieves: **the summary is metadata, so it syncs even when the content
+cannot.** A list of paths and change kinds is tiny. So with the machine asleep
+you still see *what* the agent did last night — you just cannot open the files
+until it wakes. That degrades honestly instead of going blank.
+
+### What it touches
+
+- **[`seeing-what-my-agent-made`](specs/2026-08-28-seeing-what-my-agent-made.md)
+  must draw the boundary explicitly**, or its implementation will do the wrong
+  thing: a project chat's edits are not "produced items" and must not be
+  copied. Amended in that spec the same day this was raised.
+- **`reaching-my-machine` US1 is the viewer this needs** and it is already
+  owner-accepted. The only addition it wants is rendering an image rather than
+  offering to read it as text — much smaller than a viewer of its own.
+- **[`I-11`](#i-11--the-rest-of-the-machine-reaching-surfaces)** already parks
+  "a project's git state and pull requests". This is a narrower, chat-shaped
+  consumer of that — *what did this turn do*, not *what is the state of the
+  repo*. If I-11's git surface is ever built, this becomes a filtered view of
+  it rather than separate machinery.
+- **[`what-an-agent-is-allowed-to-do`](specs/2026-08-24-what-an-agent-is-allowed-to-do.md)**
+  and [`G-5`](KnownGaps.md)'s unfinished write clamp: showing what an agent
+  changed is the natural place to notice it changed something it should not
+  have. Related, and deliberately not merged — one decides what is permitted,
+  this reports what happened.
+
+### Decisions this needs
+
+1. **Where does "what changed" come from — git, or the agent's own report?**
+   Git is truthful but cannot separate the agent's edits from the owner's own
+   uncommitted work in the same tree. Self-reporting is precise about
+   attribution but trusts the agent to be honest and complete.
+2. **Does a project chat offer to commit, branch, or open a pull request?**
+   Multica's answer is that this is exactly where work should land. Ours has
+   no opinion yet, and it is a product question, not a technical one.
+3. **What happens to a project chat when the machine is offline** — is the
+   whole conversation read-only, or can you queue a request for later?
+4. **What does a deleted file look like** when you can see it in the summary
+   but can never open it?
+
+### What would make it real
+
+Project chats actually being used to edit code — which the owner is only now
+starting to do, and which is what surfaced this.
+
+**What would shrink or kill it:** if `reaching-my-machine` US1 ships first and
+simply browsing the tree turns out to be enough in practice, this collapses to
+"add image rendering to the file viewer" and needs no change summary at all.
+Worth shipping that viewer before scoping this.
+
+*Raised 2026-08-28 by the owner while reviewing the spec above, asking whether
+project-chat media was the same idea or a separate one. Separate — but not
+along the line the question drew.*

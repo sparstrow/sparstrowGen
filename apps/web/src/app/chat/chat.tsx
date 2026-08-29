@@ -4,20 +4,28 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import {
-  Archive,
   ArrowUp,
   Bot,
   FolderKanban,
   MessageSquare,
   MonitorPlay,
+  MoreHorizontal,
+  Paperclip,
   PanelRight,
+  Pencil,
   Plus,
   RefreshCw,
   Sparkles,
+  Trash2,
+  X,
 } from "lucide-react";
 import {
+  CHAT_ATTACHMENT_BUCKET,
+  checkChatAttachmentFile,
   KNOWN_MODELS,
   PROVIDER_KINDS,
+  type ChatAttachmentUpload,
+  type ChatMessage,
   type ChatSession,
   type ChatSessionKind,
   type ChatSessionUpdate,
@@ -27,6 +35,22 @@ import {
 } from "@sparstrow/shared";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -35,12 +59,24 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChatTurnView, ThinkingDots, TurnErrorBanner } from "@web/components/chat/chat-bits";
-import { useAgents, useChatSession, useChatSessions, useProjects } from "@web/api/hooks";
+import { createChatAttachmentUploader } from "@web/lib/storage/attachment-uploader";
+import { createClient } from "@web/utils/supabase/client";
+import {
+  useAgents,
+  useChatSession,
+  useChatSessions,
+  useProjects,
+  useProviderModelCache,
+  useWorkspace,
+} from "@web/api/hooks";
 import { useLiveEvents } from "@web/lib/live-events";
 import { callAction } from "@web/lib/call-action";
+import { defaultModelForProvider, modelsForProvider } from "@web/lib/chat-models";
 import {
   createChatSessionAction,
+  deleteChatSessionAction,
   postChatTurnAction,
+  requestModelDiscoveryAction,
   retryChatTurnAction,
   updateChatSessionAction,
 } from "./actions";
@@ -70,6 +106,100 @@ const KIND_ICONS: Record<ChatSessionKind, typeof MessageSquare> = {
   agent: Bot,
   "agent-creator": Sparkles,
 };
+
+/**
+ * Per-session actions (rail row + conversation header). Rename is wired here
+ * directly (`onRename` toggles the shared inline-edit state in `ChatPage`);
+ * Delete calls `onRequestDelete`, which `ChatPage` wires to
+ * `ChatSessionDeleteDialog` below.
+ */
+function ChatSessionMenu({
+  onRename,
+  onRequestDelete,
+  triggerClassName,
+}: {
+  onRename: () => void;
+  onRequestDelete: () => void;
+  triggerClassName?: string;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className={cn(
+          "rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none",
+          triggerClassName,
+        )}
+      >
+        <MoreHorizontal className="size-4" />
+        <span className="sr-only">Session actions</span>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onRename}>
+          <Pencil className="size-4" /> Rename
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+          onClick={onRequestDelete}
+        >
+          <Trash2 className="size-4" /> Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/**
+ * The Archive / Delete / Cancel confirmation US1 asks for — deliberately
+ * three buttons, not `ConfirmDialog`'s shared two (Cancel + one confirm):
+ * that component is used elsewhere in the app for plain "are you sure?"
+ * gates and adding a third action to its shared API would change what every
+ * other caller renders. `pendingAction` (not just a boolean) drives the
+ * Archive button's own busy label distinctly from Delete's.
+ */
+function ChatSessionDeleteDialog({
+  open,
+  onOpenChange,
+  onArchive,
+  onDelete,
+  pendingAction,
+  error,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onArchive: () => void;
+  onDelete: () => void;
+  pendingAction: "archive" | "delete" | null;
+  error: string | null;
+}) {
+  const pending = pendingAction !== null;
+  return (
+    <Dialog open={open} onOpenChange={(v) => !pending && onOpenChange(v)}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Remove this conversation?</DialogTitle>
+          <DialogDescription>
+            Archive keeps it, out of your active list, and you can bring it back
+            later. Delete permanently removes this conversation and its message
+            history — that can&apos;t be undone.
+          </DialogDescription>
+        </DialogHeader>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <DialogFooter className="gap-2 sm:justify-end">
+          <Button variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button variant="outline" disabled={pending} onClick={onArchive}>
+            {pendingAction === "archive" ? "Archiving…" : "Archive"}
+          </Button>
+          <Button variant="destructive" disabled={pending} onClick={onDelete}>
+            {pendingAction === "delete" ? "Deleting…" : "Delete"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 /** Borderless select used inside the composer footer and toolbar. */
 function GhostSelect({
@@ -103,6 +233,213 @@ function GhostSelect({
   );
 }
 
+// A genuinely live discovery result is trusted for a full hour (plan Decision
+// 2). Anything else -- no cache yet, or the last attempt fell back to
+// antigravity.ts's static list because no runtime was online/capable or the
+// CLI failed -- is worth trying again, not treated as fresh just because
+// `checked_at` was recently bumped. See BUG-2026-08-28-antigravity-model-
+// picker-can-get-stuck-stale.md: the old isStale check only looked at
+// checked_at's age, so a failed/fallback report (which still updates
+// checked_at) silently pinned the picker for the rest of the hour.
+const ANTIGRAVITY_TRUST_WINDOW_MS = 60 * 60 * 1000;
+// How long to wait after dispatching before refetching the cache -- matches
+// antigravity.ts's own 20s CLI timeout (discoverModels), so a real, slow-but-
+// successful discovery has time to land before we give up on this attempt.
+const ANTIGRAVITY_DISCOVERY_WAIT_MS = 20_000;
+// Gap between an unresolved attempt's refetch and the next one, so an
+// offline/never-configured runtime doesn't get hammered every render.
+const ANTIGRAVITY_RETRY_GAP_MS = 10_000;
+
+function isTrustedProviderModelRow(row: { live: boolean; checkedAt: string } | null | undefined): boolean {
+  if (!row || !row.live) return false;
+  return Date.now() - new Date(row.checkedAt).getTime() < ANTIGRAVITY_TRUST_WINDOW_MS;
+}
+
+/**
+ * T-CS4-01 (US3). `antigravity`'s model list, live from `provider_model_cache`
+ * (T-CS3-02) instead of the static `KNOWN_MODELS` every other provider still
+ * uses. `relevant` gates both the read and the dispatch on antigravity
+ * actually being selected somewhere in the composer — without it, this fired
+ * a `requestModelDiscoveryAction` on every `/chat` load regardless of which
+ * provider was showing, exactly the "dispatch nobody asked for" the phase's
+ * own Traps note warns against (caught live during this task's own browser
+ * verification, not assumed).
+ *
+ * Retries on a bounded timer rather than once per mount (fixed in
+ * BUG-2026-08-28-antigravity-model-picker-can-get-stuck-stale.md): the
+ * original one-shot `triggeredRef` latch meant that if no online/capable
+ * runtime existed at the moment this fired -- the exact case
+ * `request_model_discovery`'s "no online, capable runtime right now, no-op"
+ * path anticipates -- the picker was stuck on "no models available yet"
+ * for the rest of that page load, with nothing left to retry it. Repeated
+ * discovery requests are already expected server-side (see
+ * `023_provider_model_cache.sql`'s idempotency-key comment), so this now
+ * keeps trying on `ANTIGRAVITY_RETRY_GAP_MS` cadence, driven off a ref (not
+ * `cache.data`/`cache.isLoading` in the effect deps) since a repeated null
+ * result doesn't change reference and would never re-trigger a dependency-
+ * driven effect.
+ */
+function useAntigravityModels(relevant: boolean) {
+  const cache = useProviderModelCache(relevant ? "antigravity" : null);
+  const [refreshing, setRefreshing] = React.useState(false);
+  const cacheRef = React.useRef(cache);
+  cacheRef.current = cache;
+
+  React.useEffect(() => {
+    if (!relevant) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const cycle = async () => {
+      if (cancelled) return;
+      const { data, isLoading } = cacheRef.current;
+      if (!isLoading && !isTrustedProviderModelRow(data)) {
+        setRefreshing(true);
+        try {
+          await requestModelDiscoveryAction("antigravity");
+        } catch {
+          // Reported failure is itself informative (a stale/fallback row),
+          // not something to retry harder for -- the next scheduled cycle
+          // already covers that.
+        }
+        await new Promise((resolve) => setTimeout(resolve, ANTIGRAVITY_DISCOVERY_WAIT_MS));
+        if (cancelled) return;
+        await cacheRef.current.refetch();
+        setRefreshing(false);
+      }
+      if (!cancelled) timer = setTimeout(cycle, ANTIGRAVITY_RETRY_GAP_MS);
+    };
+
+    void cycle();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [relevant]);
+
+  return {
+    models: cache.data?.models ?? [],
+    hasCache: Boolean(cache.data),
+    stale: cache.data ? !cache.data.live : false,
+    refreshing,
+  };
+}
+
+type AntigravityModelState = ReturnType<typeof useAntigravityModels>;
+
+// T-CS6-02: `modelsForProvider` / `defaultModelForProvider` live in
+// `@web/lib/chat-models` so the cold-cache invariant they protect can be
+// unit-tested without mounting this component -- same reason
+// `chat-turn-state.ts` sits there.
+
+/** US3 scenario 3 -- the antigravity list can be missing, mid-refresh, or stale. */
+function AntigravityFreshnessNote({ antigravity }: { antigravity: AntigravityModelState }) {
+  if (antigravity.refreshing) {
+    return <span className="text-[10px] text-muted-foreground">checking for updates…</span>;
+  }
+  if (antigravity.stale) {
+    return <span className="text-[10px] text-muted-foreground">may not be current</span>;
+  }
+  return null;
+}
+
+/**
+ * Shared by every model dropdown in this file. `claude-code` (and any future
+ * static-list provider) renders exactly as before; `antigravity`'s empty
+ * state is the explicit message the phase spec asks for -- "no models
+ * available yet" instead of a blank `Select` -- not a silent fallback to the
+ * static list, which would defeat the reason this phase exists.
+ */
+function ModelPicker({
+  provider,
+  value,
+  onValueChange,
+  antigravity,
+  extraOption,
+}: {
+  provider: ProviderId;
+  value: string;
+  onValueChange: (v: string) => void;
+  antigravity: AntigravityModelState;
+  extraOption?: string | null;
+}) {
+  const options = modelsForProvider(provider, antigravity);
+  const items = [...new Set([extraOption, ...options].filter((m): m is string => Boolean(m)))];
+  const itemsKey = items.join("|");
+
+  // Self-heals the race a provider switch's own onValueChange can't avoid:
+  // it picks a default model synchronously, but antigravity's list often
+  // hasn't loaded yet at that instant (a fresh `relevant` flip, T-CS4-01's
+  // own useAntigravityModels), so the synchronous pick is "" or a stale
+  // static-list value. Once the real list lands, snap to it -- caught live
+  // during this task's own browser verification as a Model select stuck
+  // blank after switching to antigravity before the cache resolved.
+  React.useEffect(() => {
+    if (provider === "antigravity" && antigravity.hasCache && items.length > 0 && !items.includes(value)) {
+      onValueChange(items[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- itemsKey stands in for items (a fresh array every render).
+  }, [provider, antigravity.hasCache, itemsKey, value]);
+
+  if (provider === "antigravity" && !antigravity.hasCache) {
+    return (
+      <span className="px-2 text-xs text-muted-foreground">
+        no models available yet — checking…
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <GhostSelect title="Model" value={value} onValueChange={onValueChange}>
+        {items.map((m) => (
+          <SelectItem key={m} value={m}>
+            {m}
+          </SelectItem>
+        ))}
+      </GhostSelect>
+      {provider === "antigravity" && <AntigravityFreshnessNote antigravity={antigravity} />}
+    </div>
+  );
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * T-CS6-01 (US4). The pre-send chip — a file already uploaded
+ * (`createChatAttachmentUploader`, T-CS5-02) and waiting to be attached to
+ * the next message. Removable: `onRemove` best-effort-deletes the uploaded
+ * object, since no `chat_message_attachments` row references it yet (that
+ * row is only created inside `enqueue_chat_turn`, at send time).
+ */
+function PendingAttachmentChip({
+  attachment,
+  onRemove,
+}: {
+  attachment: ChatAttachmentUpload;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 rounded-lg border bg-muted/50 px-2.5 py-1.5 text-xs">
+      <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />
+      <span className="max-w-[200px] truncate">{attachment.filename}</span>
+      <span className="text-muted-foreground">{formatFileSize(attachment.sizeBytes)}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="ml-0.5 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+        aria-label={`Remove ${attachment.filename}`}
+      >
+        <X className="size-3.5" />
+      </button>
+    </div>
+  );
+}
+
 /** Left rail of the split-pane layout: filters + the saved-session list. */
 function ChatThreadList({ children }: { children: React.ReactNode }) {
   return <aside className="flex h-full flex-col bg-sidebar">{children}</aside>;
@@ -120,6 +457,14 @@ function Composer({
   disabled,
   placeholder,
   controls,
+  pendingAttachment,
+  attachmentUploading,
+  attachmentError,
+  onAttachClick,
+  onRemoveAttachment,
+  fileInputRef,
+  onFileInputChange,
+  onDropFile,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -127,9 +472,50 @@ function Composer({
   disabled: boolean;
   placeholder: string;
   controls: React.ReactNode;
+  pendingAttachment: ChatAttachmentUpload | null;
+  attachmentUploading: boolean;
+  attachmentError: string | null;
+  onAttachClick: () => void;
+  onRemoveAttachment: () => void;
+  fileInputRef: React.Ref<HTMLInputElement>;
+  onFileInputChange: (file: File) => void;
+  onDropFile: (file: File) => void;
 }) {
+  const [dragActive, setDragActive] = React.useState(false);
+  // T-CS6-01's own Trap: scope the drop handler to actual file drags, not
+  // every drag event, so selecting/copying message text is unaffected —
+  // `dataTransfer.types` includes "Files" only for a real file drag, never
+  // for a text selection being dragged within the page.
+  const isFileDrag = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
+
   return (
-    <div className="rounded-xl border bg-background shadow-sm transition-shadow focus-within:border-ring/60 focus-within:shadow-md">
+    <div
+      onDragOver={(e) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        setDragActive(true);
+      }}
+      onDragLeave={(e) => {
+        if (!isFileDrag(e)) return;
+        setDragActive(false);
+      }}
+      onDrop={(e) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        setDragActive(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) onDropFile(file);
+      }}
+      className={cn(
+        "rounded-xl border bg-background shadow-sm transition-shadow focus-within:border-ring/60 focus-within:shadow-md",
+        dragActive && "border-primary ring-2 ring-primary/30",
+      )}
+    >
+      {dragActive && (
+        <div className="flex items-center justify-center rounded-t-xl border-b border-dashed bg-primary/5 px-4 py-3 text-xs text-primary">
+          Drop to attach
+        </div>
+      )}
       <textarea
         rows={1}
         value={value}
@@ -144,12 +530,54 @@ function Composer({
         placeholder={placeholder}
         className="max-h-44 min-h-[52px] w-full resize-none bg-transparent px-4 pt-3.5 text-[15px] leading-6 outline-none placeholder:text-muted-foreground/70 disabled:opacity-50 [field-sizing:content]"
       />
+      {(pendingAttachment || attachmentUploading) && (
+        <div className="px-2.5 pt-1.5">
+          {pendingAttachment ? (
+            <PendingAttachmentChip attachment={pendingAttachment} onRemove={onRemoveAttachment} />
+          ) : (
+            <div className="flex items-center gap-1.5 rounded-lg border bg-muted/50 px-2.5 py-1.5 text-xs text-muted-foreground">
+              <Paperclip className="size-3.5 shrink-0" />
+              Uploading…
+            </div>
+          )}
+        </div>
+      )}
+      {attachmentError && (
+        <p className="px-2.5 pt-1.5 text-xs text-destructive">{attachmentError}</p>
+      )}
       <div className="flex items-center justify-between gap-2 px-2.5 pb-2.5 pt-1">
-        <div className="flex min-w-0 flex-wrap items-center gap-0.5">{controls}</div>
+        <div className="flex min-w-0 flex-wrap items-center gap-0.5">
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onFileInputChange(file);
+              e.target.value = "";
+            }}
+          />
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-7 shrink-0 rounded-md text-muted-foreground hover:text-foreground"
+            onClick={onAttachClick}
+            disabled={disabled || attachmentUploading}
+            aria-label="Attach a file"
+            title="Attach a file"
+          >
+            <Paperclip className="size-4" />
+          </Button>
+          {controls}
+        </div>
         <Button
           size="icon"
           className="size-8 shrink-0 rounded-full"
-          disabled={disabled || value.trim().length === 0}
+          disabled={
+            disabled ||
+            attachmentUploading ||
+            (value.trim().length === 0 && !pendingAttachment)
+          }
           onClick={onSend}
           aria-label="Send message"
         >
@@ -251,11 +679,17 @@ function RetryControls({
   model,
   busy,
   onRetry,
+  antigravity,
+  onSelectAntigravity,
 }: {
   provider: ProviderId;
   model: string;
   busy: boolean;
   onRetry: (override: { provider: string; model: string }) => void;
+  antigravity: AntigravityModelState;
+  /** Latches `ChatPage`'s antigravity relevance flag -- this component's own
+   *  provider selection is local state the parent can't otherwise see. */
+  onSelectAntigravity: () => void;
 }) {
   const [p, setP] = React.useState(provider);
   const [m, setM] = React.useState(model);
@@ -276,7 +710,8 @@ function RetryControls({
         onValueChange={(v) => {
           const next = v as ProviderId;
           setP(next);
-          setM(KNOWN_MODELS[next]?.[0] ?? "");
+          if (next === "antigravity") onSelectAntigravity();
+          setM(modelsForProvider(next, antigravity)[0] ?? "");
         }}
       >
         {CLI_PROVIDERS.map((cp) => (
@@ -285,13 +720,7 @@ function RetryControls({
           </SelectItem>
         ))}
       </GhostSelect>
-      <GhostSelect title="Model" value={m} onValueChange={setM}>
-        {(KNOWN_MODELS[p] ?? []).map((mm) => (
-          <SelectItem key={mm} value={mm}>
-            {mm}
-          </SelectItem>
-        ))}
-      </GhostSelect>
+      <ModelPicker provider={p} value={m} onValueChange={setM} antigravity={antigravity} />
     </div>
   );
 }
@@ -338,6 +767,18 @@ export function ChatPage() {
   const [draftProvider, setDraftProvider] = React.useState<ProviderId>("claude-code");
   const [draftModel, setDraftModel] = React.useState("sonnet");
 
+  // T-CS4-01 -- `antigravity` becomes relevant the moment it's selected
+  // anywhere in the composer (active session, draft, or RetryControls' own
+  // independent picker) and stays relevant for the rest of the page's life.
+  // Latched rather than recomputed from `session`/`draftProvider` alone:
+  // RetryControls keeps its own local provider state, invisible here, so a
+  // one-way flip (set by its own onValueChange below) is what makes its
+  // antigravity selection see live data too, not just the main composer's.
+  const [antigravityTouched, setAntigravityTouched] = React.useState(false);
+  const antigravityActive =
+    antigravityTouched || session?.provider === "antigravity" || draftProvider === "antigravity";
+  const antigravity = useAntigravityModels(antigravityActive);
+
   const [input, setInput] = React.useState("");
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -371,6 +812,22 @@ export function ChatPage() {
     { kind: "refusal" | "error"; message: string } | null
   >(null);
   const [createError, setCreateError] = React.useState<string | null>(null);
+
+  // T-CS6-01 (US4) -- a single pending attachment on the draft. Uploaded
+  // immediately on drop/select (bytes go to Storage independently of
+  // sending, per T-CS5-02's design), removable before the message is sent.
+  // Multiple attachments per message are deliberately out of scope here —
+  // the spec's own Edge Cases section leaves "more than one file" open at
+  // the UX level (CS5's T-CS5-02 Result); this UI answers it as "one at a
+  // time" rather than guessing at a multi-file design nobody asked for.
+  const workspaceQuery = useWorkspace();
+  const supabase = React.useMemo(() => createClient(), []);
+  const attachmentUploader = React.useMemo(() => createChatAttachmentUploader(supabase), [supabase]);
+  const [pendingAttachment, setPendingAttachment] = React.useState<ChatAttachmentUpload | null>(null);
+  const [attachmentUploading, setAttachmentUploading] = React.useState(false);
+  const [attachmentError, setAttachmentError] = React.useState<string | null>(null);
+  const [isDraggingFile, setIsDraggingFile] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const messages = detail.data?.messages ?? [];
   const messageIds = React.useMemo(() => new Set(messages.map((m) => m.id)), [messages]);
@@ -439,7 +896,35 @@ export function ChatPage() {
     }
   };
 
-  const postTo = async (sessionId: string, content: string) => {
+  // T-CS6-01 -- attaching a file before any message exists yet needs a real
+  // session id to upload under (`<workspace_id>/<session_id>/…`, T-CS5-01's
+  // path shape), so this is the SAME lazy-creation step `send()` already
+  // did inline, pulled out so the attach flow can trigger it too, not just
+  // Send.
+  const ensureSessionId = async (): Promise<string | null> => {
+    if (selectedId) return selectedId;
+    const r = await callAction(() =>
+      createChatSessionAction({
+        kind: draftKind,
+        ...(draftKind === "project" ? { projectId: draftProjectId } : {}),
+        ...(draftKind === "agent" ? { agentId: draftAgentId } : {}),
+        ...(draftKind === "free" ? { provider: draftProvider, model: draftModel } : {}),
+      }),
+    );
+    if (!r.ok) {
+      setCreateError(r.error);
+      return null;
+    }
+    void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+    setSelectedId(r.data.id);
+    return r.data.id;
+  };
+
+  const postTo = async (
+    sessionId: string,
+    content: string,
+    attachment: ChatAttachmentUpload | null,
+  ) => {
     // Null the held turn BEFORE the request starts, not after it resolves.
     // Found by actually sending a second message in the browser: without
     // this, `turn` keeps pointing at the PREVIOUS (terminal) turn for the
@@ -450,9 +935,15 @@ export function ChatPage() {
     // them honest instead of each needing its own "is this turn actually
     // CURRENT" guard.
     updateTurn(() => null);
-    const r = await callAction(() => postChatTurnAction(sessionId, { content }));
+    const r = await callAction(() =>
+      postChatTurnAction(sessionId, {
+        content,
+        attachments: attachment ? [attachment] : undefined,
+      }),
+    );
     if (!r.ok) {
       setInput(content);
+      if (attachment) setPendingAttachment(attachment);
       notifyFailure(sessionId, r);
       return;
     }
@@ -463,34 +954,55 @@ export function ChatPage() {
 
   const send = () => {
     const content = input.trim();
-    if (!content || busy) return;
+    // T-CS6-01's own Trap: an attachment with no text is still sendable.
+    if (busy || (!content && !pendingAttachment)) return;
+    const attachment = pendingAttachment;
     setInput("");
+    setPendingAttachment(null);
+    setAttachmentError(null);
     setComposerNotice(null);
     setCreateError(null);
-    if (selectedId) {
-      startSend(() => postTo(selectedId, content));
-      return;
-    }
-    // First message of a fresh conversation: create the session from the
-    // composer's context controls, then post.
     startSend(async () => {
-      const r = await callAction(() =>
-        createChatSessionAction({
-          kind: draftKind,
-          ...(draftKind === "project" ? { projectId: draftProjectId } : {}),
-          ...(draftKind === "agent" ? { agentId: draftAgentId } : {}),
-          ...(draftKind === "free" ? { provider: draftProvider, model: draftModel } : {}),
-        }),
-      );
-      if (!r.ok) {
+      const sessionId = await ensureSessionId();
+      if (!sessionId) {
         setInput(content);
-        setCreateError(r.error);
+        setPendingAttachment(attachment);
         return;
       }
-      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
-      setSelectedId(r.data.id);
-      await postTo(r.data.id, content);
+      await postTo(sessionId, content, attachment);
     });
+  };
+
+  const handleFileSelected = (file: File) => {
+    const checkMessage = checkChatAttachmentFile(file);
+    if (checkMessage) {
+      setAttachmentError(checkMessage);
+      return;
+    }
+    setAttachmentError(null);
+    setAttachmentUploading(true);
+    void (async () => {
+      try {
+        const sessionId = await ensureSessionId();
+        const workspaceId = workspaceQuery.data?.id;
+        if (!sessionId || !workspaceId) {
+          setAttachmentError("Could not start a conversation to attach this file to.");
+          return;
+        }
+        const uploaded = await attachmentUploader.upload(file, `${workspaceId}/${sessionId}`);
+        setPendingAttachment(uploaded);
+      } catch (err) {
+        setAttachmentError(err instanceof Error ? err.message : "Upload failed.");
+      } finally {
+        setAttachmentUploading(false);
+      }
+    })();
+  };
+
+  const removePendingAttachment = () => {
+    if (pendingAttachment) void attachmentUploader.remove(pendingAttachment.storagePath);
+    setPendingAttachment(null);
+    setAttachmentError(null);
   };
 
   const retry = (override?: { provider: string; model: string }) => {
@@ -520,6 +1032,94 @@ export function ChatPage() {
       if (!r.ok) return;
       void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
       void queryClient.invalidateQueries({ queryKey: ["chat-session", id] });
+    });
+  };
+
+  // T-CS1-01 — rename is inline (no modal): the title display swaps for an
+  // input while `renamingId` matches the session being edited.
+  const [renamingId, setRenamingId] = React.useState<string | null>(null);
+  const [renameValue, setRenameValue] = React.useState("");
+  const [renameError, setRenameError] = React.useState<string | null>(null);
+  const [renamePending, startRenamePending] = React.useTransition();
+
+  const startRename = (s: ChatSession) => {
+    setRenamingId(s.id);
+    setRenameValue(sessionLabel(s));
+    setRenameError(null);
+  };
+  const cancelRename = () => {
+    setRenamingId(null);
+    setRenameError(null);
+  };
+  // Blank/whitespace-only saves keep the previous title rather than
+  // persisting "" (US1 scenario 6) — checked before any network call.
+  const commitRename = (s: ChatSession) => {
+    const trimmed = renameValue.trim();
+    if (trimmed.length === 0 || trimmed === sessionLabel(s)) {
+      setRenamingId(null);
+      setRenameError(null);
+      return;
+    }
+    setRenameError(null);
+    startRenamePending(async () => {
+      const r = await callAction(() => updateChatSessionAction(s.id, { title: trimmed }));
+      if (!r.ok) {
+        setRenameError(r.error);
+        return; // stay in edit mode so the owner can retry, per the phase's own trap
+      }
+      setRenamingId(null);
+      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+      void queryClient.invalidateQueries({ queryKey: ["chat-session", s.id] });
+    });
+  };
+
+  // T-CS1-02 — the Archive/Delete/Cancel confirmation. `deleteDialogId` is
+  // which session it's open for (null = closed); a single dialog instance
+  // serves both the rail row and the header, same as rename above.
+  const [deleteDialogId, setDeleteDialogId] = React.useState<string | null>(null);
+  const [deletePendingAction, setDeletePendingAction] = React.useState<"archive" | "delete" | null>(
+    null,
+  );
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+
+  const closeDeleteDialog = () => {
+    setDeleteDialogId(null);
+    setDeleteError(null);
+  };
+  const confirmArchive = () => {
+    const id = deleteDialogId;
+    if (!id) return;
+    setDeleteError(null);
+    setDeletePendingAction("archive");
+    startUpdate(async () => {
+      const r = await callAction(() => updateChatSessionAction(id, { status: "archived" }));
+      setDeletePendingAction(null);
+      if (!r.ok) {
+        setDeleteError(r.error);
+        return;
+      }
+      setDeleteDialogId(null);
+      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+      void queryClient.invalidateQueries({ queryKey: ["chat-session", id] });
+    });
+  };
+  const confirmDelete = () => {
+    const id = deleteDialogId;
+    if (!id) return;
+    setDeleteError(null);
+    setDeletePendingAction("delete");
+    startUpdate(async () => {
+      const r = await callAction(() => deleteChatSessionAction(id));
+      setDeletePendingAction(null);
+      if (!r.ok) {
+        setDeleteError(r.error);
+        return;
+      }
+      setDeleteDialogId(null);
+      // Deleting the open session must not leave the pane pointed at a
+      // now-gone id (phase Trap) — send the owner back to the rail root.
+      if (selectedId === id) setSelectedId(null);
+      void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
     });
   };
 
@@ -554,7 +1154,10 @@ export function ChatPage() {
           value={session.provider}
           onValueChange={(v) => {
             const provider = v as ProviderId;
-            updateSessionField(session.id, { provider, model: KNOWN_MODELS[provider]?.[0] ?? "sonnet" });
+            updateSessionField(session.id, {
+              provider,
+              model: defaultModelForProvider(provider, antigravity),
+            });
           }}
         >
           {CLI_PROVIDERS.map((p) => (
@@ -563,23 +1166,13 @@ export function ChatPage() {
             </SelectItem>
           ))}
         </GhostSelect>
-        <GhostSelect
-          title="Model — switch anytime; the conversation continues"
+        <ModelPicker
+          provider={session.provider}
           value={session.model ?? ""}
           onValueChange={(model) => updateSessionField(session.id, { model })}
-        >
-          {[
-            ...new Set(
-              [session.model, ...(KNOWN_MODELS[session.provider] ?? [])].filter(
-                (m): m is string => Boolean(m),
-              ),
-            ),
-          ].map((m) => (
-            <SelectItem key={m} value={m}>
-              {m}
-            </SelectItem>
-          ))}
-        </GhostSelect>
+          antigravity={antigravity}
+          extraOption={session.model}
+        />
       </>
     ) : null
   ) : (
@@ -629,7 +1222,11 @@ export function ChatPage() {
             onValueChange={(v) => {
               const provider = v as ProviderId;
               setDraftProvider(provider);
-              setDraftModel(KNOWN_MODELS[provider]?.[0] ?? "");
+              // T-CS6-02: same reasoning as `defaultModelForProvider`'s own
+              // comment -- an empty string here creates the session with
+              // `model: ""` (createChatSession's `?? "sonnet"` does not catch
+              // it, since "" is not nullish), which dispatches `--model ""`.
+              setDraftModel(defaultModelForProvider(provider, antigravity));
             }}
           >
             {CLI_PROVIDERS.map((p) => (
@@ -638,13 +1235,12 @@ export function ChatPage() {
               </SelectItem>
             ))}
           </GhostSelect>
-          <GhostSelect title="Model" value={draftModel} onValueChange={setDraftModel}>
-            {(KNOWN_MODELS[draftProvider] ?? []).map((m) => (
-              <SelectItem key={m} value={m}>
-                {m}
-              </SelectItem>
-            ))}
-          </GhostSelect>
+          <ModelPicker
+            provider={draftProvider}
+            value={draftModel}
+            onValueChange={setDraftModel}
+            antigravity={antigravity}
+          />
         </>
       )}
     </>
@@ -718,10 +1314,19 @@ export function ChatPage() {
           ) : (
             (sessions.data ?? []).map((s) => {
               const Icon = KIND_ICONS[s.kind];
+              const renaming = renamingId === s.id;
               return (
-                <button
+                <div
                   key={s.id}
-                  onClick={() => setSelectedId(s.id)}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => !renaming && setSelectedId(s.id)}
+                  onKeyDown={(e) => {
+                    if (!renaming && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      setSelectedId(s.id);
+                    }
+                  }}
                   className={cn(
                     "group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors",
                     s.id === selectedId ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60",
@@ -730,14 +1335,42 @@ export function ChatPage() {
                 >
                   <Icon className="size-4 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-medium leading-5">
-                      {sessionLabel(s)}
-                    </span>
+                    {renaming ? (
+                      <Input
+                        autoFocus
+                        value={renameValue}
+                        disabled={renamePending}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          e.stopPropagation();
+                          if (e.key === "Enter") commitRename(s);
+                          if (e.key === "Escape") cancelRename();
+                        }}
+                        onBlur={() => commitRename(s)}
+                        className="h-6 px-1 text-[13px]"
+                      />
+                    ) : (
+                      <span className="block truncate text-[13px] font-medium leading-5">
+                        {sessionLabel(s)}
+                      </span>
+                    )}
                     <span className="block truncate text-[11px] text-muted-foreground">
-                      {KIND_LABELS[s.kind]} · {formatDate(s.lastMessageAt ?? s.createdAt)}
+                      {renaming && renameError
+                        ? renameError
+                        : `${KIND_LABELS[s.kind]} · ${formatDate(s.lastMessageAt ?? s.createdAt)}`}
                     </span>
                   </span>
-                </button>
+                  <span
+                    className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ChatSessionMenu
+                      onRename={() => startRename(s)}
+                      onRequestDelete={() => setDeleteDialogId(s.id)}
+                    />
+                  </span>
+                </div>
               );
             })
           )}
@@ -753,7 +1386,25 @@ export function ChatPage() {
           <>
             <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b px-4">
               <div className="flex min-w-0 items-center gap-2">
-                <p className="truncate text-sm font-medium">{sessionLabel(session)}</p>
+                {renamingId === session.id ? (
+                  <div className="min-w-0 flex-1">
+                    <Input
+                      autoFocus
+                      value={renameValue}
+                      disabled={renamePending}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename(session);
+                        if (e.key === "Escape") cancelRename();
+                      }}
+                      onBlur={() => commitRename(session)}
+                      className="h-7 max-w-xs text-sm"
+                    />
+                    {renameError && <p className="mt-1 text-xs text-destructive">{renameError}</p>}
+                  </div>
+                ) : (
+                  <p className="truncate text-sm font-medium">{sessionLabel(session)}</p>
+                )}
                 <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
                   {session.kind === "project"
                     ? projectName(session.projectId)
@@ -763,17 +1414,6 @@ export function ChatPage() {
                 </span>
               </div>
               <div className="flex shrink-0 items-center">
-                {session.status === "active" && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 text-muted-foreground"
-                    title="Archive session"
-                    onClick={() => updateSessionField(session.id, { status: "archived" })}
-                  >
-                    <Archive className="size-4" />
-                  </Button>
-                )}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -783,6 +1423,11 @@ export function ChatPage() {
                 >
                   <PanelRight className="size-4" />
                 </Button>
+                <ChatSessionMenu
+                  triggerClassName="size-8 flex items-center justify-center"
+                  onRename={() => startRename(session)}
+                  onRequestDelete={() => setDeleteDialogId(session.id)}
+                />
               </div>
             </div>
 
@@ -839,11 +1484,13 @@ export function ChatPage() {
                             model={
                               turn.model ??
                               session.model ??
-                              KNOWN_MODELS[retryProvider]?.[0] ??
+                              modelsForProvider(retryProvider, antigravity)[0] ??
                               ""
                             }
                             busy={busy}
                             onRetry={retry}
+                            antigravity={antigravity}
+                            onSelectAntigravity={() => setAntigravityTouched(true)}
                           />
                         );
                       })()}
@@ -890,6 +1537,14 @@ export function ChatPage() {
                           : (session.model ?? "the model")
                       }…`}
                       controls={modelControls}
+                      pendingAttachment={pendingAttachment}
+                      attachmentUploading={attachmentUploading}
+                      attachmentError={attachmentError}
+                      onAttachClick={() => fileInputRef.current?.click()}
+                      onRemoveAttachment={removePendingAttachment}
+                      fileInputRef={fileInputRef}
+                      onFileInputChange={handleFileSelected}
+                      onDropFile={handleFileSelected}
                     />
                     {composerNotice && (
                       <p
@@ -936,6 +1591,14 @@ export function ChatPage() {
                         : "Pick an agent below to begin…"
                   }
                   controls={modelControls}
+                  pendingAttachment={pendingAttachment}
+                  attachmentUploading={attachmentUploading}
+                  attachmentError={attachmentError}
+                  onAttachClick={() => fileInputRef.current?.click()}
+                  onRemoveAttachment={removePendingAttachment}
+                  fileInputRef={fileInputRef}
+                  onFileInputChange={handleFileSelected}
+                  onDropFile={handleFileSelected}
                 />
               </div>
               {createError && !busy && (
@@ -981,6 +1644,15 @@ export function ChatPage() {
           </div>
         </aside>
       )}
+
+      <ChatSessionDeleteDialog
+        open={deleteDialogId !== null}
+        onOpenChange={(v) => !v && closeDeleteDialog()}
+        onArchive={confirmArchive}
+        onDelete={confirmDelete}
+        pendingAction={deletePendingAction}
+        error={deleteError}
+      />
     </div>
   );
 }

@@ -333,6 +333,101 @@ is blocked on both. Also found and fixed, in already-merged M16 code:
 [`BUG-2026-08-27-realtime-refresh-never-took-effect`](../bug/BUG-2026-08-27-realtime-refresh-never-took-effect.md)
 — core's credential refresh had never taken effect.
 
+**25.5 updated 2026-08-28** — `T-DI-02`'s SQL is now applied and a real
+daemon paired live (PR #149). Two genuine platform-adjacent races were found
+and fixed in the same pass:
+[`BUG-2026-08-28-realtime-connect-races-channel-subscribe-auth`](../bug/BUG-2026-08-28-realtime-connect-races-channel-subscribe-auth.md)
+and
+[`BUG-2026-08-28-terminal-channel-sends-before-control-channel-joined`](../bug/BUG-2026-08-28-terminal-channel-sends-before-control-channel-joined.md).
+`T-DI-05` is now blocked on neither of those, but on a third, non-repo issue
+found while chasing the remaining timeout:
+[`BUG-2026-08-28-private-broadcast-channels-not-relaying`](../bug/BUG-2026-08-28-private-broadcast-channels-not-relaying.md)
+— private-channel broadcast relay not working on this Supabase project,
+escalated to Supabase, outside this repo's code. Full task file is the
+authoritative record; this line is the mirror.
+
+### Band 26 — CS chat session & conversation UX (2026-08-27)
+
+✅ **Archived 2026-08-28 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-26--cs-chat-session--conversation-ux-2026-08-27).
+`T-CS6-02` found and fixed two cross-story regressions that each phase's own
+verification had passed over; `G-52` and `G-53` remain open.
+
+### Band 27 — AM seeing what my agent made (2026-08-29) · **run this next**
+
+Plan: [`../plans/2026-08-28-seeing-what-my-agent-made.md`](../plans/2026-08-28-seeing-what-my-agent-made.md).
+Spec: [`../specs/2026-08-28-seeing-what-my-agent-made.md`](../specs/2026-08-28-seeing-what-my-agent-made.md)
+— ✅ owner-reviewed 2026-08-28, accepted, all three stories.
+Phase specs: [`AM1/README.md`](AM1/README.md) · [`AM2/README.md`](AM2/README.md)
+· [`AM3/README.md`](AM3/README.md) · [`AM4/README.md`](AM4/README.md).
+Decomposed 2026-08-29.
+
+| # | Task | Tag | Serves | Depends on | Status |
+|---|---|---|---|---|---|
+| 27.1 | [T-AM1-01 — the produced-file contract](AM1/T-AM1-01-produced-contract.md) | `[S]` | foundational | — | not started |
+| 27.2 | [T-AM1-02 — the outbox a turn hands files back through](AM1/T-AM1-02-outbox.md) | `[S]` | foundational | 27.1 | not started |
+| 27.3 | [T-AM1-03 — upload, bind, and the reply that is only files](AM1/T-AM1-03-bind-and-reply.md) | `[S]` | foundational | 27.2 | not started |
+| 27.4 | [T-AM1-04 — verification](AM1/T-AM1-04-verification.md) | `[S]` | foundational | 27.1–27.3 | not started |
+| 27.5 | [T-AM2-01 — the produced-item viewer](AM2/T-AM2-01-viewer.md) | `[S]` | US1 | 27.4 | not started |
+| 27.6 | [T-AM2-02 — produced items in the reply](AM2/T-AM2-02-in-the-reply.md) | `[P]` | US1 | 27.5 | not started |
+| 27.7 | [T-AM3-01 — the panel becomes the conversation's list](AM3/T-AM3-01-panel-list.md) | `[P]` | US2 | 27.5 | not started |
+| 27.8 | [T-AM2-03 — AM2 verification](AM2/T-AM2-03-verification.md) | `[S]` | US1 | 27.6 | not started |
+| 27.9 | [T-AM3-02 — AM3 verification](AM3/T-AM3-02-verification.md) | `[S]` | US2 | 27.7 | not started |
+| 27.10 | [T-AM4-01 — fold in what I sent](AM4/T-AM4-01-sent-items.md) | `[C]` | US3 | 27.7 | not started |
+| 27.11 | [T-AM4-02 — verification, and the band's close-out](AM4/T-AM4-02-verification.md) | `[S]` | US3 | 27.10 | not started |
+
+**The fork point is 27.5, and it is the only one.** AM1 (27.1–27.4) is a strict
+pipeline — each task defines what the next consumes — so there is no honest
+`[P]` in it, for the same reason CS5 had none. `T-AM2-01` then gates *both*
+story phases, because the spec's Flow requires an inline item and a panel entry
+to open **the same** enlarged view. Once 27.5 lands on the band branch, cut
+27.6 and 27.7 as two worktrees for two agents: they share no file
+(`components/chat/chat-bits.tsx` + `markdown.tsx` versus `app/chat/chat.tsx` +
+a new `conversation-items.tsx`).
+
+**27.10 is `[C]` against 27.7, never `[P]`** — it edits the component 27.7
+creates. One worker at a time on `conversation-items.tsx`.
+
+**Cross-phase collisions worth knowing before scheduling:**
+
+- **`apps/web/src/app/chat/chat.tsx`** — 27.7 edits the preview panel. The open
+  [`BUG-2026-08-28-project-chat-cannot-choose-model-at-creation`](../bug/BUG-2026-08-28-project-chat-cannot-choose-model-at-creation.md)
+  fix edits the *creation form* in the same file. Different regions, same file;
+  if both run at once, whoever is second rebases.
+- **`doc/KnownGaps.md`** — 27.3 extends `G-53` and every verification task adds
+  entries. The two open `task/T-DI-05-*` branches are also editing it heavily
+  and already conflict with each other. Expect to resolve by hand; do not take
+  `--ours` wholesale.
+- **`packages/shared/drizzle/policies/`** — 27.3 claims `028`. The open
+  `T-DI-05-live-verification` branch adds a `021_daemon_identities_workspace_index.sql`,
+  an out-of-sequence *lower* number that will not collide but does mean the
+  directory is not a reliable guide to "next free". `028` is next free as of
+  2026-08-29; re-check before writing it.
+- **Band 25 (DI) and band 24** — no file overlap with this band at all. DI is
+  terminals/realtime/daemon identity; band 24 is project files and browsing.
+
+**Decomposed while `task/T-DI-05-*` was still open — deliberately, and with the
+owner's explicit go-ahead 2026-08-29.** The `decomposing-plans` gate normally
+refuses this. Two things made it the right call rather than a shortcut, and
+both were true *before* the exception was asked for:
+
+1. **The plan pre-registered it.** Its Sequencing section named the real
+   trigger as *"band 26 merging to `development`"* and explicitly rejected
+   "drain to zero branches" as the criterion, on the grounds that it "would
+   make this plan hostage to a third-party ticket". Band 26 merged 2026-08-29
+   ([#174](https://github.com/sparstrow/sparstrowGen/pull/174)).
+2. **The gate's two stated reasons don't bite here.** Its *correctness* reason
+   is that open branches mean the code is still moving — but T-DI-05 touches
+   terminals, realtime and daemon identity, and this band's foundation
+   (`chat_message_attachments`, `chat-turn.ts`, the chat components) is fully
+   landed and untouched by it. Its *merge-conflict* reason is about regenerating
+   this file — and neither T-DI-05 branch touches it, correctly, per §2.9.
+
+T-DI-05 is blocked on a filed Supabase support ticket
+([`BUG-2026-08-28-private-broadcast-channels-not-relaying`](../bug/BUG-2026-08-28-private-broadcast-channels-not-relaying.md))
+and could stay open indefinitely. **This is a documented exception for this
+band, not a precedent** — the gate stands for every other decomposition.
+
 ### Band 24 — M22–M24 reaching my machine from the browser (2026-08-24)
 
 Plan: [`../plans/2026-08-24-reaching-my-machine-from-the-browser.md`](../plans/2026-08-24-reaching-my-machine-from-the-browser.md).
