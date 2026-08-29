@@ -39,6 +39,20 @@ session's own menu (the rail row, or the conversation header) you can
 of your active list without deleting anything, and **Delete** permanently
 removes the conversation and its message history, which can't be undone.
 
+### Sending a file with your message
+
+Use the paperclip in the composer to attach a file or image to a message —
+click it to pick one, or drag a file onto the composer. Each attachment shows
+as a chip with its name and size, and can be removed before you send. Once
+sent, the attachment stays on the message and is still there when you reopen
+the conversation later.
+
+The file is delivered to the machine that runs your turn, where the agent can
+open it with its own file tools — so "read this and tell me what's wrong with
+it" works on the actual file rather than on a description of it. If a file is
+too large or of a type that isn't accepted, you're told which, in the
+composer, **before** the message is sent.
+
 [Try in App — Start a Chat](/chat)
 
 ## Inbox — messages that wait for you
@@ -78,3 +92,17 @@ be on the Dashboard, not just here.
 - **No unarchive control exists yet.** Archiving a session removes it from
   the active list; bringing it back currently needs the "Archived" filter to
   find it, not a dedicated restore action.
+- **Attachments are capped at 2 MB each, and limited to images (PNG, JPEG,
+  WebP), PDF, plain text, Markdown, CSV, and JSON.** Anything larger or of
+  another type is refused in the composer with the reason, before sending.
+  The type list is deliberately narrow rather than "any file": each entry is
+  one an agent's file tools can actually do something with.
+- **What an agent does with an image is limited by the provider.** The
+  command-line agents this app runs read files as text; an attached
+  screenshot is delivered and readable as a file, but none of the currently
+  supported providers has a vision path for interpreting what it depicts.
+  Text, code, CSV, JSON and PDF attachments are what this is genuinely for.
+- **Deleting a conversation removes its messages and attachments from your
+  view, but the stored copies of attached files are not yet purged from
+  storage.** They become unreachable through the app; a cleanup pass that
+  removes the underlying files is still to come.
