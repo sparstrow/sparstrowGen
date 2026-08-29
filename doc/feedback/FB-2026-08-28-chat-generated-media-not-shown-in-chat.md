@@ -52,6 +52,14 @@ observed. It is an evidence gap, not proven wrong behaviour.
 
 ## Resolution
 
-Routed to [`I-16`](../Ideas.md) — *Media as a first-class chat artifact*,
-elaborated 2026-08-28 at the owner's direction. Nothing built; an idea is a
-destination, not a commitment.
+Built. `I-16`'s elaboration graduated to
+[`specs/2026-08-28-seeing-what-my-agent-made.md`](../specs/2026-08-28-seeing-what-my-agent-made.md)
+(owner-reviewed 2026-08-28) and shipped as band 27 (`AM1`–`AM4`). An
+assistant reply that produces a file now shows it inline under the reply
+(`T-AM2-02`) — a renderable image as a thumbnail you can open larger,
+anything else as a named row — rather than only a sentence claiming it. The
+`parseStepUpdate` silent-drop question this entry raised as "an evidence gap,
+not proven wrong behaviour" stays exactly that: still unconfirmed either way,
+tracked in `doc/KnownGaps.md` `G-55` rather than answered here. `I-16` itself
+is deleted from `Ideas.md` per its own instruction, now that the spec it
+graduated to is both reviewed and (fully) planned.

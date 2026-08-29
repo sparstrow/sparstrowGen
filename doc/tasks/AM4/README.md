@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-28-seeing-what-my-agent-made.md`](../../specs/2026-08-28-seeing-what-my-agent-made.md) |
 | **Depends on** | AM3 |
 | **Blocks** | — |
-| **Status** | 🟡 in progress — T-AM4-01 done, T-AM4-02 remains |
+| **Status** | ✅ done except `G-55` (2026-08-29) |
 | **Open questions** | none |
 
 ## The story this serves
@@ -49,7 +49,7 @@ decision 2.
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
 | [T-AM4-01 — fold in what I sent](T-AM4-01-sent-items.md) | `[C]` | US3 | T-AM3-01 | ✅ done |
-| [T-AM4-02 — verification](T-AM4-02-verification.md) | `[S]` | US3 | T-AM4-01 | not started |
+| [T-AM4-02 — verification](T-AM4-02-verification.md) | `[S]` | US3 | T-AM4-01 | ✅ done except `G-55` |
 
 `T-AM4-01` is `[C]`, **not** `[P]`: it edits
 `apps/web/src/components/chat/conversation-items.tsx`, which `T-AM3-01`

@@ -2186,6 +2186,28 @@ because nothing in this environment can populate the agent side without a
 daemon — it is proven at the unit-test layer only
 (`conversation-items.test.ts`, "both non-empty" case).
 
+**Extended again 2026-08-29, closing `T-AM4-02` — the band's own closing
+verification.** No new daemon-dependent ground to report (same root cause as
+every entry above), but this pass found and fixed a real, independent defect
+while doing the keyboard-traversal check A2 asks for: closing the produced-item
+viewer lost keyboard focus to `<body>` instead of returning it to the item
+that opened it, because `ProducedItemViewer` never renders a `DialogTrigger`
+(the opening button lives in a sibling component), so Radix's own
+close-focus restoration has nothing to focus back to. Fixed in the shared
+`produced-item.tsx` by capturing `document.activeElement` on open and
+restoring it via `onCloseAutoFocus` — covers both surfaces that use it
+(the panel/sheet and `T-AM2-02`'s inline strip) from one change. Live-verified
+fixed via a genuine keyboard walk (Tab, Enter, Escape) on the panel surface;
+the inline-strip surface inherits the identical fix with no live proof of its
+own, same reason as everything else here. `SC-005` (a conversation that
+produced nothing is byte-identical to `development`) is now graded as done:
+the transcript half by reading `chat-bits.tsx`'s attachment-strip gate, the
+panel half live, both matching what earlier tasks in this chain already
+established — not a fresh screenshot-diff against a running `development`
+checkout, which stays undone. `FR-010` carries forward unchanged from
+`T-CS5-01`'s own live cross-workspace test, confirmed still valid by reading
+that band 27 never touched the storage policy that enforces it.
+
 **Clears when:** a chat turn on a machine with an authenticated CLI provider
 is asked to produce a file, and — the full pipeline, not just the sweep —
 `sweepOutbox` finds it in `kept`, the upload succeeds, and

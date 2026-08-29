@@ -229,6 +229,17 @@ function ProducedItemViewerBody({ attachment }: { attachment: ChatMessageAttachm
  * (a turn's strip, the conversation list) — the caller owns which attachment
  * is currently open, not this component, so a turn with thirty produced
  * files mounts one Dialog, not thirty.
+ *
+ * T-AM4-02. Neither caller renders a `DialogTrigger` — the button that opens
+ * this lives in a sibling `ProducedItem` instance, not inside this Dialog's
+ * own tree. Radix's built-in close-focus restoration keys off a trigger ref
+ * that only `DialogPrimitive.Trigger` populates; with none in this tree it
+ * has nothing to focus back to and falls through to `<body>`, found live via
+ * a genuine keyboard (Tab+Enter, then Escape) walk of the panel, not a
+ * synthetic click. Captured here instead, generically: whatever had focus
+ * the instant before `open` becomes true is *some* trigger for *some*
+ * `ProducedItem`, regardless of which surface or caller it came from, so
+ * this needs no change in `chat-bits.tsx` or `conversation-items.tsx`.
  */
 export function ProducedItemViewer({
   attachment,
@@ -239,9 +250,25 @@ export function ProducedItemViewer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }): React.JSX.Element {
+  const triggerRef = React.useRef<HTMLElement | null>(null);
+
+  React.useEffect(() => {
+    if (open) {
+      triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    }
+  }, [open]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent
+        className="max-w-3xl"
+        onCloseAutoFocus={(event) => {
+          if (triggerRef.current) {
+            event.preventDefault();
+            triggerRef.current.focus();
+          }
+        }}
+      >
         {attachment && <ProducedItemViewerBody key={attachment.storagePath} attachment={attachment} />}
       </DialogContent>
     </Dialog>
