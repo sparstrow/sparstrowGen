@@ -3,11 +3,11 @@
 | | |
 |---|---|
 | **Spec** | [`doc/specs/2026-08-28-seeing-what-my-agent-made.md`](../specs/2026-08-28-seeing-what-my-agent-made.md) — ✅ Owner-reviewed 2026-08-28, accepted |
-| **Status** | Draft |
+| **Status** | ✅ Approved and decomposed 2026-08-29 — band 27, phases AM1–AM4 |
 | **Trigger** | Owner, 2026-08-28: an agent replied *"I've generated a picture of a man for you!"* and the screen stayed empty |
-| **Depends on** | **CS5 — already built**, and merged onto `band/26-chat-session-and-conversation-ux` (PRs #164–#167), not yet on `development`. Its bucket and attachments table are what this extends rather than duplicates. See Decision 1 and Sequencing |
+| **Depends on** | **CS5 — built and merged to `development` 2026-08-29** ([#174](https://github.com/sparstrow/sparstrowGen/pull/174)). Its bucket and attachments table are what this extends rather than duplicates. See Decision 1 and Sequencing |
 | **Touches** | `packages/shared/src/db/schema.ts`, `packages/shared/src/constants.ts`, `packages/shared/src/schemas/chat.ts`, `packages/shared/drizzle/`, `packages/core/src/cloud/chat-turn.ts`, `packages/core/src/orchestrator/preamble.ts`, `packages/core/src/providers/`, `apps/web/src/components/chat/`, `apps/web/src/app/chat/chat.tsx` |
-| **Tasks** | not decomposed yet — blocked, see Sequencing |
+| **Tasks** | [`AM1`](../tasks/AM1/README.md) · [`AM2`](../tasks/AM2/README.md) · [`AM3`](../tasks/AM3/README.md) · [`AM4`](../tasks/AM4/README.md) — band 27 in [`MasterTaskQueue.md`](../tasks/MasterTaskQueue.md) |
 | **Open questions** | none blocking. The spec's two `[NEEDS CLARIFICATION]` limits are answered as Decisions 5 and 6 |
 
 ## Summary
@@ -148,41 +148,49 @@ turn, reachable on a phone. Ends in: find a thing from three days ago.
 **AM4 — serves US3.** User attachments folded into that list, visually
 distinguished. Ends in: one place answers in and out.
 
-### Sequencing, and why tasks are not written yet
+### Sequencing — resolved 2026-08-29
 
-**CS5 is built.** `chat_message_attachments`, the private `chat-attachments`
-bucket and its workspace-scoped RLS all landed on
-`band/26-chat-session-and-conversation-ux` as PRs #164–#167, and `T-CS6-01`
-(#168) built the composer attachment UI on top. The shipped table was read
-directly off that branch, not from its task file — the task files in some
-working copies still read `not started`, which is stale.
+Band 26 merged to `development` on 2026-08-29
+([#174](https://github.com/sparstrow/sparstrowGen/pull/174)), which is the
+trigger this section named. Decomposed the same day into band 27; the
+`decomposing-plans` gate exception (the `task/T-DI-05-*` branches were still
+open, blocked on a Supabase support ticket) is recorded in full in the queue's
+band 27 entry, with the owner's explicit go-ahead.
 
-So this plan's foundation exists; it exists **on a band branch that has not
-reached `development`**. That is what blocks decomposition, and it is a real
-dependency rather than a procedural one: AM1's first task edits
-`chat_message_attachments` and `constants.ts`, both of which band 26 is
-currently the only source of. Tasks written against `development` today would
-describe a table that is not there.
+**Parallelism as decomposed:** AM1 is `[S]` throughout, as predicted. The fork
+point turned out to be **one task later than this plan assumed** — `T-AM2-01`
+(the shared viewer) gates both story phases, because the spec's Flow requires
+an inline item and a panel entry to open the same enlarged view. After it,
+`T-AM2-02` and `T-AM3-01` are genuinely `[P]`. AM4 is `[C]` against AM3's
+component, exactly as stated above.
 
-Two branches are live as of 2026-08-28, and they are not equivalent:
+### What decomposition corrected in this plan
 
-- **`band/26-chat-session-and-conversation-ux`** — carries the dependency.
-  Merging it to `development` is what unblocks this plan, and it is close:
-  CS1–CS5 and CS6-01 have landed.
-- **`task/T-DI-05-live-verification`** — unrelated to this work, and **stuck on
-  an external platform issue**, not on effort:
-  [`BUG-2026-08-28-private-broadcast-channels-not-relaying`](../bug/BUG-2026-08-28-private-broadcast-channels-not-relaying.md)
-  has a filed Supabase support ticket. It could stay open indefinitely.
+Reading the shipped code falsified four of this plan's premises. The task
+documents carry the detail; recorded here so this plan is not read as still
+claiming them. Full write-ups: [`AM1/README.md`](../tasks/AM1/README.md)'s
+"The shape of what was found".
 
-That second one matters for planning: treating "drain to zero branches" as the
-trigger would make this plan hostage to a third-party ticket. The trigger that
-actually matters here is **band 26 merging to `development`**.
-
-**Parallelism, once decomposition is possible:** AM1 is a true pipeline and
-will be `[S]` throughout, like CS5 for the same reason. AM2 and AM3 are
-genuinely parallel — different files, different surfaces, both depending only
-on AM1 — and are the natural place to fork two agents. AM4 touches AM3's list
-component and must be `[C]` against it, not `[P]`.
+1. **Decision 2's premise was wrong for this code path.** Chat turns have **no
+   MCP tools at all** — `one-shot.ts` passes `runId: ""` and the provider wires
+   the MCP server only when a run id is present; `antigravity` has no MCP
+   wiring whatsoever. The decision itself (an explicit hand-back, never
+   directory watching) stands; the *mechanism* became a per-turn outbox
+   directory instead of an MCP tool.
+2. **"Extend the table and bucket path" inverted.** The table needs **no
+   change** — every column already exists — and the bucket path must **not**
+   gain a `produced/` segment, because `025_chat_attachments_storage.sql`
+   enforces exactly two path segments and a third is silently denied to the
+   member who owns the file.
+3. **Decision 4 understated the problem.** An empty reply is not "nothing
+   recorded" — `chat-turn.ts:339` marks the turn **failed**. And the assistant
+   message is inserted by `ingest_chat_turn_reply`, a SQL function, in one
+   place, only on success — so FR-004 is a migration, and it drags FR-013
+   (partial work from a failed turn) in with it.
+4. **A hazard this plan did not know about.** `ingest_chat_turn_reply` is
+   already defined three times across migrations — the same `create or replace`
+   clobber pattern that silently reverted band 26's auto-titling. AM1 writes a
+   fourth definition and must start from the live database body.
 
 ## Scope boundaries
 
