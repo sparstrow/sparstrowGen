@@ -22,6 +22,7 @@ import {
   type ActionResult,
 } from "@web/lib/action-result";
 import { chatTurnFailureFrom } from "@web/lib/api/enqueue";
+import { attachmentsByMessageId } from "@web/lib/chat-attachments";
 import { OPAQUE_COLUMNS } from "@web/lib/case";
 
 const CHAT_SESSIONS_OPAQUE = ["draft"];
@@ -63,8 +64,20 @@ async function turnStateRow(
     .order("created_at", { ascending: true });
   if (error) throw error;
 
-  const userMessage = (messages ?? []).find((m: any) => m.role === "user") ?? null;
-  const assistantMessage = (messages ?? []).find((m: any) => m.role === "assistant") ?? null;
+  // CS6 (T-CS6-01) — embedded here so the send/retry response already shows
+  // the just-sent attachment's chip without a second fetch.
+  const attachmentMap = await attachmentsByMessageId(
+    supabase,
+    workspaceId,
+    (messages ?? []).map((m: any) => m.id as string),
+  );
+  const withAttachments = (messages ?? []).map((m: any) => ({
+    ...m,
+    attachments: attachmentMap.get(m.id as string) ?? [],
+  }));
+
+  const userMessage = withAttachments.find((m: any) => m.role === "user") ?? null;
+  const assistantMessage = withAttachments.find((m: any) => m.role === "assistant") ?? null;
 
   return {
     ...turnRow,
@@ -196,6 +209,48 @@ export async function updateChatSessionAction(
 }
 
 /**
+ * T-CS1-02. A hard delete, not a soft one — distinct from the `archived`
+ * status `updateChatSessionAction` already sets. Needs no extra
+ * authorization: `chat_sessions` sits under the generic workspace-member RLS
+ * policy (`001_rls.sql`, `for all`), and `chat_messages`/`chat_turns` both
+ * reference it `ON DELETE CASCADE`, so one row delete here removes the
+ * session's entire history with no further application code.
+ */
+export async function deleteChatSessionAction(id: string): Promise<ActionResult<void>> {
+  const ctx = await actionContext();
+  if (!ctx) return actionFail(NOT_SIGNED_IN);
+
+  const { error } = await ctx.supabase
+    .from("chat_sessions")
+    .delete()
+    .eq("workspace_id", ctx.workspaceId)
+    .eq("id", id);
+  if (error) return actionErrorFrom(error);
+
+  revalidatePath("/chat");
+  return actionOk(undefined);
+}
+
+/**
+ * T-CS3-03. Asks an online, capable runtime to check its live model list
+ * for `provider` (US3). A no-op, not a failure, when nothing is available
+ * right now — CS4's picker reads whatever is already cached (possibly
+ * nothing/stale) and says so; there is nothing here to surface as an error.
+ */
+export async function requestModelDiscoveryAction(provider: string): Promise<ActionResult<void>> {
+  const ctx = await actionContext();
+  if (!ctx) return actionFail(NOT_SIGNED_IN);
+
+  const { error } = await ctx.supabase.rpc("request_model_discovery", {
+    p_workspace_id: ctx.workspaceId,
+    p_provider: provider,
+  });
+  if (error) return actionErrorFrom(error);
+
+  return actionOk(undefined);
+}
+
+/**
  * Moved verbatim from `POST /chat/sessions/:id/messages` (`T-WA-07`).
  *
  * `enqueue_chat_turn` inserts the turn and the user message in one
@@ -225,15 +280,33 @@ export async function postChatTurnAction(
   if (!session) return actionFail("That chat session does not exist.");
   if (session.kind === "agent-creator") return agentCreatorNotAvailable("Sending a message");
 
-  const content = input.content;
-  if (!content || !content.trim()) return actionFail("content is required.");
+  const content = input.content ?? "";
+  // CS6 (T-CS6-01) — a message with an attachment but no text must still be
+  // sendable (phase Trap); only refuse when there's neither.
+  if (!content.trim() && !input.attachments?.length) {
+    return actionFail("content is required.");
+  }
   if (Buffer.byteLength(content, "utf8") > CHAT_MESSAGE_MAX_BYTES) {
     return actionFail(`content must not exceed ${CHAT_MESSAGE_MAX_BYTES} bytes`);
   }
 
+  // T-CS5-03 correction (was a separate post-hoc insert in T-CS5-02):
+  // `enqueue_chat_turn` calls `assign_or_park_chat_turn` SYNCHRONOUSLY,
+  // inside its own transaction, to dispatch the turn immediately when a
+  // runtime is already online -- the common case, not the edge case. An
+  // attachment row created AFTER this RPC returns would already have
+  // missed that dispatch's payload every time. `enqueue_chat_turn` now
+  // creates the attachment rows itself, atomically, before it dispatches --
+  // see `026_chat_attachments_dispatch.sql`'s own header for the full story.
   const { data, error } = await ctx.supabase.rpc("enqueue_chat_turn", {
     p_session_id: sessionId,
     p_content: content,
+    p_attachments: (input.attachments ?? []).map((a) => ({
+      storage_path: a.storagePath,
+      filename: a.filename,
+      mime_type: a.mimeType,
+      size_bytes: a.sizeBytes,
+    })),
   });
 
   if (error) {
@@ -242,10 +315,13 @@ export async function postChatTurnAction(
     return actionFail(failure.message, failure.reason);
   }
 
+  const turnState = toCamel(
+    await turnStateRow(ctx.supabase, ctx.workspaceId, data),
+    CHAT_TURN_OPAQUE_KEYS,
+  ) as ChatTurnState;
+
   revalidatePath("/chat");
-  return actionOk(
-    toCamel(await turnStateRow(ctx.supabase, ctx.workspaceId, data), CHAT_TURN_OPAQUE_KEYS) as ChatTurnState,
-  );
+  return actionOk(turnState);
 }
 
 /**

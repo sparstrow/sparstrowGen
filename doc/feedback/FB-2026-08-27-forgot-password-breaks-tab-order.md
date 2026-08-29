@@ -1,6 +1,6 @@
 # FB-2026-08-27-forgot-password-breaks-tab-order
 
-**Status:** 🔴 new
+**Status:** 🟢 routed
 **Reported by:** owner
 **Reported:** 2026-08-27
 **Area:** Auth — sign-in form (`/login`, sign-in mode)
@@ -28,8 +28,24 @@ press.
 
 ## Triage
 
-<!-- Not triaged yet. -->
+Worth building, and small enough to go straight to code rather than a spec —
+a single form's DOM order, no product decision involved. Built directly on
+`fix/auth-signup-reset-and-tab-order` alongside the two sibling auth items
+reported the same day.
 
 ## Resolution
 
-<!-- Not resolved yet. -->
+Done. "Forgot password?" moved out of the Password label row and below the
+password input, right-aligned, so the DOM order is now Email → Password →
+show/hide → Forgot password.
+
+Kept as a real, tabbable `<button>` rather than removed from the tab order
+with `tabIndex={-1}` — `DESIGN.md` §9.3 makes keyboard reachability
+mandatory, and hiding the control from keyboard users would trade one
+person's Tab press for another's inability to reach password recovery at all.
+
+**Verified live** (`agent-browser`, port 3030): focused the email field,
+pressed Tab, and confirmed `document.activeElement.id === "password"` — the
+owner's Email → Tab → Password → Enter flow in one Tab press. Two further
+Tabs reach "Show password" then "Forgot password?", so nothing became
+unreachable.
