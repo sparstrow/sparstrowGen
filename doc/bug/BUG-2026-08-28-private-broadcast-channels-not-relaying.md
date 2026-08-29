@@ -165,13 +165,93 @@ dashboard toggle and no code change — which is also why this is being
 reported rather than worked around: there is no code-side workaround for a
 project-level setting this agent cannot read or change.
 
+## Follow-up investigation, 2026-08-29 — corrected methodology, defect confirmed
+
+Prompted by feedback the owner got from Supabase's own AI support assistant on
+the filed ticket, which correctly flagged two things worth checking against
+the live database rather than assumed:
+
+**1. No RLS `SELECT` policy on `realtime.messages` covers `extension =
+'presence'` anywhere in this project** — confirmed directly (`pg_policies`
+query): every one of the nine policies on that table filters `extension =
+'broadcast'`. This fully and mundanely explains "no presence `sync`/`join`
+ever appears for `authenticated`" from the earlier Inspector tests — it isn't
+a delivery defect, it's policy-as-written. The app does not currently rely on
+presence anywhere, so this is a documented gap, not an active bug.
+
+**2. The self-broadcast tests earlier in this file used the wrong `event`
+name.** The Inspector's "Broadcast a message" dialog defaults to `"Test
+message"`; the actual `INSERT ... WITH CHECK` policies on `realtime.messages`
+require an *exact* literal — `event = 'reply'` for a daemon sending on the
+`machine:` channel, `event = 'request'` for an admin, `'input'`/`'output'` on
+`terminal:`. A send whose `event` doesn't match denies at the authorization
+step regardless of role. **This means the original self-broadcast "proof" in
+this file was invalid** — not decisive evidence either way. Correction, not a
+retraction: see the clean re-test below, which fixes exactly this.
+
+**3. Chasing this down live surfaced something unrelated and much more
+mundane: the original test machine's own database rows were gone.** Querying
+`public.runtimes` mid-investigation found `tdi05-verify-machine` (and its
+workspace) no longer existed — `public.daemon_identities` was completely
+empty project-wide, for every daemon including the still-live
+`m16-verify-scratch`. Root cause: `doc/runbooks/agent-browser-session.md`'s
+`@sparstrow.test` cleanup query matches every disposable account project-wide
+by email pattern, not scoped to one session's own account — this project is
+shared across concurrent worktrees/agents (AGENTS.md), so another session's
+routine cleanup almost certainly caught this one as collateral. A structural
+dry-run `INSERT` into `daemon_identities` (rolled back) with valid FK targets
+succeeded cleanly, ruling out a schema/mechanism bug there. **This was a real
+confound, not the platform defect** — see the clean re-test below, which
+sidesteps it entirely with a fresh pairing.
+
+**Clean re-test, both confounds removed:**
+
+1. Minted a brand-new disposable `@sparstrow.test` account, signed in, paired
+   a brand-new scratch machine (`tdi05-retest-machine`) through the real
+   `/machines` → "Pair a machine" → CLI `pair` flow — not a synthetic
+   Inspector impersonation of a pre-existing identity.
+2. Confirmed live in the database: `daemon_identities` got a correct row for
+   this new daemon (`user_id`/`runtime_id`/`workspace_id` all populated) —
+   the normal case works.
+3. Directly simulated both RLS checks in SQL for the real values
+   (`set local role authenticated; set local request.jwt.claim.sub = ...`):
+   the admin's `machine_channel_admin_send` `WITH CHECK` (topic + `event =
+   'request'`) evaluates **true**; the daemon's `machine_channel_daemon_read`
+   `USING` (topic + `current_daemon_scope()`) evaluates **true**. Both sides
+   of the real flow are genuinely, correctly authorized.
+4. The real app (this fresh daemon, `terminal.list` from a signed-in browser)
+   still timed out — "tdi05-retest-machine didn't answer."
+5. **Decisive re-test via the Inspector, methodology corrected:** two
+   separate authenticated connections this time, not one self-broadcasting —
+   one impersonating the admin user, one impersonating the new daemon
+   identity, both joined on the real topic, private. Admin connection
+   broadcasts with **`event: "request"`** (the correct literal this time,
+   matching `MACHINE_REQUEST_EVENT`). The daemon connection's listener:
+   **nothing.** Waited 9s. Still nothing — only its own subscribe
+   confirmation.
+6. **Control, same fresh topic:** switched to `postgres` role — presence
+   `sync`/`join` appear within ~150ms, exactly as every earlier `postgres`
+   control has shown.
+
+**Conclusion: the defect is real and is now cleanly reproduced with every
+confound this file previously had removed** — a freshly-paired, correctly
+provisioned daemon identity, RLS confirmed true by direct SQL for the exact
+values in play on both the send and read side, and the correct `event`
+literal on the broadcast. `authenticated`-role delivery still silently fails;
+`postgres`-role on the identical topic still works instantly. The original
+ticket's core claim holds — the self-broadcast evidence in it was flawed, but
+the underlying defect it reported is confirmed by this stronger, corrected
+reproduction.
+
 ## Resolution
 
-*(still open, now with Supabase support. Both hypotheses this agent could*
-*test from inside the project's own dashboard are ruled out — "Allow public*
-*access to channels" (disabled, no change) and "Database connection pool*
-*size" (2→10, no change). Everything queryable or adjustable from an agent*
-*session, short of Supabase's own infrastructure, has been checked.*
+*(still open, now with Supabase support, and now backed by a materially*
+*stronger reproduction than what was actually submitted. Every dashboard-*
+*adjustable hypothesis is ruled out — "Allow public access to channels",*
+*"Database connection pool size" (2→10), and (new) missing presence policy*
+*(real but unrelated to broadcast delivery). Everything queryable or*
+*adjustable from an agent session, short of Supabase's own infrastructure,*
+*has been checked.*
 
 **Support ticket filed 2026-08-28**, from the owner's own Supabase account
 (`sparstrowgen` org, `sparstrowgen-staging` project,
@@ -183,19 +263,16 @@ logged for sparstrowgen-staging", with replies going to
 submission time, so the reply email is the reference until one shows up
 there. "Allow support access to your project" was left enabled (the
 form's own recommended default) so a human or the AI diagnostic tool can
-inspect the project directly. The submitted body carried:*
+inspect the project directly.
 
-- *Same project, same private topic, same message.*
-- *As `postgres`: presence events and a self-sent broadcast both arrive
-  within a second.*
-- *As `authenticated`, impersonating a real user the project's own RLS
-  policy grants access to (verified true by direct SQL simulation): the join
-  itself reports success, but presence never syncs and the connection never
-  receives even its own broadcast.*
-- *Ruled out on our end: RLS correctness, client library version, topic/
-  event naming, `self: true/false`, schema grants, the public-access toggle,
-  and the connection pool size — see Investigation above for how each was
-  checked.*
+*The ticket as submitted leaned on the flawed self-broadcast test (§
+"Follow-up investigation" above) — its core claim has since been confirmed
+by a materially cleaner reproduction (fresh pairing, RLS confirmed true by
+direct SQL, correct `event` literal, two independent connections rather
+than one self-broadcasting). **If Supabase replies asking to verify the
+original repro, or the ticket needs strengthening, paste in the "Clean
+re-test, both confounds removed" section above** — it supersedes the
+ticket's original evidence with something that survives scrutiny.*
 
 *Next: wait for Supabase's reply at `domains@sparstrow.com`. Once a fix*
 *lands (or Supabase points at a project-side setting this agent can't*
