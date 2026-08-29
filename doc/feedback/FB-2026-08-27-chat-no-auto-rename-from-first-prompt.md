@@ -1,6 +1,6 @@
 # FB-2026-08-27-chat-no-auto-rename-from-first-prompt
 
-**Status:** 🔴 new
+**Status:** 🟡 triaged
 **Reported by:** owner
 **Reported:** 2026-08-27
 **Area:** Chat — session list (`/chat`)
@@ -25,7 +25,10 @@ title conversations from their opening message.
 
 ## Triage
 
-<!-- Not triaged yet. -->
+Worth building. Routed into
+[`doc/specs/2026-08-27-chat-session-and-conversation-ux.md`](../specs/2026-08-27-chat-session-and-conversation-ux.md)'s
+US2, bundled with the manual rename/delete item below into one spec at the
+owner's direction (2026-08-27).
 
 ## Resolution
 

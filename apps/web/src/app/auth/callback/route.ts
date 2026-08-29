@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@web/utils/supabase/server";
 import { safeRedirectPath } from "@web/lib/auth/redirect";
 import { siteOrigin } from "@web/lib/auth/origin";
+import {
+  crossBrowserOutcome,
+  isMissingCodeVerifier,
+  isRecoveryNext,
+  RECOVERY_DESTINATION,
+} from "@web/lib/auth/cross-browser-link";
 
 /**
  * OAuth / PKCE landing point.
@@ -18,7 +24,19 @@ import { siteOrigin } from "@web/lib/auth/origin";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const origin = siteOrigin(request, url);
-  const next = safeRedirectPath(url.searchParams.get("next"));
+
+  // Read the RAW `next` before sanitising, because `safeRedirectPath` rewrites
+  // every `/auth/*` path to `/` -- correct for an attacker-suppliable value,
+  // but it also erases the one thing that identifies a password reset. Without
+  // this distinction a recovery link signs the user in and drops them on the
+  // dashboard with their OLD password still in force, believing they had just
+  // changed it; `lib/auth/otp-types.ts` names that exact failure, and the
+  // sibling /auth/confirm route already guards against it via
+  // `destinationForOtpType`. This brings the two routes into line.
+  // See doc/bug/BUG-2026-08-28-password-reset-link-lands-on-dashboard.md.
+  const rawNext = url.searchParams.get("next");
+  const recovery = isRecoveryNext(rawNext);
+  const next = recovery ? RECOVERY_DESTINATION : safeRedirectPath(rawNext);
 
   const providerError = url.searchParams.get("error");
   if (providerError) {
@@ -39,6 +57,15 @@ export async function GET(request: Request) {
   const supabase = await createClient();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
+    // A link opened in a browser other than the one that started the flow
+    // cannot complete the PKCE exchange. That is not a broken link and must
+    // not be reported as one -- see lib/auth/cross-browser-link.ts.
+    if (isMissingCodeVerifier(error.message)) {
+      const outcome = crossBrowserOutcome(recovery);
+      const target = new URL("/login", origin);
+      target.searchParams.set(outcome.kind === "notice" ? "notice" : "error", outcome.text);
+      return NextResponse.redirect(target.toString());
+    }
     return NextResponse.redirect(failureUrl(origin, error.message));
   }
 

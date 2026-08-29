@@ -1,6 +1,6 @@
 # FB-2026-08-27-chat-missing-file-upload
 
-**Status:** 🔴 new
+**Status:** 🟡 triaged
 **Reported by:** owner
 **Reported:** 2026-08-27
 **Area:** Chat — composer (`/chat`, free chat)
@@ -25,7 +25,9 @@ one via a picker, as part of composing a message.
 
 ## Triage
 
-<!-- Not triaged yet. -->
+Worth building. Routed into
+[`doc/specs/2026-08-27-chat-session-and-conversation-ux.md`](../specs/2026-08-27-chat-session-and-conversation-ux.md)'s
+US4.
 
 ## Resolution
 
