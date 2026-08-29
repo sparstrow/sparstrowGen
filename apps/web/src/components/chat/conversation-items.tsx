@@ -82,6 +82,26 @@ export function groupProducedAttachments(rows: SessionAttachment[]): ProducedGro
   return groups;
 }
 
+/**
+ * T-AM4-01 (US3). The owner's own attachments, flat and newest first — no
+ * sub-grouping by request, unlike `groupProducedAttachments` above. A sent
+ * attachment's "request" is the owner's own message, so labelling it with
+ * that message's text would repeat the filename's own context to no benefit
+ * (phase decision, this task's own doc). `rows` is expected pre-sorted
+ * newest-message-first, same contract `groupProducedAttachments` relies on.
+ */
+export function filterSentAttachments(rows: SessionAttachment[]): ChatMessageAttachment[] {
+  return rows
+    .filter((row) => row.messageRole === "user")
+    .map((row) => ({
+      id: row.id,
+      storagePath: row.storagePath,
+      filename: row.filename,
+      mimeType: row.mimeType,
+      sizeBytes: row.sizeBytes,
+    }));
+}
+
 function ConversationItemsSkeleton(): React.JSX.Element {
   return (
     <div className="space-y-5" aria-hidden="true">
@@ -105,6 +125,18 @@ function ConversationItemsSkeleton(): React.JSX.Element {
  * Renders exactly one `ProducedItemViewer` for the whole list, driven by
  * `openAttachment` state here — not one Dialog per row.
  */
+/**
+ * DESIGN.md §3's "Label" typography role (11px/700/uppercase/0.08em tracking)
+ * — "column and nav headings" is exactly what these two section labels are.
+ */
+function SectionLabel({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return (
+    <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+      {children}
+    </p>
+  );
+}
+
 export function ConversationItems({
   attachments,
   isLoading,
@@ -118,7 +150,8 @@ export function ConversationItems({
 }): React.JSX.Element {
   const [openAttachment, setOpenAttachment] = React.useState<ChatMessageAttachment | null>(null);
 
-  const groups = React.useMemo(() => groupProducedAttachments(attachments), [attachments]);
+  const produced = React.useMemo(() => groupProducedAttachments(attachments), [attachments]);
+  const sent = React.useMemo(() => filterSentAttachments(attachments), [attachments]);
 
   if (isLoading) {
     return <ConversationItemsSkeleton />;
@@ -144,7 +177,11 @@ export function ConversationItems({
     );
   }
 
-  if (groups.length === 0) {
+  // T-AM4-01 (US3), phase decisions 1 and 2. Both empty falls through to
+  // AM3's original whole-panel empty state, unchanged from before this task
+  // — the common case for a brand-new conversation, and the one this task's
+  // own doc calls out as easiest to shadow with a careless refactor.
+  if (produced.length === 0 && sent.length === 0) {
     return (
       <Empty className="border-0 p-0">
         <EmptyHeader>
@@ -162,15 +199,32 @@ export function ConversationItems({
 
   return (
     <>
-      <div className="space-y-5">
-        {groups.map((group) => (
-          <div key={group.messageId}>
-            <p className="truncate text-xs font-medium text-muted-foreground">{group.label}</p>
-            {group.attachments.map((attachment) => (
+      <div className="space-y-6">
+        <div className="space-y-5">
+          <SectionLabel>Made by your agent</SectionLabel>
+          {produced.length === 0 ? (
+            // US3 scenario 2 -- this is NOT an error state: the agent's side
+            // is legitimately empty while the owner's own attachments exist.
+            <p className="text-xs text-muted-foreground">Nothing yet.</p>
+          ) : (
+            produced.map((group) => (
+              <div key={group.messageId}>
+                <p className="truncate text-xs font-medium text-muted-foreground">{group.label}</p>
+                {group.attachments.map((attachment) => (
+                  <ProducedItem key={attachment.id} attachment={attachment} onOpen={setOpenAttachment} />
+                ))}
+              </div>
+            ))
+          )}
+        </div>
+        {sent.length > 0 && (
+          <div className="space-y-1.5">
+            <SectionLabel>Sent by you</SectionLabel>
+            {sent.map((attachment) => (
               <ProducedItem key={attachment.id} attachment={attachment} onOpen={setOpenAttachment} />
             ))}
           </div>
-        ))}
+        )}
       </div>
       <ProducedItemViewer
         attachment={openAttachment}

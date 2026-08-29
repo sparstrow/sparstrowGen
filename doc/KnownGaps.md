@@ -2172,6 +2172,20 @@ runbook already documents) and reaching for the Playwright MCP's
 `page.waitForTimeout` fallback was judged not worth it for one skeleton-row
 screenshot.
 
+**Extended again 2026-08-29, closing `T-AM4-01`.** Same root cause, still no
+daemon — but this task reached further than any prior one in this chain by
+sidestepping it rather than working around it: attaching a file to an
+outbound message needs no daemon at all, since it's the composer's own
+upload path. A real `chat_message_attachments` row with `role: "user"` was
+created this way (attach `verify.png`, send, in a fresh session), then
+rendered, opened in the real `ProducedItemViewer`, and closed — the first
+genuinely populated (non-empty) row this whole verification chain has shown,
+in both themes, Mono, and at 375px. What stayed out of reach is unchanged in
+kind: the "produced + sent both non-empty" combination has no live proof,
+because nothing in this environment can populate the agent side without a
+daemon — it is proven at the unit-test layer only
+(`conversation-items.test.ts`, "both non-empty" case).
+
 **Clears when:** a chat turn on a machine with an authenticated CLI provider
 is asked to produce a file, and — the full pipeline, not just the sweep —
 `sweepOutbox` finds it in `kept`, the upload succeeds, and
