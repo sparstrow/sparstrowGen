@@ -63,6 +63,12 @@ click to open a larger view; anything else shows as a named row with its kind
 and size, with a way to open or save it. If a reply produced nothing, the
 reply looks exactly like any other — no empty tray, no placeholder.
 
+Everything a conversation has produced also collects in one place: open the
+paperclip icon beside the conversation's title for a list of every file,
+newest first, grouped by the message that asked for it. On a wide screen this
+sits in the panel beside the conversation; on a narrower one it opens as a
+sheet from the same button, so it's reachable from a phone too.
+
 [Try in App — Start a Chat](/chat)
 
 ## Inbox — messages that wait for you
@@ -125,3 +131,6 @@ be on the Dashboard, not just here.
   project and are reached through it, not duplicated into the conversation —
   only files an agent hands back explicitly, with nowhere else to live, show
   up in the reply or the panel.
+- **Clicking a file in the panel opens it, but does not jump you to the
+  message in the transcript that produced it.** The two are separate views
+  over the same conversation, not linked navigation yet.
