@@ -62,7 +62,7 @@ projects and (per `channel.ts`) different backends entirely.
 ## Impact
 
 Would have been moderate-to-severe if it had shipped unnoticed: exactly the
-failure mode `doc/KnownGaps.md`'s G-54 flagged as the risk of an unverified
+failure mode `doc/KnownGaps.md`'s G-56 flagged as the risk of an unverified
 side-by-side install — two channels intended to be fully independent
 (different backend, different update feed, different `appId`) instead
 overwriting one shared local SQLite store and memory vault. Caught before any

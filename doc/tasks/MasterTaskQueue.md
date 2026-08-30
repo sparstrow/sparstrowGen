@@ -353,6 +353,54 @@ authoritative record; this line is the mirror.
 `T-CS6-02` found and fixed two cross-story regressions that each phase's own
 verification had passed over; `G-52` and `G-53` remain open.
 
+✅ **Archived 2026-08-29 — every row done or done-except.** Full task table,
+tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-27--am-seeing-what-my-agent-made-2026-08-29).
+`T-AM4-02` found and fixed a real focus-restoration defect its own closing
+verification pass caught, that no earlier phase verification had; `G-55`
+remains open — the produced-file pipeline has never run end to end against a
+live daemon.
+
+**Cross-phase collisions worth knowing before scheduling:**
+
+- **`apps/web/src/app/chat/chat.tsx`** — 27.7 edits the preview panel. The open
+  [`BUG-2026-08-28-project-chat-cannot-choose-model-at-creation`](../bug/BUG-2026-08-28-project-chat-cannot-choose-model-at-creation.md)
+  fix edits the *creation form* in the same file. Different regions, same file;
+  if both run at once, whoever is second rebases.
+- **`doc/KnownGaps.md`** — 27.3 extends `G-53` and every verification task adds
+  entries. The two open `task/T-DI-05-*` branches are also editing it heavily
+  and already conflict with each other. Expect to resolve by hand; do not take
+  `--ours` wholesale.
+- **`packages/shared/drizzle/policies/`** — 27.3 claims `028`. The open
+  `T-DI-05-live-verification` branch adds a `021_daemon_identities_workspace_index.sql`,
+  an out-of-sequence *lower* number that will not collide but does mean the
+  directory is not a reliable guide to "next free". `028` is next free as of
+  2026-08-29; re-check before writing it.
+- **Band 25 (DI) and band 24** — no file overlap with this band at all. DI is
+  terminals/realtime/daemon identity; band 24 is project files and browsing.
+
+**Decomposed while `task/T-DI-05-*` was still open — deliberately, and with the
+owner's explicit go-ahead 2026-08-29.** The `decomposing-plans` gate normally
+refuses this. Two things made it the right call rather than a shortcut, and
+both were true *before* the exception was asked for:
+
+1. **The plan pre-registered it.** Its Sequencing section named the real
+   trigger as *"band 26 merging to `development`"* and explicitly rejected
+   "drain to zero branches" as the criterion, on the grounds that it "would
+   make this plan hostage to a third-party ticket". Band 26 merged 2026-08-29
+   ([#174](https://github.com/sparstrow/sparstrowGen/pull/174)).
+2. **The gate's two stated reasons don't bite here.** Its *correctness* reason
+   is that open branches mean the code is still moving — but T-DI-05 touches
+   terminals, realtime and daemon identity, and this band's foundation
+   (`chat_message_attachments`, `chat-turn.ts`, the chat components) is fully
+   landed and untouched by it. Its *merge-conflict* reason is about regenerating
+   this file — and neither T-DI-05 branch touches it, correctly, per §2.9.
+
+T-DI-05 is blocked on a filed Supabase support ticket
+([`BUG-2026-08-28-private-broadcast-channels-not-relaying`](../bug/BUG-2026-08-28-private-broadcast-channels-not-relaying.md))
+and could stay open indefinitely. **This is a documented exception for this
+band, not a precedent** — the gate stands for every other decomposition.
+
 ### Band 24 — M22–M24 reaching my machine from the browser (2026-08-24)
 
 Plan: [`../plans/2026-08-24-reaching-my-machine-from-the-browser.md`](../plans/2026-08-24-reaching-my-machine-from-the-browser.md).

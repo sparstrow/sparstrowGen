@@ -1,4 +1,4 @@
-import type { ChatTurnEventPush, ChatTurnResultPayload } from "@sparstrow/shared";
+import type { ChatTurnEventPush, ChatTurnProducedFile, ChatTurnResultPayload } from "@sparstrow/shared";
 
 /**
  * What makes a batch of chat-turn deltas acceptable at the daemon boundary.
@@ -22,6 +22,14 @@ export const MAX_CHAT_BATCH_BYTES = 1024 * 1024;
  * chat turn can grow unbounded.
  */
 export const MAX_CHAT_REPLY_BYTES = 512 * 1024;
+
+/**
+ * AM1 (T-AM1-03). A daemon reporting more than this per turn is broken, not
+ * merely prolific — the byte-level content is already bounded by each file's
+ * own `CHAT_PRODUCED_MAX_BYTES` ceiling at upload time; this bounds the
+ * COUNT of descriptors in one request body.
+ */
+export const MAX_CHAT_PRODUCED_PER_REQUEST = 20;
 
 export type ChatBatchRejection =
   | "empty_batch"
@@ -154,5 +162,50 @@ export function parseChatResult(body: unknown): ChatResultParse {
     return { ok: false, rejection: "malformed", detail: "error must be a string when present." };
   }
 
-  return { ok: true, result: { seq, replyText, status, error: (error as string | null) ?? null } };
+  const rawProduced = b.produced;
+  if (rawProduced !== undefined && !Array.isArray(rawProduced)) {
+    return { ok: false, rejection: "malformed", detail: "produced must be an array when present." };
+  }
+  const producedInput = (rawProduced ?? []) as unknown[];
+  if (producedInput.length > MAX_CHAT_PRODUCED_PER_REQUEST) {
+    return {
+      ok: false,
+      rejection: "malformed",
+      detail: `produced may not exceed ${MAX_CHAT_PRODUCED_PER_REQUEST} entries; received ${producedInput.length}.`,
+    };
+  }
+
+  const produced: ChatTurnProducedFile[] = [];
+  for (let i = 0; i < producedInput.length; i++) {
+    const item = producedInput[i];
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return { ok: false, rejection: "malformed", detail: `produced[${i}] must be an object.` };
+    }
+    const f = item as Record<string, unknown>;
+
+    if (typeof f.storagePath !== "string" || !f.storagePath) {
+      return { ok: false, rejection: "malformed", detail: `produced[${i}].storagePath must be a non-empty string.` };
+    }
+    if (typeof f.filename !== "string" || !f.filename) {
+      return { ok: false, rejection: "malformed", detail: `produced[${i}].filename must be a non-empty string.` };
+    }
+    if (typeof f.mimeType !== "string" || !f.mimeType) {
+      return { ok: false, rejection: "malformed", detail: `produced[${i}].mimeType must be a non-empty string.` };
+    }
+    if (typeof f.sizeBytes !== "number" || !Number.isInteger(f.sizeBytes) || f.sizeBytes < 0) {
+      return { ok: false, rejection: "malformed", detail: `produced[${i}].sizeBytes must be a non-negative integer.` };
+    }
+
+    produced.push({
+      storagePath: f.storagePath,
+      filename: f.filename,
+      mimeType: f.mimeType,
+      sizeBytes: f.sizeBytes,
+    });
+  }
+
+  return {
+    ok: true,
+    result: { seq, replyText, status, error: (error as string | null) ?? null, produced },
+  };
 }

@@ -80,7 +80,7 @@ verification pass:
 
 | | |
 |---|---|
-| **Serves** | foundational — closed the packaged-installer half of what was G-54 (KnownGaps.md now tracks only the remaining publish/update-feed half at [G-54](../../KnownGaps.md#g-54--two-channel-desktop-release-no-real-publish-no-verified-live-update-feed)) |
+| **Serves** | foundational — closed the packaged-installer half of what was G-56 (KnownGaps.md now tracks only the remaining publish/update-feed half at [G-56](../../KnownGaps.md#g-56--two-channel-desktop-release-no-real-publish-no-verified-live-update-feed)) |
 | **Depends on** | — (does not need Vercel or a live `staging.sparstrow.com` — see Traps) |
 | **Status** | ✅ done 2026-08-30 |
 
@@ -88,7 +88,7 @@ verification pass:
 
 Get `pnpm --filter @sparstrow/desktop dist:staging` (and `dist:stable`) to
 complete cleanly end to end without manual intervention, then actually
-install the resulting NSIS build and confirm the things G-54 has never been
+install the resulting NSIS build and confirm the things G-56 has never been
 able to verify: the packaged app launches, the tray/updater code paths run
 under `app.isPackaged`, and — once both channels are built — that stable and
 staging coexist on one machine without collision (separate `appId`/
@@ -157,7 +157,7 @@ worktree without risk to sibling agents' sessions.
   content" under this repo's action-permission rules and needs an explicit
   ask, separate from fixing the build chain. Verify the *build* first,
   unpublished; a real `staging` push producing a real release is a distinct,
-  separate verification (see G-54).
+  separate verification (see G-56).
 - **This task doesn't need Vercel back.** `staging.sparstrow.com` will still
   402 with Vercel's "Deployment Paused" page regardless of what this task
   fixes — that's expected and not this task's problem to solve. Point the
@@ -301,8 +301,8 @@ either script could silently reintroduce either bug. Left as a gap rather
 than adding tests for two Node scripts that shell out to `pnpm`/read
 `package.json` (a real test would need to mock `execSync`/the filesystem
 fairly heavily for two one-line changes) — flagged in `doc/KnownGaps.md`'s
-G-54 entry rather than built speculatively.
+G-56 entry rather than built speculatively.
 
 Publishing a real GitHub Release (the `--publish always` / real `staging`
-push half of G-54) remains explicitly out of scope per this task's Traps —
+push half of G-56) remains explicitly out of scope per this task's Traps —
 not attempted.

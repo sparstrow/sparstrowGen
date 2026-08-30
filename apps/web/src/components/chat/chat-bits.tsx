@@ -1,5 +1,10 @@
 import * as React from "react";
-import { CHAT_ATTACHMENT_BUCKET, type ChatMessage, type ChatTurnError } from "@sparstrow/shared";
+import {
+  CHAT_ATTACHMENT_BUCKET,
+  type ChatMessage,
+  type ChatMessageAttachment,
+  type ChatTurnError,
+} from "@sparstrow/shared";
 import { ClipboardCopy, Code2, Paperclip, RefreshCw, Shuffle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +15,7 @@ import {
 } from "@/components/ui/context-menu";
 import { createClient } from "@web/utils/supabase/client";
 import { Markdown, stripMarkdown } from "./markdown";
+import { ProducedItem, ProducedItemViewer } from "./produced-item";
 
 function copyToClipboard(text: string): void {
   void navigator.clipboard.writeText(text);
@@ -30,9 +36,19 @@ function formatFileSize(bytes: number): string {
  * workspace member, so nothing here grants access beyond what the bucket
  * already allows.
  */
-function SentAttachmentChip({ attachment }: { attachment: ChatMessage["attachments"][number] }) {
+export function SentAttachmentChip({
+  attachment,
+  onOpen,
+}: {
+  attachment: ChatMessageAttachment;
+  onOpen?: (attachment: ChatMessageAttachment) => void;
+}) {
   const [opening, setOpening] = React.useState(false);
   const open = async () => {
+    if (onOpen) {
+      onOpen(attachment);
+      return;
+    }
     if (opening) return;
     setOpening(true);
     try {
@@ -86,10 +102,12 @@ export function ThinkingDots({ label }: { label?: string }) {
  */
 export function ChatTurnView({
   message,
+  onOpenAttachment,
 }: {
   message: Pick<ChatMessage, "role" | "content" | "meta"> & {
     attachments?: ChatMessage["attachments"];
   };
+  onOpenAttachment?: (attachment: ChatMessageAttachment) => void;
 }) {
   if (message.role === "user") {
     return (
@@ -105,7 +123,9 @@ export function ChatTurnView({
             )}
             {/* US4 scenario 2 — persists on reload because it's read from
                 `chat_message_attachments`, not local state. */}
-            {message.attachments?.map((a) => <SentAttachmentChip key={a.id} attachment={a} />)}
+            {message.attachments?.map((a) => (
+              <SentAttachmentChip key={a.id} attachment={a} onOpen={onOpenAttachment} />
+            ))}
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent>
@@ -116,11 +136,56 @@ export function ChatTurnView({
       </ContextMenu>
     );
   }
+  return <AssistantTurn message={message} onOpenAttachment={onOpenAttachment} />;
+}
+
+/**
+ * T-AM2-02 (US1). Split out of `ChatTurnView` only so the open-attachment id
+ * has somewhere to live as component state — the user branch above needs
+ * none of it. `attachments?.length` gates the whole strip, not just the
+ * `.map`: `[]` is truthy through optional chaining, and `[].map` would still
+ * render the wrapping `mt-3` div, which is exactly what SC-005 forbids (a
+ * conversation that produced nothing must be byte-identical to one that
+ * never had this feature).
+ */
+function AssistantTurn({
+  message,
+  onOpenAttachment,
+}: {
+  message: Pick<ChatMessage, "role" | "content" | "meta"> & {
+    attachments?: ChatMessage["attachments"];
+  };
+  onOpenAttachment?: (attachment: ChatMessageAttachment) => void;
+}) {
+  const [openAttachment, setOpenAttachment] = React.useState<ChatMessageAttachment | null>(null);
+
+  const handleOpen = React.useCallback(
+    (attachment: ChatMessageAttachment) => {
+      if (onOpenAttachment) {
+        onOpenAttachment(attachment);
+      } else {
+        setOpenAttachment(attachment);
+      }
+    },
+    [onOpenAttachment],
+  );
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div className="spg-turn">
-          <Markdown content={message.content} />
+          {/* Mirrors the user branch's `{message.content && …}` above (T-CS6-01)
+              -- an attachments-only reply (scenario 3: the agent produced
+              something and wrote no text) must not emit an empty <p className="my-3">
+              with its own margins. */}
+          {message.content && <Markdown content={message.content} />}
+          {message.attachments?.length ? (
+            <div className="mt-3 flex flex-col gap-2">
+              {message.attachments.map((a) => (
+                <ProducedItem key={a.id} attachment={a} onOpen={handleOpen} />
+              ))}
+            </div>
+          ) : null}
           {message.meta?.model ? (
             <p className="mt-1.5 text-[11px] text-muted-foreground/70">
               {message.meta.provider ? `${String(message.meta.provider)} · ` : ""}
@@ -137,6 +202,16 @@ export function ChatTurnView({
           <Code2 /> Copy as Markdown
         </ContextMenuItem>
       </ContextMenuContent>
+      {/* One viewer per turn, not per item (phase decision) -- a turn that
+          produced thirty files mounts one Dialog, driven by which id is open,
+          not thirty portals. */}
+      <ProducedItemViewer
+        attachment={openAttachment}
+        open={openAttachment !== null}
+        onOpenChange={(open) => {
+          if (!open) setOpenAttachment(null);
+        }}
+      />
     </ContextMenu>
   );
 }

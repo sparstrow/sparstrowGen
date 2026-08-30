@@ -1,11 +1,22 @@
 # Ideas
 
 Unscoped. No commitment, no decision behind them, possibly never built. If an
-idea graduates, it becomes a plan in `doc/plans/` — or gets a decision and moves
-to `Deferred.md`.
+idea graduates it becomes a **spec** in `doc/specs/` — owner review first, per
+`doc/README.md`'s lifecycle — or gets a decision and moves to `Deferred.md`.
+(I-10 is the worked example: it spawned a spec and stayed open, because the
+spec took only one dimension of it.)
 
 Distinct from `Deferred.md`: those were agreed and parked. These were merely
 noticed.
+
+**Writing an entry here is a procedure — invoke the
+[`elaborating-ideas`](../.claude/skills/elaborating-ideas/SKILL.md) skill.**
+An idea's whole value is that it makes something *thinkable*: what is true in
+the code today, the reframe that changes what the idea is about, a shape
+concrete enough to argue with, what it collides with, and the decisions it
+would need — named, and answered nowhere. An entry that decides its own open
+questions has become an unreviewed spec; one written without opening the code
+reads exactly like one that was.
 
 ---
 
@@ -352,3 +363,128 @@ Click/hover expands a popover listing each machine by name with its own dot.
 Zero machines paired is neutral, not red.
 
 *Surfaced while documenting `BUG-2026-08-27-header-badge-shows-offline-with-active-machine`.*
+
+---
+
+## I-17 — What a turn changed in a project, which is a different problem from what a turn produced
+
+### What was noticed
+
+The owner, 2026-08-28, reading the draft of
+[`seeing-what-my-agent-made`](specs/2026-08-28-seeing-what-my-agent-made.md):
+
+> what if we chat about the project. There is already folders and repository
+> in there. The agents can make file edits, create new files, media, delete
+> etc. how the media is handled then. can we have this as an separate or same
+> idea?
+
+### What is true today
+
+- **Project chats already run somewhere real.** `kind: "project"` is
+  machine-affine by design — [`schema.ts:820`](../packages/shared/src/db/schema.ts:820)
+  says so explicitly, because the session builds context from a project bound
+  to that runtime. The agent works in that directory, with the CLI's own file
+  tools.
+- **The app has no idea what happens in there.** Git usage is a single
+  `git clone` when a project is bound
+  ([`bindings.ts:145`](../packages/core/src/cloud/bindings.ts:145)) — no
+  status, no diff, no branch, no changed-file list anywhere. `runs` records
+  `effective_tools` but nothing about files touched.
+- **Reading project files from a browser is specified and accepted, not
+  built.** [`reaching-my-machine`](specs/2026-08-24-reaching-my-machine-from-the-browser.md)
+  US1 — "see the real folder tree as it exists on the machine… open a file to
+  read it" — was owner-reviewed and accepted 2026-08-24 and is not yet
+  planned. The web app still stubs local filesystem access entirely.
+- So after an agent edits a project during a chat, the only way to learn what
+  it did is to go to the machine and look.
+
+### The reframe
+
+**Media is not the special case — every file is.** The question asks how media
+is handled in a project chat, but a generated logo and an edited `route.ts`
+have exactly the same problem: the app does not know the turn touched either
+of them. Media is simply where the absence is most visible, because it is the
+file you would want to *look* at rather than read.
+
+**The noun is different, and that is the real seam.** In a free chat the agent
+**produces an artifact** that has no other home, so the app must keep it — the
+model the spec adopts. In a project chat the agent **changes a working tree
+that already has a home.** Copying those files into app storage would
+manufacture a second, instantly-stale copy of something the repository already
+owns and git already versions. The right treatment is the opposite of the
+spec's: reference, never copy.
+
+So the split the owner sensed is real, but it does not run between *media and
+other files*. It runs between **artifact and change** — and it happens to line
+up with a boundary the data model already draws for an unrelated reason, which
+is decent evidence it is a genuine seam rather than one invented for this
+feature.
+
+**Corroboration from outside:** Multica does not build an in-app diff either.
+Their server has no diff, PR, git or review handler, and their README puts
+codebase work behind "review gates where work lands in pull requests" — i.e.
+reviewed on the git host, not in the product. Their chat is positioned as the
+surface for work that "hasn't formed a clear issue yet." (Their web components
+could not be enumerated — a 404 — so this is a server-side and docs reading,
+not exhaustive.)
+
+### A shape
+
+A project-chat turn ends with a compact **what changed** summary attached to
+its reply: paths added, modified, and deleted, grouped by turn. Each path links
+through to the file viewer `reaching-my-machine` US1 specifies, where an image
+previews and a text file reads.
+
+The property that makes this work, and that neither "copy everything" nor "show
+nothing" achieves: **the summary is metadata, so it syncs even when the content
+cannot.** A list of paths and change kinds is tiny. So with the machine asleep
+you still see *what* the agent did last night — you just cannot open the files
+until it wakes. That degrades honestly instead of going blank.
+
+### What it touches
+
+- **[`seeing-what-my-agent-made`](specs/2026-08-28-seeing-what-my-agent-made.md)
+  must draw the boundary explicitly**, or its implementation will do the wrong
+  thing: a project chat's edits are not "produced items" and must not be
+  copied. Amended in that spec the same day this was raised.
+- **`reaching-my-machine` US1 is the viewer this needs** and it is already
+  owner-accepted. The only addition it wants is rendering an image rather than
+  offering to read it as text — much smaller than a viewer of its own.
+- **[`I-11`](#i-11--the-rest-of-the-machine-reaching-surfaces)** already parks
+  "a project's git state and pull requests". This is a narrower, chat-shaped
+  consumer of that — *what did this turn do*, not *what is the state of the
+  repo*. If I-11's git surface is ever built, this becomes a filtered view of
+  it rather than separate machinery.
+- **[`what-an-agent-is-allowed-to-do`](specs/2026-08-24-what-an-agent-is-allowed-to-do.md)**
+  and [`G-5`](KnownGaps.md)'s unfinished write clamp: showing what an agent
+  changed is the natural place to notice it changed something it should not
+  have. Related, and deliberately not merged — one decides what is permitted,
+  this reports what happened.
+
+### Decisions this needs
+
+1. **Where does "what changed" come from — git, or the agent's own report?**
+   Git is truthful but cannot separate the agent's edits from the owner's own
+   uncommitted work in the same tree. Self-reporting is precise about
+   attribution but trusts the agent to be honest and complete.
+2. **Does a project chat offer to commit, branch, or open a pull request?**
+   Multica's answer is that this is exactly where work should land. Ours has
+   no opinion yet, and it is a product question, not a technical one.
+3. **What happens to a project chat when the machine is offline** — is the
+   whole conversation read-only, or can you queue a request for later?
+4. **What does a deleted file look like** when you can see it in the summary
+   but can never open it?
+
+### What would make it real
+
+Project chats actually being used to edit code — which the owner is only now
+starting to do, and which is what surfaced this.
+
+**What would shrink or kill it:** if `reaching-my-machine` US1 ships first and
+simply browsing the tree turns out to be enough in practice, this collapses to
+"add image rendering to the file viewer" and needs no change summary at all.
+Worth shipping that viewer before scoping this.
+
+*Raised 2026-08-28 by the owner while reviewing the spec above, asking whether
+project-chat media was the same idea or a separate one. Separate — but not
+along the line the question drew.*

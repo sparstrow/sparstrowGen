@@ -804,12 +804,34 @@ export interface ChatTurnEventBatch {
   events: ChatTurnEventPush[];
 }
 
+/**
+ * AM1 (band 27, T-AM1-03) — a file the agent handed back during this turn,
+ * already uploaded to `chat-attachments` by the time this is posted (see
+ * `chat-turn.ts`'s upload step). Same shape as `ChatTurnStartPayload.attachments`,
+ * mirrored rather than shared: that type is what the OWNER sent in, this is
+ * what the AGENT produced, and the two are expected to diverge (plan
+ * Decision 2 — provenance comes from the bound message's `role`, not a type).
+ */
+export interface ChatTurnProducedFile {
+  storagePath: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
 /** The terminal call — `POST /api/daemon/chat/turns/:id/result`. */
 export interface ChatTurnResultPayload {
   seq: number;
   replyText: string;
   status: "succeeded" | "failed";
   error?: string | null;
+  /**
+   * AM1 (T-AM1-03). Optional, not `.default([])`'d — this is a plain
+   * interface, not zod. `parseChatResult` treats a missing key as `[]`, so an
+   * older daemon's payload (deployed independently of the web app) keeps
+   * working unchanged.
+   */
+  produced?: ChatTurnProducedFile[];
 }
 
 /**

@@ -2012,7 +2012,227 @@ deleted session's prefix is empty. This is the same cleanup obligation
 FR-012 takes on for agent-produced files — whichever lands first should do it
 for both, since they share the bucket and the prefix scheme.
 
-### G-54 — two-channel desktop release: no real publish, no verified live update feed
+**Extended 2026-08-29, closing `T-AM1-03`.** A second, narrower way to reach
+an orphaned object, unrelated to session deletion: `chat-turn.ts` uploads each
+produced file to storage, then calls `postResult` to bind it via
+`ingest_chat_turn_reply`. If that POST never lands — the result route's own
+header already calls this loss "real", the only backstop being the command's
+lease expiry and a full retried turn — the objects sit in the bucket with no
+`chat_message_attachments` row ever created for them, indistinguishable from
+this entry's session-delete case once orphaned. No reaper is being built for
+either cause; whatever eventually closes one should close both, since the
+fix (a scheduled sweep of unreferenced objects under a workspace's prefix, or
+tightening `postResult`'s delivery guarantee) is the same shape for both
+causes.
+
+### G-54 — `development.sparstrow.com` is paused: Vercel's free-plan usage is exhausted
+
+**Raised:** 2026-08-29, noticed mid-`T-DI-05` follow-up when a fresh navigation
+to `development.sparstrow.com` returned Vercel's own "This deployment is
+temporarily paused" page instead of the app. Confirmed by the owner: this
+month's free-plan usage allowance is used up, and left as-is for now — not a
+misconfiguration, an accepted limitation.
+
+**What is true:** `staging.sparstrow.com` and `sparstrow.com` (`main`) were not
+checked in the same pass — this entry covers `development` specifically, the
+one an agent actually hit. Vercel resumes deployments automatically once the
+usage window resets or the plan is upgraded; there is no code-side fix. The
+underlying Supabase project (`pnymngoqseltgigcfevq`) is unaffected and still
+reachable directly — the `T-DI-05` follow-up work this same day ran entirely
+against a **local** dev server (`pnpm --filter web dev` pointed at the same
+project) once this was hit, which is the workaround: local-first per
+`AGENTS.md` §2 already covers day-to-day iteration, so this mainly blocks the
+*specific* step that calls for the deployed preview — a band's final live
+verification pass (`AGENTS.md` §2 rule 3) and anything that needs the real
+`development.sparstrow.com` origin (cross-browser links, redirect URLs, Vercel
+preview comments).
+
+**If wrong:** low. This is a dashboard/billing state, not a claim about the
+app; nothing here is "probably fine," it is directly observed (the paused page
+itself) and owner-confirmed.
+
+**Clears when:** the owner resets or upgrades the plan and a fresh navigation
+to `development.sparstrow.com` loads the app instead of the paused page —
+check before relying on the deployed environment specifically, not before
+local-dev-server work.
+
+**Confirmed again 2026-08-29, closing band 27.** This is exactly the "band's
+final live verification pass" case this entry already named as blocked.
+Checked via `gh api repos/.../commits/<band-27-HEAD>/status`: the Vercel
+check reports `state: failure`, `description: "Account is blocked."` —
+account-level, not branch- or project-specific, and not something this band's
+own code could cause or fix. Band 27's entire verification chain
+(`T-AM1-04` through `T-AM4-02`) already used the accepted workaround this
+entry names — a local dev server against the same live Supabase project,
+with a real signed-in disposable account — for every live check across five
+tasks, not newly adopted here. The band → `development` PR proceeds on that
+basis rather than waiting on a platform state this repo doesn't control.
+
+### G-55 — `T-AM1-02`/`T-AM1-03`'s produced-file pipeline has never run end to end against a live daemon
+
+**Raised:** 2026-08-29, closing `T-AM1-02` (band 27 — `doc/tasks/AM1/T-AM1-02-outbox.md`).
+
+The outbox mechanism (creation, `addDirs` grant, the `Read`+`Write` clamp, the
+prompt note, non-recursive sweep, size/type refusal, cleanup) is fully unit
+tested against a **mocked** `completeOnce` that writes files into the outbox
+directly — 8 tests, all passing, including the clamp-interaction case (an
+attachment present alongside an outbox write) and the FR-016 structural check
+(the outbox is never the project's `rootDir`).
+
+What is unproved: whether a **real** `claude-code` or `antigravity` process,
+given the outbox note this task appends to the prompt, will actually write a
+file there when asked to produce one. This environment has no paired daemon —
+the same limitation `G-49`/`G-51`/`G-52` already record for chat-turn work in
+this session.
+
+**If wrong:** moderate, and specifically about the prompt's wording rather
+than the mechanism. If a real agent doesn't act on the outbox instruction (too
+subtle, competes with other prompt content, or a provider's headless mode
+strips or reorders appended text), every downstream phase — the sweep,
+`T-AM1-03`'s upload, AM2's rendering — has nothing to work with, even though
+all of it is independently correct. The mechanism (directory exists, is
+writable, is swept, cleans up) is not what would be wrong; the instruction's
+persuasiveness would be.
+
+**Extended 2026-08-29, closing `T-AM1-03`.** Two more surfaces joined this gap
+rather than getting their own entries, since the root cause is identical (no
+paired daemon in this environment):
+
+1. **The upload HTTP call itself.** `uploadToSignedUrl` (`chat-turn.ts`) does
+   a bare `PUT` to the signed URL returned by `sign-upload`, with only a
+   `content-type` header — mirroring `downloadToFile`'s bare `GET`, on the
+   theory that a Supabase Storage signed URL (either direction) embeds its
+   own auth as a `?token=` query parameter and needs nothing further.
+   Confirmed against Supabase's own docs that signed URLs carry a unique
+   `token` query parameter and that the read side already works this way in
+   this exact codebase; **not** confirmed against a live Storage endpoint for
+   the write direction specifically. If wrong, every upload fails with a
+   non-2xx, which the code already turns into a refusal sentence rather than
+   losing the turn — so the failure mode is "produced files never appear",
+   not data loss or a crash.
+2. **`029_chat_produced_files.sql`'s binding logic**, unverified beyond
+   static reading, `get_advisors`, and signature/grant checks. Deliberately
+   not proven with a fabricated row either: `workspaces.owner_id` is a NOT
+   NULL foreign key into `auth.users`, and inserting a synthetic auth user on
+   shared staging to exercise one function call was judged a worse trade than
+   leaving this named. If the message-creation guard or the
+   `jsonb_array_elements` binding has a mistake invisible to reading, the
+   failure mode is a `succeeded`/partial-`failed` turn whose files never get
+   an attachment row — visible immediately the first time AM2 runs against a
+   real turn, not a silent long-term drift.
+
+**Extended again 2026-08-29, closing `T-AM1-04` (the phase's own verification
+task).** Same root cause, so folded in here rather than opened as a separate
+gap. `T-AM1-04`'s own checklist (section A) names five assertions that need a
+live dispatch and could not be reached: the full happy path (A1), FR-016 in
+a real `project` chat with a bound `rootDir` (A5 — "the one that matters,"
+in that task's own words), the attachment-and-produce interaction with a
+real agent (A6), and CS5's inbound-attachment path re-walked end to end
+(section B). Everything reachable without a live daemon **was** reached and
+is recorded in that task's Result: the live database function bodies for
+both `ingest_chat_turn_reply` and `enqueue_chat_turn` were dumped and read
+directly (not merely trusted), `get_advisors` re-run clean, and the full
+monorepo typecheck/test suite passed (`@sparstrow/shared` 334/334,
+`@sparstrow/core` 776/780 with 4 pre-existing unrelated skips, `apps/web`
+498/498, `@sparstrow/desktop` 28/28).
+
+**Extended again 2026-08-29, closing `T-AM2-03`.** This is the first entry in
+this chain backed by an actual live browser session rather than static
+reading — real workspace, real signed-in user, real dispatched (parked)
+`chat_turns` row, driven via `agent-browser` per the runbook. That closed real
+ground: the page chrome (empty-panel copy, both themes, Mono surface, a
+genuine 375px mobile check, Escape/focus-return) is now live-verified, not
+inferred, and a real accessibility bug (`Missing Description` on both
+`T-AM3-01`'s `Sheet` and `T-AM2-01`'s `ProducedItemViewer` `Dialog`) was
+found and fixed as a direct result — it would not have surfaced from any
+amount of code reading.
+
+**What this pass still could not close, and the reason changed shape.**
+Every scenario needing a real produced file got one step closer: a real
+object was uploaded to the bucket via the service-role Storage REST API (the
+same authority the daemon itself has, no RLS concern), which is further than
+any earlier task in this chain reached. The remaining step — giving the real
+parked turn a synthetic `assigned_runtime_id` (a raw `insert into runtimes`
+to satisfy the foreign key) so `ingest_chat_turn_reply` could be called
+against it directly — **was refused by this session's own safety classifier**
+as a live-database mutation. That is a categorically different reason than
+"no daemon exists": it is "this session correctly would not make that write
+unilaterally even though the daemon-equivalent access was otherwise
+available." The orphaned test object was deleted; no further attempt was made
+to route around the refusal.
+
+**Extended again 2026-08-29, closing `T-AM3-02`.** Same session, continued
+rather than re-set-up. Two more real things closed live: a **project** chat's
+project card was confirmed to render correctly above the produced-items list
+(created a real project, started a real project chat, screenshotted both
+together) — the phase README's own words called this "the regression most
+likely to slip through," and it did not. The panel's **Error** state was
+genuinely exercised, not just read: routed `chat_messages`'s PostgREST
+endpoint to abort via `agent-browser network route`, reloaded, watched the
+real "Couldn't load this conversation's files" message with a Retry button
+appear, removed the route, clicked Retry, and watched it actually recover —
+proving the retry re-runs the read rather than being decorative.
+
+**SC-003 could not even reach its own precondition.** Unlike the other gaps
+in this entry, SC-003 doesn't reduce to "no daemon" alone — it needs a
+stopped daemon (implying one existed and produced something first) and a
+second device to load what it produced. Neither precondition holds here, so
+no substitute form was attempted; a partial run would have proven nothing.
+The **Loading** state also stayed out of reach here specifically because
+`agent-browser network route --body` has no delay option (a gap that
+runbook already documents) and reaching for the Playwright MCP's
+`page.waitForTimeout` fallback was judged not worth it for one skeleton-row
+screenshot.
+
+**Extended again 2026-08-29, closing `T-AM4-01`.** Same root cause, still no
+daemon — but this task reached further than any prior one in this chain by
+sidestepping it rather than working around it: attaching a file to an
+outbound message needs no daemon at all, since it's the composer's own
+upload path. A real `chat_message_attachments` row with `role: "user"` was
+created this way (attach `verify.png`, send, in a fresh session), then
+rendered, opened in the real `ProducedItemViewer`, and closed — the first
+genuinely populated (non-empty) row this whole verification chain has shown,
+in both themes, Mono, and at 375px. What stayed out of reach is unchanged in
+kind: the "produced + sent both non-empty" combination has no live proof,
+because nothing in this environment can populate the agent side without a
+daemon — it is proven at the unit-test layer only
+(`conversation-items.test.ts`, "both non-empty" case).
+
+**Extended again 2026-08-29, closing `T-AM4-02` — the band's own closing
+verification.** No new daemon-dependent ground to report (same root cause as
+every entry above), but this pass found and fixed a real, independent defect
+while doing the keyboard-traversal check A2 asks for: closing the produced-item
+viewer lost keyboard focus to `<body>` instead of returning it to the item
+that opened it, because `ProducedItemViewer` never renders a `DialogTrigger`
+(the opening button lives in a sibling component), so Radix's own
+close-focus restoration has nothing to focus back to. Fixed in the shared
+`produced-item.tsx` by capturing `document.activeElement` on open and
+restoring it via `onCloseAutoFocus` — covers both surfaces that use it
+(the panel/sheet and `T-AM2-02`'s inline strip) from one change. Live-verified
+fixed via a genuine keyboard walk (Tab, Enter, Escape) on the panel surface;
+the inline-strip surface inherits the identical fix with no live proof of its
+own, same reason as everything else here. `SC-005` (a conversation that
+produced nothing is byte-identical to `development`) is now graded as done:
+the transcript half by reading `chat-bits.tsx`'s attachment-strip gate, the
+panel half live, both matching what earlier tasks in this chain already
+established — not a fresh screenshot-diff against a running `development`
+checkout, which stays undone. `FR-010` carries forward unchanged from
+`T-CS5-01`'s own live cross-workspace test, confirmed still valid by reading
+that band 27 never touched the storage policy that enforces it.
+
+**Clears when:** a chat turn on a machine with an authenticated CLI provider
+is asked to produce a file, and — the full pipeline, not just the sweep —
+`sweepOutbox` finds it in `kept`, the upload succeeds, and
+`select m.content, a.filename from chat_messages m join
+chat_message_attachments a on a.message_id = m.id where m.role = 'assistant'
+order by m.created_at desc limit 1` shows a real row. The same bar `G-52`
+sets for attachment content, on the output side instead of the input side.
+Fully clears only once that same live check is repeated inside a `project`
+chat bound to a real `rootDir`, confirming a file the agent edits inside the
+project folder produces neither a row nor a stored object (FR-016) — the
+requirement this whole spec turns on.
+
+### G-56 — two-channel desktop release: no real publish, no verified live update feed
 
 **Raised:** 2026-08-29, landing
 [`DR`](tasks/DR/README.md) (`doc/plans/2026-08-29-two-channel-desktop-release.md`).
