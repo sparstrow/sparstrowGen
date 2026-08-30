@@ -2025,7 +2025,7 @@ fix (a scheduled sweep of unreferenced objects under a workspace's prefix, or
 tightening `postResult`'s delivery guarantee) is the same shape for both
 causes.
 
-### G-54 — `development.sparstrow.com` is paused: Vercel's free-plan usage is exhausted
+### G-54 — the whole Vercel account is paused: free-plan usage is exhausted
 
 **Raised:** 2026-08-29, noticed mid-`T-DI-05` follow-up when a fresh navigation
 to `development.sparstrow.com` returned Vercel's own "This deployment is
@@ -2033,19 +2033,27 @@ temporarily paused" page instead of the app. Confirmed by the owner: this
 month's free-plan usage allowance is used up, and left as-is for now — not a
 misconfiguration, an accepted limitation.
 
-**What is true:** `staging.sparstrow.com` and `sparstrow.com` (`main`) were not
-checked in the same pass — this entry covers `development` specifically, the
-one an agent actually hit. Vercel resumes deployments automatically once the
-usage window resets or the plan is upgraded; there is no code-side fix. The
-underlying Supabase project (`pnymngoqseltgigcfevq`) is unaffected and still
-reachable directly — the `T-DI-05` follow-up work this same day ran entirely
-against a **local** dev server (`pnpm --filter web dev` pointed at the same
-project) once this was hit, which is the workaround: local-first per
-`AGENTS.md` §2 already covers day-to-day iteration, so this mainly blocks the
-*specific* step that calls for the deployed preview — a band's final live
-verification pass (`AGENTS.md` §2 rule 3) and anything that needs the real
-`development.sparstrow.com` origin (cross-browser links, redirect URLs, Vercel
-preview comments).
+**What is true:** account-level, not per-project or per-branch — confirmed on
+`development.sparstrow.com` originally, and directly observed by the owner on
+`staging.sparstrow.com` 2026-08-30 (a plain launch of the installed
+Sparstrowgen Staging desktop app, which loads that URL by default, showed the
+same "Deployment Paused" page). `sparstrow.com` (`main`) wasn't separately
+checked but should be assumed paused too on the same reasoning. Vercel resumes
+deployments automatically once the usage window resets or the plan is
+upgraded; there is no code-side fix. The underlying Supabase project
+(`pnymngoqseltgigcfevq`) is unaffected and still reachable directly — the
+`T-DI-05` follow-up work this same day ran entirely against a **local** dev
+server (`pnpm --filter web dev` pointed at the same project) once this was
+hit, which is the workaround: local-first per `AGENTS.md` §2 already covers
+day-to-day iteration, so this mainly blocks the *specific* step that calls for
+the deployed preview — a band's final live verification pass (`AGENTS.md` §2
+rule 3), anything that needs the real origin (cross-browser links, redirect
+URLs, Vercel preview comments), and now also **a normal launch of an
+installed desktop build on any channel**, which hits its channel's real
+`appUrl` by default and shows this same page unless
+`SPARSTROW_APP_URL` is set to point it at a local dev server instead (see
+[T-DR-05](tasks/DR/README.md#t-dr-05--fix-staging-non-draft-release-create-failing-githubs-tag-validation)'s
+Result section for exactly how that's done).
 
 **If wrong:** low. This is a dashboard/billing state, not a claim about the
 app; nothing here is "probably fine," it is directly observed (the paused page
