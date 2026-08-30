@@ -261,38 +261,38 @@ const EXTENSION_TO_MIME_TYPE: Record<string, string> = Object.fromEntries(
 export function harvestAntigravityBrainFiles(
   sessionId: string | null,
   outboxDir: string,
-  sinceMs: number = Date.now() - 120_000,
+  sinceMs: number = Date.now() - 60_000,
 ): void {
   const home = os.homedir();
-  const brainRoots = [
-    path.join(home, ".gemini", "antigravity-cli", "brain"),
-    path.join(home, ".gemini", "antigravity", "brain"),
-  ];
-
   const targetDirs = new Set<string>();
+
   if (sessionId) {
     targetDirs.add(path.join(home, ".gemini", "antigravity-cli", "brain", sessionId));
     targetDirs.add(path.join(home, ".gemini", "antigravity", "brain", sessionId));
-  }
-
-  for (const root of brainRoots) {
-    if (!fs.existsSync(root)) continue;
-    try {
-      const convDirs = fs.readdirSync(root, { withFileTypes: true });
-      for (const d of convDirs) {
-        if (!d.isDirectory()) continue;
-        const fullDir = path.join(root, d.name);
-        try {
-          const stat = fs.statSync(fullDir);
-          if (stat.mtimeMs >= sinceMs) {
-            targetDirs.add(fullDir);
+  } else {
+    const brainRoots = [
+      path.join(home, ".gemini", "antigravity-cli", "brain"),
+      path.join(home, ".gemini", "antigravity", "brain"),
+    ];
+    for (const root of brainRoots) {
+      if (!fs.existsSync(root)) continue;
+      try {
+        const convDirs = fs.readdirSync(root, { withFileTypes: true });
+        for (const d of convDirs) {
+          if (!d.isDirectory()) continue;
+          const fullDir = path.join(root, d.name);
+          try {
+            const stat = fs.statSync(fullDir);
+            if (stat.mtimeMs >= sinceMs) {
+              targetDirs.add(fullDir);
+            }
+          } catch {
+            // ignore
           }
-        } catch {
-          // ignore
         }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
     }
   }
 
@@ -307,9 +307,9 @@ export function harvestAntigravityBrainFiles(
         const src = path.join(brainDir, entry.name);
         try {
           const stat = fs.statSync(src);
-          if (stat.mtimeMs < sinceMs && !sessionId) continue;
+          if (stat.mtimeMs < sinceMs) continue;
         } catch {
-          // ignore
+          continue;
         }
 
         const dest = path.join(outboxDir, entry.name);
@@ -607,6 +607,7 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
     // is about to run.
     effectiveAgent = { ...effectiveAgent, addDirs: [...effectiveAgent.addDirs, outboxDir] };
 
+    const turnStartTime = Date.now();
     const prompt = buildTranscriptPrompt(payload.messages) + attachmentNote + outboxPromptNote(outboxDir);
 
     const result = await completeOnce(effectiveAgent, prompt, {
@@ -617,7 +618,7 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
     await pusher.drain();
 
     if (outboxDir && result.sessionId) {
-      harvestAntigravityBrainFiles(result.sessionId, outboxDir);
+      harvestAntigravityBrainFiles(result.sessionId, outboxDir, turnStartTime);
     }
 
     // Swept BEFORE postResult, deliberately not in `finally`: `finally` runs
