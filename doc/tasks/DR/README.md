@@ -437,8 +437,8 @@ reasoning as before.
       [`v0.2.0-staging.4`](https://github.com/sparstrow/sparstrowGen/releases/tag/v0.2.0-staging.4)
       (release id 379374925, run
       [33329788584](https://github.com/sparstrow/sparstrowGen/actions/runs/33329788584))
-- [ ] An installed staging build's update check detects the new release —
-      not yet attempted this pass
+- [x] An installed staging build's update check detects the new release —
+      confirmed live, see Result
 
 ### Result
 
@@ -465,6 +465,29 @@ objects, `v0.2.0-staging.4` complete) — none deleted, consistent with earlier
 reasoning in this task about not removing public GitHub content without an
 explicit ask.
 
-**Not yet done**: actually installing a staging build and watching its
-update banner detect `v0.2.0-staging.4` live. That's the step that closes
-the remainder of G-56 and the original reason this promotion was run.
+**Live install-and-detect test, done last**: uninstalled the leftover
+timestamp-versioned local test build from T-DR-04
+(`0.2.0-staging.1788107262432` — a semver-huge prerelease identifier that
+would have looked "newer" than any real numbered release and made this test
+meaningless), downloaded the actual
+[`v0.2.0-staging.2`](https://github.com/sparstrow/sparstrowGen/releases/tag/v0.2.0-staging.2)
+installer asset from GitHub, and silently installed it
+(`<installer>.exe /S`, PowerShell). Launched with `SPARSTROW_APP_URL` pointed
+at a local `pnpm --filter web dev` server so the renderer loaded real content
+(auth-gated — did not sign in, since entering credentials isn't something an
+agent does). Opened the packaged app's DevTools (`Ctrl+Shift+I` — not
+disabled in this build) and queried the update IPC bridge directly from the
+console, which is exposed pre-auth:
+
+```js
+window.sparstrowDesktop.updates.getStatus()
+// → {"state":"available","version":"0.2.0-staging.4"}
+```
+
+This is the exact status shape `update-banner.tsx`'s `case "available":`
+branch renders ("Update v0.2.0-staging.4 is available", "See changelog",
+"Download") — confirmed via the real IPC path (main process →
+`electron-updater` → GitHub's real Atom feed → `staging.yml` → renderer),
+not simulated. Closes the remainder of G-56: the two-channel desktop release
+pipeline is now proven working end to end, from a `development` → `staging`
+merge to a real installed app detecting the resulting release.
