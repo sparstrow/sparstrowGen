@@ -25,23 +25,35 @@ export const DEFAULT_CORE_URL = "http://127.0.0.1:48750";
 /**
  * What the window loads, or `null` when nothing is configured.
  *
- * There is still deliberately no default production hostname — a default naming
- * a domain would turn "not configured" into a DNS error for a host the user
- * never chose. What changed in T-VR-01 is the *other* branch: unset used to
- * fall back to the local UI that core served, and core no longer serves one.
- * Falling back there now would load a bare 404 from the API, which is a worse
- * answer than saying plainly that no app URL is set. So unset is `null`, and
- * the caller shows a screen that says so.
+ * There is still deliberately no default production hostname INVENTED IN
+ * SOURCE — a literal baked into every build regardless of what it is would
+ * turn "not configured" into a DNS error for a host the user never chose.
+ * What changed in T-VR-01 is the *other* branch: unset used to fall back to
+ * the local UI that core served, and core no longer serves one. Falling back
+ * there now would load a bare 404 from the API, which is a worse answer than
+ * saying plainly that no app URL is set. So unset is `null`, and the caller
+ * shows a screen that says so.
+ *
+ * `packagedDefaultUrl` narrows that, deliberately, without reversing it: a
+ * packaged, channel-aware build (see `channel.ts`) knows its own target,
+ * because the build pipeline that produced THIS SPECIFIC installer set it —
+ * that is not the same thing as guessing a hostname in source for every
+ * build alike. `SPARSTROW_APP_URL` still wins whenever it is set, exactly as
+ * before; the baked default only fills the gap dev and an unchanneled build
+ * always had. Passing `undefined`/`null` (dev, or no baked resource) keeps
+ * the original all-or-nothing behavior byte-for-byte.
  *
  * Whitespace-only is treated as unset: a `SPARSTROW_APP_URL=` line in an env
  * file is someone clearing the value, not asking to load the empty string.
  */
-export function resolveAppUrl(env: UrlEnv): string | null {
+export function resolveAppUrl(env: UrlEnv, packagedDefaultUrl?: string | null): string | null {
   const configured = env.SPARSTROW_APP_URL?.trim().replace(/\/+$/, "");
-  return configured || null;
+  if (configured) return configured;
+  const fallback = packagedDefaultUrl?.trim().replace(/\/+$/, "");
+  return fallback || null;
 }
 
 /** True when no app URL is configured — the window has nowhere to go. */
-export function isUnconfigured(env: UrlEnv): boolean {
-  return resolveAppUrl(env) === null;
+export function isUnconfigured(env: UrlEnv, packagedDefaultUrl?: string | null): boolean {
+  return resolveAppUrl(env, packagedDefaultUrl) === null;
 }

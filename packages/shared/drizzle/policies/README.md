@@ -139,7 +139,19 @@ policies/023_provider_model_cache.sql  CS3 — provider_model_cache table, SELEC
 policies/024_provider_model_dispatch.sql  CS3 — request_model_discovery + record_provider_models
 policies/025_chat_attachments_storage.sql  CS5 — chat-attachments bucket + chat_message_attachments RLS
 policies/026_chat_attachments_dispatch.sql  CS5 — enqueue_chat_turn gains p_attachments; assign_or_park_chat_turn embeds them in the dispatch payload
+policies/027_restore_chat_auto_title.sql    T-CS6-02 — 024/026 each silently dropped 022's auto-title block; restored
+policies/028_restore_no_invented_names_after_020_regression.sql  2026-08-29 — 020 silently reverted 012's fix the same way 024/026 dropped 027's; restored. See BUG-2026-08-29-bootstrap-workspace-020-reverted-012.md
 ```
+
+**Two live tables have no creating migration anywhere in this history**,
+found 2026-08-29 while setting up the production project from an empty
+database: `chat_message_attachments` (created out-of-band on staging,
+never tracked) and `provider_model_cache` (created by `023` itself, a
+deliberate choice — see that file's header). Both are now captured properly
+in `../0008_*.sql` + `../meta/0008_snapshot.json` (tool-generated via
+`drizzle-kit generate`, not hand-authored) so a fresh setup no longer needs
+tribal knowledge to get past `023`/`025`/`026`. Full account:
+[`../../../../doc/bug/BUG-2026-08-29-missing-migration-files-for-two-live-tables.md`](../../../../doc/bug/BUG-2026-08-29-missing-migration-files-for-two-live-tables.md).
 
 **Applied to staging 2026-08-18** as migrations `setup_identity_fields`,
 `no_invented_names`, `storage_images` and `storage_images_exact_depth`. Note the

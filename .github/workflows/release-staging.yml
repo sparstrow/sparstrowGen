@@ -1,0 +1,51 @@
+name: Release (staging)
+
+# Desktop channel infra — the staging counterpart to release.yml. Every push
+# to `staging` (i.e. every development -> staging PR merge) builds and
+# publishes a new "Sparstrowgen Staging" installer immediately, non-draft, no
+# manual click. That's a deliberate difference from release.yml's tag + draft
+# + human-publish flow: the review checkpoint for this branch already exists
+# one level up (nothing reaches `staging` without a PR, and nothing reaches
+# `main` without the owner's explicit approval on staging.sparstrow.com per
+# AGENTS.md §2 rule 8), so a second manual click here would be pure friction
+# with no matching safety benefit.
+#
+# Stable and staging are otherwise the same pipeline running the same
+# electron-builder config (see build-channel-config.mjs) with two fields
+# different: appId/productName (so the two installers coexist on one machine)
+# and the version's prerelease suffix, which is what makes electron-builder
+# publish a separate staging.yml update feed alongside stable's latest.yml.
+
+on:
+  push:
+    branches: [staging]
+
+permissions:
+  contents: write # create the release + upload installer assets
+
+jobs:
+  release:
+    name: build & publish staging installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0 — SHA-pinned (third-party); reads packageManager (pnpm@11.6.0) from package.json
+      - uses: actions/setup-node@v4
+        with:
+          # Must match the native prebuilds' ABI: prepare-resources.mjs ships
+          # THIS runner's node as the packaged runtime.
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm --filter @sparstrow/ui build
+      - run: pnpm --filter @sparstrow/memory-mcp build
+      - run: pnpm --filter @sparstrow/memory-cli build
+      # dist:staging = tsc -> prepare-resources (channel=staging) ->
+      # build-channel-config (appId/productName override + version suffix) ->
+      # electron-builder --publish always, non-draft (releaseType: "release"
+      # in the generated config).
+      - run: pnpm --filter @sparstrow/desktop dist:staging
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SPARSTROW_BUILD_NUMBER: ${{ github.run_number }}
