@@ -12,8 +12,8 @@
     "dist:prepare": "node scripts/prepare-resources.mjs",
     "dist": "npm run build && npm run dist:prepare && electron-builder --win nsis --publish never",
     "dist:publish": "npm run build && npm run dist:prepare && electron-builder --win nsis --publish always",
-    "dist:stable": "npm run build && node scripts/prepare-resources.mjs stable && node scripts/build-channel-config.mjs stable && electron-builder --win nsis --publish always --config electron-builder.stable.generated.json",
-    "dist:staging": "npm run build && node scripts/prepare-resources.mjs staging && node scripts/build-channel-config.mjs staging && electron-builder --win nsis --publish always --config electron-builder.staging.generated.json"
+    "dist:stable": "npm run build && node scripts/prepare-resources.mjs stable && node scripts/build-channel-config.mjs stable && node scripts/ensure-draft-release.mjs stable && electron-builder --win nsis --publish always --config electron-builder.stable.generated.json",
+    "dist:staging": "npm run build && node scripts/prepare-resources.mjs staging && node scripts/build-channel-config.mjs staging && node scripts/ensure-draft-release.mjs staging && electron-builder --win nsis --publish always --config electron-builder.staging.generated.json"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

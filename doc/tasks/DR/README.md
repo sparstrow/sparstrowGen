@@ -362,17 +362,82 @@ unchanged from the design intent: staging still auto-publishes on every push
 with zero manual click — the publish step just moved from inside
 electron-builder to right after it.
 
+### Round 2 — the draft+PATCH fix exposed two more real bugs
+
+Re-promoting with the fix above
+([#196](https://github.com/sparstrow/sparstrowGen/pull/196) →
+[run 33328285710](https://github.com/sparstrow/sparstrowGen/actions/runs/33328285710))
+got past the 422, ran green, and still produced a broken release —
+`v0.2.0-staging.3` split across **two separate release objects sharing the
+same tag**: one draft holding the installer `.exe` and `latest.yml`, one
+already-published holding only the `.exe.blockmap`. Neither complete alone.
+
+**Root cause 1 — duplicate release race.** electron-builder creates one
+`GitHubPublisher` instance per uploaded artifact
+(`electron-publish/gitHubPublisher.js`), and each instance's "find or create
+the release for this tag" (`getOrCreateRelease`) is its own independent `GET
+/releases` call with no lock shared across instances. When the release
+doesn't exist yet, two instances can both see an empty result and both `POST`
+a create. This isn't staging-specific — stable's identical pipeline is
+equally exposed, just never triggered it because a human always re-runs by
+hand on failure rather than diffing asset lists.
+
+**Root cause 2 — wrong update-feed filename.** The original `-staging.N`
+prerelease-suffix comment on this file (T-DR-01) claimed electron-builder
+infers the update-feed channel name from the version string. False —
+confirmed by reading `app-builder-lib`'s `updateInfoBuilder.js`:
+`computeChannelNames` reads `publishConfig.channel` directly, defaulting to
+`"latest"` when absent. Staging was silently publishing `latest.yml`, which
+`updater.ts`'s `autoUpdater.channel = "staging"` would never find — this
+would have made the whole pipeline look successful while auto-update stayed
+permanently broken, undetected, until someone actually installed a build and
+watched it fail to check for updates.
+
+**Fix 1 (race):** new `packages/desktop/scripts/ensure-draft-release.mjs`,
+run between `build-channel-config.mjs` and `electron-builder` in both
+`dist:stable`/`dist:staging`. Pre-creates the draft release for the computed
+tag via a plain `fetch`-based GitHub API call, idempotently (skips if a
+release for that tag already exists in any state). By the time
+electron-builder's multiple `GitHubPublisher` instances list releases
+minutes later, the tag already has exactly one, and each instance's own
+find-existing check converges on reusing it — the race needs an empty result
+to happen at all.
+
+**Fix 2 (filename):** `build-channel-config.mjs`'s staging override now sets
+`publish.channel: "staging"` explicitly, matching `updater.ts`'s expectation.
+
+**A bug in the fix itself, caught before it shipped:** the first version of
+`ensure-draft-release.mjs` called `process.exit()` on every path. Testing it
+live (twice, back to back, against the real repo) crashed Node on Windows —
+`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file
+src\win\async.c` — a known `fetch()`(undici)-plus-`process.exit()`
+interaction: exiting abruptly while a keep-alive socket handle is still open
+doesn't let libuv close it cleanly. Rewritten to set `process.exitCode`
+instead and let the script's async `main()` return naturally, which drains
+the socket before Node exits. That same live test also incidentally
+confirmed the idempotency check can raggedly duplicate on very-rapid
+back-to-back invocations against the same tag (sub-second GitHub read
+consistency lag) — not a concern for real usage, since this script only runs
+once per build and electron-builder's own uploads start minutes later, but
+worth knowing if it's ever tempting to call this script speculatively/in a
+retry loop.
+
+Test-only artifacts created while verifying this (`v0.2.0-staging.999`,
+multiple draft release objects) were deleted afterward — real build
+artifacts (`v0.2.0-staging.2`, `v0.2.0-staging.3`) were left in place, same
+reasoning as before.
+
 ### Verification
 
-- [ ] `pnpm typecheck` clean (workflow/script-only change, no test file
-      covers either)
+- [x] `pnpm --filter @sparstrow/desktop typecheck` clean
 - [ ] A real `staging` push runs `release-staging.yml` green end to end and
       produces a **complete** non-draft release: installer `.exe`,
-      `.exe.blockmap`, and `staging.yml` all present
+      `.exe.blockmap`, and `staging.yml` (not `latest.yml`) all present on
+      **one** release object
 - [ ] An installed staging build's update check detects the new release
       (fulfills the original ask behind this promotion)
 
 ### Result
 
-Not yet — fix is written, re-promotion in progress. This section gets filled
-in once the retry is observed to complete cleanly.
+Not yet — round 2 fix written, re-promotion in progress. This section gets
+filled in once a clean end-to-end run is observed.
