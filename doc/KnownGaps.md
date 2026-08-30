@@ -2012,23 +2012,41 @@ deleted session's prefix is empty. This is the same cleanup obligation
 FR-012 takes on for agent-produced files — whichever lands first should do it
 for both, since they share the bucket and the prefix scheme.
 
-### G-54 — two-channel desktop release: no live NSIS install, no rendered `/changelog`
+### G-54 — two-channel desktop release: no live NSIS install, no verified real installer build
 
 **Raised:** 2026-08-29, landing
 [`DR`](tasks/DR/README.md) (`doc/plans/2026-08-29-two-channel-desktop-release.md`).
+Narrowed 2026-08-30 — see below.
 
 Verified: `pnpm --filter @sparstrow/desktop test` (40/40, including new
 `channel.test.ts` and the added `urls.test.ts` cases) and `pnpm typecheck` /
-`pnpm test` clean repo-wide. **Not verified:** actually building and installing
-the stable and staging NSIS installers side by side on a Windows machine to
-confirm they coexist without collision (separate userData dir, separate Start
-Menu entry, independent auto-update checks) — no Windows install target
-available in this session. Also not verified: a real push to `staging`
+`pnpm test` clean repo-wide. **Also verified 2026-08-30**, on a real Windows
+machine, entirely in dev mode (no packaged installer): the Electron shell
+loading a locally-run `apps/web` (`pnpm --filter web dev`), spawning its own
+local daemon, reading from the real staging Supabase project, with Settings →
+Factory Health & Engine → Version → "See changelog" linking to a correctly
+rendering `/changelog` page. This proved the app/changelog code paths work:
+what's still unverified is specifically the **packaged installer**.
+
+**Not verified, and now understood why:** attempting a real local
+`dist:staging` build on 2026-08-30 hit a reproducible tooling issue —
+`pnpm --filter @sparstrow/core deploy --prod --legacy --config.node-linker=hoisted <path>`
+(inside `prepare-resources.mjs`) leaves the workspace's dependency state
+looking stale to pnpm, so the very next command in the chain
+(`pnpm --filter @sparstrow/memory-mcp build`) demands an interactive
+purge-and-reinstall confirmation. Forcing past that with `CI=true` runs a
+**workspace-wide `pnpm install --production`**, which strips devDependencies
+(e.g. `esbuild`) and breaks `@sparstrow/core`'s own build — i.e. the fix for
+one step breaks the step before it. Recovered cleanly both times with a plain
+`pnpm install`, and confirmed `node_modules` is worktree-local (`git worktree
+list` — 6 separate worktrees, each with its own `node_modules`), so this was
+contained to one worktree, not a shared-state incident. Tracked for a real fix
+as [T-DR-04](tasks/DR/README.md#t-dr-04--fix-the-desktop-build-chain-and-verify-a-real-installer).
+Still also unverified, independent of the above: a real push to `staging`
 triggering `release-staging.yml` end to end and producing a non-draft
 `vX.Y.Z-staging.N` GitHub Release with a working `staging.yml` update feed —
-this session cannot push to `staging`. And not verified: the `/changelog`
-route actually rendering in a browser (no dev server exercised this pass) —
-covered by typecheck only.
+publishing a real release wasn't attempted this session (deliberately — see
+T-DR-04, which builds unpublished first).
 
 **If wrong:** moderate. If the two installers turn out to share state despite
 the distinct `appId`/`productName` (an Electron version quirk, an OS-level
@@ -2038,6 +2056,6 @@ was meant to rule out. If `release-staging.yml` has a syntax or permissions
 issue, staging simply never publishes, silently, until someone checks
 `https://github.com/sparstrow/sparstrowGen/releases` after a push.
 
-**Clears when:** someone with a Windows machine installs both channels side
-by side and confirms independent update checks, and a real `staging` push is
-observed producing a published (non-draft) release.
+**Clears when:** T-DR-04 fixes the build chain, a real local install of both
+channels side by side confirms independent update checks, and a real
+`staging` push is observed producing a published (non-draft) release.

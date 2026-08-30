@@ -18,6 +18,7 @@ open branches. Insert this phase's tasks the next time the queue drains.
 | T-DR-01 — Desktop channel infrastructure | foundational | ✅ done 2026-08-29 |
 | T-DR-02 — Changelog page | changelog story | ✅ done 2026-08-29 |
 | T-DR-03 — Production database cutover | foundational | blocked — see below |
+| T-DR-04 — Fix the desktop build chain and verify a real installer | foundational | not started — see below |
 
 ## T-DR-01 — Desktop channel infrastructure ✅ done 2026-08-29
 
@@ -74,3 +75,103 @@ verification pass:
 - [`BUG-2026-08-29-bootstrap-workspace-020-reverted-012`](../../bug/BUG-2026-08-29-bootstrap-workspace-020-reverted-012.md) — fixed on both projects
 - [`BUG-2026-08-29-missing-migration-files-for-two-live-tables`](../../bug/BUG-2026-08-29-missing-migration-files-for-two-live-tables.md) — fixed on prod, repo history corrected (`0008_*.sql`)
 - [`SEC-2026-08-29-record-provider-models-anon-executable-on-fresh-project`](../../security/SEC-2026-08-29-record-provider-models-anon-executable-on-fresh-project.md) — fixed on prod
+
+## T-DR-04 — Fix the desktop build chain and verify a real installer
+
+| | |
+|---|---|
+| **Serves** | foundational — closes the packaged-installer half of [G-54](../../KnownGaps.md#g-54--two-channel-desktop-release-no-live-nsis-install-no-verified-real-installer-build) |
+| **Depends on** | — (does not need Vercel or a live `staging.sparstrow.com` — see Traps) |
+| **Status** | not started |
+
+### Objective
+
+Get `pnpm --filter @sparstrow/desktop dist:staging` (and `dist:stable`) to
+complete cleanly end to end without manual intervention, then actually
+install the resulting NSIS build and confirm the things G-54 has never been
+able to verify: the packaged app launches, the tray/updater code paths run
+under `app.isPackaged`, and — once both channels are built — that stable and
+staging coexist on one machine without collision (separate `appId`/
+`productName`, separate userData dir, separate Start Menu entry).
+
+### What's already known (found 2026-08-30, don't rediscover this)
+
+Running the chain by hand (`build` → `prepare-resources.mjs staging` →
+`build-channel-config.mjs staging` → `electron-builder`) fails partway
+through, reproducibly:
+
+1. `pnpm --filter @sparstrow/core deploy --prod --legacy --config.node-linker=hoisted <resources-staging/core>`
+   runs (this is `prepare-resources.mjs`'s own step, re-vendoring core's
+   node_modules since electron-builder can't ship a folder literally named
+   `node_modules`). It logs `[WARN] Shared workspace lockfile detected but
+   configuration forces legacy deploy implementation.`
+2. The **very next** command in the chain —
+   `pnpm --filter @sparstrow/memory-mcp build` — then sees the workspace as
+   out of sync with the lockfile and refuses non-interactively:
+   `[ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY]`.
+3. Forcing past that with `CI=true` "fixes" step 2, but it does so by running
+   a **workspace-wide `pnpm install --production`**, which strips
+   devDependencies (`esbuild` observed missing) and breaks `@sparstrow/core`'s
+   *own* build — the fix for one step in the chain breaks an earlier one.
+
+This looks like the legacy `deploy --prod` step leaving some marker (in
+`node_modules/.modules.yaml` or similar) that pnpm's dependency-status check
+reads as "this workspace needs reinstalling," and then defaulting to
+`--production` for reasons not yet root-caused. Confirmed **not** a
+cross-worktree issue — `node_modules` is worktree-local (`git worktree list`
+showed 6 independent worktrees) — so this is safe to debug in an isolated
+worktree without risk to sibling agents' sessions.
+
+### Checklist
+
+- [ ] Root-cause why the `core` legacy deploy step leaves the workspace
+      looking stale to pnpm's status check (try running deploy with
+      `--ignore-scripts`, or without `--legacy` if the pnpm version in use
+      supports the non-legacy path now, or isolate deploy's target dir from
+      the main workspace's dependency graph)
+- [ ] Fix so the full `dist:staging` / `dist:stable` chain runs cleanly with
+      no manual `CI=true` / reinstall intervention needed
+- [ ] Build a **local, unpublished** staging installer
+      (`electron-builder --publish never`, not `dist:staging`'s
+      `--publish always`) and install it
+- [ ] Point the installed app at `http://localhost:3000` via the
+      `SPARSTROW_APP_URL` environment variable (Windows: set it as a
+      user/system env var before launching the installed `.exe`, since a
+      packaged app doesn't inherit a terminal's shell env the way `npm start`
+      in dev mode does) and confirm it loads real content, not the Vercel
+      "Deployment Paused" page
+- [ ] Repeat for stable, install both side by side, confirm separate userData
+      dirs / Start Menu entries / no collision
+- [ ] `pnpm --filter @sparstrow/desktop typecheck` and `test` green if any
+      script changed
+
+### Traps
+
+- **Don't fix this by publishing a real GitHub Release to test it.**
+  Publishing is out of scope for this task — it's "Publishing... public
+  content" under this repo's action-permission rules and needs an explicit
+  ask, separate from fixing the build chain. Verify the *build* first,
+  unpublished; a real `staging` push producing a real release is a distinct,
+  separate verification (see G-54).
+- **This task doesn't need Vercel back.** `staging.sparstrow.com` will still
+  402 with Vercel's "Deployment Paused" page regardless of what this task
+  fixes — that's expected and not this task's problem to solve. Point the
+  installed build at `localhost` (see checklist) to prove packaging works;
+  don't block this task on hosting being resolved.
+- **`CI=true` is not the fix.** It's what caused the devDependency strip in
+  the first place. The real fix changes the deploy/build chain so the
+  interactive prompt never fires, not something that forces past it again.
+
+### Verification
+
+- [ ] `dist:staging` (with `--publish never`) completes with exit 0, no
+      manual intervention
+- [ ] Installed app launches, tray icon appears, window loads
+      `http://localhost:3000` content (not a Vercel error page) when
+      `SPARSTROW_APP_URL` is set
+- [ ] Both stable and staging installed side by side, confirmed as separate
+      Start Menu entries / processes, one uninstall doesn't affect the other
+
+### Result
+
+<!-- Not started. -->
