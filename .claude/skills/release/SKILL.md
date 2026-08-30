@@ -92,6 +92,53 @@ the build if the tagged commit isn't an ancestor of `main` — don't tag a
    `release.yml` has already filled the release notes from merged PRs — review
    before publishing, don't just click through.
 
+## Testing a build before you actually ship it
+
+If you've touched anything in the build chain (`prepare-resources.mjs`,
+`build-channel-config.mjs`, `channel.ts`, the workflow files) — or just want
+to sanity-check before a real release — build locally without publishing:
+
+```bash
+cd packages/desktop
+npm run build
+node scripts/prepare-resources.mjs staging   # or: stable
+node scripts/build-channel-config.mjs staging
+npx electron-builder --win nsis --publish never --config electron-builder.staging.generated.json
+```
+
+`--publish never` is the important part — it builds a real installer without
+touching GitHub Releases at all, so you can install and test it with zero
+external footprint. Install silently with `<installer>.exe /S` (note: run
+that from PowerShell, not Git Bash — Git Bash's MSYS layer mangles the `/S`
+flag into a path). Point the installed app at a local dev server by setting
+`SPARSTROW_APP_URL=http://localhost:3000` as a Windows environment variable
+before launching it — a packaged app doesn't inherit a terminal session's env
+the way `npm start` does in dev mode.
+
+This is exactly how both channels' side-by-side coexistence was verified —
+see [T-DR-04](../../../doc/tasks/DR/README.md#t-dr-04--fix-the-desktop-build-chain-and-verify-a-real-installer)
+if you want the full verification writeup.
+
+## Known-fixed issues, for context if something looks similar
+
+**The build chain used to break itself.** Before 2026-08-30,
+`prepare-resources.mjs`'s `core deploy --prod --legacy` step silently
+poisoned the whole workspace's pnpm state, causing the *next* command in the
+chain to demand an interactive confirmation — and forcing past that with
+`CI=true` stripped devDependencies repo-wide, breaking an earlier step. Fixed
+with a `pnpm install` immediately after the deploy step. If you ever see a
+build fail with `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` or a mysterious
+`Cannot find package 'esbuild'` partway through this chain, that fix
+regressed — see the commit that added the `pnpm install` line in
+`prepare-resources.mjs` before reaching for `CI=true` again.
+
+**Stable and staging used to share a userData directory.** Distinct
+`appId`/`productName` per channel does *not* separate Electron's userData
+path — that's keyed off `app.name`, which resolves from the packaged
+`package.json`'s `name` field, not `productName`. Fixed via a per-channel
+`name` override in `build-channel-config.mjs`'s `extraMetadata`. Full
+writeup: [`doc/bug/BUG-2026-08-30-desktop-stable-staging-share-userdata-dir.md`](../../../doc/bug/BUG-2026-08-30-desktop-stable-staging-share-userdata-dir.md).
+
 ## If you're asked to "add a channel" or change release mechanics
 
 That's not this skill — it's the underlying infrastructure
