@@ -107,12 +107,20 @@ async function cancelInstall(): Promise<void> {
   );
 }
 
-export function setupUpdater(windowGetter: () => BrowserWindow | null): void {
+/**
+ * @param updateChannel electron-updater's `channel` — which GitHub Release
+ *   feed (`latest.yml`, `staging.yml`, …) this install checks. Comes from the
+ *   baked `channel.json` (`channel.ts`); omitted/undefined leaves
+ *   electron-updater's own default (`latest`), which is correct for an
+ *   unchanneled or pre-two-channel build.
+ */
+export function setupUpdater(windowGetter: () => BrowserWindow | null, updateChannel?: string): void {
   getWindow = windowGetter;
 
   // Notify-only, always: no silent download, no install-on-quit.
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
+  if (updateChannel) autoUpdater.channel = updateChannel;
 
   autoUpdater.on("update-available", (info: UpdateInfo) => {
     consecutiveFailures = 0;

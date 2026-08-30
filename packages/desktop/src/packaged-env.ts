@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { app } from "electron";
+import { readChannelConfig, type ChannelConfig } from "./channel";
 
 /**
  * 0004 Phase 0 — the three-locations separation. In packaged mode every data
@@ -21,6 +22,8 @@ export interface PackagedPaths {
   nodeBin: string;
   /** Supervisor log dir (lives under dataDir so it survives updates). */
   logDir: string;
+  /** This install's baked channel config (stable vs. staging), or `null` if unresolved. See `channel.ts`. */
+  channel: ChannelConfig | null;
 }
 
 /**
@@ -34,6 +37,7 @@ export function applyPackagedEnv(): PackagedPaths | null {
   const userData = app.getPath("userData");
   const res = process.resourcesPath;
   const coreCwd = path.join(res, "core");
+  const channel = readChannelConfig(res);
   const paths: PackagedPaths = {
     dataDir: path.join(userData, "data"),
     vaultPath: path.join(userData, "memory"),
@@ -41,6 +45,7 @@ export function applyPackagedEnv(): PackagedPaths | null {
     coreCwd,
     nodeBin: path.join(res, "node-runtime", process.platform === "win32" ? "node.exe" : "node"),
     logDir: path.join(userData, "data", "logs"),
+    channel,
   };
   process.env.SPARSTROW_PACKAGED = "1";
   // `??=` so an explicit override (e.g. pointing a packaged build at a test
@@ -50,6 +55,11 @@ export function applyPackagedEnv(): PackagedPaths | null {
   process.env.SPARSTROW_MEMORY_MCP ??= path.join(res, "memory-mcp", "index.cjs");
   process.env.SPARSTROW_MEMORY_CLI ??= path.join(res, "memory-cli", "index.cjs");
   process.env.SPARSTROW_NODE ??= paths.nodeBin;
+  // The daemon reads SPARSTROW_CLOUD_URL itself (packages/core/src/config.ts);
+  // `??=` here means an operator's own override — per
+  // doc/runbooks/deploy-web-app.md — still wins over this install's baked
+  // channel target.
+  if (channel) process.env.SPARSTROW_CLOUD_URL ??= channel.cloudUrl;
   return paths;
 }
 

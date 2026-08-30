@@ -169,6 +169,20 @@ export class RealtimeTerminalChannel implements TerminalChannel {
     return (data?.workspace_id as string | undefined) ?? null;
   }
 
+  /**
+   * Resolves once the channel's FIRST join attempt has settled (subscribed
+   * or failed), not merely once `subscribe()` has been called.
+   *
+   * `channel.subscribe()` returns synchronously; the join itself is
+   * asynchronous. `request()` awaits this promise and then immediately calls
+   * `channel.send()`, which reads supabase-js's own `accessTokenValue`/join
+   * state to decide whether to push over the live socket. Resolving before
+   * the join settles meant every single request raced an unfinished join and
+   * lost, silently falling back to the slower REST broadcast endpoint on
+   * every call rather than the one-time cost this comment describes —
+   * discovered live in `T-DI-05` when a correctly-subscribed daemon never
+   * received a `terminal.list` sent this way.
+   */
   private ensureControlChannel(): Promise<SupabaseChannelLike | null> {
     if (!this.controlChannelPromise) {
       this.controlChannelPromise = this.workspaceId().then((workspaceId) => {
@@ -178,9 +192,21 @@ export class RealtimeTerminalChannel implements TerminalChannel {
         channel.on("broadcast", { event: MACHINE_REPLY_EVENT }, ({ payload }: { payload: unknown }) => {
           guard("reply", () => this.handleReply(payload));
         });
-        channel.subscribe((status: string) => this.setConnected(status === "SUBSCRIBED"));
         this.controlChannel = channel;
-        return channel;
+        return new Promise<SupabaseChannelLike | null>((resolve) => {
+          let settled = false;
+          channel.subscribe((status: string) => {
+            this.setConnected(status === "SUBSCRIBED");
+            if (!settled) {
+              settled = true;
+              // Resolve with the channel either way — a join failure still
+              // needs `close()` to be able to tear it down, and `send()`
+              // failing fast against an unjoined channel is no worse than
+              // today's behaviour for that case.
+              resolve(channel);
+            }
+          });
+        });
       });
     }
     return this.controlChannelPromise;

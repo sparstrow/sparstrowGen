@@ -1,4 +1,5 @@
 import * as React from "react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -463,7 +464,14 @@ function SystemCard() {
           <Skeleton className="h-24 w-full" />
         ) : health.data ? (
           <>
-            <InfoRow label="Version">v{health.data.version}</InfoRow>
+            <InfoRow label="Version">
+              <span className="flex items-center justify-end gap-2">
+                v{health.data.version}
+                <Link href="/changelog" className="text-xs text-muted-foreground underline hover:text-foreground">
+                  See changelog
+                </Link>
+              </span>
+            </InfoRow>
             <InfoRow label="Uptime">{formatDuration(health.data.uptimeMs)}</InfoRow>
             <InfoRow label="Database">
               <span className="block truncate font-mono text-xs" title={health.data.db.path}>

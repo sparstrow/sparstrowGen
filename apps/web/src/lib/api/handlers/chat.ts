@@ -1,5 +1,6 @@
 import { registerRoute, ok, fail, HandlerContext } from "../router";
 import { OPAQUE_COLUMNS } from "../../case";
+import { attachmentsByMessageId } from "@web/lib/chat-attachments";
 
 /**
  * `chat_messages.meta` and `chat_sessions.draft` are jsonb -- see
@@ -44,8 +45,21 @@ async function turnStateRow(
     .order("created_at", { ascending: true });
   if (error) throw error;
 
-  const userMessage = (messages ?? []).find((m: any) => m.role === "user") ?? null;
-  const assistantMessage = (messages ?? []).find((m: any) => m.role === "assistant") ?? null;
+  // CS6 (T-CS6-01) — the user message this turn answers may carry an
+  // attachment; embedded here so the composer's just-sent reply already
+  // shows the chip without a second round trip.
+  const attachmentMap = await attachmentsByMessageId(
+    supabase,
+    workspaceId,
+    (messages ?? []).map((m: any) => m.id as string),
+  );
+  const withAttachments = (messages ?? []).map((m: any) => ({
+    ...m,
+    attachments: attachmentMap.get(m.id as string) ?? [],
+  }));
+
+  const userMessage = withAttachments.find((m: any) => m.role === "user") ?? null;
+  const assistantMessage = withAttachments.find((m: any) => m.role === "assistant") ?? null;
 
   return {
     ...turnRow,
@@ -57,14 +71,88 @@ async function turnStateRow(
 registerRoute({
   method: "GET",
   pattern: "/chat/sessions",
-  handler: async ({ supabase, workspaceId }: HandlerContext) => {
-    const { data, error } = await supabase
+  handler: async ({ supabase, workspaceId, searchParams }: HandlerContext) => {
+    let query = supabase
       .from("chat_sessions")
       .select("*")
       .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: false });
+
+    const kind = searchParams.get("kind");
+    const projectId = searchParams.get("projectId");
+    const agentId = searchParams.get("agentId");
+    const status = searchParams.get("status");
+    if (kind) query = query.eq("kind", kind);
+    if (projectId) query = query.eq("project_id", projectId);
+    if (agentId) query = query.eq("agent_id", agentId);
+    if (status) query = query.eq("status", status);
+
+    const { data, error } = await query;
     if (error) throw error;
     return ok(data);
+  }
+});
+
+registerRoute({
+  method: "GET",
+  pattern: "/chat/search",
+  handler: async ({ supabase, workspaceId, searchParams }: HandlerContext) => {
+    const q = searchParams.get("q");
+    const limitStr = searchParams.get("limit");
+    const limit = limitStr ? parseInt(limitStr, 10) : 20;
+
+    if (!q) return fail(400, "Missing search query");
+
+    // Supabase JS doesn't have an easy OR across joined tables directly using standard builder without PostgREST hacks, 
+    // but we can use the textSearch or simply query messages and sessions separately, or use a Postgres function.
+    // Given the architecture, doing two quick queries or using an `or` is fine.
+    // The easiest way for now is querying sessions and matching sessions that have matching messages.
+    
+    // 1. Find sessions with matching title
+    const { data: titleMatches, error: titleErr } = await supabase
+      .from("chat_sessions")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .ilike("title", `%${q}%`);
+    if (titleErr) throw titleErr;
+
+    // 2. Find sessions that contain a matching message
+    const { data: messageMatches, error: msgErr } = await supabase
+      .from("chat_messages")
+      .select("session_id")
+      .eq("workspace_id", workspaceId)
+      .ilike("content", `%${q}%`)
+      .limit(limit);
+    if (msgErr) throw msgErr;
+
+    const matchingSessionIds = (messageMatches ?? []).map((m: any) => m.session_id);
+    
+    let combinedSessions = [...(titleMatches ?? [])];
+    
+    if (matchingSessionIds.length > 0) {
+      const { data: deepMatches, error: deepErr } = await supabase
+        .from("chat_sessions")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .in("id", matchingSessionIds);
+      if (deepErr) throw deepErr;
+      
+      const existingIds = new Set(combinedSessions.map((s: any) => s.id));
+      for (const ds of (deepMatches ?? [])) {
+        if (!existingIds.has(ds.id)) {
+          combinedSessions.push(ds);
+        }
+      }
+    }
+
+    // Sort by last message at
+    combinedSessions.sort((a, b) => {
+      const dateA = new Date(a.last_message_at ?? a.created_at).getTime();
+      const dateB = new Date(b.last_message_at ?? b.created_at).getTime();
+      return dateB - dateA; // Descending
+    });
+
+    return ok(combinedSessions.slice(0, limit));
   }
 });
 
@@ -80,13 +168,26 @@ registerRoute({
       .single();
     if (sessionErr) return fail(404, "Not Found");
 
-    const { data: messages, error: messagesErr } = await supabase
+    const { data: rawMessages, error: messagesErr } = await supabase
       .from("chat_messages")
       .select("*")
       .eq("workspace_id", workspaceId)
       .eq("session_id", params.id)
       .order("created_at", { ascending: true });
     if (messagesErr) throw messagesErr;
+
+    // CS6 (T-CS6-01) — a sent message's attachment chip must persist on
+    // reload (US4 scenario 2), which means every message in the session's
+    // history needs its attachments embedded here, not just the latest turn.
+    const attachmentMap = await attachmentsByMessageId(
+      supabase,
+      workspaceId,
+      (rawMessages ?? []).map((m: any) => m.id as string),
+    );
+    const messages = (rawMessages ?? []).map((m: any) => ({
+      ...m,
+      attachments: attachmentMap.get(m.id as string) ?? [],
+    }));
 
     // M13 -- the session's most recent turn, terminal or not. This is what
     // makes a turn recoverable after a reload (FR-007): the mutation

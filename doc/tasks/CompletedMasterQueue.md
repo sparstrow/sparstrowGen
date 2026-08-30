@@ -753,3 +753,120 @@ interactive-session scenarios on both. `G-47` and `G-48` both carry the
 corrected evidence and the fix (a five-minute owner action on the Vercel
 dashboard). This band's own precedent, and band 20's `G-47` before it, is
 what lets it move with that gap documented rather than blocking on it.
+
+### Band 26 — CS chat session & conversation UX (2026-08-27)
+
+Plan: [`../plans/2026-08-27-chat-session-and-conversation-ux.md`](../plans/2026-08-27-chat-session-and-conversation-ux.md).
+Spec: [`../specs/2026-08-27-chat-session-and-conversation-ux.md`](../specs/2026-08-27-chat-session-and-conversation-ux.md)
+— owner-reviewed 2026-08-27, four stories from the 2026-08-27 feedback batch
+(the 3 auth-area items from the same batch are deliberately not in this
+band — owner chose to focus on chat first).
+Phase specs: [`CS1/README.md`](CS1/README.md) · [`CS2/README.md`](CS2/README.md)
+· [`CS3/README.md`](CS3/README.md) · [`CS4/README.md`](CS4/README.md) ·
+[`CS5/README.md`](CS5/README.md) · [`CS6/README.md`](CS6/README.md).
+Decomposed 2026-08-28.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 26.1 | [T-CS1-01 — per-session menu, with rename](CS1/T-CS1-01-menu-and-rename.md) | `[S]` | — | ✅ done |
+| 26.2 | [T-CS1-02 — delete, with the Archive/Delete/Cancel confirmation](CS1/T-CS1-02-delete-confirmation.md) | `[S]` | 26.1 | ✅ done |
+| 26.3 | [T-CS1-03 — verification](CS1/T-CS1-03-verification.md) | `[S]` | 26.1, 26.2 | ✅ done |
+| 26.4 | [T-CS2-01 — auto-title on first message](CS2/T-CS2-01-auto-title.md) | `[S]` | — | ✅ done |
+| 26.5 | [T-CS2-02 — verification](CS2/T-CS2-02-verification.md) | `[S]` | 26.4 | ✅ done |
+| 26.6 | [T-CS3-01 — `agy models` discovery in the provider](CS3/T-CS3-01-antigravity-discover.md) | `[P]` | — | ✅ done |
+| 26.7 | [T-CS3-02 — `provider_model_cache` table + RLS](CS3/T-CS3-02-cache-table.md) | `[P]` | — | ✅ done |
+| 26.8 | [T-CS3-03 — the `providers.discover_models` dispatch, end to end](CS3/T-CS3-03-dispatch.md) | `[S]` | 26.6, 26.7 | ✅ done |
+| 26.9 | [T-CS3-04 — verification](CS3/T-CS3-04-verification.md) | `[S]` | 26.6–26.8 | ✅ done |
+| 26.10 | [T-CS4-01 — composer reads the cache, triggers refresh](CS4/T-CS4-01-picker.md) | `[S]` | 26.6–26.9 (all of CS3) | ✅ done |
+| 26.11 | [T-CS4-02 — verification](CS4/T-CS4-02-verification.md) | `[S]` | 26.10 | ✅ done |
+| 26.12 | [T-CS5-01 — private bucket + attachments table + RLS](CS5/T-CS5-01-storage-schema.md) | `[S]` | — | ✅ done |
+| 26.13 | [T-CS5-02 — upload flow](CS5/T-CS5-02-upload.md) | `[S]` | 26.12 | ✅ done |
+| 26.14 | [T-CS5-03 — signed URL in the dispatch payload, daemon download, scoped Read](CS5/T-CS5-03-delivery.md) | `[S]` | 26.12, 26.13 | ✅ done |
+| 26.15 | [T-CS5-04 — verification](CS5/T-CS5-04-verification.md) | `[S]` | 26.12–26.14 | ✅ done |
+| 26.16 | [T-CS6-01 — drag-and-drop / upload UI](CS6/T-CS6-01-composer-ui.md) | `[S]` | 26.12–26.15 (all of CS5) | ✅ done |
+| 26.17 | [T-CS6-02 — verification, and CS1–CS5 walked together](CS6/T-CS6-02-verification.md) | `[S]` | 26.1–26.16 | ✅ done |
+
+**Four independent tracks can start immediately and in parallel: CS1
+(26.1–26.3), CS2 (26.4–26.5), CS3 (26.6–26.9), and CS5 (26.12–26.15).** None
+of the four shares a file with another — CS1/CS2 touch `apps/web/src/app/chat/`
+and one SQL migration respectively; CS3/CS5 are both backend/schema work in
+disjoint tables and providers. CS4 (26.10–26.11) waits on all of CS3; CS6
+(26.16–26.17) waits on all of CS5 and is deliberately last — its
+verification (26.17) re-walks CS1/CS2/CS4 too, since `chat.tsx` is a file
+every one of this band's phases touches and a late phase is where a seam
+between them would first show up.
+
+**26.6 and 26.7 are `[P]`** — no shared file, hand to two workers with zero
+coordination. Every other task in this band is `[S]`: either it authors a
+contract a sibling task compiles or dispatches against (26.1 before 26.2;
+26.12 before 26.13 before 26.14), or it's a phase's own verification task,
+which by convention always runs alone after its phase's other tasks land.
+
+**Two `KnownGaps.md`-worthy unknowns flagged during decomposition, not
+blocking any task:** `agy models`'s exact stdout shape (T-CS3-01) and
+whether an online `antigravity`/CLI-capable runtime is reachable to prove
+any of CS3–CS6's live paths (T-CS3-04, T-CS4-02, T-CS5-04, T-CS6-02) are
+both unverified until a task actually runs against a real install — each
+verification task's own Result section is where that gets recorded
+honestly, per this band's own tasks.
+
+**Closed 2026-08-28.** `T-CS6-02` found and fixed two cross-story
+regressions the individual phases had each passed over: US2's auto-titling,
+silently reverted when `024` and `026` re-created `enqueue_chat_turn` from an
+older migration file (restored by `027`), and an invalid `provider`/`model`
+pair produced when CS4 moved antigravity's list to the cache and made a
+previously-unreachable `?? "sonnet"` fallback live. Both are documented in
+`doc/bug/`. Two assertions left unproved: `G-52` (no turn has been shown to
+USE an attached file's content — no CLI provider authenticated in the
+verification environment) and `G-53` (session delete leaves stored objects in
+the bucket).
+
+### Band 27 — AM seeing what my agent made (2026-08-29)
+
+Plan: [`../plans/2026-08-28-seeing-what-my-agent-made.md`](../plans/2026-08-28-seeing-what-my-agent-made.md).
+Spec: [`../specs/2026-08-28-seeing-what-my-agent-made.md`](../specs/2026-08-28-seeing-what-my-agent-made.md)
+— ✅ owner-reviewed 2026-08-28, accepted, all three stories.
+Phase specs: [`AM1/README.md`](AM1/README.md) · [`AM2/README.md`](AM2/README.md)
+· [`AM3/README.md`](AM3/README.md) · [`AM4/README.md`](AM4/README.md).
+Decomposed 2026-08-29.
+
+| # | Task | Tag | Serves | Depends on | Status |
+|---|---|---|---|---|---|
+| 27.1 | [T-AM1-01 — the produced-file contract](AM1/T-AM1-01-produced-contract.md) | `[S]` | foundational | — | ✅ done 2026-08-29 |
+| 27.2 | [T-AM1-02 — the outbox a turn hands files back through](AM1/T-AM1-02-outbox.md) | `[S]` | foundational | 27.1 | ✅ done except `G-55` 2026-08-29 |
+| 27.3 | [T-AM1-03 — upload, bind, and the reply that is only files](AM1/T-AM1-03-bind-and-reply.md) | `[S]` | foundational | 27.2 | ✅ done except `G-55` 2026-08-29 |
+| 27.4 | [T-AM1-04 — verification](AM1/T-AM1-04-verification.md) | `[S]` | foundational | 27.1–27.3 | ✅ done except `G-55` 2026-08-29 |
+| 27.5 | [T-AM2-01 — the produced-item viewer](AM2/T-AM2-01-viewer.md) | `[S]` | US1 | 27.4 | ✅ done except `G-55` 2026-08-29 |
+| 27.6 | [T-AM2-02 — produced items in the reply](AM2/T-AM2-02-in-the-reply.md) | `[P]` | US1 | 27.5 | ✅ done except `G-55` 2026-08-29 |
+| 27.7 | [T-AM3-01 — the panel becomes the conversation's list](AM3/T-AM3-01-panel-list.md) | `[P]` | US2 | 27.5 | ✅ done 2026-08-29 |
+| 27.8 | [T-AM2-03 — AM2 verification](AM2/T-AM2-03-verification.md) | `[S]` | US1 | 27.6 | ✅ done except `G-55` 2026-08-29 |
+| 27.9 | [T-AM3-02 — AM3 verification](AM3/T-AM3-02-verification.md) | `[S]` | US2 | 27.7 | ✅ done except `G-55` 2026-08-29 |
+| 27.10 | [T-AM4-01 — fold in what I sent](AM4/T-AM4-01-sent-items.md) | `[C]` | US3 | 27.7 | ✅ done 2026-08-29 |
+| 27.11 | [T-AM4-02 — verification, and the band's close-out](AM4/T-AM4-02-verification.md) | `[S]` | US3 | 27.10 | ✅ done except `G-55` 2026-08-29 |
+
+**The fork point was 27.5, and it was the only one.** AM1 (27.1–27.4) ran as a
+strict pipeline — each task defined what the next consumed — so there was no
+honest `[P]` in it, for the same reason CS5 had none. `T-AM2-01` gated *both*
+story phases, because the spec's Flow required an inline item and a panel
+entry to open **the same** enlarged view. 27.6 and 27.7 then ran as two
+worktrees for two agents, sharing no file.
+
+**27.10 was `[C]` against 27.7, never `[P]`** — it edited the component 27.7
+created.
+
+**Closed 2026-08-29.** `T-AM4-02`, the band's own closing verification, found
+and fixed a real defect none of the earlier phase verifications caught:
+closing the produced-item viewer lost keyboard focus to `<body>` instead of
+returning it to the trigger, because `ProducedItemViewer` never renders a
+`DialogTrigger` (its opening button lives in a sibling component), so
+Radix's built-in close-focus restoration had nothing to focus back to —
+found via a genuine keyboard walk, not a synthetic click, which had masked
+it in every earlier task's own pass. Fixed once in the shared
+`produced-item.tsx`, covering both surfaces that use it. One assertion left
+open across the whole band: `G-55` — the produced-file pipeline (outbox,
+upload, bind, inline rendering, and the panel's own listing) has never run
+end to end against a live daemon, because no environment available for this
+band's entire verification chain had one. Everything reachable without a
+daemon was reached, including the first genuinely populated content this
+band's chain ever rendered live (`T-AM4-01`, via the composer's own upload
+path, which needs no daemon at all).

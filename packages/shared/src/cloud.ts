@@ -216,7 +216,8 @@ export type CommandKind =
   | "project.clone"
   | "settings.set"
   | "memory.sync"
-  | "chat.turn";
+  | "chat.turn"
+  | "providers.discover_models";
 
 /**
  * Ids AND slugs travel together, deliberately.
@@ -256,6 +257,13 @@ export interface ProjectClonePayload {
 export interface SettingsSetPayload {
   key: string;
   value: string;
+}
+
+/** T-CS3-03 (Band 26). `providers.discover_models` carries no more than
+ *  which provider to check -- the daemon already knows its own workspace
+ *  from its own token, same framing as `memory.sync`'s doorbell. */
+export interface ProviderDiscoverModelsPayload {
+  provider: string;
 }
 
 /**
@@ -697,6 +705,22 @@ export interface ChatTurnStartPayload {
    * not the final prompt window.
    */
   messages: Array<{ role: "user" | "assistant"; content: string }>;
+  /**
+   * CS5 (Band 26, T-CS5-03) — files attached to the turn's user message,
+   * looked up from `chat_message_attachments` at dispatch time
+   * (`private.assign_or_park_chat_turn`, `026_chat_attachments_dispatch.sql`).
+   *
+   * Deliberately NO signed URL here, correcting the plan's own approximate
+   * framing: a parked turn can wait indefinitely for a runtime to come
+   * online (`private.rescan_waiting_chat_turns`, re-invoked on every daemon
+   * poll, not just at send time), and a short-lived signed URL minted once
+   * at the ORIGINAL dispatch attempt would already have expired by the time
+   * a later rescan actually assigns it. The daemon mints its own short-lived
+   * signed URL on demand, immediately before downloading — see
+   * `packages/core/src/cloud/chat-turn.ts`'s attachment step and the new
+   * `POST /api/daemon/chat/attachments/sign` route.
+   */
+  attachments: Array<{ storagePath: string; filename: string }>;
 }
 
 /**
@@ -780,12 +804,34 @@ export interface ChatTurnEventBatch {
   events: ChatTurnEventPush[];
 }
 
+/**
+ * AM1 (band 27, T-AM1-03) — a file the agent handed back during this turn,
+ * already uploaded to `chat-attachments` by the time this is posted (see
+ * `chat-turn.ts`'s upload step). Same shape as `ChatTurnStartPayload.attachments`,
+ * mirrored rather than shared: that type is what the OWNER sent in, this is
+ * what the AGENT produced, and the two are expected to diverge (plan
+ * Decision 2 — provenance comes from the bound message's `role`, not a type).
+ */
+export interface ChatTurnProducedFile {
+  storagePath: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
 /** The terminal call — `POST /api/daemon/chat/turns/:id/result`. */
 export interface ChatTurnResultPayload {
   seq: number;
   replyText: string;
   status: "succeeded" | "failed";
   error?: string | null;
+  /**
+   * AM1 (T-AM1-03). Optional, not `.default([])`'d — this is a plain
+   * interface, not zod. `parseChatResult` treats a missing key as `[]`, so an
+   * older daemon's payload (deployed independently of the web app) keeps
+   * working unchanged.
+   */
+  produced?: ChatTurnProducedFile[];
 }
 
 /**

@@ -177,18 +177,41 @@ to know which.
 Unscoped. No commitment, no decision, possibly never built. Distinct from
 Deferred: those were agreed and parked, these were merely noticed.
 
-Keep them short. An idea that needs three paragraphs has probably become a
-plan — or at least a Deferred entry with a decision behind it.
+INVOKE THE `elaborating-ideas` SKILL. Writing a good idea entry is a
+procedure, not a fill-in — establish what is true in the code today, find the
+reframe, give it an arguable shape, name what it collides with, list the
+decisions without answering them. This block is only the skeleton.
 
-If an idea graduates, it becomes a plan in doc/plans/ and the entry is deleted.
+Length is earned by EVIDENCE, not by speculation. This template used to say
+"keep them short — three paragraphs means it has become a plan"; that was
+wrong, and the file's own record disproves it. Every entry that changed what
+got built is long (I-10, I-13, I-14, I-15); every entry untouched since the
+day it was written is one paragraph. Three paragraphs of verified current
+behaviour and named open decisions is an entry doing its job. Three
+paragraphs of what the feature could be is a daydream with a heading.
+
+If an idea graduates, it becomes a spec in doc/specs/ (owner review first),
+then a plan — and the entry is deleted.
 -->
 
 ## I-n — <the idea, in a few words>
 
 <!--
-What it is and why it might be worth doing. If it was rejected for now, say
-what would make it interesting later — that sentence is what stops it being
-re-proposed identically in three months.
+Sections, in this order — drop any that step 2 of the skill honestly found
+nothing for, rather than padding them:
+
+  What was noticed        the raw observation, in the owner's terms
+  What is true today      verified in the code, with file.ts:line
+  The reframe             what this is actually about, once you look
+  A shape                 one plausible form, concrete enough to argue with
+  What it touches         the other I-n / D-n / G-n / spec it overlaps, and
+                          how they divide — this is what stops it being
+                          built twice or closed as a duplicate
+  Decisions this needs    named, ANSWERED NOWHERE. A real fork goes to
+                          OpenQuestions.md as OQ-n with §8's full options
+  What would make it real the event, threshold, or person. If rejected for
+                          now, the condition that would revive it — that
+                          sentence stops it being re-proposed unchanged
 
 End with where it came from, italicised, when the origin explains the shape:
 *Surfaced while scoring Decision 2 Option C.*

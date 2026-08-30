@@ -51,6 +51,26 @@ export interface ChatMessageMeta {
   [key: string]: unknown;
 }
 
+/**
+ * CS6 (Band 26, T-CS6-01) — the client-facing read shape for one row of
+ * `chat_message_attachments` (T-CS5-01). `storagePath` IS included here,
+ * unlike the daemon's own dispatch payload — this is read back by a
+ * workspace member who already has RLS SELECT access to the object itself
+ * (`025_chat_attachments_storage.sql`), so naming the path here grants
+ * nothing the bucket's own policy doesn't already allow; it's what lets the
+ * composer mint its own signed URL on click, the same
+ * `createSignedUrl` call the daemon makes, under the caller's own session
+ * rather than a service-role one.
+ */
+export const chatMessageAttachmentSchema = z.object({
+  id: idSchema,
+  storagePath: z.string(),
+  filename: z.string(),
+  mimeType: z.string(),
+  sizeBytes: z.number(),
+});
+export type ChatMessageAttachment = z.infer<typeof chatMessageAttachmentSchema>;
+
 export const chatMessageSchema = z.object({
   id: idSchema,
   sessionId: idSchema,
@@ -58,6 +78,7 @@ export const chatMessageSchema = z.object({
   content: z.string(),
   meta: z.record(z.unknown()).nullable().default(null),
   createdAt: isoDateSchema,
+  attachments: z.array(chatMessageAttachmentSchema).default([]),
 });
 export type ChatMessage = Omit<z.infer<typeof chatMessageSchema>, "meta"> & {
   meta: ChatMessageMeta | null;
@@ -91,6 +112,12 @@ export const chatSessionListQuerySchema = z.object({
 });
 export type ChatSessionListQuery = z.infer<typeof chatSessionListQuerySchema>;
 
+export const chatSearchQuerySchema = z.object({
+  q: z.string().min(1),
+  limit: z.coerce.number().min(1).max(50).default(20),
+});
+export type ChatSearchQuery = z.infer<typeof chatSearchQuerySchema>;
+
 /**
  * A message becomes an argv-bound prompt on someone's machine (see
  * `TRANSCRIPT_BUDGET_BYTES` in `packages/core/src/chat/service.ts`, which
@@ -101,16 +128,49 @@ export type ChatSessionListQuery = z.infer<typeof chatSessionListQuerySchema>;
  */
 export const CHAT_MESSAGE_MAX_BYTES = 64_000;
 
-/** POST /chat/sessions/:id/messages — one user turn. `draft` is only honored on
- *  agent-creator sessions (untrusted WIP context, clamped server-side). */
+/**
+ * CS5 (Band 26, T-CS5-02) — a file already uploaded to the `chat-attachments`
+ * bucket (`createChatAttachmentUploader`), waiting to be attached to the
+ * message the caller is about to send. Never a URL — `storagePath` is the
+ * object key; reads happen later through a signed URL (T-CS5-03), never
+ * anything stored durably that could resolve the file without RLS.
+ */
+export const chatAttachmentUploadSchema = z.object({
+  storagePath: z.string().min(1),
+  filename: z.string().min(1),
+  mimeType: z.string().min(1),
+  sizeBytes: z.number().int().positive(),
+});
+export type ChatAttachmentUpload = z.infer<typeof chatAttachmentUploadSchema>;
+
+/**
+ * How many attachments one message may carry. The spec's own Edge Cases
+ * section leaves "what happens with more than one file" open at the UX
+ * level (CS6's to answer — how it's displayed, whether there's a lower,
+ * UI-enforced limit) — this is only a request-boundary sanity clamp, the
+ * same kind `CHAT_MESSAGE_MAX_BYTES` already is for `content`, not a
+ * product decision about how many a user should realistically attach.
+ */
+export const CHAT_ATTACHMENTS_MAX_PER_MESSAGE = 10;
+
+/**
+ * POST /chat/sessions/:id/messages — one user turn. `draft` is only honored
+ * on agent-creator sessions (untrusted WIP context, clamped server-side).
+ *
+ * `content` allows empty — CS6's own Trap: a message with an attachment but
+ * no text must still be sendable, and `chat_messages.content` being NOT
+ * NULL means that's an explicit `""`, not a validation error. The action
+ * layer (`postChatTurnAction`) is what actually enforces "text OR an
+ * attachment, not neither."
+ */
 export const chatTurnRequestSchema = z.object({
   content: z
     .string()
-    .min(1)
     .refine((s) => Buffer.byteLength(s, "utf8") <= CHAT_MESSAGE_MAX_BYTES, {
       message: `content must not exceed ${CHAT_MESSAGE_MAX_BYTES} bytes`,
     }),
   draft: z.record(z.unknown()).optional(),
+  attachments: z.array(chatAttachmentUploadSchema).max(CHAT_ATTACHMENTS_MAX_PER_MESSAGE).optional(),
 });
 export type ChatTurnRequest = z.infer<typeof chatTurnRequestSchema>;
 

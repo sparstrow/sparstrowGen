@@ -1,4 +1,5 @@
 import * as React from "react";
+import Link from "next/link";
 import { ArrowDownToLine, RefreshCw, X } from "lucide-react";
 
 /**
@@ -59,6 +60,9 @@ export function UpdateBanner() {
             <span>
               Update <strong>v{status.version}</strong> is available.
             </span>
+            <Link href={`/changelog#v${status.version}`} className="banner-action">
+              See changelog
+            </Link>
             <button type="button" className="banner-action" onClick={() => void updates.download()}>
               <ArrowDownToLine className="size-3.5" /> Download
             </button>
@@ -72,6 +76,9 @@ export function UpdateBanner() {
             <span>
               <strong>v{status.version}</strong> downloaded.
             </span>
+            <Link href={`/changelog#v${status.version}`} className="banner-action">
+              See changelog
+            </Link>
             <button type="button" className="banner-action" onClick={() => void updates.install()}>
               <RefreshCw className="size-3.5" /> Install &amp; restart
             </button>

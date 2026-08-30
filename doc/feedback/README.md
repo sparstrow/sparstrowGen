@@ -68,6 +68,18 @@ route it to multiple destinations in its Triage section.
    place — like `bug/` and `security/`, this folder is a historical record,
    not a queue that empties out.
 
+**Routing to `Ideas.md` is not a way of deferring triage.** It is a real
+destination with real work attached — invoke the
+[`elaborating-ideas`](../../.claude/skills/elaborating-ideas/SKILL.md) skill
+and write an `I-n` entry that establishes what is true in the code today, the
+reframe, an arguable shape, and the decisions it needs. Feedback copied into
+`Ideas.md` as a one-line restatement has not been triaged; it has been moved.
+
+Beware in particular of parking an item behind an unknown ("blocked until we
+know whether X"). That is usually a sign the item is an idea whose middle has
+not been explored — `I-16` is the worked example, where the unknown turned out
+to be irrelevant to the first move.
+
 A feedback item that turns out to need no action (already covered, working
 as intended, out of scope) still gets triaged and closed — say so in Triage,
 skip Resolution, flip straight to `🟢 routed`. Silently ignoring an item is
@@ -78,10 +90,14 @@ came in.
 
 | ID | Status | Area | Summary |
 |---|---|---|---|
-| [`FB-2026-08-27-signup-missing-confirm-password`](FB-2026-08-27-signup-missing-confirm-password.md) | 🔴 new | Auth — sign-up form | Sign-up form has only one Password field, no confirmation |
-| [`FB-2026-08-27-email-confirm-cross-browser-pkce-error`](FB-2026-08-27-email-confirm-cross-browser-pkce-error.md) | 🔴 new | Auth — email confirmation link | Confirming from a different browser than sign-up shows a raw PKCE/developer error instead of a usable sign-in path |
-| [`FB-2026-08-27-forgot-password-breaks-tab-order`](FB-2026-08-27-forgot-password-breaks-tab-order.md) | 🔴 new | Auth — sign-in form | "Forgot password?" sits before the Password field in tab order, breaking the email→Tab→password→Enter flow |
-| [`FB-2026-08-27-chat-model-list-hardcoded-not-dynamic`](FB-2026-08-27-chat-model-list-hardcoded-not-dynamic.md) | 🔴 new | Chat — model picker | Provider model lists (Claude, Antigravity) look hardcoded and drift from what the provider actually offers; wants them fetched dynamically |
-| [`FB-2026-08-27-chat-missing-file-upload`](FB-2026-08-27-chat-missing-file-upload.md) | 🔴 new | Chat — composer | No drag-and-drop or upload affordance for files/media in the chat composer |
-| [`FB-2026-08-27-chat-no-auto-rename-from-first-prompt`](FB-2026-08-27-chat-no-auto-rename-from-first-prompt.md) | 🔴 new | Chat — session list | Every session stays titled "New conversation"; wants auto-rename from the first prompt |
-| [`FB-2026-08-27-chat-no-manual-rename-delete`](FB-2026-08-27-chat-no-manual-rename-delete.md) | 🔴 new | Chat — session list | No manual rename or delete control for a chat session anywhere in the UI |
+| [`FB-2026-08-27-signup-missing-confirm-password`](FB-2026-08-27-signup-missing-confirm-password.md) | 🟢 routed | Auth — sign-up form | Sign-up form has only one Password field, no confirmation. **Built** — confirm field with pre-submit guard, `fix/auth-signup-reset-and-tab-order` |
+| [`FB-2026-08-27-email-confirm-cross-browser-pkce-error`](FB-2026-08-27-email-confirm-cross-browser-pkce-error.md) | 🟢 routed | Auth — email confirmation link | Confirming from a different browser than sign-up shows a raw PKCE/developer error instead of a usable sign-in path. **Built** — flow-aware message replaces the library text; also surfaced [`BUG-2026-08-28-password-reset-link-lands-on-dashboard`](../bug/BUG-2026-08-28-password-reset-link-lands-on-dashboard.md). Seamless cross-browser confirmation still needs a Supabase email-template change (owner action) |
+| [`FB-2026-08-27-forgot-password-breaks-tab-order`](FB-2026-08-27-forgot-password-breaks-tab-order.md) | 🟢 routed | Auth — sign-in form | "Forgot password?" sits before the Password field in tab order, breaking the email→Tab→password→Enter flow. **Built** — moved below the password input, kept keyboard-reachable |
+| [`FB-2026-08-27-chat-model-list-hardcoded-not-dynamic`](FB-2026-08-27-chat-model-list-hardcoded-not-dynamic.md) | 🟡 triaged | Chat — model picker | Provider model lists (Claude, Antigravity) look hardcoded and drift from what the provider actually offers; wants them fetched dynamically → [spec](../specs/2026-08-27-chat-session-and-conversation-ux.md) US3 |
+| [`FB-2026-08-27-chat-missing-file-upload`](FB-2026-08-27-chat-missing-file-upload.md) | 🟢 routed | Chat — composer | No drag-and-drop or upload affordance for files/media in the chat composer. **Built** — US4, band 26 (`CS5`/`CS6`) |
+| [`FB-2026-08-27-chat-no-auto-rename-from-first-prompt`](FB-2026-08-27-chat-no-auto-rename-from-first-prompt.md) | 🟡 triaged | Chat — session list | Every session stays titled "New conversation"; wants auto-rename from the first prompt → [spec](../specs/2026-08-27-chat-session-and-conversation-ux.md) US2 |
+| [`FB-2026-08-27-chat-no-manual-rename-delete`](FB-2026-08-27-chat-no-manual-rename-delete.md) | 🟡 triaged | Chat — session list | No manual rename or delete control for a chat session anywhere in the UI → [spec](../specs/2026-08-27-chat-session-and-conversation-ux.md) US1 |
+| [`FB-2026-08-27-agents-page-missing-builtin-agents-model-editing`](FB-2026-08-27-agents-page-missing-builtin-agents-model-editing.md) | 🔴 new | Agents page — built-in agents | Built-in agents (Agent Creator, etc.) have hardcoded model versions and don't appear on the Agents page; wants them shown there with editable model/provider, but not deletable |
+| [`FB-2026-08-28-chat-generated-media-not-shown-in-chat`](FB-2026-08-28-chat-generated-media-not-shown-in-chat.md) | 🟢 routed | Chat — assistant message rendering | Model says it generated an image; nothing renders. **Built** — routed via [`I-16`](../Ideas.md) to band 27 (`AM2`): a produced file now shows inline under the reply |
+| [`FB-2026-08-28-media-input-output-folder-preview-pane`](FB-2026-08-28-media-input-output-folder-preview-pane.md) | 🟢 routed | Chat — right preview pane | Input/output media folders in the preview pane. **Built** — routed via [`I-16`](../Ideas.md) to band 27 (`AM3`/`AM4`): the preview pane now lists everything produced and sent, split into two sections |
+| [`FB-2026-08-30-tools-page-user-installable-mcp-servers`](FB-2026-08-30-tools-page-user-installable-mcp-servers.md) | 🔴 new | New surface — Tools page | Wants a dedicated Tools page to install MCP servers/CLIs (GitHub, Supabase, agent-browser, etc.), then grant installed tools to specific projects/agents; no third-party MCP hardcoded into Settings |

@@ -1,14 +1,64 @@
 import { execFile } from "node:child_process";
+import * as pty from "node-pty";
 import type { Agent, PermissionMode, ProviderHealth, RunResult } from "@sparstrow/shared";
-import { KNOWN_MODELS } from "@sparstrow/shared";
+import { DEFAULT_RUN_TIMEOUT_MS, KNOWN_MODELS } from "@sparstrow/shared";
 import { config } from "../config.js";
 import type {
+  CliModelDiscovery,
   CliProvider,
   HeadlessSpawnOptions,
   InteractiveSpawnOptions,
   NormalizedEvent,
   SpawnSpec,
 } from "./types.js";
+
+/**
+ * Turns `agy models`' raw pty output (ANSI cursor/clear sequences, the
+ * spinner's braille glyphs, `\r\n` lines, two columns separated by
+ * variable-width space padding) into the model list's LABEL column —
+ * "Gemini 3.1 Pro (High)", not the slug "gemini-3.1-pro-high".
+ *
+ * The label is the form `KNOWN_MODELS.antigravity` already carries and
+ * `--model` is verified to accept (this class's own `buildHeadlessSpawn`
+ * comment, confirmed at agy v1.1.0). The slug is confirmed only for the
+ * interactive `/model` command's newer "by name, slug or label" matching
+ * (1.1.22 changelog) — not proven for the `--model` flag this class
+ * actually spawns with, so returning it here would risk a session
+ * persisting a model string headless spawns can't use.
+ *
+ * Exported for its own test — verified against a real captured byte-for-
+ * byte transcript from a live agy v1.1.22 process, not a hand-guessed one.
+ */
+/**
+ * `agy --print-timeout` (confirmed live via `agy --help`, v1.1.22) defaults to
+ * 5 minutes and is agy's OWN internal give-up clock for a `--print` turn —
+ * separate from, and shorter than, Sparstrowgen's own external kill
+ * (`DEFAULT_RUN_TIMEOUT_MS`, 15 min — see orchestrator/run-manager.ts, the
+ * `setTimeout(... , timeoutMs)` that SIGTERMs the child). Left unset, agy
+ * would self-terminate a legitimate long-running task-board turn at 5
+ * minutes, well before Sparstrowgen's own 15-minute budget is up — the run
+ * would read as a provider failure/short reply with no indication the real
+ * cause was agy's own unrelated internal clock. Sized comfortably above
+ * Sparstrowgen's own timeout so that timeout always fires first and stays
+ * the single source of truth for "how long is too long" — this flag exists
+ * purely as agy's backstop, never the actual enforcement point.
+ */
+const AGY_PRINT_TIMEOUT_ARG = `${Math.ceil(DEFAULT_RUN_TIMEOUT_MS / 1000) + 120}s`;
+
+export function parseAgyModelsOutput(raw: string): string[] {
+  const cleaned = raw
+    .replace(/\x1b\][^\x07\x1b]*(\x07|\x1b\\)/g, "") // OSC ... BEL/ST (window-title sets)
+    .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "") // CSI sequences (cursor move/clear/hide)
+    .replace(/[⠀-⣿]/g, "") // braille spinner glyphs
+    .replace(/Fetching available models\.\.\./g, "");
+
+  const models: string[] = [];
+  for (const line of cleaned.split(/\r?\n/)) {
+    const m = line.trim().match(/^([^\s]+)\s{2,}(.+)$/);
+    if (m?.[2]) models.push(m[2].trim());
+  }
+  return models;
+}
 
 /**
  * Provider for Google's Antigravity CLI (`agy`, verified against v1.1.0) — the
@@ -48,6 +98,86 @@ export class AntigravityCliProvider implements CliProvider {
     return KNOWN_MODELS.antigravity ?? [];
   }
 
+  /**
+   * `agy models` REQUIRES a real TTY — found live, not assumed, while
+   * building this (T-CS3-01/Band 26). It renders an animated spinner
+   * ("⠋ Fetching available models...") via ConPTY cursor-control sequences
+   * before printing the list; run through a plain pipe (`execFile`, no
+   * `shell`/pty), it hangs indefinitely and Node's own `timeout` option is
+   * the only thing that ever ends it — confirmed with `signal: 'SIGTERM'`
+   * on the killed child, not a clean exit. `--version`, and the real
+   * `--print`/`stream-json` headless spawn this class already does for
+   * actual runs, do NOT have this requirement — it is specific to the
+   * `models` subcommand's interactive listing UI.
+   *
+   * The fix is `node-pty` (already a dependency here for the Terminals
+   * feature — `packages/core/src/terminal/manager.ts`), which gives the
+   * child a real pseudo-terminal. Verified this actually resolves it:
+   * identical spawn, `node-pty`, exits 0 with the real list. Output then
+   * arrives as raw terminal bytes, not clean lines — `parseAgyModelsOutput`
+   * above turns that back into the label list.
+   *
+   * Windows-specific: `node-pty` needs the extension-qualified name
+   * (`agy.exe`) — the bare `agy` that `execFile`/the OS shell resolve fine
+   * elsewhere gives ConPTY a literal "File not found", confirmed live.
+   */
+  async discoverModels(): Promise<CliModelDiscovery> {
+    const exe =
+      process.platform === "win32" && !/\.(exe|cmd|bat)$/i.test(config.antigravityPath)
+        ? `${config.antigravityPath}.exe`
+        : config.antigravityPath;
+
+    return new Promise((resolve) => {
+      let child: pty.IPty;
+      try {
+        child = pty.spawn(exe, ["models"], {
+          name: "xterm-color",
+          cols: 120,
+          rows: 30,
+          cwd: process.cwd(),
+          env: process.env as Record<string, string>,
+        });
+      } catch (err) {
+        resolve({
+          models: this.listModels(),
+          live: false,
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        return;
+      }
+
+      let out = "";
+      let settled = false;
+      const finish = (result: CliModelDiscovery) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(result);
+      };
+
+      const timer = setTimeout(() => {
+        child.kill();
+        finish({ models: this.listModels(), live: false, detail: "agy models timed out" });
+      }, 20_000);
+
+      child.onData((chunk) => {
+        out += chunk;
+      });
+      child.onExit(({ exitCode }) => {
+        if (exitCode !== 0) {
+          finish({ models: this.listModels(), live: false, detail: `agy models exited ${exitCode}` });
+          return;
+        }
+        const models = parseAgyModelsOutput(out);
+        finish(
+          models.length > 0
+            ? { models, live: true, detail: null }
+            : { models: this.listModels(), live: false, detail: "agy models returned no parseable output" },
+        );
+      });
+    });
+  }
+
   /** Map Sparstrow permission modes to agy flags — exhaustive over PermissionMode. */
   private permissionArgs(mode: PermissionMode): string[] {
     switch (mode) {
@@ -84,6 +214,12 @@ export class AntigravityCliProvider implements CliProvider {
       agent.model,
       "--output-format",
       "stream-json",
+      // See AGY_PRINT_TIMEOUT_ARG's doc comment — agy's own internal
+      // print-mode clock defaults to 5m, shorter than Sparstrowgen's own
+      // 15m external kill, so it must be raised past that or agy cuts a
+      // long-running run short on its own.
+      "--print-timeout",
+      AGY_PRINT_TIMEOUT_ARG,
       // A headless spawn has no TTY, so an unattended, machine-global skill
       // installed under the operator's own ~/.claude/skills can never get
       // the tool permission it needs -- agy denies it immediately (observed
@@ -245,9 +381,7 @@ export class AntigravityCliProvider implements CliProvider {
         {
           type: "assistant",
           payload: {
-            message: {
-              content: [{ type: "tool_use", name: toolName, input: toolInfo?.parameters ?? {} }],
-            },
+            message: { content: [{ type: "tool_use", name: toolName, input: toolInfo?.parameters ?? {} }] },
           },
         },
       ];
@@ -259,6 +393,7 @@ export class AntigravityCliProvider implements CliProvider {
 
   extractResult(events: NormalizedEvent[]): RunResult {
     let resultEvent: Record<string, unknown> | null = null;
+
     for (let i = events.length - 1; i >= 0; i--) {
       const e = events[i];
       if (e?.type === "result") {
@@ -266,18 +401,32 @@ export class AntigravityCliProvider implements CliProvider {
         break;
       }
     }
+
     if (resultEvent) {
       const isError = resultEvent.subtype !== "success";
-      const structuredText =
+      let structuredText =
         typeof resultEvent.result === "string" && resultEvent.result.trim().length > 0
           ? resultEvent.result
           : lastAssistantText(events);
+
+      if (!isError && (!structuredText || structuredText.trim().length === 0)) {
+        const hadToolCall = events.some((e) => {
+          if (e.type !== "assistant") return false;
+          const p = e.payload as { message?: { content?: unknown } };
+          const c = p.message?.content;
+          return Array.isArray(c) && c.some((b: { type?: string }) => b.type === "tool_use");
+        });
+        if (hadToolCall) {
+          structuredText = "Here is the generated output.";
+        }
+      }
+
       const errorText = typeof resultEvent.error === "string" ? resultEvent.error.trim() : "";
       return {
         resultText: structuredText,
         costUsd: null, // agy reports no cost stats
         numTurns: typeof resultEvent.num_turns === "number" ? resultEvent.num_turns : null,
-        sessionId: null, // --conversation resume is out of scope (P8.1 parity)
+        sessionId: null,
         isError,
         errorMessage: isError ? errorText || "antigravity run failed" : undefined,
       };

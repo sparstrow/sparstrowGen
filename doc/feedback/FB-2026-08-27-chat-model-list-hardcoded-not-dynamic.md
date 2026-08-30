@@ -1,6 +1,6 @@
 # FB-2026-08-27-chat-model-list-hardcoded-not-dynamic
 
-**Status:** 🔴 new
+**Status:** 🟡 triaged
 **Reported by:** owner
 **Reported:** 2026-08-27
 **Area:** Chat — model picker (provider/model dropdown in the chat composer)
@@ -44,7 +44,9 @@ new ones until someone manually updates the hardcoded list.
 
 ## Triage
 
-<!-- Not triaged yet. -->
+Worth building. Routed into
+[`doc/specs/2026-08-27-chat-session-and-conversation-ux.md`](../specs/2026-08-27-chat-session-and-conversation-ux.md)'s
+US3.
 
 ## Resolution
 

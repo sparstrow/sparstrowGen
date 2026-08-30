@@ -1,9 +1,34 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Agent, PermissionMode } from "@sparstrow/shared";
-import { KNOWN_MODELS } from "@sparstrow/shared";
+import { DEFAULT_RUN_TIMEOUT_MS, KNOWN_MODELS } from "@sparstrow/shared";
 import { config } from "../config.js";
-import { AntigravityCliProvider } from "./antigravity.js";
+import { AntigravityCliProvider, parseAgyModelsOutput } from "./antigravity.js";
 import type { HeadlessSpawnOptions, NormalizedEvent } from "./types.js";
+
+vi.mock("node-pty", () => ({ spawn: vi.fn() }));
+import * as pty from "node-pty";
+
+interface FakePty {
+  kill: ReturnType<typeof vi.fn>;
+  emitData: (chunk: string) => void;
+  emitExit: (exitCode: number) => void;
+}
+
+function makeFakePty(): FakePty {
+  let dataHandler: ((data: string) => void) | null = null;
+  let exitHandler: ((e: { exitCode: number }) => void) | null = null;
+  return {
+    kill: vi.fn(),
+    onData: (cb: (data: string) => void) => {
+      dataHandler = cb;
+    },
+    onExit: (cb: (e: { exitCode: number }) => void) => {
+      exitHandler = cb;
+    },
+    emitData: (chunk: string) => dataHandler?.(chunk),
+    emitExit: (exitCode: number) => exitHandler?.({ exitCode }),
+  } as unknown as FakePty;
+}
 
 const provider = new AntigravityCliProvider();
 
@@ -109,6 +134,20 @@ describe("AntigravityCliProvider — headless spawn", () => {
     expect(spec.args).not.toContain("--disable-slash-commands");
   });
 
+  // agy's own `--print-timeout` defaults to 5m (confirmed live via `agy
+  // --help`), shorter than Sparstrowgen's own 15m external kill
+  // (DEFAULT_RUN_TIMEOUT_MS) — left unset, agy would self-terminate a
+  // legitimate long task-board run at 5m with no indication the cause was
+  // its own unrelated internal clock.
+  it("raises agy's own print-mode timeout past Sparstrowgen's external kill", () => {
+    const spec = provider.buildHeadlessSpawn(agentWith(), "hi", headlessOpts);
+    const idx = spec.args.indexOf("--print-timeout");
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(idx).toBeLessThan(spec.args.indexOf("--print"));
+    const seconds = Number(spec.args[idx + 1]!.replace(/s$/, ""));
+    expect(seconds).toBeGreaterThan(DEFAULT_RUN_TIMEOUT_MS / 1000);
+  });
+
   it("maps every PermissionMode exhaustively", () => {
     const flagsFor = (mode: PermissionMode) =>
       provider.buildHeadlessSpawn(agentWith({ permissionMode: mode }), "hi", headlessOpts).args;
@@ -151,6 +190,76 @@ describe("AntigravityCliProvider — result + models", () => {
 
   it("lists the known antigravity model tokens", () => {
     expect(provider.listModels()).toEqual(KNOWN_MODELS.antigravity);
+  });
+});
+
+// Byte-for-byte captured from a live agy v1.1.22 process spawned through
+// node-pty (T-CS3-01, Band 26) -- NOT hand-guessed. `agy models` requires a
+// real TTY: run through a plain pipe (no pty), it hangs indefinitely rather
+// than exiting (confirmed: killed by Node's own `timeout`, `signal:
+// 'SIGTERM'`, not a clean exit) -- this raw transcript is what a real
+// pseudo-terminal actually receives: ANSI cursor-hide/clear/move sequences,
+// braille spinner frames, occasional OSC window-title sets from *other*
+// unrelated processes sharing the console (the "npm" one below is real
+// capture noise, not something agy itself emits), then the model lines
+// separated by \r\n with the two columns padded with spaces, not a tab.
+const REAL_AGY_MODELS_PTY_OUTPUT =
+  "\u001b[?9001h\u001b[?1004h\u001b[?25l\u001b[2J\u001b[m\u001b[H⠋ Fetching available models...\u001b]0;C:\\Users\\gsrih\\AppData\\Local\\agy\\bin\\agy.exe\u0007\u001b[?25h\u001b[?25l\u001b[H⠙ Fetching available models...\u001b[?25h\u001b]0;npm\u0007\u001b[?25l\u001b[H⠹ Fetching available models...\u001b[?25h\u001b]0;npm exec shadcn@latest mcp\u0007\u001b[?25l\u001b[H⠸ Fetching available models...\u001b[?25h\u001b[?25l\u001b[H⠼ Fetching available models...\u001b[?25h\u001b[?25l\u001b[H⠴ Fetching available models...\u001b[?25h\u001b[?25l\u001b[H⠦ Fetching available models...\u001b[?25h\u001b[?25l\u001b[H\u001b[K\u001b[?25hgemini-3.7-flash-high     Gemini 3.7 Flash (High)\r\ngemini-3.1-pro-high       Gemini 3.1 Pro (High)\r\nclaude-sonnet-4-6         Claude Sonnet 4.6 (Thinking)\r\n";
+
+describe("parseAgyModelsOutput (T-CS3-01)", () => {
+  it("recovers the label column from a real captured pty transcript, ANSI/spinner/OSC chrome and all", () => {
+    expect(parseAgyModelsOutput(REAL_AGY_MODELS_PTY_OUTPUT)).toEqual([
+      "Gemini 3.7 Flash (High)",
+      "Gemini 3.1 Pro (High)",
+      "Claude Sonnet 4.6 (Thinking)",
+    ]);
+  });
+
+  it("returns nothing for pure spinner noise with no model lines", () => {
+    expect(parseAgyModelsOutput("\u001b[?25l\u001b[H⠋ Fetching available models...\u001b[?25h")).toEqual([]);
+  });
+});
+
+describe("AntigravityCliProvider — discoverModels (T-CS3-01)", () => {
+  const mockSpawn = vi.mocked(pty.spawn);
+
+  it("returns live:true with the parsed label list on a clean exit", async () => {
+    const fake = makeFakePty();
+    mockSpawn.mockReturnValue(fake as unknown as pty.IPty);
+
+    const promise = provider.discoverModels!();
+    fake.emitData(REAL_AGY_MODELS_PTY_OUTPUT);
+    fake.emitExit(0);
+
+    expect(await promise).toEqual({
+      models: ["Gemini 3.7 Flash (High)", "Gemini 3.1 Pro (High)", "Claude Sonnet 4.6 (Thinking)"],
+      live: true,
+      detail: null,
+    });
+  });
+
+  it("falls back to the static list on a nonzero exit, live:false", async () => {
+    const fake = makeFakePty();
+    mockSpawn.mockReturnValue(fake as unknown as pty.IPty);
+
+    const promise = provider.discoverModels!();
+    fake.emitExit(1);
+
+    const result = await promise;
+    expect(result.live).toBe(false);
+    expect(result.detail).toMatch(/exited 1/);
+    expect(result.models).toEqual(KNOWN_MODELS.antigravity);
+  });
+
+  it("falls back to the static list when spawn itself throws (e.g. binary not found)", async () => {
+    mockSpawn.mockImplementation(() => {
+      throw new Error("File not found");
+    });
+
+    const result = await provider.discoverModels!();
+    expect(result.live).toBe(false);
+    expect(result.detail).toMatch(/File not found/);
+    expect(result.models).toEqual(KNOWN_MODELS.antigravity);
   });
 });
 
@@ -326,6 +435,19 @@ describe("AntigravityCliProvider — extractResult (structured stream-json)", ()
     ];
     const r = provider.extractResult(events);
     expect(r.resultText).toBe("first line\nsecond line");
+    expect(r.isError).toBe(false);
+  });
+
+  it("extracts conversationId as sessionId and falls back to default text when a tool was executed", () => {
+    const lines = [
+      '{"event":"init","conversation_id":"conv-123","init":{"model":"Gemini 3.7 Flash (High)"}}',
+      '{"event":"step_update","step_update":{"conversation_id":"conv-123","step_index":1,"step_type":"tool","state":"ACTIVE","tool_name":"generate_image","tool_info":{"name":"generate_image","parameters":{}}}}',
+      '{"event":"result","result":{"conversation_id":"conv-123","status":"SUCCESS","response":"","num_turns":1}}',
+    ];
+    const events = lines.flatMap((l) => provider.parseLine(l));
+    const r = provider.extractResult(events);
+    expect(r.sessionId).toBeNull();
+    expect(r.resultText).toBe("Here is the generated output.");
     expect(r.isError).toBe(false);
   });
 });

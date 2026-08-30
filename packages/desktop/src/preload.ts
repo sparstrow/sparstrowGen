@@ -8,8 +8,16 @@
 // string or null and can do nothing else.
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
+// `app.getVersion()` is main-process only — preload cannot import `app`
+// directly. `main.ts` passes it through `additionalArguments` on the
+// BrowserWindow instead, so this reads real argv rather than a literal that
+// drifts from package.json the moment either one is bumped alone.
+const VERSION_ARG_PREFIX = "--sparstrow-version=";
+const versionArg = process.argv.find((a) => a.startsWith(VERSION_ARG_PREFIX));
+const appVersion = versionArg ? versionArg.slice(VERSION_ARG_PREFIX.length) : "unknown";
+
 contextBridge.exposeInMainWorld("sparstrowDesktop", {
-  version: "0.1.0",
+  version: appVersion,
   updates: {
     getStatus: () => ipcRenderer.invoke("sparstrow:update-status-get"),
     download: () => ipcRenderer.invoke("sparstrow:update-download"),

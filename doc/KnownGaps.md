@@ -1818,35 +1818,475 @@ outranks `setAuth(token)`, and core's callback closed over the connect-time
 credential; the existing test could not have caught it, since it asserted
 `setAuth` was called with a token string that never changed between mints).
 
-**What has never been checked, at all:**
+**Updated 2026-08-28, `T-DI-05`.** Item 1 below is now done, with evidence.
+Items 2–3 are still open, but the blocker moved — not to a gap in this band's
+own work, but to a newly-found, deeper platform issue that predates it. See
+[`BUG-2026-08-28-private-broadcast-channels-not-relaying`](../bug/BUG-2026-08-28-private-broadcast-channels-not-relaying.md).
 
-- `019_daemon_realtime_identity.sql` and `020_bootstrap_refuses_daemon.sql`
-  have not been applied to any Supabase project. No agent in the session that
-  wrote them could — the Supabase CLI was not logged in and the MCP server
-  needs an interactive OAuth grant this session's environment does not
-  provide. `018` was also re-run in text (its comments changed in `T-DI-01`)
-  but not re-applied, since its predicate is unchanged.
-- A real daemon has never held a subscribed control channel with this design.
-  `T-DI-05` — every item in `T-M16-06` §A/§B plus `T-M17-06`'s interactive
-  half — has not run once.
+**What is now done, with evidence:**
+
+- `018` (re-run, no-op confirmed), `019`, `020` applied to
+  `pnymngoqseltgigcfevq` (sparstrowgen-staging, shared by `development` and
+  `staging`). `pg_policies` shows the expected ten rows for `019`; `020`'s
+  guard verified both halves live (a daemon identity refused `42501`, a
+  genuinely new human user still provisions normally), inside a transaction
+  rolled back after. `get_advisors` run after; the one new finding
+  (`daemon_identities.workspace_id` unindexed FK) fixed in a new `021` file,
+  re-verified clean.
+- **The RLS-refusal defect this band exists to fix is proven closed**, live:
+  a real paired daemon's control channel reaches `SUBSCRIBED` on
+  `machine:<ws>:<runtime>` with no `Unauthorized` refusal — see
+  [`BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls`](../bug/BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls.md)'s
+  Resolution.
+- Two more real, previously-unknown bugs found and fixed getting a real
+  connection this far:
+  [`BUG-2026-08-28-realtime-connect-races-channel-subscribe-auth`](../bug/BUG-2026-08-28-realtime-connect-races-channel-subscribe-auth.md)
+  (core-side — every daemon connection attempt, forever, would have hit this,
+  independent of RLS) and
+  [`BUG-2026-08-28-terminal-channel-sends-before-control-channel-joined`](../bug/BUG-2026-08-28-terminal-channel-sends-before-control-channel-joined.md)
+  (browser-side).
+
+**What still has not been checked, and why:**
+
+- A real `terminal.list` round trip has never completed. Not because of RLS,
+  identity, or either race above (all three independently proven fixed) —
+  because messages broadcast on a `private: true` Realtime channel are not
+  delivered to a subscriber **on this project, at all**, reproduced with two
+  synthetic connections using only pre-existing M16 policies unrelated to
+  this band. Full investigation, what was ruled out, and the strongest
+  remaining lead (a project-level "Allow public access" Realtime Settings
+  toggle) in
+  [`BUG-2026-08-28-private-broadcast-channels-not-relaying`](../bug/BUG-2026-08-28-private-broadcast-channels-not-relaying.md).
+  `T-DI-05` §A's first item and everything after it is blocked on this.
 - The three regression tests added in `T-DI-04` were verified to fail against
   the bug they cover, by actually reverting the fix locally and re-running.
-  That proves the tests are load-bearing; it does not prove the fix is
-  correct against a real Realtime connection, only against a faked one.
+  The refresh mechanism itself has some live evidence now (the connection
+  stayed up, unattended, for several minutes without dropping) but not a full
+  credential-TTL-expiry wait, since the connection never reached a state where
+  that was worth running.
 
-**If wrong:** the same class of risk `G-47` and `G-48` already named for this
-exact wire, now doubled — a wire-shape or RLS-predicate mistake in `019`/`020`
-would not be caught by anything that ran here, because nothing here could run
-against Postgres at all. The mocked-admin-client tests in `T-DI-03` prove the
-call sequence (`generateLink` → `verifyOtp`, identity created once, reused
-thereafter) and prove nothing about whether Supabase's actual Auth API accepts
-that sequence or whether the resulting token's claims satisfy
-`current_daemon_scope()`.
+**If wrong:** low now for the RLS predicates and both races (all three
+independently verified against the real project, not a faked connection).
+High for the new relay finding, unchanged in kind from what `G-47`/`G-48`
+always named for this wire — and now confirmed to reach further than this
+band, since `010`/`015` share the identical `private: true` + RLS pattern.
 
-**Clears when:** (1) an owner (or an authorized agent) runs `018`, `019`, `020`
-in order against the real project and their `-- Verify` blocks pass — row in
-[`doc/runbooks/README.md`](../runbooks/README.md); (2) `T-DI-05` runs in full
-against a real preview with a real paired machine, closing the same
+**Clears when:** (1) **done, 2026-08-28** — `018`/`019`/`020`/`021` applied
+and verified; (2) the "Allow public access" Realtime Settings toggle is
+checked and, if enabled, disabled, and `T-DI-05` runs in full against a real
+preview with a real paired machine, closing the same
 US1/US2/US3/SC-001/002/003 items `G-48` named; (3) FR-009's live non-admin
 refusal, which stays open regardless — same second-account limitation as
 `G-15`/`G-24`/`G-47`/`G-48`.
+
+### G-50 — CS1's confirmation-dialog Error state was read-verified, not live-forced
+
+**Raised:** 2026-08-28, closing `T-CS1-03` (Band 26, chat session rename/
+delete — `doc/tasks/CS1/T-CS1-03-verification.md`).
+
+`ChatSessionDeleteDialog`'s failure path (`setDeleteError(r.error)`, dialog
+stays open, no silent close) was read against the code and matches the
+already-live-proven rename error path exactly — same `callAction` result
+shape, same "stay open and show `r.error`" logic. It was not independently
+exercised live: doing so needs a deliberately injected network cut or RLS
+denial mid-request, which this pass didn't force (no mock-network tooling
+was reached for; this repo's `agent-browser` cannot force a non-2xx
+response, per `doc/runbooks/agent-browser-session.md`'s own noted gap — the
+Playwright MCP fallback that runbook describes for exactly this case wasn't
+invoked this pass).
+
+**If wrong:** low. The shared pattern (`callAction` → `ActionResult` →
+`if (!r.ok) { setError(...); return }`) is identical in shape to
+`updateChatSessionAction`'s rename path, which this same pass genuinely did
+prove live (T-CS1-01's Result). A defect here would most likely be
+copy-paste drift in the dialog component specifically, not a shared-pattern
+failure.
+
+**Clears when:** a future pass forces a `chat_sessions` delete/update to
+fail (Playwright MCP route interception, per the runbook's step 5) and
+confirms the dialog stays open with a legible message rather than closing
+silently or showing a raw error.
+
+### G-51 — `claude-code`'s `--allowedTools`/`cwd` scoping for a chat turn is unverified live; `antigravity`'s is confirmed NOT to work at all
+
+**Raised:** 2026-08-28, while implementing `T-CS5-03` (Band 26, CS5 chat
+attachments — `doc/tasks/CS5/T-CS5-03-delivery.md`), whose own Trap demands
+confirming (not assuming) that `Read` genuinely cannot escape `cwd` before
+calling the free/agent attachment scoping "done."
+
+**`antigravity` is not a gap — it's a confirmed, filed defect**:
+[`SEC-2026-08-28-antigravity-headless-tools-unrestricted`](security/SEC-2026-08-28-antigravity-headless-tools-unrestricted.md).
+Live-verified that `agy`'s `view_file` reads an absolute path outside its
+spawn's `cwd` without refusal, and that `allowedTools`/`disallowedTools` are
+never wired into that provider's spawn at all — `agy` has no equivalent
+flag. This predates CS5 and affects every existing `free`/`project`/`agent`
+antigravity chat turn, not just attachments.
+
+**`claude-code`'s side of the same question is a genuine gap, not a
+defect**: this environment's `claude` CLI has an expired OAuth token
+(`"OAuth access token has expired. Re-authenticate to continue."` on every
+call), the same pre-existing, unrelated limitation already on record
+elsewhere in this file (search "subscriptionType: null") — re-authenticating
+a real Claude subscription is outside this repo's code and not something an
+agent should do unattended. Whether `--allowedTools Read` genuinely refuses
+an absolute path outside `cwd` for `claude-code` specifically was therefore
+**not** confirmed either way this pass.
+
+**If wrong (i.e. if `claude-code` also does not enforce this):** high. The
+entire free/agent half of CS5's attachment delivery mechanism — the only
+half meant to grant scoped rather than full access — would be security
+theater on both supported CLI providers, not just one. `project`-session
+chat (which relies on the same `cwd`+`allowedTools` shape, pre-dating CS5)
+would carry the same exposure the antigravity security report already
+describes, but for `claude-code` too.
+
+**Clears when:** the `claude` CLI is re-authenticated in a test environment
+and the exact same live probe run against `antigravity` above (spawn with
+`cwd` set to a directory containing only an attachment, `--allowedTools
+Read`, ask it to read an absolute path outside `cwd`) is repeated against a
+real `claude-code` headless spawn. A refusal closes this entry outright; a
+successful read promotes it to a second `doc/security/` entry at least as
+severe as antigravity's.
+
+### G-52 — no chat turn has ever been proved to USE an attached file's content
+
+**Raised:** 2026-08-28, closing `T-CS6-02` (Band 26 — `doc/tasks/CS6/T-CS6-02-verification.md`).
+
+US4's independent test asks for the strong bar: attach a file with a
+distinctive fact, ask about it, and confirm the reply names that fact rather
+than merely acknowledging that an attachment exists. **That assertion is
+unproved.**
+
+Everything up to the model is proved, and the boundary is worth stating
+precisely rather than as "couldn't test it". A real runtime was paired and
+`active` — a second `@sparstrow/core` on port 48760 with its own
+secrets/data dirs, per
+[`agent-browser-session.md`](runbooks/agent-browser-session.md), leaving the
+owner's own daemon untouched. It claimed the turn, and the server log shows
+it fetching the attachment through `POST /api/daemon/chat/attachments/sign`
+before running. So delivery — upload, row, storage path, signed fetch,
+hand-off — is genuinely exercised end to end.
+
+What failed is the last hop: every turn ended `status = failed`,
+`error = "the provider timed out"`, because neither `claude-code` nor `agy`
+is authenticated in this environment. The file reached the CLI's doorstep and
+no CLI answered.
+
+**If wrong:** moderate. A failure here would mean the file arrives but is
+scoped, pathed or permissioned such that the CLI's `Read` tool cannot open
+it — plausible, because `T-CS5-03`'s whole job was to place it "in a place
+the CLI providers' existing file tools can reach", and that placement is
+exactly what this gap leaves untested. The feature would look complete and do
+nothing useful. Related: `G-51` already records that `antigravity`'s tool
+scoping is confirmed not to work at all.
+
+**Clears when:** any pass runs a chat turn with an attachment on a machine
+with an authenticated CLI provider, and the reply names a fact that exists
+only inside the attached file.
+
+### G-53 — deleting a chat session leaves its attachment objects in the bucket
+
+**Raised:** 2026-08-28, while verifying CS1's delete during `T-CS6-02`.
+
+Deleting a session cascades correctly in Postgres — verified directly:
+sessions 3→2, messages 3→2, `chat_message_attachments` 3→2, and **zero**
+orphaned attachment rows. The `storage.objects` in the `chat-attachments`
+bucket are a separate store with no foreign key to any of that, and nothing
+in CS5 or CS6 deletes them, so the bytes remain after the row describing them
+is gone.
+
+Not filed as a bug: nothing behaves incorrectly against what was built, and
+the objects are unreachable through the app once their rows are gone (the
+bucket is private and every read path joins through
+`chat_message_attachments`). Accepted limitation, not wrong behaviour.
+
+**If wrong:** low today, growing. The cost is storage the owner pays for and
+cannot see or clear from the UI, plus content that outlives a conversation
+the owner believes they deleted — a privacy expectation more than a security
+boundary, since the objects stay unreachable.
+
+**Clears when:** session deletion also removes the bucket objects under that
+session's `<workspace_id>/<session_id>/` prefix, and a test confirms a
+deleted session's prefix is empty. This is the same cleanup obligation
+[`seeing-what-my-agent-made`](specs/2026-08-28-seeing-what-my-agent-made.md)'s
+FR-012 takes on for agent-produced files — whichever lands first should do it
+for both, since they share the bucket and the prefix scheme.
+
+**Extended 2026-08-29, closing `T-AM1-03`.** A second, narrower way to reach
+an orphaned object, unrelated to session deletion: `chat-turn.ts` uploads each
+produced file to storage, then calls `postResult` to bind it via
+`ingest_chat_turn_reply`. If that POST never lands — the result route's own
+header already calls this loss "real", the only backstop being the command's
+lease expiry and a full retried turn — the objects sit in the bucket with no
+`chat_message_attachments` row ever created for them, indistinguishable from
+this entry's session-delete case once orphaned. No reaper is being built for
+either cause; whatever eventually closes one should close both, since the
+fix (a scheduled sweep of unreferenced objects under a workspace's prefix, or
+tightening `postResult`'s delivery guarantee) is the same shape for both
+causes.
+
+### G-54 — `development.sparstrow.com` is paused: Vercel's free-plan usage is exhausted
+
+**Raised:** 2026-08-29, noticed mid-`T-DI-05` follow-up when a fresh navigation
+to `development.sparstrow.com` returned Vercel's own "This deployment is
+temporarily paused" page instead of the app. Confirmed by the owner: this
+month's free-plan usage allowance is used up, and left as-is for now — not a
+misconfiguration, an accepted limitation.
+
+**What is true:** `staging.sparstrow.com` and `sparstrow.com` (`main`) were not
+checked in the same pass — this entry covers `development` specifically, the
+one an agent actually hit. Vercel resumes deployments automatically once the
+usage window resets or the plan is upgraded; there is no code-side fix. The
+underlying Supabase project (`pnymngoqseltgigcfevq`) is unaffected and still
+reachable directly — the `T-DI-05` follow-up work this same day ran entirely
+against a **local** dev server (`pnpm --filter web dev` pointed at the same
+project) once this was hit, which is the workaround: local-first per
+`AGENTS.md` §2 already covers day-to-day iteration, so this mainly blocks the
+*specific* step that calls for the deployed preview — a band's final live
+verification pass (`AGENTS.md` §2 rule 3) and anything that needs the real
+`development.sparstrow.com` origin (cross-browser links, redirect URLs, Vercel
+preview comments).
+
+**If wrong:** low. This is a dashboard/billing state, not a claim about the
+app; nothing here is "probably fine," it is directly observed (the paused page
+itself) and owner-confirmed.
+
+**Clears when:** the owner resets or upgrades the plan and a fresh navigation
+to `development.sparstrow.com` loads the app instead of the paused page —
+check before relying on the deployed environment specifically, not before
+local-dev-server work.
+
+**Confirmed again 2026-08-29, closing band 27.** This is exactly the "band's
+final live verification pass" case this entry already named as blocked.
+Checked via `gh api repos/.../commits/<band-27-HEAD>/status`: the Vercel
+check reports `state: failure`, `description: "Account is blocked."` —
+account-level, not branch- or project-specific, and not something this band's
+own code could cause or fix. Band 27's entire verification chain
+(`T-AM1-04` through `T-AM4-02`) already used the accepted workaround this
+entry names — a local dev server against the same live Supabase project,
+with a real signed-in disposable account — for every live check across five
+tasks, not newly adopted here. The band → `development` PR proceeds on that
+basis rather than waiting on a platform state this repo doesn't control.
+
+### G-55 — `T-AM1-02`/`T-AM1-03`'s produced-file pipeline has never run end to end against a live daemon
+
+**Raised:** 2026-08-29, closing `T-AM1-02` (band 27 — `doc/tasks/AM1/T-AM1-02-outbox.md`).
+
+The outbox mechanism (creation, `addDirs` grant, the `Read`+`Write` clamp, the
+prompt note, non-recursive sweep, size/type refusal, cleanup) is fully unit
+tested against a **mocked** `completeOnce` that writes files into the outbox
+directly — 8 tests, all passing, including the clamp-interaction case (an
+attachment present alongside an outbox write) and the FR-016 structural check
+(the outbox is never the project's `rootDir`).
+
+What is unproved: whether a **real** `claude-code` or `antigravity` process,
+given the outbox note this task appends to the prompt, will actually write a
+file there when asked to produce one. This environment has no paired daemon —
+the same limitation `G-49`/`G-51`/`G-52` already record for chat-turn work in
+this session.
+
+**If wrong:** moderate, and specifically about the prompt's wording rather
+than the mechanism. If a real agent doesn't act on the outbox instruction (too
+subtle, competes with other prompt content, or a provider's headless mode
+strips or reorders appended text), every downstream phase — the sweep,
+`T-AM1-03`'s upload, AM2's rendering — has nothing to work with, even though
+all of it is independently correct. The mechanism (directory exists, is
+writable, is swept, cleans up) is not what would be wrong; the instruction's
+persuasiveness would be.
+
+**Extended 2026-08-29, closing `T-AM1-03`.** Two more surfaces joined this gap
+rather than getting their own entries, since the root cause is identical (no
+paired daemon in this environment):
+
+1. **The upload HTTP call itself.** `uploadToSignedUrl` (`chat-turn.ts`) does
+   a bare `PUT` to the signed URL returned by `sign-upload`, with only a
+   `content-type` header — mirroring `downloadToFile`'s bare `GET`, on the
+   theory that a Supabase Storage signed URL (either direction) embeds its
+   own auth as a `?token=` query parameter and needs nothing further.
+   Confirmed against Supabase's own docs that signed URLs carry a unique
+   `token` query parameter and that the read side already works this way in
+   this exact codebase; **not** confirmed against a live Storage endpoint for
+   the write direction specifically. If wrong, every upload fails with a
+   non-2xx, which the code already turns into a refusal sentence rather than
+   losing the turn — so the failure mode is "produced files never appear",
+   not data loss or a crash.
+2. **`029_chat_produced_files.sql`'s binding logic**, unverified beyond
+   static reading, `get_advisors`, and signature/grant checks. Deliberately
+   not proven with a fabricated row either: `workspaces.owner_id` is a NOT
+   NULL foreign key into `auth.users`, and inserting a synthetic auth user on
+   shared staging to exercise one function call was judged a worse trade than
+   leaving this named. If the message-creation guard or the
+   `jsonb_array_elements` binding has a mistake invisible to reading, the
+   failure mode is a `succeeded`/partial-`failed` turn whose files never get
+   an attachment row — visible immediately the first time AM2 runs against a
+   real turn, not a silent long-term drift.
+
+**Extended again 2026-08-29, closing `T-AM1-04` (the phase's own verification
+task).** Same root cause, so folded in here rather than opened as a separate
+gap. `T-AM1-04`'s own checklist (section A) names five assertions that need a
+live dispatch and could not be reached: the full happy path (A1), FR-016 in
+a real `project` chat with a bound `rootDir` (A5 — "the one that matters,"
+in that task's own words), the attachment-and-produce interaction with a
+real agent (A6), and CS5's inbound-attachment path re-walked end to end
+(section B). Everything reachable without a live daemon **was** reached and
+is recorded in that task's Result: the live database function bodies for
+both `ingest_chat_turn_reply` and `enqueue_chat_turn` were dumped and read
+directly (not merely trusted), `get_advisors` re-run clean, and the full
+monorepo typecheck/test suite passed (`@sparstrow/shared` 334/334,
+`@sparstrow/core` 776/780 with 4 pre-existing unrelated skips, `apps/web`
+498/498, `@sparstrow/desktop` 28/28).
+
+**Extended again 2026-08-29, closing `T-AM2-03`.** This is the first entry in
+this chain backed by an actual live browser session rather than static
+reading — real workspace, real signed-in user, real dispatched (parked)
+`chat_turns` row, driven via `agent-browser` per the runbook. That closed real
+ground: the page chrome (empty-panel copy, both themes, Mono surface, a
+genuine 375px mobile check, Escape/focus-return) is now live-verified, not
+inferred, and a real accessibility bug (`Missing Description` on both
+`T-AM3-01`'s `Sheet` and `T-AM2-01`'s `ProducedItemViewer` `Dialog`) was
+found and fixed as a direct result — it would not have surfaced from any
+amount of code reading.
+
+**What this pass still could not close, and the reason changed shape.**
+Every scenario needing a real produced file got one step closer: a real
+object was uploaded to the bucket via the service-role Storage REST API (the
+same authority the daemon itself has, no RLS concern), which is further than
+any earlier task in this chain reached. The remaining step — giving the real
+parked turn a synthetic `assigned_runtime_id` (a raw `insert into runtimes`
+to satisfy the foreign key) so `ingest_chat_turn_reply` could be called
+against it directly — **was refused by this session's own safety classifier**
+as a live-database mutation. That is a categorically different reason than
+"no daemon exists": it is "this session correctly would not make that write
+unilaterally even though the daemon-equivalent access was otherwise
+available." The orphaned test object was deleted; no further attempt was made
+to route around the refusal.
+
+**Extended again 2026-08-29, closing `T-AM3-02`.** Same session, continued
+rather than re-set-up. Two more real things closed live: a **project** chat's
+project card was confirmed to render correctly above the produced-items list
+(created a real project, started a real project chat, screenshotted both
+together) — the phase README's own words called this "the regression most
+likely to slip through," and it did not. The panel's **Error** state was
+genuinely exercised, not just read: routed `chat_messages`'s PostgREST
+endpoint to abort via `agent-browser network route`, reloaded, watched the
+real "Couldn't load this conversation's files" message with a Retry button
+appear, removed the route, clicked Retry, and watched it actually recover —
+proving the retry re-runs the read rather than being decorative.
+
+**SC-003 could not even reach its own precondition.** Unlike the other gaps
+in this entry, SC-003 doesn't reduce to "no daemon" alone — it needs a
+stopped daemon (implying one existed and produced something first) and a
+second device to load what it produced. Neither precondition holds here, so
+no substitute form was attempted; a partial run would have proven nothing.
+The **Loading** state also stayed out of reach here specifically because
+`agent-browser network route --body` has no delay option (a gap that
+runbook already documents) and reaching for the Playwright MCP's
+`page.waitForTimeout` fallback was judged not worth it for one skeleton-row
+screenshot.
+
+**Extended again 2026-08-29, closing `T-AM4-01`.** Same root cause, still no
+daemon — but this task reached further than any prior one in this chain by
+sidestepping it rather than working around it: attaching a file to an
+outbound message needs no daemon at all, since it's the composer's own
+upload path. A real `chat_message_attachments` row with `role: "user"` was
+created this way (attach `verify.png`, send, in a fresh session), then
+rendered, opened in the real `ProducedItemViewer`, and closed — the first
+genuinely populated (non-empty) row this whole verification chain has shown,
+in both themes, Mono, and at 375px. What stayed out of reach is unchanged in
+kind: the "produced + sent both non-empty" combination has no live proof,
+because nothing in this environment can populate the agent side without a
+daemon — it is proven at the unit-test layer only
+(`conversation-items.test.ts`, "both non-empty" case).
+
+**Extended again 2026-08-29, closing `T-AM4-02` — the band's own closing
+verification.** No new daemon-dependent ground to report (same root cause as
+every entry above), but this pass found and fixed a real, independent defect
+while doing the keyboard-traversal check A2 asks for: closing the produced-item
+viewer lost keyboard focus to `<body>` instead of returning it to the item
+that opened it, because `ProducedItemViewer` never renders a `DialogTrigger`
+(the opening button lives in a sibling component), so Radix's own
+close-focus restoration has nothing to focus back to. Fixed in the shared
+`produced-item.tsx` by capturing `document.activeElement` on open and
+restoring it via `onCloseAutoFocus` — covers both surfaces that use it
+(the panel/sheet and `T-AM2-02`'s inline strip) from one change. Live-verified
+fixed via a genuine keyboard walk (Tab, Enter, Escape) on the panel surface;
+the inline-strip surface inherits the identical fix with no live proof of its
+own, same reason as everything else here. `SC-005` (a conversation that
+produced nothing is byte-identical to `development`) is now graded as done:
+the transcript half by reading `chat-bits.tsx`'s attachment-strip gate, the
+panel half live, both matching what earlier tasks in this chain already
+established — not a fresh screenshot-diff against a running `development`
+checkout, which stays undone. `FR-010` carries forward unchanged from
+`T-CS5-01`'s own live cross-workspace test, confirmed still valid by reading
+that band 27 never touched the storage policy that enforces it.
+
+**Clears when:** a chat turn on a machine with an authenticated CLI provider
+is asked to produce a file, and — the full pipeline, not just the sweep —
+`sweepOutbox` finds it in `kept`, the upload succeeds, and
+`select m.content, a.filename from chat_messages m join
+chat_message_attachments a on a.message_id = m.id where m.role = 'assistant'
+order by m.created_at desc limit 1` shows a real row. The same bar `G-52`
+sets for attachment content, on the output side instead of the input side.
+Fully clears only once that same live check is repeated inside a `project`
+chat bound to a real `rootDir`, confirming a file the agent edits inside the
+project folder produces neither a row nor a stored object (FR-016) — the
+requirement this whole spec turns on.
+
+### G-56 — two-channel desktop release: no real publish, no verified live update feed
+
+**Raised:** 2026-08-29, landing
+[`DR`](tasks/DR/README.md) (`doc/plans/2026-08-29-two-channel-desktop-release.md`).
+Narrowed 2026-08-30, narrowed again 2026-08-30 by
+[T-DR-04](tasks/DR/README.md#t-dr-04--fix-the-desktop-build-chain-and-verify-a-real-installer)
+— see below. This entry now covers only the publish/update-feed half; the
+packaged-installer half it originally covered is **closed**, proof in
+T-DR-04's Result section.
+
+**Closed by T-DR-04 (2026-08-30):** the build-chain tooling bug (a legacy
+`pnpm deploy --prod` step polluting the whole workspace's cached install
+state, causing the next `pnpm --filter` command to non-interactively strip
+devDependencies) is root-caused and fixed —
+`packages/desktop/scripts/prepare-resources.mjs` now runs a plain
+`pnpm install` right after the deploy step to restore correct state before
+anything else can read the poisoned one. The full `dist:staging`/`dist:stable`
+chain was verified running cleanly end to end (exit 0, no `CI=true`, no
+interactive prompt) multiple times. A real unpublished NSIS installer was
+built for both channels, installed silently
+(`<installer>.exe /S`, via PowerShell — not Git Bash, which mangles the flag),
+and launched with `SPARSTROW_APP_URL` pointed at a local `pnpm --filter web
+dev` server: confirmed loading real app content via the dev server's access
+log (not a screenshot — see caveat in T-DR-04's Verification). Both channels
+were launched **simultaneously** and confirmed via the live process tree to
+have fully independent `appId`/install directory/Start Menu entry/userData
+directory/core daemon process — no collision. That last check also caught a
+**real, previously-unverified bug**: `build-channel-config.mjs` gave the two
+channels distinct `appId`/`productName` but never `name`, and Electron's
+userData path is keyed off `app.name` (from the packaged `package.json`'s
+`name` field), not `productName` — so both channels defaulted to the exact
+same userData directory until this session added a per-channel
+`extraMetadata.name`. Full writeup:
+[`BUG-2026-08-30-desktop-stable-staging-share-userdata-dir`](../bug/BUG-2026-08-30-desktop-stable-staging-share-userdata-dir.md).
+
+**Still not verified, deliberately out of scope for T-DR-04:** a real push to
+`staging` triggering `release-staging.yml` end to end and producing a
+non-draft `vX.Y.Z-staging.N` GitHub Release with a working `staging.yml`
+update feed that `electron-updater` actually consumes. Publishing a real
+release needs separate explicit owner permission (this repo's action rule for
+"Publishing... public content") and wasn't attempted — T-DR-04 built and
+installed unpublished (`--publish never`) by design. Also not verified: that
+`electron-updater`'s notify-only update check (`setupUpdater` in `main.ts`,
+gated on `app.isPackaged`) actually fires and correctly compares against a
+real feed — this needs a real published release to test against.
+
+**If wrong:** low-moderate now that the packaged-installer half is closed —
+the specific "two installers share state" failure mode this gap originally
+worried about was found, real, and fixed this session, not merely
+theoretical. What's left is narrower: if `release-staging.yml` has a syntax
+or permissions issue, staging simply never publishes, silently, until someone
+checks `https://github.com/sparstrow/sparstrowGen/releases` after a push; if
+`electron-updater`'s channel-feed matching has a bug, an installed app could
+silently never see available updates.
+
+**Clears when:** a real `staging` push is observed producing a published
+(non-draft) release, and an installed staging build is observed detecting
+and (at minimum) notifying about that release via `electron-updater`.

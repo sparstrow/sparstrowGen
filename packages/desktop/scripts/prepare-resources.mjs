@@ -47,6 +47,25 @@ run("pnpm --filter @sparstrow/core build");
 run(
   `pnpm --filter @sparstrow/core deploy --prod --legacy --config.node-linker=hoisted "${path.join(staging, "core")}"`,
 );
+// The legacy deploy implementation resolves the WHOLE workspace in
+// production-only mode (`--prod`) to produce its snapshot, then persists
+// that as the shared `node_modules/.pnpm-workspace-state-v1.json` at the
+// repo root — a `filteredInstall: true` marker with `production: true,
+// dev: false`. It does this even though the deploy target
+// (resources-staging/**) is excluded from the workspace in
+// pnpm-workspace.yaml; the pollution isn't about workspace membership, it's
+// that `deploy` always overwrites the root's tracked install state as a
+// side effect. The next `pnpm --filter <pkg> run/build` command distrusts a
+// cached *filtered* install (pnpm's `ignoreFilteredInstallCache` behavior)
+// and, on non-interactive stdin, silently "self-heals" by re-running
+// `pnpm install` with whatever dev/production flags that stale state
+// recorded — i.e. `pnpm install --production`, workspace-wide, stripping
+// devDependencies (esbuild et al.) repo-wide. A plain, unfiltered
+// `pnpm install` right here is the fix: it's a fast no-op against an
+// unchanged lockfile, and it overwrites the poisoned state with the correct
+// `filteredInstall: false, dev: true, production: true` snapshot before any
+// other workspace command can read the bad one.
+run("pnpm install");
 // The deploy snapshot includes src/tsconfig etc. — harmless but dead weight; trim.
 for (const extra of ["src", "build.mjs", "tsconfig.json", "vitest.config.ts", "scripts"]) {
   fs.rmSync(path.join(staging, "core", extra), { recursive: true, force: true });
@@ -82,5 +101,38 @@ fs.mkdirSync(nodeDir, { recursive: true });
 const nodeName = process.platform === "win32" ? "node.exe" : "node";
 fs.copyFileSync(process.execPath, path.join(nodeDir, nodeName));
 console.log(`[prepare] node runtime: ${process.version} (${process.execPath})`);
+
+// 4. Channel config: which backend THIS specific build talks to, baked in so
+// a packaged install works out of the box — see src/channel.ts for why this
+// is a per-install resource file rather than a machine-wide env var (stable
+// and staging now install side by side; a shared env var would let one
+// silently repoint the other).
+const CHANNELS = {
+  stable: {
+    channel: "stable",
+    updateChannel: "latest",
+    appUrl: "https://sparstrow.com",
+    cloudUrl: "https://sparstrow.com",
+  },
+  staging: {
+    channel: "staging",
+    updateChannel: "staging",
+    appUrl: "https://staging.sparstrow.com",
+    cloudUrl: "https://staging.sparstrow.com",
+  },
+};
+// CLI arg takes precedence (dist:stable/dist:staging pass it explicitly, so
+// this never depends on shell env-var syntax, which differs between the bash
+// and cmd.exe/PowerShell steps this repo's workflows and machines mix); the
+// env var is kept as a fallback for a manual local run.
+const buildChannel = process.argv[2] || process.env.SPARSTROW_BUILD_CHANNEL || "stable";
+if (!CHANNELS[buildChannel]) {
+  console.error(
+    `[prepare] unknown SPARSTROW_BUILD_CHANNEL="${buildChannel}" — expected one of: ${Object.keys(CHANNELS).join(", ")}`,
+  );
+  process.exit(1);
+}
+fs.writeFileSync(path.join(staging, "channel.json"), JSON.stringify(CHANNELS[buildChannel], null, 2));
+console.log(`[prepare] channel: ${buildChannel} (${CHANNELS[buildChannel].appUrl})`);
 
 console.log(`[prepare] staged at ${staging}`);
