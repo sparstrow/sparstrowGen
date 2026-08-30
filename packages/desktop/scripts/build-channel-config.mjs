@@ -34,17 +34,22 @@ const channel = process.argv[2];
 // packaged app's `package.json`, so overriding `name` there is what actually
 // changes `app.name`, and with it every userData-derived path.
 //
-// `releaseType: "release"` on staging is the other deliberate difference:
-// electron-builder's default leaves a published release as an empty DRAFT
-// (see release.yml's comment) — exactly right for stable, where a human click
-// is the release gate, and exactly wrong for staging, where the whole point
-// is that a push publishes immediately with no manual step.
+// Staging used to force `releaseType: "release"` here so electron-builder
+// would create the GitHub Release already published, skipping the human
+// click stable leaves in place. That broke 2026-08-30 (T-DR-05): GitHub's
+// release-creation endpoint now rejects a `draft: false` create call outright
+// with "Published releases must have a valid tag" when the tag doesn't exist
+// yet — and it never does, since electron-builder creates the tag AS PART OF
+// the release, not before it. Draft creation is unaffected (the whole point
+// of a draft is that GitHub defers creating the tag until it's published), so
+// staging now creates a draft exactly like stable, and
+// release-staging.yml publishes it immediately afterward via a follow-up API
+// call — same "no human click" outcome, different mechanism.
 const OVERRIDES = {
   stable: {},
   staging: {
     appId: "com.sparstrow.sparstrowgen.staging",
     productName: "Sparstrowgen Staging",
-    publish: { ...pkg.build.publish, releaseType: "release" },
   },
 };
 // Stable deliberately keeps `pkg.name` (`@sparstrow/desktop`) unchanged —

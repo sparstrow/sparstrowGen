@@ -19,6 +19,7 @@ open branches. Insert this phase's tasks the next time the queue drains.
 | T-DR-02 — Changelog page | changelog story | ✅ done 2026-08-29 |
 | T-DR-03 — Production database cutover | foundational | blocked — see below |
 | T-DR-04 — Fix the desktop build chain and verify a real installer | foundational | ✅ done 2026-08-30 |
+| T-DR-05 — Fix staging's non-draft release create failing GitHub's tag validation | foundational | 🔄 in progress 2026-08-30 |
 
 ## T-DR-01 — Desktop channel infrastructure ✅ done 2026-08-29
 
@@ -306,3 +307,72 @@ G-56 entry rather than built speculatively.
 Publishing a real GitHub Release (the `--publish always` / real `staging`
 push half of G-56) remains explicitly out of scope per this task's Traps —
 not attempted.
+
+## T-DR-05 — Fix staging's non-draft release create failing GitHub's tag validation
+
+| | |
+|---|---|
+| **Serves** | foundational — closes the remaining publish/update-feed half of [G-56](../../KnownGaps.md#g-56--two-channel-desktop-release-no-real-publish-no-verified-live-update-feed) |
+| **Depends on** | T-DR-04 |
+| **Status** | 🔄 in progress 2026-08-30 |
+
+### What happened
+
+The owner explicitly approved a real `development` → `staging` promotion
+([#194](https://github.com/sparstrow/sparstrowGen/pull/194)) specifically to
+test the update pipeline end to end. The resulting `release-staging.yml` run
+([33327907808](https://github.com/sparstrow/sparstrowGen/actions/runs/33327907808))
+failed:
+
+```
+⨯ 422 Unprocessable Entity
+"... Validation Failed ... message: 'Published releases must have a valid tag' ..."
+failedTask=build stackTrace=HttpError: 422 Unprocessable Entity
+```
+
+**Root cause:** `build-channel-config.mjs` set `releaseType: "release"` for
+staging so electron-builder would call GitHub's create-release endpoint
+directly with `draft: false` (see T-DR-01's design). GitHub's endpoint now
+rejects that outright when the tag doesn't already exist — and it never does
+at create time, since electron-builder creates the tag *as part of* creating
+the release. Draft creation is unaffected (a draft doesn't get a tag until
+it's published; that's the whole point of a draft), which is why stable's
+identical pipeline — same electron-builder version, same config shape, minus
+this one override — has never hit it.
+
+**Side effect worth knowing about:** despite the reported failure, a real
+non-draft release (`v0.2.0-staging.2`) was left behind — one of two
+concurrent publish calls electron-builder made for the same artifact appears
+to have raced past the other's failure. It has the installer `.exe` uploaded
+but **no `staging.yml` update-feed manifest and no `.exe.blockmap`** — the
+process crashed before those uploads ran. This release is not usable for
+testing `electron-updater` and was left in place rather than deleted (no
+explicit user request to delete public GitHub content); a subsequent clean
+release will naturally take over the "Latest" marker.
+
+### Fix
+
+Staging no longer forces `releaseType: "release"`— it creates a draft
+exactly like stable (`build-channel-config.mjs`). `release-staging.yml` gets
+a new step immediately after `dist:staging` that finds that draft by
+`tag_name` (via `GET /releases`, not "get release by tag" — that endpoint
+only resolves an *existing* git tag, which a draft deliberately doesn't have)
+and publishes it with `PATCH .../releases/{id} -f draft=false`. Net effect
+unchanged from the design intent: staging still auto-publishes on every push
+with zero manual click — the publish step just moved from inside
+electron-builder to right after it.
+
+### Verification
+
+- [ ] `pnpm typecheck` clean (workflow/script-only change, no test file
+      covers either)
+- [ ] A real `staging` push runs `release-staging.yml` green end to end and
+      produces a **complete** non-draft release: installer `.exe`,
+      `.exe.blockmap`, and `staging.yml` all present
+- [ ] An installed staging build's update check detects the new release
+      (fulfills the original ask behind this promotion)
+
+### Result
+
+Not yet — fix is written, re-promotion in progress. This section gets filled
+in once the retry is observed to complete cleanly.

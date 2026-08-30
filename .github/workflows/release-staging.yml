@@ -15,6 +15,13 @@ name: Release (staging)
 # different: appId/productName (so the two installers coexist on one machine)
 # and the version's prerelease suffix, which is what makes electron-builder
 # publish a separate staging.yml update feed alongside stable's latest.yml.
+#
+# electron-builder itself always creates the release as a DRAFT here, same as
+# stable — GitHub's release-creation endpoint started rejecting a direct
+# `draft: false` create call 2026-08-30 (T-DR-05: "Published releases must
+# have a valid tag", since the tag genuinely doesn't exist until the release
+# is created). The "Publish the staging draft release" step below does what a
+# human click does for stable, immediately and automatically instead.
 
 on:
   push:
@@ -42,9 +49,28 @@ jobs:
       - run: pnpm --filter @sparstrow/memory-cli build
       # dist:staging = tsc -> prepare-resources (channel=staging) ->
       # build-channel-config (appId/productName override + version suffix) ->
-      # electron-builder --publish always, non-draft (releaseType: "release"
-      # in the generated config).
+      # electron-builder --publish always, draft (same as stable — see the
+      # comment above).
       - run: pnpm --filter @sparstrow/desktop dist:staging
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SPARSTROW_BUILD_NUMBER: ${{ github.run_number }}
+      # Publishing the draft is what makes the tag + release real and visible
+      # to electron-updater clients. Looked up by tag_name rather than
+      # "get release by tag" (that endpoint only resolves an existing git
+      # tag, which a draft deliberately doesn't have yet).
+      - name: Publish the staging draft release
+        shell: bash
+        working-directory: packages/desktop
+        run: |
+          VERSION=$(node -p "require('./electron-builder.staging.generated.json').extraMetadata.version")
+          TAG="v${VERSION}"
+          RELEASE_ID=$(gh api "repos/${GITHUB_REPOSITORY}/releases" --jq ".[] | select(.tag_name==\"${TAG}\" and .draft==true) | .id" | head -1)
+          if [ -z "$RELEASE_ID" ]; then
+            echo "::error::No draft release found for tag ${TAG} — dist:staging must not have created it."
+            exit 1
+          fi
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" -f draft=false > /dev/null
+          echo "Published release ${RELEASE_ID} (${TAG})"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
