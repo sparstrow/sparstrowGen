@@ -21,7 +21,7 @@ describe("checkChatAttachmentFile", () => {
 
   it("rejects a type the bucket does not allow, before looking at size", () => {
     expect(checkChatAttachmentFile({ type: "application/zip", size: 100 })).toMatch(
-      /images, PDF, plain text, Markdown, CSV, or JSON/,
+      /images, PDF, spreadsheets, plain text, Markdown, CSV, or JSON/,
     );
     expect(checkChatAttachmentFile({ type: "application/zip", size: 100 })).not.toMatch(/2 MB/);
   });

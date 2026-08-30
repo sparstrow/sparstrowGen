@@ -36,9 +36,19 @@ function formatFileSize(bytes: number): string {
  * workspace member, so nothing here grants access beyond what the bucket
  * already allows.
  */
-function SentAttachmentChip({ attachment }: { attachment: ChatMessage["attachments"][number] }) {
+export function SentAttachmentChip({
+  attachment,
+  onOpen,
+}: {
+  attachment: ChatMessageAttachment;
+  onOpen?: (attachment: ChatMessageAttachment) => void;
+}) {
   const [opening, setOpening] = React.useState(false);
   const open = async () => {
+    if (onOpen) {
+      onOpen(attachment);
+      return;
+    }
     if (opening) return;
     setOpening(true);
     try {
@@ -92,10 +102,12 @@ export function ThinkingDots({ label }: { label?: string }) {
  */
 export function ChatTurnView({
   message,
+  onOpenAttachment,
 }: {
   message: Pick<ChatMessage, "role" | "content" | "meta"> & {
     attachments?: ChatMessage["attachments"];
   };
+  onOpenAttachment?: (attachment: ChatMessageAttachment) => void;
 }) {
   if (message.role === "user") {
     return (
@@ -111,7 +123,9 @@ export function ChatTurnView({
             )}
             {/* US4 scenario 2 — persists on reload because it's read from
                 `chat_message_attachments`, not local state. */}
-            {message.attachments?.map((a) => <SentAttachmentChip key={a.id} attachment={a} />)}
+            {message.attachments?.map((a) => (
+              <SentAttachmentChip key={a.id} attachment={a} onOpen={onOpenAttachment} />
+            ))}
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent>
@@ -122,7 +136,7 @@ export function ChatTurnView({
       </ContextMenu>
     );
   }
-  return <AssistantTurn message={message} />;
+  return <AssistantTurn message={message} onOpenAttachment={onOpenAttachment} />;
 }
 
 /**
@@ -136,12 +150,26 @@ export function ChatTurnView({
  */
 function AssistantTurn({
   message,
+  onOpenAttachment,
 }: {
   message: Pick<ChatMessage, "role" | "content" | "meta"> & {
     attachments?: ChatMessage["attachments"];
   };
+  onOpenAttachment?: (attachment: ChatMessageAttachment) => void;
 }) {
   const [openAttachment, setOpenAttachment] = React.useState<ChatMessageAttachment | null>(null);
+
+  const handleOpen = React.useCallback(
+    (attachment: ChatMessageAttachment) => {
+      if (onOpenAttachment) {
+        onOpenAttachment(attachment);
+      } else {
+        setOpenAttachment(attachment);
+      }
+    },
+    [onOpenAttachment],
+  );
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -154,7 +182,7 @@ function AssistantTurn({
           {message.attachments?.length ? (
             <div className="mt-3 flex flex-col gap-2">
               {message.attachments.map((a) => (
-                <ProducedItem key={a.id} attachment={a} onOpen={setOpenAttachment} />
+                <ProducedItem key={a.id} attachment={a} onOpen={handleOpen} />
               ))}
             </div>
           ) : null}

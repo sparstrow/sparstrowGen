@@ -142,13 +142,26 @@ export function ConversationItems({
   isLoading,
   isError,
   onRetry,
+  onOpenAttachment,
 }: {
   attachments: SessionAttachment[];
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
+  onOpenAttachment?: (attachment: ChatMessageAttachment) => void;
 }): React.JSX.Element {
   const [openAttachment, setOpenAttachment] = React.useState<ChatMessageAttachment | null>(null);
+
+  const handleOpen = React.useCallback(
+    (attachment: ChatMessageAttachment) => {
+      if (onOpenAttachment) {
+        onOpenAttachment(attachment);
+      } else {
+        setOpenAttachment(attachment);
+      }
+    },
+    [onOpenAttachment],
+  );
 
   const produced = React.useMemo(() => groupProducedAttachments(attachments), [attachments]);
   const sent = React.useMemo(() => filterSentAttachments(attachments), [attachments]);
@@ -211,7 +224,7 @@ export function ConversationItems({
               <div key={group.messageId}>
                 <p className="truncate text-xs font-medium text-muted-foreground">{group.label}</p>
                 {group.attachments.map((attachment) => (
-                  <ProducedItem key={attachment.id} attachment={attachment} onOpen={setOpenAttachment} />
+                  <ProducedItem key={attachment.id} attachment={attachment} onOpen={handleOpen} />
                 ))}
               </div>
             ))
@@ -221,7 +234,7 @@ export function ConversationItems({
           <div className="space-y-1.5">
             <SectionLabel>Sent by you</SectionLabel>
             {sent.map((attachment) => (
-              <ProducedItem key={attachment.id} attachment={attachment} onOpen={setOpenAttachment} />
+              <ProducedItem key={attachment.id} attachment={attachment} onOpen={handleOpen} />
             ))}
           </div>
         )}

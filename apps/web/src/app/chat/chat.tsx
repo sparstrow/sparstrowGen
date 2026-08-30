@@ -25,6 +25,7 @@ import {
   PROVIDER_KINDS,
   type ChatAttachmentUpload,
   type ChatMessage,
+  type ChatMessageAttachment,
   type ChatSession,
   type ChatSessionKind,
   type ChatSessionUpdate,
@@ -60,6 +61,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ChatTurnView, ThinkingDots, TurnErrorBanner } from "@web/components/chat/chat-bits";
 import { ConversationItems } from "@web/components/chat/conversation-items";
+import { DocumentSheetViewer } from "@web/components/chat/document-sheet-viewer";
 import { createChatAttachmentUploader } from "@web/lib/storage/attachment-uploader";
 import { createClient } from "@web/utils/supabase/client";
 import { sessionAttachments } from "@web/lib/chat-attachments";
@@ -836,6 +838,17 @@ export function ChatPage() {
   const [isDraggingFile, setIsDraggingFile] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+  const [selectedAttachment, setSelectedAttachment] = React.useState<ChatMessageAttachment | null>(null);
+
+  const handleOpenAttachment = React.useCallback((attachment: ChatMessageAttachment) => {
+    setSelectedAttachment(attachment);
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 1280px)").matches) {
+      setPreviewOpen(true);
+    } else {
+      setConversationItemsSheetOpen(true);
+    }
+  }, []);
+
   const messages = detail.data?.messages ?? [];
   const messageIds = React.useMemo(() => new Set(messages.map((m) => m.id)), [messages]);
 
@@ -870,6 +883,7 @@ export function ChatPage() {
   React.useEffect(() => {
     updateTurn(() => null);
     setComposerNotice(null);
+    setSelectedAttachment(null);
   }, [selectedId, updateTurn]);
 
   // FR-007 — recover a turn on mount, on any refetch, and when the owner
@@ -1450,34 +1464,44 @@ export function ChatPage() {
                       <Paperclip className="size-4" />
                     </Button>
                   </SheetTrigger>
-                  <SheetContent>
-                    <SheetHeader>
-                      <SheetTitle>Produced files</SheetTitle>
-                      <SheetDescription className="sr-only">
-                        Files your agent made and files you attached in this conversation.
-                      </SheetDescription>
-                    </SheetHeader>
-                    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-                      {session?.projectId && (
-                        <div className="mb-6 flex flex-col items-center gap-2 text-center">
-                          <FolderKanban className="size-7 text-muted-foreground/50" />
-                          <p className="text-sm font-medium">{projectName(session.projectId)}</p>
-                          <p className="text-xs leading-relaxed text-muted-foreground">
-                            Running the app from chat lands in a follow-up. For now,{" "}
-                            <Link href="/terminals" className="underline underline-offset-2">
-                              open a terminal
-                            </Link>{" "}
-                            to run it manually.
-                          </p>
-                        </div>
-                      )}
-                      <ConversationItems
-                        attachments={conversationItemsRows}
-                        isLoading={conversationItemsQuery.isLoading}
-                        isError={conversationItemsQuery.isError}
-                        onRetry={() => void conversationItemsQuery.refetch()}
+                  <SheetContent className="flex flex-col p-0">
+                    {selectedAttachment ? (
+                      <DocumentSheetViewer
+                        attachment={selectedAttachment}
+                        onBack={() => setSelectedAttachment(null)}
                       />
-                    </div>
+                    ) : (
+                      <>
+                        <SheetHeader className="p-4 border-b">
+                          <SheetTitle>Produced files</SheetTitle>
+                          <SheetDescription className="sr-only">
+                            Files your agent made and files you attached in this conversation.
+                          </SheetDescription>
+                        </SheetHeader>
+                        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+                          {session?.projectId && (
+                            <div className="mb-6 flex flex-col items-center gap-2 text-center">
+                              <FolderKanban className="size-7 text-muted-foreground/50" />
+                              <p className="text-sm font-medium">{projectName(session.projectId)}</p>
+                              <p className="text-xs leading-relaxed text-muted-foreground">
+                                Running the app from chat lands in a follow-up. For now,{" "}
+                                <Link href="/terminals" className="underline underline-offset-2">
+                                  open a terminal
+                                </Link>{" "}
+                                to run it manually.
+                              </p>
+                            </div>
+                          )}
+                          <ConversationItems
+                            attachments={conversationItemsRows}
+                            isLoading={conversationItemsQuery.isLoading}
+                            isError={conversationItemsQuery.isError}
+                            onRetry={() => void conversationItemsQuery.refetch()}
+                            onOpenAttachment={handleOpenAttachment}
+                          />
+                        </div>
+                      </>
+                    )}
                   </SheetContent>
                 </Sheet>
                 <Button
@@ -1509,13 +1533,15 @@ export function ChatPage() {
                   </>
                 ) : (
                   <>
-                    {messages.map((m) => <ChatTurnView key={m.id} message={m} />)}
+                    {messages.map((m) => (
+                      <ChatTurnView key={m.id} message={m} onOpenAttachment={handleOpenAttachment} />
+                    ))}
                     {/* The turn overlay below renders ONLY what `messages` doesn't
                         have yet, keyed by real message id -- once a refetch lands
                         the canonical row, the matching overlay piece stops
                         rendering on its own rather than needing to be torn down. */}
                     {turn && !messageIds.has(turn.userMessage.id) && (
-                      <ChatTurnView message={turn.userMessage} />
+                      <ChatTurnView message={turn.userMessage} onOpenAttachment={handleOpenAttachment} />
                     )}
                     {turn?.status === "waiting" && turn.waitingReason === "no_runtime_paired" && (
                       <NoRuntimePairedNotice />
@@ -1538,6 +1564,7 @@ export function ChatPage() {
                               ? { provider: turn.provider ?? undefined, model: turn.model }
                               : null,
                           }}
+                          onOpenAttachment={handleOpenAttachment}
                         />
                       ) : turn.status === "in_progress" ? (
                         <ThinkingDots label={turn.model ?? session.model ?? undefined} />
@@ -1692,31 +1719,46 @@ export function ChatPage() {
           the Sheet in the header above is the below-`xl` path to the same
           list (phase decision 1). */}
       {previewOpen && (
-        <aside className="hidden w-80 shrink-0 flex-col border-l bg-sidebar xl:flex">
-          <div className="flex h-12 shrink-0 items-center border-b px-4">
-            <p className="text-sm font-medium">Preview</p>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-            {session?.projectId && (
-              <div className="mb-6 flex flex-col items-center gap-2 px-2 text-center">
-                <FolderKanban className="size-7 text-muted-foreground/50" />
-                <p className="text-sm font-medium">{projectName(session.projectId)}</p>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  Running the app from chat lands in a follow-up. For now,{" "}
-                  <Link href="/terminals" className="underline underline-offset-2">
-                    open a terminal
-                  </Link>{" "}
-                  to run it manually.
-                </p>
-              </div>
-            )}
-            <ConversationItems
-              attachments={conversationItemsRows}
-              isLoading={conversationItemsQuery.isLoading}
-              isError={conversationItemsQuery.isError}
-              onRetry={() => void conversationItemsQuery.refetch()}
+        <aside
+          className={cn(
+            "hidden shrink-0 flex-col border-l bg-sidebar xl:flex transition-all duration-150",
+            selectedAttachment ? "w-[480px]" : "w-80",
+          )}
+        >
+          {selectedAttachment ? (
+            <DocumentSheetViewer
+              attachment={selectedAttachment}
+              onBack={() => setSelectedAttachment(null)}
             />
-          </div>
+          ) : (
+            <>
+              <div className="flex h-12 shrink-0 items-center border-b px-4">
+                <p className="text-sm font-medium">Preview</p>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+                {session?.projectId && (
+                  <div className="mb-6 flex flex-col items-center gap-2 px-2 text-center">
+                    <FolderKanban className="size-7 text-muted-foreground/50" />
+                    <p className="text-sm font-medium">{projectName(session.projectId)}</p>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      Running the app from chat lands in a follow-up. For now,{" "}
+                      <Link href="/terminals" className="underline underline-offset-2">
+                        open a terminal
+                      </Link>{" "}
+                      to run it manually.
+                    </p>
+                  </div>
+                )}
+                <ConversationItems
+                  attachments={conversationItemsRows}
+                  isLoading={conversationItemsQuery.isLoading}
+                  isError={conversationItemsQuery.isError}
+                  onRetry={() => void conversationItemsQuery.refetch()}
+                  onOpenAttachment={handleOpenAttachment}
+                />
+              </div>
+            </>
+          )}
         </aside>
       )}
 
