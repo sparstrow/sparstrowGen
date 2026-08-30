@@ -95,6 +95,69 @@ registerRoute({
 
 registerRoute({
   method: "GET",
+  pattern: "/chat/search",
+  handler: async ({ supabase, workspaceId, searchParams }: HandlerContext) => {
+    const q = searchParams.get("q");
+    const limitStr = searchParams.get("limit");
+    const limit = limitStr ? parseInt(limitStr, 10) : 20;
+
+    if (!q) return fail(400, "Missing search query");
+
+    // Supabase JS doesn't have an easy OR across joined tables directly using standard builder without PostgREST hacks, 
+    // but we can use the textSearch or simply query messages and sessions separately, or use a Postgres function.
+    // Given the architecture, doing two quick queries or using an `or` is fine.
+    // The easiest way for now is querying sessions and matching sessions that have matching messages.
+    
+    // 1. Find sessions with matching title
+    const { data: titleMatches, error: titleErr } = await supabase
+      .from("chat_sessions")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .ilike("title", `%${q}%`);
+    if (titleErr) throw titleErr;
+
+    // 2. Find sessions that contain a matching message
+    const { data: messageMatches, error: msgErr } = await supabase
+      .from("chat_messages")
+      .select("session_id")
+      .eq("workspace_id", workspaceId)
+      .ilike("content", `%${q}%`)
+      .limit(limit);
+    if (msgErr) throw msgErr;
+
+    const matchingSessionIds = (messageMatches ?? []).map((m: any) => m.session_id);
+    
+    let combinedSessions = [...(titleMatches ?? [])];
+    
+    if (matchingSessionIds.length > 0) {
+      const { data: deepMatches, error: deepErr } = await supabase
+        .from("chat_sessions")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .in("id", matchingSessionIds);
+      if (deepErr) throw deepErr;
+      
+      const existingIds = new Set(combinedSessions.map((s: any) => s.id));
+      for (const ds of (deepMatches ?? [])) {
+        if (!existingIds.has(ds.id)) {
+          combinedSessions.push(ds);
+        }
+      }
+    }
+
+    // Sort by last message at
+    combinedSessions.sort((a, b) => {
+      const dateA = new Date(a.last_message_at ?? a.created_at).getTime();
+      const dateB = new Date(b.last_message_at ?? b.created_at).getTime();
+      return dateB - dateA; // Descending
+    });
+
+    return ok(combinedSessions.slice(0, limit));
+  }
+});
+
+registerRoute({
+  method: "GET",
   pattern: "/chat/sessions/:id",
   handler: async ({ supabase, workspaceId, params }: HandlerContext) => {
     const { data: session, error: sessionErr } = await supabase

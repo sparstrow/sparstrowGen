@@ -693,6 +693,16 @@ export function useChatSessions(
   });
 }
 
+export function useSearchChatSessions(
+  q: string,
+): UseQueryResult<ChatSession[], ApiError> {
+  return useQuery({
+    queryKey: ["chat-sessions", "search", q],
+    queryFn: () => api<ChatSession[]>(`/chat/search${qs({ q })}`),
+    enabled: q.trim().length > 0,
+  });
+}
+
 export function useChatSession(id: string | null): UseQueryResult<ChatSessionDetail, ApiError> {
   return useQuery({
     queryKey: ["chat-session", id],

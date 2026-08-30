@@ -617,6 +617,18 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
 
     await pusher.drain();
 
+    if (payload.sessionKind === "project") {
+      try {
+        const { execSync } = require("child_process");
+        const diffOutput = execSync("git diff HEAD", { encoding: "utf-8", cwd: effectiveAgent.cwd ?? process.cwd(), stdio: ["pipe", "pipe", "ignore"] });
+        if (diffOutput && diffOutput.trim().length > 0) {
+          fs.writeFileSync(path.join(outboxDir, "changes.diff"), diffOutput);
+        }
+      } catch (e) {
+        // Best-effort diff generation
+      }
+    }
+
     if (outboxDir && result.sessionId) {
       harvestAntigravityBrainFiles(result.sessionId, outboxDir, turnStartTime);
     }

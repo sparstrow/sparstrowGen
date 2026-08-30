@@ -255,6 +255,7 @@ export const CHAT_PRODUCED_ALLOWED_TYPES: Record<string, string> = {
   ...CHAT_ATTACHMENT_ALLOWED_TYPES,
   "image/gif": "gif",
   "image/svg+xml": "svg",
+  "text/x-diff": "diff",
 };
 
 /**

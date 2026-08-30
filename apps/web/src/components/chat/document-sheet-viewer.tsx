@@ -37,7 +37,20 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend,
+  ResponsiveContainer
+} from "recharts";
 import * as XLSX from "xlsx";
+import { cn } from "@/lib/utils";
 
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -135,6 +148,7 @@ function SpreadsheetView({ url }: { url: string; filename: string }) {
   const [sheetsData, setSheetsData] = React.useState<Record<string, unknown[][]>>({});
   const [search, setSearch] = React.useState("");
   const [page, setPage] = React.useState(0);
+  const [viewMode, setViewMode] = React.useState<"table" | "chart">("table");
   const ROWS_PER_PAGE = 50;
 
   React.useEffect(() => {
@@ -209,6 +223,38 @@ function SpreadsheetView({ url }: { url: string; filename: string }) {
     (page + 1) * ROWS_PER_PAGE,
   );
 
+  const chartData = React.useMemo(() => {
+    if (viewMode !== "chart") return { data: [], seriesKeys: [], xKey: "" };
+    if (dataRows.length === 0 || headerRow.length === 0) return { data: [], seriesKeys: [], xKey: "" };
+
+    const xKey = String(headerRow[0] || "X");
+    const seriesKeys: string[] = [];
+
+    // Identify numeric columns
+    for (let i = 1; i < headerRow.length; i++) {
+      const isNumeric = dataRows.some(row => {
+        const val = row[i];
+        return typeof val === "number" || (!isNaN(Number(val)) && val !== null && val !== "");
+      });
+      if (isNumeric) seriesKeys.push(String(headerRow[i] || `Y${i}`));
+    }
+
+    const data = dataRows.map(row => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const item: any = { [xKey]: row[0] };
+      for (let i = 1; i < headerRow.length; i++) {
+        const key = String(headerRow[i] || `Y${i}`);
+        if (seriesKeys.includes(key)) {
+          const val = Number(row[i]);
+          item[key] = isNaN(val) ? 0 : val;
+        }
+      }
+      return item;
+    });
+
+    return { data, seriesKeys, xKey };
+  }, [viewMode, dataRows, headerRow]);
+
   if (loading) {
     return (
       <div className="space-y-3 p-4">
@@ -231,38 +277,71 @@ function SpreadsheetView({ url }: { url: string; filename: string }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/20 px-3 py-2">
-        {sheetNames.length > 1 ? (
-          <Tabs value={activeSheet} onValueChange={(v: string) => { setActiveSheet(v); setPage(0); }}>
+        <div className="flex items-center gap-2">
+          {sheetNames.length > 1 ? (
+            <Tabs value={activeSheet} onValueChange={(v: string) => { setActiveSheet(v); setPage(0); }}>
+              <TabsList className="h-7">
+                {sheetNames.map((name) => (
+                  <TabsTrigger key={name} value={name} className="px-2.5 py-1 text-xs">
+                    {name}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          ) : (
+            <Badge variant="outline" className="text-[11px] font-normal">
+              {rawRows.length} rows &times; {headerRow.length} cols
+            </Badge>
+          )}
+
+          <Tabs value={viewMode} onValueChange={(v: any) => setViewMode(v)}>
             <TabsList className="h-7">
-              {sheetNames.map((name) => (
-                <TabsTrigger key={name} value={name} className="px-2.5 py-1 text-xs">
-                  {name}
-                </TabsTrigger>
-              ))}
+              <TabsTrigger value="table" className="px-2.5 py-1 text-xs">Table</TabsTrigger>
+              <TabsTrigger value="chart" className="px-2.5 py-1 text-xs">Chart</TabsTrigger>
             </TabsList>
           </Tabs>
-        ) : (
-          <Badge variant="outline" className="text-[11px] font-normal">
-            {rawRows.length} rows &times; {headerRow.length} cols
-          </Badge>
-        )}
-
-        <div className="relative w-full max-w-[200px]">
-          <Search className="absolute left-2 top-2 size-3.5 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              setSearch(e.target.value);
-              setPage(0);
-            }}
-            placeholder="Filter cells…"
-            className="h-7 pl-7 text-xs"
-          />
         </div>
+
+        {viewMode === "table" && (
+          <div className="relative w-full max-w-[200px]">
+            <Search className="absolute left-2 top-2 size-3.5 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setSearch(e.target.value);
+                setPage(0);
+              }}
+              placeholder="Filter cells…"
+              className="h-7 pl-7 text-xs"
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-auto">
-        <Table className="border-collapse text-xs">
+        {viewMode === "chart" ? (
+          <div className="h-full w-full p-4 min-h-[300px]">
+            {chartData.seriesKeys.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+                No numeric columns found for charting.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData.data}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" strokeOpacity={0.1} />
+                  <XAxis dataKey={chartData.xKey} tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <RechartsTooltip contentStyle={{ fontSize: 12, borderRadius: 6 }} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {chartData.seriesKeys.map((key, i) => (
+                    <Bar key={key} dataKey={key} fill={`hsl(var(--primary))`} opacity={1 - (i * 0.2)} radius={[4, 4, 0, 0]} />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        ) : (
+          <Table className="border-collapse text-xs">
           <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur z-10">
             <TableRow>
               <TableHead className="w-10 text-center font-mono text-[10px] text-muted-foreground border-r">
@@ -301,9 +380,10 @@ function SpreadsheetView({ url }: { url: string; filename: string }) {
             )}
           </TableBody>
         </Table>
+        )}
       </div>
 
-      {totalPages > 1 && (
+      {viewMode === "table" && totalPages > 1 && (
         <div className="flex items-center justify-between border-t bg-muted/20 px-3 py-1.5 text-xs text-muted-foreground">
           <span>
             Page {page + 1} of {totalPages} ({filteredRows.length} rows)
@@ -350,7 +430,7 @@ function PdfView({ url, filename }: { url: string; filename: string }) {
 
 // ── 3. Markdown / Code / Text In-Pane Viewer ─────────────────────────────────────
 
-function TextCodeView({ url, category }: { url: string; category: string; filename: string }) {
+function TextCodeView({ url, category, filename }: { url: string; category: string; filename: string }) {
   const [content, setContent] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -443,14 +523,36 @@ function TextCodeView({ url, category }: { url: string; category: string; filena
       <div className="flex-1 overflow-auto p-3 font-mono text-xs leading-5">
         <table className="w-full border-collapse">
           <tbody>
-            {lines.map((line, idx) => (
-              <tr key={idx} className="hover:bg-muted/30">
-                <td className="w-8 select-none pr-3 text-right text-muted-foreground/60 text-[11px] align-top">
-                  {idx + 1}
-                </td>
-                <td className="whitespace-pre-wrap break-all text-foreground align-top">{line || " "}</td>
-              </tr>
-            ))}
+            {lines.map((line, idx) => {
+              let colorClass = "text-foreground";
+              let bgClass = "hover:bg-muted/30";
+              
+              if (filename.endsWith(".diff")) {
+                if (line.startsWith("+") && !line.startsWith("+++")) {
+                  colorClass = "text-green-600 dark:text-green-400";
+                  bgClass = "bg-green-50/50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/40";
+                } else if (line.startsWith("-") && !line.startsWith("---")) {
+                  colorClass = "text-red-600 dark:text-red-400";
+                  bgClass = "bg-red-50/50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40";
+                } else if (line.startsWith("@@")) {
+                  colorClass = "text-blue-600 dark:text-blue-400 font-semibold";
+                  bgClass = "bg-blue-50/30 dark:bg-blue-900/10";
+                } else if (line.startsWith("diff ") || line.startsWith("index ")) {
+                  colorClass = "text-muted-foreground font-semibold";
+                }
+              }
+
+              return (
+                <tr key={idx} className={bgClass}>
+                  <td className="w-8 select-none pr-3 text-right text-muted-foreground/60 text-[11px] align-top">
+                    {idx + 1}
+                  </td>
+                  <td className={cn("whitespace-pre-wrap break-all align-top", colorClass)}>
+                    {line || " "}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
