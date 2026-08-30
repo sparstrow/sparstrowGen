@@ -1,0 +1,1 @@
+# T-CH2-03 — project chat diff generation\n\n**Status**: 🟡 Pending\n\n## Checklist\n- [ ] Allow `.diff` in `CHAT_PRODUCED_ALLOWED_TYPES`\n- [ ] In `chat-turn.ts`, generate `changes.diff` via `git diff HEAD` for project sessions\n- [ ] Render `.diff` with syntax highlighting in `TextCodeView`

@@ -1,0 +1,1 @@
+# T-CH2-02 — spreadsheet chart view\n\n**Status**: 🟡 Pending\n\n## Checklist\n- [ ] Install `recharts` in `apps/web`\n- [ ] Add `viewMode` state to `DocumentSheetViewer`\n- [ ] Implement data extraction for chart axes\n- [ ] Render `<ResponsiveContainer>` and Chart components\n- [ ] Add Table/Chart toggle in header

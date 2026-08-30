@@ -95,4 +95,12 @@ describe("CHAT_PRODUCED_ALLOWED_TYPES", () => {
     expect(CHAT_PRODUCED_ALLOWED_TYPES["image/svg+xml"]).toBe("svg");
     expect(CHAT_PRODUCED_ALLOWED_TYPES["image/gif"]).toBe("gif");
   });
+
+  it("includes spreadsheet types (xlsx, xls, csv) in produced and attachment sets", () => {
+    expect(CHAT_PRODUCED_ALLOWED_TYPES["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]).toBe("xlsx");
+    expect(CHAT_PRODUCED_ALLOWED_TYPES["application/vnd.ms-excel"]).toBe("xls");
+    expect(CHAT_PRODUCED_ALLOWED_TYPES["text/csv"]).toBe("csv");
+    expect(CHAT_ATTACHMENT_ALLOWED_TYPES["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]).toBe("xlsx");
+    expect(CHAT_ATTACHMENT_ALLOWED_TYPES["application/vnd.ms-excel"]).toBe("xls");
+  });
 });

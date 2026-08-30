@@ -795,5 +795,39 @@ describe("runChatTurnCommand", () => {
       expect(body.error).toBe("usage limit reached");
       expect(body.produced).toHaveLength(1);
     });
+
+    it("harvests generated image files from Antigravity brain directory when completeOnce returns sessionId", async () => {
+      const home = os.homedir();
+      const testSessionId = "test-antigravity-conv-123";
+      const brainDir = path.join(home, ".gemini", "antigravity-cli", "brain", testSessionId);
+      fs.mkdirSync(brainDir, { recursive: true });
+      fs.writeFileSync(path.join(brainDir, "pen.jpg"), "fake jpg bytes");
+
+      try {
+        vi.mocked(completeOnce).mockImplementation(async () => {
+          return { text: "Here is your image", sessionId: testSessionId, isError: false };
+        });
+        const fetchMock = routeFetch({
+          ...uploadRoute(),
+          "storage.test/upload/signed": () => new Response(null, { status: 200 }),
+          "/chat/turns/ct_1/result": () => jsonResponse(200, { ok: true }),
+        });
+
+        runChatTurnCommand(payload({ provider: "antigravity", model: "Gemini 3.7 Flash (High)" }));
+        await vi.runAllTimersAsync();
+
+        const resultBodies = bodiesFor(fetchMock, "/chat/turns/ct_1/result") as {
+          status: string;
+          produced: { filename: string; mimeType: string }[];
+        }[];
+        const body = resultBodies[0]!;
+        expect(body.status).toBe("succeeded");
+        expect(body.produced).toHaveLength(1);
+        expect(body.produced[0]!.filename).toBe("pen.jpg");
+        expect(body.produced[0]!.mimeType).toBe("image/jpeg");
+      } finally {
+        fs.rmSync(brainDir, { recursive: true, force: true });
+      }
+    });
   });
 });

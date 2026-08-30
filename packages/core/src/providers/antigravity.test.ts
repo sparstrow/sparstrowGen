@@ -437,4 +437,17 @@ describe("AntigravityCliProvider — extractResult (structured stream-json)", ()
     expect(r.resultText).toBe("first line\nsecond line");
     expect(r.isError).toBe(false);
   });
+
+  it("extracts conversationId as sessionId and falls back to default text when a tool was executed", () => {
+    const lines = [
+      '{"event":"init","conversation_id":"conv-123","init":{"model":"Gemini 3.7 Flash (High)"}}',
+      '{"event":"step_update","step_update":{"conversation_id":"conv-123","step_index":1,"step_type":"tool","state":"ACTIVE","tool_name":"generate_image","tool_info":{"name":"generate_image","parameters":{}}}}',
+      '{"event":"result","result":{"conversation_id":"conv-123","status":"SUCCESS","response":"","num_turns":1}}',
+    ];
+    const events = lines.flatMap((l) => provider.parseLine(l));
+    const r = provider.extractResult(events);
+    expect(r.sessionId).toBeNull();
+    expect(r.resultText).toBe("Here is the generated output.");
+    expect(r.isError).toBe(false);
+  });
 });

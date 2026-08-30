@@ -5,6 +5,7 @@ import {
   chatSessionListQuerySchema,
   chatSessionUpdateSchema,
   chatTurnRequestSchema,
+  chatSearchQuerySchema,
   type ChatTurn,
   type ChatTurnState,
 } from "@sparstrow/shared";
@@ -16,6 +17,7 @@ import {
   postChatTurn,
   retryChatTurn,
   updateChatSession,
+  searchChatSessions,
 } from "../../chat/service.js";
 
 /**
@@ -72,6 +74,10 @@ export function respondWithTurn(turn: ChatTurn): ChatTurn | ChatTurnState {
 export async function chatRoutes(app: FastifyInstance): Promise<void> {
   app.get("/chat/sessions", async (request) =>
     listChatSessions(chatSessionListQuerySchema.parse(request.query)),
+  );
+
+  app.get("/chat/search", async (request) =>
+    searchChatSessions(chatSearchQuerySchema.parse(request.query))
   );
 
   app.post("/chat/sessions", async (request, reply) => {

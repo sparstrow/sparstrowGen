@@ -14,6 +14,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  Search,
   Sparkles,
   Trash2,
   X,
@@ -25,6 +26,7 @@ import {
   PROVIDER_KINDS,
   type ChatAttachmentUpload,
   type ChatMessage,
+  type ChatMessageAttachment,
   type ChatSession,
   type ChatSessionKind,
   type ChatSessionUpdate,
@@ -60,6 +62,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ChatTurnView, ThinkingDots, TurnErrorBanner } from "@web/components/chat/chat-bits";
 import { ConversationItems } from "@web/components/chat/conversation-items";
+import { DocumentSheetViewer } from "@web/components/chat/document-sheet-viewer";
 import { createChatAttachmentUploader } from "@web/lib/storage/attachment-uploader";
 import { createClient } from "@web/utils/supabase/client";
 import { sessionAttachments } from "@web/lib/chat-attachments";
@@ -67,6 +70,7 @@ import {
   useAgents,
   useChatSession,
   useChatSessions,
+  useSearchChatSessions,
   useProjects,
   useProviderModelCache,
   useWorkspace,
@@ -459,8 +463,8 @@ function Composer({
   disabled,
   placeholder,
   controls,
-  pendingAttachment,
-  attachmentUploading,
+  pendingAttachments,
+  uploadingCount,
   attachmentError,
   onAttachClick,
   onRemoveAttachment,
@@ -474,14 +478,14 @@ function Composer({
   disabled: boolean;
   placeholder: string;
   controls: React.ReactNode;
-  pendingAttachment: ChatAttachmentUpload | null;
-  attachmentUploading: boolean;
+  pendingAttachments: ChatAttachmentUpload[];
+  uploadingCount: number;
   attachmentError: string | null;
   onAttachClick: () => void;
-  onRemoveAttachment: () => void;
+  onRemoveAttachment: (path: string) => void;
   fileInputRef: React.Ref<HTMLInputElement>;
-  onFileInputChange: (file: File) => void;
-  onDropFile: (file: File) => void;
+  onFileInputChange: (files: File[]) => void;
+  onDropFile: (files: File[]) => void;
 }) {
   const [dragActive, setDragActive] = React.useState(false);
   // T-CS6-01's own Trap: scope the drop handler to actual file drags, not
@@ -505,8 +509,8 @@ function Composer({
         if (!isFileDrag(e)) return;
         e.preventDefault();
         setDragActive(false);
-        const file = e.dataTransfer.files?.[0];
-        if (file) onDropFile(file);
+        const files = Array.from(e.dataTransfer.files ?? []);
+        if (files.length > 0) onDropFile(files);
       }}
       className={cn(
         "rounded-xl border bg-background shadow-sm transition-shadow focus-within:border-ring/60 focus-within:shadow-md",
@@ -532,16 +536,17 @@ function Composer({
         placeholder={placeholder}
         className="max-h-44 min-h-[52px] w-full resize-none bg-transparent px-4 pt-3.5 text-[15px] leading-6 outline-none placeholder:text-muted-foreground/70 disabled:opacity-50 [field-sizing:content]"
       />
-      {(pendingAttachment || attachmentUploading) && (
-        <div className="px-2.5 pt-1.5">
-          {pendingAttachment ? (
-            <PendingAttachmentChip attachment={pendingAttachment} onRemove={onRemoveAttachment} />
-          ) : (
-            <div className="flex items-center gap-1.5 rounded-lg border bg-muted/50 px-2.5 py-1.5 text-xs text-muted-foreground">
+      {(pendingAttachments.length > 0 || uploadingCount > 0) && (
+        <div className="flex flex-wrap gap-2 px-2.5 pt-1.5">
+          {pendingAttachments.map((att) => (
+            <PendingAttachmentChip key={att.storagePath} attachment={att} onRemove={() => onRemoveAttachment(att.storagePath)} />
+          ))}
+          {Array.from({ length: uploadingCount }).map((_, i) => (
+            <div key={i} className="flex items-center gap-1.5 rounded-lg border bg-muted/50 px-2.5 py-1.5 text-xs text-muted-foreground">
               <Paperclip className="size-3.5 shrink-0" />
               Uploading…
             </div>
-          )}
+          ))}
         </div>
       )}
       {attachmentError && (
@@ -552,10 +557,11 @@ function Composer({
           <input
             ref={fileInputRef}
             type="file"
+            multiple
             className="hidden"
             onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) onFileInputChange(file);
+              const files = Array.from(e.target.files ?? []);
+              if (files.length > 0) onFileInputChange(files);
               e.target.value = "";
             }}
           />
@@ -564,7 +570,7 @@ function Composer({
             variant="ghost"
             className="size-7 shrink-0 rounded-md text-muted-foreground hover:text-foreground"
             onClick={onAttachClick}
-            disabled={disabled || attachmentUploading}
+            disabled={disabled || uploadingCount > 0}
             aria-label="Attach a file"
             title="Attach a file"
           >
@@ -577,8 +583,8 @@ function Composer({
           className="size-8 shrink-0 rounded-full"
           disabled={
             disabled ||
-            attachmentUploading ||
-            (value.trim().length === 0 && !pendingAttachment)
+            uploadingCount > 0 ||
+            (value.trim().length === 0 && pendingAttachments.length === 0)
           }
           onClick={onSend}
           aria-label="Send message"
@@ -738,12 +744,20 @@ export function ChatPage() {
   const [filterKind, setFilterKind] = React.useState<"all" | ChatSessionKind>("all");
   const [filterProject, setFilterProject] = React.useState<string>("all");
   const [showArchived, setShowArchived] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
 
   const sessions = useChatSessions({
     kind: filterKind === "all" ? undefined : filterKind,
     projectId: filterProject === "all" ? undefined : filterProject,
     status: showArchived ? undefined : "active",
   });
+
+  const searchResults = useSearchChatSessions(searchQuery);
+
+  const displaySessions = searchQuery.trim().length > 0 
+    ? (searchResults.data ?? []) 
+    : (sessions.data ?? []);
+  const isLoadingSessions = searchQuery.trim().length > 0 ? searchResults.isLoading : sessions.isLoading;
 
   // The active session is URL state (?session=id): linkable, survives reload,
   // and back/forward moves between conversations.
@@ -830,11 +844,22 @@ export function ChatPage() {
   const workspaceQuery = useWorkspace();
   const supabase = React.useMemo(() => createClient(), []);
   const attachmentUploader = React.useMemo(() => createChatAttachmentUploader(supabase), [supabase]);
-  const [pendingAttachment, setPendingAttachment] = React.useState<ChatAttachmentUpload | null>(null);
-  const [attachmentUploading, setAttachmentUploading] = React.useState(false);
+  const [pendingAttachments, setPendingAttachments] = React.useState<ChatAttachmentUpload[]>([]);
+  const [uploadingCount, setUploadingCount] = React.useState(0);
   const [attachmentError, setAttachmentError] = React.useState<string | null>(null);
   const [isDraggingFile, setIsDraggingFile] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const [selectedAttachment, setSelectedAttachment] = React.useState<ChatMessageAttachment | null>(null);
+
+  const handleOpenAttachment = React.useCallback((attachment: ChatMessageAttachment) => {
+    setSelectedAttachment(attachment);
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 1280px)").matches) {
+      setPreviewOpen(true);
+    } else {
+      setConversationItemsSheetOpen(true);
+    }
+  }, []);
 
   const messages = detail.data?.messages ?? [];
   const messageIds = React.useMemo(() => new Set(messages.map((m) => m.id)), [messages]);
@@ -863,13 +888,17 @@ export function ChatPage() {
   const busy = isTurnBusy(turn) || sendPending || retryPending;
 
   React.useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages.length, turn?.replyText, selectedId]);
+    // We use a small timeout so the DOM has a chance to render thinking dots/notices before scrolling
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    });
+  }, [messages.length, turn?.replyText, turn?.status, turn?.waitingReason, selectedId]);
 
   // A turn from the PREVIOUS session must never bleed into this one.
   React.useEffect(() => {
     updateTurn(() => null);
     setComposerNotice(null);
+    setSelectedAttachment(null);
   }, [selectedId, updateTurn]);
 
   // FR-007 — recover a turn on mount, on any refetch, and when the owner
@@ -926,7 +955,9 @@ export function ChatPage() {
     const r = await callAction(() =>
       createChatSessionAction({
         kind: draftKind,
-        ...(draftKind === "project" ? { projectId: draftProjectId } : {}),
+        ...(draftKind === "project"
+          ? { projectId: draftProjectId, provider: draftProvider, model: draftModel }
+          : {}),
         ...(draftKind === "agent" ? { agentId: draftAgentId } : {}),
         ...(draftKind === "free" ? { provider: draftProvider, model: draftModel } : {}),
       }),
@@ -943,7 +974,7 @@ export function ChatPage() {
   const postTo = async (
     sessionId: string,
     content: string,
-    attachment: ChatAttachmentUpload | null,
+    attachments: ChatAttachmentUpload[],
   ) => {
     // Null the held turn BEFORE the request starts, not after it resolves.
     // Found by actually sending a second message in the browser: without
@@ -958,12 +989,12 @@ export function ChatPage() {
     const r = await callAction(() =>
       postChatTurnAction(sessionId, {
         content,
-        attachments: attachment ? [attachment] : undefined,
+        attachments: attachments.length > 0 ? attachments : undefined,
       }),
     );
     if (!r.ok) {
       setInput(content);
-      if (attachment) setPendingAttachment(attachment);
+      if (attachments.length > 0) setPendingAttachments(attachments);
       notifyFailure(sessionId, r);
       return;
     }
@@ -975,10 +1006,10 @@ export function ChatPage() {
   const send = () => {
     const content = input.trim();
     // T-CS6-01's own Trap: an attachment with no text is still sendable.
-    if (busy || (!content && !pendingAttachment)) return;
-    const attachment = pendingAttachment;
+    if (busy || (!content && pendingAttachments.length === 0)) return;
+    const attachmentsToBound = [...pendingAttachments];
     setInput("");
-    setPendingAttachment(null);
+    setPendingAttachments([]);
     setAttachmentError(null);
     setComposerNotice(null);
     setCreateError(null);
@@ -986,43 +1017,55 @@ export function ChatPage() {
       const sessionId = await ensureSessionId();
       if (!sessionId) {
         setInput(content);
-        setPendingAttachment(attachment);
+        setPendingAttachments(attachmentsToBound);
         return;
       }
-      await postTo(sessionId, content, attachment);
+      await postTo(sessionId, content, attachmentsToBound);
     });
   };
 
-  const handleFileSelected = (file: File) => {
-    const checkMessage = checkChatAttachmentFile(file);
-    if (checkMessage) {
-      setAttachmentError(checkMessage);
-      return;
+  const handleFilesSelected = (files: File[]) => {
+    // Validate all before attempting upload
+    for (const file of files) {
+      const checkMessage = checkChatAttachmentFile(file);
+      if (checkMessage) {
+        setAttachmentError(`Cannot attach ${file.name}: ${checkMessage}`);
+        return;
+      }
     }
     setAttachmentError(null);
-    setAttachmentUploading(true);
+    setUploadingCount((c) => c + files.length);
+
     void (async () => {
       try {
         const sessionId = await ensureSessionId();
         const workspaceId = workspaceQuery.data?.id;
         if (!sessionId || !workspaceId) {
           setAttachmentError("Could not start a conversation to attach this file to.");
+          setUploadingCount((c) => Math.max(0, c - files.length));
           return;
         }
-        const uploaded = await attachmentUploader.upload(file, `${workspaceId}/${sessionId}`);
-        setPendingAttachment(uploaded);
+
+        const uploadedPromises = files.map(async (file) => {
+          try {
+            const uploaded = await attachmentUploader.upload(file, `${workspaceId}/${sessionId}`);
+            setPendingAttachments((prev) => [...prev, uploaded]);
+          } finally {
+            setUploadingCount((c) => Math.max(0, c - 1));
+          }
+        });
+
+        await Promise.allSettled(uploadedPromises);
       } catch (err) {
         setAttachmentError(err instanceof Error ? err.message : "Upload failed.");
-      } finally {
-        setAttachmentUploading(false);
+        setUploadingCount((c) => Math.max(0, c - files.length)); // Ensure we decrement completely on top-level fail
       }
     })();
   };
 
-  const removePendingAttachment = () => {
-    if (pendingAttachment) void attachmentUploader.remove(pendingAttachment.storagePath);
-    setPendingAttachment(null);
-    setAttachmentError(null);
+  const removePendingAttachment = (path: string) => {
+    void attachmentUploader.remove(path);
+    setPendingAttachments((prev) => prev.filter((a) => a.storagePath !== path));
   };
 
   const retry = (override?: { provider: string; model: string }) => {
@@ -1234,7 +1277,7 @@ export function ChatPage() {
           ))}
         </GhostSelect>
       )}
-      {draftKind === "free" && (
+      {(draftKind === "free" || draftKind === "project") && (
         <>
           <GhostSelect
             title="Provider"
@@ -1281,6 +1324,16 @@ export function ChatPage() {
           <Button variant="outline" className="w-full justify-start bg-background" onClick={startNew}>
             <Plus className="size-4" /> New chat
           </Button>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2 size-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search chats..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 pl-8 text-xs bg-muted/40"
+            />
+          </div>
           <div className="flex items-center gap-1">
             <GhostSelect
               title="Filter by kind"
@@ -1289,8 +1342,8 @@ export function ChatPage() {
             >
               <SelectItem value="all">All kinds</SelectItem>
               <SelectItem value="free">Free chat</SelectItem>
-              <SelectItem value="project">Project</SelectItem>
-              <SelectItem value="agent">Agent</SelectItem>
+              <SelectItem value="project">Project chat</SelectItem>
+              <SelectItem value="agent">Agent chat</SelectItem>
               <SelectItem value="agent-creator">Agent Creator</SelectItem>
             </GhostSelect>
             <GhostSelect
@@ -1320,19 +1373,20 @@ export function ChatPage() {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto px-2 pb-2">
-          {sessions.isLoading ? (
+          {isLoadingSessions ? (
             <div className="space-y-2 p-1">
               <Skeleton className="h-11 w-full" />
               <Skeleton className="h-11 w-full" />
               <Skeleton className="h-11 w-full" />
             </div>
-          ) : (sessions.data ?? []).length === 0 ? (
+          ) : displaySessions.length === 0 ? (
             <p className="px-3 py-10 text-center text-xs leading-relaxed text-muted-foreground">
-              Conversations you start live here — free chats, project chats, and agent sessions,
-              all saved.
+              {searchQuery.trim().length > 0 
+                ? "No chats found matching your search." 
+                : "Conversations you start live here — free chats, project chats, and agent sessions, all saved."}
             </p>
           ) : (
-            (sessions.data ?? []).map((s) => {
+            displaySessions.map((s) => {
               const Icon = KIND_ICONS[s.kind];
               const renaming = renamingId === s.id;
               return (
@@ -1448,34 +1502,44 @@ export function ChatPage() {
                       <Paperclip className="size-4" />
                     </Button>
                   </SheetTrigger>
-                  <SheetContent>
-                    <SheetHeader>
-                      <SheetTitle>Produced files</SheetTitle>
-                      <SheetDescription className="sr-only">
-                        Files your agent made and files you attached in this conversation.
-                      </SheetDescription>
-                    </SheetHeader>
-                    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-                      {session?.projectId && (
-                        <div className="mb-6 flex flex-col items-center gap-2 text-center">
-                          <FolderKanban className="size-7 text-muted-foreground/50" />
-                          <p className="text-sm font-medium">{projectName(session.projectId)}</p>
-                          <p className="text-xs leading-relaxed text-muted-foreground">
-                            Running the app from chat lands in a follow-up. For now,{" "}
-                            <Link href="/terminals" className="underline underline-offset-2">
-                              open a terminal
-                            </Link>{" "}
-                            to run it manually.
-                          </p>
-                        </div>
-                      )}
-                      <ConversationItems
-                        attachments={conversationItemsRows}
-                        isLoading={conversationItemsQuery.isLoading}
-                        isError={conversationItemsQuery.isError}
-                        onRetry={() => void conversationItemsQuery.refetch()}
+                  <SheetContent className="flex flex-col p-0">
+                    {selectedAttachment ? (
+                      <DocumentSheetViewer
+                        attachment={selectedAttachment}
+                        onBack={() => setSelectedAttachment(null)}
                       />
-                    </div>
+                    ) : (
+                      <>
+                        <SheetHeader className="p-4 border-b">
+                          <SheetTitle>Produced files</SheetTitle>
+                          <SheetDescription className="sr-only">
+                            Files your agent made and files you attached in this conversation.
+                          </SheetDescription>
+                        </SheetHeader>
+                        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+                          {session?.projectId && (
+                            <div className="mb-6 flex flex-col items-center gap-2 text-center">
+                              <FolderKanban className="size-7 text-muted-foreground/50" />
+                              <p className="text-sm font-medium">{projectName(session.projectId)}</p>
+                              <p className="text-xs leading-relaxed text-muted-foreground">
+                                Running the app from chat lands in a follow-up. For now,{" "}
+                                <Link href="/terminals" className="underline underline-offset-2">
+                                  open a terminal
+                                </Link>{" "}
+                                to run it manually.
+                              </p>
+                            </div>
+                          )}
+                          <ConversationItems
+                            attachments={conversationItemsRows}
+                            isLoading={conversationItemsQuery.isLoading}
+                            isError={conversationItemsQuery.isError}
+                            onRetry={() => void conversationItemsQuery.refetch()}
+                            onOpenAttachment={handleOpenAttachment}
+                          />
+                        </div>
+                      </>
+                    )}
                   </SheetContent>
                 </Sheet>
                 <Button
@@ -1507,13 +1571,15 @@ export function ChatPage() {
                   </>
                 ) : (
                   <>
-                    {messages.map((m) => <ChatTurnView key={m.id} message={m} />)}
+                    {messages.map((m) => (
+                      <ChatTurnView key={m.id} message={m} onOpenAttachment={handleOpenAttachment} />
+                    ))}
                     {/* The turn overlay below renders ONLY what `messages` doesn't
                         have yet, keyed by real message id -- once a refetch lands
                         the canonical row, the matching overlay piece stops
                         rendering on its own rather than needing to be torn down. */}
                     {turn && !messageIds.has(turn.userMessage.id) && (
-                      <ChatTurnView message={turn.userMessage} />
+                      <ChatTurnView message={turn.userMessage} onOpenAttachment={handleOpenAttachment} />
                     )}
                     {turn?.status === "waiting" && turn.waitingReason === "no_runtime_paired" && (
                       <NoRuntimePairedNotice />
@@ -1536,6 +1602,7 @@ export function ChatPage() {
                               ? { provider: turn.provider ?? undefined, model: turn.model }
                               : null,
                           }}
+                          onOpenAttachment={handleOpenAttachment}
                         />
                       ) : turn.status === "in_progress" ? (
                         <ThinkingDots label={turn.model ?? session.model ?? undefined} />
@@ -1604,14 +1671,14 @@ export function ChatPage() {
                           : (session.model ?? "the model")
                       }…`}
                       controls={modelControls}
-                      pendingAttachment={pendingAttachment}
-                      attachmentUploading={attachmentUploading}
+                      pendingAttachments={pendingAttachments}
+                      uploadingCount={uploadingCount}
                       attachmentError={attachmentError}
                       onAttachClick={() => fileInputRef.current?.click()}
                       onRemoveAttachment={removePendingAttachment}
                       fileInputRef={fileInputRef}
-                      onFileInputChange={handleFileSelected}
-                      onDropFile={handleFileSelected}
+                      onFileInputChange={handleFilesSelected}
+                      onDropFile={handleFilesSelected}
                     />
                     {composerNotice && (
                       <p
@@ -1658,14 +1725,14 @@ export function ChatPage() {
                         : "Pick an agent below to begin…"
                   }
                   controls={modelControls}
-                  pendingAttachment={pendingAttachment}
-                  attachmentUploading={attachmentUploading}
+                  pendingAttachments={pendingAttachments}
+                  uploadingCount={uploadingCount}
                   attachmentError={attachmentError}
                   onAttachClick={() => fileInputRef.current?.click()}
                   onRemoveAttachment={removePendingAttachment}
                   fileInputRef={fileInputRef}
-                  onFileInputChange={handleFileSelected}
-                  onDropFile={handleFileSelected}
+                  onFileInputChange={handleFilesSelected}
+                  onDropFile={handleFilesSelected}
                 />
               </div>
               {createError && !busy && (
@@ -1690,31 +1757,46 @@ export function ChatPage() {
           the Sheet in the header above is the below-`xl` path to the same
           list (phase decision 1). */}
       {previewOpen && (
-        <aside className="hidden w-80 shrink-0 flex-col border-l bg-sidebar xl:flex">
-          <div className="flex h-12 shrink-0 items-center border-b px-4">
-            <p className="text-sm font-medium">Preview</p>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-            {session?.projectId && (
-              <div className="mb-6 flex flex-col items-center gap-2 px-2 text-center">
-                <FolderKanban className="size-7 text-muted-foreground/50" />
-                <p className="text-sm font-medium">{projectName(session.projectId)}</p>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  Running the app from chat lands in a follow-up. For now,{" "}
-                  <Link href="/terminals" className="underline underline-offset-2">
-                    open a terminal
-                  </Link>{" "}
-                  to run it manually.
-                </p>
-              </div>
-            )}
-            <ConversationItems
-              attachments={conversationItemsRows}
-              isLoading={conversationItemsQuery.isLoading}
-              isError={conversationItemsQuery.isError}
-              onRetry={() => void conversationItemsQuery.refetch()}
+        <aside
+          className={cn(
+            "hidden shrink-0 flex-col border-l bg-sidebar xl:flex transition-all duration-150",
+            selectedAttachment ? "w-[480px]" : "w-80",
+          )}
+        >
+          {selectedAttachment ? (
+            <DocumentSheetViewer
+              attachment={selectedAttachment}
+              onBack={() => setSelectedAttachment(null)}
             />
-          </div>
+          ) : (
+            <>
+              <div className="flex h-12 shrink-0 items-center border-b px-4">
+                <p className="text-sm font-medium">Preview</p>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+                {session?.projectId && (
+                  <div className="mb-6 flex flex-col items-center gap-2 px-2 text-center">
+                    <FolderKanban className="size-7 text-muted-foreground/50" />
+                    <p className="text-sm font-medium">{projectName(session.projectId)}</p>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      Running the app from chat lands in a follow-up. For now,{" "}
+                      <Link href="/terminals" className="underline underline-offset-2">
+                        open a terminal
+                      </Link>{" "}
+                      to run it manually.
+                    </p>
+                  </div>
+                )}
+                <ConversationItems
+                  attachments={conversationItemsRows}
+                  isLoading={conversationItemsQuery.isLoading}
+                  isError={conversationItemsQuery.isError}
+                  onRetry={() => void conversationItemsQuery.refetch()}
+                  onOpenAttachment={handleOpenAttachment}
+                />
+              </div>
+            </>
+          )}
         </aside>
       )}
 

@@ -212,6 +212,8 @@ export const CHAT_ATTACHMENT_ALLOWED_TYPES: Record<string, string> = {
   "text/csv": "csv",
   "application/json": "json",
   "application/pdf": "pdf",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.ms-excel": "xls",
 };
 
 /**
@@ -222,7 +224,7 @@ export const CHAT_ATTACHMENT_ALLOWED_TYPES: Record<string, string> = {
  */
 export function checkChatAttachmentFile(file: { type: string; size: number }): string | null {
   if (!(file.type in CHAT_ATTACHMENT_ALLOWED_TYPES)) {
-    return "Only images, PDF, plain text, Markdown, CSV, or JSON files are accepted.";
+    return "Only images, PDF, spreadsheets, plain text, Markdown, CSV, or JSON files are accepted.";
   }
   if (file.size > CHAT_ATTACHMENT_MAX_BYTES) {
     const mb = (file.size / (1024 * 1024)).toFixed(1);
@@ -253,6 +255,7 @@ export const CHAT_PRODUCED_ALLOWED_TYPES: Record<string, string> = {
   ...CHAT_ATTACHMENT_ALLOWED_TYPES,
   "image/gif": "gif",
   "image/svg+xml": "svg",
+  "text/x-diff": "diff",
 };
 
 /**
