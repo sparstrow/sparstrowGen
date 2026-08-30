@@ -2062,9 +2062,7 @@ itself) and owner-confirmed.
 **Clears when:** the owner resets or upgrades the plan and a fresh navigation
 to `development.sparstrow.com` loads the app instead of the paused page —
 check before relying on the deployed environment specifically, not before
-local-dev-server work. When that happens, also remove
-`apps/web/vercel.json`'s `ignoreCommand` (see below) so real deployments and
-their checks resume.
+local-dev-server work.
 
 **Confirmed again 2026-08-29, closing band 27.** This is exactly the "band's
 final live verification pass" case this entry already named as blocked.
@@ -2078,18 +2076,22 @@ with a real signed-in disposable account — for every live check across five
 tasks, not newly adopted here. The band → `development` PR proceeds on that
 basis rather than waiting on a platform state this repo doesn't control.
 
-**Mitigated 2026-08-30**, after confirming across ~7 real PR auto-merges this
-session that the failing Vercel check never once blocked a merge (it isn't a
-required status check) — the only real cost left was noise: a permanent red
-X on every PR, plus a `<ci-monitor-event>` ping each time. Owner chose to
-suppress it rather than leave it: `apps/web/vercel.json`'s
-`"ignoreCommand": "exit 0"` makes every deployment attempt skip outright
-(GitHub shows the check as skipped, not failed) instead of attempting a build
-that the account-level pause would fail anyway. **This is a standing
-trade — remember to remove or invert it** (delete the file, or set
-`ignoreCommand` back to something that actually gates on real changes) once
-the plan is upgraded or the usage window resets, or previews silently stay
-off after that point.
+**Tried and reverted 2026-08-30.** Confirmed across ~7 real PR auto-merges
+this session that the failing Vercel check never once blocked a merge (it
+isn't a required status check) — the only real cost is noise: a permanent
+red X on every PR, plus a `<ci-monitor-event>` ping each time. Attempted to
+suppress it with `apps/web/vercel.json`'s `"ignoreCommand": "exit 0"`, on the
+assumption that it would make Vercel skip the build (shown as "skipped"
+rather than "failed"). **Didn't work, reverted the same day**: `vercel ls`
+against this branch's commit showed no deployment record was ever created —
+"Account is blocked" happens at Vercel's platform/billing gate, upstream of
+where a deployment would even be instantiated to evaluate `ignoreCommand`
+against. `ignoreCommand` only skips a build that Vercel has already agreed to
+attempt; it has no effect on an account-level refusal to start one at all.
+There is no code-level fix for this specific failure mode — only paying to
+lift the block, or disabling Vercel's GitHub status-check posting from its
+own dashboard (Project Settings → Git), which no agent in this repo has
+access to.
 
 ### G-55 — `T-AM1-02`/`T-AM1-03`'s produced-file pipeline has never run end to end against a live daemon
 
