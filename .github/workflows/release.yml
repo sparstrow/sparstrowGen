@@ -64,7 +64,6 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
-      - run: pnpm --filter @sparstrow/ui build
       - run: pnpm --filter @sparstrow/memory-mcp build
       - run: pnpm --filter @sparstrow/memory-cli build
       # dist:stable = tsc → prepare-resources (channel=stable) →
