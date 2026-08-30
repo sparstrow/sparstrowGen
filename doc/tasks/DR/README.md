@@ -19,7 +19,7 @@ open branches. Insert this phase's tasks the next time the queue drains.
 | T-DR-02 — Changelog page | changelog story | ✅ done 2026-08-29 |
 | T-DR-03 — Production database cutover | foundational | blocked — see below |
 | T-DR-04 — Fix the desktop build chain and verify a real installer | foundational | ✅ done 2026-08-30 |
-| T-DR-05 — Fix staging's non-draft release create failing GitHub's tag validation | foundational | 🔄 in progress 2026-08-30 |
+| T-DR-05 — Fix staging's non-draft release create failing GitHub's tag validation | foundational | ✅ done 2026-08-30 |
 
 ## T-DR-01 — Desktop channel infrastructure ✅ done 2026-08-29
 
@@ -314,7 +314,7 @@ not attempted.
 |---|---|
 | **Serves** | foundational — closes the remaining publish/update-feed half of [G-56](../../KnownGaps.md#g-56--two-channel-desktop-release-no-real-publish-no-verified-live-update-feed) |
 | **Depends on** | T-DR-04 |
-| **Status** | 🔄 in progress 2026-08-30 |
+| **Status** | ✅ done 2026-08-30 |
 
 ### What happened
 
@@ -430,14 +430,41 @@ reasoning as before.
 ### Verification
 
 - [x] `pnpm --filter @sparstrow/desktop typecheck` clean
-- [ ] A real `staging` push runs `release-staging.yml` green end to end and
+- [x] A real `staging` push runs `release-staging.yml` green end to end and
       produces a **complete** non-draft release: installer `.exe`,
       `.exe.blockmap`, and `staging.yml` (not `latest.yml`) all present on
-      **one** release object
-- [ ] An installed staging build's update check detects the new release
-      (fulfills the original ask behind this promotion)
+      **one** release object — confirmed live,
+      [`v0.2.0-staging.4`](https://github.com/sparstrow/sparstrowGen/releases/tag/v0.2.0-staging.4)
+      (release id 379374925, run
+      [33329788584](https://github.com/sparstrow/sparstrowGen/actions/runs/33329788584))
+- [ ] An installed staging build's update check detects the new release —
+      not yet attempted this pass
 
 ### Result
 
-Not yet — round 2 fix written, re-promotion in progress. This section gets
-filled in once a clean end-to-end run is observed.
+**Confirmed fixed, third promotion attempt** ([#200](https://github.com/sparstrow/sparstrowGen/pull/200)):
+`v0.2.0-staging.4` is a single release object, non-draft, with exactly the
+three expected assets. Verified via `gh api repos/sparstrow/sparstrowGen/releases/tags/v0.2.0-staging.4`:
+```
+{"assets":["Sparstrowgen-Staging-Setup-0.2.0-staging.4.exe","Sparstrowgen-Staging-Setup-0.2.0-staging.4.exe.blockmap","staging.yml"],"draft":false,"id":379374925,"prerelease":false}
+```
+
+**One cosmetic loose end, deliberately not chased further**: GitHub's
+"Latest" badge (`gh release list`) still points at the old, broken
+`v0.2.0-staging.2` rather than `.4` — our create/publish calls never set
+`make_latest`. Confirmed this doesn't affect `electron-updater` itself: read
+`electron-updater`'s `GitHubProvider.js` — it fetches the repo's Atom feed
+(`/releases.atom`), finds the matching entry by tag/version comparison, and
+downloads `staging.yml` from that specific tag's asset URL directly. It never
+resolves through GitHub's `/releases/latest` alias, so the stale "Latest"
+badge is purely a `github.com/.../releases` UI artifact, not a functional gap.
+
+**Real build artifacts from all four promotion attempts are left in place**
+(`v0.2.0-staging.2` broken/incomplete, `v0.2.0-staging.3` split across two
+objects, `v0.2.0-staging.4` complete) — none deleted, consistent with earlier
+reasoning in this task about not removing public GitHub content without an
+explicit ask.
+
+**Not yet done**: actually installing a staging build and watching its
+update banner detect `v0.2.0-staging.4` live. That's the step that closes
+the remainder of G-56 and the original reason this promotion was run.
