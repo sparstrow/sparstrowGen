@@ -2012,50 +2012,61 @@ deleted session's prefix is empty. This is the same cleanup obligation
 FR-012 takes on for agent-produced files — whichever lands first should do it
 for both, since they share the bucket and the prefix scheme.
 
-### G-54 — two-channel desktop release: no live NSIS install, no verified real installer build
+### G-54 — two-channel desktop release: no real publish, no verified live update feed
 
 **Raised:** 2026-08-29, landing
 [`DR`](tasks/DR/README.md) (`doc/plans/2026-08-29-two-channel-desktop-release.md`).
-Narrowed 2026-08-30 — see below.
+Narrowed 2026-08-30, narrowed again 2026-08-30 by
+[T-DR-04](tasks/DR/README.md#t-dr-04--fix-the-desktop-build-chain-and-verify-a-real-installer)
+— see below. This entry now covers only the publish/update-feed half; the
+packaged-installer half it originally covered is **closed**, proof in
+T-DR-04's Result section.
 
-Verified: `pnpm --filter @sparstrow/desktop test` (40/40, including new
-`channel.test.ts` and the added `urls.test.ts` cases) and `pnpm typecheck` /
-`pnpm test` clean repo-wide. **Also verified 2026-08-30**, on a real Windows
-machine, entirely in dev mode (no packaged installer): the Electron shell
-loading a locally-run `apps/web` (`pnpm --filter web dev`), spawning its own
-local daemon, reading from the real staging Supabase project, with Settings →
-Factory Health & Engine → Version → "See changelog" linking to a correctly
-rendering `/changelog` page. This proved the app/changelog code paths work:
-what's still unverified is specifically the **packaged installer**.
+**Closed by T-DR-04 (2026-08-30):** the build-chain tooling bug (a legacy
+`pnpm deploy --prod` step polluting the whole workspace's cached install
+state, causing the next `pnpm --filter` command to non-interactively strip
+devDependencies) is root-caused and fixed —
+`packages/desktop/scripts/prepare-resources.mjs` now runs a plain
+`pnpm install` right after the deploy step to restore correct state before
+anything else can read the poisoned one. The full `dist:staging`/`dist:stable`
+chain was verified running cleanly end to end (exit 0, no `CI=true`, no
+interactive prompt) multiple times. A real unpublished NSIS installer was
+built for both channels, installed silently
+(`<installer>.exe /S`, via PowerShell — not Git Bash, which mangles the flag),
+and launched with `SPARSTROW_APP_URL` pointed at a local `pnpm --filter web
+dev` server: confirmed loading real app content via the dev server's access
+log (not a screenshot — see caveat in T-DR-04's Verification). Both channels
+were launched **simultaneously** and confirmed via the live process tree to
+have fully independent `appId`/install directory/Start Menu entry/userData
+directory/core daemon process — no collision. That last check also caught a
+**real, previously-unverified bug**: `build-channel-config.mjs` gave the two
+channels distinct `appId`/`productName` but never `name`, and Electron's
+userData path is keyed off `app.name` (from the packaged `package.json`'s
+`name` field), not `productName` — so both channels defaulted to the exact
+same userData directory until this session added a per-channel
+`extraMetadata.name`. Full writeup:
+[`BUG-2026-08-30-desktop-stable-staging-share-userdata-dir`](../bug/BUG-2026-08-30-desktop-stable-staging-share-userdata-dir.md).
 
-**Not verified, and now understood why:** attempting a real local
-`dist:staging` build on 2026-08-30 hit a reproducible tooling issue —
-`pnpm --filter @sparstrow/core deploy --prod --legacy --config.node-linker=hoisted <path>`
-(inside `prepare-resources.mjs`) leaves the workspace's dependency state
-looking stale to pnpm, so the very next command in the chain
-(`pnpm --filter @sparstrow/memory-mcp build`) demands an interactive
-purge-and-reinstall confirmation. Forcing past that with `CI=true` runs a
-**workspace-wide `pnpm install --production`**, which strips devDependencies
-(e.g. `esbuild`) and breaks `@sparstrow/core`'s own build — i.e. the fix for
-one step breaks the step before it. Recovered cleanly both times with a plain
-`pnpm install`, and confirmed `node_modules` is worktree-local (`git worktree
-list` — 6 separate worktrees, each with its own `node_modules`), so this was
-contained to one worktree, not a shared-state incident. Tracked for a real fix
-as [T-DR-04](tasks/DR/README.md#t-dr-04--fix-the-desktop-build-chain-and-verify-a-real-installer).
-Still also unverified, independent of the above: a real push to `staging`
-triggering `release-staging.yml` end to end and producing a non-draft
-`vX.Y.Z-staging.N` GitHub Release with a working `staging.yml` update feed —
-publishing a real release wasn't attempted this session (deliberately — see
-T-DR-04, which builds unpublished first).
+**Still not verified, deliberately out of scope for T-DR-04:** a real push to
+`staging` triggering `release-staging.yml` end to end and producing a
+non-draft `vX.Y.Z-staging.N` GitHub Release with a working `staging.yml`
+update feed that `electron-updater` actually consumes. Publishing a real
+release needs separate explicit owner permission (this repo's action rule for
+"Publishing... public content") and wasn't attempted — T-DR-04 built and
+installed unpublished (`--publish never`) by design. Also not verified: that
+`electron-updater`'s notify-only update check (`setupUpdater` in `main.ts`,
+gated on `app.isPackaged`) actually fires and correctly compares against a
+real feed — this needs a real published release to test against.
 
-**If wrong:** moderate. If the two installers turn out to share state despite
-the distinct `appId`/`productName` (an Electron version quirk, an OS-level
-Start Menu collision, etc.), a staging build could still affect the
-production install — the exact failure mode the separate-identity decision
-was meant to rule out. If `release-staging.yml` has a syntax or permissions
-issue, staging simply never publishes, silently, until someone checks
-`https://github.com/sparstrow/sparstrowGen/releases` after a push.
+**If wrong:** low-moderate now that the packaged-installer half is closed —
+the specific "two installers share state" failure mode this gap originally
+worried about was found, real, and fixed this session, not merely
+theoretical. What's left is narrower: if `release-staging.yml` has a syntax
+or permissions issue, staging simply never publishes, silently, until someone
+checks `https://github.com/sparstrow/sparstrowGen/releases` after a push; if
+`electron-updater`'s channel-feed matching has a bug, an installed app could
+silently never see available updates.
 
-**Clears when:** T-DR-04 fixes the build chain, a real local install of both
-channels side by side confirms independent update checks, and a real
-`staging` push is observed producing a published (non-draft) release.
+**Clears when:** a real `staging` push is observed producing a published
+(non-draft) release, and an installed staging build is observed detecting
+and (at minimum) notifying about that release via `electron-updater`.

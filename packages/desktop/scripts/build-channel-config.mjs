@@ -20,10 +20,19 @@ const pkg = JSON.parse(fs.readFileSync(path.join(desktopDir, "package.json"), "u
 
 const channel = process.argv[2];
 
-// Distinct appId + productName is what lets the two installers coexist on one
-// machine: separate userData dir (Electron derives it from productName by
-// default), separate Start Menu entry, separate install directory. Nothing
-// else differs — same extraResources, same NSIS behavior, same GitHub repo.
+// Distinct appId + productName is what lets the two installers coexist on
+// one machine at the install-directory / Start Menu / GitHub-release level.
+// It does NOT, on its own, separate userData: Electron derives
+// `app.getPath("userData")` from `app.name`, which resolves from the
+// packaged app's own `package.json` `name` field (`@sparstrow/desktop` for
+// both channels here) — `productName` is an electron-builder installer/build
+// concept, not something Electron's app module reads at runtime. Verified
+// 2026-08-30 (T-DR-04): a real staging install launched with
+// `--user-data-dir=...\Roaming\@sparstrow/desktop`, the same default stable
+// would use — the two channels shared a userData dir until `name` below was
+// added to staging's `extraMetadata`. `extraMetadata` is merged into the
+// packaged app's `package.json`, so overriding `name` there is what actually
+// changes `app.name`, and with it every userData-derived path.
 //
 // `releaseType: "release"` on staging is the other deliberate difference:
 // electron-builder's default leaves a published release as an empty DRAFT
@@ -38,6 +47,12 @@ const OVERRIDES = {
     publish: { ...pkg.build.publish, releaseType: "release" },
   },
 };
+// Stable deliberately keeps `pkg.name` (`@sparstrow/desktop`) unchanged —
+// that's the userData path any already-installed stable build is already
+// using, and this fix must not orphan it. Staging gets its own distinct name
+// so its userData dir (and anything else Electron keys off `app.name`) never
+// overlaps with stable's.
+const APP_NAME = { stable: pkg.name, staging: "sparstrow-desktop-staging" };
 
 if (!OVERRIDES[channel]) {
   console.error(
@@ -59,7 +74,7 @@ const version = channel === "staging" ? `${pkg.version}-staging.${buildNumber}` 
 const merged = {
   ...pkg.build,
   ...OVERRIDES[channel],
-  extraMetadata: { version },
+  extraMetadata: { name: APP_NAME[channel], version },
 };
 
 const outPath = path.join(desktopDir, `electron-builder.${channel}.generated.json`);

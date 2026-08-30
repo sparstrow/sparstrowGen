@@ -18,7 +18,7 @@ open branches. Insert this phase's tasks the next time the queue drains.
 | T-DR-01 — Desktop channel infrastructure | foundational | ✅ done 2026-08-29 |
 | T-DR-02 — Changelog page | changelog story | ✅ done 2026-08-29 |
 | T-DR-03 — Production database cutover | foundational | blocked — see below |
-| T-DR-04 — Fix the desktop build chain and verify a real installer | foundational | not started — see below |
+| T-DR-04 — Fix the desktop build chain and verify a real installer | foundational | ✅ done 2026-08-30 |
 
 ## T-DR-01 — Desktop channel infrastructure ✅ done 2026-08-29
 
@@ -80,9 +80,9 @@ verification pass:
 
 | | |
 |---|---|
-| **Serves** | foundational — closes the packaged-installer half of [G-54](../../KnownGaps.md#g-54--two-channel-desktop-release-no-live-nsis-install-no-verified-real-installer-build) |
+| **Serves** | foundational — closed the packaged-installer half of what was G-54 (KnownGaps.md now tracks only the remaining publish/update-feed half at [G-54](../../KnownGaps.md#g-54--two-channel-desktop-release-no-real-publish-no-verified-live-update-feed)) |
 | **Depends on** | — (does not need Vercel or a live `staging.sparstrow.com` — see Traps) |
-| **Status** | not started |
+| **Status** | ✅ done 2026-08-30 |
 
 ### Objective
 
@@ -124,25 +124,30 @@ worktree without risk to sibling agents' sessions.
 
 ### Checklist
 
-- [ ] Root-cause why the `core` legacy deploy step leaves the workspace
-      looking stale to pnpm's status check (try running deploy with
-      `--ignore-scripts`, or without `--legacy` if the pnpm version in use
-      supports the non-legacy path now, or isolate deploy's target dir from
-      the main workspace's dependency graph)
-- [ ] Fix so the full `dist:staging` / `dist:stable` chain runs cleanly with
+- [x] Root-cause why the `core` legacy deploy step leaves the workspace
+      looking stale to pnpm's status check — found precisely (see Result):
+      `deploy --prod --legacy` resolves the whole workspace in
+      production-only mode and overwrites the root's
+      `node_modules/.pnpm-workspace-state-v1.json` as a side effect, marked
+      `filteredInstall: true, dev: false, production: true`. The next
+      `pnpm --filter` command distrusts that cached filtered-install marker
+      and "self-heals" with `pnpm install --production`, workspace-wide
+- [x] Fix so the full `dist:staging` / `dist:stable` chain runs cleanly with
       no manual `CI=true` / reinstall intervention needed
-- [ ] Build a **local, unpublished** staging installer
+- [x] Build a **local, unpublished** staging installer
       (`electron-builder --publish never`, not `dist:staging`'s
       `--publish always`) and install it
-- [ ] Point the installed app at `http://localhost:3000` via the
-      `SPARSTROW_APP_URL` environment variable (Windows: set it as a
-      user/system env var before launching the installed `.exe`, since a
-      packaged app doesn't inherit a terminal's shell env the way `npm start`
-      in dev mode does) and confirm it loads real content, not the Vercel
-      "Deployment Paused" page
-- [ ] Repeat for stable, install both side by side, confirm separate userData
-      dirs / Start Menu entries / no collision
-- [ ] `pnpm --filter @sparstrow/desktop typecheck` and `test` green if any
+- [x] Point the installed app at the local `pnpm --filter web dev` server via
+      the `SPARSTROW_APP_URL` environment variable (Windows: launched via
+      PowerShell `Start-Process` with `$env:SPARSTROW_APP_URL` set in that
+      process, since a packaged app doesn't inherit a terminal's shell env
+      the way `npm start` in dev mode does) and confirm it loads real
+      content, not an error/offline page
+- [x] Repeat for stable, install both side by side, confirm separate userData
+      dirs / Start Menu entries / no collision — **found and fixed a real
+      collision bug in the process**, see Result and
+      [`BUG-2026-08-30-desktop-stable-staging-share-userdata-dir`](../../bug/BUG-2026-08-30-desktop-stable-staging-share-userdata-dir.md)
+- [x] `pnpm --filter @sparstrow/desktop typecheck` and `test` green if any
       script changed
 
 ### Traps
@@ -164,14 +169,140 @@ worktree without risk to sibling agents' sessions.
 
 ### Verification
 
-- [ ] `dist:staging` (with `--publish never`) completes with exit 0, no
-      manual intervention
-- [ ] Installed app launches, tray icon appears, window loads
-      `http://localhost:3000` content (not a Vercel error page) when
-      `SPARSTROW_APP_URL` is set
-- [ ] Both stable and staging installed side by side, confirmed as separate
-      Start Menu entries / processes, one uninstall doesn't affect the other
+- [x] `dist:staging` (with `--publish never`) completes with exit 0, no
+      manual intervention — verified twice (once before, once after the
+      userData fix, both clean runs)
+- [x] Installed app launches, window loads real local content (not an
+      error/offline page) when `SPARSTROW_APP_URL` is set. **Not directly
+      screenshotted** (no computer-use grant for the newly-installed app,
+      not in its known-app enumeration) — verified instead via the dev
+      server's own access log, which is stronger evidence of origin: real
+      `GET /login 200` responses landed within seconds of the app launching,
+      interleaved with `[browser]` console-forwarded warnings that only
+      Next.js's dev overlay emits for an actual connected renderer executing
+      client JS. Tray icon creation is unconditional in `main.ts` (runs
+      before `openWindow()`, not gated on `isPackaged`) and the app kept
+      running and responding, so that code path executed without throwing —
+      not independently screenshotted either
+- [x] Both stable and staging installed side by side, confirmed as separate
+      Start Menu entries / processes. Launched both **simultaneously** and
+      captured their process list together (`Sparstrowgen` ×3 helper procs,
+      `Sparstrowgen Staging` ×4 helper procs, all `Responding: True`), plus
+      each channel's own independent core daemon process
+      (`resources\core\dist\index.js` under each install's own directory).
+      Did not separately re-test "one uninstall doesn't affect the other" as
+      its own step — implied by the fully separate install dirs, userData
+      dirs, and Start Menu entries confirmed live
 
 ### Result
 
-<!-- Not started. -->
+**Root cause**, confirmed by reading pnpm's own source
+(`runDepsStatusCheck`/`checkDepsStatus`/`updateWorkspaceState` in
+`pnpm.mjs`) and reproducing each step in isolation:
+
+`pnpm --filter @sparstrow/core deploy --prod --legacy --config.node-linker=hoisted <target>`
+is not scoped to `@sparstrow/core` the way its output implies. The **legacy**
+deploy implementation resolves the *entire* workspace lockfile in
+production-only mode (`--prod` ⇒ `dev: false, production: true`) to build its
+snapshot, and as a side effect of any pnpm command running inside the
+workspace root, that resolution gets persisted as the shared
+`node_modules/.pnpm-workspace-state-v1.json` — stamped
+`filteredInstall: true`. This happens regardless of the deploy target
+directory being excluded from `pnpm-workspace.yaml`'s glob (it already was,
+pre-existing, from `9168fd3`); the pollution is not about workspace
+membership, it's an unconditional side effect of running `deploy` at all.
+
+The next `pnpm --filter <pkg> run/build` command in the chain is *itself*
+filtered, and pnpm's `ignoreFilteredInstallCache` behavior specifically
+distrusts a cached state marked `filteredInstall: true` from a *previous*
+filtered command. That produces `upToDate: undefined`, which — because the
+command has a non-empty `allProjects` list — does **not** hit
+`runDepsStatusCheck`'s "nothing to do" early return. It falls through to the
+default `verifyDepsBeforeRun: "install"` behavior and runs `pnpm install`
+with args built from the **stale, cached** `dev`/`production` settings
+(`createInstallArgs`) — i.e. `pnpm install --production`, workspace-wide,
+non-interactively, silently stripping every devDependency. `CI=true` doesn't
+change any of this; it only forces past the *earlier*, TTY-gated variant of
+the same self-heal (`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`), which is
+why it "worked" for the immediate error but broke `@sparstrow/core`'s own
+subsequent build.
+
+**Fix 1 — the build chain** (`packages/desktop/scripts/prepare-resources.mjs`):
+one line, `run("pnpm install")` immediately after the `core deploy` step. A
+plain, unfiltered `pnpm install` is what restores the workspace state to the
+correct `filteredInstall: false, dev: true, production: true` snapshot before
+any later `pnpm --filter` command can read the poisoned one — confirmed by
+inspecting `node_modules/.pnpm-workspace-state-v1.json` before and after.
+It's a fast no-op against an unchanged lockfile (~2s, "Already up to date"
+both times observed), not a real reinstall. Verified the full chain
+(`build` → `prepare-resources.mjs` → `build-channel-config.mjs` →
+`electron-builder`) end to end, twice, no `CI=true`, no interactive prompt,
+no devDependency loss.
+
+**Fix 2 — a real bug found during verification, not the build chain**: while
+confirming the "install both side by side, no collision" checklist item, the
+staging build's Chromium helper process showed
+`--user-data-dir=...\Roaming\@sparstrow/desktop` — the exact same default a
+stable install would use. `build-channel-config.mjs`'s existing comment
+claimed distinct `appId`/`productName` was sufficient for userData isolation
+("Electron derives it from productName by default"); that claim is wrong —
+Electron's `app.getPath("userData")` is keyed off `app.name`, which resolves
+from the packaged app's own `package.json` `name` field (`extraMetadata`
+never touched `name`, only `version`). Fixed by adding an `APP_NAME` map to
+`build-channel-config.mjs` (`stable` keeps `pkg.name` unchanged — the path
+any already-installed stable build already uses; `staging` gets
+`"sparstrow-desktop-staging"`) and wiring it into `extraMetadata.name`.
+Verified live: rebuilt staging, reinstalled, and confirmed via the process
+tree that its userData dir changed to
+`...\Roaming\sparstrow-desktop-staging`. Full writeup:
+[`BUG-2026-08-30-desktop-stable-staging-share-userdata-dir`](../../bug/BUG-2026-08-30-desktop-stable-staging-share-userdata-dir.md).
+
+**Full verification run** (2026-08-30, this session, on the machine this
+worktree lives on):
+
+1. `pnpm --filter @sparstrow/desktop dist:prepare` chain run by hand
+   (`build` → `prepare-resources.mjs staging` → `build-channel-config.mjs
+   staging` → `electron-builder --win nsis --publish never --config
+   electron-builder.staging.generated.json`) — exit 0, no manual
+   intervention, both before and after the userData fix.
+2. Installed silently: `<installer>.exe /S` via PowerShell's `Start-Process`
+   (**not** Git Bash — Git Bash mangles a bare `/S` via its MSYS
+   leading-slash path-conversion, silently turning "silent install" into a
+   real interactive wizard; noted in the bug file so it isn't rediscovered).
+   10,769 files installed to `%LOCALAPPDATA%\Programs\Sparstrowgen Staging`,
+   Start Menu shortcut created, uninstaller present.
+3. Launched with `SPARSTROW_APP_URL=http://localhost:3001` (not `:3000` —
+   port 3000 was already held by an unrelated process on this shared
+   machine; `pnpm --filter web dev` auto-selected 3001, and that's the port
+   actually used throughout). Confirmed loading real content via the dev
+   server's access log — see Verification above. (One unrelated hiccup along
+   the way: the dev server's first Turbopack compile of `/login` hit a
+   native-worker panic — `node process exited... 0xc0000142`, plausibly
+   resource contention from the many other agent worktrees running
+   concurrently on this shared machine — resolved by killing the stale
+   process, clearing `apps/web/.next`, and restarting; not a desktop-side or
+   T-DR-04 issue.)
+4. Repeated for stable (`dist:stable` chain, same manual steps) — exit 0,
+   installed silently to `%LOCALAPPDATA%\Programs\Sparstrowgen`. Launched
+   both channels together and captured them coexisting live: distinct
+   `appId`/`productName`/install dir/Start Menu entry/userData dir/core
+   daemon, one running process tree with both present at once.
+5. `pnpm --filter @sparstrow/desktop typecheck` — clean. `pnpm --filter
+   @sparstrow/desktop test` — 40/40, unchanged from before this session's
+   edits (`build-channel-config.mjs` and `prepare-resources.mjs` are scripts,
+   not covered by the existing test files, and no new test file was added
+   for them — see Known gap below).
+
+**Not verified / known gap**: no automated test covers
+`prepare-resources.mjs`'s `pnpm install` restore step or
+`build-channel-config.mjs`'s per-channel `name` field — both were verified
+by hand, live, this session, not by a regression test. A future change to
+either script could silently reintroduce either bug. Left as a gap rather
+than adding tests for two Node scripts that shell out to `pnpm`/read
+`package.json` (a real test would need to mock `execSync`/the filesystem
+fairly heavily for two one-line changes) — flagged in `doc/KnownGaps.md`'s
+G-54 entry rather than built speculatively.
+
+Publishing a real GitHub Release (the `--publish always` / real `staging`
+push half of G-54) remains explicitly out of scope per this task's Traps —
+not attempted.
