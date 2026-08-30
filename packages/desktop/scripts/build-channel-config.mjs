@@ -50,6 +50,14 @@ const OVERRIDES = {
   staging: {
     appId: "com.sparstrow.sparstrowgen.staging",
     productName: "Sparstrowgen Staging",
+    // `publish.channel` — NOT inferred from the version's `-staging.N`
+    // prerelease suffix, despite what this file used to claim (never
+    // actually verified until T-DR-05). app-builder-lib's
+    // `computeChannelNames` reads `publishConfig.channel` directly,
+    // defaulting to "latest" when absent — so without this, staging was
+    // silently publishing `latest.yml` (confirmed live, T-DR-05), which
+    // `updater.ts`'s `autoUpdater.channel = "staging"` would never find.
+    publish: { ...pkg.build.publish, channel: "staging" },
   },
 };
 // Stable deliberately keeps `pkg.name` (`@sparstrow/desktop`) unchanged —
@@ -66,13 +74,12 @@ if (!OVERRIDES[channel]) {
   process.exit(1);
 }
 
-// Staging auto-publishes on every push (see .github/workflows/release-staging.yml)
-// as a non-draft prerelease. electron-builder infers the update-feed channel
-// name from a version's prerelease tag — vX.Y.Z-staging.N publishes staging.yml
-// alongside latest.yml, matching the `autoUpdater.channel = "staging"` that
-// updater.ts sets from the baked channel.json. The build number keeps every
-// staging push's version distinct; GITHUB_RUN_NUMBER in Actions, a timestamp
-// for a local test build.
+// Staging auto-publishes on every push (see .github/workflows/release-staging.yml).
+// `OVERRIDES.staging.publish.channel` above is what makes electron-builder
+// write `staging.yml` instead of `latest.yml`, matching the
+// `autoUpdater.channel = "staging"` that updater.ts sets from the baked
+// channel.json. The build number keeps every staging push's version
+// distinct; GITHUB_RUN_NUMBER in Actions, a timestamp for a local test build.
 const buildNumber = process.env.SPARSTROW_BUILD_NUMBER || String(Date.now());
 const version = channel === "staging" ? `${pkg.version}-staging.${buildNumber}` : pkg.version;
 
