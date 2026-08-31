@@ -99,7 +99,7 @@ page without having read or typed anything besides the command itself.
 |---|---|---|
 | Pairing command (CLI) | existing, behavior changes | Run it; browser opens; nothing else to type |
 | Browser pairing page | **new** | Confirms the pairing attempt is genuine and completes it while already signed in |
-| Machines page | existing, unchanged by this spec | Pair a machine still starts the command from here (or the CLI stands alone); the code/countdown panel is replaced by "waiting for your browser" |
+| Machines page | existing, behavior changes | No longer has a **Pair a machine** action that generates anything — only the CLI, running on the machine being paired, can open that machine's own loopback listener. The empty state and "add another" affordance become instructional: the exact command to run, and what happens after |
 
 ### The four states
 
@@ -107,7 +107,7 @@ page without having read or typed anything besides the command itself.
 |---|---|
 | **Populated** (browser pairing page) | Machine identity (name, OS, hostname), the workspace it's joining, one **Authorize this machine** button, then confirmation once pressed |
 | **Empty** — n/a | This surface only ever exists mid-attempt; there's no empty variant to design for |
-| **Loading** (Machines page, mid-pairing) | "Waiting for your browser…" in place of the old code/countdown, with a way to cancel |
+| **Loading** — n/a on the Machines page | There is nothing for it to wait on anymore — a pending attempt lives only in the CLI's own process and the confirm page it opened, neither of which the Machines page has any handle on until the machine actually appears |
 | **Error** | Names what actually failed: browser wouldn't open (with the manual URL), the attempt timed out, the attempt was stale/replayed, the workspace couldn't be reached — never a bare "pairing failed" |
 
 ### Flow
