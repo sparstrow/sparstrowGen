@@ -13,44 +13,46 @@
 ## Summary
 
 Replaces `pairing_codes` (a 10-minute single-use code, typed by hand into a
-terminal) with a loopback flow: `sparstrow pair` starts a local HTTP listener
-on the machine, opens the owner's browser to a `/pair` page on the already
-authenticated session, and that page mints the runtime + daemon token and
-delivers it straight to the listener. No code is ever displayed or typed.
-Modeled on multica's `multica login` (`references/multica/server/cmd/multica/cmd_auth.go:238`),
-adapted to this repo's Next.js/Supabase stack.
+terminal) with a loopback flow: `sparstrow pair` starts a local HTTP listener,
+registers a **pairing attempt** with the control plane, and opens the owner's
+browser to a confirm page keyed by that attempt's id. One click on an already
+authenticated session approves it; the CLI itself then exchanges the approved
+attempt for the real daemon token over its own server-to-server connection —
+the browser never sees or carries the credential at all. Modeled on multica's
+`multica login` (`references/multica/packages/views/auth/login-page.tsx` and
+`references/multica/server/cmd/multica/cmd_auth.go:238`), adapted to this
+repo's Next.js/Supabase stack and refined past multica's own version once the
+sequencing was traced through (see Decisions).
 
 ## What the spec asks for that isn't obvious
 
 **The web app cannot reach the daemon's loopback listener — only the owner's
 browser can.** `apps/web` runs on Vercel; `127.0.0.1:<port>` on the owner's
-machine is reachable from JavaScript running *in that owner's browser tab*,
-never from our server. So the token can't simply be returned in a page
-response and forgotten — a small client-side script has to take the minted
-token and `fetch()` it to the loopback URL itself. This is a deliberate,
-narrow exception to `apps/web/CLAUDE.md`'s Server-Component-first rule,
-alongside the one it already names for streaming.
+machine is reachable only from JavaScript running *in that owner's browser
+tab*. Multica's own answer is a plain top-level redirect
+(`window.location.href = callback + "?token=..."`) rather than a `fetch()` —
+no CORS involved, since it's a navigation, not a cross-origin request. This
+plan follows that, with one change: what travels in that redirect is never
+the real daemon token (see the next point).
 
-**Minting-on-page-load is a mutating GET if done naively.** A Server
-Component's render runs on the initial request; doing the actual database
-write inline in that render (rather than as a real Server Action) would
-bypass Next.js's built-in Server Action origin/CSRF checks and turn `/pair`
-into a link that mutates state just by being opened, from any origin. The fix
-is to keep the mint as an actual Server Action, invoked by the client
-component right after mount — not inlined into the page's RSC render — so
-Next's same-origin enforcement still applies to the call that matters.
+**Minting the real credential before we know the browser will deliver it
+creates a "ghost machine" risk.** If the Confirm action minted the real
+`daemon_tokens` row and then handed the token to the browser to redirect, a
+closed tab or a network blip between confirm and redirect leaves a runtime
+that exists in the workspace and can never authenticate — the exact failure
+mode `008_redeem_pairing_code.sql`'s own comment already names for a
+different reason. Multica avoids this by never putting its *final* credential
+in the browser redirect at all: the browser only ever carries a short-lived
+proof of login, and the CLI process itself makes a second, server-to-server
+call to mint the long-lived credential — a call that can only succeed once
+the browser has already reached the CLI's listener. This plan adopts the same
+two-phase shape (see Decisions: attempt → approve → exchange).
 
-**The daemon-and-browser-are-the-same-machine assumption is the whole trick,
-and also the whole accepted risk.** `state` (CSRF) protects the *daemon's*
-side — it only accepts a callback whose `state` matches what it generated.
-The `/pair` page itself has no equivalent protection against being opened via
-a crafted link (an attacker could construct `/pair?callback=http://127.0.0.1:9999/...`
-and get a signed-in victim to open it), because the spec explicitly wants
-zero clicks. The mitigation is that the callback host is validated
-server-side as loopback-only before anything is minted, so the worst case is
-a new token minted and POSTed to something already listening on the victim's
-*own* loopback — the same trust boundary `gh auth login`, `vercel login`, and
-multica's own `login` all accept. See Decisions.
+**Confirm is a real Server Action, not inline page-render logic.** A Server
+Component's render runs on the initial GET; doing the "approve" write inline
+in that render (rather than behind an actual Server Action invoked by the
+button) would bypass Next.js's built-in Server Action origin/CSRF checks. The
+button's `onClick` calls a Server Action; nothing mutates on page load.
 
 ## Work breakdown
 
@@ -59,61 +61,83 @@ multica's own `login` all accept. See Decisions.
 | Work | Why no story owns it |
 |---|---|
 | Drop `pairing_codes` table + `redeem_pairing_code` RPC (migration) | Schema change; invisible to the owner except as the thing that stops existing |
-| New `pair_runtime_from_session` RPC — same atomic runtime+token creation as `redeem_pairing_code`, but authenticated (workspace from the caller's session, not an anonymous code row), and replaces an existing pairing for that machine identity instead of erroring | Database logic; the owner only ever sees its result |
-| `POST /api/daemon/pair/deliver` (or a Server Action reachable from the client island) — the loopback delivery target's *counterpart*: what actually calls the RPC and returns `{token, runtimeId, workspaceId}` to the client for it to forward | Server plumbing |
-| CLI: local loopback HTTP listener + browser-open + timeout, replacing `pairWithCode`'s code-exchange call in `packages/core/src/cloud/pairing.ts` | Not owner-visible beyond the command's own output, which is per-story below |
+| New `pairing_attempts` table — replaces `pairing_codes`' shape: `id` (opaque, server-generated, never displayed), `workspace_id` nullable until approved, machine identity columns, `callback` (loopback URL), `status` (`pending`\|`approved`\|`consumed`\|`expired`), `approved_by`, `expires_at` | Schema; the owner never sees a row directly |
+| `start_pairing_attempt` RPC or plain insert (unauthenticated, service-role-called from the route below) — creates the attempt row from the CLI's initial POST | Database logic |
+| `approve_pairing_attempt` RPC — authenticated; resolves the caller's workspace via `auth.uid()`, marks the attempt `approved` for that workspace. Does **not** mint a token | Database logic |
+| `exchange_pairing_attempt` RPC — same atomicity shape as today's `redeem_pairing_code` (row lock, check status, act once): takes an `approved` attempt, creates/upserts the `runtimes` row, mints the real `daemon_tokens` row (revoking any prior token for that runtime — FR-008), marks the attempt `consumed` | Database logic; this is the only place the real token is ever minted |
+| `POST /api/daemon/pair/attempts` (unauthenticated, mirrors today's `/api/daemon/pair` posture) — CLI calls this first, gets back `{attemptId}` | Server plumbing |
+| `POST /api/daemon/pair/exchange` (unauthenticated; the attempt id **is** the credential here, same trust model as today's pairing code) — CLI's local listener calls this *after* the browser reaches it, gets back the real token | Server plumbing |
+| CLI: local loopback HTTP listener, browser-open, timeout, and the exchange call — replacing `pairWithCode`'s single code-exchange call in `packages/core/src/cloud/pairing.ts` with this multi-step flow | Not owner-visible beyond the command's own output, which is per-story below |
 
 ### Per story
 
 | Story | Work | Delivers |
 |---|---|---|
-| US1 | `/pair` Server Component page: validates the caller is signed in, reads `callback`/`state`/machine-identity query params, validates `callback` is loopback-only | The page the browser opens |
-| US1 | Client island on `/pair`: on mount, calls the mint Server Action, then `fetch()`s the result to `callback`, shows success/error | The "nothing to click" completion |
-| US1 | CLI: `sparstrow pair` (no argument) — replaces the `<code>`-argument form; starts listener, opens browser, waits, prints result; `--code` removed entirely per the spec's decision | The command the owner actually runs |
+| US1 | `/pair?attempt=<id>` Server Component: requires sign-in (existing middleware), loads the attempt row, renders machine identity + workspace name, or the error state if missing/expired/consumed | The page the browser opens |
+| US1 | Confirm button (client island, minimal): calls the `approve_pairing_attempt` Server Action, then `window.location.href`-redirects to the attempt's `callback` — no token in this URL, just enough for the listener to know the browser arrived | The one click |
+| US1 | CLI: `sparstrow pair` (no argument) — replaces the `<code>`-argument form entirely (`--code` removed per the spec's decision); starts listener, registers the attempt, opens browser, waits, exchanges, prints result, serves its own success HTML to the browser (mirroring multica's `callbackSuccessHTML`) | The command the owner actually runs, and what they see in the tab right after confirming |
 | US1 | Machines page: `PairingCodePanel` → replaced with a "waiting for your browser…" state; `PairingOutcomePanel` logic reused for success/timeout | What the owner sees on the Machines page while a pairing attempt is live |
 
 ## Decisions
 
-**RPC moves from anonymous-code-bearer to authenticated-session.** Today's
-`redeem_pairing_code` is `SECURITY DEFINER`, callable only by the service
-role, because a daemon holding a pairing code has no `auth.uid()` — the code
-itself is the credential (`008_redeem_pairing_code.sql:21-29`). The new RPC is
-invoked by the owner's own authenticated browser session, so it can resolve
-`auth.uid()` directly, check workspace membership the normal way, and skip
-the "credential in a table" pattern entirely — closer to how the rest of the
-schema is protected (`AGENTS.md` §4: "RLS is the security boundary"). It stays
-a single `SECURITY DEFINER` function rather than a plain authenticated insert,
-for the same atomicity reason the original comment gives: runtime + token
-creation must happen together or not at all, and PostgREST calls cannot span
-a transaction.
+**Two-phase approve-then-exchange, not mint-then-redirect.** The token is
+minted only by `exchange_pairing_attempt`, called by the CLI process itself
+over its own connection, only after the browser has already reached the
+CLI's local listener. This is what closes the ghost-machine risk described
+above — nothing in the browser's own path can ever cause a runtime to exist
+without a live process on the other end to receive its token. The browser's
+redirect carries only the attempt id, never a credential — a strictly
+stronger reading of spec FR-009 ("credential MUST never be displayed on the
+browser page") than the old flow needed, since the token now never reaches
+the browser at all, not even briefly.
+
+**The attempt id is a bearer credential exactly like today's pairing code
+was — just machine-generated and never displayed.** `exchange_pairing_attempt`
+is unauthenticated for the same reason `redeem_pairing_code` was
+(`008_redeem_pairing_code.sql:21-29`): the CLI process has no `auth.uid()`.
+What changed is who can ever come to hold that credential — a human reading a
+screen and typing it, versus a process that generated it itself and kept it
+in memory. Same reasoning `approve_pairing_attempt` needs to be a *separate*,
+authenticated RPC: it is the only step where a real person's session decides
+which workspace this machine joins.
 
 **Re-pairing an already-paired machine replaces, not errors** (spec FR-008).
-The old flow could not express this — a fresh code always created a fresh
-runtime row. The new RPC takes a client-generated machine id consistent
-across a re-pair (already exists as `runtimeId` in `describeMachine()`'s
-identity) and upserts rather than inserts, revoking the previous token for
-that runtime in the same transaction.
+`exchange_pairing_attempt` upserts the `runtimes` row keyed by the
+CLI-generated `runtimeId` (already stable across re-pairs via
+`describeMachine()`) and revokes the previous `daemon_tokens` row for that
+runtime in the same transaction, rather than erroring on a duplicate.
 
-**The client-side loopback delivery is a scoped exception to
+**The confirm button's redirect is a scoped exception to
 "Server Components only" — not a precedent for other pages.** No other
-surface in this app needs to reach an address only the visitor's own machine
-can see. Recorded here so it isn't read as license to add more client-side
-`fetch` calls elsewhere; the streaming exception `apps/web/CLAUDE.md` already
-names is the only sibling.
+surface in this app needs to navigate to an address only the visitor's own
+machine can see. Recorded here so it isn't read as license to add more
+client-side navigation elsewhere; the streaming exception `apps/web/CLAUDE.md`
+already names is the only sibling.
 
-**Loopback-only `callback` validation, enforced server-side before minting.**
-The Server Action that mints the token rejects any `callback` whose host
-doesn't parse as `127.0.0.1`, `::1`, or `localhost`. This is the one real
-guardrail against the zero-click design being pointed at an arbitrary
-attacker-controlled endpoint — accepting the residual risk described above
-(a crafted link can still mint a token that gets POSTed to the *victim's own*
-loopback) as the same trade every loopback-OAuth CLI (`gh`, `vercel`,
-multica's own `login`) already makes.
+**Loopback-only `callback`, validated at attempt creation and again at
+exchange.** `POST /api/daemon/pair/attempts` rejects any `callback` whose
+host doesn't parse as `127.0.0.1`, `::1`, or `localhost` before a row is even
+created — matching multica's own `validateCliCallback`
+(`references/multica/packages/views/auth/login-page.tsx:80-94`), minus its
+RFC 1918 private-IP allowance, which this plan doesn't need since — unlike
+multica's self-hosted-on-a-LAN-VM case — this flow only ever targets the
+literal machine the browser is running on.
 
 **`pairing_codes` is dropped outright, not deprecated in place.** Per the
 spec's Assumptions: no dormant code path left half-wired. Its migration's
 down-file removes the table and the RPC; nothing references either after this
 lands.
+
+**A late redirect to an already-shut-down listener fails as a bare browser
+connection error, not an app-level message — accepted, matching multica's own
+limitation.** Once the CLI gives up and closes its listener, a browser that
+still completes the confirm click afterward gets a generic
+"can't reach this page," not our wording. `/pair` itself still shows the
+correct expired/consumed state for the more common case (reopening a stale
+tab *before* clicking); this gap is specifically the few-second window after
+a click that outlives the listener. Named here rather than silently
+accepted — multica's own CLI has the identical limitation (its 5-minute
+timeout closes the same local listener).
 
 **No task decomposition; this branch targets `development` directly.** This
 is one cohesive unit of work by one agent in one sitting, not a multi-agent

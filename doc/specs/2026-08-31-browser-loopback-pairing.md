@@ -45,8 +45,9 @@ confirmation page — I never read or type anything that looks like a code.
 ### US1 — Pair a machine with nothing to type (Priority: P1)
 
 I run the pairing command on my machine. It opens my browser to a page that
-already knows I'm signed in; the moment that page loads, my machine is paired
-— no code, no countdown, nothing to copy.
+already knows I'm signed in and shows me which machine and workspace I'm
+about to connect; one press of a button and it's paired — no code, no
+countdown, nothing to copy or type.
 
 **Why this priority:** this is the entire feature. There is no smaller unit
 that's still worth shipping.
@@ -61,31 +62,32 @@ page without having read or typed anything besides the command itself.
    **Then** my default browser opens automatically to a page for this
    specific pairing attempt.
 2. **Given** that page opens and I'm already signed in, **When** the page
-   loads, **Then** my machine is paired immediately — I take no action on the
-   page beyond seeing it succeed.
-3. **Given** that page opens and I'm signed out, **When** I sign in normally,
-   **Then** pairing completes right after, with no separate pairing step to
-   repeat.
-4. **Given** pairing succeeds, **When** I look at the terminal I ran the
+   loads, **Then** I see which machine and workspace I'm about to pair and one
+   button to confirm it — no other fields, nothing to copy or type.
+3. **Given** I press that button, **When** it completes, **Then** pairing
+   finishes without leaving the page.
+4. **Given** that page opens and I'm signed out, **When** I sign in normally,
+   **Then** I land straight on that same confirm screen afterward, with no
+   separate pairing step to repeat.
+5. **Given** pairing succeeds, **When** I look at the terminal I ran the
    command in, **Then** it confirms success and names the machine and
    workspace it joined.
-5. **Given** pairing succeeds, **When** I look at the Machines page without
+6. **Given** pairing succeeds, **When** I look at the Machines page without
    refreshing, **Then** the machine appears there — same behavior as today.
-6. **Given** my browser can't be opened automatically (no display, a headless
+7. **Given** my browser can't be opened automatically (no display, a headless
    shell), **When** the command runs, **Then** it prints the exact URL to open
    manually and says why it couldn't open one itself, rather than hanging with
    no explanation.
-7. **Given** I closed the browser tab or navigated away before pairing
-   finished, **When** I look at the terminal, **Then** it eventually reports
-   that pairing timed out waiting for the browser, not a silent hang.
-8. **Given** the pairing page loads but belongs to a different pairing attempt
+8. **Given** I closed the browser tab or navigated away before confirming,
+   **When** I look at the terminal, **Then** it eventually reports that
+   pairing timed out waiting for the browser, not a silent hang.
+9. **Given** the pairing page loads but belongs to a different pairing attempt
    than the one my terminal started (a stale tab, a replayed link), **When**
-   it tries to complete, **Then** it's rejected and neither side claims
-   success.
-9. **Given** I run the pair command on a machine that's already paired to a
-   workspace, **When** it completes, **Then** I'm told plainly that this
-   replaces the existing pairing, not left guessing which workspace the
-   machine now belongs to.
+   I press confirm, **Then** it's rejected and neither side claims success.
+10. **Given** I run the pair command on a machine that's already paired to a
+    workspace, **When** I reach the confirm screen, **Then** it tells me
+    plainly that confirming replaces the existing pairing, not left guessing
+    which workspace the machine now belongs to.
 
 ---
 
@@ -103,7 +105,7 @@ page without having read or typed anything besides the command itself.
 
 | State | What the owner sees |
 |---|---|
-| **Populated** (browser pairing page) | Machine identity (name, OS, hostname), the workspace it's joining, confirmation the moment pairing completes |
+| **Populated** (browser pairing page) | Machine identity (name, OS, hostname), the workspace it's joining, one **Authorize this machine** button, then confirmation once pressed |
 | **Empty** — n/a | This surface only ever exists mid-attempt; there's no empty variant to design for |
 | **Loading** (Machines page, mid-pairing) | "Waiting for your browser…" in place of the old code/countdown, with a way to cancel |
 | **Error** | Names what actually failed: browser wouldn't open (with the manual URL), the attempt timed out, the attempt was stale/replayed, the workspace couldn't be reached — never a bare "pairing failed" |
@@ -111,8 +113,8 @@ page without having read or typed anything besides the command itself.
 ### Flow
 
 **Pairing:** run the command → browser opens to a page tied to this one
-attempt → already-signed-in browser confirms → machine appears on the
-Machines page, active.
+attempt → already-signed-in owner presses **Authorize this machine** →
+machine appears on the Machines page, active.
 
 **Dead ends to check:** browser doesn't open (headless); the tab is closed
 before completing; the page is reopened after the attempt already finished or
@@ -137,10 +139,11 @@ expired; the command is run twice concurrently for the same machine.
 - **FR-002**: The browser page MUST identify the specific machine and pairing
   attempt it belongs to, so a stale or unrelated page can never complete a
   different attempt.
-- **FR-003**: If already signed in, the browser page MUST complete pairing
-  with no further action from the owner.
+- **FR-003**: If already signed in, the browser page MUST show the machine and
+  workspace identity plus a single confirm action, and complete pairing on
+  that one press — no code, no other fields.
 - **FR-004**: If signed out, the normal sign-in flow MUST lead straight into
-  completing that same pairing attempt afterward.
+  that same confirm screen afterward, not a repeated pairing step.
 - **FR-005**: The system MUST reject a pairing completion that doesn't match
   the attempt the terminal is waiting on (replay/cross-attempt protection).
 - **FR-006**: If the browser can't be opened automatically, the command MUST
@@ -206,3 +209,17 @@ conversation (recorded here since there was no separate async review pass):
    escape hatch, explicitly accepting that headless/remote pairing becomes
    unsupported until a separate piece of work addresses it — see
    [`D-29`](../Deferred.md).
+
+**Second review pass, same day — after reading multica's actual frontend
+(`references/multica/packages/views/auth/login-page.tsx`), not just its
+backend.** The first draft specced zero-click pairing (US1 scenario 2
+originally: "the moment that page loads, my machine is paired"). Multica
+itself does not do this — its CLI-authorization screen shows the signed-in
+account and one **Authorize** button before redirecting the token back to the
+CLI's local listener. Presented to the owner as a fork (adopt the one-click
+confirm, or keep zero-click and rely on the loopback-only callback validation
+as the sole mitigation); **the owner chose the one-click confirm**, closing
+the CSRF-shaped gap the first draft's Decisions section had accepted as
+residual risk rather than merely mitigated. US1 scenarios 2–4 and FR-003/
+FR-004 were rewritten accordingly — "pairs on load" everywhere became "shows
+identity + one confirm button, pairs on that press".
