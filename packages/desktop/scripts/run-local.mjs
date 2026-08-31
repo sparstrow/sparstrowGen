@@ -131,5 +131,18 @@ async function main(channel) {
   }
 
   console.log(`[run-local] launching ${APP_NAME[channel]} -> ${appUrl}`);
-  runPowerShell(`$env:SPARSTROW_APP_URL = '${appUrl}'; Start-Process -FilePath '${exePath}'`);
+  // Both vars, not just SPARSTROW_APP_URL: packaged-env.ts only fills
+  // SPARSTROW_CLOUD_URL from the channel's baked default when it isn't
+  // already set (`??=`), and the bundled core daemon reads THAT one for its
+  // own cloud/control-plane connection -- it's a separate process from the
+  // renderer and doesn't care what URL the window loads. Missing this made
+  // the daemon silently try to reach the real (paused) hosted URL and never
+  // come online, confirmed live 2026-08-30 while pairing a machine: `sparstrow
+  // pair --status` showed a valid pairing, but the bundled daemon still
+  // showed offline in the Machines page because it was never actually
+  // talking to this local server at all.
+  runPowerShell(
+    `$env:SPARSTROW_APP_URL = '${appUrl}'; $env:SPARSTROW_CLOUD_URL = '${appUrl}'; ` +
+      `Start-Process -FilePath '${exePath}'`,
+  );
 }
