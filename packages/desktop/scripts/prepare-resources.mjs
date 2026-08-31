@@ -45,7 +45,7 @@ fs.mkdirSync(staging, { recursive: true });
 // native .node present).
 run("pnpm --filter @sparstrow/core build");
 run(
-  `pnpm --filter @sparstrow/core deploy --prod --legacy --config.node-linker=hoisted "${path.join(staging, "core")}"`,
+  `pnpm --filter @sparstrow/core deploy --prod --legacy --config.node-linker=hoisted --config.confirmModulesPurge=false "${path.join(staging, "core")}"`,
 );
 // The deploy snapshot includes src/tsconfig etc. — harmless but dead weight; trim.
 for (const extra of ["src", "build.mjs", "tsconfig.json", "vitest.config.ts", "scripts"]) {
