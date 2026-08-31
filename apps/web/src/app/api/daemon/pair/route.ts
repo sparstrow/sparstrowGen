@@ -1,82 +1,81 @@
 import { NextResponse } from "next/server";
-import { randomBytes, randomUUID } from "node:crypto";
-import type { DaemonErrorReason, PairResponse } from "@sparstrow/shared";
-import { daemonDb, hashToken } from "@web/lib/daemon/auth";
+import { randomBytes } from "node:crypto";
+import { isLoopbackCallback } from "@sparstrow/shared";
+import type { StartPairingAttemptResponse } from "@sparstrow/shared";
+import { daemonDb } from "@web/lib/daemon/auth";
 import { daemonError, parseIdentity, readJson } from "@web/lib/daemon/respond";
+import { siteOrigin } from "@web/lib/auth/origin";
 
 /**
- * Redeem a pairing code for a daemon token.
+ * Register a browser-loopback pairing attempt.
  *
- * The only unauthenticated route under /api/daemon — its credential is the
- * pairing code itself, which `public.redeem_pairing_code` (migration 008)
- * validates, consumes and turns into a runtime, all in one transaction.
+ * The only unauthenticated route under /api/daemon that CREATES something —
+ * same posture as the old code-redemption route it replaces, and for the
+ * same reason: the daemon calling this has no Supabase session at all. What
+ * it creates is deliberately inert: a `pending` row with no workspace
+ * attached yet, invisible to every RLS policy until an authenticated member
+ * approves it (`pairing_attempts_approve`, policies/031). This route mints
+ * nothing sensitive — no token, no access — it only records "a machine
+ * claims this identity and is waiting at this loopback address."
  *
- * The workspace is NOT a parameter anywhere in this flow. It comes from the
- * code's own row inside the function, so a valid code cannot be aimed at a
- * different workspace even by a caller who knows one.
+ * `runtimeId` is supplied by the caller (not generated here), because it
+ * must stay stable across a re-pair of the same machine — see
+ * `exchange_pairing_attempt`'s upsert-on-conflict in policies/031.
  */
 
-/** SQLSTATEs raised by redeem_pairing_code, mapped to stable client tokens. */
-const CODE_ERRORS: Record<string, { status: number; reason: DaemonErrorReason }> = {
-  SPG01: { status: 400, reason: "unknown_code" },
-  SPG02: { status: 409, reason: "code_already_used" },
-  SPG03: { status: 410, reason: "code_expired" },
-};
+const ATTEMPT_TTL_MS = 5 * 60 * 1000;
 
 export async function POST(request: Request) {
   const body = await readJson(request);
   const identity = parseIdentity(body);
-  const code =
-    body && typeof body === "object"
-      ? String((body as Record<string, unknown>).code ?? "").trim()
-      : "";
+  const b = body && typeof body === "object" ? (body as Record<string, unknown>) : null;
+  const runtimeId =
+    b && typeof b.runtimeId === "string" && b.runtimeId.trim() ? b.runtimeId.trim() : "";
+  const callback = b && typeof b.callback === "string" ? b.callback.trim() : "";
 
-  if (!code || !identity) {
+  if (!identity || !runtimeId) {
     return daemonError(
       400,
       "invalid_request",
-      "A pairing code, hostname and os are all required.",
+      "A runtime id, hostname and os are all required.",
+    );
+  }
+  if (!callback || !isLoopbackCallback(callback)) {
+    return daemonError(
+      400,
+      "invalid_callback",
+      "The callback must be a plain-HTTP loopback address (127.0.0.1, ::1, or localhost).",
     );
   }
 
-  // 32 bytes of CSPRNG output. Generated here, hashed here, and handed to the
-  // database only as a hash -- the plaintext must never reach Postgres, where
-  // it would surface in pg_stat_statements and error messages.
-  const token = randomBytes(32).toString("base64url");
-  const runtimeId = randomUUID();
+  const attemptId = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + ATTEMPT_TTL_MS).toISOString();
 
-  const { data, error } = await daemonDb().rpc("redeem_pairing_code", {
-    p_code: code,
-    p_runtime_id: runtimeId,
-    p_token_hash: hashToken(token),
-    p_name: identity.name,
-    p_hostname: identity.hostname,
-    p_os: identity.os,
-    p_is_electron: identity.isElectron,
-    p_capabilities: identity.capabilities,
-    p_core_version: identity.coreVersion,
-  });
+  const { error } = await daemonDb()
+    .from("pairing_attempts")
+    .insert({
+      id: attemptId,
+      runtime_id: runtimeId,
+      name: identity.name ?? identity.hostname,
+      os: identity.os,
+      hostname: identity.hostname,
+      is_electron: identity.isElectron,
+      capabilities: identity.capabilities,
+      core_version: identity.coreVersion,
+      callback,
+      status: "pending",
+      expires_at: expiresAt,
+    });
 
   if (error) {
-    const mapped = CODE_ERRORS[error.code ?? ""];
-    if (mapped) return daemonError(mapped.status, mapped.reason, error.message);
-    // Anything else is ours, not the caller's. Log it server-side; do not
-    // hand the raw database error to an unauthenticated client.
-    console.error("pairing redemption failed", { code: error.code, message: error.message });
-    return daemonError(500, "server_error", "Could not complete pairing.");
+    console.error("failed to register pairing attempt", { code: error.code, message: error.message });
+    return daemonError(500, "server_error", "Could not start pairing.");
   }
 
-  const result = data as { runtimeId: string; workspaceId: string } | null;
-  if (!result?.runtimeId) {
-    return daemonError(500, "server_error", "Could not complete pairing.");
-  }
-
-  // The one and only time this token exists outside the daemon's secret store.
-  // Nothing above logs it, and nothing below may either.
-  const response: PairResponse = {
-    token,
-    runtimeId: result.runtimeId,
-    workspaceId: result.workspaceId,
+  const origin = siteOrigin(request, new URL(request.url));
+  const response: StartPairingAttemptResponse = {
+    attemptId,
+    confirmUrl: `${origin}/pair?attempt=${encodeURIComponent(attemptId)}`,
   };
   return NextResponse.json(response);
 }

@@ -155,6 +155,30 @@ export interface PairResponse {
   workspaceId: string;
 }
 
+/**
+ * True only for a plain-HTTP loopback address — `127.0.0.1`, `::1`, or
+ * `localhost` — never a public host. The one real guardrail on the
+ * zero-click-adjacent confirm flow: a `callback` outside this set could point
+ * a minted approval at an address the confirming user doesn't control.
+ *
+ * Deliberately narrower than multica's own `validateCliCallback`, which also
+ * allows RFC 1918 private IPs for a self-hosted-on-a-LAN-VM case
+ * (`references/multica/packages/views/auth/login-page.tsx:80-94`) — this
+ * flow only ever targets the literal machine the browser is running on, so
+ * that allowance has nothing to serve here.
+ */
+export function isLoopbackCallback(callback: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(callback);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "http:") return false;
+  const host = url.hostname.toLowerCase();
+  return host === "127.0.0.1" || host === "::1" || host === "[::1]" || host === "localhost";
+}
+
 export type RegisterRequest = RuntimeIdentity;
 
 export interface HeartbeatResponse {
