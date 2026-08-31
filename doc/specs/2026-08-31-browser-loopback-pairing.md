@@ -6,7 +6,7 @@
 | **Created** | 2026-08-31 |
 | **Trigger** | Owner, after reviewing how [multica](../../references/multica) pairs a local daemon to a workspace: "the pairing should be like finding a machine and pairing not with code." |
 | **Supersedes** | [`2026-08-16-setup-and-machines`](2026-08-16-setup-and-machines.md) US1 scenario 3, and US4 in full — both describe pairing-code behaviour that this spec replaces. Everything else in that spec (the Machines menu itself, the setup guide, machine status vocabulary) is untouched. |
-| **Plan** | not planned yet |
+| **Plan** | [`../plans/2026-08-31-browser-loopback-pairing.md`](../plans/2026-08-31-browser-loopback-pairing.md) |
 | **Open questions** | none — both forks below were decided live with the owner |
 
 > **Scope.** This spec covers only *how a machine and a workspace become
