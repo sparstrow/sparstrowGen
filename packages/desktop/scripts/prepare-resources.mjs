@@ -75,6 +75,18 @@ for (const name of ["memory-mcp", "memory-cli"]) {
   fs.copyFileSync(bundle, path.join(staging, name, "index.cjs"));
 }
 
+// 3. Web app: build Next.js standalone server
+run("pnpm --filter web build");
+const webDir = path.join(repoRoot, "apps", "web");
+const webStaging = path.join(staging, "web");
+mustExist(path.join(webDir, ".next", "standalone"), "web build failed or not standalone");
+copy(path.join(webDir, ".next", "standalone"), webStaging);
+// Standalone requires static assets to be copied manually
+copy(path.join(webDir, ".next", "static"), path.join(webStaging, ".next", "static"));
+if (fs.existsSync(path.join(webDir, "public"))) {
+  copy(path.join(webDir, "public"), path.join(webStaging, "public"));
+}
+
 // 3. Node runtime: the Node this script runs under IS the ABI the workspace's
 // native prebuilds were installed for — ship exactly that binary.
 const nodeDir = path.join(staging, "node-runtime");

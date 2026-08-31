@@ -21,6 +21,10 @@ export interface PackagedPaths {
   nodeBin: string;
   /** Supervisor log dir (lives under dataDir so it survives updates). */
   logDir: string;
+  /** Bundled Next.js standalone entry. */
+  webEntry: string;
+  /** cwd for the Next.js standalone server. */
+  webCwd: string;
 }
 
 /**
@@ -41,6 +45,8 @@ export function applyPackagedEnv(): PackagedPaths | null {
     coreCwd,
     nodeBin: path.join(res, "node-runtime", process.platform === "win32" ? "node.exe" : "node"),
     logDir: path.join(userData, "data", "logs"),
+    webEntry: path.join(res, "web", "server.js"),
+    webCwd: path.join(res, "web"),
   };
   process.env.SPARSTROW_PACKAGED = "1";
   // `??=` so an explicit override (e.g. pointing a packaged build at a test

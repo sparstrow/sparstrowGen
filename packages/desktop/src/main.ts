@@ -20,7 +20,9 @@ import { resolveAppUrl } from "./urls";
  * this window displays — and collapsing them would make pointing a window at
  * staging a code change. See doc/tasks/M7/README.md decision 6.
  */
-const APP_URL = resolveAppUrl(process.env);
+function getAppUrl() {
+  return resolveAppUrl(process.env, services.webPort);
+}
 
 // 0004 Phase 0: in packaged mode, point every data path at persistent
 // userData and every resource at the install dir BEFORE the supervisor spawns
@@ -132,7 +134,7 @@ function openWindow(): void {
       }
       // `validatedURL` rather than APP_URL: it is what actually failed, which
       // after an in-app navigation is not necessarily where the window started.
-      const failed = validatedURL || APP_URL || "the app";
+      const failed = validatedURL || getAppUrl() || "the app";
       console.warn(`[main] window failed to load ${failed}: ${errorDescription} (${errorCode})`);
       // Rebuilt per failure rather than cached, so the error named on screen is
       // the current one. Retry is a plain link back: it either succeeds, or
@@ -143,7 +145,8 @@ function openWindow(): void {
 
   // One line, so a support question is a log lookup rather than a guess about
   // where this build was pointed.
-  if (APP_URL === null) {
+  const appUrl = getAppUrl();
+  if (appUrl === null) {
     console.warn("[main] SPARSTROW_APP_URL is not set — nothing to load");
     void mainWindow.loadURL(
       offlineScreenUrl({
@@ -154,8 +157,8 @@ function openWindow(): void {
     );
     return;
   }
-  console.log(`[main] loading window: ${APP_URL}`);
-  void mainWindow.loadURL(APP_URL);
+  console.log(`[main] loading window: ${appUrl}`);
+  void mainWindow.loadURL(appUrl);
 }
 
 function quitApp(): void {

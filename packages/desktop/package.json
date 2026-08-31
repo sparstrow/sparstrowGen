@@ -11,6 +11,8 @@
     "test": "vitest run",
     "dist:prepare": "node scripts/prepare-resources.mjs",
     "dist": "npm run build && npm run dist:prepare && electron-builder --win nsis --publish never",
+    "dist:staging": "npm run build && npm run dist:prepare && electron-builder --win nsis -c.appId=\"com.sparstrow.sparstrowgen.staging\" -c.productName=\"Sparstrowgen Staging\" --publish never",
+    "dist:main": "npm run build && npm run dist:prepare && electron-builder --win nsis -c.appId=\"com.sparstrow.sparstrowgen\" -c.productName=\"Sparstrowgen\" --publish never",
     "dist:publish": "npm run build && npm run dist:prepare && electron-builder --win nsis --publish always"
   },
   "devDependencies": {
@@ -37,7 +39,8 @@
       { "from": "resources-staging/ui", "to": "ui", "filter": ["**/*"] },
       { "from": "resources-staging/memory-mcp", "to": "memory-mcp", "filter": ["**/*"] },
       { "from": "resources-staging/memory-cli", "to": "memory-cli", "filter": ["**/*"] },
-      { "from": "resources-staging/node-runtime", "to": "node-runtime", "filter": ["**/*"] }
+      { "from": "resources-staging/node-runtime", "to": "node-runtime", "filter": ["**/*"] },
+      { "from": "resources-staging/web", "to": "web", "filter": ["**/*"] }
     ],
     "win": {
       "target": "nsis"

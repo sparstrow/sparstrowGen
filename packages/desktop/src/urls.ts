@@ -36,12 +36,14 @@ export const DEFAULT_CORE_URL = "http://127.0.0.1:48750";
  * Whitespace-only is treated as unset: a `SPARSTROW_APP_URL=` line in an env
  * file is someone clearing the value, not asking to load the empty string.
  */
-export function resolveAppUrl(env: UrlEnv): string | null {
+export function resolveAppUrl(env: UrlEnv, localPort?: number | null): string | null {
   const configured = env.SPARSTROW_APP_URL?.trim().replace(/\/+$/, "");
-  return configured || null;
+  if (configured) return configured;
+  if (localPort) return `http://127.0.0.1:${localPort}`;
+  return null;
 }
 
 /** True when no app URL is configured — the window has nowhere to go. */
-export function isUnconfigured(env: UrlEnv): boolean {
-  return resolveAppUrl(env) === null;
+export function isUnconfigured(env: UrlEnv, localPort?: number | null): boolean {
+  return resolveAppUrl(env, localPort) === null;
 }
