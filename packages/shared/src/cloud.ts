@@ -116,11 +116,39 @@ export interface RuntimeIdentity {
   settings?: Record<string, string>;
 }
 
-export interface PairRequest extends RuntimeIdentity {
-  code: string;
+/**
+ * `POST /api/daemon/pair/attempts` request — the daemon registers itself
+ * before opening a browser, instead of a human generating and typing a code.
+ * `callback` is the daemon's own local loopback listener; validated
+ * loopback-only server-side before a row is even created.
+ */
+export interface StartPairingAttemptRequest extends RuntimeIdentity {
+  /** Stable across re-pairs of the same machine — generated once by the CLI. */
+  runtimeId: string;
+  callback: string;
 }
 
-/** The token is returned exactly once, here. It is never stored in plaintext. */
+/** `attemptId` is the bearer credential for `POST /api/daemon/pair/exchange` —
+ *  never displayed or typed, only ever held by the daemon process that
+ *  created it and embedded (as `?attempt=`) in the URL it opens a browser to. */
+export interface StartPairingAttemptResponse {
+  attemptId: string;
+  confirmUrl: string;
+}
+
+/**
+ * `POST /api/daemon/pair/exchange` — called by the daemon's own local
+ * listener, server-to-server, only after the browser has already redirected
+ * there post-approval. The real token is minted here and nowhere earlier, so
+ * a failed browser redirect after approval can never leave a runtime that
+ * exists with no process able to receive its token.
+ */
+export interface ExchangePairingAttemptRequest {
+  attemptId: string;
+}
+
+/** The token is returned exactly once, here. It is never stored in plaintext,
+ *  and it never reaches the browser at any point in this flow. */
 export interface PairResponse {
   token: string;
   runtimeId: string;
@@ -147,17 +175,20 @@ export interface DaemonIdentity {
 /**
  * Why a daemon request failed, as a stable token rather than prose.
  *
- * The CLI branches on these (T-M3-04 needs distinct messages for a typo, a
- * reused code and an expired one), and matching on message text breaks the
- * first time someone improves the wording.
+ * The CLI branches on these — a stale attempt, one already consumed, and one
+ * that expired all need distinct advice — and matching on message text
+ * breaks the first time someone improves the wording.
  *
- * `unknown_code` / `code_already_used` / `code_expired` map 1:1 to the
- * SQLSTATEs `redeem_pairing_code` raises: SPG01 / SPG02 / SPG03.
+ * `unknown_attempt` / `attempt_not_approved` / `attempt_already_consumed` /
+ * `attempt_expired` map 1:1 to the SQLSTATEs `exchange_pairing_attempt`
+ * raises: SPA01 / SPA02 / SPA03 / SPA04.
  */
 export type DaemonErrorReason =
-  | "unknown_code"
-  | "code_already_used"
-  | "code_expired"
+  | "unknown_attempt"
+  | "attempt_not_approved"
+  | "attempt_already_consumed"
+  | "attempt_expired"
+  | "invalid_callback"
   | "invalid_request"
   | "unauthenticated"
   | "revoked"
