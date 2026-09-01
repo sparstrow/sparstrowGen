@@ -45,8 +45,8 @@ export function applyPackagedEnv(): PackagedPaths | null {
     coreCwd,
     nodeBin: path.join(res, "node-runtime", process.platform === "win32" ? "node.exe" : "node"),
     logDir: path.join(userData, "data", "logs"),
-    webEntry: path.join(res, "web", "server.js"),
-    webCwd: path.join(res, "web"),
+    webEntry: path.join(res, "web", "apps", "web", "server.js"),
+    webCwd: path.join(res, "web", "apps", "web"),
   };
   process.env.SPARSTROW_PACKAGED = "1";
   // `??=` so an explicit override (e.g. pointing a packaged build at a test
