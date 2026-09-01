@@ -2025,7 +2025,7 @@ fix (a scheduled sweep of unreferenced objects under a workspace's prefix, or
 tightening `postResult`'s delivery guarantee) is the same shape for both
 causes.
 
-### G-54 — `development.sparstrow.com` is paused: Vercel's free-plan usage is exhausted
+### G-54 — the whole Vercel account is paused: free-plan usage is exhausted
 
 **Raised:** 2026-08-29, noticed mid-`T-DI-05` follow-up when a fresh navigation
 to `development.sparstrow.com` returned Vercel's own "This deployment is
@@ -2033,19 +2033,27 @@ temporarily paused" page instead of the app. Confirmed by the owner: this
 month's free-plan usage allowance is used up, and left as-is for now — not a
 misconfiguration, an accepted limitation.
 
-**What is true:** `staging.sparstrow.com` and `sparstrow.com` (`main`) were not
-checked in the same pass — this entry covers `development` specifically, the
-one an agent actually hit. Vercel resumes deployments automatically once the
-usage window resets or the plan is upgraded; there is no code-side fix. The
-underlying Supabase project (`pnymngoqseltgigcfevq`) is unaffected and still
-reachable directly — the `T-DI-05` follow-up work this same day ran entirely
-against a **local** dev server (`pnpm --filter web dev` pointed at the same
-project) once this was hit, which is the workaround: local-first per
-`AGENTS.md` §2 already covers day-to-day iteration, so this mainly blocks the
-*specific* step that calls for the deployed preview — a band's final live
-verification pass (`AGENTS.md` §2 rule 3) and anything that needs the real
-`development.sparstrow.com` origin (cross-browser links, redirect URLs, Vercel
-preview comments).
+**What is true:** account-level, not per-project or per-branch — confirmed on
+`development.sparstrow.com` originally, and directly observed by the owner on
+`staging.sparstrow.com` 2026-08-30 (a plain launch of the installed
+Sparstrowgen Staging desktop app, which loads that URL by default, showed the
+same "Deployment Paused" page). `sparstrow.com` (`main`) wasn't separately
+checked but should be assumed paused too on the same reasoning. Vercel resumes
+deployments automatically once the usage window resets or the plan is
+upgraded; there is no code-side fix. The underlying Supabase project
+(`pnymngoqseltgigcfevq`) is unaffected and still reachable directly — the
+`T-DI-05` follow-up work this same day ran entirely against a **local** dev
+server (`pnpm --filter web dev` pointed at the same project) once this was
+hit, which is the workaround: local-first per `AGENTS.md` §2 already covers
+day-to-day iteration, so this mainly blocks the *specific* step that calls for
+the deployed preview — a band's final live verification pass (`AGENTS.md` §2
+rule 3), anything that needs the real origin (cross-browser links, redirect
+URLs, Vercel preview comments), and now also **a normal launch of an
+installed desktop build on any channel**, which hits its channel's real
+`appUrl` by default and shows this same page unless
+`SPARSTROW_APP_URL` is set to point it at a local dev server instead (see
+[T-DR-05](tasks/DR/README.md#t-dr-05--fix-staging-non-draft-release-create-failing-githubs-tag-validation)'s
+Result section for exactly how that's done).
 
 **If wrong:** low. This is a dashboard/billing state, not a claim about the
 app; nothing here is "probably fine," it is directly observed (the paused page
@@ -2067,6 +2075,23 @@ entry names — a local dev server against the same live Supabase project,
 with a real signed-in disposable account — for every live check across five
 tasks, not newly adopted here. The band → `development` PR proceeds on that
 basis rather than waiting on a platform state this repo doesn't control.
+
+**Tried and reverted 2026-08-30.** Confirmed across ~7 real PR auto-merges
+this session that the failing Vercel check never once blocked a merge (it
+isn't a required status check) — the only real cost is noise: a permanent
+red X on every PR, plus a `<ci-monitor-event>` ping each time. Attempted to
+suppress it with `apps/web/vercel.json`'s `"ignoreCommand": "exit 0"`, on the
+assumption that it would make Vercel skip the build (shown as "skipped"
+rather than "failed"). **Didn't work, reverted the same day**: `vercel ls`
+against this branch's commit showed no deployment record was ever created —
+"Account is blocked" happens at Vercel's platform/billing gate, upstream of
+where a deployment would even be instantiated to evaluate `ignoreCommand`
+against. `ignoreCommand` only skips a build that Vercel has already agreed to
+attempt; it has no effect on an account-level refusal to start one at all.
+There is no code-level fix for this specific failure mode — only paying to
+lift the block, or disabling Vercel's GitHub status-check posting from its
+own dashboard (Project Settings → Git), which no agent in this repo has
+access to.
 
 ### G-55 — `T-AM1-02`/`T-AM1-03`'s produced-file pipeline has never run end to end against a live daemon
 
@@ -2231,3 +2256,4 @@ Fully clears only once that same live check is repeated inside a `project`
 chat bound to a real `rootDir`, confirming a file the agent edits inside the
 project folder produces neither a row nor a stored object (FR-016) — the
 requirement this whole spec turns on.
+

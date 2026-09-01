@@ -1,10 +1,15 @@
-name: Release
+name: Release (stable)
 
 # 0004 Phase 3 — the release gesture is a version tag: bump
 # packages/desktop/package.json's version, tag vX.Y.Z, push the tag. This
 # builds the self-contained NSIS installer and publishes it + latest.yml
 # (electron-updater's feed) to a GitHub Release; every always-on packaged app
 # then shows "Update available" and updates only on an explicit click.
+#
+# This is the stable counterpart to release-staging.yml — same
+# build-channel-config.mjs pipeline, "stable" channel: same appId/productName
+# the app has always shipped under, draft release (a human click is still the
+# gate), latest.yml as the update feed.
 #
 # THE TAG NAME IS NOT THE VERSION. electron-updater compares the installed
 # app's version against the version inside latest.yml, which comes from
@@ -59,12 +64,13 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
-      - run: pnpm --filter @sparstrow/ui build
       - run: pnpm --filter @sparstrow/memory-mcp build
       - run: pnpm --filter @sparstrow/memory-cli build
-      # dist:publish = tsc → prepare-resources (core bundle + pnpm deploy +
-      # node runtime) → electron-builder --publish always.
-      - run: pnpm --filter @sparstrow/desktop dist:publish
+      # dist:stable = tsc → prepare-resources (channel=stable) →
+      # build-channel-config → electron-builder --publish always (draft;
+      # release.yml's own generate-notes step below fills it, a human still
+      # clicks publish).
+      - run: pnpm --filter @sparstrow/desktop dist:stable
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # electron-builder leaves the release as an empty-bodied DRAFT. Fill the

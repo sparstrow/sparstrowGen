@@ -241,6 +241,56 @@ export function readLocalSkillBundle(
   return { ...base, files, skipped };
 }
 
+export interface ProjectSkillSummary {
+  /** Directory name under `<root>/.claude/skills/` — stable identity. */
+  key: string;
+  name: string;
+  description: string;
+  /** Absolute path to the SKILL.md, for a provider that can Read it on demand. */
+  sourcePath: string;
+}
+
+/**
+ * Project-scoped skills at `<projectRootDir>/.claude/skills/*\/SKILL.md` —
+ * Claude Code's own convention, discovered natively when `claude` runs in
+ * that directory. Other CLI providers (antigravity/agy) have no equivalent
+ * discovery, so a headless agy run never learns these skills exist even
+ * though they're sitting right there in the repo it's working on. This scan
+ * is how the in-band preamble (see orchestrator/preamble.ts) tells it.
+ *
+ * Listing only — doesn't read supporting files or enforce the trust
+ * boundary readLocalSkill does, because the caller (preamble) only ever
+ * needs name+description to advertise; the agent Reads the SKILL.md itself
+ * if it decides to use one, same as it reads any other repo file.
+ */
+export function discoverProjectSkills(projectRootDir: string): ProjectSkillSummary[] {
+  const skillsRoot = path.join(projectRootDir, ".claude", "skills");
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(skillsRoot, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const found: ProjectSkillSummary[] = [];
+  for (const e of entries) {
+    if (!e.isDirectory()) continue;
+    const sourcePath = path.join(skillsRoot, e.name, "SKILL.md");
+    try {
+      if (fs.statSync(sourcePath).size > MAX_SKILL_MD_BYTES) continue;
+      const { frontmatter } = parseSkillFrontmatter(fs.readFileSync(sourcePath, "utf8"));
+      found.push({
+        key: e.name,
+        name: frontmatter.name ?? e.name,
+        description: frontmatter.description ?? "",
+        sourcePath,
+      });
+    } catch {
+      // no SKILL.md in this dir, or unreadable — skip
+    }
+  }
+  return found.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 // ── Import from URL (ClawHub / skills.sh / GitHub / any raw SKILL.md) ──────
 
 const MAX_URL_BYTES = 1 << 20;

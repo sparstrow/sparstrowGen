@@ -69,3 +69,32 @@ describe("isUnconfigured", () => {
     expect(isUnconfigured({ SPARSTROW_APP_URL: "https://app.example.com" })).toBe(false);
   });
 });
+
+describe("resolveAppUrl with a local bundled server (packaged builds)", () => {
+  it("falls back to the local port when no env var is set", () => {
+    // A packaged build always spawns its own Next.js standalone server (see
+    // service-manager.ts's spawnWeb()) — the window loads that, not a remote
+    // host, once main.ts passes services.webPort through here.
+    expect(resolveAppUrl({}, 51234)).toBe("http://127.0.0.1:51234");
+  });
+
+  it("still lets an explicit env var override the local port", () => {
+    expect(resolveAppUrl({ SPARSTROW_APP_URL: "https://staging.sparstrow.com" }, 51234)).toBe(
+      "https://staging.sparstrow.com",
+    );
+  });
+
+  it("is null when neither the env var nor a local port is present — dev, unchanged", () => {
+    expect(resolveAppUrl({}, null)).toBeNull();
+    expect(resolveAppUrl({}, undefined)).toBeNull();
+  });
+
+  it("is null when the local port is 0 or otherwise falsy — nothing bound yet", () => {
+    expect(resolveAppUrl({}, 0)).toBeNull();
+  });
+
+  it("isUnconfigured reflects the same fallback", () => {
+    expect(isUnconfigured({}, 51234)).toBe(false);
+    expect(isUnconfigured({}, null)).toBe(true);
+  });
+});

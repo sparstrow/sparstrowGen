@@ -1,0 +1,1 @@
+# T-CH2-05 — verification\n\n**Status**: 🟡 Pending\n\n## Checklist\n- [ ] Run `pnpm typecheck` and `pnpm test`\n- [ ] E2E Browser verification script to test attaching 2 files\n- [ ] Verify `.diff` file appears on project edits\n- [ ] Verify chart toggles cleanly

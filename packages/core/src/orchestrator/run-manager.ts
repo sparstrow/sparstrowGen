@@ -328,6 +328,7 @@ export class RunManager {
       sandboxProjectSlug: isSandbox ? projectSlug : null,
       untrusted: isSandbox || delegated,
       effectiveTools,
+      projectRootDir: projectRootDir ?? null,
     });
     // P4 §2: project directives are GUARANTEED-injected — assembled here as their
     // own block (after the trusted preamble, before the token-budgeted <memory>

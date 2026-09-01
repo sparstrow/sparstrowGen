@@ -112,6 +112,12 @@ export const chatSessionListQuerySchema = z.object({
 });
 export type ChatSessionListQuery = z.infer<typeof chatSessionListQuerySchema>;
 
+export const chatSearchQuerySchema = z.object({
+  q: z.string().min(1),
+  limit: z.coerce.number().min(1).max(50).default(20),
+});
+export type ChatSearchQuery = z.infer<typeof chatSearchQuerySchema>;
+
 /**
  * A message becomes an argv-bound prompt on someone's machine (see
  * `TRANSCRIPT_BUDGET_BYTES` in `packages/core/src/chat/service.ts`, which

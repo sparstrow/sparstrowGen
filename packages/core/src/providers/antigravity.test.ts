@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Agent, PermissionMode } from "@sparstrow/shared";
-import { KNOWN_MODELS } from "@sparstrow/shared";
+import { DEFAULT_RUN_TIMEOUT_MS, KNOWN_MODELS } from "@sparstrow/shared";
 import { config } from "../config.js";
 import { AntigravityCliProvider, parseAgyModelsOutput } from "./antigravity.js";
 import type { HeadlessSpawnOptions, NormalizedEvent } from "./types.js";
@@ -132,6 +132,20 @@ describe("AntigravityCliProvider — headless spawn", () => {
       extraEnv: {},
     } as never);
     expect(spec.args).not.toContain("--disable-slash-commands");
+  });
+
+  // agy's own `--print-timeout` defaults to 5m (confirmed live via `agy
+  // --help`), shorter than Sparstrowgen's own 15m external kill
+  // (DEFAULT_RUN_TIMEOUT_MS) — left unset, agy would self-terminate a
+  // legitimate long task-board run at 5m with no indication the cause was
+  // its own unrelated internal clock.
+  it("raises agy's own print-mode timeout past Sparstrowgen's external kill", () => {
+    const spec = provider.buildHeadlessSpawn(agentWith(), "hi", headlessOpts);
+    const idx = spec.args.indexOf("--print-timeout");
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(idx).toBeLessThan(spec.args.indexOf("--print"));
+    const seconds = Number(spec.args[idx + 1]!.replace(/s$/, ""));
+    expect(seconds).toBeGreaterThan(DEFAULT_RUN_TIMEOUT_MS / 1000);
   });
 
   it("maps every PermissionMode exhaustively", () => {
@@ -421,6 +435,19 @@ describe("AntigravityCliProvider — extractResult (structured stream-json)", ()
     ];
     const r = provider.extractResult(events);
     expect(r.resultText).toBe("first line\nsecond line");
+    expect(r.isError).toBe(false);
+  });
+
+  it("extracts conversationId as sessionId and falls back to default text when a tool was executed", () => {
+    const lines = [
+      '{"event":"init","conversation_id":"conv-123","init":{"model":"Gemini 3.7 Flash (High)"}}',
+      '{"event":"step_update","step_update":{"conversation_id":"conv-123","step_index":1,"step_type":"tool","state":"ACTIVE","tool_name":"generate_image","tool_info":{"name":"generate_image","parameters":{}}}}',
+      '{"event":"result","result":{"conversation_id":"conv-123","status":"SUCCESS","response":"","num_turns":1}}',
+    ];
+    const events = lines.flatMap((l) => provider.parseLine(l));
+    const r = provider.extractResult(events);
+    expect(r.sessionId).toBeNull();
+    expect(r.resultText).toBe("Here is the generated output.");
     expect(r.isError).toBe(false);
   });
 });

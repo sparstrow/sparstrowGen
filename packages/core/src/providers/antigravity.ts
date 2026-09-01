@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import * as pty from "node-pty";
 import type { Agent, PermissionMode, ProviderHealth, RunResult } from "@sparstrow/shared";
-import { KNOWN_MODELS } from "@sparstrow/shared";
+import { DEFAULT_RUN_TIMEOUT_MS, KNOWN_MODELS } from "@sparstrow/shared";
 import { config } from "../config.js";
 import type {
   CliModelDiscovery,
@@ -29,6 +29,22 @@ import type {
  * Exported for its own test — verified against a real captured byte-for-
  * byte transcript from a live agy v1.1.22 process, not a hand-guessed one.
  */
+/**
+ * `agy --print-timeout` (confirmed live via `agy --help`, v1.1.22) defaults to
+ * 5 minutes and is agy's OWN internal give-up clock for a `--print` turn —
+ * separate from, and shorter than, Sparstrowgen's own external kill
+ * (`DEFAULT_RUN_TIMEOUT_MS`, 15 min — see orchestrator/run-manager.ts, the
+ * `setTimeout(... , timeoutMs)` that SIGTERMs the child). Left unset, agy
+ * would self-terminate a legitimate long-running task-board turn at 5
+ * minutes, well before Sparstrowgen's own 15-minute budget is up — the run
+ * would read as a provider failure/short reply with no indication the real
+ * cause was agy's own unrelated internal clock. Sized comfortably above
+ * Sparstrowgen's own timeout so that timeout always fires first and stays
+ * the single source of truth for "how long is too long" — this flag exists
+ * purely as agy's backstop, never the actual enforcement point.
+ */
+const AGY_PRINT_TIMEOUT_ARG = `${Math.ceil(DEFAULT_RUN_TIMEOUT_MS / 1000) + 120}s`;
+
 export function parseAgyModelsOutput(raw: string): string[] {
   const cleaned = raw
     .replace(/\x1b\][^\x07\x1b]*(\x07|\x1b\\)/g, "") // OSC ... BEL/ST (window-title sets)
@@ -198,6 +214,12 @@ export class AntigravityCliProvider implements CliProvider {
       agent.model,
       "--output-format",
       "stream-json",
+      // See AGY_PRINT_TIMEOUT_ARG's doc comment — agy's own internal
+      // print-mode clock defaults to 5m, shorter than Sparstrowgen's own
+      // 15m external kill, so it must be raised past that or agy cuts a
+      // long-running run short on its own.
+      "--print-timeout",
+      AGY_PRINT_TIMEOUT_ARG,
       // A headless spawn has no TTY, so an unattended, machine-global skill
       // installed under the operator's own ~/.claude/skills can never get
       // the tool permission it needs -- agy denies it immediately (observed
@@ -359,9 +381,7 @@ export class AntigravityCliProvider implements CliProvider {
         {
           type: "assistant",
           payload: {
-            message: {
-              content: [{ type: "tool_use", name: toolName, input: toolInfo?.parameters ?? {} }],
-            },
+            message: { content: [{ type: "tool_use", name: toolName, input: toolInfo?.parameters ?? {} }] },
           },
         },
       ];
@@ -373,6 +393,7 @@ export class AntigravityCliProvider implements CliProvider {
 
   extractResult(events: NormalizedEvent[]): RunResult {
     let resultEvent: Record<string, unknown> | null = null;
+
     for (let i = events.length - 1; i >= 0; i--) {
       const e = events[i];
       if (e?.type === "result") {
@@ -380,18 +401,32 @@ export class AntigravityCliProvider implements CliProvider {
         break;
       }
     }
+
     if (resultEvent) {
       const isError = resultEvent.subtype !== "success";
-      const structuredText =
+      let structuredText =
         typeof resultEvent.result === "string" && resultEvent.result.trim().length > 0
           ? resultEvent.result
           : lastAssistantText(events);
+
+      if (!isError && (!structuredText || structuredText.trim().length === 0)) {
+        const hadToolCall = events.some((e) => {
+          if (e.type !== "assistant") return false;
+          const p = e.payload as { message?: { content?: unknown } };
+          const c = p.message?.content;
+          return Array.isArray(c) && c.some((b: { type?: string }) => b.type === "tool_use");
+        });
+        if (hadToolCall) {
+          structuredText = "Here is the generated output.";
+        }
+      }
+
       const errorText = typeof resultEvent.error === "string" ? resultEvent.error.trim() : "";
       return {
         resultText: structuredText,
         costUsd: null, // agy reports no cost stats
         numTurns: typeof resultEvent.num_turns === "number" ? resultEvent.num_turns : null,
-        sessionId: null, // --conversation resume is out of scope (P8.1 parity)
+        sessionId: null,
         isError,
         errorMessage: isError ? errorText || "antigravity run failed" : undefined,
       };

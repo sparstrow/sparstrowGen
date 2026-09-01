@@ -1,9 +1,10 @@
 # BUG-2026-08-28-project-chat-cannot-choose-model-at-creation
 
-**Status:** 🔴 open
+**Status:** 🟢 resolved
 **Reported by:** agent — found while answering an owner question about whether
 free-chatting with a raw model about a project was already built
 **Reported:** 2026-08-28
+**Resolved:** 2026-08-29 (CS7 / `T-CS7-01`)
 
 ## Symptom
 
@@ -84,4 +85,8 @@ most contended by that band.
 
 ## Resolution
 
-<!-- Not resolved. -->
+Fixed in `CS7` (`T-CS7-01`):
+1. `apps/web/src/app/chat/chat.tsx`: `modelControls` updated to render `GhostSelect` (Provider) and `ModelPicker` (Model) when `draftKind === "free" || draftKind === "project"`.
+2. `apps/web/src/app/chat/chat.tsx`: `ensureSessionId()` updated to forward `provider: draftProvider, model: draftModel` for `draftKind === "project"` creation.
+3. Unit tests added to `apps/web/src/app/chat/actions.test.ts` verifying custom provider/model are persisted on project chat creation.
+4. Verified end-to-end with live browser automated verification in Playwright against `localhost:3000/chat`.

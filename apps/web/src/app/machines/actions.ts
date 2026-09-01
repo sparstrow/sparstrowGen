@@ -3,7 +3,7 @@
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { DAEMON_SETTABLE_KEYS, isRuntimeOnline } from "@sparstrow/shared";
-import type { PairingCode, Runtime, RuntimeProject } from "@web/api/hooks";
+import type { Runtime, RuntimeProject } from "@web/api/hooks";
 import {
   actionContext,
   actionErrorFrom,
@@ -14,54 +14,10 @@ import {
   type ActionResult,
 } from "@web/lib/action-result";
 
-/**
- * Code alphabet, chosen for being read aloud and retyped on another machine.
- * Moved verbatim from `POST /pairing-codes` (`handlers/runtimes.ts`).
- */
-const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-const CODE_LENGTH = 10;
-const CODE_TTL_MS = 10 * 60 * 1000;
-
-function generateCode(): string {
-  const limit = Math.floor(256 / ALPHABET.length) * ALPHABET.length;
-  let out = "";
-  while (out.length < CODE_LENGTH) {
-    for (const byte of randomBytes(CODE_LENGTH)) {
-      if (byte >= limit) continue;
-      out += ALPHABET[byte % ALPHABET.length];
-      if (out.length === CODE_LENGTH) break;
-    }
-  }
-  return `${out.slice(0, 5)}-${out.slice(5)}`;
-}
-
-/**
- * Moved verbatim from `POST /pairing-codes`. Member-level (`pairing_codes_own_insert`
- * RLS requires only workspace membership) — the caller's own supabase client
- * enforces this the same way it did as a route handler.
- */
-export async function createPairingCodeAction(): Promise<ActionResult<PairingCode>> {
-  const ctx = await actionContext();
-  if (!ctx) return actionFail(NOT_SIGNED_IN);
-
-  const {
-    data: { user },
-  } = await ctx.supabase.auth.getUser();
-  if (!user) return actionFail(NOT_SIGNED_IN);
-
-  const code = generateCode();
-  const expiresAt = new Date(Date.now() + CODE_TTL_MS).toISOString();
-
-  const { error } = await ctx.supabase.from("pairing_codes").insert({
-    code,
-    workspace_id: ctx.workspaceId,
-    created_by_user_id: user.id,
-    expires_at: expiresAt,
-  });
-  if (error) return actionErrorFrom(error);
-
-  return actionOk({ code, expiresAt });
-}
+// Pairing a machine no longer starts from anything in this file — browser-
+// loopback pairing (`/pair`, `apps/web/src/app/pair/actions.ts`) is initiated
+// entirely by `sparstrow pair` on the machine itself. What used to live here
+// as `createPairingCodeAction` is gone along with `pairing_codes`.
 
 /**
  * Moved verbatim from `PATCH /runtimes/:id`. Only `name` — everything else is

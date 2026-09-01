@@ -107,6 +107,31 @@ export function createChatSession(input: ChatSessionCreate): ChatSession {
   return rowToSession(db.select().from(chatSessions).where(eq(chatSessions.id, row.id)).get()!);
 }
 
+export function searchChatSessions(query: { q: string; limit: number }): ChatSession[] {
+  const db = getDb();
+  const likeQuery = `%${query.q}%`;
+
+  // We could use an inArray subquery for SQLite, but Drizzle sometimes makes that awkward without raw SQL.
+  // We'll just do a raw or() with like() on both title and a subselect.
+  // Actually, Drizzle allows a subquery in inArray. Let's do it cleanly.
+  // Import like and inArray at the top or use sql.
+  
+  // Since we already have sql imported at the top of service.ts:
+  const matches = db
+    .select()
+    .from(chatSessions)
+    .where(
+      sql`${chatSessions.title} LIKE ${likeQuery} OR ${chatSessions.id} IN (
+        SELECT ${chatMessages.sessionId} FROM ${chatMessages} WHERE ${chatMessages.content} LIKE ${likeQuery}
+      )`
+    )
+    .orderBy(desc(chatSessions.lastMessageAt))
+    .limit(query.limit)
+    .all();
+
+  return matches.map(rowToSession);
+}
+
 export function listChatSessions(query: ChatSessionListQuery): ChatSession[] {
   const db = getDb();
   const clauses: SQL[] = [];
