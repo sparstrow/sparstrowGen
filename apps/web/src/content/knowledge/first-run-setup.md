@@ -3,7 +3,7 @@ title: First-run setup
 section: Getting started
 description: Connect a provider, arm the factory, and confirm everything is healthy.
 order: 2
-updated: 2026-08-22
+updated: 2026-08-31
 ---
 
 **A new account lands on a Setup guide, not an empty dashboard.** It walks your profile,
@@ -62,8 +62,11 @@ Also the Setup guide's third step — do it there or here, they read the same li
 **Machines** — in the sidebar, under Workspace — lists the computers this workspace can
 reach. If it's empty, nothing can run.
 
-1. Click **Pair a machine** to generate a short code. It expires, so use it promptly.
-2. On the computer you want to use, run `sparstrow pair <code>`.
+Pairing starts on the computer itself, not in the browser — there's nothing to click here.
+
+1. On the computer you want to use, run `sparstrow pair`.
+2. It opens your browser to a confirm screen, already signed in — one press of
+   **Authorize this machine** and nothing else to type.
 3. It appears in the list and reads **active** while it's running.
 
 `sparstrow` isn't published yet, so that computer needs a checkout of this repository to
@@ -85,8 +88,11 @@ Full details: [Machines](/knowledge/machines).
 
 ## Known Limitations & Boundaries
 
-- **A pairing code works once and expires.** If it lapses, generate a fresh one — a
-  used code can't be reused on a second machine.
+- **Pairing needs a browser on the machine being paired.** A headless server or CI
+  runner with no local browser can't be paired today — see [Machines](/knowledge/machines)
+  for the full note.
+- **A pairing attempt expires after 5 minutes.** If it lapses before you confirm, run
+  `sparstrow pair` again.
 - **A machine shows offline within about 90 seconds of stopping**, because status is
   worked out from its last check-in rather than announced. A machine that crashes is
   indistinguishable from one that was unplugged, which is deliberate.

@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { actionContext } from "@web/lib/action-result";
 import {
   cloneProjectAction,
-  createPairingCodeAction,
   relinkProjectAction,
   removeRuntimeAction,
   renameRuntimeAction,
@@ -61,18 +60,6 @@ function mockCtx(queues: Record<string, Result[]>, opts: { user?: boolean } = {}
   };
   vi.mocked(actionContext).mockResolvedValue({ supabase: supabase as never, workspaceId: "ws_1" });
 }
-
-describe("createPairingCodeAction", () => {
-  it("issues a code and its expiry", async () => {
-    mockCtx({ pairing_codes: [{ data: null, error: null }] });
-    const result = await createPairingCodeAction();
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.data.code).toMatch(/^[A-Z0-9]{5}-[A-Z0-9]{5}$/);
-      expect(new Date(result.data.expiresAt).getTime()).toBeGreaterThan(Date.now());
-    }
-  });
-});
 
 describe("renameRuntimeAction", () => {
   it("rejects a blank name before writing", async () => {

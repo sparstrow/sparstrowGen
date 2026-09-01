@@ -1446,11 +1446,6 @@ export interface RuntimeProject {
   lastSeen: string | null;
 }
 
-export interface PairingCode {
-  code: string;
-  expiresAt: string;
-}
-
 export function useRuntimes(): UseQueryResult<Runtime[], ApiError> {
   return useQuery({
     queryKey: ["runtimes"],

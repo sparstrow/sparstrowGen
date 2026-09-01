@@ -3,7 +3,7 @@ title: Machines
 section: Surfaces
 description: Pair a computer to your workspace, read whether it's reachable, and rename, revoke or remove it.
 order: 8
-updated: 2026-08-22
+updated: 2026-08-31
 ---
 
 **Machines** is in the sidebar, under **Workspace**, directly after Runs. It lists every
@@ -14,17 +14,26 @@ execute — no run will start, however healthy everything else looks.
 
 ## Pair a machine
 
-1. Press **Pair a machine**. A short, single-use code appears with a live countdown.
-2. On the computer you want to pair, run `sparstrow pair <code>`.
-3. The machine appears in the list on its own — no refresh needed.
+There's no button here for this any more — pairing starts on the computer itself, not in
+the browser.
 
-If core was already running on that computer, restart it so it picks up the new pairing.
+1. On the computer you want to pair, run `sparstrow pair`.
+2. It opens your browser to a confirm screen, already signed in. Check the machine name
+   and workspace, then press **Authorize this machine**.
+3. The machine appears in this list on its own — no refresh needed.
+
+Nothing is ever shown to copy or type. If core was already running on that computer,
+restart it so it picks up the new pairing.
 
 > `sparstrow` isn't published yet. The machine needs a checkout of this repository to run
 > the command. Packaged installers are planned but not available.
 
-A code **works once and expires**. If it lapses before you use it, generate another — a
-code that has already been redeemed can't be reused on a second machine.
+> **`sparstrow pair` couldn't open a browser automatically?** It prints the URL to open
+> manually — paste it into a browser **on that same computer**. The confirm step finishes
+> by talking back to a listener only that machine can reach, so opening the link on a
+> different device (a phone, a laptop) won't complete the pairing even though the page
+> itself loads fine. A machine with no browser reachable from it at all — a bare headless
+> server, most CI runners — can't be paired today; this is a known gap, not an oversight.
 
 ## What a row tells you
 
@@ -53,8 +62,8 @@ check that provider's own login state on that machine.
 is what that machine is called everywhere, including on the Runs page.
 
 **Revoke** cuts the machine off on its very next request. The row stays in the list;
-pairing it again with a fresh code restores access — but see the note below, the same
-computer needs `--force`. Use it for a computer you no longer control.
+pairing it again restores access — but see the note below, the same computer needs
+`--force`. Use it for a computer you no longer control.
 
 **Remove** deletes the machine and its pairing from the workspace, along with anything
 recorded against it. The computer itself keeps its local data — pair it again to
@@ -63,10 +72,10 @@ reconnect, again with `--force` (see below).
 > **Re-pairing the same computer needs `--force`.** Revoking or removing a machine only
 > deletes its record in the workspace — nothing here can reach onto that computer's disk
 > and clear the token it already stored, so the CLI still sees itself as paired. Plain
-> `sparstrow pair <code>` is refused with "already paired"; run
-> `sparstrow pair <code> --force` instead. This is the CLI protecting against silently
-> moving a machine between workspaces, not a bug — it just means "pair it again" always
-> means "with `--force`" when it's the same computer.
+> `sparstrow pair` is refused with "already paired"; run `sparstrow pair --force` instead.
+> This is the CLI protecting against silently moving a machine between workspaces, not a
+> bug — it just means "pair it again" always means "with `--force`" when it's the same
+> computer.
 
 Both ask you to confirm, and the dialog says which of the two you're about to do.
 
@@ -88,8 +97,12 @@ What the snapshots themselves are, and how to recover from one, is in
 - **`sparstrow` is not installable yet.** Pairing requires a development checkout of the
   repository on the target machine. This is the single biggest friction in the flow and
   it is known, not overlooked.
-- **A pairing code works once and expires**, and cannot be re-sent or extended —
-  generate a fresh one.
+- **Pairing needs a browser on the machine being paired.** A headless server, most CI
+  runners, or anything with no local browser and nothing forwarding one can't be paired
+  today — the old code-you-could-type-anywhere flow is gone, and nothing has replaced its
+  ability to pair a machine you can't open a browser on.
+- **A pairing attempt expires after 5 minutes** if nobody confirms it — run the command
+  again to start a fresh one.
 - **Status is inferred from the last check-in, not announced.** A machine reads as
   unreachable roughly **90 seconds** after it stops. A machine that crashes looks
   identical to one that was shut down cleanly, because from the workspace's side it is.

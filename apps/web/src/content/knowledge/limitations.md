@@ -3,7 +3,7 @@ title: Limitations & gotchas
 section: Reference
 description: The honest list — what Sparstrowgen deliberately doesn't do, and the sharp edges to know about.
 order: 1
-updated: 2026-08-27
+updated: 2026-08-31
 ---
 
 Knowing the edges is part of knowing the tool. These are current and deliberate unless
@@ -82,7 +82,10 @@ marked otherwise.
 - **A machine reads unreachable about 90 seconds after it stops.** Status is derived
   from the last check-in, so a crash and a clean shutdown look the same for that
   window — which is why the app says "unreachable" rather than naming a cause.
-- **Pairing codes are single-use and expire.** Generate a new one per machine.
+- **Pairing a machine needs a browser on that machine.** `sparstrow pair` opens one
+  itself, already signed in — a headless server or CI runner with no local browser
+  can't be paired today. A pairing attempt also expires after 5 minutes if nobody
+  confirms it.
 - **Some settings are per-machine, not per-workspace** — work-in-progress snapshots and
   whether a machine allows browser terminals, for two. You can change them from the
   browser, but you change them *for one machine at a time*, on the

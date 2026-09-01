@@ -435,7 +435,10 @@ idea → spec → owner review → plan → tasks → code
   Interface & experience section covering all four states. **No technology in a
   spec** — no table names, endpoints, component names, or framework. If a
   sentence couldn't be read aloud to someone who has never seen the codebase,
-  it belongs in the plan.
+  it belongs in the plan. **Written with the `writing-specs` skill, not
+  freehand** — it has the elicitation questions, the four-state checklist, and
+  the closing-out steps (index row, `Status: Draft`, owner review) that this
+  bullet only summarizes.
 * **Every user story is independently demoable.** Build only that story and the
   owner still has something they can open and use. A story that delivers
   nothing alone is a technical step wearing a story's clothes — it belongs in
@@ -455,13 +458,25 @@ idea → spec → owner review → plan → tasks → code
 * **Every task carries a `Serves` row** naming its user story or the story
   phase it unblocks. A task that can name neither is a task nobody asked for.
 
-* **`doc/plans/`** — approved plans. The what and why. Uncertainty is allowed here.
+* **`doc/plans/`** — approved plans. The what and why. Uncertainty is allowed
+  here. **Written with the `writing-plans` skill, not freehand** — it has the
+  header-table shape, the foundational-vs-per-story split, and the Decisions
+  section this bullet only summarizes. A plan that defines a shared
+  `apps/web`↔`packages/core` contract delegates that piece to the
+  `designing-shared-contracts` skill; one that touches
+  `packages/shared/src/db/schema.ts` or RLS delegates to the `data-modeler`
+  agent (see the `data-modeling-and-rls` skill for its standards) — the plan
+  incorporates either's output rather than re-deriving it.
 * **`doc/tasks/`** — executable specs derived from an approved plan, one folder
   per phase, plus `MasterTaskQueue.md` holding the global run order.
   **A task document contains zero open questions: every decision it needs is
   already made and written down.** If converting a plan into tasks surfaces a
   question, it goes to `OpenQuestions.md` and blocks only the checklist item that
   depends on it — the rest of the task still gets built and ticked off.
+  Decomposing a plan into this folder is what the `decomposing-plans` skill
+  enforces (see §2.9's solo-operation rule); setting up the isolated
+  branch/worktree each task runs in is the `worktree-orchestration` skill's
+  job, including its per-worktree web dev-server port registry.
 * **Every task carries a checklist, an id, and a concurrency tag** (`[S]`
   sequential, `[P]` parallel, `[C]` concurrent — defined in
   `doc/tasks/MasterTaskQueue.md`). Tick items as they land; the queue is the
