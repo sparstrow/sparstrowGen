@@ -4,6 +4,29 @@ Newest first. Record token changes, new components, and new prototypes — *what
 changed. **Why** it changed goes in [`DECISIONS.md`](DECISIONS.md), which is the
 file to read before altering a design choice.
 
+## 2026-08-31
+
+- **`designs/Machines/machines.dc.html` rebuilt from scratch** against the
+  current doctrine (it predated `DESIGN.md` entirely) and against the current
+  pairing model (it still referenced the now-dropped `pairing_codes` table).
+  Adds the entity-tile pattern (§6), a full per-machine profile — the outer
+  tab strip + inner side sub-nav `DESIGN.md` §9 specifies, shipping to
+  Machines first per `DECISIONS.md` DD-008 — and provider-logo iconography,
+  closing the open item at `DESIGN.md` §13. See `DD-016` and the prototype's
+  own `machines.handoff.md` for the full sourcing/licensing story and
+  verification log.
+- Added `DD-016` — provider logos sourced from `simple-icons` (CC0), not from
+  `references/multica`'s vendored copies.
+- `lib/sparstrowgen-data.js`: added `PROVIDER_ICONS`; removed the stale
+  `examplePairingCode` export (the `pairing_codes` table it seeded no longer
+  exists — see `packages/shared/drizzle/0009_drop_pairing_codes.sql`).
+- **Found, not fixed here:** `ds.mjs check` surfaced 55 pre-existing drift
+  findings — `colors.css` was never re-synced after `DD-012` changed the
+  success/warning token model in the real app, and several tokens
+  (`--brand`, `--identity-*`, `--approval`, `--danger`) that now exist in
+  `packages/ui/src/styles/globals.css` were never mirrored in at all. Flagged
+  as a follow-up task, not fixed as a side effect of this prototype.
+
 ## 2026-08-24
 
 - **`packages/ui` finished narrowing to an actual design system** (`T-VR-07`,

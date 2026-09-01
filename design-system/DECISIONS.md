@@ -11,6 +11,65 @@ guidance: `.claude/skills/design-system/references/decision-log.md`.
 
 ---
 
+## DD-016 — Provider logos are sourced from simple-icons (CC0), never copied from a competitor
+
+**Date:** 2026-08-31 · **Asked by:** owner, while requesting the Machines
+prototype rebuild · **Surface:** `DESIGN.md` §13's open item ("Provider logo
+assets... sourcing and licensing is unresolved"), first raised by `DD-003`
+
+**Ask:** Build a complete Machines prototype including provider logos, and
+"get the assets from multica for all model logos like claude, qwen etc."
+
+**Why not multica's assets, literally as asked:** Read every provider-logo
+attribution comment in `references/multica`'s
+`packages/views/runtimes/components/provider-logo.tsx` (local, gitignored,
+read-only reference clone) before sourcing anything. Of multica's 24 vendored
+marks, most are either unlicensed brand trademarks copied without a stated
+right to redistribute (Cursor, Kiro, CodeArts, Antigravity, Trae, MiniMax,
+Hermes, Pi, Reasonix, Qoder, Grok, Kimi's hand-drawn wordmark) or improvised
+extractions from an installed app bundle's `.icns`/`.png` (DevEco, Dim) — that
+second category has no license basis at all, extraction isn't authorship.
+Only 2 of the 24 (QwenPaw via `agentscope-ai/QwenPaw`, Apache-2.0; DeepSeek
+Harness via `deepseek-ai/deepseek-harness`, MIT) carry a stated permissive
+license, and even those should be pulled from their own upstream repo rather
+than copied out of multica's copy. Multica's own root `LICENSE` separately
+restricts embedding/hosting its source generally — moot here since nothing
+was copied, but it would have mattered if it had been.
+
+**What was sourced instead:** [simple-icons](https://github.com/simple-icons/simple-icons),
+CC0 1.0 Universal per its own `LICENSE.md` (verified directly, not assumed).
+8 of the repo's slugs matched Sparstrowgen's real + anticipated provider set
+— `claude`, `claudecode`, `anthropic`, `ollama`, `qwen`, `deepseek`,
+`googlegemini`, `mistralai` — confirmed to exist by fetching the repo's live
+file tree in one API call, not guessed or assumed present. `antigravity` has
+no entry anywhere safe to source (too new for simple-icons; multica's own
+copy is the unlicensed installed-app-bundle extraction named above) —
+`providerBadge()` in `machines.dc.html` falls back to a plain neutral glyph
+for it, matching multica's own honest precedent for an unsourceable mark
+(its "ZeroClaw" placeholder, whose own comment says exactly this).
+
+**Colour was deliberately left unresolved.** Every mark renders monochrome
+(`currentColor` at `--muted-foreground`), not each brand's real colour.
+simple-icons ships single-path SVGs with no colour data — assigning each one
+a bespoke, contrast-verified brand tint is the same category of work `§2.3`'s
+brand-preset sweep did (caught real failures twice, `DD-004`/`DD-010`), and
+inventing untested colours here under time pressure would repeat exactly the
+mistake those two entries exist to warn against. Recorded as an explicit open
+question in `machines.handoff.md` rather than decided.
+
+**Generalises to:** Yes. Two rules for any future logo/brand-asset sourcing
+in this repo: (1) a competitor's own vendored copy of a third-party asset is
+not itself a redistribution license — check what *they* cite as their source
+and its license, don't copy their copy; (2) confirm an external asset
+actually exists (file tree / API check) before committing to a slug in
+prose or code — don't assume a plausible-sounding name resolves.
+
+**Status:** `machines.dc.html` / `sparstrowgen-data.js`'s `PROVIDER_ICONS` —
+2026-08-31. `DESIGN.md` §13's provider-logo bullet can be marked resolved for
+*sourcing*; the brand-colour question stays open.
+
+---
+
 ## DD-015 — What belongs in `packages/ui`: a design-system file knows nothing about Sparstrowgen's domain
 
 **Date:** 2026-08-24 — **Asked by:** `T-VR-07` — **Surface:** package boundary, not a screen

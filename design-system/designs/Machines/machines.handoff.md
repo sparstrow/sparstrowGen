@@ -3,192 +3,293 @@
 | | |
 |---|---|
 | **Prototype** | `machines.dc.html` |
-| **Provenance** | [`doc/specs/2026-08-16-setup-and-machines.md`](../../../../doc/specs/2026-08-16-setup-and-machines.md) — US1 |
-| **Mode** | build |
+| **Provenance** | List view: [`doc/specs/2026-08-16-setup-and-machines.md`](../../../../doc/specs/2026-08-16-setup-and-machines.md) US1 (now updated for browser-loopback pairing, not the code-based flow that spec was written against). Machine profile (tab strip + side sub-nav): **exploratory — no spec** — extends `DESIGN.md` §9's resolved *shape* and `design-system/DECISIONS.md` DD-003/DD-008, which explicitly say "still needs `product-requirements` before build." Provider logos: closes the open item at `DESIGN.md` §13. |
+| **Mode** | build (list) + explore (profile, provider logos) — see Provenance |
 | **Status** | draft |
 | **Design system** | mirror, at `design-system/` |
 
 ## What this is
 
-A first-class **Machines** destination: pair a machine, see every machine
-connected to the workspace with its status, rename/revoke/remove without
-leaving the page. Promotes the existing `RuntimesCard`
-(`packages/ui/src/components/runtimes-card.tsx`) out of Settings → Workspace →
-General into its own page, per spec decision 4.
+Rebuilds the stale (2026-08-17, pre-doctrine) Machines prototype from scratch:
+a machines **list** with the entity-tile pattern and provider-logo icon stacks,
+plus a brand-new per-machine **profile** — the outer tab strip + inner side
+sub-nav pattern `DESIGN.md` §9 specifies and DD-008 says should ship to
+Machines first. Clicking a row opens its profile as a closable tab
+(Overview / Providers / Activity / Settings), matching DD-003's exact ask:
+"showing which AI agents that machine holds — Claude, Antigravity, Ollama —
+each with an icon or logo."
 
-This prototype covers **US1 only** — acceptance scenarios 1–9. Scenarios 10–11
-(the Settings card actually being gone, never needing to open Settings) aren't
-demonstrable in a standalone mockup; they're implementation facts, not visual
-ones. US2 (the setup guide) is a separate surface, not attempted here.
+## Provider logos — the sourcing decision
+
+`DESIGN.md` §13 flagged this as unresolved ("the doctrine requires them (§2.1)
+and none exist in the repo. Sourcing and licensing is unresolved") and the
+request that produced this prototype specifically asked to source them from
+multica. **They are not sourced from multica.** `references/multica` (local,
+gitignored, read-only reference clone) vendors 24 provider logos in
+`packages/views/runtimes/components/provider-logo.tsx`, and per-logo
+attribution comments in that file show most are either unlicensed brand
+trademarks (Cursor, Kiro, CodeArts, Antigravity, Trae, MiniMax, Hermes, Pi,
+Reasonix, Qoder) or improvised extractions from installed app bundles (DevEco,
+Dim) — not safe to redistribute. Only 2 of the 24 carry a stated permissive
+license (QwenPaw/Apache-2.0, DeepSeek Harness/MIT), and even those should come
+from their own upstream repo, not a copy inside multica. Multica's own root
+LICENSE separately restricts hosted/embedded reuse of its source generally.
+
+Instead, every mark here is copied verbatim from
+[simple-icons](https://github.com/simple-icons/simple-icons)
+(`icons/<slug>.svg`), **CC0 1.0 Universal** per that repo's own `LICENSE.md`
+— verified directly against the file, not assumed. Existence of each slug was
+confirmed against the repo's live file tree (not guessed), one call, not
+per-icon. 8 slugs matched our real + anticipated provider set:
+
+| Capability string | simple-icons slug | Real today? |
+|---|---|---|
+| `claude-code` | `claudecode` | yes |
+| `anthropic-api` | `anthropic` | yes |
+| `ollama` | `ollama` | yes |
+| `antigravity` | **none exists** — no safe mark to source | yes |
+| `qwen` | `qwen` | anticipated (PATH-discovery) |
+| `deepseek` | `deepseek` | anticipated |
+| `gemini` | `googlegemini` | anticipated |
+| `mistral` | `mistralai` | anticipated |
+
+`antigravity` has no safe source (too new for simple-icons; multica's own copy
+is an unlicensed PNG pulled from an installed app bundle) — `providerBadge()`
+in `machines.dc.html` falls back to a plain neutral circle-glyph for it and for
+any capability string with no entry in `PROVIDER_ICONS`, matching multica's own
+honest precedent for its "ZeroClaw" placeholder rather than inventing a fake
+official mark.
+
+**Colour: rendered monochrome (`currentColor` at `--muted-foreground`)
+everywhere**, not each brand's real colour. simple-icons ships single-path,
+single-colour SVGs with no colour data attached — assigning each one a
+bespoke, *contrast-verified* brand tint is real doctrine work (the same rigor
+`DESIGN.md` §2.3's brand-preset sweep applied, caught twice by DD-004/DD-010)
+that this prototype does not attempt. See "Open questions" below.
 
 ## Component mapping
 
 | Prototype element | Use | Notes |
 |---|---|---|
-| Status dot + row | **existing** — the exact structure of `RuntimeRow` in `runtimes-card.tsx` | Reused near-verbatim, translated from JSX to vanilla JS |
-| Capability / "shutting down" badges | existing `Badge` (`secondary`/`outline` variants) | Real component in `@sparstrow/ui`; not yet catalogued in `design-system/components/` — worth adding next |
-| Revoke/remove confirm dialogs | existing `ConfirmDialog` (`packages/ui/src/components/ui/confirm-dialog.tsx`) | **Copy is verbatim from the real component** — not invented. Also not yet catalogued in the design system |
-| Rename input | existing `Input` | Catalogued — see `components/forms/` |
-| Pair button | existing `Button` `outline` variant | Catalogued — see `components/buttons/` |
-| Empty-state panel | existing pattern (dashed border, centered icon+copy+CTA) | Matches `RuntimesCard`'s empty state structure |
-| Loading skeleton | existing `Skeleton` | Not yet catalogued |
-| **Error state** | **NEW — no real component to reference** | See "Invented," below. The real `RuntimesCard` has no top-level fetch-error UI today |
-| Toast confirmation | existing `sonner` toast pattern | Visual only in this prototype — see Interactions |
-
-Two real components used here (`ConfirmDialog`, and the badge/skeleton pairing
-here) aren't in `design-system/components/` yet. Worth a follow-up `ds.mjs add`
-pass — this prototype is what surfaced the gap.
+| Entity tile + status dot | existing pattern, `DESIGN.md` §6 | Hand-rolled here (`.tile`/`.stdot`); real build uses the same pattern already in `machines.tsx`'s `MachineTile` |
+| Status pill/word | existing pattern | active=success, draining=warning, inactive=muted — matches `machineState()` in `packages/shared` |
+| Provider logo badge | **NEW** — `ProviderLogo` doesn't exist as a real component yet | `providerBadge()`/`PROVIDER_ICONS` in this prototype is the reference implementation; promote to a real `packages/ui` component (generic, capability string → icon) per DD-015's "would this make sense in a different product" test — it would |
+| Rename input | existing `Input`, inline-edit pattern already in `machines.tsx`'s `RuntimeRow` | Copied behavior verbatim: commit/cancel called directly from Enter/Escape, not via blur-routing |
+| Revoke/Remove confirm dialogs | existing `ConfirmDialog` | Copy verbatim from `machines.tsx`'s real `ConfirmDialog` usage |
+| Tab strip (outer) | **NEW** — `DESIGN.md` §9.1, no real component yet | One tab per open machine, closable, reused on re-click (never duplicates) — verified live, see Verification |
+| Side sub-nav (inner) | **NEW** — `DESIGN.md` §9, no real component yet | Overview/Providers/Activity/Settings |
+| Settings toggle switches | existing `Switch` (`SnapshotControl`/`TerminalAccessControl` in real `machines.tsx`) | Moved from always-visible row footers into the Settings sub-nav section — see "Invented" |
+| Empty/Loading/Error | existing `Empty`, `Skeleton`, inline error pattern | Copy for Empty/error matches `machines.tsx` verbatim; loading skeleton shape is this prototype's own |
 
 ## Token usage
 
-Everything used is already in `design-system/tokens/`. Nothing new needed —
-including `--warning` (for the "requires a dev checkout" honesty note) and
-`--destructive` (error state, remove confirm), both already catalogued.
+Everything used already exists in `design-system/tokens/`. One correction
+needed mid-build: `colors.css` still has the **pre-DD-012 pale-tint model**
+for `--success`/`--warning` (base token = pale tint, `-foreground` = the real
+colour) even though `DESIGN.md` §2.4 and the real `packages/ui/src/styles/globals.css`
+now use the DD-012 model (base token IS the colour). This prototype targets
+what `colors.css` **actually ships today** — `--success-foreground` /
+`--warning-foreground` for every solid mark (dots, status text, switch track),
+`--success`/`--warning` reserved for tint backgrounds — not what the doctrine
+now describes. `ds.mjs check` surfaced this as 55 pre-existing drift findings
+(token values AND newly-added tokens — `--brand`, `--identity-*`, `--approval`,
+`--danger` — that exist in `globals.css` but were never mirrored into
+`system.json`/`colors.css`). **None of this is caused by this prototype** —
+`system.json`'s `lastBuild` is 2026-08-22, well before DD-012 (2026-08-19 is
+when the rule was *written*, but the mirror was never re-synced after
+`globals.css` caught up) and the newer identity/brand/approval work landed.
+Flagged separately as a follow-up rather than fixed here — re-syncing the
+whole token mirror is its own task, not a side effect of one prototype.
 
 ## States
 
 | State | Reachable in prototype | Notes |
 |---|---|---|
-| Populated | yes — default | 4 machines: 2 active, 1 unreachable, 1 draining |
-| Empty | yes — devbar toggle, or the natural path (remove all 4 machines) | Copy matches the real empty state verbatim |
-| Loading | yes — devbar toggle | Skeleton shape, not a spinner, per `frontend-wiring` |
-| Error | yes — devbar toggle | **Copy is invented** — no real precedent exists. See below |
+| Populated | yes — default | 4 machines: 2 active, 1 unreachable, 1 draining. `workshop-desktop` carries the full anticipated provider set (8) to demonstrate icon-stack overflow (`+4`) and the Providers tab at full breadth — see "Invented" |
+| Empty | yes — devbar toggle | Copy matches the real `machines.tsx` empty state verbatim, including the "sparstrow isn't published yet" honesty note |
+| Loading | yes — devbar toggle | Skeleton shaped like the real row, not a spinner |
+| Error | yes — devbar toggle, with working Retry (→ loading → populated after 700ms) | Copy matches `machines.tsx`'s real error copy |
 
-The devbar state switcher at the top is **prototype-only**, not real product
-UI — it exists so a reviewer can see all four states without wiring a real
-failing request. Say so if this ever gets close to being mistaken for a design
-decision.
+The devbar list-state switcher and the "Simulate: machine just paired" /
+"Reset" buttons are **prototype-only**, not real product UI.
 
 ## Data contract
 
-Grounded in the real schema (`packages/shared/src/db/schema.ts`) rather than
-invented — all three tables below already exist and are already used by the
-real `RuntimesCard`:
+Grounded in the real schema (`packages/shared/src/db/schema.ts`'s `runtimes`
+table) via `design-system/lib/sparstrowgen-data.js`, which this prototype
+updated:
 
 | Field | Source | Exists? |
 |---|---|---|
-| `runtime.{id,name,os,hostname,capabilities,status,coreVersion,lastHeartbeat}` | `runtimes` table | yes |
-| Active/unreachable (2-state UI) | derived: `status === "online" \|\| "busy"` → active | yes — this is exactly what `runtime.online` already does in the real card |
-| `pairingCode.{code,expiresAt,consumedByRuntimeId}` | `pairing_codes` table | yes |
-| Revoke | `daemon_tokens.revokedAt` | yes |
-| Remove | delete the `runtimes` row (cascades) | yes |
-| **`GET /api/v1/runtimes` error shape** | — | **no real precedent** — the prototype's 503 text is invented, see below |
+| `runtime.{id,name,os,hostname,isElectron,capabilities,status,coreVersion,lastHeartbeat}` | `runtimes` table | yes |
+| `runtime.reportedSettings.{wipSnapshot,terminalAccess}` | `runtimes.reportedSettings` jsonb, per `SETTING_WIP_SNAPSHOT`/`SETTING_TERMINAL_ACCESS` in `packages/shared` | yes |
+| Machine "just paired" detection | client-side id-diffing against a known-ids baseline, per `machines.tsx`'s real `knownIdsRef` effect | yes — real logic, simulated here via a button instead of a real websocket/poll arrival |
+| Per-machine activity feed (Activity sub-nav) | — | **no backend today** — this section is a one-line placeholder, explicitly flagged in its own copy as future work |
+| `GET /api/v1/runtimes` error shape | — | same invented 503 copy the previous prototype used; still no real precedent |
 
-**No new backend work for US1.** Everything the spec asks for already has a
-table and, per `runtimes-card.tsx`, already has working mutations. This is
-different from US2, where decision 5/6 add real new columns (workspace/profile
-naming) — that's out of scope here.
+**No new backend work for the list or Settings/Overview sections** — every
+field they show already exists and already has working mutations
+(`renameRuntimeAction`, `revokeRuntimeTokenAction`, `removeRuntimeAction`,
+`setRuntimeSettingAction`, all in `apps/web/src/app/machines/actions.ts`).
+**The Providers and Activity sub-nav sections are presentation-only** over
+existing/absent data respectively — Providers reads the existing
+`capabilities` array, Activity has nothing behind it yet.
 
 ## Interactions
 
 | Interaction | Real or faked |
 |---|---|
-| State switcher (devbar) | **prototype-only tool**, not real UI |
-| Pairing code countdown | real, ticking via `setInterval`, matches `PairingCodePanel`'s logic |
-| Copy code button | calls the real `navigator.clipboard` API; shows a toast |
-| Inline rename (click name → edit → Enter/Escape) | real, local state only — no network call |
-| Revoke / Remove | real local-state mutation + the dialog; **no network call**, this is a mockup |
+| Devbar state switcher, Simulate-pair, Reset | **prototype-only tools**, not real UI |
+| Row click → opens machine profile as a new tab; re-click on an already-open machine focuses its tab, never duplicates | real behavior, local state — verified live |
+| Tab close (×) | real, local state |
+| Side sub-nav switching, state preserved per tab while switching between tabs | real, local state — verified live (switching Machines↔profile tab and back kept the profile's last-viewed sub-nav section) |
+| Inline rename (click name → edit → Enter/Escape) | real, local state only — no network call. **Enter must call `stopPropagation()`** — see "Found & fixed" below |
+| Revoke / Remove (from both the list row and the profile's Settings tab) | real local-state mutation + `ConfirmDialog` copy; **no network call** |
+| Settings toggles (Snapshot / Terminal access) | real local-state toggle; disabled with the real "unreachable" copy when the machine isn't active |
 | Retry (error state) | faked — jumps to loading then populated after 700ms, doesn't hit a real endpoint |
 
 ## Invented
 
-Everything here was decided by the prototype and approved by nobody:
-
-- **Error-state copy** (`Couldn't load machines`, the `503` detail line). No
-  real precedent exists anywhere in the codebase for this surface's fetch-error
-  UI — this is a first draft, not a source of truth.
-- **Exact pairing-instruction wording.** The prototype deliberately does *not*
-  repeat the real (broken) `sparstrow pair <code>` instruction — spec decision
-  3 requires honesty about needing a dev checkout — but the replacement text
-  ("Clone this repo... run the core pairing command") is a **placeholder**. The
-  actual correct command needs engineering confirmation before this ships;
-  don't copy this string into production without checking it.
-- **Nav placement.** Put "Machines" in the `Workspace` nav group
-  (`app-shell.tsx`'s `NAV_GROUPS`), directly after `Agents` — reasoning: agents
-  run on machines, so adjacency reads naturally. The spec only requires "one
-  click from anywhere," not a specific position.
-- **Capability values shown** (`claude-code`, `antigravity`, `ollama`) — real
-  provider names from the code comment in `runtimes-card.tsx`, but this exact
-  mix per machine is invented for the mockup.
-- **Toast copy** ("workshop-desktop revoked — pair again to restore access.").
-  Not sourced from anywhere real.
+- **Settings moved out of the list row into the profile's Settings tab.** The
+  real `machines.tsx` renders `SnapshotControl`/`TerminalAccessControl` as an
+  always-visible footer on every list row. Once a profile page exists, keeping
+  those full controls in the list too is redundant chrome the whole point of
+  DD-003's split was meant to remove — this prototype declutters the list
+  down to identity + status + providers + quick revoke/remove, and moves the
+  two settings blocks into Settings. **Not approved anywhere** — a real,
+  debatable UX call, not a doctrine requirement.
+- **`workshop-desktop`'s 8-capability list.** Real capability sets today are
+  2-3 items max (`claude-code`, `antigravity`, `ollama`, occasionally
+  `anthropic-api`). Bumped to 8 (adding `qwen`, `deepseek`, `gemini`,
+  `mistral`) specifically to demonstrate the icon-stack overflow affordance
+  and give the Providers tab something to show at real breadth. **Not a claim
+  about what any real machine reports today.**
+- **Activity sub-nav copy** ("3 runs in the last 24h..."). No real activity
+  feed exists for a machine; this is a placeholder shape, not sourced data.
+- **Provider logo colour: monochrome only.** See "Provider logos" above —
+  deliberate, pending real contrast-verified brand tints as separate work.
+- **`antigravity`'s fallback glyph** (a plain neutral circle-with-dot). No
+  official mark exists to source; this is a deliberate placeholder, not a
+  claimed logo.
+- **Tab strip / side sub-nav visual chrome** (height, icon sizing, active-tab
+  underline colour). `DESIGN.md` §13 already lists "tab strip visual design"
+  as deliberately undecided beyond the §9 contract (one tab per entity,
+  closable, unique labels, ARIA roles) — pixel-level choices here are this
+  prototype's own, not doctrine.
+- **Sub-nav section set** (Overview / Providers / Activity / Settings).
+  `entity-profile-board.html`'s reference board used Overview/Agents/
+  Activity/Settings; renamed "Agents" → "Providers" here since "Agents" is
+  Sparstrowgen's own name for a *different* first-class entity (the Agents
+  nav destination) and reusing it for a machine's provider list would read as
+  a navigation collision, not a section name.
 
 ## Open questions
 
-Carried from the spec's own Edge Cases section, rendered as a visible
-assumption rather than silently resolved:
-
-- *"Does a machine that paired but never started appear at all, or only after
-  its first heartbeat?"* — This prototype assumes it appears immediately
-  (matching the real `RuntimesCard`'s `justPaired` optimistic-detection
-  effect), shown as the toast/list-append the moment pairing completes. Not a
-  confirmed answer, just what the existing code already does.
+- Per `DESIGN.md` §13 (deliberately undecided, unchanged by this prototype):
+  should each provider logo eventually carry a real, contrast-verified brand
+  tint, or stay monochrome permanently as part of the doctrine's restraint
+  stance? This prototype renders monochrome and does not answer the question.
+- Should `antigravity` get a real mark once Google publishes brand assets for
+  it, or does Sparstrowgen design its own original glyph the way multica did
+  for ZeroClaw? Not decided — the current fallback is a generic placeholder,
+  not a considered answer either way.
+- DD-003 says the machine profile "still needs `product-requirements` before
+  build" — this prototype is explicitly exploratory (see Provenance) and does
+  not substitute for that.
 
 ## Not included
 
-- US2 (the setup guide) and US3–US5 — separate surfaces, own specs' worth of
-  work.
-- Real sidebar/router wiring — this is a page-content mockup, not a working
-  route.
-- Any real network call — every mutation here is local state, for review
-  speed. The real mutations (`useRenameRuntime`, `useRevokeRuntimeToken`,
-  `useRemoveRuntime`, `useCreatePairingCode`) already exist in
-  `packages/ui/src/api/hooks` and were not reinvented here.
+- Cost/usage tracking, agent-to-runtime binding, custom pricing, or a
+  workspace-visibility toggle — real functionality in multica's equivalent
+  page, but none of these have a backing data model in Sparstrowgen today.
+  Out of scope for a UI prototype; would need their own spec.
+- Remote CLI self-update (multica's `machine-cli-section.tsx`) — Sparstrowgen
+  has no update-push mechanism to a running daemon; not attempted.
+- Cascade-delete UX for agents bound to a runtime (multica's
+  `delete-runtime-dialog.tsx` two-mode confirm) — Sparstrowgen has no
+  agent-to-runtime binding concept to cascade over.
+- Real sidebar/router wiring — this is a page-content mockup inside a bounded
+  app-frame, not a working route or a real app-shell integration.
+- Any real network call — every mutation here is local state.
 
-## Verification — 2026-08-17
+## Verification — 2026-08-31
 
 **Tested:** `machines.dc.html`, served via `ds.mjs serve` at
 `localhost:4321/designs/Machines/machines.dc.html`, against this handoff's
-States/Interactions tables above and the real `runtimes-card.tsx` source.
+States/Interactions tables above and the real `machines.tsx`/`actions.ts`
+source, at 1250×850 and 1600×900 viewports.
 
 ### Checklist
-- [x] Populated state — 4 rows, correct dot color per status
-- [x] Empty state (devbar toggle)
+- [x] Populated state — 4 rows, correct entity tile + status dot colour per state (active=green, draining=amber, inactive=muted)
+- [x] Empty state (devbar toggle) — copy matches real page verbatim
 - [x] Loading state (devbar toggle) — skeleton shape, no header count shown
 - [x] Error state (devbar toggle) — no header count shown
-- [x] Retry (error → loading → populated, count restored)
-- [x] Pairing panel — code display, live countdown ticking, honesty warning box
-- [x] Copy pairing code — real clipboard write, toast shown
+- [x] Retry (error → loading → populated, count and data restored)
+- [x] Row click opens the machine's profile as a new tab
+- [x] Re-clicking a row for an already-open machine focuses its existing tab rather than duplicating (§9.1)
+- [x] Tab close (×) works, falls back to the list tab if the active tab is closed
+- [x] Side sub-nav: Overview, Providers, Activity, Settings all render distinct, correct content
+- [x] Providers tab: every capability renders its logo + label + id + "available" pill, including the `antigravity` fallback glyph
+- [x] Settings tab: both toggles switch state and persist while navigating sub-nav tabs
 - [x] Inline rename — commit via Enter
 - [x] Inline rename — cancel via Escape
-- [x] Revoke — confirm dialog copy, Cancel dismisses without side effect
-- [x] Revoke — confirm executes, dot/meta update, toast shown
-- [x] Remove — confirm dialog copy, Cancel dismisses without side effect
-- [x] Remove — confirm executes, row removed, count decrements, toast shown
+- [x] Revoke — confirm dialog copy, executes, dot/meta update, toast shown (tested from the list row)
+- [x] Remove — confirm dialog copy, executes, row removed, tab (if open) closes, count decrements, toast shown (tested from the profile's Settings tab)
+- [x] "Simulate: machine just paired" — appends a row, shows the dismissible just-paired panel
+- [x] Dismiss just-paired panel
+- [x] "Reset" restores the original 4-machine seed state
 - [x] Console clean across every state and action above
-- [x] `ds.mjs build` + `ds.mjs check --root design-system` — no drift
 
 ### Found & fixed
-- **Row status copy invented instead of matching the source it claims to
-  mirror.** The row meta line read `"active"` / `"unreachable · last seen
-  Xm ago"`. The handoff's own Component mapping table says the row structure
-  is reused "near-verbatim" from `runtimes-card.tsx` — but the real component
-  renders `runtime.online ? "online" : \`last seen ${relativeTime(...)}\``.
-  There is no `"active"`/`"unreachable"` anywhere in the source. Fixed in both
-  `machines.dc.html` and `machines.card.html` to use the real component's
-  exact wording. This was an authoring slip during the initial build, not a
-  deliberate invention — it should have been in "Invented" if intentional,
-  and wasn't, which is itself the signal that it was wrong.
-- **Header count badge went stale when previewing Empty/Loading/Error via the
-  devbar switcher.** `setState()` only toggled panel visibility; the count
-  badge (`#count`) is set once by `renderRows()` from the real `runtimes`
-  array and the switcher never touched it. Forcing "Empty" showed "Machines
-  3" in the header directly above a "No machines paired yet" body — a
-  visible self-contradiction for anyone clicking through the states, not
-  just a cosmetic nit. Fixed: `setState()` now sets the count to match the
-  state being previewed (0 for empty, hidden entirely for loading/error,
-  since a real client doesn't know the count yet in either of those), and
-  restores the real count on populated.
+- **Renaming via Enter also opened a profile tab for the row just renamed.**
+  The rename `<input>`'s `keydown` handler called `commit()` (which
+  re-renders the row, replacing the input with the button again) but never
+  called `stopPropagation()`. The same native Enter keydown event then
+  bubbled to the row's own keydown handler — wired for keyboard
+  accessibility (`DESIGN.md` §9.3: "every list row ... a real focusable,
+  keyboard-activatable control") to open the profile on Enter/Space. By the
+  time it bubbled up, the input was already gone from the DOM, so the row
+  handler's `e.target.closest("[data-rename]")` guard (meant to recognize
+  "we're still inside the rename control") found nothing and treated the
+  Enter as "open profile" too. Reproduced live, not theoretical: renaming
+  `workshop-desktop` opened a `workshop-desktop` profile tab in the same
+  action. Fixed by calling `stopPropagation()` in the input's Enter and
+  Escape handlers.
 
 ### Found & not fixed
 - None.
 
 ### Environment caveats
-- Testing the Enter-key rename path with this browser tool's `key` action
-  using the label `"Return"` produces a keydown event with `key: ""` (empty),
-  not `key: "Enter"` — the handler correctly never fires on it. This is a
-  tool key-naming detail (the label `"Enter"` produces a correct
-  `key: "Enter"` event and works as expected), not a bug in the prototype or
-  a repeat of the `document.hasFocus()` limitation found in the previous
-  verification pass. Confirmed by attaching a temporary listener and
-  comparing both key labels directly before concluding either way.
+- **`read_page`/`find`-returned element refs computed screen coordinates that
+  did not match the actual rendered position** in this session, consistently
+  and reproducibly — clicking a ref for "Rename workshop-desktop" or the
+  devbar's "Empty" button landed clicks tens to hundreds of pixels away from
+  the real control, on unrelated elements. Direct `computer` clicks using
+  coordinates read straight from a screenshot worked correctly every time.
+  All interaction testing above was done via screenshot-coordinate clicking,
+  not ref-based clicking, once this was discovered. Root cause not
+  determined — plausibly a viewport-scaling mismatch between the
+  accessibility-tree snapshot and the custom-resized (1250×850 / 1600×900)
+  viewport in this tool. Worth knowing before trusting `find`/ref clicks in a
+  custom-resized viewport in a future session.
+- **The key label `"Return"` still does not produce a real `Enter` keydown**
+  in this browser tool (confirmed again, same as the prior verification pass
+  on the old prototype) — use the label `"Enter"` instead. Re-confirmed live
+  here, not assumed from the old note.
+- **The first click after certain state transitions did not visibly repaint
+  in the very next screenshot** (Empty→Loading, Loading→Error each needed a
+  second click/screenshot to show the new state, even though the underlying
+  state had in fact changed — confirmed by the following screenshot showing
+  the correct, fully-updated state with no further input). Not reproduced
+  for every transition (row interactions inside the populated list painted
+  on the first screenshot every time) — narrow enough to be a rendering/paint
+  timing quirk of this specific tool combination, not a bug in the
+  prototype's own state machine, which never lagged behind its own `render()`
+  calls when inspected via the DOM.
+- Mono-surface and light-mode verification (`DESIGN.md`'s Do/Don't: "verify
+  new UI in both modes and at least Paper and Mono") were **not done** — the
+  surface-character theming contract (`DESIGN.md` §2, Paper/Slate/Soft/Mono)
+  is explicitly flagged there as not yet implemented anywhere in the app or
+  this design-system mirror (only one fixed dark palette exists in
+  `colors.css`), so there is no surface variant to switch to and verify
+  against yet.

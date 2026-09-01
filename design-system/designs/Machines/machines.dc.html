@@ -1,15 +1,15 @@
 <!doctype html>
 <html class="dark"><head><meta charset="utf-8">
 <title>Machines</title>
-<meta name="description" content="Machines as a top-level destination — US1, doc/specs/2026-08-16-setup-and-machines.md">
+<meta name="description" content="Machines list + per-machine profile (tab strip + side sub-nav, DD-003/DD-008) with provider logos, DESIGN.md §9/§13">
 <link rel="stylesheet" href="../../styles.css">
 <style>
   *{box-sizing:border-box}
   body{margin:0;background:var(--background);color:var(--foreground);font-family:var(--font-sans);font-size:14px}
-  .shell{max-width:900px;margin:0 auto;padding:var(--space-6) var(--space-5) 80px}
+  .page{max-width:1180px;margin:0 auto;padding:var(--space-6) var(--space-5) 80px}
 
   /* prototype-only reviewer control — not real product UI, see handoff */
-  .devbar{position:sticky;top:0;z-index:5;display:flex;justify-content:center;gap:6px;
+  .devbar{position:sticky;top:0;z-index:30;display:flex;flex-wrap:wrap;justify-content:center;gap:6px;
           padding:10px;background:color-mix(in oklab, var(--background) 90%, transparent);
           backdrop-filter:blur(6px);border-bottom:1px dashed var(--border);margin-bottom:var(--space-6)}
   .devbar button{font:inherit;font-size:11px;padding:4px 10px;border-radius:var(--radius-sm);
@@ -17,29 +17,68 @@
   .devbar button.active{background:var(--secondary);color:var(--secondary-foreground);border-color:transparent}
   .devbar .tag{font-size:10px;color:var(--muted-foreground);align-self:center;margin-right:6px;
           text-transform:uppercase;letter-spacing:.05em}
+  .devbar .sep{width:1px;align-self:stretch;background:var(--border);margin:0 4px}
 
+  /* ═══ app frame — the new outer tab strip + inner side sub-nav (DESIGN.md §9) ═══ */
+  .frame{border:1px solid var(--border);border-radius:var(--radius-xl);background:var(--background);
+         overflow:hidden;display:flex;flex-direction:column;height:720px;box-shadow:var(--shadow-popover)}
+
+  .tabstrip{display:flex;align-items:stretch;background:var(--card);border-bottom:1px solid var(--border);
+            height:38px;flex:none;overflow-x:auto}
+  .ts-home{display:flex;align-items:center;padding:0 12px;color:var(--muted-foreground);border-right:1px solid var(--border);flex:none}
+  .ts-tab{display:flex;align-items:center;gap:7px;padding:0 12px;font-size:12.5px;color:var(--muted-foreground);
+          border-right:1px solid var(--border);max-width:190px;position:relative;cursor:pointer;flex:none;
+          transition:color var(--transition-base),background-color var(--transition-base)}
+  .ts-tab:hover{background:var(--accent)}
+  .ts-tab.on{background:var(--background);color:var(--foreground);font-weight:600}
+  .ts-tab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--brand,var(--foreground))}
+  .ts-tab .dot{width:6px;height:6px;border-radius:999px;flex:none}
+  .ts-tab .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ts-tab .x{opacity:0;margin-left:2px;color:var(--muted-foreground);border-radius:3px;padding:1px;flex:none}
+  .ts-tab:hover .x, .ts-tab.on .x{opacity:.7}
+  .ts-tab .x:hover{opacity:1 !important;background:var(--secondary)}
+
+  .fbody{display:grid;grid-template-columns:1fr;flex:1;min-height:0}
+  .fcontent{padding:var(--space-5);overflow:auto;min-width:0}
+
+  /* ═══ list view ═══ */
   .crumb{font-size:12px;color:var(--muted-foreground);margin-bottom:6px}
-  .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-5)}
+  .header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:2px}
   .header h1{margin:0;font-size:18px;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
   .count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;
          padding:0 6px;border-radius:999px;background:var(--secondary);color:var(--secondary-foreground);
          font-size:11px;font-weight:600}
-  .subtitle{margin:2px 0 0;font-size:13px;color:var(--muted-foreground)}
+  .subtitle{margin:4px 0 var(--space-5);font-size:13px;color:var(--muted-foreground);max-width:60ch}
+  .cli-chip{border:1px solid var(--border);background:color-mix(in oklab, var(--muted) 55%, transparent);
+            border-radius:var(--radius-md);padding:6px 12px;font-family:var(--font-mono);font-size:12.5px;flex:none}
 
-  .panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-5)}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+
+  /* just-paired panel */
+  .justpaired{display:flex;align-items:flex-start;gap:10px;border-radius:var(--radius-lg);
+             background:color-mix(in oklab, var(--muted) 40%, transparent);padding:var(--space-4) var(--space-5);
+             margin-bottom:var(--space-5)}
+  .justpaired .ok-badge{flex:none;width:28px;height:28px;border-radius:999px;display:flex;align-items:center;
+             justify-content:center;background:color-mix(in oklab, var(--success) 15%, transparent);color:var(--success-foreground)}
+  .justpaired p{margin:0;font-size:13px}
+  .justpaired .sub{color:var(--muted-foreground);margin-top:2px}
+  .justpaired .dismiss{margin-left:auto}
 
   /* empty state */
-  .empty{border:1px dashed var(--border);border-radius:var(--radius-lg);padding:40px 24px;text-align:center}
+  .empty{border:1px dashed var(--border);border-radius:var(--radius-lg);padding:44px 24px;text-align:center}
   .empty svg{opacity:.5;margin-bottom:10px}
   .empty h3{margin:0 0 4px;font-size:14px;font-weight:600}
-  .empty p{margin:0 auto;max-width:380px;font-size:13px;color:var(--muted-foreground);line-height:1.55}
-  .empty .cta{margin-top:var(--space-4)}
+  .empty p{margin:0 auto;max-width:420px;font-size:13px;color:var(--muted-foreground);line-height:1.55}
+  .empty code{display:block;margin:14px auto 0;max-width:260px;background:var(--background);border:1px solid var(--border);
+             border-radius:var(--radius-md);padding:8px 10px;font-family:var(--font-mono);font-size:12.5px}
+  .empty .hint{margin-top:8px;font-size:11.5px}
+  .empty .note{margin-top:14px;font-size:11px;color:var(--muted-foreground);max-width:440px}
 
   /* skeleton / loading */
   @keyframes sgPulse{0%,100%{opacity:1}50%{opacity:.45}}
-  .sk{height:44px;border-radius:var(--radius-md);background:var(--muted);animation:sgPulse 1.4s ease infinite;
-      margin-bottom:8px}
-  .sk:last-child{margin-bottom:0}
+  .sk{border-radius:var(--radius-md);background:var(--muted);animation:sgPulse 1.4s ease infinite}
+  .sk-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)}
+  .sk-row:last-child{border-bottom:0}
 
   /* error state */
   .err-box{border:1px solid color-mix(in oklab, var(--destructive) 45%, var(--border));
@@ -51,59 +90,113 @@
   .err-detail{font-size:12.5px;color:var(--muted-foreground);margin:0;font-family:var(--font-mono)}
   .err-retry{margin-top:10px}
 
-  /* pairing */
-  .pair-panel{border:1px solid var(--border);border-radius:var(--radius-lg);background:color-mix(in oklab, var(--muted) 55%, transparent);
-              padding:var(--space-4);margin-bottom:var(--space-5)}
-  .pair-code-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .pair-code{font-family:var(--font-mono);font-size:22px;font-weight:600;letter-spacing:.2em}
-  .pair-step{margin:10px 0 0;font-size:12.5px;color:var(--muted-foreground)}
-  .pair-cmd{display:block;margin-top:6px;background:var(--background);border:1px solid var(--border);
-            border-radius:var(--radius-md);padding:8px 10px;font-family:var(--font-mono);font-size:12px}
-  .pair-timer{margin:10px 0 0;font-size:11.5px;color:var(--muted-foreground)}
-  .pair-timer.warn{color:var(--destructive)}
-  .pair-honest{margin-top:8px;font-size:11.5px;color:var(--warning-foreground);
-               background:color-mix(in oklab, var(--warning) 55%, transparent);
-               border-radius:var(--radius-sm);padding:6px 8px;display:inline-flex;gap:6px;align-items:flex-start}
-
-  /* buttons + badges, matching the button/badge cards' own tokens */
+  /* buttons + badges */
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;
        border-radius:var(--radius-md);font-size:13px;font-weight:500;border:0;cursor:pointer;
        height:32px;padding:0 12px;font-family:inherit;transition:background-color var(--transition-base)}
-  .btn-outline{background:var(--background);color:var(--foreground);border:1px solid var(--border);box-shadow:var(--shadow-popover)}
+  .btn-outline{background:var(--background);color:var(--foreground);border:1px solid var(--border)}
   .btn-outline:hover{background:var(--accent)}
   .btn-ghost{background:transparent;color:var(--muted-foreground);height:28px;width:28px;padding:0}
   .btn-ghost:hover{background:var(--accent);color:var(--foreground)}
   .btn-destructive{background:var(--destructive);color:var(--destructive-foreground)}
+  .btn-sm{height:26px;padding:0 9px;font-size:12px}
   .btn:disabled{opacity:.5;pointer-events:none}
 
-  .bdg{display:inline-flex;align-items:center;gap:1px;border-radius:var(--radius-sm);
-       padding:2px 7px;font-size:11px;font-weight:500}
+  .bdg{display:inline-flex;align-items:center;gap:5px;border-radius:var(--radius-sm);
+       padding:3px 8px 3px 5px;font-size:11px;font-weight:500}
   .bdg-secondary{background:var(--secondary);color:var(--secondary-foreground)}
-  .bdg-outline{color:var(--muted-foreground);border:1px solid var(--border)}
+  .bdg-outline{color:var(--muted-foreground);border:1px solid var(--border);padding:3px 8px}
+  .bdg svg{flex:none}
+
+  /* ═══ entity tile — DESIGN.md §6, the single most important visual pattern ═══ */
+  .tile{position:relative;flex:none;display:flex;align-items:center;justify-content:center;
+        width:32px;height:32px;border-radius:var(--radius-md);background:var(--accent);color:var(--muted-foreground)}
+  .tile .stdot{position:absolute;left:-2px;bottom:-2px;width:9px;height:9px;border-radius:999px;
+              ring:2px;box-shadow:0 0 0 2px var(--card)}
+  .tile.lg{width:40px;height:40px;border-radius:var(--radius-lg)}
+  .tile.lg .stdot{width:10px;height:10px}
+  .dot-active{background:var(--success-foreground)}
+  .dot-draining{background:var(--warning-foreground)}
+  .dot-inactive{background:color-mix(in oklab, var(--muted-foreground) 45%, transparent)}
 
   /* machine rows */
-  .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+  .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);
+       cursor:pointer;transition:background-color var(--transition-base)}
+  .row:hover{background:var(--accent)}
   .row:last-child{border-bottom:0}
-  .dot{width:8px;height:8px;border-radius:999px;flex-shrink:0}
-  .dot.active{background:var(--success-foreground)}
-  .dot.inactive{background:color-mix(in oklab, var(--muted-foreground) 40%, transparent)}
   .rinfo{min-width:0;flex:1}
   .rname-row{display:flex;align-items:center;gap:6px}
-  .rname-btn{background:none;border:0;padding:0;font:inherit;font-size:13px;font-weight:500;color:var(--foreground);
+  .rname-btn{background:none;border:0;padding:0;font:inherit;font-size:13px;font-weight:600;color:var(--foreground);
              cursor:pointer;display:flex;align-items:center;gap:6px}
   .rname-btn .pencil{opacity:0;transition:opacity var(--transition-base)}
   .rname-btn:hover .pencil{opacity:.6}
   .rname-input{height:26px;font:inherit;font-size:13px;background:var(--background);border:1px solid var(--ring);
               border-radius:var(--radius-sm);padding:0 8px;color:var(--foreground);box-shadow:0 0 0 2px var(--ring)}
-  .rmeta{margin:2px 0 0;font-size:12px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .rcaps{display:flex;flex-wrap:wrap;gap:5px}
+  .rmeta{margin:2px 0 0;font-size:12px;color:var(--muted-foreground)}
+  .rmeta .active{color:var(--success-foreground);font-weight:500}
+  .rmeta .draining{color:var(--warning-foreground);font-weight:500}
+  .rcaps{display:flex;flex-wrap:wrap;align-items:center;gap:5px;max-width:280px}
+  .rcaps .overflow{color:var(--muted-foreground);font-size:11px;padding:3px 6px}
   .ractions{display:flex;align-items:center;gap:2px}
+  .chev{color:var(--muted-foreground);flex:none}
+
+  /* ═══ profile view ═══ */
+  .profile{display:flex;gap:var(--space-5);height:100%}
+  .subnav{width:150px;flex:none;display:flex;flex-direction:column;gap:1px}
+  .subnav-h{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted-foreground);
+           font-weight:700;padding:0 8px;margin:0 0 6px}
+  .sn{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--radius-sm);
+     color:var(--muted-foreground);font-size:12.5px;cursor:pointer;transition:background-color var(--transition-base)}
+  .sn:hover{background:var(--accent)}
+  .sn.on{background:color-mix(in oklab, var(--accent) 70%, transparent);color:var(--foreground);font-weight:600}
+  .pmain{flex:1;min-width:0;overflow:auto}
+  .phd{display:flex;align-items:center;gap:12px;margin-bottom:var(--space-5);padding-bottom:var(--space-4);
+      border-bottom:1px solid var(--border)}
+  .phd h2{margin:0;font-size:16px;font-weight:700}
+  .phd .pm{font-size:12px;color:var(--muted-foreground);margin-top:2px}
+  .phd-actions{margin-left:auto;display:flex;gap:6px}
+
+  .sect-h{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-foreground);
+         font-weight:700;margin:0 0 10px}
+  .kv{display:grid;grid-template-columns:130px 1fr;gap:10px 0;font-size:12.5px;max-width:520px}
+  .kv .k{color:var(--muted-foreground)}
+  .kv .v{font-family:var(--font-mono);font-size:12px}
+  .kv .v.status-active{color:var(--success-foreground);font-family:inherit;font-weight:600}
+  .kv .v.status-draining{color:var(--warning-foreground);font-family:inherit;font-weight:600}
+  .kv .v.status-inactive{color:var(--muted-foreground);font-family:inherit;font-weight:600}
+
+  .provrow{display:flex;align-items:center;gap:11px;padding:11px 4px;border-bottom:1px solid var(--border)}
+  .provrow:last-child{border-bottom:0}
+  .provrow .pname{font-size:13px;font-weight:600}
+  .provrow .pid{font-size:11px;color:var(--muted-foreground);font-family:var(--font-mono)}
+  .provrow .pill{margin-left:auto;padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:500}
+  .pill-available{background:color-mix(in oklab, var(--success) 15%, transparent);color:var(--success-foreground)}
+  .prov-empty{border:1px dashed var(--border);border-radius:var(--radius-lg);padding:28px 20px;text-align:center;
+             color:var(--muted-foreground);font-size:12.5px}
+
+  .settings-block{border-bottom:1px solid var(--border);padding:var(--space-4) 0}
+  .settings-block:first-child{padding-top:0}
+  .settings-block:last-child{border-bottom:0}
+  .settings-block .row-flex{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+  .settings-block .lbl{font-size:12.5px;font-weight:600}
+  .settings-block .desc{font-size:11.5px;color:var(--muted-foreground);margin-top:2px;max-width:52ch}
+  .settings-block.danger .lbl{color:var(--destructive)}
+  .switch{position:relative;width:32px;height:18px;border-radius:999px;background:var(--secondary);
+         border:0;cursor:pointer;flex:none;transition:background-color var(--transition-base)}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:999px;
+                background:var(--foreground);transition:transform var(--transition-base)}
+  .switch.on{background:var(--success-foreground)}
+  .switch.on::after{transform:translateX(14px);background:var(--background)}
+  .switch:disabled{opacity:.5;cursor:not-allowed}
+
+  .act-list{font-size:12.5px;color:var(--muted-foreground);line-height:1.7}
+  .act-list b{color:var(--foreground)}
 
   /* confirm dialog */
   .overlay{position:fixed;inset:0;background:rgb(0 0 0 / .5);display:flex;align-items:center;justify-content:center;
-           z-index:20;opacity:0;pointer-events:none;transition:opacity var(--transition-base)}
+           z-index:50;opacity:0;pointer-events:none;transition:opacity var(--transition-base)}
   .overlay.open{opacity:1;pointer-events:auto}
-  .dialog{width:400px;max-width:calc(100vw - 32px);background:var(--popover);color:var(--popover-foreground);
+  .dialog{width:420px;max-width:calc(100vw - 32px);background:var(--popover);color:var(--popover-foreground);
           border:1px solid var(--border);border-radius:var(--radius-xl);padding:var(--space-5);
           box-shadow:0 18px 44px -14px rgb(0 0 0 / .65);transform:translateY(6px);transition:transform var(--transition-base)}
   .overlay.open .dialog{transform:none}
@@ -111,69 +204,36 @@
   .dialog p{margin:0 0 var(--space-4);font-size:13px;color:var(--muted-foreground);line-height:1.55}
   .dialog .actions{display:flex;justify-content:flex-end;gap:8px}
 
-  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(0);
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
          background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);
          padding:8px 14px;font-size:12.5px;display:flex;align-items:center;gap:8px;
-         box-shadow:var(--shadow-popover);opacity:0;transition:opacity var(--transition-base)}
+         box-shadow:var(--shadow-popover);opacity:0;transition:opacity var(--transition-base);z-index:60}
   .toast.show{opacity:1}
+
+  @media (prefers-reduced-motion: reduce){ *{transition-duration:1ms !important;animation-duration:1ms !important} }
 </style></head>
 <body>
 
 <div class="devbar" role="toolbar" aria-label="Prototype state switcher — not real product UI">
-  <span class="tag">State</span>
+  <span class="tag">List state</span>
   <button data-state="populated" class="active">Populated</button>
   <button data-state="empty">Empty</button>
   <button data-state="loading">Loading</button>
   <button data-state="error">Error</button>
+  <span class="sep"></span>
+  <button id="simulate-pair-btn">Simulate: machine just paired</button>
+  <button id="reset-btn">Reset</button>
 </div>
 
-<div class="shell">
-  <div class="crumb">Workspace</div>
-  <div class="header">
-    <h1>Machines <span class="count" id="count">4</span></h1>
-  </div>
-  <p class="subtitle" style="margin-top:-10px;margin-bottom:var(--space-5)">
-    Machines running Sparstrow core that this workspace can reach. Agents run on these, not in the browser.
-  </p>
-
-  <!-- ── PAIRING (populated + empty share this) ───────────────────────────── -->
-  <div id="pairing-area"></div>
-
-  <!-- ── POPULATED ─────────────────────────────────────────────────────────── -->
-  <div id="state-populated" class="panel" style="display:none">
-    <div id="rows"></div>
-  </div>
-
-  <!-- ── EMPTY ─────────────────────────────────────────────────────────────── -->
-  <div id="state-empty" style="display:none">
-    <div class="empty">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-      <h3>No machines paired yet</h3>
-      <p>Pairing links a computer running Sparstrow core to this workspace, so agents have somewhere to run. Generate a code, then run the pairing command on that machine.</p>
-      <div class="cta"><button class="btn btn-outline" id="empty-pair-btn">Pair a machine</button></div>
-    </div>
-  </div>
-
-  <!-- ── LOADING ───────────────────────────────────────────────────────────── -->
-  <div id="state-loading" class="panel" style="display:none">
-    <div class="sk"></div><div class="sk"></div><div class="sk" style="width:70%"></div>
-  </div>
-
-  <!-- ── ERROR (invented — no real precedent, see handoff) ────────────────── -->
-  <div id="state-error" style="display:none">
-    <div class="err-box">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-      <div>
-        <p class="err-title">Couldn't load machines</p>
-        <p class="err-detail">GET /api/v1/runtimes → 503 control plane unreachable</p>
-        <button class="btn btn-outline err-retry" id="error-retry-btn">Retry</button>
-      </div>
+<div class="page">
+  <div class="frame" id="frame">
+    <div class="tabstrip" id="tabstrip"></div>
+    <div class="fbody">
+      <div class="fcontent" id="content"></div>
     </div>
   </div>
 </div>
 
-<!-- ── confirm dialogs — copy taken verbatim from the real RuntimesCard,
-     packages/ui/src/components/runtimes-card.tsx ─────────────────────────── -->
 <div class="overlay" id="confirm-overlay">
   <div class="dialog">
     <h3 id="confirm-title"></h3>
@@ -188,16 +248,17 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
-import { runtimes as SEED_RUNTIMES, runtimeIsActive, examplePairingCode } from "../../lib/sparstrowgen-data.js";
+import { runtimes as SEED_RUNTIMES, runtimeIsActive, PROVIDER_ICONS } from "../../lib/sparstrowgen-data.js";
 
-let runtimes = SEED_RUNTIMES.map((r) => ({ ...r }));
-let pairingIssued = null; // { code, expiresAt } | null — null until "Pair a machine" is pressed
-let confirmTarget = null; // { id, kind: "revoke" | "remove" }
+let runtimes = SEED_RUNTIMES.map((r) => ({ ...r, reportedSettings: { ...r.reportedSettings } }));
+let listState = "populated";      // populated | empty | loading | error
+let justPaired = null;            // machine name string | null
+let confirmTarget = null;         // { id, kind: "revoke" | "remove" }
+let tabs = [{ kind: "list" }];
+let activeTab = 0;
 
-const $ = (s) => document.querySelector(s);
-const rowsEl = $("#rows");
-const pairingArea = $("#pairing-area");
-const countEl = $("#count");
+const $ = (s, root = document) => root.querySelector(s);
+const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
 
 function relativeTime(iso) {
   const ms = Date.now() - new Date(iso).getTime();
@@ -209,86 +270,387 @@ function relativeTime(iso) {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-function renderRows() {
-  countEl.textContent = String(runtimes.length);
-  rowsEl.innerHTML = runtimes
-    .map((r) => {
-      const active = runtimeIsActive(r);
-      const caps = r.capabilities.length
-        ? r.capabilities.map((c) => `<span class="bdg bdg-secondary">${c}</span>`).join("")
-        : `<span class="bdg bdg-outline" title="This machine reported no usable providers">no providers</span>`;
-      const draining = r.status === "draining" ? `<span class="bdg bdg-secondary">shutting down</span>` : "";
-      const metaTail = active ? "online" : `last seen ${relativeTime(r.lastHeartbeat)}`;
-      return `
-      <div class="row" data-id="${r.id}">
-        <span class="dot ${active ? "active" : "inactive"}" aria-hidden="true"></span>
-        <div class="rinfo">
-          <div class="rname-row" data-name-view>
-            <button type="button" class="rname-btn" data-rename>
-              <span data-name>${r.name}</span>
-              <svg class="pencil" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-            </button>
-          </div>
-          <p class="rmeta">${r.os} · ${r.hostname}${r.coreVersion ? ` · core ${r.coreVersion}` : ""} · ${metaTail}</p>
-        </div>
-        <div class="rcaps">${draining}${caps}</div>
-        <div class="ractions">
-          <button class="btn btn-ghost" title="Revoke this machine's pairing" data-revoke aria-label="Revoke ${r.name}">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m18.3 5.7-3.5 3.5m-5.6 5.6-3.5 3.5M9.2 9.2 5.7 5.7m8.6 8.6 3.5 3.5"/></svg>
-          </button>
-          <button class="btn btn-ghost" title="Remove this machine from the workspace" data-remove aria-label="Remove ${r.name}">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>
-          </button>
-        </div>
-      </div>`;
-    })
-    .join("");
+/** active | draining | inactive — mirrors machineState() in packages/shared. */
+function machineState(r) {
+  if (r.status === "draining") return "draining";
+  return runtimeIsActive(r) ? "active" : "inactive";
 }
 
-// ── inline rename ───────────────────────────────────────────────────────────
-rowsEl.addEventListener("click", (e) => {
-  const btn = e.target.closest("[data-rename]");
-  if (!btn) return;
-  const row = btn.closest(".row");
-  const id = row.dataset.id;
-  const runtime = runtimes.find((r) => r.id === id);
-  const container = row.querySelector("[data-name-view]");
-  container.innerHTML = `<input class="rname-input" value="${runtime.name}" data-name-input>`;
-  const input = container.querySelector("input");
-  input.focus();
-  input.select();
-  // Matches the real RuntimesCard exactly: commit()/cancel() are called
-  // DIRECTLY from Enter/Escape, not indirectly via .blur(). Routing Enter
-  // through blur() is what the real component deliberately does NOT do —
-  // relying on a focus-change side effect to trigger a save is fragile
-  // (it depends on the document actually holding focus, which isn't
-  // guaranteed in every embedding context) when calling the handler
-  // directly costs nothing and matches the source of truth.
-  let committed = false;
-  const commit = () => {
-    if (committed) return;
-    committed = true;
-    const next = input.value.trim();
-    if (next) runtime.name = next;
-    renderRows();
-  };
-  const cancel = () => {
-    if (committed) return;
-    committed = true;
-    renderRows();
-  };
-  input.addEventListener("blur", commit);
-  input.addEventListener("keydown", (ke) => {
-    if (ke.key === "Enter") commit();
-    if (ke.key === "Escape") cancel();
-  });
-});
+function iconSvg(icon, size = 14) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${icon.path}"/></svg>`;
+}
 
-// ── revoke / remove ─────────────────────────────────────────────────────────
+/** ProviderLogo — single source of truth for provider iconography. See handoff
+ *  §"Provider logos": sourced from the CC0-licensed simple-icons project, not
+ *  copied from any competitor. Falls back to a neutral placeholder mark for
+ *  providers with no safe icon to source (antigravity) or no seed match. */
+function providerBadge(capability, { withLabel = true } = {}) {
+  const icon = PROVIDER_ICONS[capability];
+  const label = icon ? icon.label : capability;
+  const mark = icon
+    ? iconSvg(icon, 12)
+    : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg>`;
+  return `<span class="bdg bdg-secondary" title="${label}">${mark}${withLabel ? `<span>${label}</span>` : ""}</span>`;
+}
+
+/* ═══════════════════════════ tab strip ═══════════════════════════ */
+
+function renderTabstrip() {
+  const el = $("#tabstrip");
+  el.innerHTML =
+    `<div class="ts-home" title="Machines">${monitorIconSvg(15)}</div>` +
+    tabs.map((t, i) => {
+      if (t.kind === "list") {
+        return `<div class="ts-tab ${i === activeTab ? "on" : ""}" data-i="${i}"><span class="nm">Machines</span></div>`;
+      }
+      const m = runtimes.find((x) => x.id === t.id);
+      if (!m) return "";
+      const state = machineState(m);
+      const dotClass = state === "active" ? "dot-active" : state === "draining" ? "dot-draining" : "dot-inactive";
+      return `<div class="ts-tab ${i === activeTab ? "on" : ""}" data-i="${i}" title="${m.name}">
+        <span class="dot ${dotClass}"></span><span class="nm">${m.name}</span>
+        <span class="x" data-close="${i}" title="Close tab" aria-label="Close ${m.name} tab">${xIconSvg(10)}</span>
+      </div>`;
+    }).join("");
+
+  $$(".ts-tab", el).forEach((n) => n.addEventListener("click", (e) => {
+    if (e.target.closest("[data-close]")) return;
+    activeTab = Number(n.dataset.i);
+    render();
+  }));
+  $$("[data-close]", el).forEach((n) => n.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const i = Number(n.dataset.close);
+    tabs.splice(i, 1);
+    if (activeTab >= tabs.length) activeTab = tabs.length - 1;
+    if (activeTab < 0 || tabs.length === 0) { tabs = [{ kind: "list" }]; activeTab = 0; }
+    render();
+  }));
+}
+
+/** §9.1's "one tab per open entity" rule — reused rows focus, never duplicate. */
+function openMachine(id) {
+  const existing = tabs.findIndex((t) => t.kind === "machine" && t.id === id);
+  if (existing >= 0) { activeTab = existing; }
+  else { tabs.push({ kind: "machine", id, sub: "overview" }); activeTab = tabs.length - 1; }
+  render();
+}
+
+/* ═══════════════════════════ list view ═══════════════════════════ */
+
+function renderList() {
+  const machines = listState === "empty" ? [] : runtimes;
+  const showCount = listState === "populated" || listState === "empty";
+
+  $("#content").innerHTML = `
+    <div class="crumb">Workspace</div>
+    <div class="header">
+      <h1>Machines ${showCount ? `<span class="count">${machines.length}</span>` : ""}</h1>
+      ${listState === "populated" ? `<code class="cli-chip">sparstrow pair</code>` : ""}
+    </div>
+    <p class="subtitle">Machines running Sparstrow core that this workspace can reach. Agents run on these, not in the browser.</p>
+
+    ${justPaired && (listState === "populated") ? `
+      <div class="justpaired" role="status">
+        <span class="ok-badge">${checkIconSvg(14)}</span>
+        <div>
+          <p><b>${justPaired}</b> is paired</p>
+          <p class="sub">Restart core on that machine if it was already running.</p>
+        </div>
+        <button class="btn btn-ghost dismiss" id="dismiss-justpaired" aria-label="Dismiss">${xIconSvg(14)}</button>
+      </div>` : ""}
+
+    <div id="list-body"></div>`;
+
+  $("#dismiss-justpaired")?.addEventListener("click", () => { justPaired = null; renderList(); });
+
+  const body = $("#list-body");
+  if (listState === "error") {
+    body.innerHTML = `
+      <div class="err-box" role="alert">
+        ${alertIconSvg(18)}
+        <div>
+          <p class="err-title">Couldn't load machines</p>
+          <p class="err-detail">GET /api/v1/runtimes → 503 control plane unreachable</p>
+          <button class="btn btn-outline err-retry" id="error-retry-btn">Retry</button>
+        </div>
+      </div>`;
+    $("#error-retry-btn").addEventListener("click", () => { listState = "loading"; renderList(); setTimeout(() => { listState = "populated"; renderList(); }, 700); });
+    return;
+  }
+
+  if (listState === "loading") {
+    body.innerHTML = `<div class="panel">${Array.from({ length: 3 }).map(() => `
+      <div class="sk-row">
+        <div class="sk" style="width:32px;height:32px;border-radius:8px"></div>
+        <div style="flex:1"><div class="sk" style="width:160px;height:14px;margin-bottom:6px"></div><div class="sk" style="width:260px;height:11px"></div></div>
+        <div class="sk" style="width:80px;height:20px;border-radius:999px"></div>
+      </div>`).join("")}</div>`;
+    return;
+  }
+
+  if (listState === "empty") {
+    body.innerHTML = `
+      <div class="empty">
+        ${monitorIconSvg(28)}
+        <h3>No machines paired yet</h3>
+        <p>A machine is a computer running Sparstrow core. Pairing links it to this workspace so agents have somewhere to actually run — nothing runs in the browser.</p>
+        <p class="hint" style="color:var(--muted-foreground)">On the machine you want to pair, run:</p>
+        <code>sparstrow pair</code>
+        <p class="hint">It opens your browser to confirm — nothing to copy or type here.</p>
+        <p class="note">sparstrow isn't published yet — the machine needs a checkout of this repository to run it. Packaged installers are coming.</p>
+      </div>`;
+    return;
+  }
+
+  // populated
+  body.innerHTML = `<div class="panel">${runtimes.map((r) => rowHtml(r)).join("")}</div>`;
+  wireListRows();
+}
+
+function rowHtml(r) {
+  const state = machineState(r);
+  const dotClass = state === "active" ? "dot-active" : state === "draining" ? "dot-draining" : "dot-inactive";
+  const metaWord = state === "active"
+    ? `<span class="active">online</span>`
+    : state === "draining"
+      ? `<span class="draining">shutting down</span>`
+      : `last seen ${relativeTime(r.lastHeartbeat)}`;
+
+  const MAX_SHOWN = 4;
+  const shown = r.capabilities.slice(0, MAX_SHOWN);
+  const overflow = r.capabilities.length - shown.length;
+  const caps = r.capabilities.length === 0
+    ? `<span class="bdg bdg-outline" title="This machine reported no usable providers">no providers</span>`
+    : shown.map((c) => providerBadge(c, { withLabel: false })).join("") +
+      (overflow > 0 ? `<span class="overflow">+${overflow}</span>` : "");
+
+  return `
+    <div class="row" data-id="${r.id}" data-open>
+      <span class="tile"><span aria-hidden="true">${monitorIconSvg(15)}</span><span class="stdot ${dotClass}"></span></span>
+      <div class="rinfo">
+        <div class="rname-row">
+          <button type="button" class="rname-btn" data-rename aria-label="Rename ${r.name}" title="Rename this machine">
+            <span data-name>${r.name}</span>
+            <span class="pencil" aria-hidden="true">${pencilIconSvg(12)}</span>
+          </button>
+        </div>
+        <p class="rmeta">${metaWord} · ${r.os} · ${r.hostname}${r.coreVersion ? ` · core ${r.coreVersion}` : ""}</p>
+      </div>
+      <div class="rcaps">${caps}</div>
+      <div class="ractions">
+        <button class="btn btn-ghost" title="Revoke this machine's pairing" data-revoke aria-label="Revoke ${r.name}">${unplugIconSvg(15)}</button>
+        <button class="btn btn-ghost" title="Remove this machine from the workspace" data-remove aria-label="Remove ${r.name}">${trashIconSvg(15)}</button>
+      </div>
+      <span class="chev" aria-hidden="true">${chevronIconSvg(15)}</span>
+    </div>`;
+}
+
+function wireListRows() {
+  const body = $("#list-body");
+
+  // Row click (anywhere except rename/actions) opens the profile as a tab.
+  $$(".row[data-open]", body).forEach((row) => {
+    row.addEventListener("click", (e) => {
+      if (e.target.closest("[data-rename], [data-revoke], [data-remove], .rname-input")) return;
+      openMachine(row.dataset.id);
+    });
+    row.setAttribute("tabindex", "0");
+    row.setAttribute("role", "button");
+    row.addEventListener("keydown", (e) => {
+      if ((e.key === "Enter" || e.key === " ") && !e.target.closest("[data-rename]")) {
+        e.preventDefault();
+        openMachine(row.dataset.id);
+      }
+    });
+  });
+
+  // Inline rename — same commit/cancel shape as the real RuntimeRow (Enter/Escape called directly, not via blur-only).
+  $$("[data-rename]", body).forEach((btn) => btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const row = btn.closest(".row");
+    const id = row.dataset.id;
+    const runtime = runtimes.find((r) => r.id === id);
+    const container = btn.parentElement;
+    container.innerHTML = `<input class="rname-input" value="${runtime.name}" data-name-input>`;
+    const input = container.querySelector("input");
+    input.focus();
+    input.select();
+    input.addEventListener("click", (ev) => ev.stopPropagation());
+    let committed = false;
+    const commit = () => {
+      if (committed) return;
+      committed = true;
+      const next = input.value.trim();
+      if (next) runtime.name = next;
+      renderList();
+    };
+    const cancel = () => { if (committed) return; committed = true; renderList(); };
+    input.addEventListener("blur", commit);
+    input.addEventListener("keydown", (ke) => {
+      // stopPropagation is load-bearing: without it, the SAME keydown also
+      // bubbles to the row's own "Enter/Space opens the profile" handler
+      // (wired for keyboard accessibility). By the time it bubbles up,
+      // commit()/cancel() has already replaced this input back with the
+      // button via renderList(), so the row handler's `.closest("[data-rename]")`
+      // guard no longer finds this now-detached input and treats the Enter as
+      // "open profile" too — reproduced live: renaming via Enter opened a
+      // profile tab for the very row just renamed.
+      if (ke.key === "Enter") { ke.stopPropagation(); commit(); }
+      if (ke.key === "Escape") { ke.stopPropagation(); cancel(); }
+    });
+  }));
+
+  $$("[data-revoke]", body).forEach((btn) => btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openConfirm(btn.closest(".row").dataset.id, "revoke");
+  }));
+  $$("[data-remove]", body).forEach((btn) => btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openConfirm(btn.closest(".row").dataset.id, "remove");
+  }));
+}
+
+/* ═══════════════════════════ profile view ═══════════════════════════ */
+
+const SUBNAV = [
+  { k: "overview", nm: "Overview", ic: monitorIconSvg },
+  { k: "providers", nm: "Providers", ic: botIconSvg },
+  { k: "activity", nm: "Activity", ic: activityIconSvg },
+  { k: "settings", nm: "Settings", ic: gearIconSvg },
+];
+
+function renderProfile(tab) {
+  const m = runtimes.find((x) => x.id === tab.id);
+  if (!m) { tabs.splice(tabs.indexOf(tab), 1); activeTab = 0; render(); return; }
+  const state = machineState(m);
+  const dotClass = state === "active" ? "dot-active" : state === "draining" ? "dot-draining" : "dot-inactive";
+
+  $("#content").innerHTML = `
+    <div class="profile">
+      <div class="subnav">
+        <div class="subnav-h">Machine</div>
+        ${SUBNAV.map((s) => `<div class="sn ${tab.sub === s.k ? "on" : ""}" data-sub="${s.k}">${s.ic(14)}${s.nm}</div>`).join("")}
+      </div>
+      <div class="pmain">
+        <div class="phd">
+          <span class="tile lg"><span aria-hidden="true">${monitorIconSvg(18)}</span><span class="stdot ${dotClass}"></span></span>
+          <div>
+            <h2>${m.name}</h2>
+            <div class="pm">${m.hostname}</div>
+          </div>
+        </div>
+        <div id="profile-body"></div>
+      </div>
+    </div>`;
+
+  renderProfileSection(m, tab);
+
+  $$("[data-sub]", $("#content")).forEach((n) => n.addEventListener("click", () => {
+    tab.sub = n.dataset.sub;
+    render();
+  }));
+}
+
+function renderProfileSection(m, tab) {
+  const el = $("#profile-body");
+  const state = machineState(m);
+
+  if (tab.sub === "overview") {
+    el.innerHTML = `
+      <p class="sect-h">Diagnostics</p>
+      <div class="kv">
+        <span class="k">Status</span><span class="v status-${state}">${state === "active" ? "Online" : state === "draining" ? "Shutting down" : `Unreachable — last seen ${relativeTime(m.lastHeartbeat)}`}</span>
+        <span class="k">Runtime ID</span><span class="v">${m.id}</span>
+        <span class="k">Hostname</span><span class="v">${m.hostname}</span>
+        <span class="k">Operating system</span><span class="v">${m.os}${m.isElectron ? " · desktop app" : " · headless daemon"}</span>
+        <span class="k">Core version</span><span class="v">${m.coreVersion ?? "—"}</span>
+        <span class="k">Providers detected</span><span class="v">${m.capabilities.length}</span>
+      </div>`;
+    return;
+  }
+
+  if (tab.sub === "providers") {
+    el.innerHTML = `
+      <p class="sect-h">AI providers on this machine</p>
+      ${m.capabilities.length === 0 ? `
+        <div class="prov-empty">This machine hasn't reported any usable providers yet.</div>` : `
+        <div class="panel" style="border-radius:var(--radius-lg)">
+          ${m.capabilities.map((c) => {
+            const icon = PROVIDER_ICONS[c];
+            const label = icon ? icon.label : c;
+            const mark = icon ? iconSvg(icon, 18) : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg>`;
+            return `<div class="provrow">
+              <span class="tile" style="width:30px;height:30px">${mark}</span>
+              <div><div class="pname">${label}</div><div class="pid">${c}</div></div>
+              <span class="pill pill-available">available</span>
+            </div>`;
+          }).join("")}
+        </div>`}`;
+    return;
+  }
+
+  if (tab.sub === "activity") {
+    el.innerHTML = `
+      <p class="sect-h">Recent activity</p>
+      <p class="act-list">
+        ${state === "active" ? `<b>3</b> runs in the last 24h · last activity <b>${relativeTime(m.lastHeartbeat)}</b>` : `No recent activity — this machine is unreachable.`}
+      </p>
+      <p class="act-list" style="margin-top:6px;color:var(--muted-foreground)">A full run-history table for this machine is future work — see handoff.</p>`;
+    return;
+  }
+
+  // settings
+  const reported = m.reportedSettings || {};
+  const snapshotOn = reported.wipSnapshot !== "off";
+  const terminalOn = reported.terminalAccess === "on";
+  el.innerHTML = `
+    <p class="sect-h">Settings</p>
+    <div class="settings-block">
+      <div class="row-flex">
+        <div><div class="lbl">Snapshot uncommitted work</div>
+          <div class="desc">${state === "active" ? "Keeps the last 5 runs' working trees on this machine, under a private git ref." : "This machine is unreachable — its settings can be changed when it reconnects."}</div></div>
+        <button class="switch ${snapshotOn ? "on" : ""}" data-toggle="wipSnapshot" ${state !== "active" ? "disabled" : ""} role="switch" aria-checked="${snapshotOn}" aria-label="Snapshot uncommitted work on ${m.name}"></button>
+      </div>
+    </div>
+    <div class="settings-block">
+      <div class="row-flex">
+        <div><div class="lbl">Browser terminals</div>
+          <div class="desc">${state === "active" ? "Lets a signed-in browser open a shell on this machine. Turning it off ends any open sessions." : "This machine is unreachable — its settings can be changed when it reconnects."}</div></div>
+        <button class="switch ${terminalOn ? "on" : ""}" data-toggle="terminalAccess" ${state !== "active" ? "disabled" : ""} role="switch" aria-checked="${terminalOn}" aria-label="Browser terminals on ${m.name}"></button>
+      </div>
+    </div>
+    <div class="settings-block danger">
+      <div class="row-flex">
+        <div><div class="lbl">Revoke pairing</div>
+          <div class="desc">Stops this machine reaching the workspace on its next request. It stays in the list — pair it again to restore access.</div></div>
+        <button class="btn btn-outline btn-sm" data-profile-revoke>Revoke</button>
+      </div>
+    </div>
+    <div class="settings-block danger">
+      <div class="row-flex">
+        <div><div class="lbl">Remove machine</div>
+          <div class="desc">Deletes this machine and its pairing from the workspace. The machine itself keeps its local data — pair it again to reconnect.</div></div>
+        <button class="btn btn-destructive btn-sm" data-profile-remove>Remove</button>
+      </div>
+    </div>`;
+
+  $$("[data-toggle]", el).forEach((btn) => btn.addEventListener("click", () => {
+    const key = btn.dataset.toggle;
+    const cur = m.reportedSettings[key];
+    m.reportedSettings[key] = (key === "wipSnapshot" ? (cur === "off" ? "on" : "off") : (cur === "on" ? "off" : "on"));
+    renderProfileSection(m, tab);
+  }));
+  $("[data-profile-revoke]", el)?.addEventListener("click", () => openConfirm(m.id, "revoke"));
+  $("[data-profile-remove]", el)?.addEventListener("click", () => openConfirm(m.id, "remove"));
+}
+
+/* ═══════════════════════════ revoke / remove (shared) ═══════════════════════════ */
+
 const CONFIRM_COPY = {
   revoke: {
     title: (name) => `Revoke ${name}?`,
-    desc: "This machine stops reaching the workspace on its very next request. It stays in the list, and pairing it again with a fresh code restores access.",
+    desc: "This machine stops reaching the workspace on its very next request. It stays in the list, and pairing it again restores access.",
     ok: "Revoke pairing",
   },
   remove: {
@@ -297,15 +659,6 @@ const CONFIRM_COPY = {
     ok: "Remove machine",
   },
 };
-
-rowsEl.addEventListener("click", (e) => {
-  const revokeBtn = e.target.closest("[data-revoke]");
-  const removeBtn = e.target.closest("[data-remove]");
-  if (!revokeBtn && !removeBtn) return;
-  const id = e.target.closest(".row").dataset.id;
-  const kind = revokeBtn ? "revoke" : "remove";
-  openConfirm(id, kind);
-});
 
 function openConfirm(id, kind) {
   confirmTarget = { id, kind };
@@ -322,23 +675,24 @@ function closeConfirm() {
 }
 $("#confirm-cancel").addEventListener("click", closeConfirm);
 $("#confirm-overlay").addEventListener("click", (e) => { if (e.target.id === "confirm-overlay") closeConfirm(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("#confirm-overlay").classList.contains("open")) closeConfirm(); });
 $("#confirm-ok").addEventListener("click", () => {
   if (!confirmTarget) return;
   const { id, kind } = confirmTarget;
+  const r = runtimes.find((x) => x.id === id);
   if (kind === "revoke") {
-    const r = runtimes.find((x) => x.id === id);
     r.status = "offline";
     showToast(`${r.name} revoked — pair again to restore access.`);
   } else {
-    const r = runtimes.find((x) => x.id === id);
     runtimes = runtimes.filter((x) => x.id !== id);
+    tabs = tabs.filter((t) => !(t.kind === "machine" && t.id === id));
+    if (activeTab >= tabs.length) activeTab = tabs.length - 1;
     showToast(`${r.name} removed.`);
   }
   closeConfirm();
-  renderRows();
+  render();
 });
 
-// ── toast (visual only) ─────────────────────────────────────────────────────
 let toastTimer;
 function showToast(msg) {
   const t = $("#toast");
@@ -348,72 +702,54 @@ function showToast(msg) {
   toastTimer = setTimeout(() => t.classList.remove("show"), 3200);
 }
 
-// ── pairing panel + live countdown ──────────────────────────────────────────
-function renderPairing() {
-  if (!pairingIssued) {
-    pairingArea.innerHTML = `<div style="margin-bottom:var(--space-5)">
-      <button class="btn btn-outline" id="pair-btn">Pair a machine</button>
-    </div>`;
-    $("#pair-btn")?.addEventListener("click", issuePairingCode);
-    return;
-  }
-  const remaining = Math.max(0, new Date(pairingIssued.expiresAt).getTime() - Date.now());
-  const m = Math.floor(remaining / 60000);
-  const s = Math.floor((remaining % 60000) / 1000);
-  pairingArea.innerHTML = `
-    <div class="pair-panel">
-      <div class="pair-code-row">
-        <span class="pair-code">${pairingIssued.code}</span>
-        <button class="btn btn-outline" id="copy-btn">Copy</button>
-      </div>
-      <p class="pair-step">On the machine you want to pair:</p>
-      <code class="pair-cmd">1. Clone this repo and install dependencies<br>2. Run the core pairing command with this code</code>
-      <div class="pair-honest">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a1.5 1.5 0 0 0 1.3 2.5h17.4A1.5 1.5 0 0 0 22 18L13.7 3.9a1.5 1.5 0 0 0-2.6 0Z"/></svg>
-        <span>Requires a local dev checkout today — no published <code>sparstrow</code> command exists yet (spec decision 3). Exact command text is a placeholder pending eng confirmation — see handoff.</span>
-      </div>
-      <p class="pair-timer${remaining < 60_000 ? " warn" : ""}">${remaining === 0 ? "This code has expired — generate another." : `Expires in ${m}:${String(s).padStart(2, "0")} · works once`}</p>
-    </div>`;
-  $("#copy-btn")?.addEventListener("click", () => {
-    navigator.clipboard?.writeText(pairingIssued.code).catch(() => {});
-    showToast("Code copied.");
-  });
+/* ═══════════════════════════ icons (lucide-equivalent, inline) ═══════════════════════════ */
+function monitorIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/></svg>`; }
+function botIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 4v4M9 14h.01M15 14h.01"/></svg>`; }
+function activityIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>`; }
+function gearIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3m-3.34-6.66-2.12 2.12M7.46 16.54l-2.12 2.12m0-13.32 2.12 2.12m9.08 9.08 2.12 2.12"/></svg>`; }
+function chevronIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>`; }
+function xIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>`; }
+function checkIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>`; }
+function pencilIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>`; }
+function unplugIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m18.3 5.7-3.5 3.5m-5.6 5.6-3.5 3.5M9.2 9.2 5.7 5.7m8.6 8.6 3.5 3.5"/></svg>`; }
+function trashIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>`; }
+function alertIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>`; }
+
+/* ═══════════════════════════ render + state switcher ═══════════════════════════ */
+
+function render() {
+  renderTabstrip();
+  const t = tabs[activeTab];
+  if (!t || t.kind === "list") renderList();
+  else renderProfile(t);
 }
 
-function issuePairingCode() {
-  pairingIssued = { ...examplePairingCode, expiresAt: new Date(Date.now() + 5 * 60_000).toISOString() };
-  renderPairing();
-}
-
-setInterval(() => {
-  if (pairingIssued) renderPairing();
-}, 1000);
-
-// ── state switcher (prototype-only) ─────────────────────────────────────────
 const STATES = ["populated", "empty", "loading", "error"];
-function setState(name) {
-  for (const s of STATES) $(`#state-${s}`).style.display = s === name ? "" : "none";
-  pairingArea.style.display = name === "populated" || name === "empty" ? "" : "none";
-  document.querySelectorAll(".devbar button").forEach((b) => b.classList.toggle("active", b.dataset.state === name));
-  // The header count badge reads from `runtimes`, which the devbar switcher
-  // never touches — without this it would keep showing the real count while
-  // "Empty" is being previewed, contradicting the empty-state body right
-  // below it. Loading/error hide it outright: a real client doesn't know the
-  // count yet in either case, so a stale number there would be its own lie.
-  const showCount = name === "populated" || name === "empty";
-  countEl.style.display = showCount ? "" : "none";
-  if (name === "populated") countEl.textContent = String(runtimes.length);
-  if (name === "empty") countEl.textContent = "0";
-}
-document.querySelectorAll(".devbar button").forEach((b) =>
-  b.addEventListener("click", () => setState(b.dataset.state)),
-);
-$("#empty-pair-btn")?.addEventListener("click", () => { setState("populated"); issuePairingCode(); });
-$("#error-retry-btn")?.addEventListener("click", () => { setState("loading"); setTimeout(() => setState("populated"), 700); });
+$$(".devbar [data-state]").forEach((b) => b.addEventListener("click", () => {
+  listState = b.dataset.state;
+  $$(".devbar [data-state]").forEach((x) => x.classList.toggle("active", x === b));
+  if (tabs[activeTab]?.kind === "list") render();
+}));
+$("#simulate-pair-btn").addEventListener("click", () => {
+  const id = "rt_" + Math.random().toString(16).slice(2, 10);
+  const name = "new-teammate-laptop";
+  runtimes.push({
+    id, name, os: "darwin", hostname: "MacBook-Pro.local", isElectron: true,
+    capabilities: ["claude-code"], status: "online", coreVersion: "0.14.2",
+    lastHeartbeat: new Date().toISOString(), reportedSettings: {},
+  });
+  justPaired = name;
+  listState = "populated";
+  $$(".devbar [data-state]").forEach((x) => x.classList.toggle("active", x.dataset.state === "populated"));
+  if (tabs[activeTab]?.kind === "list") render();
+});
+$("#reset-btn").addEventListener("click", () => {
+  runtimes = SEED_RUNTIMES.map((r) => ({ ...r, reportedSettings: { ...r.reportedSettings } }));
+  tabs = [{ kind: "list" }]; activeTab = 0; justPaired = null; listState = "populated";
+  $$(".devbar [data-state]").forEach((x) => x.classList.toggle("active", x.dataset.state === "populated"));
+  render();
+});
 
-// ── init ─────────────────────────────────────────────────────────────────────
-renderRows();
-renderPairing();
-setState("populated");
+render();
 </script>
 </body></html>

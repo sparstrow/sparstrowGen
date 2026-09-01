@@ -1,7 +1,7 @@
 <!doctype html>
 <html class="dark"><head><meta charset="utf-8">
 <title>Machines</title>
-<meta name="description" content="Machines — US1: a first-class destination, all four states, from doc/specs/2026-08-16-setup-and-machines.md">
+<meta name="description" content="Machines list + per-machine profile — entity tiles, provider logos, tab strip + side sub-nav (DD-003/DD-008)">
 <link rel="stylesheet" href="../../styles.css">
 <style>
   body{margin:0;padding:var(--space-5);background:var(--card);color:var(--foreground);
@@ -12,29 +12,39 @@
   .sub{margin:0 0 var(--space-4);font-size:12px;color:var(--muted-foreground)}
   .row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
   .row:last-child{border-bottom:0}
-  .dot{width:7px;height:7px;border-radius:999px;flex-shrink:0}
-  .dot.active{background:var(--success-foreground)}
-  .dot.inactive{background:color-mix(in oklab, var(--muted-foreground) 40%, transparent)}
-  .name{font-size:12.5px;font-weight:500}
+  .tile{position:relative;flex:none;display:flex;align-items:center;justify-content:center;
+        width:26px;height:26px;border-radius:7px;background:var(--accent);color:var(--muted-foreground)}
+  .tile .dot{position:absolute;left:-2px;bottom:-2px;width:8px;height:8px;border-radius:999px;box-shadow:0 0 0 2px var(--card)}
+  .dot-active{background:var(--success)}
+  .dot-inactive{background:color-mix(in oklab, var(--muted-foreground) 45%, transparent)}
+  .name{font-size:12.5px;font-weight:600}
   .meta{font-size:11px;color:var(--muted-foreground);margin-top:1px}
-  .bdg{margin-left:auto;font-size:10px;padding:2px 6px;border-radius:var(--radius-sm);
+  .caps{margin-left:auto;display:flex;gap:4px}
+  .bdg{display:flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:999px;
        background:var(--secondary);color:var(--secondary-foreground)}
+  .bdg svg{display:block}
 </style></head>
 <body>
 <h4>Machines <span class="count">4</span></h4>
-<p class="sub">First-class sidebar destination — pair, rename, revoke, remove.</p>
+<p class="sub">Entity tiles, provider-logo icon stack, tab strip + side sub-nav profile.</p>
 <div class="row">
-  <span class="dot active"></span>
-  <div><div class="name">workshop-desktop</div><div class="meta">win32 · online</div></div>
-  <span class="bdg">claude-code</span>
+  <span class="tile"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/></svg><span class="dot dot-active"></span></span>
+  <div><div class="name">workshop-desktop</div><div class="meta">online · win32</div></div>
+  <div class="caps">
+    <span class="bdg" title="Claude Code"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M21 10.5h3v3h-3v3h-1.5v3H18v-3h-1.5v3H15v-3H9v3H7.5v-3H6v3H4.5v-3H3v-3H0v-3h3v-6h18Zm-15 0h1.5v-3H6Zm10.5 0H18v-3h-1.5z"/></svg></span>
+    <span class="bdg" title="Ollama"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M16.361 10.26a.894.894 0 0 0-.558.47l-.072.148.001.207c0 .193.004.217.059.353.076.193.152.312.291.448.24.238.51.3.872.205a.86.86 0 0 0 .517-.436.752.752 0 0 0 .08-.498c-.064-.453-.33-.782-.724-.897a1.06 1.06 0 0 0-.466 0z"/></svg></span>
+    <span class="bdg" style="font-size:9px;color:var(--muted-foreground);background:transparent">+6</span>
+  </div>
 </div>
 <div class="row">
-  <span class="dot active"></span>
-  <div><div class="name">office-mac-mini</div><div class="meta">darwin · online</div></div>
-  <span class="bdg">ollama</span>
+  <span class="tile"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/></svg><span class="dot dot-active"></span></span>
+  <div><div class="name">office-mac-mini</div><div class="meta">online · darwin</div></div>
+  <div class="caps">
+    <span class="bdg" title="Ollama"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M16.361 10.26a.894.894 0 0 0-.558.47l-.072.148.001.207c0 .193.004.217.059.353.076.193.152.312.291.448.24.238.51.3.872.205a.86.86 0 0 0 .517-.436.752.752 0 0 0 .08-.498c-.064-.453-.33-.782-.724-.897a1.06 1.06 0 0 0-.466 0z"/></svg></span>
+  </div>
 </div>
 <div class="row">
-  <span class="dot inactive"></span>
-  <div><div class="name">build-server</div><div class="meta">linux · last seen 52m ago</div></div>
+  <span class="tile"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/></svg><span class="dot dot-inactive"></span></span>
+  <div><div class="name">build-server</div><div class="meta">last seen 52m ago · linux</div></div>
 </div>
 </body></html>

@@ -605,8 +605,14 @@ the third screen that copies it.
 
 - **Logo and wordmark.** `apps/web/public/` still holds the Next.js starter
   SVGs. No mark has been designed.
-- **Provider logo assets.** The doctrine requires them (§2.1) and none exist in
-  the repo. Sourcing and licensing is unresolved.
+- **Provider logo brand colour.** Sourcing is resolved — CC0 marks from
+  simple-icons, never copied from a competitor's own vendored copies; see
+  `design-system/DECISIONS.md` DD-016 for the full reasoning and
+  `design-system/designs/Machines/machines.dc.html` for the reference
+  implementation. What is still open: whether each mark eventually gets a
+  real, contrast-verified brand tint (matching §2.3's rigor) or stays
+  monochrome (`--muted-foreground`) permanently as part of the doctrine's
+  restraint stance.
 - **Data visualisation.** No chart palette. Blocked until the FinOps surface is
   specified — Vercel is the stated reference for it.
 - **Density preference.** Whether users can choose compact/comfortable, in
