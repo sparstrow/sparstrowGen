@@ -42,7 +42,7 @@ for allow-listing the next range — don't quietly assign an unlisted port.
 | 3040 | 🔒 locked | `task/T-WA-08-settings-machines` | `.claude/worktrees/task-T-WA-08-settings-machines` | 2026-08-26 |
 | 3050 | 🔒 reserved | — | desktop channel local dev — `stable` (see below) | 2026-08-30 |
 | 3060 | 🔒 reserved | — | desktop channel local dev — `staging` (see below) | 2026-08-30 |
-| 3070 | 🔒 locked | `task/browser-loopback-pairing` | `.claude/worktrees/browser-loopback-pairing` | 2026-08-31 |
+| 3070 | 🔒 locked | `task/machines-feature-build` | `.claude/worktrees/browser-loopback-pairing` | 2026-09-01 |
 | 3080 | 🟢 available | — | — | — |
 | 3090 | 🟢 available | — | — | — |
 | 3100 | 🟢 available | — | — | — |

@@ -135,6 +135,16 @@ export const runtimes = pgTable(
       .$type<Record<string, string>>()
       .notNull()
       .default({}),
+    /**
+     * Optional soft monthly spend ceiling for runs targeting this machine,
+     * set by a workspace member — never derived, never enforced server-side.
+     * `null` means no budget is set. Compared client-side in the Machines
+     * profile's Activity tab against `SUM(runs.cost_usd)` for the current
+     * calendar month; going over it changes a badge's colour, nothing more.
+     * No alerting, no run-blocking — that would be a different, larger
+     * decision this column does not make on its own.
+     */
+    monthlyCostBudgetUsd: doublePrecision("monthly_cost_budget_usd"),
     lastHeartbeat: timestamp("last_heartbeat", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

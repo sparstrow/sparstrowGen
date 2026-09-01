@@ -3,7 +3,7 @@
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { DAEMON_SETTABLE_KEYS, isRuntimeOnline } from "@sparstrow/shared";
-import type { Runtime, RuntimeProject } from "@web/api/hooks";
+import type { Runtime, RuntimeProject, RuntimeUsage, RuntimeActivityRun, AgentMachineRestriction } from "@web/api/hooks";
 import {
   actionContext,
   actionErrorFrom,
@@ -76,6 +76,28 @@ export async function revokeRuntimeTokenAction(
 
   revalidatePath("/machines");
   return actionOk({ revoked: data.length });
+}
+
+/**
+ * What removing this machine would also clear, shown before the confirm
+ * dialog is opened rather than discovered after — `agent_machine_restrictions`
+ * cascades on `runtime_id` (`ON DELETE CASCADE`), so those rows vanish
+ * silently otherwise. Read-only; does not remove anything itself.
+ */
+export async function getRuntimeRemovalImpactAction(
+  id: string,
+): Promise<ActionResult<{ agentRestrictions: number }>> {
+  const ctx = await actionContext();
+  if (!ctx) return actionFail(NOT_SIGNED_IN);
+
+  const { count, error } = await ctx.supabase
+    .from("agent_machine_restrictions")
+    .select("id", { count: "exact", head: true })
+    .eq("runtime_id", id)
+    .eq("workspace_id", ctx.workspaceId);
+  if (error) return actionErrorFrom(error);
+
+  return actionOk({ agentRestrictions: count ?? 0 });
 }
 
 /** Moved verbatim from `DELETE /runtimes/:id`. Member-level, per `runtimes_member_all`. */
@@ -269,4 +291,218 @@ export async function cloneProjectAction(
   }
 
   return actionOk({ queued: true });
+}
+
+// ─── Usage & activity (Machines profile, Activity tab) ─────────────────────
+//
+// No new table backs either of these — `runs.target_runtime_id` (indexed,
+// `idx_runs_runtime`) already carries everything a per-machine cost/activity
+// view needs. Cost is summed in JS after the select rather than via a
+// PostgREST aggregate, matching the one other cost rollup in this codebase
+// (`packages/core/src/memory/dream-cycle.ts`'s `dreamSpendLast24h()`) —
+// same reasoning: simple, and the row count this sums over is bounded by
+// `RUNS_WINDOW_LIMIT` below, not by the whole table.
+const RUNS_WINDOW_LIMIT = 500;
+
+/** Recent runs targeting this machine, newest first — the Activity tab's
+ *  real data. `agentName` is joined in a second query rather than a
+ *  PostgREST embed, so a deleted agent (no FK enforced on `runs.agent_id`,
+ *  see schema.ts) degrades to "Unknown agent" instead of dropping the run. */
+export async function getRuntimeActivityAction(
+  runtimeId: string,
+  limit = 20,
+): Promise<ActionResult<RuntimeActivityRun[]>> {
+  const ctx = await actionContext();
+  if (!ctx) return actionFail(NOT_SIGNED_IN);
+
+  const { data: runs, error } = await ctx.supabase
+    .from("runs")
+    .select("id, agent_id, status, cost_usd, duration_ms, started_at, finished_at, created_at")
+    .eq("workspace_id", ctx.workspaceId)
+    .eq("target_runtime_id", runtimeId)
+    .order("created_at", { ascending: false })
+    .limit(Math.min(limit, RUNS_WINDOW_LIMIT));
+  if (error) return actionErrorFrom(error);
+  if (!runs || runs.length === 0) return actionOk([]);
+
+  const agentIds = [...new Set(runs.map((r) => r.agent_id as string))];
+  const { data: agents, error: agentsError } = await ctx.supabase
+    .from("agents")
+    .select("id, name")
+    .eq("workspace_id", ctx.workspaceId)
+    .in("id", agentIds);
+  if (agentsError) return actionErrorFrom(agentsError);
+
+  const nameById = new Map((agents ?? []).map((a) => [a.id as string, a.name as string]));
+  return actionOk(
+    runs.map((r) => ({
+      ...(toCamel(r) as Omit<RuntimeActivityRun, "agentName">),
+      agentName: nameById.get(r.agent_id as string) ?? "Unknown agent",
+    })),
+  );
+}
+
+/** Month-to-date cost + a lightweight recent-run summary for this machine,
+ *  plus the optional budget a workspace member set on it. */
+export async function getRuntimeUsageAction(runtimeId: string): Promise<ActionResult<RuntimeUsage>> {
+  const ctx = await actionContext();
+  if (!ctx) return actionFail(NOT_SIGNED_IN);
+
+  const { data: runtime, error: runtimeError } = await ctx.supabase
+    .from("runtimes")
+    .select("monthly_cost_budget_usd")
+    .eq("workspace_id", ctx.workspaceId)
+    .eq("id", runtimeId)
+    .maybeSingle();
+  if (runtimeError) return actionErrorFrom(runtimeError);
+  if (!runtime) return actionFail("Not Found");
+
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+
+  const { data: runs, error: runsError } = await ctx.supabase
+    .from("runs")
+    .select("cost_usd, duration_ms")
+    .eq("workspace_id", ctx.workspaceId)
+    .eq("target_runtime_id", runtimeId)
+    .gte("created_at", monthStart.toISOString())
+    .limit(RUNS_WINDOW_LIMIT);
+  if (runsError) return actionErrorFrom(runsError);
+
+  const rows = runs ?? [];
+  const monthToDateCostUsd = rows.reduce((sum, r) => sum + ((r.cost_usd as number | null) ?? 0), 0);
+  const durations = rows.map((r) => r.duration_ms as number | null).filter((d): d is number => d != null);
+  const avgDurationMs = durations.length > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null;
+
+  return actionOk({
+    monthToDateCostUsd,
+    runCountThisMonth: rows.length,
+    avgDurationMs,
+    budgetUsd: (runtime.monthly_cost_budget_usd as number | null) ?? null,
+    // `RUNS_WINDOW_LIMIT` truncation surfaces here rather than silently — a
+    // month with more than 500 runs shows a real (undercounted) total plus
+    // this flag, not a wrong number that looks exact.
+    truncated: rows.length >= RUNS_WINDOW_LIMIT,
+  });
+}
+
+/** Sets or clears this machine's optional monthly cost budget. `null` clears
+ *  it. Purely a display threshold — nothing reads this to block a run. */
+export async function setRuntimeCostBudgetAction(
+  runtimeId: string,
+  budgetUsd: number | null,
+): Promise<ActionResult<{ budgetUsd: number | null }>> {
+  const ctx = await actionContext();
+  if (!ctx) return actionFail(NOT_SIGNED_IN);
+
+  if (budgetUsd !== null && (!Number.isFinite(budgetUsd) || budgetUsd < 0)) {
+    return actionFail("Budget must be a positive number, or blank to clear it.", "invalid_budget");
+  }
+
+  const { error } = await ctx.supabase
+    .from("runtimes")
+    .update({ monthly_cost_budget_usd: budgetUsd })
+    .eq("id", runtimeId)
+    .eq("workspace_id", ctx.workspaceId);
+  if (error) return actionErrorFrom(error);
+
+  revalidatePath("/machines");
+  return actionOk({ budgetUsd });
+}
+
+// ─── Agent-machine restrictions (Machines profile, Providers/Settings) ─────
+//
+// `agent_machine_restrictions` already exists (M18/`access_model`) and is
+// enforced elsewhere (`tool-policy.ts`); nothing here changes what it does,
+// only surfaces it on the machine side of the relationship instead of only
+// the agent side. FR-009: no rows for an agent means it may run anywhere —
+// removing the last restriction row for an agent does not need special
+// handling, it is simply the empty-list case.
+
+/** Every agent currently restricted to this machine. */
+export async function getRuntimeAgentRestrictionsAction(
+  runtimeId: string,
+): Promise<ActionResult<AgentMachineRestriction[]>> {
+  const ctx = await actionContext();
+  if (!ctx) return actionFail(NOT_SIGNED_IN);
+
+  const { data: rows, error } = await ctx.supabase
+    .from("agent_machine_restrictions")
+    .select("id, agent_id")
+    .eq("workspace_id", ctx.workspaceId)
+    .eq("runtime_id", runtimeId);
+  if (error) return actionErrorFrom(error);
+  if (!rows || rows.length === 0) return actionOk([]);
+
+  const agentIds = [...new Set(rows.map((r) => r.agent_id as string))];
+  const { data: agents, error: agentsError } = await ctx.supabase
+    .from("agents")
+    .select("id, name")
+    .eq("workspace_id", ctx.workspaceId)
+    .in("id", agentIds);
+  if (agentsError) return actionErrorFrom(agentsError);
+
+  const nameById = new Map((agents ?? []).map((a) => [a.id as string, a.name as string]));
+  return actionOk(
+    rows.map((r) => ({
+      id: r.id as string,
+      agentId: r.agent_id as string,
+      agentName: nameById.get(r.agent_id as string) ?? "Unknown agent",
+    })),
+  );
+}
+
+/** Restrict an agent to this machine (it may only run here, not elsewhere). */
+export async function addAgentMachineRestrictionAction(
+  agentId: string,
+  runtimeId: string,
+): Promise<ActionResult<AgentMachineRestriction>> {
+  const ctx = await actionContext();
+  if (!ctx) return actionFail(NOT_SIGNED_IN);
+
+  const { data: agent, error: agentError } = await ctx.supabase
+    .from("agents")
+    .select("id, name")
+    .eq("workspace_id", ctx.workspaceId)
+    .eq("id", agentId)
+    .maybeSingle();
+  if (agentError) return actionErrorFrom(agentError);
+  if (!agent) return actionFail("Not Found");
+
+  const { data, error } = await ctx.supabase
+    .from("agent_machine_restrictions")
+    .insert({
+      id: `amr_${randomBytes(8).toString("hex")}`,
+      workspace_id: ctx.workspaceId,
+      agent_id: agentId,
+      runtime_id: runtimeId,
+    })
+    .select("id")
+    .single();
+  if (error) return actionErrorFrom(error);
+
+  revalidatePath("/machines");
+  return actionOk({ id: data.id as string, agentId, agentName: agent.name as string });
+}
+
+/** Lifts a restriction — the agent may run elsewhere again (and still may run
+ *  here too; this table is an allow-list of *where*, not a deny-list). */
+export async function removeAgentMachineRestrictionAction(
+  id: string,
+): Promise<ActionResult<{ removed: number }>> {
+  const ctx = await actionContext();
+  if (!ctx) return actionFail(NOT_SIGNED_IN);
+
+  const { data, error } = await ctx.supabase
+    .from("agent_machine_restrictions")
+    .delete()
+    .eq("id", id)
+    .eq("workspace_id", ctx.workspaceId)
+    .select("id");
+  if (error) return actionErrorFrom(error);
+  if (!data || data.length === 0) return actionFail("Not Found");
+
+  revalidatePath("/machines");
+  return actionOk({ removed: data.length });
 }

@@ -3,7 +3,7 @@ title: Machines
 section: Surfaces
 description: Pair a computer to your workspace, read whether it's reachable, and rename, revoke or remove it.
 order: 8
-updated: 2026-08-31
+updated: 2026-09-01
 ---
 
 **Machines** is in the sidebar, under **Workspace**, directly after Runs. It lists every
@@ -78,6 +78,41 @@ reconnect, again with `--force` (see below).
 > computer.
 
 Both ask you to confirm, and the dialog says which of the two you're about to do.
+Removing a machine that an agent is restricted to (see below) says so in the dialog
+before you confirm — that agent isn't blocked afterward, it can just run anywhere again.
+
+## Opening a machine's profile
+
+Click the **chevron** at the end of a row (or open the row and press it with the
+keyboard) to open that machine in its own tab, alongside the list. Clicking a machine
+that's already open focuses its existing tab rather than opening a second one. Each
+open tab has four sections down its own side navigation:
+
+- **Overview** — the same diagnostics as the row, plus the machine's core version and
+  whether a newer one is known to exist. That's an *awareness* note only — nothing here
+  triggers a remote update. Updating a machine's `sparstrow core` install is still
+  something you do on that computer directly.
+- **Providers** — every capability this machine reported, each with its provider's own
+  logo and an **available** pill. Same information the row's badges summarize, shown
+  one per line with room to read the id.
+- **Activity** — month-to-date spend across every run this machine executed, run count,
+  and average duration, with **recent runs** listed below (agent, outcome, cost,
+  duration, when). You can set an optional **monthly budget** here — it's a plain
+  number you choose, purely a marker: going over it turns the total amber and adds an
+  **over budget** badge, and nothing else happens. No run is ever blocked or slowed by
+  it, and nothing alerts you outside this tab.
+- **Settings** — the same Snapshot and Terminal switches as the row, plus **Agent
+  access** (below) and the same Revoke/Remove controls as the row's own actions.
+
+### Agent access
+
+A machine's Settings tab can list which agents are **restricted** to it — an agent
+you've restricted here may run on this machine and nowhere else. An agent with no
+restriction at all may run on any machine; restricting it to one machine is something
+you opt into per agent, not a default anyone starts with. Add a restriction with
+**Restrict an agent to this machine**, and lift one any time with **Remove** next to
+its name — lifting it doesn't move the agent anywhere, it just widens where it's
+allowed to run again.
 
 ## Snapshot uncommitted work
 
@@ -113,5 +148,16 @@ What the snapshots themselves are, and how to recover from one, is in
 - **The list polls every 15 seconds.** A machine crossing the staleness threshold
   changes nothing in the database, so there is nothing to push — expect up to that much
   delay before a label changes.
-- **No per-machine detail page yet.** Everything a machine can tell you is on this one
-  row; there is nowhere to drill into for its history or the agents that ran on it.
+- **The Activity tab's totals cover at most the 500 most recent runs in the current
+  calendar month.** A machine with more runs than that in one month shows a real total
+  that undercounts, flagged in the tab itself rather than silently — this is a display
+  ceiling, not a bug.
+- **A monthly budget is a marker, not a limit.** Setting one only recolors the total and
+  adds a badge past it. There is no alerting, no email, no run-blocking, and no history
+  of past months — it reflects only the current calendar month, live.
+- **"Update available" on a machine's Overview tab is read-only.** It compares the
+  machine's reported core version against the newest version this app knows about — it
+  does not, and cannot, push an update to that machine. There is no remote-update
+  mechanism for `sparstrow core` at all today; the desktop app's own updater is a
+  separate, local-only thing for the Electron shell itself, not for a paired machine's
+  daemon.

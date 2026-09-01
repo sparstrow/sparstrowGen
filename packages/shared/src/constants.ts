@@ -140,6 +140,27 @@ export function isTerminalAccessEnabled(raw: string | null | undefined): boolean
 }
 
 /**
+ * The newest `@sparstrow/core` version known to exist, for comparison against
+ * a runtime's self-reported `coreVersion` in the Machines profile's Overview
+ * tab ("update available"). Mirrors `packages/core/src/cloud/
+ * registration.ts`'s `CORE_VERSION` constant — same manual-bump convention,
+ * kept in a *different* file on purpose: `CORE_VERSION` is what a daemon
+ * reports about itself, this is what the cloud believes is newest, and
+ * conflating the two would make a daemon's own registration payload double as
+ * the answer to "is a newer version out" for every other machine too.
+ *
+ * There is no release feed or version registry anywhere in this repo yet
+ * (confirmed 2026-09-01) — bump this by hand alongside `CORE_VERSION` until
+ * one exists. This constant is read-only comparison, never a trigger: nothing
+ * in this repo downloads or installs a new `core` build on a remote machine.
+ * The desktop shell's own `packages/desktop/src/updater.ts` is a deliberately
+ * separate, notify-only mechanism for the *Electron wrapper*, not the daemon,
+ * and does not auto-install either — see that file's header before assuming
+ * a remote "trigger update" action would be safe to add here.
+ */
+export const LATEST_CORE_VERSION = "0.1.0";
+
+/**
  * T-M9-04 — the one Supabase Storage bucket for avatar and workspace-logo
  * images. Named once, here, so the upload component's client-side check, the
  * server's `isOwnStorageUrl` origin check, and the SQL policy comment

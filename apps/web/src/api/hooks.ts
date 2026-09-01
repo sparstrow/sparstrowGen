@@ -1433,6 +1433,42 @@ export interface Runtime {
    * that machine's own local Settings card. M4 / `G-6`.
    */
   reportedSettings: Record<string, string>;
+  /** Optional soft monthly spend ceiling a workspace member set on this
+   *  machine. `null` if unset. Never enforced — display only. */
+  monthlyCostBudgetUsd: number | null;
+}
+
+/** Month-to-date cost/usage summary for one machine — the Machines profile's
+ *  Activity tab header. Computed from `runs`, not a separate table. */
+export interface RuntimeUsage {
+  monthToDateCostUsd: number;
+  runCountThisMonth: number;
+  avgDurationMs: number | null;
+  budgetUsd: number | null;
+  /** True if the month had more runs than the server-side window summed —
+   *  the total is real but a floor, not exact, when this is true. */
+  truncated: boolean;
+}
+
+/** One recent run targeting this machine — the Activity tab's row shape. */
+export interface RuntimeActivityRun {
+  id: string;
+  agentId: string;
+  agentName: string;
+  status: string;
+  costUsd: number | null;
+  durationMs: number | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}
+
+/** One agent restricted to a specific machine (`agent_machine_restrictions`,
+ *  M18). FR-009: an agent with no rows here may run on any machine. */
+export interface AgentMachineRestriction {
+  id: string;
+  agentId: string;
+  agentName: string;
 }
 
 /** A project as this machine reports having it. */

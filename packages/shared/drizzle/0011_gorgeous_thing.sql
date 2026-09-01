@@ -1,0 +1,1 @@
+ALTER TABLE "runtimes" ADD COLUMN "monthly_cost_budget_usd" double precision;

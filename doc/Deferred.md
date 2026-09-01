@@ -496,11 +496,12 @@ to nothing.
 
 ---
 
-## D-18 — Entity profiles and the in-app tab strip
+## D-18 — Entity profiles and the in-app tab strip (Agents, Projects)
 
 **Parked:** 2026-08-18, by the owner, on locking `DESIGN.md` §9 — the owner
 asked for the navigation *instruction* to exist so agents design to it, not for
-the feature to be built in the same turn.
+the feature to be built in the same turn. **Narrowed to Agents and Projects
+2026-09-01** — Machines shipped and is no longer deferred; see below.
 
 `DESIGN.md` §9 fully specifies it: an outer tab strip (which entity's profile is
 open), a side sub-nav (which section of that entity), a smart-default +
@@ -509,18 +510,32 @@ keyboard requirements from the first commit. Proved interactively in
 `design-brief/entity-profile-board.html`, including that per-tab state survives
 switching away and back.
 
-None of it is built. Today no detail view exists for a machine or an agent at
-all, and `project-detail.tsx`'s tabs are a *different*, sidebar-panel pattern.
+Today no detail view exists for an agent at all, and `project-detail.tsx`'s
+tabs are a *different*, sidebar-panel pattern.
 
-§9.4 fixes the order and the reason: **Machines** first (a real gap, nothing to
-regress), **Agents** second (same shape of gap, still greenfield), **Projects**
-last and deliberately — it is the only one of the three that is a migration of
-working code rather than new work.
+§9.4 fixes the order and the reason: **Machines first** (a real gap, nothing to
+regress — done), **Agents next** (same shape of gap, still greenfield),
+**Projects last** and deliberately — it is the only one of the three that is a
+migration of working code rather than new work.
 
-- **Unpark when:** the design-system rebuild lands (this needs the doctrine's
-  tokens to exist) and Machines gets a `product-requirements` pass — it is still
-  outside `specs/2026-08-16-setup-and-machines.md`, whose "profile" means the
-  *user's* profile, not a machine's. Recorded as `DD-003`/`DD-008`.
+- **Machines: built 2026-09-01.** Owner asked directly, in chat, for the real
+  feature — "wire and build the actual feature now" — which is the
+  `product-requirements` pass this entry's own unpark condition named.
+  `apps/web/src/app/machines/machine-profile.tsx` + `machine-shared.tsx`,
+  `EntityTabStrip` promoted to `@sparstrow/ui`
+  (`packages/ui/src/components/entity-tab-strip.tsx`, generic — Agents/Projects
+  reuse it rather than rebuilding). Went further than the design-system
+  prototype it was built from: real Activity data (`runs` filtered by
+  `target_runtime_id`, no new table), a real per-machine monthly cost budget
+  (`runtimes.monthly_cost_budget_usd`, migration `0011`), and surfacing the
+  already-existing `agent_machine_restrictions` table on the machine side for
+  the first time. `doc/bug/BUG-2026-09-01-drizzle-migrations-journal-empty.md`
+  has the verification trail and two unrelated pre-existing dev-database gaps
+  found and fixed along the way.
+- **Unpark Agents/Projects when:** each gets its own `product-requirements`
+  pass the way Machines just did — this entry does not self-unpark the other
+  two just because the pattern is now proven in real code. Recorded as
+  `DD-003`/`DD-008`.
 
 ---
 

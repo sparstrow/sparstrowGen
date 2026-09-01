@@ -612,14 +612,16 @@ exists to answer.
 than a one-off. Worth deciding once, in the doctrine, which component carries
 detail views across the app.
 
-**Status:** **shape resolved, build not started.** `DESIGN.md` §9 now specifies
-the profile pattern in full — side sub-nav for sections (Overview/Agents/
-Activity/Settings), the outer tab strip for opening the profile itself, ships
-first per §9.4. Still needs `product-requirements` before build, since it
-remains outside `doc/specs/2026-08-16-setup-and-machines.md`'s scope (that
-spec's "profile" is the user's, not a machine's). The `sheet`/`drawer` blocker
-is now moot — the resolved pattern uses the tab strip + side sub-nav, not an
-overlay panel. Provider logo assets remain unresolved (§13).
+**Status:** **built 2026-09-01.** Shipped in the real app —
+`apps/web/src/app/machines/machine-profile.tsx` — side sub-nav
+(Overview/Providers/Activity/Settings, "Providers" not "Agents" per the
+prototype's own naming call, see `machines.handoff.md`'s "Invented"), outer
+tab strip via the now-generic `EntityTabStrip` in `@sparstrow/ui`. The
+`product-requirements` gate this status line named is satisfied by the
+owner's direct build instruction (`doc/Deferred.md` D-18, narrowed
+2026-09-01) rather than a written spec — an explicit, deliberate substitution,
+not a skipped step. Provider logo assets are resolved too, separately
+(`DD-016`/`DD-017`).
 
 ---
 

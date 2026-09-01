@@ -1,6 +1,7 @@
 import * as React from "react";
 import {
   Check,
+  ChevronRight,
   Loader2,
   Monitor,
   Pencil,
@@ -9,6 +10,10 @@ import {
   Unplug,
   X,
 } from "lucide-react";
+import { EntityTabStrip, type EntityTab } from "@/components/entity-tab-strip";
+import { OsIcon } from "@/components/os-icon";
+import { MachineProfile } from "./machine-profile";
+import { DOT_TONE, MachineTile, SnapshotControl, TerminalAccessControl } from "./machine-shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -28,31 +33,20 @@ import {
   ItemDescription,
   ItemFooter,
   ItemGroup,
-  ItemMedia,
   ItemTitle,
 } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRuntimes, useWorkspace, type Runtime } from "@web/api/hooks";
 import { callAction } from "@web/lib/call-action";
 import { relativeTime } from "@/lib/format";
 import {
+  getRuntimeRemovalImpactAction,
   removeRuntimeAction,
   renameRuntimeAction,
   revokeRuntimeTokenAction,
-  setRuntimeSettingAction,
 } from "./actions";
-import {
-  DEFAULT_WIP_SNAPSHOT_KEEP,
-  SETTING_TERMINAL_ACCESS,
-  SETTING_WIP_SNAPSHOT,
-  SETTING_WIP_SNAPSHOT_KEEP,
-  isTerminalAccessEnabled,
-  isWipSnapshotEnabled,
-  machineState,
-  type MachineState,
-} from "@sparstrow/shared";
+import { machineState } from "@sparstrow/shared";
 import { cn } from "@/lib/utils";
 
 /**
@@ -117,35 +111,15 @@ function PairingOutcomePanel({ name, onDismiss }: { name: string; onDismiss: () 
   );
 }
 
-/**
- * The entity tile from `DESIGN.md` §6: the machine's semantic icon in a tile,
- * with its state as a dot on the corner. The dot is the ONLY thing on this
- * page allowed to carry status colour, and it is never the sole carrier — the
- * words beside it say the same thing (§2.1, and scenario 6's requirement that
- * an unreachable machine says so in text).
- */
-const DOT_TONE: Record<MachineState, string> = {
-  active: "bg-success",
-  draining: "bg-warning",
-  unreachable: "bg-muted-foreground/40",
-};
-
-function MachineTile({ state }: { state: MachineState }) {
-  return (
-    <ItemMedia variant="icon" className="relative">
-      <Monitor className="size-4" strokeWidth={1.8} />
-      <span
-        className={cn(
-          "absolute -bottom-0.5 -left-0.5 size-2.5 rounded-full ring-2 ring-background",
-          DOT_TONE[state],
-        )}
-        aria-hidden="true"
-      />
-    </ItemMedia>
-  );
-}
-
-function RuntimeRow({ runtime, canManageTerminals }: { runtime: Runtime; canManageTerminals: boolean }) {
+function RuntimeRow({
+  runtime,
+  canManageTerminals,
+  onOpenProfile,
+}: {
+  runtime: Runtime;
+  canManageTerminals: boolean;
+  onOpenProfile: (id: string) => void;
+}) {
   const queryClient = useQueryClient();
   const [, startRename] = React.useTransition();
   const [revokePending, startRevoke] = React.useTransition();
@@ -154,6 +128,7 @@ function RuntimeRow({ runtime, canManageTerminals }: { runtime: Runtime; canMana
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(runtime.name);
   const [confirming, setConfirming] = React.useState<null | "revoke" | "remove">(null);
+  const [removalImpact, setRemovalImpact] = React.useState<number | null>(null);
 
   const state = machineState(runtime.status, runtime.lastHeartbeat);
 
@@ -228,7 +203,11 @@ function RuntimeRow({ runtime, canManageTerminals }: { runtime: Runtime; canMana
             {state}
           </span>
           {state !== "active" ? ` · last seen ${relativeTime(runtime.lastHeartbeat)}` : ""} ·{" "}
-          {runtime.os} · {runtime.hostname}
+          <span className="inline-flex items-center gap-1 align-[-1px]">
+            <OsIcon os={runtime.os} size={11} />
+            {runtime.os}
+          </span>{" "}
+          · {runtime.hostname}
           {runtime.coreVersion ? ` · core ${runtime.coreVersion}` : ""}
         </ItemDescription>
       </ItemContent>
@@ -263,11 +242,27 @@ function RuntimeRow({ runtime, canManageTerminals }: { runtime: Runtime; canMana
         <Button
           size="sm"
           variant="ghost"
+          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
           title="Remove this machine from the workspace"
           aria-label={`Remove ${runtime.name}`}
-          onClick={() => setConfirming("remove")}
+          onClick={() => {
+            setConfirming("remove");
+            setRemovalImpact(null);
+            void callAction(() => getRuntimeRemovalImpactAction(runtime.id)).then((r) => {
+              if (r.ok) setRemovalImpact(r.data.agentRestrictions);
+            });
+          }}
         >
           <Trash2 className="size-4" />
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          title={`Open ${runtime.name}'s profile`}
+          aria-label={`Open profile for ${runtime.name}`}
+          onClick={() => onOpenProfile(runtime.id)}
+        >
+          <ChevronRight className="size-4" />
         </Button>
       </ItemActions>
 
@@ -310,6 +305,16 @@ function RuntimeRow({ runtime, canManageTerminals }: { runtime: Runtime; canMana
             Deletes this machine and its pairing from the workspace. Anything recorded
             against it goes too. The machine itself keeps its local data — pair it again to
             reconnect.
+            {removalImpact ? (
+              <>
+                {" "}
+                <strong>
+                  {removalImpact} agent{removalImpact === 1 ? "" : "s"} restricted to this
+                  machine will lose that restriction
+                </strong>{" "}
+                (they may then run anywhere, not nowhere).
+              </>
+            ) : null}
           </>
         }
         confirmLabel="Remove machine"
@@ -327,136 +332,6 @@ function RuntimeRow({ runtime, canManageTerminals }: { runtime: Runtime; canMana
         }
       />
     </Item>
-  );
-}
-
-/**
- * The per-runtime WIP snapshot control (`G-6`).
- *
- * Renders `runtime.reportedSettings` — what the machine last CONFIRMED — and
- * never an optimistic local value. That is the entire reason this closes the
- * gap rather than reopening it in a new place: `G-6` was raised because a
- * switch in workspace settings would flip and silently fail to reach the daemon
- * it claimed to configure, and a switch that shows what you clicked rather than
- * what happened has the same defect wearing a better hat.
- *
- * Unreachable machines get a disabled control with the reason spelled out.
- * Queuing the command instead would leave someone believing they had changed a
- * setting on a computer that is switched off.
- *
- * It still disables on `runtime.online`, not on `machineState()`: this is a
- * "can the command be delivered?" question, and the label above is a "what do
- * I call it?" one. Only the wording is shared, so that one row does not say
- * "unreachable" and "offline" about the same machine in two places.
- */
-function SnapshotControl({ runtime }: { runtime: Runtime }) {
-  const queryClient = useQueryClient();
-  const [, startTransition] = React.useTransition();
-  const [pendingKey, setPendingKey] = React.useState<string | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
-
-  const reported = runtime.reportedSettings ?? {};
-  const enabled = isWipSnapshotEnabled(reported[SETTING_WIP_SNAPSHOT]);
-  const keep = reported[SETTING_WIP_SNAPSHOT_KEEP] ?? String(DEFAULT_WIP_SNAPSHOT_KEEP);
-
-  // The machines can legitimately disagree — a laptop with a small disk and a
-  // workstation with a large one have different right answers — which is why
-  // this is here per machine and not one switch in workspace settings.
-  const send = (key: string, value: string) => {
-    setPendingKey(key);
-    setError(null);
-    startTransition(async () => {
-      const r = await callAction(() => setRuntimeSettingAction(runtime.id, key, value));
-      if (!r.ok) setError(r.error);
-      else void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
-      setPendingKey(null);
-    });
-  };
-
-  return (
-    <div className="w-full border-t border-border/60 pt-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-xs font-medium">Snapshot uncommitted work</p>
-          <p className="text-xs text-muted-foreground">
-            {runtime.online
-              ? `Keeps the last ${keep} runs' working trees on this machine, under a private git ref.`
-              : "This machine is unreachable — its settings can be changed when it reconnects."}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {pendingKey ? <Loader2 className="size-3.5 animate-spin text-muted-foreground" /> : null}
-          <Switch
-            checked={enabled}
-            disabled={!runtime.online || pendingKey !== null}
-            onCheckedChange={(next) => send(SETTING_WIP_SNAPSHOT, next ? "on" : "off")}
-            aria-label={`Snapshot uncommitted work on ${runtime.name}`}
-          />
-        </div>
-      </div>
-
-      {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
-    </div>
-  );
-}
-
-/**
- * T-M17-04 — same shape as `SnapshotControl` immediately above: renders the
- * machine's own CONFIRMED value from `reportedSettings`, never an optimistic
- * local one (`G-6`), and disables with a reason when the command can't be
- * delivered. Differs in one way `SnapshotControl` doesn't need: this grant
- * is FR-009-gated, so a non-admin member never gets a control that would
- * silently no-op — the switch itself is disabled with why, matching
- * Terminals' own role check (`T-M17-02`).
- */
-function TerminalAccessControl({ runtime, canManage }: { runtime: Runtime; canManage: boolean }) {
-  const queryClient = useQueryClient();
-  const [, startTransition] = React.useTransition();
-  const [pending, setPending] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  const reported = runtime.reportedSettings ?? {};
-  const enabled = isTerminalAccessEnabled(reported[SETTING_TERMINAL_ACCESS]);
-
-  const send = (value: string) => {
-    setPending(true);
-    setError(null);
-    startTransition(async () => {
-      const r = await callAction(() => setRuntimeSettingAction(runtime.id, SETTING_TERMINAL_ACCESS, value));
-      if (!r.ok) setError(r.error);
-      else void queryClient.invalidateQueries({ queryKey: ["runtimes"] });
-      setPending(false);
-    });
-  };
-
-  return (
-    <div className="w-full border-t border-border/60 pt-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-xs font-medium">Browser terminals</p>
-          <p className="text-xs text-muted-foreground">
-            {!canManage
-              ? "Only workspace owners and admins can change this."
-              : !runtime.online
-                ? "This machine is unreachable — its settings can be changed when it reconnects."
-                : "Lets a signed-in browser open a shell on this machine. Turning it off ends any open sessions."}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {pending ? <Loader2 className="size-3.5 animate-spin text-muted-foreground" /> : null}
-          <Switch
-            checked={enabled}
-            disabled={!canManage || !runtime.online || pending}
-            onCheckedChange={(next) => send(next ? "on" : "off")}
-            aria-label={`Browser terminals on ${runtime.name}`}
-          />
-        </div>
-      </div>
-
-      {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
-    </div>
   );
 }
 
@@ -526,6 +401,34 @@ function RuntimesError({
   );
 }
 
+/**
+ * `DESIGN.md` §9's outer tab strip: one tab per open machine, plus the fixed
+ * "Machines" list tab (never closed). Lives here rather than inside
+ * `MachineProfile` because §9.1's "clicking an already-open entity focuses
+ * its tab, never duplicates" needs to know what's already open across every
+ * row's click — that's list-level state, not any one profile's.
+ *
+ * DD-003/DD-008/D-18: this is the first entity this pattern ships to
+ * (§9.4's stated rollout order), unparking D-18 for Machines specifically —
+ * Agents and Projects are still outside this doctrine's built scope.
+ */
+function useMachineTabs() {
+  const [openIds, setOpenIds] = React.useState<string[]>([]);
+  const [activeId, setActiveId] = React.useState("list");
+
+  const openProfile = React.useCallback((id: string) => {
+    setOpenIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setActiveId(id);
+  }, []);
+
+  const closeProfile = React.useCallback((id: string) => {
+    setOpenIds((prev) => prev.filter((x) => x !== id));
+    setActiveId((prev) => (prev === id ? "list" : prev));
+  }, []);
+
+  return { openIds, activeId, setActiveId, openProfile, closeProfile };
+}
+
 export function MachinesPage() {
   const runtimes = useRuntimes();
   const workspace = useWorkspace();
@@ -534,8 +437,23 @@ export function MachinesPage() {
   // anyone else can either. Fail-closed while the role hasn't loaded yet.
   const canManageTerminals = workspace.data?.role === "owner" || workspace.data?.role === "admin";
   const [justPaired, setJustPaired] = React.useState<string | null>(null);
+  const { openIds, activeId, setActiveId, openProfile, closeProfile } = useMachineTabs();
 
   const machines = runtimes.data ?? [];
+
+  const tabs: EntityTab[] = [
+    { id: "list", label: "Machines", closable: false },
+    ...openIds.map((id) => {
+      const m = machines.find((x) => x.id === id);
+      const state = m ? machineState(m.status, m.lastHeartbeat) : "unreachable";
+      return {
+        id,
+        label: m?.name ?? id,
+        closable: true,
+        indicator: <span className={cn("size-1.5 shrink-0 rounded-full", DOT_TONE[state])} aria-hidden="true" />,
+      };
+    }),
+  ];
 
   /**
    * Detect a newly-arrived machine by diffing ids against the set this page
@@ -569,84 +487,115 @@ export function MachinesPage() {
     return () => clearTimeout(clear);
   }, [justPaired]);
 
+  const activeMachine = machines.find((m) => m.id === activeId) ?? null;
+
   return (
     <div className="mx-auto max-w-[1280px] space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-[1.75rem] font-[650] leading-[1.15] tracking-tight">Machines</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Machines running Sparstrow core that this workspace can reach. Agents run on
-            these, not in the browser.
-          </p>
+      {openIds.length > 0 ? (
+        <EntityTabStrip tabs={tabs} activeId={activeId} onSelect={setActiveId} onClose={closeProfile} />
+      ) : null}
+
+      {activeId !== "list" ? (
+        <div role="tabpanel" id={`tabpanel-${activeId}`} aria-labelledby={`tab-${activeId}`}>
+          {activeMachine ? (
+            <MachineProfile
+              runtime={activeMachine}
+              canManageTerminals={canManageTerminals}
+              onClose={() => closeProfile(activeId)}
+            />
+          ) : (
+            // The machine was removed (by this tab or another) while its
+            // profile tab was still open — the tab itself is closed by the
+            // `machines` query resolving without that id, but there is one
+            // render in between where `activeMachine` is briefly null.
+            <p className="p-6 text-sm text-muted-foreground">This machine is no longer in the workspace.</p>
+          )}
         </div>
-        {/* No button here any more — only the CLI, running on the machine
-            being paired, can open that machine's own loopback listener. The
-            empty state below carries the instructions instead. */}
-        {machines.length > 0 ? (
-          <code className="rounded-md border bg-muted/40 px-3 py-1.5 font-mono text-sm">
-            sparstrow pair
-          </code>
-        ) : null}
-      </div>
-
-      {justPaired ? (
-        <PairingOutcomePanel name={justPaired} onDismiss={() => setJustPaired(null)} />
-      ) : null}
-
-      {/*
-       * A failed load must never reach the empty state. The card this page
-       * replaces had no error branch at all, so a failed request fell through
-       * to "No machines paired yet" and told a new owner something untrue
-       * about their workspace.
-       *
-       * Two tiers, because the two failures are not the same: with nothing to
-       * show, the error REPLACES the list; with machines already on screen, a
-       * refetch that failed is reported above them rather than erasing a list
-       * whose controls still work.
-       */}
-      {runtimes.isError && machines.length > 0 ? (
-        <RuntimesError inline message={runtimes.error.message} query={runtimes} />
-      ) : null}
-
-      {runtimes.isError && machines.length === 0 ? (
-        <RuntimesError message={runtimes.error.message} query={runtimes} />
-      ) : runtimes.isLoading ? (
-        <ItemGroup className="gap-2">
-          <MachineRowSkeleton />
-          <MachineRowSkeleton />
-        </ItemGroup>
-      ) : machines.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon" className="size-12">
-              <Monitor className="size-6" strokeWidth={1.5} />
-            </EmptyMedia>
-            <EmptyTitle>No machines paired yet</EmptyTitle>
-            <EmptyDescription>
-              A machine is a computer running Sparstrow core. Pairing links it to this
-              workspace so agents have somewhere to actually run — nothing runs in the
-              browser.
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            <p className="text-sm text-muted-foreground">
-              On the machine you want to pair, run:
-            </p>
-            <code className="block rounded-md border bg-background px-3 py-2 font-mono text-sm">
-              sparstrow pair
-            </code>
-            <p className="text-xs text-muted-foreground">
-              It opens your browser to confirm — nothing to copy or type here.
-            </p>
-            <p className="text-xs text-muted-foreground">{CHECKOUT_NOTE}</p>
-          </EmptyContent>
-        </Empty>
       ) : (
-        <ItemGroup className="gap-2">
-          {machines.map((runtime) => (
-            <RuntimeRow key={runtime.id} runtime={runtime} canManageTerminals={canManageTerminals} />
-          ))}
-        </ItemGroup>
+        <>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-[1.75rem] font-[650] leading-[1.15] tracking-tight">Machines</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Machines running Sparstrow core that this workspace can reach. Agents run on
+                these, not in the browser.
+              </p>
+            </div>
+            {/* No button here any more — only the CLI, running on the machine
+                being paired, can open that machine's own loopback listener. The
+                empty state below carries the instructions instead. */}
+            {machines.length > 0 ? (
+              <code className="rounded-md border bg-muted/40 px-3 py-1.5 font-mono text-sm">
+                sparstrow pair
+              </code>
+            ) : null}
+          </div>
+
+          {justPaired ? (
+            <PairingOutcomePanel name={justPaired} onDismiss={() => setJustPaired(null)} />
+          ) : null}
+
+          {/*
+           * A failed load must never reach the empty state. The card this page
+           * replaces had no error branch at all, so a failed request fell through
+           * to "No machines paired yet" and told a new owner something untrue
+           * about their workspace.
+           *
+           * Two tiers, because the two failures are not the same: with nothing to
+           * show, the error REPLACES the list; with machines already on screen, a
+           * refetch that failed is reported above them rather than erasing a list
+           * whose controls still work.
+           */}
+          {runtimes.isError && machines.length > 0 ? (
+            <RuntimesError inline message={runtimes.error.message} query={runtimes} />
+          ) : null}
+
+          {runtimes.isError && machines.length === 0 ? (
+            <RuntimesError message={runtimes.error.message} query={runtimes} />
+          ) : runtimes.isLoading ? (
+            <ItemGroup className="gap-2">
+              <MachineRowSkeleton />
+              <MachineRowSkeleton />
+            </ItemGroup>
+          ) : machines.length === 0 ? (
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon" className="size-12">
+                  <Monitor className="size-6" strokeWidth={1.5} />
+                </EmptyMedia>
+                <EmptyTitle>No machines paired yet</EmptyTitle>
+                <EmptyDescription>
+                  A machine is a computer running Sparstrow core. Pairing links it to this
+                  workspace so agents have somewhere to actually run — nothing runs in the
+                  browser.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <p className="text-sm text-muted-foreground">
+                  On the machine you want to pair, run:
+                </p>
+                <code className="block rounded-md border bg-background px-3 py-2 font-mono text-sm">
+                  sparstrow pair
+                </code>
+                <p className="text-xs text-muted-foreground">
+                  It opens your browser to confirm — nothing to copy or type here.
+                </p>
+                <p className="text-xs text-muted-foreground">{CHECKOUT_NOTE}</p>
+              </EmptyContent>
+            </Empty>
+          ) : (
+            <ItemGroup className="gap-2">
+              {machines.map((runtime) => (
+                <RuntimeRow
+                  key={runtime.id}
+                  runtime={runtime}
+                  canManageTerminals={canManageTerminals}
+                  onOpenProfile={openProfile}
+                />
+              ))}
+            </ItemGroup>
+          )}
+        </>
       )}
     </div>
   );
