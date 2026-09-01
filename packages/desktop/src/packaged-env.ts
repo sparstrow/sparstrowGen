@@ -22,6 +22,10 @@ export interface PackagedPaths {
   nodeBin: string;
   /** Supervisor log dir (lives under dataDir so it survives updates). */
   logDir: string;
+  /** Bundled Next.js standalone entry. */
+  webEntry: string;
+  /** cwd for the Next.js standalone server. */
+  webCwd: string;
   /** This install's baked channel config (stable vs. staging), or `null` if unresolved. See `channel.ts`. */
   channel: ChannelConfig | null;
 }
@@ -45,6 +49,8 @@ export function applyPackagedEnv(): PackagedPaths | null {
     coreCwd,
     nodeBin: path.join(res, "node-runtime", process.platform === "win32" ? "node.exe" : "node"),
     logDir: path.join(userData, "data", "logs"),
+    webEntry: path.join(res, "web", "apps", "web", "server.js"),
+    webCwd: path.join(res, "web", "apps", "web"),
     channel,
   };
   process.env.SPARSTROW_PACKAGED = "1";

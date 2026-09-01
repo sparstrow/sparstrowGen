@@ -42,6 +42,7 @@
       { "from": "resources-staging/memory-mcp", "to": "memory-mcp", "filter": ["**/*"] },
       { "from": "resources-staging/memory-cli", "to": "memory-cli", "filter": ["**/*"] },
       { "from": "resources-staging/node-runtime", "to": "node-runtime", "filter": ["**/*"] },
+      { "from": "resources-staging/web", "to": "web", "filter": ["**/*"] },
       { "from": "resources-staging/channel.json", "to": "channel.json" }
     ],
     "win": {
