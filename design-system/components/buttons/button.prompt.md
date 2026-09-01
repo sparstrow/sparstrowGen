@@ -1,64 +1,41 @@
-# Button
+# Button — usage notes
 
-Source of truth: `packages/ui/src/components/ui/button.tsx`
-
-Six variants, four sizes. Built on Radix `Slot`, so `asChild` lets it render as
-a link or any other element while keeping button styling.
-
-## Usage
+**Source:** `packages/ui/src/components/ui/button.tsx`. Mirror mode — this card
+documents that file, it does not reimplement it.
 
 ```tsx
 import { Button } from "@sparstrow/ui";
-
-<Button>Save changes</Button>
-<Button variant="outline" size="sm">Cancel</Button>
-<Button variant="destructive">Delete machine</Button>
-<Button size="icon" aria-label="Add"><Plus /></Button>
-
-// Render as a link without losing button styling
-<Button asChild><Link to="/machines">Machines</Link></Button>
+<Button variant="destructive" size="sm">Delete</Button>
 ```
 
-## Variant → meaning
+## Choosing a variant
 
-| Variant | Use for | Per screen |
+| Variant | Use for | Not for |
 |---|---|---|
-| `default` | The one primary action | At most one |
-| `secondary` | A supporting action of similar weight | A few |
-| `outline` | Toolbar actions, filters, secondary controls | Many |
-| `ghost` | Icon buttons, row actions, nav items — anything that should recede until hovered | Many |
-| `destructive` | Irreversible or data-losing actions only | Rare |
-| `link` | Inline navigation inside prose | Rare |
+| `default` | The one primary action on a surface | Two of them on the same screen |
+| `secondary` | A real alternative to the primary action | Anything destructive |
+| `outline` | Actions in a toolbar or row where none dominates | The main call to action |
+| `ghost` | Dense rows and icon actions, where a border would add noise | Anything the user must find quickly |
+| `destructive` | Delete, revoke, stop — irreversible or disruptive | Merely "cancel" |
+| `link` | Navigation dressed as text | Anything that mutates state |
 
-**Dark mode inverts `default`.** `--primary` is near-white on near-black in
-dark, so a primary button is the *lightest* element on screen, not a coloured
-one. This surprises people expecting a brand-coloured CTA — it is correct, and
-it is why the retired doctrine's accent budget left colour free for status.
-That rationale died with the doctrine (`DECISIONS.md` DD-001) — the neutral
-primary is still what the code does, but it is no longer a defended choice.
+## Rules
 
-## Sizes
+- **One `default` per surface.** More than one and neither reads as primary.
+- **`asChild` for navigation.** Wrapping a `Link` in a Button breaks keyboard
+  and middle-click behaviour; `asChild` keeps the anchor semantics.
+- **`size="icon"` needs an accessible name.** It has no text, so pass
+  `aria-label`. An icon button with no label is invisible to a screen reader.
+- **Never restyle a variant at the call site.** A `className` that changes the
+  background is a new variant that only exists on one screen — add it to
+  `button.tsx` or use an existing one.
+- **Disabled is not an explanation.** A disabled button with no adjacent reason
+  reads as broken. Say why, or leave it enabled and fail with a message.
 
-| Size | Height | Use |
-|---|---|---|
-| `sm` | 32px | Toolbars, table row actions, dense panels |
-| `default` | 36px | Standard forms and page actions |
-| `lg` | 40px | Empty-state primary action, auth screens |
-| `icon` | 36×36 | Icon-only — **always pair with `aria-label`** |
+## Gaps worth knowing
 
-## Notes
-
-- **`destructive` is about consequence, not tone.** "Delete machine" is
-  destructive; "Cancel" is `outline`. Styling a merely-negative action as
-  destructive makes the genuinely dangerous ones stop registering.
-- **Icon-only buttons need `aria-label`.** The component cannot infer one, and
-  a `size="icon"` button with no label is unusable on a screen reader.
-- Focus is `focus-visible:ring-2 ring-ring` from the base class — do not
-  override or remove it. Keyboard navigation through a dense control plane
-  depends on it entirely.
-- Disabled applies `opacity-50` plus `pointer-events-none`. Because pointer
-  events are off, a tooltip explaining *why* it is disabled will not fire from
-  the button — put it on a wrapping element.
-- Icon spacing is handled by the base `gap-2`; do not add margins to the icon.
-- `asChild` swaps the rendered element via Radix `Slot`, so it must receive
-  exactly one child element. Two children throws at runtime.
+- **No loading state.** There is no `loading` prop and no spinner slot. Async
+  actions currently disable the button and change nothing else, so a slow run
+  looks identical to an ignored click. Handle it at the call site until the
+  component grows one.
+- **Shadows are Tailwind utilities**, not tokens — see `tokens/spacing.css`.
