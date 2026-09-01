@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | [`doc/specs/2026-08-31-browser-loopback-pairing.md`](../specs/2026-08-31-browser-loopback-pairing.md) |
-| **Status** | Draft |
+| **Status** | ✅ Implemented and live-verified 2026-08-31 |
 | **Trigger** | Owner, after reviewing multica's `multica login` (`references/multica`); decided live in the same conversation as the spec |
 | **Depends on** | [`2026-08-16-setup-and-machines`](../plans/2026-08-16-setup-and-machines.md) (M8–M11, shipped) — this plan only replaces its pairing-code mechanism, not the Machines page it built |
 | **Touches** | `packages/shared/src/db/schema.ts`, `packages/shared/drizzle/policies/`, `apps/web/src/app/api/daemon/`, `apps/web/src/app/pair/` (new), `apps/web/src/app/machines/`, `packages/core/src/cloud/`, `packages/core/src/cli/` (or wherever the `pair` subcommand lives) |
@@ -175,4 +175,44 @@ once done, since no automated harness here drives a second real machine).
 
 ## Result
 
-<!-- Filled in once this lands. -->
+**Shipped 2026-08-31**, on `task/browser-loopback-pairing`. US1 fully usable:
+`sparstrow pair` opens a browser, one click on the confirm page, machine
+appears on `/machines` — no code anywhere, matching the spec exactly.
+
+**Live-verified end to end**, not just typecheck/test-green, per the
+Verification table above:
+
+- Migrations and RLS/RPC applied to the shared `development` Supabase project
+  (owner-approved first, per AGENTS.md §3.7's HITL gate for dropping a table).
+- Ran the real CLI (`tsx src/cli/pair.ts`) against a real local dev server, a
+  disposable magic-link account (`doc/runbooks/agent-browser-session.md`),
+  and a real browser: the full loop — attempt registration, the confirm
+  page's Populated/Error states (missing attempt, invalid/expired attempt),
+  the click, the daemon's own loopback listener receiving the redirect and
+  serving its success page, and the paired machine appearing on `/machines`
+  with real capability badges (`claude-code`, `antigravity`) and **active**
+  status.
+- **This live pass caught two real bugs unit tests couldn't have**, both
+  fixed and re-verified before this was called done (see commit
+  `04590e6`): an RLS policy gap where `UPDATE ... RETURNING`'s own re-select
+  needs a matching SELECT policy for the post-update row, not just the
+  pre-update one; and `/pair` rendering inside the full app shell instead of
+  bare like `/login`.
+- Test data cleaned up per the runbook's documented query — no leftover
+  `@sparstrow.test` accounts.
+
+**What the plan anticipated correctly:** the two-phase approve-then-exchange
+design (Decisions section) worked exactly as designed — no ghost-machine
+case was hit, and the token never touched the browser at any point,
+confirmed by reading the actual network traffic (the browser's redirect to
+`/callback` carries no query parameters at all).
+
+**What it didn't anticipate:** the RLS RETURNING-visibility gap above. Worth
+generalizing as a standing note for future RLS-on-a-status-transition-table
+work in this codebase: **a status-flipping UPDATE with `.select()` needs its
+SELECT policy to cover the row's state on *both* sides of the flip, not just
+the side that made it eligible for the UPDATE in the first place.**
+
+Not yet done, deliberately out of scope for this plan (see Scope
+boundaries): `sparstrow` distribution (`D-10`, pre-existing) and headless
+pairing (`D-29`, new).
