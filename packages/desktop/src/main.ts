@@ -9,16 +9,6 @@ import { createTray } from "./tray";
 import { offlineScreenUrl } from "./offline";
 import { resolveAppUrl } from "./urls";
 
-// 0004 Phase 0: in packaged mode, point every data path at persistent
-// userData and every resource at the install dir BEFORE the supervisor spawns
-// core — the dev repo is never touched by a packaged run. Also resolves this
-// install's baked channel config (stable vs. staging), which APP_URL below
-// needs — must run before it.
-const packagedPaths = applyPackagedEnv();
-// Re-link the core's node_modules from the shipped `vendor` dir before anything
-// tries to spawn it (electron-builder can't ship a dir named node_modules).
-if (packagedPaths) ensureCoreNodeModules(packagedPaths);
-
 /**
  * Where the window points. Resolution lives in `urls.ts` so it can be tested —
  * `main.ts` takes the single-instance lock at import time and cannot be loaded
