@@ -222,10 +222,12 @@ localhost (fast iteration, per task — no push needed)
 6. **Auto-Enqueuing PR Merges**:
    - Immediately upon opening a PR — at **either** tier — agents MUST execute `gh pr merge <pr_number> --auto --squash` so that GitHub automatically queues and merges the PR as soon as CI passes, without requiring manual button clicks in the GitHub UI.
    - The `development` → `staging` promotion PR is the exception: it gets a reviewer and is not auto-merged.
-7. **Commit Without Asking**:
+7. **Commit and Push Without Asking**:
    - Once edits for a coherent unit of work are complete (a fix, a doc update, a task's checklist items), commit them on the current feature/worktree branch **without waiting for the user to say "commit this"** — this file is the standing, advance authorization for that.
    - Commit at the end of a logical change, not after every individual file edit: an in-progress multi-file change lands as one commit (or a few coherent ones) once it's actually done, not a commit per file touched or per half-finished edit.
-   - This does not relax rule 3 (verification before PR) and does not change anything about opening or pushing PRs — those still follow rules 1, 2, 3 and 6 above exactly as written. It only covers local commits to the agent's own branch.
+   - **Immediately push that commit to the branch's remote** (`git push`, or `git push -u origin <branch>` on a branch's first push) — same standing authorization, no separate ask. Set 2026-09-01, by the owner, specifically so work survives a lost local session (chat deleted, machine dies, worktree wiped) instead of existing only on disk. A commit that never leaves the local checkout is exactly as unrecoverable as one that was never made.
+   - This covers pushing **the agent's own current branch only** — a task branch, a band branch, or any other feature/worktree branch this agent is actively working on. It does not authorize pushing to `development`, `staging`, or `main`, and does not change anything about **opening** a PR or **merging** one — those still follow rules 1, 2, 3 and 6 above exactly as written, including the hard `staging` → `main` owner-only gate in rule 8. Pushing a branch is not the same act as opening the PR that targets it with that branch's content.
+   - If the push is rejected (diverged from the remote — another session or a force-push moved it), do not force-push over it. Fetch, reconcile (rebase or merge as the situation warrants), and push the reconciled result. Force-pushing still requires the same care as anywhere else in this document.
 8. **Development → Staging Promotion (agent-initiated)**:
    - Set 2026-08-20, by the owner, while verifying the Machines pairing flow;
      refined 2026-08-21 once branch previews became viable, and again
