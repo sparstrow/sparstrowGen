@@ -17,27 +17,56 @@ export const VAULT_DIRS = {
 export const DEFAULT_RUN_TIMEOUT_MS = 15 * 60 * 1000;
 export const DEFAULT_GLOBAL_CONCURRENCY = 4;
 
-/** Known model choices per provider (free-text also allowed). */
+/**
+ * Known model choices per provider (free-text also allowed).
+ *
+ * 2026-09-01: replaced the 3 bare Claude Code aliases (`opus`/`sonnet`/
+ * `haiku`) with real, dated model IDs, after checking how `references/
+ * multica` (local, gitignored, read-only reference clone) solves the exact
+ * same problem for its own `claude` provider. Its `claudeStaticModels()`
+ * (`server/pkg/agent/models.go`) is a **static list too** — the Claude Code
+ * CLI has no model-listing command at all (confirmed against 2.1.90:
+ * `--help` documents only `--model <alias-or-full-name>`, nothing that
+ * enumerates a catalog), so there is no discovery step to fall back from.
+ * Multica's own comment says so directly: "Claude's catalog is static by
+ * design, not by failure... this is authoritative." The gap was never
+ * static-vs-dynamic — it was that Sparstrowgen's static list was 3 generic
+ * buckets instead of multica's ~9 real, dated entries a user can pin to a
+ * specific generation. `opus`/`sonnet`/`haiku` still work as `--model`
+ * values (the CLI resolves them itself) but are deliberately not listed
+ * here any more, matching multica's own choice not to offer them alongside
+ * dated names — picking a real model and picking "whatever's current" are
+ * different intents, and conflating them in one list favours neither.
+ */
 export const KNOWN_MODELS: Record<string, string[]> = {
-  "claude-code": ["opus", "sonnet", "haiku"],
-  // P8.1: exact `agy models` display strings — verified as the tokens `--model`
-  // accepts (agy v1.1.0). The parenthetical is the reasoning-effort tier.
+  "claude-code": ["claude-sonnet-5", "claude-opus-5", "claude-fable-5", "claude-haiku-4-5-20251001"],
+  // Antigravity has a REAL discovery path (`agy models`, live via
+  // provider_model_cache/request_model_discovery — see chat-models.ts) and
+  // this is only the pre-discovery fallback. Re-verified live 2026-09-01
+  // against the actual installed `agy` (1.1.22, not the 1.1.0 the previous
+  // list was checked against) by running `agy models` directly: it had
+  // drifted for real — "Gemini 3.5 Flash" no longer exists upstream at all,
+  // and "Gemini 3.6"/"3.7 Flash" replaced it. This list is a snapshot, not a
+  // promise; the live path is what actually stays current, proven by a
+  // provider_model_cache row from 2026-08-31 correctly still holding 3.5
+  // Flash (extant then) against today's discovery correctly not having it.
   antigravity: [
+    "Gemini 3.7 Flash (High)",
+    "Gemini 3.7 Flash (Medium)",
+    "Gemini 3.7 Flash (Low)",
+    "Gemini 3.6 Flash (High)",
+    "Gemini 3.6 Flash (Medium)",
+    "Gemini 3.6 Flash (Low)",
     "Gemini 3.1 Pro (High)",
     "Gemini 3.1 Pro (Low)",
-    "Gemini 3.5 Flash (High)",
-    "Gemini 3.5 Flash (Medium)",
-    "Gemini 3.5 Flash (Low)",
-    "Claude Opus 4.6 (Thinking)",
     "Claude Sonnet 4.6 (Thinking)",
+    "Claude Opus 4.6 (Thinking)",
     "GPT-OSS 120B (Medium)",
   ],
   // P8 direct-API defaults; the live list comes from POST /providers/discover-models.
-  "anthropic-api": [
-    "claude-opus-4-8",
-    "claude-sonnet-5",
-    "claude-haiku-4-5",
-  ],
+  // Same real, dated models as claude-code above — the direct API accepts
+  // identical model ID strings.
+  "anthropic-api": ["claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5-20251001", "claude-fable-5"],
   ollama: ["llama3.1", "qwen2.5", "mistral"],
 };
 
