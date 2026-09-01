@@ -202,34 +202,12 @@ grant select (
 ) on public.daemon_tokens to authenticated;
 
 -- ── pairing_codes ──────────────────────────────────────────────────────────
--- A readable pending code lets the reader pair a machine into the workspace, so
--- members see only the codes they minted themselves. Admins see all of them.
-
-alter table public.pairing_codes enable row level security;
-
-drop policy if exists pairing_codes_own_read on public.pairing_codes;
-create policy pairing_codes_own_read on public.pairing_codes
-  for select to authenticated
-  using (
-    created_by_user_id = (select auth.uid())::text
-    or workspace_id in (select private.current_admin_workspace_ids())
-  );
-
-drop policy if exists pairing_codes_own_insert on public.pairing_codes;
-create policy pairing_codes_own_insert on public.pairing_codes
-  for insert to authenticated
-  with check (
-    workspace_id in (select private.current_workspace_ids())
-    and created_by_user_id = (select auth.uid())::text
-  );
-
-drop policy if exists pairing_codes_own_delete on public.pairing_codes;
-create policy pairing_codes_own_delete on public.pairing_codes
-  for delete to authenticated
-  using (
-    created_by_user_id = (select auth.uid())::text
-    or workspace_id in (select private.current_admin_workspace_ids())
-  );
+-- REMOVED 2026-08-31: the table itself is dropped (migration 0009), replaced
+-- by pairing_attempts -- see policies/031_pairing_attempts.sql for its RLS.
+-- This block is deleted rather than left dead, because this file is
+-- documented as "safe to re-run" (see ./README.md); a policy statement
+-- against a table that no longer exists would break that guarantee the next
+-- time anyone replays it, on any environment, fresh or existing.
 
 -- ── runtime_commands ───────────────────────────────────────────────────────
 -- The dispatch queue. Members may read status and enqueue work; the claim/ack

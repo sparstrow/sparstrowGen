@@ -1,8 +1,6 @@
 import * as React from "react";
 import {
   Check,
-  Clock,
-  Copy,
   Loader2,
   Monitor,
   Pencil,
@@ -40,7 +38,6 @@ import { useRuntimes, useWorkspace, type Runtime } from "@web/api/hooks";
 import { callAction } from "@web/lib/call-action";
 import { relativeTime } from "@/lib/format";
 import {
-  createPairingCodeAction,
   removeRuntimeAction,
   renameRuntimeAction,
   revokeRuntimeTokenAction,
@@ -73,143 +70,38 @@ import { cn } from "@/lib/utils";
 
 /**
  * `sparstrow` is not on npm and there is no installer yet (`D-10`). Saying
- * "run sparstrow pair" without this leaves someone holding a code and a
- * command their shell does not have.
+ * "run sparstrow pair" without this leaves someone with a command their
+ * shell does not have.
  */
 const CHECKOUT_NOTE =
   "sparstrow isn't published yet — the machine needs a checkout of this repository to run it. Packaged installers are coming.";
 
 /**
- * The code, with a live countdown.
- *
- * The countdown is not decoration. The code lives in component state and
- * nothing invalidates it when it expires, so without this someone reads a dead
- * code into a terminal on another machine and blames the CLI.
+ * The deliberate "something just happened" moment when a new machine shows
+ * up in the list without this page having done anything to cause it —
+ * browser-loopback pairing starts entirely on the CLI side (`sparstrow
+ * pair`), so there is no button here to attribute the arrival to. Without
+ * this, a fresh row was silent: it just appeared, which reads as the page
+ * skipping a step rather than a machine actually pairing.
  */
-function PairingCodePanel({
-  code,
-  expiresAt,
-  onExpired,
-}: {
-  code: string;
-  expiresAt: string;
-  onExpired: () => void;
-}) {
-  const [remaining, setRemaining] = React.useState(() =>
-    Math.max(0, new Date(expiresAt).getTime() - Date.now()),
-  );
-  const [copied, setCopied] = React.useState(false);
-
-  React.useEffect(() => {
-    const tick = setInterval(() => {
-      const left = Math.max(0, new Date(expiresAt).getTime() - Date.now());
-      setRemaining(left);
-      if (left === 0) onExpired();
-    }, 1000);
-    return () => clearInterval(tick);
-  }, [expiresAt, onExpired]);
-
-  React.useEffect(() => {
-    if (!copied) return;
-    const reset = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(reset);
-  }, [copied]);
-
-  const minutes = Math.floor(remaining / 60_000);
-  const seconds = Math.floor((remaining % 60_000) / 1000);
-
-  return (
-    <div className="spg-turn space-y-3 rounded-lg border bg-muted/40 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="font-mono text-2xl font-semibold tabular-nums tracking-[0.2em]">
-          {code}
-        </span>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            void navigator.clipboard?.writeText(code).then(() => setCopied(true));
-          }}
-        >
-          {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-          {copied ? "Copied" : "Copy"}
-        </Button>
-      </div>
-
-      <p className="text-sm text-muted-foreground">On the machine you want to pair, run:</p>
-      <code className="block rounded-md border bg-background px-3 py-2 font-mono text-sm">
-        sparstrow pair {code}
-      </code>
-      <p className="text-xs text-muted-foreground">{CHECKOUT_NOTE}</p>
-
-      <p
-        className={cn(
-          "text-xs tabular-nums",
-          remaining < 60_000 ? "text-destructive" : "text-muted-foreground",
-        )}
-      >
-        {remaining === 0
-          ? "This code has expired — generate another."
-          : `Expires in ${minutes}:${String(seconds).padStart(2, "0")} · works once`}
-      </p>
-    </div>
-  );
-}
-
-type PairOutcome = { kind: "paired"; name: string } | { kind: "expired" };
-
-/**
- * The deliberate "something just happened" moment between a code being
- * redeemed (or not) and the list settling back to normal.
- *
- * Sits in the exact spot `PairingCodePanel` just occupied — same border/bg
- * treatment — so the eye doesn't have to travel to learn what happened to the
- * code it was just looking at. Without this, redemption was silent: the code
- * panel vanished and the full row (name, OS, capability badges) was simply
- * already there, which read as the page skipping a step rather than a machine
- * actually pairing. `onExpired` had the same silence in the other direction —
- * a code could run out with nothing ever said about it.
- */
-function PairingOutcomePanel({
-  outcome,
-  onDismiss,
-  onRetry,
-}: {
-  outcome: PairOutcome;
-  onDismiss: () => void;
-  onRetry: () => void;
-}) {
-  const isPaired = outcome.kind === "paired";
-
+function PairingOutcomePanel({ name, onDismiss }: { name: string; onDismiss: () => void }) {
   return (
     <div
       className="spg-turn flex items-start gap-3 rounded-lg border bg-muted/40 p-5"
       role="status"
     >
       <span
-        className={cn(
-          "flex size-8 shrink-0 items-center justify-center rounded-full",
-          isPaired ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
-        )}
+        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-success/15 text-success"
         aria-hidden="true"
       >
-        {isPaired ? <Check className="size-4" /> : <Clock className="size-4" />}
+        <Check className="size-4" />
       </span>
 
       <div className="min-w-0 flex-1 space-y-1">
-        <p className="text-sm font-medium">
-          {isPaired ? `${outcome.name} is paired` : "Code expired — no machine connected"}
-        </p>
+        <p className="text-sm font-medium">{name} is paired</p>
         <p className="text-sm text-muted-foreground">
-          {isPaired
-            ? "Restart core on that machine if it was already running."
-            : "Nobody redeemed it within the 10-minute window. Generate a new one to try again."}
+          Restart core on that machine if it was already running.
         </p>
-        {isPaired ? null : (
-          <Button size="sm" variant="outline" className="mt-1" onClick={onRetry}>
-            Generate new code
-          </Button>
-        )}
       </div>
 
       <Button
@@ -641,60 +533,41 @@ export function MachinesPage() {
   // who is not owner/admin cannot open a terminal, so cannot switch whether
   // anyone else can either. Fail-closed while the role hasn't loaded yet.
   const canManageTerminals = workspace.data?.role === "owner" || workspace.data?.role === "admin";
-  const [createPending, startCreate] = React.useTransition();
-  const [createError, setCreateError] = React.useState<string | null>(null);
-  const [issued, setIssued] = React.useState<{
-    code: string;
-    expiresAt: string;
-    knownIds: ReadonlySet<string>;
-  } | null>(null);
-  const [pairOutcome, setPairOutcome] = React.useState<PairOutcome | null>(null);
+  const [justPaired, setJustPaired] = React.useState<string | null>(null);
 
   const machines = runtimes.data ?? [];
 
   /**
-   * Detect the redeemed code by diffing ids, not by "the list got longer".
+   * Detect a newly-arrived machine by diffing ids against the set this page
+   * knew about on its first successful load — not "the list got longer",
+   * which breaks the moment `machines` is ever sorted by anything other than
+   * insertion order.
    *
-   * Length-plus-"assume it's the last element" breaks the moment the list is
-   * ever sorted by anything other than insertion order — a rename, a status
-   * change, a future sort control all reorder `machines` without a new
-   * machine existing. Diffing against the id set taken at issue time is
-   * correct regardless of order, and also survives two codes being issued
-   * back to back (each panel only reacts to ids it didn't already know about).
+   * Nothing on THIS page starts a pairing attempt any more (browser-loopback
+   * pairing runs entirely from `sparstrow pair` on the machine itself, see
+   * `/pair`), so there is no "issued" moment to diff against like the old
+   * code-based flow had. Instead the baseline is simply whatever this page
+   * already knew the first time `runtimes` resolved — any id that shows up
+   * after that reads as "just paired", whether this tab or a completely
+   * different one drove the confirm click.
    */
+  const knownIdsRef = React.useRef<ReadonlySet<string> | null>(null);
   React.useEffect(() => {
-    if (!issued) return;
-    const arrival = machines.find((m) => !issued.knownIds.has(m.id));
-    if (!arrival) return;
-    setPairOutcome({ kind: "paired", name: arrival.name });
-    setIssued(null);
-  }, [machines, issued]);
+    if (runtimes.isLoading) return;
+    if (knownIdsRef.current === null) {
+      knownIdsRef.current = new Set(machines.map((m) => m.id));
+      return;
+    }
+    const arrival = machines.find((m) => !knownIdsRef.current!.has(m.id));
+    knownIdsRef.current = new Set(machines.map((m) => m.id));
+    if (arrival) setJustPaired(arrival.name);
+  }, [machines, runtimes.isLoading]);
 
   React.useEffect(() => {
-    if (!pairOutcome || pairOutcome.kind !== "paired") return;
-    const clear = setTimeout(() => setPairOutcome(null), 8000);
+    if (!justPaired) return;
+    const clear = setTimeout(() => setJustPaired(null), 8000);
     return () => clearTimeout(clear);
-  }, [pairOutcome]);
-
-  const pair = () => {
-    setPairOutcome(null);
-    setCreateError(null);
-    startCreate(async () => {
-      const r = await callAction(() => createPairingCodeAction());
-      if (!r.ok) {
-        setCreateError(r.error);
-        return;
-      }
-      setIssued({ ...r.data, knownIds: new Set(machines.map((m) => m.id)) });
-    });
-  };
-
-  const PairButton = ({ variant }: { variant: "default" | "outline" }) => (
-    <Button variant={variant} disabled={createPending} onClick={pair}>
-      {createPending ? <Loader2 className="size-4 animate-spin" /> : null}
-      Pair a machine
-    </Button>
-  );
+  }, [justPaired]);
 
   return (
     <div className="mx-auto max-w-[1280px] space-y-5">
@@ -706,33 +579,18 @@ export function MachinesPage() {
             these, not in the browser.
           </p>
         </div>
-        {/* The empty state carries its own primary action, so this would be a
-            second button saying the same thing on the one screen that must not
-            be cluttered. */}
-        {machines.length > 0 && !issued ? <PairButton variant="outline" /> : null}
+        {/* No button here any more — only the CLI, running on the machine
+            being paired, can open that machine's own loopback listener. The
+            empty state below carries the instructions instead. */}
+        {machines.length > 0 ? (
+          <code className="rounded-md border bg-muted/40 px-3 py-1.5 font-mono text-sm">
+            sparstrow pair
+          </code>
+        ) : null}
       </div>
 
-      {issued ? (
-        <PairingCodePanel
-          code={issued.code}
-          expiresAt={issued.expiresAt}
-          onExpired={() => {
-            setIssued(null);
-            setPairOutcome({ kind: "expired" });
-          }}
-        />
-      ) : null}
-
-      {createError ? (
-        <p className="text-sm text-destructive">Could not create a pairing code: {createError}</p>
-      ) : null}
-
-      {pairOutcome ? (
-        <PairingOutcomePanel
-          outcome={pairOutcome}
-          onDismiss={() => setPairOutcome(null)}
-          onRetry={pair}
-        />
+      {justPaired ? (
+        <PairingOutcomePanel name={justPaired} onDismiss={() => setJustPaired(null)} />
       ) : null}
 
       {/*
@@ -767,18 +625,21 @@ export function MachinesPage() {
             <EmptyDescription>
               A machine is a computer running Sparstrow core. Pairing links it to this
               workspace so agents have somewhere to actually run — nothing runs in the
-              browser. Generate a code here, then redeem it on that computer.
+              browser.
             </EmptyDescription>
           </EmptyHeader>
-          {/* While a code is on screen the panel above is already saying both
-              of these; repeating them here puts the same sentence twice on
-              the one page the spec calls its most important. */}
-          {issued ? null : (
-            <EmptyContent>
-              <PairButton variant="default" />
-              <p className="text-xs text-muted-foreground">{CHECKOUT_NOTE}</p>
-            </EmptyContent>
-          )}
+          <EmptyContent>
+            <p className="text-sm text-muted-foreground">
+              On the machine you want to pair, run:
+            </p>
+            <code className="block rounded-md border bg-background px-3 py-2 font-mono text-sm">
+              sparstrow pair
+            </code>
+            <p className="text-xs text-muted-foreground">
+              It opens your browser to confirm — nothing to copy or type here.
+            </p>
+            <p className="text-xs text-muted-foreground">{CHECKOUT_NOTE}</p>
+          </EmptyContent>
         </Empty>
       ) : (
         <ItemGroup className="gap-2">

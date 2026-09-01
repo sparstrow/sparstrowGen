@@ -1010,3 +1010,39 @@ named there.
 decomposed for it — either folded into whatever comes after `WA1`/`WA2`, or
 its own small band. Whoever picks this up should re-run the same sweep first
 in case anything else has drifted since 2026-08-26.
+
+---
+
+## D-29 — Headless/remote machine pairing (no local browser)
+
+**Parked:** 2026-08-31, by the owner, while deciding
+[`2026-08-31-browser-loopback-pairing`](specs/2026-08-31-browser-loopback-pairing.md).
+
+That spec replaces the typed pairing code with a browser-loopback flow
+(`sparstrow pair` opens a browser, the already-signed-in tab completes
+pairing) — modeled on [multica](../references/multica)'s `multica login`. The
+old code-based flow had one capability the new one cannot reproduce on its
+own: a code could be generated on *any* signed-in device (a laptop's browser)
+and typed into a completely different, disconnected terminal — a bare remote
+server, a CI runner, a WSL shell with no browser reachable from it. Pure
+browser-loopback assumes the machine running the pair command either has a
+browser or can be told a URL to open *somewhere* that then talks back to that
+same machine — neither holds for a genuinely headless box with no path back.
+
+Presented as an explicit fork (keep a `--code` escape hatch vs. drop it
+outright) — the owner chose to drop it outright rather than maintain two
+pairing code paths, accepting that headless/remote pairing is unsupported
+until this is picked up.
+
+**If wrong (i.e. left parked):** anyone trying to pair a server/VM/CI runner/
+WSL box with no local browser has no way to pair it at all after this ships —
+not degraded, entirely blocked. Today's code-based flow supports exactly this
+case, so shipping the spec above is a real regression for that scenario, not
+just a UX change. Whether that matters depends on whether Sparstrowgen is
+ever used against machines that aren't someone's own desktop/laptop.
+
+**Unpark when:** a real need for headless pairing shows up (self-hosting on a
+server, CI-triggered agent runs, remote dev boxes) — then design a fallback
+explicitly, e.g. a `sparstrow pair --code`/device-code-style path analogous to
+`gh auth login`'s `--web` vs. device-flow split, rather than reintroducing the
+old always-on code path wholesale.

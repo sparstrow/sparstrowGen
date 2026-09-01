@@ -13,7 +13,9 @@
     "dist": "npm run build && npm run dist:prepare && electron-builder --win nsis --publish never",
     "dist:publish": "npm run build && npm run dist:prepare && electron-builder --win nsis --publish always",
     "dist:stable": "npm run build && node scripts/prepare-resources.mjs stable && node scripts/build-channel-config.mjs stable && node scripts/ensure-draft-release.mjs stable && electron-builder --win nsis --publish always --config electron-builder.stable.generated.json",
-    "dist:staging": "npm run build && node scripts/prepare-resources.mjs staging && node scripts/build-channel-config.mjs staging && node scripts/ensure-draft-release.mjs staging && electron-builder --win nsis --publish always --config electron-builder.staging.generated.json"
+    "dist:staging": "npm run build && node scripts/prepare-resources.mjs staging && node scripts/build-channel-config.mjs staging && node scripts/ensure-draft-release.mjs staging && electron-builder --win nsis --publish always --config electron-builder.staging.generated.json",
+    "run:local:stable": "node scripts/run-local.mjs stable",
+    "run:local:staging": "node scripts/run-local.mjs staging"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
@@ -40,6 +42,7 @@
       { "from": "resources-staging/memory-mcp", "to": "memory-mcp", "filter": ["**/*"] },
       { "from": "resources-staging/memory-cli", "to": "memory-cli", "filter": ["**/*"] },
       { "from": "resources-staging/node-runtime", "to": "node-runtime", "filter": ["**/*"] },
+      { "from": "resources-staging/web", "to": "web", "filter": ["**/*"] },
       { "from": "resources-staging/channel.json", "to": "channel.json" }
     ],
     "win": {

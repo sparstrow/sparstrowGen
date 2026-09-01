@@ -2025,7 +2025,7 @@ fix (a scheduled sweep of unreferenced objects under a workspace's prefix, or
 tightening `postResult`'s delivery guarantee) is the same shape for both
 causes.
 
-### G-54 — `development.sparstrow.com` is paused: Vercel's free-plan usage is exhausted
+### G-54 — the whole Vercel account is paused: free-plan usage is exhausted
 
 **Raised:** 2026-08-29, noticed mid-`T-DI-05` follow-up when a fresh navigation
 to `development.sparstrow.com` returned Vercel's own "This deployment is
@@ -2033,19 +2033,27 @@ temporarily paused" page instead of the app. Confirmed by the owner: this
 month's free-plan usage allowance is used up, and left as-is for now — not a
 misconfiguration, an accepted limitation.
 
-**What is true:** `staging.sparstrow.com` and `sparstrow.com` (`main`) were not
-checked in the same pass — this entry covers `development` specifically, the
-one an agent actually hit. Vercel resumes deployments automatically once the
-usage window resets or the plan is upgraded; there is no code-side fix. The
-underlying Supabase project (`pnymngoqseltgigcfevq`) is unaffected and still
-reachable directly — the `T-DI-05` follow-up work this same day ran entirely
-against a **local** dev server (`pnpm --filter web dev` pointed at the same
-project) once this was hit, which is the workaround: local-first per
-`AGENTS.md` §2 already covers day-to-day iteration, so this mainly blocks the
-*specific* step that calls for the deployed preview — a band's final live
-verification pass (`AGENTS.md` §2 rule 3) and anything that needs the real
-`development.sparstrow.com` origin (cross-browser links, redirect URLs, Vercel
-preview comments).
+**What is true:** account-level, not per-project or per-branch — confirmed on
+`development.sparstrow.com` originally, and directly observed by the owner on
+`staging.sparstrow.com` 2026-08-30 (a plain launch of the installed
+Sparstrowgen Staging desktop app, which loads that URL by default, showed the
+same "Deployment Paused" page). `sparstrow.com` (`main`) wasn't separately
+checked but should be assumed paused too on the same reasoning. Vercel resumes
+deployments automatically once the usage window resets or the plan is
+upgraded; there is no code-side fix. The underlying Supabase project
+(`pnymngoqseltgigcfevq`) is unaffected and still reachable directly — the
+`T-DI-05` follow-up work this same day ran entirely against a **local** dev
+server (`pnpm --filter web dev` pointed at the same project) once this was
+hit, which is the workaround: local-first per `AGENTS.md` §2 already covers
+day-to-day iteration, so this mainly blocks the *specific* step that calls for
+the deployed preview — a band's final live verification pass (`AGENTS.md` §2
+rule 3), anything that needs the real origin (cross-browser links, redirect
+URLs, Vercel preview comments), and now also **a normal launch of an
+installed desktop build on any channel**, which hits its channel's real
+`appUrl` by default and shows this same page unless
+`SPARSTROW_APP_URL` is set to point it at a local dev server instead (see
+[T-DR-05](tasks/DR/README.md#t-dr-05--fix-staging-non-draft-release-create-failing-githubs-tag-validation)'s
+Result section for exactly how that's done).
 
 **If wrong:** low. This is a dashboard/billing state, not a claim about the
 app; nothing here is "probably fine," it is directly observed (the paused page
@@ -2067,6 +2075,23 @@ entry names — a local dev server against the same live Supabase project,
 with a real signed-in disposable account — for every live check across five
 tasks, not newly adopted here. The band → `development` PR proceeds on that
 basis rather than waiting on a platform state this repo doesn't control.
+
+**Tried and reverted 2026-08-30.** Confirmed across ~7 real PR auto-merges
+this session that the failing Vercel check never once blocked a merge (it
+isn't a required status check) — the only real cost is noise: a permanent
+red X on every PR, plus a `<ci-monitor-event>` ping each time. Attempted to
+suppress it with `apps/web/vercel.json`'s `"ignoreCommand": "exit 0"`, on the
+assumption that it would make Vercel skip the build (shown as "skipped"
+rather than "failed"). **Didn't work, reverted the same day**: `vercel ls`
+against this branch's commit showed no deployment record was ever created —
+"Account is blocked" happens at Vercel's platform/billing gate, upstream of
+where a deployment would even be instantiated to evaluate `ignoreCommand`
+against. `ignoreCommand` only skips a build that Vercel has already agreed to
+attempt; it has no effect on an account-level refusal to start one at all.
+There is no code-level fix for this specific failure mode — only paying to
+lift the block, or disabling Vercel's GitHub status-check posting from its
+own dashboard (Project Settings → Git), which no agent in this repo has
+access to.
 
 ### G-55 — `T-AM1-02`/`T-AM1-03`'s produced-file pipeline has never run end to end against a live daemon
 
@@ -2232,61 +2257,3 @@ chat bound to a real `rootDir`, confirming a file the agent edits inside the
 project folder produces neither a row nor a stored object (FR-016) — the
 requirement this whole spec turns on.
 
-### G-56 — two-channel desktop release: no real publish, no verified live update feed
-
-**Raised:** 2026-08-29, landing
-[`DR`](tasks/DR/README.md) (`doc/plans/2026-08-29-two-channel-desktop-release.md`).
-Narrowed 2026-08-30, narrowed again 2026-08-30 by
-[T-DR-04](tasks/DR/README.md#t-dr-04--fix-the-desktop-build-chain-and-verify-a-real-installer)
-— see below. This entry now covers only the publish/update-feed half; the
-packaged-installer half it originally covered is **closed**, proof in
-T-DR-04's Result section.
-
-**Closed by T-DR-04 (2026-08-30):** the build-chain tooling bug (a legacy
-`pnpm deploy --prod` step polluting the whole workspace's cached install
-state, causing the next `pnpm --filter` command to non-interactively strip
-devDependencies) is root-caused and fixed —
-`packages/desktop/scripts/prepare-resources.mjs` now runs a plain
-`pnpm install` right after the deploy step to restore correct state before
-anything else can read the poisoned one. The full `dist:staging`/`dist:stable`
-chain was verified running cleanly end to end (exit 0, no `CI=true`, no
-interactive prompt) multiple times. A real unpublished NSIS installer was
-built for both channels, installed silently
-(`<installer>.exe /S`, via PowerShell — not Git Bash, which mangles the flag),
-and launched with `SPARSTROW_APP_URL` pointed at a local `pnpm --filter web
-dev` server: confirmed loading real app content via the dev server's access
-log (not a screenshot — see caveat in T-DR-04's Verification). Both channels
-were launched **simultaneously** and confirmed via the live process tree to
-have fully independent `appId`/install directory/Start Menu entry/userData
-directory/core daemon process — no collision. That last check also caught a
-**real, previously-unverified bug**: `build-channel-config.mjs` gave the two
-channels distinct `appId`/`productName` but never `name`, and Electron's
-userData path is keyed off `app.name` (from the packaged `package.json`'s
-`name` field), not `productName` — so both channels defaulted to the exact
-same userData directory until this session added a per-channel
-`extraMetadata.name`. Full writeup:
-[`BUG-2026-08-30-desktop-stable-staging-share-userdata-dir`](../bug/BUG-2026-08-30-desktop-stable-staging-share-userdata-dir.md).
-
-**Still not verified, deliberately out of scope for T-DR-04:** a real push to
-`staging` triggering `release-staging.yml` end to end and producing a
-non-draft `vX.Y.Z-staging.N` GitHub Release with a working `staging.yml`
-update feed that `electron-updater` actually consumes. Publishing a real
-release needs separate explicit owner permission (this repo's action rule for
-"Publishing... public content") and wasn't attempted — T-DR-04 built and
-installed unpublished (`--publish never`) by design. Also not verified: that
-`electron-updater`'s notify-only update check (`setupUpdater` in `main.ts`,
-gated on `app.isPackaged`) actually fires and correctly compares against a
-real feed — this needs a real published release to test against.
-
-**If wrong:** low-moderate now that the packaged-installer half is closed —
-the specific "two installers share state" failure mode this gap originally
-worried about was found, real, and fixed this session, not merely
-theoretical. What's left is narrower: if `release-staging.yml` has a syntax
-or permissions issue, staging simply never publishes, silently, until someone
-checks `https://github.com/sparstrow/sparstrowGen/releases` after a push; if
-`electron-updater`'s channel-feed matching has a bug, an installed app could
-silently never see available updates.
-
-**Clears when:** a real `staging` push is observed producing a published
-(non-draft) release, and an installed staging build is observed detecting
-and (at minimum) notifying about that release via `electron-updater`.

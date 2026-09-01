@@ -8,8 +8,10 @@
 //                      native .node prebuilds included)
 //     memory-mcp/      index.cjs
 //     memory-cli/      index.cjs
+//     web/             Next.js standalone server (apps/web build output)
 //     node-runtime/    plain Node binary matching the natives' ABI (never
 //                      Electron-as-Node)
+//     channel.json     which backend this install talks to (stable/staging)
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -45,7 +47,7 @@ fs.mkdirSync(staging, { recursive: true });
 // native .node present).
 run("pnpm --filter @sparstrow/core build");
 run(
-  `pnpm --filter @sparstrow/core deploy --prod --legacy --config.node-linker=hoisted "${path.join(staging, "core")}"`,
+  `pnpm --filter @sparstrow/core deploy --prod --legacy --config.node-linker=hoisted --config.confirmModulesPurge=false "${path.join(staging, "core")}"`,
 );
 // The legacy deploy implementation resolves the WHOLE workspace in
 // production-only mode (`--prod`) to produce its snapshot, then persists
@@ -94,7 +96,20 @@ for (const name of ["memory-mcp", "memory-cli"]) {
   fs.copyFileSync(bundle, path.join(staging, name, "index.cjs"));
 }
 
-// 3. Node runtime: the Node this script runs under IS the ABI the workspace's
+// 3. Web app: build Next.js standalone server
+run("pnpm --filter web build");
+const webDir = path.join(repoRoot, "apps", "web");
+const webStaging = path.join(staging, "web");
+mustExist(path.join(webDir, ".next", "standalone"), "web build failed or not standalone");
+copy(path.join(webDir, ".next", "standalone"), webStaging);
+// Standalone requires static assets to be copied manually
+const webStandaloneAppDir = path.join(webStaging, "apps", "web");
+copy(path.join(webDir, ".next", "static"), path.join(webStandaloneAppDir, ".next", "static"));
+if (fs.existsSync(path.join(webDir, "public"))) {
+  copy(path.join(webDir, "public"), path.join(webStandaloneAppDir, "public"));
+}
+
+// 4. Node runtime: the Node this script runs under IS the ABI the workspace's
 // native prebuilds were installed for — ship exactly that binary.
 const nodeDir = path.join(staging, "node-runtime");
 fs.mkdirSync(nodeDir, { recursive: true });
@@ -102,7 +117,7 @@ const nodeName = process.platform === "win32" ? "node.exe" : "node";
 fs.copyFileSync(process.execPath, path.join(nodeDir, nodeName));
 console.log(`[prepare] node runtime: ${process.version} (${process.execPath})`);
 
-// 4. Channel config: which backend THIS specific build talks to, baked in so
+// 5. Channel config: which backend THIS specific build talks to, baked in so
 // a packaged install works out of the box — see src/channel.ts for why this
 // is a per-install resource file rather than a machine-wide env var (stable
 // and staging now install side by side; a shared env var would let one

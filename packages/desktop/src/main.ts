@@ -9,16 +9,6 @@ import { createTray } from "./tray";
 import { offlineScreenUrl } from "./offline";
 import { resolveAppUrl } from "./urls";
 
-// 0004 Phase 0: in packaged mode, point every data path at persistent
-// userData and every resource at the install dir BEFORE the supervisor spawns
-// core — the dev repo is never touched by a packaged run. Also resolves this
-// install's baked channel config (stable vs. staging), which APP_URL below
-// needs — must run before it.
-const packagedPaths = applyPackagedEnv();
-// Re-link the core's node_modules from the shipped `vendor` dir before anything
-// tries to spawn it (electron-builder can't ship a dir named node_modules).
-if (packagedPaths) ensureCoreNodeModules(packagedPaths);
-
 /**
  * Where the window points. Resolution lives in `urls.ts` so it can be tested —
  * `main.ts` takes the single-instance lock at import time and cannot be loaded
@@ -30,11 +20,25 @@ if (packagedPaths) ensureCoreNodeModules(packagedPaths);
  * this window displays — and collapsing them would make pointing a window at
  * staging a code change. See doc/tasks/M7/README.md decision 6.
  *
- * The second argument is this install's baked default (channel.ts) — present
- * only in a packaged, channel-aware build. `SPARSTROW_APP_URL` still wins
- * whenever an operator sets it.
+ * A function, not a `const`: `services.webPort` isn't known until
+ * `services.start()` spawns the bundled web server and resolves, well after
+ * this module's top-level code runs — every caller below evaluates this
+ * lazily, after `app.whenReady()`. The packaged app is fully local now (see
+ * `service-manager.ts`'s `spawnWeb()`): it never loads a remote host by
+ * default. `channel.json` (`channel.ts`) still supplies `updateChannel` and
+ * the daemon's `cloudUrl`, just not the window's URL.
  */
-const APP_URL = resolveAppUrl(process.env, packagedPaths?.channel?.appUrl ?? null);
+function getAppUrl() {
+  return resolveAppUrl(process.env, services.webPort);
+}
+
+// 0004 Phase 0: in packaged mode, point every data path at persistent
+// userData and every resource at the install dir BEFORE the supervisor spawns
+// core — the dev repo is never touched by a packaged run.
+const packagedPaths = applyPackagedEnv();
+// Re-link the core's node_modules from the shipped `vendor` dir before anything
+// tries to spawn it (electron-builder can't ship a dir named node_modules).
+if (packagedPaths) ensureCoreNodeModules(packagedPaths);
 const repoRoot = packagedPaths ? app.getPath("userData") : findRepoRoot(__dirname);
 const services = new ServiceManager(repoRoot, packagedPaths);
 // Token-authed shell→core client (tray, updater): the token file lives in
@@ -142,7 +146,7 @@ function openWindow(): void {
       }
       // `validatedURL` rather than APP_URL: it is what actually failed, which
       // after an in-app navigation is not necessarily where the window started.
-      const failed = validatedURL || APP_URL || "the app";
+      const failed = validatedURL || getAppUrl() || "the app";
       console.warn(`[main] window failed to load ${failed}: ${errorDescription} (${errorCode})`);
       // Rebuilt per failure rather than cached, so the error named on screen is
       // the current one. Retry is a plain link back: it either succeeds, or
@@ -153,7 +157,8 @@ function openWindow(): void {
 
   // One line, so a support question is a log lookup rather than a guess about
   // where this build was pointed.
-  if (APP_URL === null) {
+  const appUrl = getAppUrl();
+  if (appUrl === null) {
     console.warn("[main] SPARSTROW_APP_URL is not set — nothing to load");
     void mainWindow.loadURL(
       offlineScreenUrl({
@@ -164,8 +169,8 @@ function openWindow(): void {
     );
     return;
   }
-  console.log(`[main] loading window: ${APP_URL}`);
-  void mainWindow.loadURL(APP_URL);
+  console.log(`[main] loading window: ${appUrl}`);
+  void mainWindow.loadURL(appUrl);
 }
 
 function quitApp(): void {

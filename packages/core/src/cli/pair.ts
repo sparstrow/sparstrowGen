@@ -9,20 +9,20 @@ import {
   getWorkspaceId,
   isPaired,
 } from "../cloud/client.js";
-import { PairError, pairWithCode } from "../cloud/pairing.js";
+import { PairError, pairViaBrowser } from "../cloud/pairing.js";
 
 /**
- * `sparstrow pair <code>` — the one human step in connecting a machine.
+ * `sparstrow pair` — the one human step in connecting a machine.
  *
- * This is the first command anyone runs on a new machine, and often the only
- * one they run by hand, so every failure gets a specific message and a distinct
- * exit code. "Something went wrong" here means someone stares at a terminal
- * with no idea whether to retype the code, generate a new one, or check the
+ * No code, no argument: this opens a browser to an already signed-in confirm
+ * screen and waits. Every failure still gets a specific message and a
+ * distinct exit code — "something went wrong" here means someone stares at a
+ * terminal with no idea whether to retry, check their browser, or check the
  * network.
  *
  * Exit codes:
  *   0  paired (or already paired, for --status)
- *   1  the code was rejected — wrong, used, or expired
+ *   1  the attempt was rejected — expired, already used, or refused
  *   2  the control plane could not be reached
  */
 
@@ -33,7 +33,7 @@ const EXIT_UNREACHABLE = 2;
 const HELP = `sparstrow pair — connect this machine to a Sparstrow workspace
 
 USAGE
-  sparstrow pair <code>          Redeem a pairing code from the Machines page
+  sparstrow pair                 Open a browser to pair this machine
   sparstrow pair --status        Show whether this machine is paired, and to what
   sparstrow pair --unpair        Forget the stored token (does not revoke it)
   sparstrow pair --help
@@ -44,9 +44,12 @@ OPTIONS
   --force         Replace an existing pairing. Refused by default so a second
                   run cannot silently move a machine between workspaces.
 
-GETTING A CODE
-  In the web app, open Machines in the sidebar and choose "Pair a machine".
-  Codes last 10 minutes and work exactly once.
+HOW IT WORKS
+  This starts a local listener, opens your default browser to a confirm
+  screen on an already signed-in session, and waits up to 5 minutes for you
+  to press "Authorize this machine". Nothing is ever shown to copy or type.
+  If a browser can't be opened automatically, the URL is printed so you can
+  open it yourself — on another device if this one has no display.
 
 NOTES
   The token is stored encrypted in ${config.secretsDir}, never in the project
@@ -65,7 +68,7 @@ function fail(code: number, message: string): never {
 async function showStatus(): Promise<never> {
   if (!isPaired()) {
     console.log("This machine is not paired.");
-    console.log("Run `sparstrow pair <code>` with a code from the Machines page in the web app.");
+    console.log("Run `sparstrow pair` to connect it.");
     process.exit(EXIT_OK);
   }
 
@@ -84,8 +87,8 @@ async function showStatus(): Promise<never> {
     if (err instanceof CloudAuthError) {
       console.error(
         err.revoked
-          ? "\nThis pairing has been REVOKED. Run `sparstrow pair <code> --force` to reconnect."
-          : "\nThe stored token was rejected. Run `sparstrow pair <code> --force` to re-pair.",
+          ? "\nThis pairing has been REVOKED. Run `sparstrow pair --force` to reconnect."
+          : "\nThe stored token was rejected. Run `sparstrow pair --force` to re-pair.",
       );
       process.exit(EXIT_REJECTED);
     }
@@ -96,14 +99,14 @@ async function showStatus(): Promise<never> {
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  // Tolerate `sparstrow pair pair <code>`: npm bin naming means people reach
-  // this either as `sparstrow pair` or, once more subcommands exist, as
+  // Tolerate `sparstrow pair pair`: npm bin naming means people reach this
+  // either as `sparstrow pair` or, once more subcommands exist, as
   // `sparstrow pair …`. Swallowing a leading "pair" costs nothing.
   if (args[0] === "pair") args.shift();
 
-  if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
+  if (args.includes("--help") || args.includes("-h")) {
     console.log(HELP);
-    process.exit(args.length === 0 ? EXIT_REJECTED : EXIT_OK);
+    process.exit(EXIT_OK);
   }
 
   if (args.includes("--status")) await showStatus();
@@ -124,9 +127,6 @@ async function main(): Promise<void> {
   const force = args.includes("--force");
   const nameIndex = args.indexOf("--name");
   const name = nameIndex !== -1 ? args[nameIndex + 1] : undefined;
-  const code = args.find((arg) => !arg.startsWith("--") && arg !== name);
-
-  if (!code) fail(EXIT_REJECTED, "No pairing code given.\n\n" + HELP);
 
   if (isPaired() && !force) {
     fail(
@@ -137,8 +137,19 @@ async function main(): Promise<void> {
   }
 
   try {
-    const result = await pairWithCode(code, name);
-    console.log("Paired.");
+    const result = await pairViaBrowser(name, {
+      onListening: (confirmUrl) => {
+        console.log(`Opening your browser to confirm...\n  ${confirmUrl}`);
+      },
+      onBrowserOpenFailed: (confirmUrl) => {
+        console.log(`\nCould not open a browser automatically. Open this URL to continue:`);
+        console.log(`  ${confirmUrl}`);
+      },
+      onWaiting: () => {
+        console.log("\nWaiting for you to confirm in the browser (up to 5 minutes)...");
+      },
+    });
+    console.log("\nPaired.");
     console.log(`  Workspace   ${result.workspaceId}`);
     console.log(`  Runtime id  ${result.runtimeId}`);
     console.log("");

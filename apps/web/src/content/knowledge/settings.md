@@ -3,7 +3,7 @@ title: Settings
 section: Surfaces
 description: Providers and keys, factory health, snapshots, GitHub PAT, the code-graph engine, and app configuration.
 order: 14
-updated: 2026-08-20
+updated: 2026-08-31
 ---
 
 Settings is the factory's engine room. The cards that matter:
@@ -81,8 +81,8 @@ extraction — also live here.
 
 ## Known Limitations & Boundaries
 
-- **Pairing codes are single-use and expire.** A code that has been redeemed won't work
-  on a second machine; generate another.
+- **Pairing needs a browser on the machine being paired.** See
+  [Machines](/knowledge/machines) for the full note on what that rules out.
 - **Revoking a machine is immediate but not retroactive** — it stops the next request,
   it doesn't undo work already done.
 - **Snapshot settings are per machine.** Changing them on one computer does not change

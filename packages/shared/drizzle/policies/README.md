@@ -141,6 +141,8 @@ policies/025_chat_attachments_storage.sql  CS5 — chat-attachments bucket + cha
 policies/026_chat_attachments_dispatch.sql  CS5 — enqueue_chat_turn gains p_attachments; assign_or_park_chat_turn embeds them in the dispatch payload
 policies/027_restore_chat_auto_title.sql    T-CS6-02 — 024/026 each silently dropped 022's auto-title block; restored
 policies/028_restore_no_invented_names_after_020_regression.sql  2026-08-29 — 020 silently reverted 012's fix the same way 024/026 dropped 027's; restored. See BUG-2026-08-29-bootstrap-workspace-020-reverted-012.md
+policies/031_pairing_attempts.sql      2026-08-31 — browser-loopback pairing: RLS on pairing_attempts + exchange_pairing_attempt(), replaces 008's redemption step (008 itself is untouched — still applies, pairing_codes is just dropped, see migration 0009)
+policies/032_delete_own_account_pairing_attempts.sql  2026-08-31 — delete_own_account() sweeps pairing_attempts.approved_by_user_id, mirroring 007's pairing_codes.created_by_user_id line
 ```
 
 **Two live tables have no creating migration anywhere in this history**,
@@ -355,6 +357,14 @@ member-less caller.
 it. The advisor only flags `SECURITY DEFINER` functions reachable by
 `authenticated`, and that one is service-role only — if it ever shows up here,
 a grant has been widened and the pairing flow is exposed.
+
+`exchange_pairing_attempt` (031) is **not** on this list either, and for the
+same reason: service-role only, called exclusively by
+`/api/daemon/pair/exchange`. Unlike 008 it has a sibling that **is** expected
+to appear on this list one day if this table is ever revisited: the
+`pending -> approved` transition (031's `pairing_attempts_approve` policy) is
+plain RLS, not a function, so there is nothing there for the advisor to flag —
+worth remembering if a future change turns approval into a function too.
 
 ### Still open
 

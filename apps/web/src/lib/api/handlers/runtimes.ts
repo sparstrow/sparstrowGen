@@ -5,14 +5,14 @@ import { registerRoute, ok, HandlerContext } from "../router";
  * M3 — the browser's side of pairing.
  *
  * Ordinary session-cookie handlers: these run as the signed-in user, so RLS
- * does the work. `pairing_codes_own_insert` already requires
- * `created_by_user_id = auth.uid()` plus workspace membership, and
- * `runtimes_member_all` scopes the machine list.
+ * does the work. `runtimes_member_all` scopes the machine list.
  *
- * The writes that used to live here — `POST /pairing-codes`, renaming,
- * revoking, removing a runtime, the per-runtime settings switch, and the
- * four project-binding actions (relink/unbind/clone) — moved to
- * `app/machines/actions.ts` (`T-WA-08`). Reads stay here (plan DD-5).
+ * The writes that used to live here — `POST /pairing-codes` (long gone —
+ * browser-loopback pairing replaced it entirely, see
+ * `apps/web/src/app/pair/`), renaming, revoking, removing a runtime, the
+ * per-runtime settings switch, and the four project-binding actions
+ * (relink/unbind/clone) — moved to `app/machines/actions.ts` (`T-WA-08`).
+ * Reads stay here (plan DD-5).
  */
 
 type RuntimeRow = {

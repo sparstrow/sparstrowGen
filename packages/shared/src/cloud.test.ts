@@ -6,6 +6,7 @@ import {
   machineState,
   CHAT_TURN_STALE_MS,
   isChatTurnStale,
+  isLoopbackCallback,
 } from "./cloud";
 
 describe("heartbeat constants", () => {
@@ -180,5 +181,32 @@ describe("isChatTurnStale", () => {
 
   it("accepts a Date as well as a string", () => {
     expect(isChatTurnStale({ status: "in_progress", updatedAt: new Date(now - 1000) }, now)).toBe(false);
+  });
+});
+
+describe("isLoopbackCallback", () => {
+  it("accepts 127.0.0.1, ::1 and localhost over plain HTTP", () => {
+    expect(isLoopbackCallback("http://127.0.0.1:54219/callback")).toBe(true);
+    expect(isLoopbackCallback("http://[::1]:54219/callback")).toBe(true);
+    expect(isLoopbackCallback("http://localhost:54219/callback")).toBe(true);
+    expect(isLoopbackCallback("http://LOCALHOST:54219/callback")).toBe(true);
+  });
+
+  it("rejects HTTPS even on a loopback host", () => {
+    // A local daemon's own listener has no certificate to offer; this isn't
+    // a security requirement so much as a signal that something is wrong if
+    // it ever shows up, since the CLI never generates an https:// callback.
+    expect(isLoopbackCallback("https://127.0.0.1:54219/callback")).toBe(false);
+  });
+
+  it("rejects a public or private-LAN host — deliberately narrower than multica's allowance", () => {
+    expect(isLoopbackCallback("http://example.com/callback")).toBe(false);
+    expect(isLoopbackCallback("http://192.168.1.50:54219/callback")).toBe(false);
+    expect(isLoopbackCallback("http://10.0.0.5:54219/callback")).toBe(false);
+  });
+
+  it("rejects an unparseable URL rather than throwing", () => {
+    expect(isLoopbackCallback("not a url")).toBe(false);
+    expect(isLoopbackCallback("")).toBe(false);
   });
 });

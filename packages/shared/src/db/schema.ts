@@ -238,23 +238,46 @@ export const agentMachineRestrictions = pgTable(
 // ─── 3. Daemon auth & dispatch ─────────────────────────────────────────────────
 
 /**
- * Short-lived pairing codes. The web UI mints one; `sparstrow pair <code>`
- * exchanges it for a daemon token. Single use — `consumedAt` closes it.
+ * Browser-loopback pairing attempts — replaces the old `pairing_codes`.
+ *
+ * `id` is a machine-generated bearer token (32 bytes, CSPRNG), never a code a
+ * person reads or types: the daemon creates the row itself (`status:
+ * 'pending'`) before opening the owner's browser to `/pair?attempt=<id>`, so
+ * only the daemon process and whoever opens that exact URL ever see it.
+ *
+ * Lifecycle: `pending` (daemon registered it, machine identity stored, no
+ * workspace yet) -> `approved` (an authenticated member picked a workspace
+ * and confirmed) -> `consumed` (the daemon exchanged it for a real daemon
+ * token, exactly once). The daemon's own local HTTP listener is what makes
+ * "approved" ever reach "consumed" — see `exchange_pairing_attempt`
+ * (`policies/031_pairing_attempts.sql`) for why the real token is minted
+ * there and not at approval time.
  */
-export const pairingCodes = pgTable(
-  "pairing_codes",
+export const pairingAttempts = pgTable(
+  "pairing_attempts",
   {
-    code: text("code").primaryKey(),
-    workspaceId: text("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    createdByUserId: text("created_by_user_id").notNull(),
+    id: text("id").primaryKey(),
+    runtimeId: text("runtime_id").notNull(),
+    name: text("name").notNull(),
+    os: text("os").notNull(),
+    hostname: text("hostname").notNull(),
+    isElectron: boolean("is_electron").notNull().default(false),
+    capabilities: jsonb("capabilities").$type<string[]>().notNull().default([]),
+    coreVersion: text("core_version"),
+    /** Loopback URL the daemon's local listener is waiting on. Validated
+     *  host-is-loopback at insert time; never a public address. */
+    callback: text("callback").notNull(),
+    status: text("status").notNull().default("pending"), // pending | approved | consumed
+    workspaceId: text("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
+    approvedByUserId: text("approved_by_user_id"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     consumedAt: timestamp("consumed_at", { withTimezone: true }),
-    consumedByRuntimeId: text("consumed_by_runtime_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("idx_pairing_codes_workspace").on(t.workspaceId, t.expiresAt)],
+  (t) => [
+    index("idx_pairing_attempts_status_expires").on(t.status, t.expiresAt),
+    index("idx_pairing_attempts_workspace").on(t.workspaceId),
+  ],
 );
 
 /**
