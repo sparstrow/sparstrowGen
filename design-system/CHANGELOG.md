@@ -2,6 +2,27 @@
 
 Newest first. Record token changes, new components, and new prototypes.
 
+## 2026-09-01 &mdash; provider/OS marks get real colour, red delete
+
+Owner review of the Machines prototype (`DD-017`, reversing part of
+`DD-016`):
+
+- **Provider logo colour restored.** Each mark now renders its real
+  simple-icons hex (`data/simple-icons.json`) instead of `currentColor`,
+  mounted on a small fixed-white `.pmark` chip so the two near-black brand
+  colours (Anthropic, Ollama) stay legible on a dark surface.
+- **OS icons** next to each machine's `win32`/`darwin`/`linux` — Apple mark
+  for macOS, Tux for Linux, a neutral fallback for Windows (no simple-icons
+  entry exists for it at all).
+- **Delete/remove action recoloured `--destructive`** in the list row —
+  previously shared the same neutral icon-button styling as rename/revoke.
+- **All 11 hand-approximated UI-icon helpers replaced with lucide-react's
+  real path data**, copied verbatim from lucide's own repo — this repo's
+  actual icon dependency (`packages/ui/package.json`), confirmed rather than
+  assumed; not Radix Icons, which isn't a dependency here.
+- `.claude/skills/interactive-prototype/SKILL.md` gained an "Icons" section
+  codifying all of the above for future prototypes.
+
 ## 2026-08-31 &mdash; became the sole `design-system/`
 
 The original `design-system/` (this system's own point of comparison, see

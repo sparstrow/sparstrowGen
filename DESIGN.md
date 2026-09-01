@@ -605,14 +605,17 @@ the third screen that copies it.
 
 - **Logo and wordmark.** `apps/web/public/` still holds the Next.js starter
   SVGs. No mark has been designed.
-- **Provider logo brand colour.** Sourcing is resolved — CC0 marks from
-  simple-icons, never copied from a competitor's own vendored copies; see
-  `design-system/DECISIONS.md` DD-016 for the full reasoning and
+- **Provider/OS logo colour.** Sourcing and colour are both resolved — CC0
+  marks from simple-icons in their real brand hex, never copied from a
+  competitor's own vendored copies; see `design-system/DECISIONS.md` DD-016
+  (sourcing) and DD-017 (colour) for the full reasoning and
   `design-system/designs/Machines/machines.dc.html` for the reference
-  implementation. What is still open: whether each mark eventually gets a
-  real, contrast-verified brand tint (matching §2.3's rigor) or stays
-  monochrome (`--muted-foreground`) permanently as part of the doctrine's
-  restraint stance.
+  implementation. What is still open: DD-017's fixed-light-chip background
+  (used so near-black hexes like Anthropic's stay legible on a dark surface)
+  is a prototype-level workaround, not the full per-hex contrast
+  verification §2.3's brand-preset rigor applies to the app's own theme
+  colours. If a brand mark's colour is ever promoted to a themed token used
+  elsewhere in the app, that rigor still needs doing properly.
 - **Data visualisation.** No chart palette. Blocked until the FinOps surface is
   specified — Vercel is the stated reference for it.
 - **Density preference.** Whether users can choose compact/comfortable, in

@@ -60,12 +60,18 @@ any capability string with no entry in `PROVIDER_ICONS`, matching multica's own
 honest precedent for its "ZeroClaw" placeholder rather than inventing a fake
 official mark.
 
-**Colour: rendered monochrome (`currentColor` at `--muted-foreground`)
-everywhere**, not each brand's real colour. simple-icons ships single-path,
-single-colour SVGs with no colour data attached — assigning each one a
-bespoke, *contrast-verified* brand tint is real doctrine work (the same rigor
-`DESIGN.md` §2.3's brand-preset sweep applied, caught twice by DD-004/DD-010)
-that this prototype does not attempt. See "Open questions" below.
+**Colour: each mark's real brand hex, on a fixed light chip (2026-09-01,
+`DD-017`).** simple-icons' `data/simple-icons.json` supplies the hex per
+title (same CC0 licence as the paths). First shipped monochrome
+(`currentColor` at `--muted-foreground`) reasoning that a bespoke,
+contrast-verified brand tint was real doctrine work this prototype shouldn't
+invent under time pressure — the owner reviewed that and asked for real
+colour back directly. Two of eight hexes are effectively black (Anthropic
+`#191919`, Ollama `#000000`) and would vanish on this app's dark surfaces, so
+every mark — not just those two — sits on a small fixed-white chip (`.pmark`)
+rather than the app's own `--accent`/`--secondary`. This sidesteps needing
+per-hex contrast tuning; it is not the full `§2.3`-grade verification. See
+`DD-017` for the complete reasoning and "Open questions" below.
 
 ## Component mapping
 
@@ -74,6 +80,7 @@ that this prototype does not attempt. See "Open questions" below.
 | Entity tile + status dot | existing pattern, `DESIGN.md` §6 | Hand-rolled here (`.tile`/`.stdot`); real build uses the same pattern already in `machines.tsx`'s `MachineTile` |
 | Status pill/word | existing pattern | active=success, draining=warning, inactive=muted — matches `machineState()` in `packages/shared` |
 | Provider logo badge | **NEW** — `ProviderLogo` doesn't exist as a real component yet | `providerBadge()`/`PROVIDER_ICONS` in this prototype is the reference implementation; promote to a real `packages/ui` component (generic, capability string → icon) per DD-015's "would this make sense in a different product" test — it would |
+| OS icon (next to `win32`/`darwin`/`linux`) | **NEW** — no equivalent in real `machines.tsx`, which shows the raw string only | `osIconSvg()`, same sourcing rule as provider logos (`DD-016`/`DD-017`); `win32` has no simple-icons entry so it falls back to the neutral monitor glyph |
 | Rename input | existing `Input`, inline-edit pattern already in `machines.tsx`'s `RuntimeRow` | Copied behavior verbatim: commit/cancel called directly from Enter/Escape, not via blur-routing |
 | Revoke/Remove confirm dialogs | existing `ConfirmDialog` | Copy verbatim from `machines.tsx`'s real `ConfirmDialog` usage |
 | Tab strip (outer) | **NEW** — `DESIGN.md` §9.1, no real component yet | One tab per open machine, closable, reused on re-click (never duplicates) — verified live, see Verification |
@@ -167,8 +174,9 @@ existing/absent data respectively — Providers reads the existing
   about what any real machine reports today.**
 - **Activity sub-nav copy** ("3 runs in the last 24h..."). No real activity
   feed exists for a machine; this is a placeholder shape, not sourced data.
-- **Provider logo colour: monochrome only.** See "Provider logos" above —
-  deliberate, pending real contrast-verified brand tints as separate work.
+- **Provider logo colour: fixed-white chip behind each mark.** See "Provider
+  logos" above and `DD-017` — a structural workaround for contrast, not
+  per-hex verification.
 - **`antigravity`'s fallback glyph** (a plain neutral circle-with-dot). No
   official mark exists to source; this is a deliberate placeholder, not a
   claimed logo.
@@ -186,10 +194,11 @@ existing/absent data respectively — Providers reads the existing
 
 ## Open questions
 
-- Per `DESIGN.md` §13 (deliberately undecided, unchanged by this prototype):
-  should each provider logo eventually carry a real, contrast-verified brand
-  tint, or stay monochrome permanently as part of the doctrine's restraint
-  stance? This prototype renders monochrome and does not answer the question.
+- Per `DESIGN.md` §13 (updated by `DD-017`): the fixed-light-chip pattern
+  solves contrast for a prototype: if any provider mark's colour is later
+  promoted to a themed token used elsewhere in the app, it still needs the
+  full per-hex, per-surface verification §2.3's brand-preset sweep applies to
+  the app's own theme colours — this prototype does not substitute for that.
 - Should `antigravity` get a real mark once Google publishes brand assets for
   it, or does Sparstrowgen design its own original glyph the way multica did
   for ZeroClaw? Not decided — the current fallback is a generic placeholder,
@@ -325,3 +334,29 @@ checklist from the original pass (rename/Enter/Escape, revoke, remove,
 simulate-pair, dismiss, reset) — nothing in this migration touched that
 JavaScript, only token references and literal-value substitutions in
 `<style>`.
+
+## Verification — 2026-09-01 (DD-017: real brand colour, OS icons, red delete)
+
+Re-verified live after the `DD-017` changes, served via `ds.mjs serve --root
+design-system --port 4322`.
+
+- [x] All 11 UI-icon helper functions (`monitorIconSvg` through `alertIconSvg`)
+  replaced with lucide-react's real path data, copied verbatim — visually
+  compared against the prior hand-approximated shapes, all render correctly
+- [x] `iconSvg()` renders each provider mark's real hex (`fill="#${icon.hex}"`)
+  instead of `currentColor`
+- [x] Every provider mark (row icon-stack and the Providers profile tab)
+  sits on a `.pmark` fixed-white chip — spot-checked Anthropic API and Ollama
+  specifically, since their hex is near-black and would be invisible without
+  the chip; both render clearly
+- [x] `antigravity` still renders its neutral fallback glyph (unaffected —
+  no `PROVIDER_ICONS` entry, so `providerBadge()`'s fallback path runs)
+- [x] OS icon renders next to `os` in both the list row (`rmeta`) and the
+  profile Overview diagnostics table — Apple mark for `darwin`, Tux for
+  `linux`, neutral monitor glyph for `win32` (no simple-icons entry exists)
+- [x] List-row delete/remove icon button renders in `var(--destructive)`
+  (red), distinct from the neutral rename/revoke icons beside it
+- [x] `ds.mjs check --root design-system` — no drift
+- [x] Console clean across populated state, profile, and Providers tab
+
+No new findings.

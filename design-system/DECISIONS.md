@@ -11,6 +11,70 @@ guidance: `.claude/skills/design-system/references/decision-log.md`.
 
 ---
 
+## DD-017 — Provider/OS logos render in their real brand colour, on a fixed light chip
+
+**Date:** 2026-09-01 · **Asked by:** owner, reviewing the Machines prototype ·
+**Surface:** `machines.dc.html`'s provider-logo badges and the new OS-icon
+usage next to each machine's `os` field
+
+**Ask:** "why is the logos of the models are colourless. Restore their
+original colours" — plus, separately, add distinguishing icons for the
+machine's OS (Windows/Linux/macOS) next to the plain `win32`/`darwin`/`linux`
+text, and colour the delete/remove action red.
+
+**Why the reversal:** `DD-016` deliberately shipped every mark monochrome
+(`currentColor` at `--muted-foreground`), reasoning that a bespoke,
+contrast-verified brand tint per mark was real doctrine work — the same rigor
+`DESIGN.md` §2.3's brand-preset sweep applied — that a first pass shouldn't
+invent under time pressure. The owner reviewed that result and asked for real
+colour back directly, which resolves the open question `DD-016` and
+`machines.handoff.md` both left open.
+
+**The contrast problem, and the fix:** simple-icons' real hexes for two of
+eight marks are effectively black — Anthropic `#191919`, Ollama `#000000` —
+which would be invisible rendered directly on this app's dark tile/badge
+surfaces (`--accent`/`--secondary`). Rather than hand-tuning each mark
+(inverting only the near-black ones, say), every mark — including the
+colourful ones — now sits on a small **fixed light chip**
+(`background:#fff`, `.pmark` in `machines.dc.html`) with the brand's real hex
+as the SVG fill. This guarantees contrast for any hex without a per-mark
+exception table, at the cost of a visible white square around every logo
+regardless of the app's own theme — a real, visible trade-off, not a
+transparent win. This is *not* the full contrast-verification rigor `DD-016`
+declined to do (that would mean measuring each hex against the app's actual
+surfaces and mode); it's a structural workaround that sidesteps needing it.
+If a provider mark's colour is ever promoted to a themed token used elsewhere
+in the app, redo this properly rather than assuming the chip generalizes.
+
+**OS icons, and the one gap:** `darwin` → simple-icons `apple` (black
+silhouette), `linux` → simple-icons `linux` (the Tux mark, `#FCC624`), both
+existence-verified against the live file tree first. **`win32` has no
+counterpart** — Microsoft Windows is not in simple-icons at all, not merely
+unlicensed there — so it falls back to a plain neutral monitor glyph, the
+same treatment `antigravity` already gets in `DD-016`. Documented in code
+(`osIconSvg()`'s comment), not silently substituted with an improvised flag
+mark.
+
+**Delete gets `--destructive` on the icon button itself:** the list row's
+remove action was sharing the same neutral `.btn-ghost` styling as rename and
+revoke, so nothing distinguished "reversible" from "not" until a user opened
+the confirm dialog. Now `.btn-ghost-danger` colours the trash icon
+`var(--destructive)` from the start.
+
+**Generalises to:** codified in the `interactive-prototype` skill's new
+"Icons" section — lucide-react (this repo's real dependency, verified in
+`packages/ui/package.json`, not assumed) for generic UI icons with paths
+copied verbatim for fidelity; simple-icons for brand/OS marks, existence
+always verified against the live tree first, real hex on a fixed light chip;
+never copy a competitor's own vendored copy of a third-party asset — check
+what *they* cite as their source instead.
+
+**Status:** `machines.dc.html` / `machines.card.html` / `sparstrowgen-data.js`
+— 2026-09-01. `DESIGN.md` §13's provider-logo bullet (already marked resolved
+for *sourcing* by `DD-016`) is now resolved for colour too.
+
+---
+
 ## DD-016 — Provider logos are sourced from simple-icons (CC0), never copied from a competitor
 
 **Date:** 2026-08-31 · **Asked by:** owner, while requesting the Machines

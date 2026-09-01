@@ -114,6 +114,64 @@ only misaligns at four digits.
 Use plausible domain data. Never `Lorem ipsum`, never `Test User 1`. Real-shaped
 names, real-shaped codes, realistic quantities and dates.
 
+## Icons
+
+A prototype needs two different kinds of icon, sourced two different ways —
+conflating them is the mistake to avoid.
+
+**Generic UI icons** (chevrons, trash, settings, an entity's monitor/bot tile)
+follow this repo's real icon library: **`lucide-react`**
+(`packages/ui/package.json` — check the actual dependency before assuming;
+don't default to Radix Icons or any other set just because it's common
+elsewhere). A static `.dc.html` can't `import` it, so copy the real path data
+verbatim from `github.com/lucide-icons/lucide`'s `icons/<name>.svg` (MIT) into
+an inline helper function, one per icon, with a `// lucide: <name>` comment —
+don't hand-approximate the shape. Fidelity matters here for the same reason it
+matters for tokens: a prototype's trash icon should be the same trash icon the
+real page renders, not a close guess.
+
+**Brand and product logos** (AI provider marks, OS logos, third-party
+integrations) are a completely different problem — lucide doesn't have them,
+and neither does any generic UI icon set. Source these from
+[simple-icons](https://github.com/simple-icons/simple-icons) (CC0 1.0
+Universal per its own `LICENSE.md`), the same way `DD-016` in this repo's
+`design-system/DECISIONS.md` did for the Machines prototype's provider icons:
+
+1. **Verify the slug actually exists before using it.** Fetch the repo's live
+   file tree in one call (`gh api repos/simple-icons/simple-icons/git/trees/develop?recursive=1`)
+   and grep it — don't guess a plausible-sounding slug and assume it resolves.
+   Some marks genuinely aren't there (Microsoft Windows has no entry in
+   simple-icons at all); if so, fall back to a plain neutral glyph and say so,
+   the same way `providerBadge()` falls back for a provider with nothing safe
+   to source — a documented placeholder, never an improvised recreation of the
+   trademark.
+2. **Use the mark's real colour, not `currentColor`.** Pull the hex from
+   `data/simple-icons.json` (same CC0 licence, keyed by title) rather than
+   rendering every brand mark in the app's neutral `--muted-foreground` —
+   monochrome-only was tried first in this repo and the owner asked for real
+   colour back. Several brand hexes are near-black or pure black (Anthropic,
+   Ollama) and would be invisible on a dark surface; mount every brand mark on
+   a small **fixed light chip** (e.g. `background:#fff`) rather than the app's
+   own `--accent`/`--secondary`, so contrast holds regardless of the specific
+   hex without hand-tuning each one. This is a deliberate shortcut around
+   full per-hex contrast verification (the rigor `DESIGN.md` §2.3's
+   brand-preset sweep applies to the app's own theme colours) — good enough
+   for a prototype, not a substitute for that rigor if a mark's colour ever
+   becomes a themed token.
+3. **Never copy a competitor's own vendored copy of a third-party asset,
+   ever, even under time pressure.** A competitor's icon file is not itself a
+   redistribution licence — check what *they* cite as their source and its
+   licence, or go straight to simple-icons/the upstream project. This is the
+   generalization `DD-016` drew after finding most of one competitor's 24
+   vendored provider logos were either unlicensed trademarks or improvised
+   extractions from an installed app bundle with no licence basis at all.
+
+**Destructive actions get `--destructive` on the control itself, not just on
+a full-width confirm button.** An icon-only delete/remove button in a row of
+otherwise-neutral action icons (rename, revoke) should render in
+`var(--destructive)` from the start — don't rely on a user noticing it only
+once they open a confirm dialog.
+
 ## Building it
 
 1. **Read** `system.json`, `README.md`, and the cards for the components you will

@@ -98,6 +98,8 @@
   .btn-outline:hover{background:var(--accent)}
   .btn-ghost{background:transparent;color:var(--muted-foreground);height:28px;width:28px;padding:0}
   .btn-ghost:hover{background:var(--accent);color:var(--foreground)}
+  .btn-ghost-danger{color:var(--destructive)}
+  .btn-ghost-danger:hover{background:color-mix(in oklab, var(--destructive) 12%, transparent);color:var(--destructive)}
   .btn-destructive{background:var(--destructive);color:var(--destructive-foreground)}
   .btn-sm{height:26px;padding:0 9px;font-size:12px}
   .btn:disabled{opacity:.5;pointer-events:none}
@@ -107,6 +109,17 @@
   .bdg-secondary{background:var(--secondary);color:var(--secondary-foreground)}
   .bdg-outline{color:var(--muted-foreground);border:1px solid var(--border);padding:3px 8px}
   .bdg svg{flex:none}
+
+  /* provider-logo chip — fixed light background so a brand's real hex (some of
+     which are near-black, e.g. Anthropic/Ollama) always has somewhere to sit
+     with contrast, regardless of the app's own dark/light mode. */
+  .pmark{display:inline-flex;align-items:center;justify-content:center;flex:none;
+        width:18px;height:18px;border-radius:5px;background:#fff;padding:2px}
+  .pmark.pmark-lg{width:30px;height:30px;border-radius:8px;padding:5px}
+  .pmark svg{display:block;width:100%;height:100%}
+  .pmark-neutral{background:var(--accent);padding:3px}
+  .pmark-neutral svg{color:var(--muted-foreground)}
+  .pmark-neutral.pmark-lg{padding:6px}
 
   /* ═══ entity tile — DESIGN.md §6, the single most important visual pattern ═══ */
   .tile{position:relative;flex:none;display:flex;align-items:center;justify-content:center;
@@ -133,6 +146,8 @@
   .rname-input{height:26px;font:inherit;font-size:13px;background:var(--background);border:1px solid var(--ring);
               border-radius:var(--radius-sm);padding:0 8px;color:var(--foreground);box-shadow:0 0 0 2px var(--ring)}
   .rmeta{margin:2px 0 0;font-size:12px;color:var(--muted-foreground)}
+  .osmeta{display:inline-flex;align-items:center;gap:4px;vertical-align:-2px}
+  .osmeta svg{flex:none}
   .rmeta .active{color:var(--success);font-weight:500}
   .rmeta .draining{color:var(--warning);font-weight:500}
   .rcaps{display:flex;flex-wrap:wrap;align-items:center;gap:5px;max-width:280px}
@@ -276,8 +291,13 @@ function machineState(r) {
   return runtimeIsActive(r) ? "active" : "inactive";
 }
 
+// Real brand hex, not currentColor — a mark's own colour is part of what makes
+// it recognizable at a glance. Rendered on a fixed light chip (.pmark) rather
+// than the app's own --accent/--secondary surface, because several of these
+// (anthropic-api, ollama) are near-black and would vanish on a dark tile;
+// a light chip guarantees contrast for every hex without hand-tuning each one.
 function iconSvg(icon, size = 14) {
-  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${icon.path}"/></svg>`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="#${icon.hex}" aria-hidden="true"><path d="${icon.path}"/></svg>`;
 }
 
 /** ProviderLogo — single source of truth for provider iconography. See handoff
@@ -288,8 +308,8 @@ function providerBadge(capability, { withLabel = true } = {}) {
   const icon = PROVIDER_ICONS[capability];
   const label = icon ? icon.label : capability;
   const mark = icon
-    ? iconSvg(icon, 12)
-    : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg>`;
+    ? `<span class="pmark">${iconSvg(icon, 12)}</span>`
+    : `<span class="pmark pmark-neutral"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg></span>`;
   return `<span class="bdg bdg-secondary" title="${label}">${mark}${withLabel ? `<span>${label}</span>` : ""}</span>`;
 }
 
@@ -435,12 +455,12 @@ function rowHtml(r) {
             <span class="pencil" aria-hidden="true">${pencilIconSvg(12)}</span>
           </button>
         </div>
-        <p class="rmeta">${metaWord} · ${r.os} · ${r.hostname}${r.coreVersion ? ` · core ${r.coreVersion}` : ""}</p>
+        <p class="rmeta">${metaWord} · <span class="osmeta">${osIconSvg(r.os, 12)}${r.os}</span> · ${r.hostname}${r.coreVersion ? ` · core ${r.coreVersion}` : ""}</p>
       </div>
       <div class="rcaps">${caps}</div>
       <div class="ractions">
         <button class="btn btn-ghost" title="Revoke this machine's pairing" data-revoke aria-label="Revoke ${r.name}">${unplugIconSvg(15)}</button>
-        <button class="btn btn-ghost" title="Remove this machine from the workspace" data-remove aria-label="Remove ${r.name}">${trashIconSvg(15)}</button>
+        <button class="btn btn-ghost btn-ghost-danger" title="Remove this machine from the workspace" data-remove aria-label="Remove ${r.name}">${trashIconSvg(15)}</button>
       </div>
       <span class="chev" aria-hidden="true">${chevronIconSvg(15)}</span>
     </div>`;
@@ -563,7 +583,7 @@ function renderProfileSection(m, tab) {
         <span class="k">Status</span><span class="v status-${state}">${state === "active" ? "Online" : state === "draining" ? "Shutting down" : `Unreachable — last seen ${relativeTime(m.lastHeartbeat)}`}</span>
         <span class="k">Runtime ID</span><span class="v">${m.id}</span>
         <span class="k">Hostname</span><span class="v">${m.hostname}</span>
-        <span class="k">Operating system</span><span class="v">${m.os}${m.isElectron ? " · desktop app" : " · headless daemon"}</span>
+        <span class="k">Operating system</span><span class="v"><span class="osmeta">${osIconSvg(m.os, 13)}${m.os}</span>${m.isElectron ? " · desktop app" : " · headless daemon"}</span>
         <span class="k">Core version</span><span class="v">${m.coreVersion ?? "—"}</span>
         <span class="k">Providers detected</span><span class="v">${m.capabilities.length}</span>
       </div>`;
@@ -579,9 +599,11 @@ function renderProfileSection(m, tab) {
           ${m.capabilities.map((c) => {
             const icon = PROVIDER_ICONS[c];
             const label = icon ? icon.label : c;
-            const mark = icon ? iconSvg(icon, 18) : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg>`;
+            const mark = icon
+              ? `<span class="pmark pmark-lg">${iconSvg(icon, 18)}</span>`
+              : `<span class="pmark pmark-lg pmark-neutral"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg></span>`;
             return `<div class="provrow">
-              <span class="tile" style="width:30px;height:30px">${mark}</span>
+              ${mark}
               <div><div class="pname">${label}</div><div class="pid">${c}</div></div>
               <span class="pill pill-available">available</span>
             </div>`;
@@ -703,17 +725,31 @@ function showToast(msg) {
 }
 
 /* ═══════════════════════════ icons (lucide-equivalent, inline) ═══════════════════════════ */
-function monitorIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/></svg>`; }
-function botIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 4v4M9 14h.01M15 14h.01"/></svg>`; }
-function activityIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>`; }
-function gearIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3m-3.34-6.66-2.12 2.12M7.46 16.54l-2.12 2.12m0-13.32 2.12 2.12m9.08 9.08 2.12 2.12"/></svg>`; }
-function chevronIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>`; }
-function xIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>`; }
-function checkIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>`; }
-function pencilIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>`; }
-function unplugIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m18.3 5.7-3.5 3.5m-5.6 5.6-3.5 3.5M9.2 9.2 5.7 5.7m8.6 8.6 3.5 3.5"/></svg>`; }
-function trashIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>`; }
-function alertIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>`; }
+// Every function below is lucide-react's actual path data (MIT), copied verbatim
+// from github.com/lucide-icons/lucide's icons/<name>.svg — not hand-approximated.
+// lucide-react is this repo's real icon dependency (packages/ui/package.json);
+// a static prototype can't `import` it, so the paths are inlined instead.
+function monitorIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>`; } // lucide: monitor
+function botIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>`; } // lucide: bot
+function activityIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg>`; } // lucide: activity
+function gearIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>`; } // lucide: settings
+function chevronIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`; } // lucide: chevron-right
+function xIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`; } // lucide: x
+function checkIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`; } // lucide: check
+function pencilIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>`; } // lucide: pencil
+function unplugIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 5 3-3"/><path d="m2 22 3-3"/><path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"/><path d="M7.5 13.5 10 11"/><path d="M10.5 16.5 13 14"/><path d="m12 6 6 6 2.3-2.3a2.4 2.4 0 0 0 0-3.4l-2.6-2.6a2.4 2.4 0 0 0-3.4 0Z"/></svg>`; } // lucide: unplug
+function trashIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`; } // lucide: trash-2
+function alertIconSvg(s) { return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`; } // lucide: triangle-alert
+
+// OS marks — simple-icons (CC0), same sourcing rule as PROVIDER_ICONS below.
+// Windows has no entry in simple-icons at all (not just unlicensed — genuinely
+// absent from the project), so win32 falls back to the neutral monitor glyph
+// rather than an improvised recreation of Microsoft's flag mark.
+function osIconSvg(os, s) {
+  if (os === "darwin") return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>`; // simple-icons: apple
+  if (os === "linux") return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="#FCC624"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.132 1.884 1.071.771-.06 1.592-.536 2.257-1.306.631-.765 1.683-1.084 2.378-1.503.348-.199.629-.469.649-.853.023-.4-.2-.811-.714-1.376v-.097l-.003-.003c-.17-.2-.25-.535-.338-.926-.085-.401-.182-.786-.492-1.046h-.003c-.059-.054-.123-.067-.188-.135a.357.357 0 00-.19-.064c.431-1.278.264-2.55-.173-3.694-.533-1.41-1.465-2.638-2.175-3.483-.796-1.005-1.576-1.957-1.56-3.368.026-2.152.236-6.133-3.544-6.139zm.529 3.405h.013c.213 0 .396.062.584.198.19.135.33.332.438.533.105.259.158.459.166.724 0-.02.006-.04.006-.06v.105a.086.086 0 01-.004-.021l-.004-.024a1.807 1.807 0 01-.15.706.953.953 0 01-.213.335.71.71 0 00-.088-.042c-.104-.045-.198-.064-.284-.133a1.312 1.312 0 00-.22-.066c.05-.06.146-.133.183-.198.053-.128.082-.264.088-.402v-.02a1.21 1.21 0 00-.061-.4c-.045-.134-.101-.2-.183-.333-.084-.066-.167-.132-.267-.132h-.016c-.093 0-.176.03-.262.132a.8.8 0 00-.205.334 1.18 1.18 0 00-.09.4v.019c.002.089.008.179.02.267-.193-.067-.438-.135-.607-.202a1.635 1.635 0 01-.018-.2v-.02a1.772 1.772 0 01.15-.768c.082-.22.232-.406.43-.533a.985.985 0 01.594-.2zm-2.962.059h.036c.142 0 .27.048.399.135.146.129.264.288.344.465.09.199.14.4.153.667v.004c.007.134.006.2-.002.266v.08c-.03.007-.056.018-.083.024-.152.055-.274.135-.393.2.012-.09.013-.18.003-.267v-.015c-.012-.133-.04-.2-.082-.333a.613.613 0 00-.166-.267.248.248 0 00-.183-.064h-.021c-.071.006-.13.04-.186.132a.552.552 0 00-.12.27.944.944 0 00-.023.33v.015c.012.135.037.2.08.334.046.134.098.2.166.268.01.009.02.018.034.024-.07.057-.117.07-.176.136a.304.304 0 01-.131.068 2.62 2.62 0 01-.275-.402 1.772 1.772 0 01-.155-.667 1.759 1.759 0 01.08-.668 1.43 1.43 0 01.283-.535c.128-.133.26-.2.418-.2zm1.37 1.706c.332 0 .733.065 1.216.399.293.2.523.269 1.052.468h.003c.255.136.405.266.478.399v-.131a.571.571 0 01.016.47c-.123.31-.516.643-1.063.842v.002c-.268.135-.501.333-.775.465-.276.135-.588.292-1.012.267a1.139 1.139 0 01-.448-.067 3.566 3.566 0 01-.322-.198c-.195-.135-.363-.332-.612-.465v-.005h-.005c-.4-.246-.616-.512-.686-.71-.07-.268-.005-.47.193-.6.224-.135.38-.271.483-.336.104-.074.143-.102.176-.131h.002v-.003c.169-.202.436-.47.839-.601.139-.036.294-.065.466-.065zm2.8 2.142c.358 1.417 1.196 3.475 1.735 4.473.286.534.855 1.659 1.102 3.024.156-.005.33.018.513.064.646-1.671-.546-3.467-1.089-3.966-.22-.2-.232-.335-.123-.335.59.534 1.365 1.572 1.646 2.757.13.535.16 1.104.021 1.67.067.028.135.06.205.067 1.032.534 1.413.938 1.23 1.537v-.043c-.06-.003-.12 0-.18 0h-.016c.151-.467-.182-.825-1.065-1.224-.915-.4-1.646-.336-1.77.465-.008.043-.013.066-.018.135-.068.023-.139.053-.209.064-.43.268-.662.669-.793 1.187-.13.533-.17 1.156-.205 1.869v.003c-.02.334-.17.838-.319 1.35-1.5 1.072-3.58 1.538-5.348.334a2.645 2.645 0 00-.402-.533 1.45 1.45 0 00-.275-.333c.182 0 .338-.03.465-.067a.615.615 0 00.314-.334c.108-.267 0-.697-.345-1.163-.345-.467-.931-.995-1.788-1.521-.63-.4-.986-.87-1.15-1.396-.165-.534-.143-1.085-.015-1.645.245-1.07.873-2.11 1.274-2.763.107-.065.037.135-.408.974-.396.751-1.14 2.497-.122 3.854a8.123 8.123 0 01.647-2.876c.564-1.278 1.743-3.504 1.836-5.268.048.036.217.135.289.202.218.133.38.333.59.465.21.201.477.335.876.335.039.003.075.006.11.006.412 0 .73-.134.997-.268.29-.134.52-.334.74-.4h.005c.467-.135.835-.402 1.044-.7zm2.185 8.958c.037.6.343 1.245.882 1.377.588.134 1.434-.333 1.791-.765l.211-.01c.315-.007.577.01.847.268l.003.003c.208.199.305.53.391.876.085.4.154.78.409 1.066.486.527.645.906.636 1.14l.003-.007v.018l-.003-.012c-.015.262-.185.396-.498.595-.63.401-1.746.712-2.457 1.57-.618.737-1.37 1.14-2.036 1.191-.664.053-1.237-.2-1.574-.898l-.005-.003c-.21-.4-.12-1.025.056-1.69.176-.668.428-1.344.463-1.897.037-.714.076-1.335.195-1.814.12-.465.308-.797.641-.984l.045-.022zm-10.814.049h.01c.053 0 .105.005.157.014.376.055.706.333 1.023.752l.91 1.664.003.003c.243.533.754 1.064 1.189 1.637.434.598.77 1.131.729 1.57v.006c-.057.744-.48 1.148-1.125 1.294-.645.135-1.52.002-2.395-.464-.968-.536-2.118-.469-2.857-.602-.369-.066-.61-.2-.723-.4-.11-.2-.113-.602.123-1.23v-.004l.002-.003c.117-.334.03-.752-.027-1.118-.055-.401-.083-.71.043-.94.16-.334.396-.4.69-.533.294-.135.64-.202.915-.47h.002v-.002c.256-.268.445-.601.668-.838.19-.201.38-.336.663-.336zm7.159-9.074c-.435.201-.945.535-1.488.535-.542 0-.97-.267-1.28-.466-.154-.134-.28-.268-.373-.335-.164-.134-.144-.333-.074-.333.109.016.129.134.199.2.096.066.215.2.36.333.292.2.68.467 1.167.467.485 0 1.053-.267 1.398-.466.195-.135.445-.334.648-.467.156-.136.149-.267.279-.267.128.016.034.134-.147.332a8.097 8.097 0 01-.69.468zm-1.082-1.583V5.64c-.006-.02.013-.042.029-.05.074-.043.18-.027.26.004.063 0 .16.067.15.135-.006.049-.085.066-.135.066-.055 0-.092-.043-.141-.068-.052-.018-.146-.008-.163-.065zm-.551 0c-.02.058-.113.049-.166.066-.047.025-.086.068-.14.068-.05 0-.13-.02-.136-.068-.01-.066.088-.133.15-.133.08-.031.184-.047.259-.005.019.009.036.03.03.05v.02h.003z"/></svg>`; // simple-icons: linux (Tux)
+  return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>`; // win32 (and any other) — Windows has no simple-icons entry; neutral monitor glyph, not an improvised flag mark
+}
 
 /* ═══════════════════════════ render + state switcher ═══════════════════════════ */
 
