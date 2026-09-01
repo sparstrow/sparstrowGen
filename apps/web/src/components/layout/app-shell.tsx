@@ -44,6 +44,11 @@ function useWsConnected(): boolean {
  * count depend on the URL, so the very first navigation after signing in
  * ("/login" -> "/") crashed with "rendered more hooks than during the previous
  * render" -- the one transition every single user makes.
+ *
+ * `/pair` joins this list for the same reason: it's a focused, one-decision
+ * confirm screen a browser lands on mid-`sparstrow pair`, not a page anyone
+ * navigates to from inside the app -- the full sidebar/header chrome around
+ * it would only compete with the one thing on screen that matters.
  */
 export function AppShell({
   children,
@@ -54,7 +59,7 @@ export function AppShell({
 }) {
   const pathname = usePathname() || "/";
 
-  if (pathname === "/login" || pathname.startsWith("/auth/")) {
+  if (pathname === "/login" || pathname === "/pair" || pathname.startsWith("/auth/")) {
     return <div className="min-h-screen w-full bg-background text-foreground">{children}</div>;
   }
 

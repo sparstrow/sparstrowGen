@@ -40,13 +40,29 @@
 -- only "still live" (pending, unexpired) on top of that: it does not scope by
 -- workspace, because at read/approve time no workspace has been chosen yet --
 -- that is what this policy's WITH CHECK decides.
+--
+-- The second disjunct exists for a non-obvious reason, found only by running
+-- the real flow: PostgREST's `UPDATE ... RETURNING` (what `.select("callback")`
+-- after `.update()` compiles to) re-selects the row it just wrote to build the
+-- response body, and that re-select is gated by this SAME select policy --
+-- not by the update policy's WITH CHECK, which only governs the write. Without
+-- this second disjunct, the moment the update flips `status` to `approved`,
+-- the row stops matching `status = 'pending'` and the re-select comes back
+-- empty -- which Postgres/PostgREST surfaces as 42501 "new row violates row
+-- level security policy", indistinguishable from a genuine WITH CHECK
+-- failure until you trace it. Scoped to `approved_by_user_id = auth.uid()`
+-- so it only ever lets someone see the row they themselves just approved --
+-- not any other approved-but-not-yet-consumed attempt.
 
 alter table public.pairing_attempts enable row level security;
 
 drop policy if exists pairing_attempts_pending_read on public.pairing_attempts;
 create policy pairing_attempts_pending_read on public.pairing_attempts
   for select to authenticated
-  using (status = 'pending' and expires_at > pg_catalog.now());
+  using (
+    (status = 'pending' and expires_at > pg_catalog.now())
+    or (status = 'approved' and approved_by_user_id = (select auth.uid())::text)
+  );
 
 drop policy if exists pairing_attempts_approve on public.pairing_attempts;
 create policy pairing_attempts_approve on public.pairing_attempts
