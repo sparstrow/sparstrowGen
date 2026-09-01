@@ -2,7 +2,22 @@
 
 Newest first. Record token changes, new components, and new prototypes.
 
-## 2026-08-19 (latest) &mdash; the doctrine became description
+## 2026-09-01 (latest) &mdash; platform marks and a red delete, in the Machines prototype
+
+`DD-016`, promoted to `DESIGN.md` §6 in the same change. Two revisions to
+`designs/Machines/machines.dc.html` and its preview card:
+
+- Each row's OS (`win32`/`darwin`/`linux`) now renders as the platform's own
+  mark inside the existing 32px entity tile, replacing the plain-text value
+  that used to sit in `.rmeta`. Windows keeps its own blue; macOS and Linux
+  render in `currentColor`, matching their own brand guidelines (no fixed
+  colour). All three are originally-authored shapes, not copied brand paths.
+- The row's Remove control is `--destructive` at rest (`.btn-ghost-destructive`)
+  rather than sharing Revoke's muted ghost styling — it is the one irreversible
+  action on the row and now looks like it before the click, not only inside
+  the confirm dialog.
+
+## 2026-08-19 &mdash; the doctrine became description
 
 `G-19` closed. `DESIGN.md` §2 specified a theming contract the app did not
 have; it now has it, and this system mirrors the result rather than naming the
