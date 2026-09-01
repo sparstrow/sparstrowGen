@@ -1,49 +1,70 @@
 <!doctype html>
 <html class="dark"><head><meta charset="utf-8">
 <title>Badge</title>
-<meta name="description" content="Badge — 7 variants including the four semantic statuses">
+<meta name="description" content="Seven variants — including the three status ones call sites keep hand-rolling instead">
 <link rel="stylesheet" href="../../styles.css">
 <style>
-  body{margin:0;padding:var(--space-5);background:var(--card);color:var(--foreground);
+  body{margin:0;padding:20px;background:var(--card);color:var(--foreground);
        font-family:var(--font-sans);font-size:14px}
-  .row{display:grid;grid-template-columns:96px 1fr;gap:var(--space-4);align-items:center;
-       padding:var(--space-4) 0;border-bottom:1px solid var(--border)}
-  .row:last-child{border-bottom:0}
-  .lbl{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground)}
-  .sp{display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center}
-  .note{font-size:12px;color:var(--muted-foreground)}
-  .bdg{display:inline-flex;align-items:center;gap:4px;border-radius:var(--radius-md);
-       border:1px solid transparent;padding:2px 8px;font-size:12px;font-weight:500;width:fit-content}
-  .b-default{background:var(--primary);color:var(--primary-foreground)}
-  .b-secondary{background:var(--secondary);color:var(--secondary-foreground)}
-  .b-destructive{background:var(--destructive);color:var(--destructive-foreground)}
-  .b-outline{color:var(--foreground);border-color:var(--border)}
-  .b-success{background:var(--success);color:var(--success-foreground)}
-  .b-info{background:var(--info);color:var(--info-foreground)}
-  .b-warning{background:var(--warning);color:var(--warning-foreground)}
+  .row{display:grid;grid-template-columns:120px 1fr;gap:14px;align-items:center;
+       padding:12px 0;border-bottom:1px solid var(--border)}
+  .row:last-of-type{border-bottom:0}
+  .lbl{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+       color:var(--muted-foreground)}
+  .set{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .b{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;
+     font-size:11px;font-weight:600;border:1px solid transparent}
   .dot{width:6px;height:6px;border-radius:999px;background:currentColor}
+  .default{background:var(--primary);color:var(--primary-foreground)}
+  .secondary{background:var(--secondary);color:var(--secondary-foreground)}
+  .destructive{background:var(--destructive);color:var(--destructive-foreground)}
+  .outline{color:var(--foreground);border-color:var(--border)}
+  .success{background:var(--success);color:var(--success-foreground)}
+  .info{background:var(--info);color:var(--info-foreground)}
+  .warning{background:var(--warning);color:var(--warning-foreground)}
+  .rolled{background:transparent;color:#d97706;border-color:rgb(245 158 11 / .4)}
+  .note{margin-top:16px;font-size:12px;color:var(--muted-foreground);line-height:1.6}
+  .note strong{color:var(--foreground)}
+  code{font-size:11px;background:var(--muted);padding:1px 4px;border-radius:4px}
 </style></head><body>
-<div class="row"><div class="lbl">Base</div><div class="sp">
-  <span class="bdg b-default">Default</span>
-  <span class="bdg b-secondary">Secondary</span>
-  <span class="bdg b-outline">Outline</span>
-  <span class="bdg b-destructive">Destructive</span>
+
+<div class="row"><div class="lbl">Neutral</div><div class="set">
+  <span class="b default">default</span>
+  <span class="b secondary">secondary</span>
+  <span class="b outline">outline</span>
 </div></div>
-<div class="row"><div class="lbl">Semantic</div><div class="sp">
-  <span class="bdg b-success">Completed</span>
-  <span class="bdg b-info">Running</span>
-  <span class="bdg b-warning">Queued</span>
-  <span class="bdg b-destructive">Failed</span>
+
+<div class="row"><div class="lbl">Status</div><div class="set">
+  <span class="b success"><i class="dot"></i>online</span>
+  <span class="b warning"><i class="dot"></i>needs attention</span>
+  <span class="b info"><i class="dot"></i>queued</span>
+  <span class="b destructive"><i class="dot"></i>failed</span>
 </div></div>
-<div class="row"><div class="lbl">With dot</div><div class="sp">
-  <span class="bdg b-success"><span class="dot"></span>Machine active</span>
-  <span class="bdg b-warning"><span class="dot"></span>Unreachable</span>
-  <span class="bdg b-info"><span class="dot"></span>Syncing</span>
+
+<div class="row"><div class="lbl">Hand-rolled</div><div class="set">
+  <span class="b rolled">needs attention</span>
+  <span class="b warning">needs attention</span>
 </div></div>
-<div class="row"><div class="lbl">Count</div><div class="sp">
-  <span class="bdg b-secondary">12</span>
-  <span class="bdg b-secondary">3</span>
-  <span class="bdg b-destructive">2</span>
-  <span class="note">counts sit next to a page title, not inside table cells</span>
-</div></div>
+
+<div class="note">
+  <strong>Those last two are the same intent, built two ways.</strong> The left one is the
+  pattern found across the app on 2026-08-19 &mdash;
+  <code>border-amber-500/40 text-amber-600 dark:text-amber-400</code> at the call site,
+  three classes and a mode pair maintained by hand. The right one is
+  <code>&lt;Badge variant="warning"&gt;</code>, which has existed the whole time.
+</div>
+
+<div class="note">
+  This is why the palette sweep in <code>doc/tasks/D1/</code> is not cosmetic: the component
+  already exposes <code>success</code>, <code>info</code>, and <code>warning</code>, so every
+  hand-rolled status badge is a call site that bypassed a correct API and now owns its own
+  light and dark values forever.
+</div>
+
+<div class="note">
+  <strong>Badge carries state, never brand.</strong> A badge tinted with the user accent
+  says nothing &mdash; brand is identity, status is meaning, and mixing them is the one rule
+  <code>DESIGN.md</code> §2 calls load-bearing.
+</div>
+
 </body></html>

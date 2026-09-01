@@ -1,55 +1,77 @@
 <!doctype html>
 <html class="dark"><head><meta charset="utf-8">
 <title>Button</title>
-<meta name="description" content="Button — 6 variants, 4 sizes, focus and disabled states">
+<meta name="description" content="Six variants, four sizes — with the hover, focus-visible, and disabled states a prop table cannot show">
 <link rel="stylesheet" href="../../styles.css">
 <style>
-  body{margin:0;padding:var(--space-5);background:var(--card);color:var(--foreground);
+  body{margin:0;padding:20px;background:var(--card);color:var(--foreground);
        font-family:var(--font-sans);font-size:14px}
-  .row{display:grid;grid-template-columns:96px 1fr;gap:var(--space-4);align-items:center;
-       padding:var(--space-4) 0;border-bottom:1px solid var(--border)}
-  .row:last-child{border-bottom:0}
-  .lbl{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground)}
-  .sp{display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center}
-  .note{font-size:12px;color:var(--muted-foreground)}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;
-       border-radius:var(--radius-md);font-size:14px;font-weight:500;border:0;cursor:pointer;
-       height:36px;padding:0 16px;transition:background-color var(--transition-base),color var(--transition-base);
-       font-family:inherit}
-  .v-default{background:var(--primary);color:var(--primary-foreground);box-shadow:var(--shadow-popover)}
-  .v-destructive{background:var(--destructive);color:var(--destructive-foreground);box-shadow:var(--shadow-popover)}
-  .v-outline{background:var(--background);color:var(--foreground);border:1px solid var(--border);box-shadow:var(--shadow-popover)}
-  .v-secondary{background:var(--secondary);color:var(--secondary-foreground);box-shadow:var(--shadow-popover)}
-  .v-ghost{background:transparent;color:var(--foreground)}
-  .v-link{background:transparent;color:var(--primary);text-underline-offset:4px;text-decoration:underline}
-  .s-sm{height:32px;padding:0 12px;font-size:12px}
-  .s-lg{height:40px;padding:0 32px}
-  .s-icon{height:36px;width:36px;padding:0}
-  .is-disabled{opacity:.5;pointer-events:none}
-  .is-focus{outline:none;box-shadow:0 0 0 2px var(--ring)}
+  .row{display:grid;grid-template-columns:96px 1fr;gap:14px;align-items:center;
+       padding:12px 0;border-bottom:1px solid var(--border)}
+  .row:last-of-type{border-bottom:0}
+  .lbl{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+       color:var(--muted-foreground)}
+  .set{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+       height:36px;padding:0 16px;border:0;border-radius:var(--radius-md);
+       font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;
+       transition:background-color .15s ease-out,color .15s ease-out}
+  .btn:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+  .btn:disabled{opacity:.5;pointer-events:none}
+  .default{background:var(--primary);color:var(--primary-foreground);box-shadow:0 1px 2px rgb(0 0 0/.05)}
+  .default:hover{background:color-mix(in oklab,var(--primary) 90%,transparent)}
+  .destructive{background:var(--destructive);color:var(--destructive-foreground);box-shadow:0 1px 2px rgb(0 0 0/.05)}
+  .outline{background:var(--background);color:var(--foreground);border:1px solid var(--border);box-shadow:0 1px 2px rgb(0 0 0/.05)}
+  .outline:hover{background:var(--accent);color:var(--accent-foreground)}
+  .secondary{background:var(--secondary);color:var(--secondary-foreground);box-shadow:0 1px 2px rgb(0 0 0/.05)}
+  .ghost{background:transparent;color:var(--foreground)}
+  .ghost:hover{background:var(--accent);color:var(--accent-foreground)}
+  .link{background:transparent;color:var(--primary);text-underline-offset:4px}
+  .link:hover{text-decoration:underline}
+  .sm{height:32px;padding:0 12px;font-size:12px;border-radius:var(--radius-md)}
+  .lg{height:40px;padding:0 32px;border-radius:var(--radius-md)}
+  .icon{height:36px;width:36px;padding:0}
+  .forced{outline:2px solid var(--ring);outline-offset:2px}
+  .note{margin-top:16px;font-size:12px;color:var(--muted-foreground);line-height:1.6}
+  .note strong{color:var(--foreground)}
+  code{font-size:11px;background:var(--muted);padding:1px 4px;border-radius:4px}
 </style></head><body>
-<div class="row"><div class="lbl">Variants</div><div class="sp">
-  <button class="btn v-default">Primary</button>
-  <button class="btn v-secondary">Secondary</button>
-  <button class="btn v-outline">Outline</button>
-  <button class="btn v-ghost">Ghost</button>
-  <button class="btn v-destructive">Destructive</button>
-  <button class="btn v-link">Link</button>
+
+<div class="row"><div class="lbl">Variants</div><div class="set">
+  <button class="btn default">Run agent</button>
+  <button class="btn secondary">Secondary</button>
+  <button class="btn outline">Outline</button>
+  <button class="btn ghost">Ghost</button>
+  <button class="btn destructive">Delete</button>
+  <button class="btn link">Link</button>
 </div></div>
-<div class="row"><div class="lbl">Sizes</div><div class="sp">
-  <button class="btn v-default s-sm">Small</button>
-  <button class="btn v-default">Default</button>
-  <button class="btn v-default s-lg">Large</button>
-  <button class="btn v-default s-icon" aria-label="Add">+</button>
-  <span class="note">32 / 36 / 40 px &middot; icon is square at 36</span>
+
+<div class="row"><div class="lbl">Sizes</div><div class="set">
+  <button class="btn default sm">sm &middot; 32px</button>
+  <button class="btn default">default &middot; 36px</button>
+  <button class="btn default lg">lg &middot; 40px</button>
+  <button class="btn default icon" aria-label="Icon">&#9679;</button>
 </div></div>
-<div class="row"><div class="lbl">With icon</div><div class="sp">
-  <button class="btn v-default"><span>+</span>New agent</button>
-  <button class="btn v-outline">Columns <span>&#9662;</span></button>
+
+<div class="row"><div class="lbl">States</div><div class="set">
+  <button class="btn default">Rest</button>
+  <button class="btn default forced">Focus-visible</button>
+  <button class="btn default" disabled>Disabled</button>
+  <button class="btn outline" disabled>Disabled outline</button>
 </div></div>
-<div class="row"><div class="lbl">States</div><div class="sp">
-  <button class="btn v-default is-disabled">Disabled</button>
-  <button class="btn v-outline is-focus">Focused</button>
-  <span class="note">focus-visible: 2px ring at --ring &middot; disabled: 50% opacity</span>
-</div></div>
+
+<div class="note">
+  <strong>Hover is live</strong> — put the cursor on any variant above. Focus-visible is
+  forced on the third button in the States row so the ring is comparable without tabbing;
+  in the real component it appears only on keyboard focus, never on mouse click.
+</div>
+
+<div class="note">
+  <strong>Shadow is per-variant, not global.</strong> <code>default</code>,
+  <code>destructive</code>, <code>outline</code>, and <code>secondary</code> carry a small
+  shadow; <code>ghost</code> and <code>link</code> deliberately do not — they are meant to
+  sit inside dense rows without stacking depth. There are no shadow tokens, so this is a
+  Tailwind <code>shadow-sm</code> at each call site.
+</div>
+
 </body></html>

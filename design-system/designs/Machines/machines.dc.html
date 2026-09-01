@@ -6,12 +6,12 @@
 <style>
   *{box-sizing:border-box}
   body{margin:0;background:var(--background);color:var(--foreground);font-family:var(--font-sans);font-size:14px}
-  .page{max-width:1180px;margin:0 auto;padding:var(--space-6) var(--space-5) 80px}
+  .page{max-width:1180px;margin:0 auto;padding:24px 20px 80px}
 
   /* prototype-only reviewer control — not real product UI, see handoff */
   .devbar{position:sticky;top:0;z-index:30;display:flex;flex-wrap:wrap;justify-content:center;gap:6px;
           padding:10px;background:color-mix(in oklab, var(--background) 90%, transparent);
-          backdrop-filter:blur(6px);border-bottom:1px dashed var(--border);margin-bottom:var(--space-6)}
+          backdrop-filter:blur(6px);border-bottom:1px dashed var(--border);margin-bottom:24px}
   .devbar button{font:inherit;font-size:11px;padding:4px 10px;border-radius:var(--radius-sm);
           border:1px solid var(--border);background:transparent;color:var(--muted-foreground);cursor:pointer}
   .devbar button.active{background:var(--secondary);color:var(--secondary-foreground);border-color:transparent}
@@ -21,14 +21,14 @@
 
   /* ═══ app frame — the new outer tab strip + inner side sub-nav (DESIGN.md §9) ═══ */
   .frame{border:1px solid var(--border);border-radius:var(--radius-xl);background:var(--background);
-         overflow:hidden;display:flex;flex-direction:column;height:720px;box-shadow:var(--shadow-popover)}
+         overflow:hidden;display:flex;flex-direction:column;height:720px;box-shadow:0 1px 2px 0 rgb(0 0 0 / 0.05)}
 
   .tabstrip{display:flex;align-items:stretch;background:var(--card);border-bottom:1px solid var(--border);
             height:38px;flex:none;overflow-x:auto}
   .ts-home{display:flex;align-items:center;padding:0 12px;color:var(--muted-foreground);border-right:1px solid var(--border);flex:none}
   .ts-tab{display:flex;align-items:center;gap:7px;padding:0 12px;font-size:12.5px;color:var(--muted-foreground);
           border-right:1px solid var(--border);max-width:190px;position:relative;cursor:pointer;flex:none;
-          transition:color var(--transition-base),background-color var(--transition-base)}
+          transition:color 140ms ease,background-color 140ms ease}
   .ts-tab:hover{background:var(--accent)}
   .ts-tab.on{background:var(--background);color:var(--foreground);font-weight:600}
   .ts-tab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--brand,var(--foreground))}
@@ -39,7 +39,7 @@
   .ts-tab .x:hover{opacity:1 !important;background:var(--secondary)}
 
   .fbody{display:grid;grid-template-columns:1fr;flex:1;min-height:0}
-  .fcontent{padding:var(--space-5);overflow:auto;min-width:0}
+  .fcontent{padding:20px;overflow:auto;min-width:0}
 
   /* ═══ list view ═══ */
   .crumb{font-size:12px;color:var(--muted-foreground);margin-bottom:6px}
@@ -48,18 +48,18 @@
   .count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;
          padding:0 6px;border-radius:999px;background:var(--secondary);color:var(--secondary-foreground);
          font-size:11px;font-weight:600}
-  .subtitle{margin:4px 0 var(--space-5);font-size:13px;color:var(--muted-foreground);max-width:60ch}
+  .subtitle{margin:4px 0 20px;font-size:13px;color:var(--muted-foreground);max-width:60ch}
   .cli-chip{border:1px solid var(--border);background:color-mix(in oklab, var(--muted) 55%, transparent);
-            border-radius:var(--radius-md);padding:6px 12px;font-family:var(--font-mono);font-size:12.5px;flex:none}
+            border-radius:var(--radius-md);padding:6px 12px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;font-size:12.5px;flex:none}
 
   .panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
 
   /* just-paired panel */
   .justpaired{display:flex;align-items:flex-start;gap:10px;border-radius:var(--radius-lg);
-             background:color-mix(in oklab, var(--muted) 40%, transparent);padding:var(--space-4) var(--space-5);
-             margin-bottom:var(--space-5)}
+             background:color-mix(in oklab, var(--muted) 40%, transparent);padding:16px 20px;
+             margin-bottom:20px}
   .justpaired .ok-badge{flex:none;width:28px;height:28px;border-radius:999px;display:flex;align-items:center;
-             justify-content:center;background:color-mix(in oklab, var(--success) 15%, transparent);color:var(--success-foreground)}
+             justify-content:center;background:color-mix(in oklab, var(--success) 15%, transparent);color:var(--success)}
   .justpaired p{margin:0;font-size:13px}
   .justpaired .sub{color:var(--muted-foreground);margin-top:2px}
   .justpaired .dismiss{margin-left:auto}
@@ -70,7 +70,7 @@
   .empty h3{margin:0 0 4px;font-size:14px;font-weight:600}
   .empty p{margin:0 auto;max-width:420px;font-size:13px;color:var(--muted-foreground);line-height:1.55}
   .empty code{display:block;margin:14px auto 0;max-width:260px;background:var(--background);border:1px solid var(--border);
-             border-radius:var(--radius-md);padding:8px 10px;font-family:var(--font-mono);font-size:12.5px}
+             border-radius:var(--radius-md);padding:8px 10px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;font-size:12.5px}
   .empty .hint{margin-top:8px;font-size:11.5px}
   .empty .note{margin-top:14px;font-size:11px;color:var(--muted-foreground);max-width:440px}
 
@@ -83,17 +83,17 @@
   /* error state */
   .err-box{border:1px solid color-mix(in oklab, var(--destructive) 45%, var(--border));
            background:color-mix(in oklab, var(--destructive) 10%, var(--card));
-           border-radius:var(--radius-lg);padding:var(--space-4) var(--space-5);
+           border-radius:var(--radius-lg);padding:16px 20px;
            display:flex;align-items:flex-start;gap:12px}
   .err-box svg{flex-shrink:0;color:var(--destructive);margin-top:1px}
   .err-title{font-size:13px;font-weight:600;margin:0 0 2px}
-  .err-detail{font-size:12.5px;color:var(--muted-foreground);margin:0;font-family:var(--font-mono)}
+  .err-detail{font-size:12.5px;color:var(--muted-foreground);margin:0;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace}
   .err-retry{margin-top:10px}
 
   /* buttons + badges */
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;
        border-radius:var(--radius-md);font-size:13px;font-weight:500;border:0;cursor:pointer;
-       height:32px;padding:0 12px;font-family:inherit;transition:background-color var(--transition-base)}
+       height:32px;padding:0 12px;font-family:inherit;transition:background-color 140ms ease}
   .btn-outline{background:var(--background);color:var(--foreground);border:1px solid var(--border)}
   .btn-outline:hover{background:var(--accent)}
   .btn-ghost{background:transparent;color:var(--muted-foreground);height:28px;width:28px;padding:0}
@@ -115,42 +115,42 @@
               ring:2px;box-shadow:0 0 0 2px var(--card)}
   .tile.lg{width:40px;height:40px;border-radius:var(--radius-lg)}
   .tile.lg .stdot{width:10px;height:10px}
-  .dot-active{background:var(--success-foreground)}
-  .dot-draining{background:var(--warning-foreground)}
+  .dot-active{background:var(--success)}
+  .dot-draining{background:var(--warning)}
   .dot-inactive{background:color-mix(in oklab, var(--muted-foreground) 45%, transparent)}
 
   /* machine rows */
   .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);
-       cursor:pointer;transition:background-color var(--transition-base)}
+       cursor:pointer;transition:background-color 140ms ease}
   .row:hover{background:var(--accent)}
   .row:last-child{border-bottom:0}
   .rinfo{min-width:0;flex:1}
   .rname-row{display:flex;align-items:center;gap:6px}
   .rname-btn{background:none;border:0;padding:0;font:inherit;font-size:13px;font-weight:600;color:var(--foreground);
              cursor:pointer;display:flex;align-items:center;gap:6px}
-  .rname-btn .pencil{opacity:0;transition:opacity var(--transition-base)}
+  .rname-btn .pencil{opacity:0;transition:opacity 140ms ease}
   .rname-btn:hover .pencil{opacity:.6}
   .rname-input{height:26px;font:inherit;font-size:13px;background:var(--background);border:1px solid var(--ring);
               border-radius:var(--radius-sm);padding:0 8px;color:var(--foreground);box-shadow:0 0 0 2px var(--ring)}
   .rmeta{margin:2px 0 0;font-size:12px;color:var(--muted-foreground)}
-  .rmeta .active{color:var(--success-foreground);font-weight:500}
-  .rmeta .draining{color:var(--warning-foreground);font-weight:500}
+  .rmeta .active{color:var(--success);font-weight:500}
+  .rmeta .draining{color:var(--warning);font-weight:500}
   .rcaps{display:flex;flex-wrap:wrap;align-items:center;gap:5px;max-width:280px}
   .rcaps .overflow{color:var(--muted-foreground);font-size:11px;padding:3px 6px}
   .ractions{display:flex;align-items:center;gap:2px}
   .chev{color:var(--muted-foreground);flex:none}
 
   /* ═══ profile view ═══ */
-  .profile{display:flex;gap:var(--space-5);height:100%}
+  .profile{display:flex;gap:20px;height:100%}
   .subnav{width:150px;flex:none;display:flex;flex-direction:column;gap:1px}
   .subnav-h{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted-foreground);
            font-weight:700;padding:0 8px;margin:0 0 6px}
   .sn{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--radius-sm);
-     color:var(--muted-foreground);font-size:12.5px;cursor:pointer;transition:background-color var(--transition-base)}
+     color:var(--muted-foreground);font-size:12.5px;cursor:pointer;transition:background-color 140ms ease}
   .sn:hover{background:var(--accent)}
   .sn.on{background:color-mix(in oklab, var(--accent) 70%, transparent);color:var(--foreground);font-weight:600}
   .pmain{flex:1;min-width:0;overflow:auto}
-  .phd{display:flex;align-items:center;gap:12px;margin-bottom:var(--space-5);padding-bottom:var(--space-4);
+  .phd{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:16px;
       border-bottom:1px solid var(--border)}
   .phd h2{margin:0;font-size:16px;font-weight:700}
   .phd .pm{font-size:12px;color:var(--muted-foreground);margin-top:2px}
@@ -160,21 +160,21 @@
          font-weight:700;margin:0 0 10px}
   .kv{display:grid;grid-template-columns:130px 1fr;gap:10px 0;font-size:12.5px;max-width:520px}
   .kv .k{color:var(--muted-foreground)}
-  .kv .v{font-family:var(--font-mono);font-size:12px}
-  .kv .v.status-active{color:var(--success-foreground);font-family:inherit;font-weight:600}
-  .kv .v.status-draining{color:var(--warning-foreground);font-family:inherit;font-weight:600}
+  .kv .v{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;font-size:12px}
+  .kv .v.status-active{color:var(--success);font-family:inherit;font-weight:600}
+  .kv .v.status-draining{color:var(--warning);font-family:inherit;font-weight:600}
   .kv .v.status-inactive{color:var(--muted-foreground);font-family:inherit;font-weight:600}
 
   .provrow{display:flex;align-items:center;gap:11px;padding:11px 4px;border-bottom:1px solid var(--border)}
   .provrow:last-child{border-bottom:0}
   .provrow .pname{font-size:13px;font-weight:600}
-  .provrow .pid{font-size:11px;color:var(--muted-foreground);font-family:var(--font-mono)}
+  .provrow .pid{font-size:11px;color:var(--muted-foreground);font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace}
   .provrow .pill{margin-left:auto;padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:500}
-  .pill-available{background:color-mix(in oklab, var(--success) 15%, transparent);color:var(--success-foreground)}
+  .pill-available{background:color-mix(in oklab, var(--success) 15%, transparent);color:var(--success)}
   .prov-empty{border:1px dashed var(--border);border-radius:var(--radius-lg);padding:28px 20px;text-align:center;
              color:var(--muted-foreground);font-size:12.5px}
 
-  .settings-block{border-bottom:1px solid var(--border);padding:var(--space-4) 0}
+  .settings-block{border-bottom:1px solid var(--border);padding:16px 0}
   .settings-block:first-child{padding-top:0}
   .settings-block:last-child{border-bottom:0}
   .settings-block .row-flex{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
@@ -182,10 +182,10 @@
   .settings-block .desc{font-size:11.5px;color:var(--muted-foreground);margin-top:2px;max-width:52ch}
   .settings-block.danger .lbl{color:var(--destructive)}
   .switch{position:relative;width:32px;height:18px;border-radius:999px;background:var(--secondary);
-         border:0;cursor:pointer;flex:none;transition:background-color var(--transition-base)}
+         border:0;cursor:pointer;flex:none;transition:background-color 140ms ease}
   .switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:999px;
-                background:var(--foreground);transition:transform var(--transition-base)}
-  .switch.on{background:var(--success-foreground)}
+                background:var(--foreground);transition:transform 140ms ease}
+  .switch.on{background:var(--success)}
   .switch.on::after{transform:translateX(14px);background:var(--background)}
   .switch:disabled{opacity:.5;cursor:not-allowed}
 
@@ -194,20 +194,20 @@
 
   /* confirm dialog */
   .overlay{position:fixed;inset:0;background:rgb(0 0 0 / .5);display:flex;align-items:center;justify-content:center;
-           z-index:50;opacity:0;pointer-events:none;transition:opacity var(--transition-base)}
+           z-index:50;opacity:0;pointer-events:none;transition:opacity 140ms ease}
   .overlay.open{opacity:1;pointer-events:auto}
   .dialog{width:420px;max-width:calc(100vw - 32px);background:var(--popover);color:var(--popover-foreground);
-          border:1px solid var(--border);border-radius:var(--radius-xl);padding:var(--space-5);
-          box-shadow:0 18px 44px -14px rgb(0 0 0 / .65);transform:translateY(6px);transition:transform var(--transition-base)}
+          border:1px solid var(--border);border-radius:var(--radius-xl);padding:20px;
+          box-shadow:0 18px 44px -14px rgb(0 0 0 / .65);transform:translateY(6px);transition:transform 140ms ease}
   .overlay.open .dialog{transform:none}
   .dialog h3{margin:0 0 8px;font-size:15px;font-weight:600}
-  .dialog p{margin:0 0 var(--space-4);font-size:13px;color:var(--muted-foreground);line-height:1.55}
+  .dialog p{margin:0 0 16px;font-size:13px;color:var(--muted-foreground);line-height:1.55}
   .dialog .actions{display:flex;justify-content:flex-end;gap:8px}
 
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
          background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);
          padding:8px 14px;font-size:12.5px;display:flex;align-items:center;gap:8px;
-         box-shadow:var(--shadow-popover);opacity:0;transition:opacity var(--transition-base);z-index:60}
+         box-shadow:0 1px 2px 0 rgb(0 0 0 / 0.05);opacity:0;transition:opacity 140ms ease;z-index:60}
   .toast.show{opacity:1}
 
   @media (prefers-reduced-motion: reduce){ *{transition-duration:1ms !important;animation-duration:1ms !important} }

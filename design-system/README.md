@@ -1,180 +1,111 @@
-# Sparstrowgen Design System
+# Sparstrowgen — design system
 
-> ⚠️ **Partly built against a doctrine that has since been deleted.** The old
-> `DESIGN.md` was generic tool output nobody chose; it was removed 2026-08-17
-> (see [`DECISIONS.md`](DECISIONS.md) DD-001). The **colour and radius tokens
-> below are still valid** — they are mirrored from the app's real stylesheet.
-> The **type and spacing scales, and the guideline cards' prose, are not** —
-> they were derived from the retired doctrine. Do not treat this system as
-> settled design guidance until `design-brief` produces the new doctrine and
-> this is rebuilt against it.
+An autonomous agent platform and developer control plane. The surfaces here are
+**monitoring surfaces**: dense, scanned rather than read, and open for long
+sittings. That is why the type scale runs denser than shadcn's defaults and why
+motion stays under 200ms.
 
-**Product:** Sparstrowgen — an autonomous AI agent platform and developer
-control plane. Multi-node agent runtimes, task pipelines, GOAP goal planning,
-and RAG memory.
-
-**Mode: `mirror`.** The app's real code is the source of truth and this system
-documents it. Every component card here depicts a component that already exists
-in `@sparstrow/ui`; nothing is authored here to be built later. When the real
-code changes, `check` says so.
+> **This was built 2026-08-19 as `design-system-v2`, to be compared against an
+> earlier `design-system/` before either was kept.** That comparison is over —
+> the earlier system was deleted 2026-08-31 and this one was promoted to
+> `design-system/`, the sole copy from here on. What made it win the
+> comparison is listed at the bottom of this file, kept as history.
 
 ## How to consume this
 
-1. Link `styles.css` in your `<head>` — it `@import`s the three token files.
-2. Dark mode is a **`.dark` class on the root element**, not a media query.
-   `:root` is the light theme. The app runs dark. (Cards here also accept
-   `[data-theme="dark"]` so the viewer's toggle reaches them.)
-3. Use `var(--token)` for every colour, radius, and spacing value. A hex literal
-   in application code is a bug — it will not follow the theme.
-4. In the app itself, import components from `@sparstrow/ui`. Never copy a card's
-   HTML into production; the cards are depictions built for this page.
+1. Link `styles.css` in your `<head>` — it is `@import` only, real values live
+   in `tokens/`.
+2. Load **Inter Variable** (`@fontsource-variable/inter`). It is the only font
+   the system names.
+3. **Dark is a `.dark` class on the root, not a media query and not a data
+   attribute.** `:root` is light. The app ships dark, so `.dark` is the
+   practical default even though the cascade treats it as the override.
+4. Use `var(--foreground)`, `var(--warning)` and so on for every colour.
+   **Never a hex literal and never a Tailwind palette class** — `bg-amber-500`
+   is a defect, not a shortcut, and `DESIGN.md` §12 says so directly.
 
-## Sources
+## Sources — mirror mode
 
-| What | Where |
+This system documents real code. It does not reimplement it.
+
+| Documented | Real file |
 |---|---|
-| Colour + radius tokens | `packages/ui/src/styles/globals.css` |
-| Components | `packages/ui/src/components/ui/` (26 primitives) |
-| Written design intent | **none — the doctrine was deleted, see `DECISIONS.md` DD-001** |
-| Product/stack facts | `.sparstrowgen/blueprint.yaml` |
+| All colour tokens, radius, font | `packages/ui/src/styles/globals.css` |
+| Button, Badge, Input, Card, Empty, Skeleton | `packages/ui/src/components/ui/*.tsx` |
+| Motion keyframes | `packages/ui/src/styles/globals.css` (lines 140–195) |
 
-Type and spacing tokens are the one exception to "pure mirror": they were
-transcribed from the retired doctrine's prose, which had no CSS counterpart in
-the app (it uses Tailwind size classes instead). **They therefore carry no
-authority now** — they are the old direction expressed as variables. Treat them
-as placeholders until the new doctrine replaces them.
+`node .claude/skills/design-system/scripts/ds.mjs check --root design-system`
+diffs the recorded values against those files and exits non-zero on drift.
 
-## Product context
+## The doctrine is not this file
 
-| Area | Key surfaces |
-|---|---|
-| Dashboard | Run activity, machine health |
-| Agents | Agent registry, creator, SKILL.md viewer, teams |
-| Runs | Run list, run detail, live transcripts |
-| Machines | Pairing, status, runtime config |
-| Memory | Notes, semantic search |
-| Projects | Project registry, directives |
-| Knowledge Center | User-facing product docs |
+`DESIGN.md` at the repo root is the design doctrine — written with the owner via
+the `design-brief` skill. **This system documents what the code has; the
+doctrine says what it should be.** Where they disagree, the doctrine wins and
+the gap is a task, not a discrepancy to smooth over.
 
-Two databases sit behind these: a Postgres/Supabase cloud control plane
-(identity, machines, board, runs) and per-machine local SQLite for execution and
-the memory index. That split shapes the UI more than it looks — anything showing
-memory search results is reading a *local* index over the network boundary, so
-loading and unreachable states are first-class, not edge cases.
+Every card that shows such a gap says so explicitly rather than rendering the
+specified version and letting a reader assume it ships.
 
-## Content fundamentals
+## What the app actually has, versus what §2–§7 specify
 
-- **Tone** — direct, technical, no filler. The reader is an engineer watching
-  agents run.
-- **Casing** — sentence case on UI labels (`New agent`, `Open run`), title case
-  on module names (`Machines`, `Memory`), UPPERCASE for section headers in rails
-  and table columns.
-- **Numbers** — `tabular-nums` anywhere figures are compared down a column.
-- **IDs** — monospace, prefixed: `rt_9f2c1a`, `run_04b8`, `agt_…`. Never
-  reformat or truncate an ID without a copy affordance.
-- **Durations** — `2m 14s`, not `134s`. **Timestamps** — relative under an hour
-  (`40s ago`), absolute beyond (`2026-08-17 14:02`).
-- **No emoji.** Status is colour + text, never a pictogram.
-- **Counts** — a badge beside the page title (`Machines 12`), not `12 machines found`.
+The most useful thing this system can tell you, stated once:
 
-## Visual foundations
-
-Full detail in the cards below; this is the greppable summary.
-
-**Colour.** Two themes, `.dark` class-toggled, light is `:root`. Everything is
-OKLCH at chroma 0 except four semantic statuses and destructive. Primary
-**inverts** between themes — near-black in light, near-white in dark — so a
-primary button is the lightest thing on a dark screen. Accent covers ≤10% of any
-screen (the One Accent Rule); status is where that budget goes.
-
-| Semantic | Hue | Use |
+| Foundation | In the code | In `DESIGN.md` |
 |---|---|---|
-| `success` | 155 | Completed, active, done |
-| `info` | 250 | Running, syncing, dispatched |
-| `warning` | 70–80 | Queued too long, unreachable, nearing a limit |
-| `destructive` | 22–27 | Failed, blocked, expired |
+| **Colour** | Derived from `packages/shared/src/theme/tokens.ts`: 4 surfaces × 5 brands × 2 modes, as root classes | §2 — the theming contract. **Built** 2026-08-19; `G-19` closed |
+| **Radius** | One base, three `calc()` steps. Real | §5 |
+| **Status** | 5 tokens: success, warning, **approval**, danger, info — plus 6 **identity** roles | §2.4, §2.5. Both built and measured 2026-08-19 |
+| **Code syntax** | 6 tokens per mode. Real, and never themed | §2.6 &mdash; the one foundation with **no gap**. Written to describe what shipped |
+| **Type** | `--font-sans`, and nothing else | §3 — a seven-role scale. **No CSS counterpart** |
+| **Spacing** | No tokens. Tailwind defaults at each call site | §4 specifies a base unit and density |
+| **Shadow** | No tokens. Tailwind utilities | §5 |
+| **Motion** | 4 real keyframes, durations written literally | §7. No tokens, and no `prefers-reduced-motion` anywhere |
 
-**Type.** Inter Variable for UI, monospace for IDs and figures. Six steps:
-18/700 page title · 15/600 section · 14/400 body (capped 65–75ch) · 12/400 meta
-· 11/600 uppercase labels · mono 12 for codes. Hierarchy is scale and weight
-only — never colour, never accent stripes.
+## Known limitations & boundaries
 
-**Spacing.** 4px grid. Card padding 20px, section padding 24px.
+- **There is no theme picker.** Surface and brand are class-swappable on
+  `<html>` and nothing in the product changes them — no control, no storage, no
+  per-device or per-account decision. That is `doc/Deferred.md` D-18, parked by
+  the owner, and it needs a `product-requirements` pass before it is built. The
+  light/dark toggle in Settings is a separate, older thing and is unaffected.
+- **Nothing responds to `prefers-reduced-motion`** — verified 2026-08-19, no
+  match in `packages/ui/src` or `apps/web/src`. `spg-pulse` is infinite.
+- **`check` cannot catch an invented token.** It diffs recorded tokens against
+  source; a token declared here that exists in no source passes clean. That is
+  `doc/KnownGaps.md` G-18, and it is why this system defines fewer tokens rather
+  than more.
+- **`designs/Machines/` carries the Machines prototype** (list + per-machine
+  profile, rebuilt 2026-08-31 against this system's real tokens — see its own
+  `machines.handoff.md`), moved over from the deleted original system along
+  with `DECISIONS.md` and `lib/` when this became the sole `design-system/`.
+- **Contrast is verified, but not by this system.**
+  `packages/shared/src/theme/theme.test.ts` sweeps every preset × surface ×
+  mode × ramp step in `pnpm test`; these cards only display the result. A card
+  that looks wrong here is a card bug, not a token bug.
+- **Two exceptions to "no literal colours" ship on purpose.** The terminal
+  canvas (`terminals.tsx`) is `#0a0a0a` in both modes because xterm takes a
+  colour string rather than a variable, and the Google mark in
+  `provider-icons.tsx` is that provider's own brand — §2.1's Provider role.
 
-**Radius.** All derived from `--radius: 0.625rem`: 6 chips · 8 inputs/buttons ·
-10 cards/panels · 14 modals · 999 pills.
+## What this replaced (kept as history — the original `design-system/` no longer exists)
 
-**Elevation.** Flat by default. One shadow (`--shadow-popover`), only for
-genuinely floating layers — dropdowns, popovers, command palettes. A shadowed
-card is a defect.
+| | Original `design-system/` (deleted 2026-08-31) | This system |
+|---|---|---|
+| Built against | The retired doctrine, partly | `DESIGN.md` as of 2026-08-19, including §2.4–2.6 |
+| Invented tokens | `--transition-base`, `--space-*`, `--font-mono`, `--radius-full` — none exist in the app | **None.** Gaps are stated, not filled |
+| Colour source | Whatever `globals.css` happened to hold | A typed table, with a test that fails on divergence |
+| Cards depend on | At least one invented token, all 10 of them | Only tokens the app really has |
+| Type scale | §3's prose transcribed into CSS | Shown as literals, labelled as unbuilt |
+| Motion | One invented duration token | The four real keyframes, animating live |
+| Components | 4 | 6 — adds Empty and Skeleton, the two states most often skipped |
+| Prototypes | Machines (`designs/`) | Machines, rebuilt against this system's real tokens |
 
-**Motion.** 140ms `ease` for interaction, 150–200ms for entrance. No spring, no
-bounce. `prefers-reduced-motion` honoured everywhere.
-
-**Never:** hardcoded Tailwind colours (`bg-slate-950`), gradient text,
-`backdrop-blur` glassmorphism, coloured left-border stripes, the hero-metric
-template for ordinary stats, or a custom primitive where `@sparstrow/ui` has one.
-
-## Maintaining this
-
-```bash
-# after changing globals.css or a component
-node .claude/skills/design-system/scripts/ds.mjs check --root design-system
-
-# after updating the affected cards and usage notes to match
-node .claude/skills/design-system/scripts/ds.mjs sync  --root design-system
-
-# regenerate index.html
-node .claude/skills/design-system/scripts/ds.mjs build --root design-system
-
-# view it (open index.html directly, or serve so prototypes can load lib/ data)
-node .claude/skills/design-system/scripts/ds.mjs serve --root design-system --port 4321
-```
-
-`check` exits 1 on drift, so it drops straight into CI. Run `sync` only *after*
-the cards are actually updated — running it first converts a real warning into
-silence.
-
-## File index
-
-```
-design-system/
-├── index.html                  GENERATED — do not hand-edit
-├── system.json                 manifest: mode, sources, token + component fingerprints
-├── README.md                   this file
-├── CHANGELOG.md                newest first
-├── styles.css                  @import entry point
-├── tokens/
-│   ├── colors.css              mirrored from globals.css, both themes
-│   ├── typography.css          retired doctrine's scale — placeholder, not live
-│   └── spacing.css             radius mirrored; spacing/shadow from retired doctrine
-├── guidelines/
-│   ├── surfaces.card.html      surface stack + text hierarchy
-│   ├── status-colors.card.html four semantic statuses
-│   ├── type-scale.card.html    six type steps
-│   ├── radius.card.html        five derived radius steps
-│   ├── elevation.card.html     flat-by-default, the one shadow
-│   └── motion.card.html        transitions + keyframes, replayable
-├── components/
-│   ├── buttons/                Button — 6 variants, 4 sizes
-│   ├── badges/                 Badge — 7 variants, semantic mapping
-│   ├── forms/                  Input — field assembly and states
-│   └── surfaces/               Card — the flat surface
-├── designs/                    prototypes (.dc.html) + preview cards
-└── lib/                        shared seed data for prototypes
-```
-
-## Coverage
-
-4 of 26 primitives are carded so far — the four that carry the most design
-decisions. The rest exist in `@sparstrow/ui` and are not yet documented here;
-absence from this page means undocumented, **not** unavailable. Add one with:
-
-```bash
-node .claude/skills/design-system/scripts/ds.mjs add --root design-system \
-  --kind component --name Dialog --group overlays \
-  --source packages/ui/src/components/ui/dialog.tsx
-```
-
-Registering with `--source` is what puts it under drift detection; a card added
-without it is invisible to `check`, and `check` will tell you so.
+The original was not wrong so much as **honest in its comments and misleading
+in its files**: it annotated the invented values clearly, and still shipped
+them as CSS that renders. This one left the gap visible instead — which is why
+it's the one that survived. When the Machines prototype moved over, its own
+CSS had the same class of bug (using `--space-4`/`--font-mono`/
+`--transition-base`, and inverting the `--success`/`--warning` token model to
+match the original's stale pre-`DD-012` copy) — fixed in place rather than
+carried forward. See `CHANGELOG.md`'s 2026-08-31 entry.

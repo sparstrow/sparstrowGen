@@ -6,7 +6,7 @@
 | **Provenance** | List view: [`doc/specs/2026-08-16-setup-and-machines.md`](../../../../doc/specs/2026-08-16-setup-and-machines.md) US1 (now updated for browser-loopback pairing, not the code-based flow that spec was written against). Machine profile (tab strip + side sub-nav): **exploratory — no spec** — extends `DESIGN.md` §9's resolved *shape* and `design-system/DECISIONS.md` DD-003/DD-008, which explicitly say "still needs `product-requirements` before build." Provider logos: closes the open item at `DESIGN.md` §13. |
 | **Mode** | build (list) + explore (profile, provider logos) — see Provenance |
 | **Status** | draft |
-| **Design system** | mirror, at `design-system/` |
+| **Design system** | mirror, at `design-system/` — built 2026-08-19 (as `design-system-v2`), promoted to the sole `design-system/` 2026-08-31 when the earlier system it was compared against was deleted; this prototype moved with it |
 
 ## What this is
 
@@ -83,23 +83,24 @@ that this prototype does not attempt. See "Open questions" below.
 
 ## Token usage
 
-Everything used already exists in `design-system/tokens/`. One correction
-needed mid-build: `colors.css` still has the **pre-DD-012 pale-tint model**
-for `--success`/`--warning` (base token = pale tint, `-foreground` = the real
-colour) even though `DESIGN.md` §2.4 and the real `packages/ui/src/styles/globals.css`
-now use the DD-012 model (base token IS the colour). This prototype targets
-what `colors.css` **actually ships today** — `--success-foreground` /
-`--warning-foreground` for every solid mark (dots, status text, switch track),
-`--success`/`--warning` reserved for tint backgrounds — not what the doctrine
-now describes. `ds.mjs check` surfaced this as 55 pre-existing drift findings
-(token values AND newly-added tokens — `--brand`, `--identity-*`, `--approval`,
-`--danger` — that exist in `globals.css` but were never mirrored into
-`system.json`/`colors.css`). **None of this is caused by this prototype** —
-`system.json`'s `lastBuild` is 2026-08-22, well before DD-012 (2026-08-19 is
-when the rule was *written*, but the mirror was never re-synced after
-`globals.css` caught up) and the newer identity/brand/approval work landed.
-Flagged separately as a follow-up rather than fixed here — re-syncing the
-whole token mirror is its own task, not a side effect of one prototype.
+Everything used exists in `design-system/tokens/colors.css`, which mirrors
+`globals.css` correctly (this system was built specifically to fix the
+original's stale mirror — see `README.md`'s comparison table). `--success` and
+`--warning` hold the colour itself here, `-foreground` is the neutral for a
+solid fill — the `DD-012` model, applied directly, no workaround needed.
+
+**History, not a current issue:** this prototype was first built inside the
+*original* `design-system/`, whose `colors.css` had never been re-synced after
+`DD-012` (base token = pale tint there, `-foreground` = the real colour) and
+was also missing `--brand`/`--identity-*`/`--approval`/`--danger` entirely.
+That build used `--success-foreground`/`--warning-foreground` for every solid
+mark to match what that stale mirror actually shipped. When the prototype
+moved into this system (2026-08-31, replacing the original), those were
+inverted back to the base tokens, and the file's four invented tokens
+(`--space-4`, `--space-5`, `--font-mono`, `--transition-base` — none of which
+this system defines, on purpose) were replaced with the literal values they'd
+resolved to, matching the convention every guideline card here already uses
+("Literal px for card chrome — the app defines no spacing tokens.").
 
 ## States
 
@@ -286,10 +287,41 @@ source, at 1250×850 and 1600×900 viewports.
   timing quirk of this specific tool combination, not a bug in the
   prototype's own state machine, which never lagged behind its own `render()`
   calls when inspected via the DOM.
-- Mono-surface and light-mode verification (`DESIGN.md`'s Do/Don't: "verify
-  new UI in both modes and at least Paper and Mono") were **not done** — the
-  surface-character theming contract (`DESIGN.md` §2, Paper/Slate/Soft/Mono)
-  is explicitly flagged there as not yet implemented anywhere in the app or
-  this design-system mirror (only one fixed dark palette exists in
-  `colors.css`), so there is no surface variant to switch to and verify
-  against yet.
+- Mono-surface and light-mode verification: **done in the 2026-08-31 pass
+  below**, once the prototype moved into the system that actually mirrors
+  `DESIGN.md` §2's surface classes (`surface-paper`/`surface-slate`/
+  `surface-soft`/`surface-mono` on `<html>`, orthogonal to `.dark`). The
+  original system this prototype was first built against had no such classes
+  to switch to, which is why an earlier pass here skipped this check — that
+  gap no longer applies.
+
+## Verification — 2026-08-31 (migration to the sole `design-system/`)
+
+Re-verified after the token-model and invented-token fixes described in "Token
+usage" above, served fresh via `ds.mjs serve --root design-system --port
+4322`.
+
+- [x] `ds.mjs check --root design-system` — no drift
+- [x] Populated state loads clean, console empty
+- [x] Status dot + "online"/"shutting down" text render in the actual
+  saturated `--success`/`--warning` colour (this is the exact bug the token
+  fix corrects — visually confirmed green/amber, not the flat neutral the
+  `-foreground` mix-up would have produced)
+- [x] Row click → profile tab → Providers sub-nav: all 8 provider rows render
+  their icon (7 real simple-icons marks + `antigravity`'s neutral fallback),
+  label, capability-string id, and an "available" pill in the correct green
+- [x] **Paper surface, light mode** (`<html class="surface-paper">`, `.dark`
+  removed): full profile + Providers tab re-checked — background, text,
+  provider icons, and "available" pills all legible, no unstyled/invalid
+  `var()` fallbacks visible
+- [x] **Mono surface, dark mode** (`<html class="dark surface-mono">`):
+  same re-check, renders correctly
+- [x] Console clean across every state above
+
+No new findings — the interaction logic (tab strip, sub-nav, rename,
+revoke/remove, confirm dialogs) is unchanged from the pass already recorded
+above; only the file's CSS moved. Not re-run here: the full interaction
+checklist from the original pass (rename/Enter/Escape, revoke, remove,
+simulate-pair, dismiss, reset) — nothing in this migration touched that
+JavaScript, only token references and literal-value substitutions in
+`<style>`.
