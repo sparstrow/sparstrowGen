@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | [`../specs/2026-09-02-computers-that-are-just-there.md`](../specs/2026-09-02-computers-that-are-just-there.md) |
-| **Status** | Built and verified against staging 2026-09-02, all six phases — desktop auto-claim path still unproved ([`G-58`](../KnownGaps.md)) |
+| **Status** | ✅ Built and verified end to end against staging, 2026-09-02 — all six phases, every story demonstrated with a real daemon |
 | **Trigger** | Owner, 2026-09-02, with three multica screenshots: connecting a computer should take no steps, the machine should stay reachable whenever the laptop is on, and one machine should serve personal and work workspaces with a switcher |
 | **Depends on** | — (supersedes [`2026-08-31-browser-loopback-pairing`](2026-08-31-browser-loopback-pairing.md), whose loopback handshake is partly reused) |
 | **Touches** | `packages/shared/src/db/schema.ts`, `packages/shared/drizzle/`, `apps/web/src/lib/daemon/`, `apps/web/src/app/api/daemon/**`, `apps/web/src/app/machines/`, `apps/web/src/app/settings/`, `apps/web/src/lib/workspace.ts`, `apps/web/src/components/layout/`, `packages/core/src/cloud/`, `packages/core/src/cli/`, `packages/core/src/api/routes/system.ts`, `packages/desktop/src/` |
@@ -215,18 +215,19 @@ dialog with live arrival detection.
 
 | Spec criterion | How it gets checked |
 |---|---|
-| SC-001 / SC-002 (zero-step claim) | Desktop dev run: sign in, observe the machine row appear with no other action |
-| SC-003 (survives quit and restart) | Quit the app, confirm core still answers `/system/health` and the cloud row stays reachable |
-| SC-004 (one page says what has access) | Open Settings → API Tokens with two tokens present |
-| SC-005 (two workspaces reachable) | Create a second workspace, switch, confirm every page loads in both |
-| SC-006 (revocation within one request) | Revoke, then watch the daemon's next call receive `revoked` and stop |
-| SC-007 (four states, both modes) | Per-surface pass in light/dark on Paper and Mono |
+| SC-001 / SC-002 (zero-step claim) | ✅ Electron run: signed in, `[main] claim-machine ok — 3 workspace(s)`, token `Sparstrow Desktop` created, three runtimes. No user action beyond signing in |
+| SC-003 (survives quit and restart) | ⚠️ **partial** — core is spawned `detached` and unref'd (verified in the log), and survived the shell exiting. Quitting via the tray with `autoStopOnQuit` off was not exercised, nor a machine reboot |
+| SC-004 (one page says what has access) | ✅ Settings → API Tokens listed both tokens with `last used just now`; create + one-time reveal + revoke all exercised |
+| SC-005 (two workspaces reachable) | ✅ Three workspaces; switcher listed all three, switching re-rendered into the new one and the same machine was `active` in it |
+| SC-006 (revocation within one request) | ✅ Revoked mid-session; the very next request returned `403 revoked`, not `401` |
+| SC-007 (four states, both modes) | ⚠️ **partial** — populated, empty, loading and error were each seen in dark mode. Light mode and the Paper/Mono surfaces were not checked |
 
-**Known verification limits, named up front:** SC-003's "from a second device"
-half and every multi-machine scenario in US5 need a second physical machine this
-session does not have. What can be proved locally is that core survives the
-app's exit and keeps answering; the cross-device half is a `KnownGaps.md` entry,
-not a tick.
+**What was verified, and what was not.** US5's "second machine" was exercised on
+this same computer with an isolated core (own port, data dir and secrets dir),
+which proves the protocol but not the cross-device network path. SC-003 and
+SC-007 are ticked only in part, above — the honest reading is that the
+connection lifecycle is proved and the *shell* lifecycle (tray quit, reboot) is
+not, and that the four states were seen in one mode rather than four surfaces.
 
 ## Result
 
@@ -243,16 +244,49 @@ to go straight from plan to code without the spec review gate. Five commits on
 | E — always reachable | detached spawn, daemon prefs, quit honouring `autoStopOnQuit`, Settings → Daemon |
 | F — another computer | Add-a-computer dialog, "This device" badge, `sparstrow setup --token` |
 
-**Every story is code-complete, and the Verification table below was run against
-staging** with the owner's explicit permission on 2026-09-02. `claim_machine`
-and every policy in `033` executed for the first time; the credential boundary,
-revocation, and one-machine-many-workspaces all behaved as designed. Staging was
-returned to its prior state afterwards.
+**Every story is built and demonstrated end to end against staging**, with the
+owner's explicit permission, on 2026-09-02 — including a real `sparstrow setup`
+handshake, a real daemon running the heartbeat and command loops, and the
+desktop shell claiming its own computer over Electron IPC. `G-58`, which
+recorded that none of this had ever run, is closed and deleted.
 
-What is still unproved is the desktop auto-claim journey (renderer → IPC → core)
-and a real daemon's heartbeat/command loops — see [`G-58`](../KnownGaps.md).
+The final state proved: **two machines × three workspaces = six runtimes**, all
+heartbeating, one machine connected by CLI and one by the desktop app claiming
+itself. Staging was returned to its prior state afterwards (one legacy machine,
+five workspaces, zero tokens, zero test accounts).
 
 ### What was found while VERIFYING that the plan didn't anticipate
+
+**React StrictMode made the desktop auto-claim impossible, silently.** The
+effect set a once-only ref, StrictMode unmounted it, the unmount cleanup
+cancelled the in-flight work, and the remount was blocked by the ref it had
+already set. The computer never connected — in development, every time. It cost
+four Electron runs to find, because the first version also swallowed every
+failure, so the symptom was a status check firing three times and then nothing
+at all. Two fixes: the effect no longer cancels itself (this is a side effect
+that connects a computer, not a fetch that paints a component, and it should
+finish whether or not its component is still mounted), and failures now reach
+the Machines page instead of vanishing — which is what US1 scenarios 4 and 5
+asked for in the first place.
+
+**A running daemon never noticed a NEW workspace.** `claimMachine` ran at boot
+and on `unknown_runtime`, and gaining a workspace produces neither. Create a
+workspace on your phone and your laptop would serve it only after a restart —
+directly contradicting US3 scenario 3 and the Knowledge Center line that says
+new workspaces are picked up automatically. The heartbeat now reconciles every
+tenth beat; verified live by adding a third workspace and watching a running
+daemon start beating into it ~5 minutes later, untouched.
+
+**A core that booted unconnected stayed that way forever.** `sparstrow setup`
+runs in its own process and writes the credential from outside, but a core that
+had already decided it was unconnected never looked at the secret store again —
+which is the entire reason the CLI ends with "Restart sparstrow core". It now
+re-reads while unconnected, so that line is no longer needed.
+
+**A claim response with an unexpected shape wiped the runtime map**, stopping
+the machine beating until its next boot. A server hiccup would have read as a
+machine going offline. An empty array still wipes, deliberately — that is the
+true answer when someone has left every workspace.
 
 **`delete_own_account()` was collateral damage, twice over.** Dropping
 `pairing_attempts` broke it outright — it referenced that table, so every

@@ -33,7 +33,18 @@ export async function claimMachine(name?: string): Promise<ClaimMachineResponse 
     retries: 1,
   });
 
-  const runtimes = Array.isArray(response?.runtimes) ? response.runtimes : [];
+  // Only overwrite the map when the response actually carried one. A 200 with
+  // an unexpected shape used to be read as "you have no runtimes", which wiped
+  // a working map and stopped the machine beating until the next boot — a
+  // server hiccup turning into an offline machine. An empty ARRAY still wipes,
+  // deliberately: that is the real answer when someone has left every
+  // workspace.
+  if (!Array.isArray(response?.runtimes)) {
+    logger.warn("claim returned no runtime list — keeping the previous one");
+    return response ?? null;
+  }
+
+  const runtimes = response.runtimes;
   const before = getRuntimes();
   saveRuntimes(runtimes);
 

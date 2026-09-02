@@ -57,6 +57,7 @@ import {
 import { cn } from "@/lib/utils";
 import { AddComputerDialog } from "./add-computer-dialog";
 import { desktopCloudStatus } from "@web/lib/desktop-machine";
+import { getClaimStatus, subscribeClaimStatus } from "@web/lib/claim-status";
 
 /**
  * M8 — Machines as a destination of its own (US1).
@@ -88,6 +89,37 @@ const CHECKOUT_NOTE =
  * silent — it just appears, which reads as the page skipping a step rather
  * than a computer actually connecting.
  */
+/**
+ * US1 scenarios 4 and 5 — this computer tried to connect itself and could not.
+ *
+ * Only ever rendered in the desktop app, because only there is there a computer
+ * that was supposed to appear. Without it the failure is a machine that simply
+ * is not in the list, which is indistinguishable from never having tried — and
+ * the empty state below would then tell a new owner something untrue.
+ */
+function ClaimFailurePanel({ reason }: { reason: string }) {
+  return (
+    <div
+      className="spg-turn flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-5"
+      role="alert"
+    >
+      <span
+        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-destructive/15 text-destructive"
+        aria-hidden="true"
+      >
+        <Unplug className="size-4" />
+      </span>
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="text-sm font-medium">This computer couldn&apos;t be connected</p>
+        <p className="text-sm text-muted-foreground">{reason}</p>
+        <p className="text-sm text-muted-foreground">
+          Settings &rarr; Daemon shows whether the runtime on this computer is running.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function ConnectionOutcomePanel({ name, onDismiss }: { name: string; onDismiss: () => void }) {
   return (
     <div
@@ -592,6 +624,10 @@ export function MachinesPage() {
   const [justPaired, setJustPaired] = React.useState<string | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
   const thisMachineId = useThisMachineId();
+  // `useSyncExternalStore` rather than an effect: the claim can finish before
+  // this page mounts (it starts app-wide, on whatever page you land on), and an
+  // effect-based subscription would miss an outcome that had already landed.
+  const claim = React.useSyncExternalStore(subscribeClaimStatus, getClaimStatus, getClaimStatus);
 
   const machines = runtimes.data ?? [];
 
@@ -648,6 +684,8 @@ export function MachinesPage() {
       </div>
 
       <AddComputerDialog open={addOpen} onOpenChange={setAddOpen} runtimeCount={machines.length} />
+
+      {claim.state === "failed" ? <ClaimFailurePanel reason={claim.reason} /> : null}
 
       {justPaired ? (
         <ConnectionOutcomePanel name={justPaired} onDismiss={() => setJustPaired(null)} />

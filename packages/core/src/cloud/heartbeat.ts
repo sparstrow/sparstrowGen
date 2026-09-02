@@ -8,7 +8,7 @@ import {
   invalidatePairingCache,
   isPaired,
 } from "./client.js";
-import { reclaimAfterUnknownRuntime } from "./claim.js";
+import { claimMachine, reclaimAfterUnknownRuntime } from "./claim.js";
 
 /**
  * M3 — "I am still here."
@@ -24,9 +24,57 @@ let timer: NodeJS.Timeout | null = null;
 /** Tracks the connectivity edge so a laptop offline overnight logs once, not 1,000 times. */
 let healthy = true;
 let stopped = false;
+/**
+ * Beats since the last reconciliation. A machine only learns it has GAINED a
+ * workspace by asking, so it has to ask periodically.
+ *
+ * Found by running it: create a workspace while the daemon is up and nothing
+ * happens — the runtime map is only refreshed at boot and on `unknown_runtime`,
+ * and gaining a workspace produces neither. The daemon served one workspace
+ * indefinitely while the owner sat in a second one wondering where their
+ * machine was, and `sparstrow setup`'s "restart core" line was the only way
+ * out. That contradicts the spec's US3 scenario 3 ("no reconnection step") and
+ * the Knowledge Center's "picks up new workspaces automatically".
+ *
+ * Every 10th beat, so ~5 minutes at a 30s interval. Deliberately not every
+ * beat: a claim is a write plus a per-workspace upsert, and the thing it
+ * detects changes on the order of days.
+ */
+let beatsSinceReclaim = 0;
+const BEATS_PER_RECLAIM = 10;
 
 async function beat(): Promise<void> {
-  if (stopped || !isPaired()) return;
+  if (stopped) return;
+
+  if (!isPaired()) {
+    // `sparstrow setup` runs in its OWN process and writes the credential to
+    // the secret store from outside this one. A core that booted unconnected
+    // has `loaded = true, cached = null` and would never look again — so it sat
+    // there unconnected forever while a perfectly good credential lay on disk
+    // beside it. That is why the CLI ends with "Restart sparstrow core"; this
+    // makes that line unnecessary.
+    //
+    // Cheap enough at a 30s cadence: one decrypt of a small file, and only
+    // while unconnected. Once connected this branch is never taken again.
+    invalidatePairingCache();
+    if (!isPaired()) return;
+    logger.info("this computer was connected while core was running — picking it up");
+    beatsSinceReclaim = BEATS_PER_RECLAIM;
+  }
+
+  // Reconcile before beating, so a newly-gained workspace is beaten into on the
+  // same tick it is discovered rather than the next one.
+  if (++beatsSinceReclaim >= BEATS_PER_RECLAIM) {
+    beatsSinceReclaim = 0;
+    try {
+      await claimMachine();
+    } catch {
+      // Best effort. A failed reconciliation leaves the previous map in place,
+      // which is stale but working; the beats below still go out. Throwing here
+      // would turn "could not check for new workspaces" into "this machine
+      // stopped reporting", which is far worse and far less true.
+    }
+  }
 
   const runtimes = getRuntimes();
   if (runtimes.length === 0) {
@@ -111,6 +159,12 @@ export function startHeartbeat(): void {
   if (timer) return;
   stopped = false;
   healthy = true;
+  // Deliberately NOT forcing a reconcile on the first beat: `register()`
+  // already claims at boot, so doing it again here is a redundant round trip
+  // before the machine has even reported once. The one case that genuinely
+  // needs an immediate reconcile — connected from another process while this
+  // core was running — arms it itself, in the `!isPaired()` branch of `beat`.
+  beatsSinceReclaim = 0;
 
   void beat();
   timer = setInterval(() => void beat(), HEARTBEAT_INTERVAL_MS);

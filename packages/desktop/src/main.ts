@@ -90,6 +90,10 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle(
       "sparstrow:claim-machine",
       async (_e, payload: { token?: unknown; name?: unknown }) => {
+        // Logged because this is the one step of connecting a computer that
+        // happens outside both the renderer's console and core's log, so a
+        // failure here is otherwise invisible from every side.
+        console.log("[main] claim-machine requested");
         const token = typeof payload?.token === "string" ? payload.token : "";
         if (!token) return { ok: false, error: "No token supplied." };
         const name = typeof payload?.name === "string" ? payload.name : undefined;
@@ -103,11 +107,17 @@ if (!app.requestSingleInstanceLock()) {
           });
           if (!res.ok) {
             const detail = (await res.json().catch(() => null)) as { error?: string } | null;
-            return { ok: false, error: detail?.error ?? `Core returned ${res.status}.` };
+            const error = detail?.error ?? `Core returned ${res.status}.`;
+            console.error("[main] claim-machine failed:", error);
+            return { ok: false, error };
           }
-          return (await res.json()) as { ok: true; machineId: string; workspaces: number };
+          const claimed = (await res.json()) as { ok: true; machineId: string; workspaces: number };
+          console.log(`[main] claim-machine ok — ${claimed.workspaces} workspace(s)`);
+          return claimed;
         } catch (err) {
-          return { ok: false, error: err instanceof Error ? err.message : String(err) };
+          const error = err instanceof Error ? err.message : String(err);
+          console.error("[main] claim-machine threw:", error);
+          return { ok: false, error };
         }
       },
     );
@@ -129,6 +139,7 @@ if (!app.requestSingleInstanceLock()) {
 
     /** Read-only status for the Settings -> Daemon card. Never carries a token. */
     ipcMain.handle("sparstrow:cloud-status", async () => {
+      console.log("[main] cloud-status requested");
       try {
         const res = await coreFetch("/system/cloud-status");
         if (!res.ok) return { connected: false, error: `Core returned ${res.status}.` };

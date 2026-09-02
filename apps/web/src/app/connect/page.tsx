@@ -111,9 +111,16 @@ export default async function PairPage({
             <span className="font-medium text-foreground">{attempt.name}</span> ({attempt.os} ·{" "}
             {attempt.hostname}) will be able to run work in{" "}
             <span className="font-medium text-foreground">
-              {workspaceCount === 1
-                ? "your workspace"
-                : `all ${workspaceCount} of your workspaces`}
+              {/* Zero is a real state and used to read "all 0 of your
+                  workspaces", which is nonsense and also misleading — a
+                  workspace is created the moment they act, so the machine ends
+                  up serving one. Seen live: a fresh account reaches this page
+                  before anything has bootstrapped. */}
+              {workspaceCount === 0
+                ? "every workspace you create"
+                : workspaceCount === 1
+                  ? "your workspace"
+                  : `all ${workspaceCount} of your workspaces`}
             </span>
             . You can disconnect it at any time from Machines.
           </CardDescription>

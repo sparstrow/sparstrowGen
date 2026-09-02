@@ -7,6 +7,18 @@ import { config } from "../config.js";
 import { invalidatePairingCache, saveConnection } from "./client.js";
 import { declareDraining, startHeartbeat, stopHeartbeat } from "./heartbeat.js";
 
+/**
+ * How many HEARTBEATS were sent, as opposed to how many requests.
+ *
+ * A beat now also reconciles the runtime map periodically (`/claim`), so a bare
+ * `toHaveBeenCalledTimes` conflates "beat twice" with "beat once and checked
+ * for new workspaces". These tests are about the beat rate, so they count
+ * beats.
+ */
+function beats(fetchMock: { mock: { calls: unknown[][] } }): number {
+  return fetchMock.mock.calls.filter((c) => String(c[0]).includes("/api/daemon/heartbeat")).length;
+}
+
 function jsonResponse(status: number, body: unknown = {}): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -52,10 +64,10 @@ describe("heartbeat", () => {
 
     startHeartbeat();
     await vi.advanceTimersByTimeAsync(0);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(beats(fetchMock)).toBe(1);
 
     await vi.advanceTimersByTimeAsync(HEARTBEAT_INTERVAL_MS);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(beats(fetchMock)).toBe(2);
   });
 
   it("stops permanently once the pairing is revoked", async () => {
@@ -94,7 +106,7 @@ describe("heartbeat", () => {
     startHeartbeat();
     startHeartbeat();
     await vi.advanceTimersByTimeAsync(0);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(beats(fetchMock)).toBe(1);
   });
 
   describe("declareDraining", () => {
@@ -103,7 +115,7 @@ describe("heartbeat", () => {
       const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(200));
 
       await declareDraining();
-      const call = fetchMock.mock.calls.at(-1)!;
+      const call = fetchMock.mock.calls.filter((c) => String(c[0]).includes("/api/daemon/status")).at(-1)!;
       expect(String(call[0])).toContain("/api/daemon/status");
       expect(JSON.parse(String(call[1]?.body))).toEqual({ status: "draining" });
     });
