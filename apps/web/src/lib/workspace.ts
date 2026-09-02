@@ -52,22 +52,53 @@ export async function getActiveWorkspaceId(
     return { workspaceId: workspaceId as string };
   }
 
-  if (memberships.length === 1) {
-    return { workspaceId: memberships[0].workspace_id };
-  }
-
-  const requestedWorkspaceId = searchParams?.get("workspaceId");
-  if (requestedWorkspaceId) {
-    const isMember = memberships.some(
-      (m) => m.workspace_id === requestedWorkspaceId
-    );
-    if (isMember) {
-      return { workspaceId: requestedWorkspaceId };
-    }
-  }
-
   const workspaces = memberships
     .map((m) => m.workspaces)
     .filter(Boolean) as unknown as { id: string; name: string }[];
-  return { error: "Multiple workspaces found", status: 400, workspaces };
+
+  if (memberships.length === 1) {
+    return { workspaceId: memberships[0].workspace_id, workspaces };
+  }
+
+  // Belonging to more than one workspace used to be a hard 400 that locked the
+  // account out of every page, because there was no way to choose between them
+  // anywhere in the interface. There is now: the switcher writes a cookie, and
+  // this resolves it.
+  //
+  // Order of precedence, most explicit first:
+  //   1. `?workspaceId=` — someone followed a link to a specific workspace
+  //   2. the cookie — what they last switched to
+  //   3. the first membership — a sane landing place, never an error
+  //
+  // Every one of them is validated against actual membership before it is
+  // believed. The cookie in particular is client-supplied and must never be
+  // trusted on its own: RLS would deny the queries anyway, but a page that
+  // renders half-empty because the cookie named a workspace they left is a
+  // worse answer than quietly landing them somewhere real.
+  const requestedWorkspaceId = searchParams?.get("workspaceId");
+  if (requestedWorkspaceId && memberships.some((m) => m.workspace_id === requestedWorkspaceId)) {
+    return { workspaceId: requestedWorkspaceId, workspaces };
+  }
+
+  const cookieWorkspaceId = await readWorkspaceCookie();
+  if (cookieWorkspaceId && memberships.some((m) => m.workspace_id === cookieWorkspaceId)) {
+    return { workspaceId: cookieWorkspaceId, workspaces };
+  }
+
+  return { workspaceId: memberships[0].workspace_id, workspaces };
+}
+
+/** Name of the cookie the switcher writes. Read here, written by its action. */
+export const WORKSPACE_COOKIE = "sparstrow.workspace";
+
+async function readWorkspaceCookie(): Promise<string | null> {
+  try {
+    // Imported lazily so this module stays importable from a plain unit test
+    // that has no Next request context — `cookies()` throws outside one.
+    const { cookies } = await import("next/headers");
+    const store = await cookies();
+    return store.get(WORKSPACE_COOKIE)?.value ?? null;
+  } catch {
+    return null;
+  }
 }

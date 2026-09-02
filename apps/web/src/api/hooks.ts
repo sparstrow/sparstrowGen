@@ -1438,6 +1438,29 @@ export function useWorkspace(enabled = true): UseQueryResult<Workspace, ApiError
   });
 }
 
+/** One row per workspace the signed-in person belongs to. What the switcher renders. */
+export type WorkspaceSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
+};
+
+/**
+ * US3 — every workspace this person can switch to.
+ *
+ * Gated on `enabled` for the same reason `useWorkspace` is: the local desktop
+ * build has no account, so firing this would be a doomed request on every
+ * render just to discard its result.
+ */
+export function useWorkspaces(enabled = true): UseQueryResult<WorkspaceSummary[], ApiError> {
+  return useQuery({
+    queryKey: ["workspaces"],
+    queryFn: () => api<WorkspaceSummary[]>("/workspaces"),
+    enabled,
+  });
+}
+
 /** See `Profile` for why this and `useAccount()` both exist. No polling, same reasons as `useWorkspace`. */
 export function useProfile(): UseQueryResult<Profile, ApiError> {
   return useQuery({

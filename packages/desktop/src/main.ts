@@ -3,7 +3,7 @@ import { BrowserWindow, app, ipcMain, type Tray } from "electron";
 import { ServiceManager, findRepoRoot } from "./service-manager";
 import { pickDirectory } from "./dialogs";
 import { applyPackagedEnv, ensureCoreNodeModules } from "./packaged-env";
-import { configureCoreClient } from "./core-client";
+import { configureCoreClient, coreFetch } from "./core-client";
 import { setupUpdater } from "./updater";
 import { createTray } from "./tray";
 import { offlineScreenUrl } from "./offline";
@@ -67,6 +67,49 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle("sparstrow:pick-directory", (_e, defaultPath?: string) =>
       pickDirectory(mainWindow, defaultPath),
     );
+
+    // US1: the renderer is signed in and this process is not, so the token it
+    // mints has to cross the bridge. It goes straight to core over the local
+    // authed API and is never written to disk here, never logged, and never
+    // returned to the renderer.
+    //
+    // Invoke-only and one-way by shape: the renderer can hand a credential in
+    // and learn whether the claim worked, and can learn nothing else.
+    ipcMain.handle(
+      "sparstrow:claim-machine",
+      async (_e, payload: { token?: unknown; name?: unknown }) => {
+        const token = typeof payload?.token === "string" ? payload.token : "";
+        if (!token) return { ok: false, error: "No token supplied." };
+        const name = typeof payload?.name === "string" ? payload.name : undefined;
+        try {
+          const res = await coreFetch("/system/cloud-token", {
+            method: "POST",
+            body: { token, name },
+            // Claiming reaches the control plane and back, so it needs more
+            // than coreFetch's 5s default for the tray's local pings.
+            timeoutMs: 30_000,
+          });
+          if (!res.ok) {
+            const detail = (await res.json().catch(() => null)) as { error?: string } | null;
+            return { ok: false, error: detail?.error ?? `Core returned ${res.status}.` };
+          }
+          return (await res.json()) as { ok: true; machineId: string; workspaces: number };
+        } catch (err) {
+          return { ok: false, error: err instanceof Error ? err.message : String(err) };
+        }
+      },
+    );
+
+    /** Read-only status for the Settings -> Daemon card. Never carries a token. */
+    ipcMain.handle("sparstrow:cloud-status", async () => {
+      try {
+        const res = await coreFetch("/system/cloud-status");
+        if (!res.ok) return { connected: false, error: `Core returned ${res.status}.` };
+        return await res.json();
+      } catch (err) {
+        return { connected: false, error: err instanceof Error ? err.message : String(err) };
+      }
+    });
 
     tray = createTray({ openWindow, quit: () => quitApp() });
     openWindow();
