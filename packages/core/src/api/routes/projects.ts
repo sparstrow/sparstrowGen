@@ -29,8 +29,6 @@ import { getProjectDream, setProjectDream } from "../../projects/dream.js";
 import { runDreamCycle } from "../../memory/dream-cycle.js";
 import { listProjectDir } from "../../projects/files.js";
 import { deleteCronJobsForProject, fireJobNow } from "../../scheduler/service.js";
-import { enqueueGraphIndex, onProjectDeleted, readGraphProjectStatus } from "../../graph/graph-lifecycle.js";
-import { logger } from "../../logger.js";
 
 const nowIso = () => new Date().toISOString();
 
@@ -105,32 +103,14 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     return listProjectDir(row.rootDir, subpath ?? "");
   });
 
-  /**
-   * P4 §2 + P5: ONE Reindex action, two passes (locked P5-Q4) — the naive
-   * notes indexer run AND the graph index. Manual reindex is the explicit
-   * opt-in that lets a sandbox graph-index (#41).
-   */
+  /** P4 §2: manual reindex — the explicit opt-in that lets a sandbox reindex. */
   app.post("/projects/:id/reindex", async (request, reply) => {
     const { id } = request.params as { id: string };
     const row = getDb().select().from(projects).where(eq(projects.id, id)).get();
     if (!row) throw new HttpError(404, `project not found: ${id}`);
     const run = runProjectIndex(id);
-    const graph = enqueueGraphIndex(id, { reason: "manual" });
     reply.code(202);
-    return {
-      started: run !== null,
-      runId: run?.id ?? null,
-      graph: graph.queued ? "queued" : (graph.reason ?? "skipped"),
-    };
-  });
-
-  /** P5: per-project graph index status for the Code-graph panel (ws pushes transitions). */
-  app.get("/projects/:id/graph", async (request) => {
-    const { id } = request.params as { id: string };
-    if (!getDb().select().from(projects).where(eq(projects.id, id)).get()) {
-      throw new HttpError(404, `project not found: ${id}`);
-    }
-    return readGraphProjectStatus(id);
+    return { started: run !== null, runId: run?.id ?? null };
   });
 
   /** P4 §7: fork a client variant — clone the base repo + copy its project notes. */
@@ -183,13 +163,6 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     // No FK cascade on cron_jobs.project_id — unschedule + remove them first so no
     // orphan briefing/cron handle keeps firing against the deleted project.
     deleteCronJobsForProject(id);
-    // P5 (#18): stop the engine child + remove the whole per-project store —
-    // ghost-free by construction. Best-effort; deletion never blocks on it.
-    try {
-      await onProjectDeleted(id);
-    } catch (err) {
-      logger.warn({ err, projectId: id }, "graph store cleanup failed (non-fatal)");
-    }
     getDb().delete(projects).where(eq(projects.id, id)).run();
     reply.code(204);
   });

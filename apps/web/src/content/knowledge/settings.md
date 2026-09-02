@@ -1,9 +1,9 @@
 ---
 title: Settings
 section: Surfaces
-description: Providers and keys, factory health, snapshots, GitHub PAT, the code-graph engine, and app configuration.
+description: Providers and keys, factory health, snapshots, GitHub PAT, and app configuration.
 order: 14
-updated: 2026-08-31
+updated: 2026-09-01
 ---
 
 Settings is the factory's engine room. The cards that matter:
@@ -21,7 +21,7 @@ are never exposed to agents — only a masked hint is ever displayed again.
 ## Factory health
 
 The "am I armed?" self-check: database, memory vault, providers (required) plus
-code-graph engine, embedder, GitHub PAT (optional — features degrade without them).
+embedder, GitHub PAT (optional — features degrade without them).
 Check it whenever something feels off; it's faster than guessing.
 
 ## Machines — moved
@@ -58,13 +58,6 @@ Store a Personal Access Token to let the factory push branches and open PRs on y
 behalf for production-app projects. Same encrypted treatment as API keys. The rules
 that govern what agents may do with it live in
 [Git automation](/knowledge/git-automation).
-
-## Code-graph engine
-
-One-click install of the structural code-index engine (verified download, pinned
-checksum). Once installed, projects can be indexed — giving agents real code-structure
-awareness and enabling the project workspace's graph panel. If the engine misbehaves,
-this card is where you retry or see why it's off.
 
 ## App configuration
 

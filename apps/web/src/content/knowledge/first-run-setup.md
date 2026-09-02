@@ -3,7 +3,7 @@ title: First-run setup
 section: Getting started
 description: Connect a provider, arm the factory, and confirm everything is healthy.
 order: 2
-updated: 2026-08-31
+updated: 2026-09-01
 ---
 
 **A new account lands on a Setup guide, not an empty dashboard.** It walks your profile,
@@ -43,8 +43,8 @@ model list (it falls back to a static list if discovery fails).
 The **Factory health** card in Settings answers "is my factory armed?" in one glance:
 
 - **Required:** database, memory vault, at least one healthy provider.
-- **Degrades gracefully:** code-graph engine, embedder, GitHub PAT — missing ones turn
-  features off rather than breaking runs.
+- **Degrades gracefully:** embedder, GitHub PAT — missing ones turn features off rather
+  than breaking runs.
 
 Green across the required row means you're ready to create an agent.
 
@@ -53,8 +53,6 @@ Green across the required row means you're ready to create an agent.
 - **GitHub PAT** (Settings → Git): lets agents push branches and open PRs for
   production-app projects. Stored encrypted; only a masked hint is ever shown again.
   See [Git automation](/knowledge/git-automation).
-- **Code-graph engine** (Settings → Engine): a one-click install that gives agents
-  structural awareness of your codebases. Projects index on demand.
 
 ## 4. Pair a machine (browser only)
 

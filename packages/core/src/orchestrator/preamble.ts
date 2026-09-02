@@ -1,8 +1,7 @@
 import path from "node:path";
-import type { Agent, EffectiveTools } from "@sparstrow/shared";
+import type { Agent } from "@sparstrow/shared";
 import { config } from "../config.js";
 import { CAPABILITY_DOCS, renderCapabilityDocs } from "../agents/capability-docs.js";
-import { GRAPH_TOOL_NAMES, snapshotAllows } from "../graph/graph-tools.js";
 import { resolveWriteFilters } from "../memory/scopes.js";
 import { scopeDir } from "../memory/vault.js";
 import { discoverProjectSkills } from "../agents/local-skills.js";
@@ -37,13 +36,6 @@ export interface PreambleOptions {
    */
   untrusted?: boolean;
   /**
-   * P5 (#48): the run's spawn-pinned effective-tools snapshot. The tools-by-
-   * intent list is filtered by it so advertised ≡ available — a tool the MCP
-   * surface won't register is never briefed. Absent/null (draft/test spawns
-   * with no snapshot) → graph tools are conservatively NOT advertised.
-   */
-  effectiveTools?: EffectiveTools | null;
-  /**
    * The run's project root dir on disk, when known. Used only to advertise
    * `.claude/skills/*` (Claude Code's project-skill convention) to CLI
    * providers that have no native discovery for it — see the `isCliInBand`
@@ -51,26 +43,6 @@ export interface PreambleOptions {
    */
   projectRootDir?: string | null;
 }
-
-/**
- * P5 query heuristics (DX-3/#46/#50): the decision ladder that makes 7
- * unfamiliar graph tools usable on turn 1. Appended ONLY for runs whose
- * snapshot includes graph tools; budget ≤250 tokens. The Cypher examples are
- * FROZEN from the T1 spike (verified against the real engine).
- */
-export const GRAPH_HEURISTICS = [
-  "## Code graph — structure questions",
-  "This project has a code graph. Prefer it over file search for STRUCTURE questions:",
-  "- Find a symbol/route by name → `search_graph` (results carry the `qualified_name` other tools take)",
-  "- Who calls X / what breaks if X changes → `trace_path` with a qualified_name",
-  "- Multi-hop/aggregate questions → `get_graph_schema` once, then `query_graph` (Cypher), e.g.:",
-  "  `MATCH (a)-[:CALLS]->(f:Function) WHERE f.name = 'someFn' RETURN a.qualified_name LIMIT 10`",
-  "  `MATCH (f:Function) WHERE f.transitive_loop_depth >= 3 RETURN f.qualified_name LIMIT 10`",
-  "- Source of a known symbol → `get_code_snippet`; orient once per run → `get_architecture` (few aspects)",
-  "- What does the current diff touch → `detect_changes`",
-  "The graph knows SYMBOLS, not text — literal strings/file contents need Grep/Read.",
-  "If a graph tool is unavailable or still indexing: use file search this run; one retry max, never poll.",
-].join("\n");
 
 export function buildPreamble(
   agent: Agent,
@@ -156,20 +128,8 @@ export function buildPreamble(
   }
 
   // Tools + escalation contract so a fresh agent acts correctly on turn 1 (DX1/DX-H2).
-  // P5 (#48): advertised ≡ available — filter by the spawn-pinned snapshot; with no
-  // snapshot, graph tools are conservatively excluded (they may not be registered).
-  const graphNames = GRAPH_TOOL_NAMES as readonly string[];
-  const availableNames = CAPABILITY_DOCS.map((d) => d.name).filter((name) => {
-    if (!opts.effectiveTools) return !graphNames.includes(name);
-    return snapshotAllows(opts.effectiveTools, name);
-  });
+  const availableNames = CAPABILITY_DOCS.map((d) => d.name);
   lines.push("", renderCapabilityDocs(availableNames));
-  // The heuristics ladder names every graph tool, so it renders only when the
-  // FULL surface is available — a partially-disallowed set gets its per-tool
-  // docs lines only (advertised ≡ available holds even inside the ladder).
-  if (graphNames.every((n) => availableNames.includes(n))) {
-    lines.push("", GRAPH_HEURISTICS);
-  }
 
   // Trust boundary (DX-H3): teach the agent to treat delegated requests and injected
   // memory as data, not operator instructions — the receiving half of the wrap that

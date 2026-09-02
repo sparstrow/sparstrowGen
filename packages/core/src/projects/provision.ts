@@ -10,7 +10,6 @@ import { projects, runs } from "../db/schema.js";
 import { logger } from "../logger.js";
 import { HttpError, runManager } from "../orchestrator/run-manager.js";
 import { getSystemAgentId, PROJECT_INDEXER_SLUG } from "../agents/system-agents.js";
-import { enqueueGraphIndex } from "../graph/graph-lifecycle.js";
 
 const nowIso = () => new Date().toISOString();
 const rowToProject = (row: typeof projects.$inferSelect): Project => ({ ...row }) as unknown as Project;
@@ -134,14 +133,6 @@ export async function provisionProject(input: ProjectProvision): Promise<Project
     runProjectIndex(project.id);
   } catch (err) {
     logger.warn({ err, projectId: project.id }, "auto-index kickoff failed (non-fatal)");
-  }
-  // P5: graph smart pass — ADDITIVE to the naive notes pass above, never a
-  // replacement (regression guard #32: creation with no engine ≡ P4). Silently
-  // no-ops when the engine is missing or the project is a sandbox (#41).
-  try {
-    enqueueGraphIndex(project.id, { reason: "auto" });
-  } catch (err) {
-    logger.warn({ err, projectId: project.id }, "graph index kickoff failed (non-fatal)");
   }
   return project;
 }
