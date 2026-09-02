@@ -11,6 +11,46 @@ guidance: `.claude/skills/design-system/references/decision-log.md`.
 
 ---
 
+## DD-016 — Unique identities get their own mark; destructive triggers are red at rest
+
+**Date:** 2026-09-01 · **Asked by:** owner · **Surface:** Machines (prototype)
+
+**Ask:** On the Machines page, `win32` / `darwin` / `linux` should render as
+their own recognizable, brand-coloured mark instead of plain text — "windows,
+linux, mac which can be use icons on it own colours." Separately: the
+row-level delete/remove control should be red, and icons should stay
+consistent across the app rather than each surface improvising its own.
+
+**Why:** A monitoring surface is scanned, not read (§1) — that principle was
+already applied to status (the entity-tile dot, DD-002) but not to identity.
+Plain-text OS values make every row require reading to tell apart; a mark
+makes the platform legible at a glance the same way the status dot makes
+health legible. Separately, the Remove button was `btn-ghost` — muted,
+identical in weight to Revoke — even though it's the one irreversible action
+on the row. An action that destroys data should look different from one that
+doesn't, before the click, not just inside the confirm dialog that follows it.
+
+**Generalises to:** Yes, both halves.
+1. Any column whose value is a unique, externally-recognizable identity
+   (not just OS — anything with its own brand mark) should show that mark
+   rather than text or a generic category icon.
+2. Any icon-only control that triggers delete/remove/revoke-style
+   destruction renders in `--destructive` at rest, not only on hover or in
+   the confirm step.
+"Icons stay consistent" was already the semantic-map rule (§6) — restated
+here as confirmation it applies to brand marks too: one platform, one mark,
+everywhere it appears, sourced the same way `provider-icons.tsx` sources
+OAuth marks.
+
+**Status:** promoted to `DESIGN.md` §6 — 2026-09-01. Applied to the Machines
+prototype (`design-system/designs/Machines/machines.dc.html`) in the same
+change: platform marks (Windows/Apple/Linux, `currentColor` or brand colour
+per each mark's own guideline) replace the plain-text OS value in the entity
+tile, and the Remove trigger moved off `btn-ghost` onto a `--destructive`
+icon button.
+
+---
+
 ## DD-015 — What belongs in `packages/ui`: a design-system file knows nothing about Sparstrowgen's domain
 
 **Date:** 2026-08-24 — **Asked by:** `T-VR-07` — **Surface:** package boundary, not a screen

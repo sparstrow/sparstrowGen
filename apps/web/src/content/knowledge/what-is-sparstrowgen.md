@@ -3,7 +3,7 @@ title: What is Sparstrowgen?
 section: Getting started
 description: The mental model — an agent factory where the board is in the cloud and the work runs on your machines.
 order: 1
-updated: 2026-08-20
+updated: 2026-09-02
 ---
 
 Sparstrowgen is your **agent factory**: an app for creating, organizing, and running AI
@@ -22,7 +22,7 @@ the machine it's on.
 │  · agents, tasks, goals       │◀────▶│  · spawns and supervises agent runs │
 │  · runs and their history     │      │  · your project files, never synced │
 │  · memory note text           │      │  · local search index and memory    │
-│  · which machines are paired  │      │                                     │
+│  · which computers are yours  │      │                                     │
 │                               │      │  Agents run through providers you   │
 │  Sign in from any browser to  │      │  configure:                         │
 │  watch and steer.             │      │  · CLI models (Claude Code,         │
@@ -32,9 +32,14 @@ the machine it's on.
 └───────────────────────────────┘      └─────────────────────────────────────┘
 ```
 
-You **pair** a machine once, from **Machines** in the sidebar, and it reads as active
-whenever it's running. A machine that's switched off simply has no agents available on
-it; the board is still there.
+Your computers connect themselves. Opening the desktop app and signing in is all it
+takes — the computer appears under **Machines** in the sidebar, badged *This device*, and
+reads as active whenever it's switched on. A second machine (a server, a dev box) is added
+from that same page.
+
+A computer belongs to **you**, not to one workspace, so it serves every workspace you
+belong to — including ones you create later. A machine that's switched off simply has no
+agents available on it; the board is still there.
 
 ## The core ideas
 
@@ -50,8 +55,10 @@ it; the board is still there.
   reaches the right agent — searchable by meaning, not just keywords.
 - **Pipelines, Schedules, and Goals** turn single runs into automation: multi-step chains,
   cron jobs, and LLM-planned task graphs.
-- **Machines** are the computers you've paired. Agents run on these, not in the browser,
-  so a machine has to be switched on for work to happen there.
+- **Machines** are your computers. Agents run on these, not in the browser, so a machine
+  has to be switched on for work to happen there. Each one serves all of your workspaces.
+- **Workspaces** are separate spaces of projects, chats and history — a personal one and a
+  work one, say. Switch between them from the menu at the top of the sidebar.
 
 ## Where you stay in the loop
 
@@ -61,18 +68,22 @@ needs your judgment lands in the **attention queue** on the Dashboard and waits 
 
 ## Known Limitations & Boundaries
 
-- **Work happens only on a paired, running machine.** With none online, you can still
+- **Work happens only on a connected, running machine.** With none online, you can still
   read and plan on the board, but nothing executes.
 - **Your project files never sync.** They stay on the machine they're on — which is the
   point. If you queue work for a machine that doesn't have the project, the task waits
   and offers you a way through: run it where the project already is, point Sparstrowgen
   at a copy on that machine, or clone it there from the project's git remote.
-- **One workspace per person, for now.** There's no workspace switcher yet.
+- **Workspaces are your own.** You can have as many as you like and switch between them
+  freely, but being invited to somebody else's workspace isn't designed for yet — and your
+  computer would join it automatically if you were. Inviting people is not built.
+- **A computer's credential acts as you.** It reaches every workspace you belong to, not
+  just one. **Settings → API Tokens** lists what has access and when each was last used.
 
 ## Where to go next
 
 1. **Setup** (linked from the dashboard, or **/setup**) — a fresh account lands here: your
-   profile, your workspace's name, and pairing your first machine, in order.
+   profile, your workspace's name, and getting a machine connected, in order.
 2. [First-run setup](/knowledge/first-run-setup) — connect a provider and check factory health.
 3. [Create your first agent](/knowledge/create-your-first-agent).
 4. [Run it and read the results](/knowledge/run-and-read-results).

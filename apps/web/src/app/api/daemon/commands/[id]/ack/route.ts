@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { AckRequest, CommandFailureReason } from "@sparstrow/shared";
-import { authenticateDaemon, daemonDb } from "@web/lib/daemon/auth";
+import { authenticateRuntime, daemonDb } from "@web/lib/daemon/auth";
 import { authFailureResponse, daemonError, readJson } from "@web/lib/daemon/respond";
 import { boardEffectFor } from "@web/lib/daemon/reconcile";
 
@@ -35,7 +35,7 @@ const REASONS = new Set<CommandFailureReason>([
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, { params }: RouteContext) {
-  const auth = await authenticateDaemon(request);
+  const auth = await authenticateRuntime(request);
   if (!auth.ok) return authFailureResponse(auth.failure);
 
   const { id } = await params;

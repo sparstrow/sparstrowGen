@@ -11,9 +11,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * more, because Supabase signs the token now.
  */
 
-const authenticateDaemon = vi.fn();
+const authenticateRuntime = vi.fn();
 vi.mock("@web/lib/daemon/auth", () => ({
-  authenticateDaemon: (...args: unknown[]) => authenticateDaemon(...args),
+  authenticateRuntime: (...args: unknown[]) => authenticateRuntime(...args),
 }));
 
 const mintRealtimeToken = vi.fn();
@@ -40,7 +40,7 @@ function req() {
 
 describe("POST /api/daemon/realtime/token", () => {
   it("returns 401 when there is no token", async () => {
-    authenticateDaemon.mockResolvedValue({ ok: false, failure: "unauthenticated" });
+    authenticateRuntime.mockResolvedValue({ ok: false, failure: "unauthenticated" });
     const { POST } = await import("./route");
     const res = await POST(req());
     expect(res.status).toBe(401);
@@ -48,7 +48,7 @@ describe("POST /api/daemon/realtime/token", () => {
   });
 
   it("returns 403 when the pairing was revoked", async () => {
-    authenticateDaemon.mockResolvedValue({ ok: false, failure: "revoked" });
+    authenticateRuntime.mockResolvedValue({ ok: false, failure: "revoked" });
     const { POST } = await import("./route");
     const res = await POST(req());
     expect(res.status).toBe(403);
@@ -58,7 +58,7 @@ describe("POST /api/daemon/realtime/token", () => {
   });
 
   it("returns 200 with the full credential for a valid token", async () => {
-    authenticateDaemon.mockResolvedValue({
+    authenticateRuntime.mockResolvedValue({
       ok: true,
       scope: { workspaceId: "ws1", runtimeId: "rt1", tokenId: "tok1" },
     });
@@ -79,7 +79,7 @@ describe("POST /api/daemon/realtime/token", () => {
   });
 
   it("mints for the scope the bearer token resolved to, never a request body", async () => {
-    authenticateDaemon.mockResolvedValue({
+    authenticateRuntime.mockResolvedValue({
       ok: true,
       scope: { workspaceId: "ws1", runtimeId: "rt1", tokenId: "tok1" },
     });
@@ -89,7 +89,7 @@ describe("POST /api/daemon/realtime/token", () => {
   });
 
   it("returns 500 without leaking the failure detail when minting throws", async () => {
-    authenticateDaemon.mockResolvedValue({
+    authenticateRuntime.mockResolvedValue({
       ok: true,
       scope: { workspaceId: "ws1", runtimeId: "rt1", tokenId: "tok1" },
     });

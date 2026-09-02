@@ -39,17 +39,10 @@ import {
   useProjectDirectives,
   useProjectFiles,
   useProjectGitState,
-  useProjectGraph,
-  useProjectGraphUsage,
   useProjectVariants,
   useProjectPrs,
   useProjects,
-  useGraphEngine,
-  useLaunchViz,
-  useProjectViz,
-  useReindexProject,
   useRunDreamNow,
-  useStopViz,
   useSetBriefing,
   useSetProjectDream,
   useSyncFromBase,
@@ -159,7 +152,6 @@ export function ProjectWorkspacePage() {
             isVariant={Boolean(p.parentProjectId)}
             isSandbox={p.isSandbox}
           />
-          <CodeGraphPanel projectId={projectId} isSandbox={p.isSandbox} hasRoot={Boolean(p.rootDir)} />
           <GitPanel
             projectId={projectId}
             profile={p.executionProfile === "production_app" ? "production_app" : "factory"}
@@ -463,7 +455,7 @@ function MemoryPanel({ projectSlug }: { projectSlug: string }) {
         <Skeleton className="h-20 w-full" />
       ) : rows.length === 0 ? (
         <p className="py-6 text-center text-xs text-muted-foreground">
-          No project memory yet. Auto-index runs on creation (summary notes + code graph); “Reindex” refreshes both.
+          No project memory yet. Auto-index runs on creation to build summary notes.
         </p>
       ) : (
         rows.map((n) => (
@@ -616,170 +608,6 @@ function FileTree({ projectId, subpath, depth }: { projectId: string; subpath: s
           </div>
         );
       })}
-    </div>
-  );
-}
-
-/**
- * P5: per-project code-graph state (design F3: standalone sidebar panel, not a
- * Memory-tab section — the graph is NOT memory notes; F4: per-project state
- * lives HERE, Settings shows engine-level only). Header badge is visible
- * without expanding anything (F11); all feedback is inline text (F8 — no
- * toast system exists). Cold-start states per F1.
- */
-function CodeGraphPanel({
-  projectId,
-  isSandbox,
-  hasRoot,
-}: {
-  projectId: string;
-  isSandbox: boolean;
-  hasRoot: boolean;
-}) {
-  const engine = useGraphEngine();
-  const graph = useProjectGraph(projectId);
-  const usage = useProjectGraphUsage(projectId, graph.data?.state === "ready");
-  const viz = useProjectViz(projectId, graph.data?.state === "ready");
-  const reindex = useReindexProject();
-  const launchViz = useLaunchViz();
-  const stopViz = useStopViz();
-
-  const engineInstalled = engine.data?.installed ?? false;
-  const s = graph.data;
-  const badge = !engineInstalled
-    ? { variant: "outline" as const, label: "engine not installed" }
-    : !s || s.state === "none"
-      ? { variant: "outline" as const, label: "no graph" }
-      : s.state === "ready"
-        ? { variant: "success" as const, label: "ready" }
-        : s.state === "failed"
-          ? { variant: "destructive" as const, label: "failed" }
-          : s.state === "stale"
-            ? { variant: "warning" as const, label: "stale" }
-            : { variant: "secondary" as const, label: s.state === "queued" ? "queued" : "indexing…" };
-
-  return (
-    <div className="rounded-xl border p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-sm font-medium">Code graph</p>
-        {engine.isLoading || graph.isLoading ? (
-          <Skeleton className="h-5 w-16" />
-        ) : (
-          <Badge variant={badge.variant}>{badge.label}</Badge>
-        )}
-      </div>
-
-      {!engineInstalled ? (
-        <p className="text-xs text-muted-foreground">
-          Graph engine not installed —{" "}
-          <Link href="/settings" className="underline underline-offset-2 hover:text-foreground">
-            install it in Settings
-          </Link>{" "}
-          to give agents structure-aware code search.
-        </p>
-      ) : !hasRoot ? (
-        <p className="text-xs text-muted-foreground">Bind a root directory to build a code graph.</p>
-      ) : (
-        <div className="space-y-2">
-          {s?.state === "ready" && (
-            <>
-              <p className="font-mono text-[11px] text-muted-foreground">
-                {(s.nodes ?? 0).toLocaleString()} nodes · {(s.edges ?? 0).toLocaleString()} edges
-                {s.indexedAt ? ` · indexed ${formatDate(s.indexedAt)}` : ""}
-              </p>
-              {usage.data && usage.data.totalRuns > 0 && (
-                <p className="font-mono text-[11px] text-muted-foreground">
-                  used in {usage.data.runsWithGraph} of {usage.data.totalRuns} runs
-                </p>
-              )}
-            </>
-          )}
-          {(s?.state === "queued" || s?.state === "indexing") && (
-            <p className="text-xs text-muted-foreground">
-              Indexing… agents fall back to file search until it finishes.
-            </p>
-          )}
-          {s?.state === "failed" && (
-            <p className="text-xs text-destructive">{s.detail ?? "Index failed."}</p>
-          )}
-          {(s?.state === "none" || s?.state === "stale" || s?.state === "failed") && (
-            <p className="text-xs text-muted-foreground">
-              {s?.state === "stale"
-                ? "Engine was updated — Reindex to rebuild the graph."
-                : s?.state === "failed"
-                  ? "Reindex to retry."
-                  : isSandbox
-                    ? "Sandboxes index only when you click Reindex (untrusted code is never parsed automatically)."
-                    : "No graph yet — Reindex to build it (also queued nightly)."}
-            </p>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={reindex.isPending || s?.state === "queued" || s?.state === "indexing"}
-            onClick={() => reindex.mutate(projectId)}
-          >
-            <RefreshCw className="size-3.5" />{" "}
-            {s?.state === "queued" || s?.state === "indexing" ? "Indexing…" : "Reindex"}
-          </Button>
-          {reindex.isSuccess && reindex.data.graph !== "queued" && (
-            <p className="text-xs text-muted-foreground">Graph pass skipped: {reindex.data.graph}.</p>
-          )}
-          {reindex.isError && <p className="text-xs text-destructive">{reindex.error.message}</p>}
-
-          {/* T11 (UC2): viz launch — gated on a non-empty graph (F10); the
-              security/idle framing travels WITH the affordance (F9); a stopped
-              viz shows an honest Relaunch state, never a mystery dead tab (F2). */}
-          {s?.state === "ready" && (s.nodes ?? 0) > 0 && (
-            <div className="border-t pt-2">
-              {viz.data?.running && viz.data.url ? (
-                <div className="space-y-1.5">
-                  <span className="flex items-center gap-1.5">
-                    <Button size="sm" variant="outline" asChild>
-                      <a href={viz.data.url} target="_blank" rel="noreferrer noopener">
-                        Open 3D view
-                      </a>
-                    </Button>
-                    <Button size="sm" variant="ghost" disabled={stopViz.isPending} onClick={() => stopViz.mutate(projectId)}>
-                      Stop
-                    </Button>
-                  </span>
-                  <p className="text-[11px] text-muted-foreground">
-                    Running — stops after {Math.round((viz.data.idleStopMs ?? 900000) / 60000)} min; the open tab goes dead then.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={launchViz.isPending}
-                    onClick={() =>
-                      launchViz.mutate(projectId, {
-                        onSuccess: (r) => {
-                          if (r.ok && r.url) window.open(r.url, "_blank", "noopener,noreferrer");
-                        },
-                      })
-                    }
-                  >
-                    {launchViz.isPending ? "Starting…" : "Launch 3D view"}
-                  </Button>
-                  <p className="text-[11px] text-muted-foreground">
-                    Local, unauthenticated, read-only visualization — opens in a new tab, stops after 15 min.
-                  </p>
-                  {launchViz.data && !launchViz.data.ok && (
-                    <p className="text-xs text-destructive">
-                      {launchViz.data.reason === "ui-not-installed"
-                        ? "Viz engine variant not installed — install it from Settings (Install viz)."
-                        : (launchViz.data.detail ?? "Could not start the visualization.")}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

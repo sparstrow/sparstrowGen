@@ -25,6 +25,29 @@ psql "$DATABASE_URL" -f packages/shared/drizzle/policies/002_realtime.sql
 For a brand-new database, `../apply-to-supabase.sql` bundles all three into one
 paste-able file.
 
+> ### ⚠️ Step 1 does not work on an existing environment
+>
+> Verified 2026-09-02 against staging: `drizzle.__drizzle_migrations` is **empty**
+> while `public` holds 42 tables, because staging was built from the bundle above
+> rather than by running the migration sequence. `drizzle-kit migrate` therefore
+> starts at `0000` and aborts on a table that already exists. Any environment
+> bootstrapped from the bundle behaves the same way — plausibly including
+> production.
+>
+> To apply a new migration to an existing database, run its SQL directly:
+>
+> ```bash
+> node packages/shared/drizzle/apply-pending.mjs --dry-run <file.sql> [more.sql ...]
+> node packages/shared/drizzle/apply-pending.mjs <file.sql> [more.sql ...]
+> ```
+>
+> One transaction across every file, with post-condition checks, so a partial
+> apply is impossible. `--dry-run` validates against the live schema and rolls
+> back. It needs no `psql`, which is also absent on the maintainer's machine.
+>
+> Tracked as [`G-60`](../../../../doc/KnownGaps.md); the fix is to backfill the
+> journal so step 1 becomes true again.
+
 ## Policy shape: why set-returning helpers
 
 Policies are written as:

@@ -5,8 +5,8 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.ts"],
     // Several suites spawn real child processes or touch the real filesystem
-    // (graph client pool, viz-manager, git-status, host-fs). The default
-    // 5000ms/10000ms budgets are fine in isolation but get blown under
+    // (git-status, host-fs). The default 5000ms/10000ms budgets are fine in
+    // isolation but get blown under
     // `turbo run test`'s five-way concurrent workspace run, where those
     // operations compete for the same CPU/disk — see
     // doc/bug/BUG-2026-08-22-core-tests-flake-under-turbo-parallelism.md.

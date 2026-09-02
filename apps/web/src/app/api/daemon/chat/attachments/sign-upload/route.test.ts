@@ -7,9 +7,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * `daemonDb()` is service-role and bypasses RLS entirely.
  */
 
-const authenticateDaemon = vi.fn();
+const authenticateRuntime = vi.fn();
 vi.mock("@web/lib/daemon/auth", () => ({
-  authenticateDaemon: (...args: unknown[]) => authenticateDaemon(...args),
+  authenticateRuntime: (...args: unknown[]) => authenticateRuntime(...args),
   daemonDb: () => daemonDbMock,
 }));
 
@@ -21,7 +21,7 @@ const daemonDbMock = {
 };
 
 beforeEach(() => {
-  authenticateDaemon.mockResolvedValue({
+  authenticateRuntime.mockResolvedValue({
     ok: true,
     scope: { workspaceId: "ws_1", runtimeId: "rt_1", tokenId: "tok_1" },
   });
@@ -44,7 +44,7 @@ function req(body: unknown) {
 
 describe("POST /api/daemon/chat/attachments/sign-upload", () => {
   it("returns 401 when there is no valid daemon token", async () => {
-    authenticateDaemon.mockResolvedValue({ ok: false, failure: "unauthenticated" });
+    authenticateRuntime.mockResolvedValue({ ok: false, failure: "unauthenticated" });
     const { POST } = await import("./route");
     const res = await POST(req({ storagePath: "ws_1/chs_1/op_1-chart.png" }));
     expect(res.status).toBe(401);

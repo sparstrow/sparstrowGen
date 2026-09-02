@@ -3,7 +3,7 @@ title: Projects & workspaces
 section: Surfaces
 description: Bind agents to real folders — three ways to create a project, sandboxes, directives, and the project workspace.
 order: 4
-updated: 2026-08-08
+updated: 2026-09-01
 ---
 
 A **project** is a folder on disk that agents work inside. It carries its own memory
@@ -53,8 +53,6 @@ that's missing or empty, and *Bind existing* needs one that's already there.
   `/legacy`").
 - **Git panel** — current branch, recent activity, the project's open PRs, and its
   execution profile (see [Git automation](/knowledge/git-automation)).
-- **Code graph** — structural index status + a 3D visualization of the codebase, once
-  the engine is installed.
 - **Morning briefing** (opt-in) — a daily digest note about what changed in the project.
 
 ## Sandboxes

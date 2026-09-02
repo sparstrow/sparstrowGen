@@ -38,9 +38,23 @@ export const SECRET_GEMINI_API_KEY = "gemini.apiKey";
  * its runtime id, or an id without its token, is a half-paired machine that
  * neither reconnects nor reports itself unpaired.
  */
-export const SECRET_CLOUD_DAEMON_TOKEN = "cloud.daemonToken";
-export const SECRET_CLOUD_RUNTIME_ID = "cloud.runtimeId";
-export const SECRET_CLOUD_WORKSPACE_ID = "cloud.workspaceId";
+export const SECRET_CLOUD_ACCESS_TOKEN = "cloud.accessToken";
+/**
+ * This computer's stable identity, generated here once and never re-generated.
+ *
+ * Deliberately kept even when the token is cleared: signing out and back in
+ * must land on the SAME machine row, or every sign-in would leave a duplicate
+ * computer behind in the owner's list. `clearConnection` reflects that — it
+ * drops the credential and the runtime map, and leaves this alone.
+ */
+export const SECRET_CLOUD_MACHINE_ID = "cloud.machineId";
+/**
+ * JSON: `[{ runtimeId, workspaceId }]` — which runtime represents this machine
+ * in each of its owner's workspaces, as of the last claim. Not secret, but
+ * stored here so the credential and the map it applies to are written and
+ * cleared in one place.
+ */
+export const SECRET_CLOUD_RUNTIMES = "cloud.runtimes";
 
 interface Entry {
   iv: string; // base64

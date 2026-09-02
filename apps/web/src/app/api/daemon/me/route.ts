@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isRuntimeOnline, type DaemonIdentity } from "@sparstrow/shared";
-import { authenticateDaemon, daemonDb } from "@web/lib/daemon/auth";
+import { authenticateRuntime, daemonDb } from "@web/lib/daemon/auth";
 import { authFailureResponse, daemonError } from "@web/lib/daemon/respond";
 
 /**
@@ -9,7 +9,7 @@ import { authFailureResponse, daemonError } from "@web/lib/daemon/respond";
  * whether a token is still good.
  */
 export async function GET(request: Request) {
-  const auth = await authenticateDaemon(request);
+  const auth = await authenticateRuntime(request);
   if (!auth.ok) return authFailureResponse(auth.failure);
 
   const { data, error } = await daemonDb()

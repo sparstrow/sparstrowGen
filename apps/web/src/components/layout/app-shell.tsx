@@ -7,6 +7,7 @@ import { Menu, Search, X } from "lucide-react";
 import { cn } from "@sparstrow/ui/lib/utils";
 import { Badge } from "@sparstrow/ui/components/ui/badge";
 import { UpdateBanner } from "@web/components/update-banner";
+import { DesktopAutoClaim } from "@web/components/desktop-auto-claim";
 import { useLiveEvents } from "@web/lib/live-events";
 import { useAttentionQueue } from "@web/api/hooks";
 import { ThemeToggle } from "@sparstrow/ui/theme/theme-toggle";
@@ -59,7 +60,7 @@ export function AppShell({
 }) {
   const pathname = usePathname() || "/";
 
-  if (pathname === "/login" || pathname === "/pair" || pathname.startsWith("/auth/")) {
+  if (pathname === "/login" || pathname === "/connect" || pathname.startsWith("/auth/")) {
     return <div className="min-h-screen w-full bg-background text-foreground">{children}</div>;
   }
 
@@ -253,6 +254,7 @@ function AuthenticatedShell({
             <ThemeToggle />
           </div>
         </header>
+        <DesktopAutoClaim />
         <UpdateBanner />
         <main className="min-h-0 flex-1 overflow-y-auto p-5">
           {children}

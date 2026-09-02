@@ -1,9 +1,9 @@
 ---
 title: Settings
 section: Surfaces
-description: Providers and keys, factory health, snapshots, GitHub PAT, the code-graph engine, and app configuration.
+description: Providers and keys, factory health, snapshots, GitHub PAT, and app configuration.
 order: 14
-updated: 2026-08-31
+updated: 2026-09-02
 ---
 
 Settings is the factory's engine room. The cards that matter:
@@ -21,14 +21,52 @@ are never exposed to agents — only a masked hint is ever displayed again.
 ## Factory health
 
 The "am I armed?" self-check: database, memory vault, providers (required) plus
-code-graph engine, embedder, GitHub PAT (optional — features degrade without them).
+embedder, GitHub PAT (optional — features degrade without them).
 Check it whenever something feels off; it's faster than guessing.
 
 ## Machines — moved
 
 Machines are no longer configured here. They have their own destination in the sidebar,
-under **Workspace**: [Machines](/knowledge/machines). Pairing, status, rename, revoke,
+under **Workspace**: [Machines](/knowledge/machines). Connecting, status, rename, disconnect,
 remove and the per-machine snapshot switch all live there.
+
+## API Tokens
+
+Under **Personal**. One list of everything that can act as you: what it's called, which
+computer it's on, when it was created, and when it was last used. Newest first.
+
+Signing in on a computer creates a token here automatically — you don't normally create
+one by hand. The exception is a machine with no browser (a server, a CI runner): create
+one, copy it once, and give it to that machine with `sparstrow setup --token=`.
+
+**A token is shown exactly once, at creation.** Nothing can show it again. If you lose it,
+revoke it and make another.
+
+**Revoke** stops that credential working on its very next request. Revoked rows stay in
+the list rather than disappearing — the record that something *had* access is the most
+useful thing on this page when you're working out what happened.
+
+> A token acts as **you**, not as one machine in one workspace. Someone holding it can
+> reach every workspace you belong to and queue work on any of your machines. Tokens don't
+> expire on their own, which is why the last-used column is here: it's how you spot one
+> that's still live and shouldn't be.
+
+## Daemon
+
+Under **Personal**, and only in the desktop app — everything on it describes a process on
+*this* computer, so in a plain browser the card says so instead of showing controls that
+would do nothing.
+
+- **Auto-start on launch** — start the runtime when the app opens. Turning it off doesn't
+  stop the app talking to a runtime you started yourself.
+- **Keep running after quit** — on by default. Quitting the app leaves the runtime
+  running, so this computer stays reachable whenever it's switched on. Turn it off and
+  quitting makes the machine unreachable.
+
+Below the switches is a **diagnostics** block — running state, uptime, process id, machine
+id, server URL, and how many workspaces this computer serves. It's the first thing to
+check when a machine isn't showing up, and the right thing to paste into a bug report. It
+never contains a token.
 
 ## Work-in-progress snapshots
 
@@ -59,13 +97,6 @@ behalf for production-app projects. Same encrypted treatment as API keys. The ru
 that govern what agents may do with it live in
 [Git automation](/knowledge/git-automation).
 
-## Code-graph engine
-
-One-click install of the structural code-index engine (verified download, pinned
-checksum). Once installed, projects can be indexed — giving agents real code-structure
-awareness and enabling the project workspace's graph panel. If the engine misbehaves,
-this card is where you retry or see why it's off.
-
 ## App configuration
 
 Concurrency (how many runs at once), data paths, theme, and the local API token.
@@ -81,7 +112,7 @@ extraction — also live here.
 
 ## Known Limitations & Boundaries
 
-- **Pairing needs a browser on the machine being paired.** See
+- **Adding a machine other than this one needs a checkout of the repository on it.** See
   [Machines](/knowledge/machines) for the full note on what that rules out.
 - **Revoking a machine is immediate but not retroactive** — it stops the next request,
   it doesn't undo work already done.

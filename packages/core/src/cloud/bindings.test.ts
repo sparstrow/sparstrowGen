@@ -6,7 +6,7 @@ import { closeDb, getDb, openDb } from "../db/connection.js";
 import { projects } from "../db/schema.js";
 import { config } from "../config.js";
 import type { ProjectClonePayload } from "@sparstrow/shared";
-import { invalidatePairingCache, savePairing } from "./client.js";
+import { invalidatePairingCache, saveConnection } from "./client.js";
 
 /**
  * Bindings and `project.clone`.
@@ -63,7 +63,7 @@ describe("project bindings", () => {
     config.secretsDir = secrets;
     config.cloudUrl = "http://cloud.test";
     invalidatePairingCache();
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
   });
 
   afterEach(() => {

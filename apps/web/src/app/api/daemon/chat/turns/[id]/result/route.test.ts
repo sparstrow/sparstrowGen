@@ -10,13 +10,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * which is exactly the kind of thing worth a regression test.
  */
 
-const authenticateDaemon = vi.fn();
+const authenticateRuntime = vi.fn();
 const rpc = vi.fn();
 const maybeSingle = vi.fn();
 const broadcastChatTurnEvents = vi.fn();
 
 vi.mock("@web/lib/daemon/auth", () => ({
-  authenticateDaemon: (...args: unknown[]) => authenticateDaemon(...args),
+  authenticateRuntime: (...args: unknown[]) => authenticateRuntime(...args),
   daemonDb: () => ({
     from: () => ({
       select: () => ({
@@ -36,7 +36,7 @@ vi.mock("@web/lib/daemon/broadcast", () => ({
 }));
 
 beforeEach(() => {
-  authenticateDaemon.mockResolvedValue({
+  authenticateRuntime.mockResolvedValue({
     ok: true,
     scope: { workspaceId: "ws_1", runtimeId: "rt_1", tokenId: "tok_1" },
   });
@@ -90,7 +90,7 @@ describe("POST /api/daemon/chat/turns/:id/result", () => {
   });
 
   it("returns 401 without ever calling the RPC when the daemon token is invalid", async () => {
-    authenticateDaemon.mockResolvedValue({ ok: false, failure: "unauthenticated" });
+    authenticateRuntime.mockResolvedValue({ ok: false, failure: "unauthenticated" });
     const res = await callWith({ seq: 1, replyText: "hi", status: "succeeded" });
     expect(res.status).toBe(401);
     expect(rpc).not.toHaveBeenCalled();

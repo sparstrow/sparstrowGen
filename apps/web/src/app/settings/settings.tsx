@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, User, Palette, Github, Settings as SettingsIcon, Key, Activity, AlertTriangle, Sun, Moon, Monitor } from "lucide-react";
+import { AccessTokensCard } from "./access-tokens-card";
+import { DaemonCard } from "./daemon-card";
+import { Trash2, User, Palette, Github, Settings as SettingsIcon, Key, Activity, AlertTriangle, Sun, Moon, Monitor, KeyRound } from "lucide-react";
 import { useAccount } from "@web/lib/account";
 import {
   useClearGithubPat,
@@ -17,12 +19,8 @@ import {
   useDiscoverModels,
   useFactoryHealth,
   useGithubPat,
-  useGraphEngine,
   useHealth,
-  useIndexAllProjects,
-  useInstallGraphEngine,
   useProviders,
-  useRetryGraphEngine,
   useSetGithubPat,
   useSetProviderKey,
   useSettings,
@@ -41,76 +39,6 @@ import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ProfileForm } from "@web/components/profile-form";
 import { WorkspaceForm } from "@web/components/workspace-form";
-
-/**
- * P5 (design F4): ONE engine-level row — per-project index state lives on each
- * project page. Install is the explicit T-a affordance (a predictable Defender
- * moment); "Index all projects" is the post-install backfill (T10, DX F7);
- * Retry clears crash-loop breaker latches (audit #40). Download progress
- * arrives over ws (graph.engine.status → query invalidation), never silent.
- */
-function GraphEngineRow() {
-  const engine = useGraphEngine();
-  const install = useInstallGraphEngine();
-  const retry = useRetryGraphEngine();
-  const indexAll = useIndexAllProjects();
-  const s = engine.data;
-  if (engine.isLoading || !s) {
-    return (
-      <InfoRow label="Code graph">
-        <Skeleton className="h-5 w-24" />
-      </InfoRow>
-    );
-  }
-  const busy = s.state === "installing" || s.state === "verifying";
-  return (
-    <InfoRow label="Code graph">
-      <span className="flex items-center justify-end gap-1.5">
-        {s.state === "installed" && <Badge variant="success">v{s.pinnedVersion}</Badge>}
-        {s.state === "not-installed" && <Badge variant="secondary">not installed</Badge>}
-        {busy && <Badge variant="secondary">{s.state === "installing" ? "downloading…" : "verifying…"}</Badge>}
-        {s.state === "error" && <Badge variant="destructive">error</Badge>}
-        {s.detail && <span className="max-w-56 truncate text-xs text-muted-foreground">{s.detail}</span>}
-        {(s.state === "not-installed" || s.state === "error") && (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={install.isPending || busy}
-            onClick={() => install.mutate("std")}
-          >
-            {s.state === "error" ? "Retry install" : "Install"}
-          </Button>
-        )}
-        {s.state === "installed" && (
-          <>
-            {!s.variants.ui && (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={install.isPending || busy}
-                onClick={() => install.mutate("ui")}
-                title="Adds the 3D visualization variant (~37 MB) used by the project pages' Launch 3D view"
-              >
-                Install viz
-              </Button>
-            )}
-            <Button size="sm" variant="outline" disabled={indexAll.isPending} onClick={() => indexAll.mutate()}>
-              {indexAll.isPending ? "Queuing…" : "Index all projects"}
-            </Button>
-            <Button size="sm" variant="ghost" disabled={retry.isPending} onClick={() => retry.mutate()}>
-              Retry engine
-            </Button>
-          </>
-        )}
-        {indexAll.isSuccess && (
-          <span className="text-xs text-success">
-            {indexAll.data.queued} queued{indexAll.data.skipped > 0 ? `, ${indexAll.data.skipped} skipped` : ""}
-          </span>
-        )}
-      </span>
-    </InfoRow>
-  );
-}
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -503,7 +431,6 @@ function SystemCard() {
                 </span>
               </span>
             </InfoRow>
-            <GraphEngineRow />
           </>
         ) : (
           <p className="py-3 text-sm text-destructive">Core service unreachable.</p>
@@ -865,6 +792,8 @@ export function SettingsPage() {
         { id: 'profile', label: 'Profile & Identity', icon: User },
         { id: 'appearance', label: 'Appearance & Theme', icon: Palette },
         { id: 'git', label: 'Git Credentials', icon: Github },
+        { id: 'tokens', label: 'API Tokens', icon: KeyRound },
+        { id: 'daemon', label: 'Daemon', icon: Monitor },
       ]
     },
     {
@@ -934,6 +863,8 @@ export function SettingsPage() {
         {activeTab === 'profile' && <ProfileCard />}
         {activeTab === 'appearance' && <AppearanceCard />}
         {activeTab === 'git' && <GitCard />}
+        {activeTab === 'tokens' && <AccessTokensCard />}
+        {activeTab === 'daemon' && <DaemonCard />}
         {activeTab === 'workspace' && <WorkspaceForm variant="card" />}
         {activeTab === 'providers' && <ProvidersCard />}
         {activeTab === 'health' && (

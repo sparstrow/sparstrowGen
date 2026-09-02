@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { MemoryPullResponse } from "@sparstrow/shared";
-import { authenticateDaemon, daemonDb } from "@web/lib/daemon/auth";
+import { authenticateRuntime, daemonDb } from "@web/lib/daemon/auth";
 import {
   cursorFilter,
   nextCursorFrom,
@@ -32,7 +32,7 @@ import { authFailureResponse, daemonError } from "@web/lib/daemon/respond";
  */
 
 export async function GET(request: Request) {
-  const auth = await authenticateDaemon(request);
+  const auth = await authenticateRuntime(request);
   if (!auth.ok) return authFailureResponse(auth.failure);
 
   const params = new URL(request.url).searchParams;

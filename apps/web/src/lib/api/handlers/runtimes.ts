@@ -36,7 +36,11 @@ registerRoute({
       // forever — a control that lies quietly, which is the exact failure G-6
       // was opened about. Found in the M4 browser pass.
       .select(
-        "id, name, os, hostname, is_electron, capabilities, status, core_version, last_heartbeat, created_at, reported_settings",
+        // `machine_id` is what lets the UI say "This device" — the desktop
+        // shell knows the machine id of the computer it runs on, and matching
+        // it here is the only way a row can be identified as *this* computer
+        // rather than merely one with the same hostname.
+        "id, name, os, hostname, is_electron, capabilities, status, core_version, last_heartbeat, created_at, reported_settings, machine_id",
       )
       .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: true });

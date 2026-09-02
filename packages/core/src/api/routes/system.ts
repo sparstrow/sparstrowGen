@@ -26,6 +26,17 @@ import { embedderStatus } from "../../memory/embedder.js";
 import { isVecAvailable } from "../../memory/search-store.js";
 import { listProviders } from "../../providers/index.js";
 import { startScheduler, stopScheduler } from "../../scheduler/service.js";
+import {
+  clearConnection,
+  getMachineId,
+  getOrCreateMachineId,
+  getRuntimes,
+  isPaired,
+  saveConnection,
+} from "../../cloud/client.js";
+import { claimMachine } from "../../cloud/claim.js";
+import { register } from "../../cloud/registration.js";
+import { startHeartbeat } from "../../cloud/heartbeat.js";
 
 const startedAt = Date.now();
 
@@ -159,6 +170,81 @@ export async function systemRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /** Graceful shutdown, used by the desktop shell on quit. */
+  /**
+   * US1 — the desktop app handing this core the credential it just minted.
+   *
+   * This is what makes connecting a computer take zero steps: the app's
+   * renderer is already signed in, so it mints a person-scoped token through
+   * an ordinary Server Action and passes it here over Electron IPC. Nothing is
+   * typed, and no browser round trip happens at all.
+   *
+   * Behind `requireAuth` like every other route in this group, so the caller
+   * must already hold the per-install API token — i.e. must be something
+   * running on this machine with read access to the data dir. A web page
+   * cannot reach it: core sets `origin: false` on CORS, so a cross-origin
+   * request never gets a response it can read, and the desktop shell talks to
+   * it from the main process rather than the renderer.
+   *
+   * Claiming synchronously rather than firing and forgetting is deliberate.
+   * The caller is a UI that is about to tell somebody their computer is
+   * connected, and it should only say so once that is true.
+   */
+  app.post("/system/cloud-token", async (request, reply) => {
+    const body = z
+      .object({ token: z.string().min(16), name: z.string().trim().min(1).max(80).optional() })
+      .safeParse(request.body);
+    if (!body.success) {
+      return reply.code(400).send({ error: "a token is required" });
+    }
+
+    saveConnection({
+      token: body.data.token,
+      machineId: getOrCreateMachineId(),
+      runtimes: [],
+    });
+
+    try {
+      const result = await claimMachine(body.data.name);
+      // Registration is what publishes this machine's capabilities into each
+      // workspace it now serves. Without it the machine appears but looks like
+      // it can run nothing, which reads as a broken connection rather than a
+      // pending one.
+      void register();
+      // Both loops are no-ops while unconnected and are already running by the
+      // time anyone can call this; restarting them is what makes the new
+      // credential take effect without waiting for the next poll.
+      startHeartbeat();
+      return {
+        ok: true,
+        machineId: result?.machineId ?? getOrCreateMachineId(),
+        workspaces: result?.runtimes.length ?? 0,
+      };
+    } catch (err) {
+      // The credential is cleared on failure so a rejected token does not sit
+      // on disk looking connected. The caller shows the real reason.
+      clearConnection();
+      const message = err instanceof Error ? err.message : String(err);
+      logger.warn({ err: message }, "could not claim this computer with the supplied token");
+      return reply.code(502).send({ error: message });
+    }
+  });
+
+  /**
+   * What the Settings -> Daemon card's diagnostics block reads.
+   *
+   * Deliberately never includes the token, at any level, including when
+   * something here fails — this is a support-facing endpoint and its whole
+   * output is expected to end up pasted into a bug report.
+   */
+  app.get("/system/cloud-status", async () => ({
+    connected: isPaired(),
+    machineId: getMachineId(),
+    workspaces: getRuntimes().length,
+    cloudUrl: config.cloudUrl,
+    pid: process.pid,
+    uptimeMs: Date.now() - startedAt,
+  }));
+
   app.post("/system/shutdown", async (_request, reply) => {
     reply.code(202).send({ ok: true });
     setTimeout(() => {

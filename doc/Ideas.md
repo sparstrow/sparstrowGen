@@ -247,6 +247,19 @@ individually, by whichever the owner misses first, rather than as one batch.
 
 *Surfaced while scoping that spec's Assumptions.*
 
+> **The code graph is no longer one of the seven — removed outright, 2026-09-01.**
+> The owner decided against reviving it and asked for complete removal instead:
+> the whole `packages/core/src/graph/` engine/client/lifecycle/viz module, its
+> 9 API routes, the 7 curated MCP tools (`search_graph`, `trace_path`,
+> `query_graph`, `get_graph_schema`, `get_code_snippet`, `get_architecture`,
+> `detect_changes`) and their preamble/capability-docs wiring, the factory-health
+> check, the project-creation/-deletion hooks, the Settings engine-install row,
+> and the project workspace's Code-graph panel. This reverses
+> [`retire-the-vite-app`](plans/2026-08-24-retire-the-vite-app.md) Decision 1,
+> which had deliberately kept the handlers for exactly this kind of revival —
+> see that decision's note for the reversal record. The remaining six items
+> above are unaffected.
+
 ---
 
 ## I-12 — Retire the "two hosts disagree about accounts" branch in three files

@@ -3,11 +3,12 @@ import { BrowserWindow, app, ipcMain, type Tray } from "electron";
 import { ServiceManager, findRepoRoot } from "./service-manager";
 import { pickDirectory } from "./dialogs";
 import { applyPackagedEnv, ensureCoreNodeModules } from "./packaged-env";
-import { configureCoreClient } from "./core-client";
+import { configureCoreClient, coreFetch } from "./core-client";
 import { setupUpdater } from "./updater";
 import { createTray } from "./tray";
 import { offlineScreenUrl } from "./offline";
 import { resolveAppUrl } from "./urls";
+import { readDaemonPrefs, writeDaemonPrefs, type DaemonPrefs } from "./daemon-prefs";
 
 /**
  * Where the window points. Resolution lives in `urls.ts` so it can be tested —
@@ -56,10 +57,21 @@ if (!app.requestSingleInstanceLock()) {
   app.on("second-instance", () => openWindow());
 
   app.whenReady().then(async () => {
-    try {
-      await services.start();
-    } catch (err) {
-      console.error("[main] core failed to start:", err);
+    // US2: `autoStartOnLaunch` is honoured here rather than inside
+    // ServiceManager, so the supervisor stays a supervisor and the policy
+    // stays one readable decision. Note it does NOT prevent adopting a core
+    // that is already listening — `services.start()` is what detects that, and
+    // someone who turned auto-start off still wants the window to talk to a
+    // runtime they started themselves.
+    const prefs = readDaemonPrefs(app.getPath("userData"));
+    if (prefs.autoStartOnLaunch) {
+      try {
+        await services.start();
+      } catch (err) {
+        console.error("[main] core failed to start:", err);
+      }
+    } else {
+      console.log("[main] auto-start is off — not starting core");
     }
 
     // 001 US1: the native folder picker for the New project dialog. Registered
@@ -67,6 +79,75 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle("sparstrow:pick-directory", (_e, defaultPath?: string) =>
       pickDirectory(mainWindow, defaultPath),
     );
+
+    // US1: the renderer is signed in and this process is not, so the token it
+    // mints has to cross the bridge. It goes straight to core over the local
+    // authed API and is never written to disk here, never logged, and never
+    // returned to the renderer.
+    //
+    // Invoke-only and one-way by shape: the renderer can hand a credential in
+    // and learn whether the claim worked, and can learn nothing else.
+    ipcMain.handle(
+      "sparstrow:claim-machine",
+      async (_e, payload: { token?: unknown; name?: unknown }) => {
+        // Logged because this is the one step of connecting a computer that
+        // happens outside both the renderer's console and core's log, so a
+        // failure here is otherwise invisible from every side.
+        console.log("[main] claim-machine requested");
+        const token = typeof payload?.token === "string" ? payload.token : "";
+        if (!token) return { ok: false, error: "No token supplied." };
+        const name = typeof payload?.name === "string" ? payload.name : undefined;
+        try {
+          const res = await coreFetch("/system/cloud-token", {
+            method: "POST",
+            body: { token, name },
+            // Claiming reaches the control plane and back, so it needs more
+            // than coreFetch's 5s default for the tray's local pings.
+            timeoutMs: 30_000,
+          });
+          if (!res.ok) {
+            const detail = (await res.json().catch(() => null)) as { error?: string } | null;
+            const error = detail?.error ?? `Core returned ${res.status}.`;
+            console.error("[main] claim-machine failed:", error);
+            return { ok: false, error };
+          }
+          const claimed = (await res.json()) as { ok: true; machineId: string; workspaces: number };
+          console.log(`[main] claim-machine ok — ${claimed.workspaces} workspace(s)`);
+          return claimed;
+        } catch (err) {
+          const error = err instanceof Error ? err.message : String(err);
+          console.error("[main] claim-machine threw:", error);
+          return { ok: false, error };
+        }
+      },
+    );
+
+    // US2: the Settings -> Daemon card's two switches and its diagnostics.
+    ipcMain.handle("sparstrow:daemon-prefs-get", () => readDaemonPrefs(app.getPath("userData")));
+    ipcMain.handle("sparstrow:daemon-prefs-set", (_e, patch: Partial<DaemonPrefs>) =>
+      writeDaemonPrefs(app.getPath("userData"), {
+        // Read defensively: this crosses the bridge, and a non-boolean here
+        // would be written straight to the prefs file.
+        ...(typeof patch?.autoStartOnLaunch === "boolean"
+          ? { autoStartOnLaunch: patch.autoStartOnLaunch }
+          : {}),
+        ...(typeof patch?.autoStopOnQuit === "boolean"
+          ? { autoStopOnQuit: patch.autoStopOnQuit }
+          : {}),
+      }),
+    );
+
+    /** Read-only status for the Settings -> Daemon card. Never carries a token. */
+    ipcMain.handle("sparstrow:cloud-status", async () => {
+      console.log("[main] cloud-status requested");
+      try {
+        const res = await coreFetch("/system/cloud-status");
+        if (!res.ok) return { connected: false, error: `Core returned ${res.status}.` };
+        return await res.json();
+      } catch (err) {
+        return { connected: false, error: err instanceof Error ? err.message : String(err) };
+      }
+    });
 
     tray = createTray({ openWindow, quit: () => quitApp() });
     openWindow();
@@ -175,7 +256,12 @@ function openWindow(): void {
 
 function quitApp(): void {
   quitting = true;
-  void services.stop().finally(() => {
+  // US2's headline behaviour. Quitting the app leaves the runtime running
+  // unless the owner has said otherwise, so a machine stays reachable across
+  // "I closed the app to tidy my taskbar" — which is what made it silently
+  // unreachable before.
+  const { autoStopOnQuit } = readDaemonPrefs(app.getPath("userData"));
+  void services.stop(autoStopOnQuit).finally(() => {
     tray?.destroy();
     app.quit();
   });

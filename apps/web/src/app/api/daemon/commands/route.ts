@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { COMMAND_LEASE_MS, type ClaimedCommand, type ClaimResponse } from "@sparstrow/shared";
-import { authenticateDaemon, daemonDb } from "@web/lib/daemon/auth";
+import { authenticateRuntime, daemonDb } from "@web/lib/daemon/auth";
 import { authFailureResponse, daemonError } from "@web/lib/daemon/respond";
 
 /**
@@ -20,7 +20,7 @@ import { authFailureResponse, daemonError } from "@web/lib/daemon/respond";
  * ~28,000 times and gets `{ commands: [] }` every time.
  */
 export async function GET(request: Request) {
-  const auth = await authenticateDaemon(request);
+  const auth = await authenticateRuntime(request);
   if (!auth.ok) return authFailureResponse(auth.failure);
 
   const { data, error } = await daemonDb().rpc("claim_runtime_commands", {

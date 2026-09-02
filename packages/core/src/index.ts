@@ -28,10 +28,6 @@ import { sweepOrphanedPipelineRuns } from "./orchestrator/pipeline-executor.js";
 import { initGoalWatcher, reconcileGoals } from "./goap/service.js";
 import { reconcileInterruptedImports } from "./agents/ingestion.js";
 import { killAllSessions } from "./terminal/manager.js";
-import { shutdownGraphPool, sweepOrphanEngines } from "./graph/graph-client.js";
-import { graphToolRegistrar } from "./graph/graph-tools.js";
-import { reconcileInterruptedIndexes, startNightlyGraphRefresh } from "./graph/graph-lifecycle.js";
-import { stopAllViz } from "./graph/viz-manager.js";
 
 /**
  * Startup watchdog: a core that wedges BEFORE app.listen (seen in the wild:
@@ -75,16 +71,6 @@ async function main(): Promise<void> {
   // stays non-terminal forever and the detail UI polls it every 2s — fail it.
   const staleImports = reconcileInterruptedImports();
   if (staleImports > 0) logger.warn({ staleImports }, "interrupted skill imports reconciled");
-  // P5: graph-engine children leaked by a crash / tsx-watch hard restart die
-  // here (Windows delivers no SIGTERM; exe identity verified before killing).
-  void sweepOrphanEngines().then((killed) => {
-    if (killed > 0) logger.warn({ killed }, "graph-engine orphans reaped at startup");
-  });
-  // P5: statuses stuck at queued/indexing mean core died mid-index — mark failed.
-  const staleIndexes = reconcileInterruptedIndexes();
-  if (staleIndexes > 0) logger.warn({ staleIndexes }, "interrupted graph indexes reconciled");
-  // P5 (locked P5-Q4): nightly refresh sweep, serialized by the index semaphore.
-  const stopNightlyGraphRefresh = startNightlyGraphRefresh();
   // P4: seed the factory-managed system agents (Project Indexer/Reporter) that
   // auto-index + morning-briefing spawn through. Idempotent.
   ensureSystemAgents();
@@ -100,8 +86,6 @@ async function main(): Promise<void> {
   if (goalsTouched > 0) logger.info({ goalsTouched }, "goals reconciled at startup");
   extraToolRegistrars.push(registerTaskboardTools);
   extraToolRegistrars.push(registerCapabilities);
-  // P5: curated graph tools — registration reads the run's spawn-pinned snapshot.
-  extraToolRegistrars.push(graphToolRegistrar);
 
   startupPhase = "build-server";
   const app = await buildServer();
@@ -170,15 +154,12 @@ async function main(): Promise<void> {
       stopScheduler();
       stopDelegationWatcher();
       stopGoalWatcher();
-      stopNightlyGraphRefresh();
       // Kill sessions (which closes each one's bridge sink and Realtime
       // channel) BEFORE tearing down the connection those sinks send
       // through — the reverse order would have every close() racing an
       // already-disconnected client.
       killAllSessions();
       stopRealtimeConnection();
-      await stopAllViz();
-      await shutdownGraphPool();
       await stopVaultWatcher();
       await app.close();
     } finally {

@@ -1,39 +1,65 @@
 ---
 title: Machines
 section: Surfaces
-description: Pair a computer to your workspace, read whether it's reachable, and rename, revoke or remove it.
+description: Your computers connect themselves. Read whether one is reachable, add another, and rename, disconnect or remove it.
 order: 8
-updated: 2026-08-31
+updated: 2026-09-02
 ---
 
 **Machines** is in the sidebar, under **Workspace**, directly after Runs. It lists every
-computer running Sparstrow core that this workspace can reach.
+computer running Sparstrow core that you can reach.
 
 Agents run on these machines, **not in the browser**. An empty list means nothing can
 execute — no run will start, however healthy everything else looks.
 
-## Pair a machine
+## The computer you're sitting at connects itself
 
-There's no button here for this any more — pairing starts on the computer itself, not in
-the browser.
+If you're reading this in the desktop app, there is nothing to do. Signing in *is* the
+proof that the computer is yours: the app connects it in the background and it appears in
+this list within a few seconds, badged **This device**.
 
-1. On the computer you want to pair, run `sparstrow pair`.
-2. It opens your browser to a confirm screen, already signed in. Check the machine name
-   and workspace, then press **Authorize this machine**.
-3. The machine appears in this list on its own — no refresh needed.
+There is no pairing screen, no code, and no terminal step. If your computer isn't here a
+few seconds after signing in, something failed — see
+[Troubleshooting](#when-a-computer-doesnt-appear) below.
 
-Nothing is ever shown to copy or type. If core was already running on that computer,
-restart it so it picks up the new pairing.
+## Add a different computer
 
-> `sparstrow` isn't published yet. The machine needs a checkout of this repository to run
-> the command. Packaged installers are planned but not available.
+For a second machine — a desktop at home, a dev box, a server — use **Add a computer** at
+the top of the list. It shows two commands to run on that machine and then waits.
 
-> **`sparstrow pair` couldn't open a browser automatically?** It prints the URL to open
-> manually — paste it into a browser **on that same computer**. The confirm step finishes
-> by talking back to a listener only that machine can reach, so opening the link on a
-> different device (a phone, a laptop) won't complete the pairing even though the page
-> itself loads fine. A machine with no browser reachable from it at all — a bare headless
-> server, most CI runners — can't be paired today; this is a known gap, not an oversight.
+1. Install the CLI on that computer.
+2. Run `sparstrow setup`. It opens a browser, you sign in, and it keeps the runtime
+   running in the background.
+3. The dialog detects the machine the moment it comes online and the list gains a row.
+
+Closing the dialog cancels nothing — the machine is connecting on its own end and will
+appear whether or not you're watching.
+
+> The `sparstrow` CLI isn't published yet. Another machine needs a checkout of this
+> repository to run it. Packaged installers are planned but not available.
+
+### A computer with no browser
+
+A bare server or a CI runner has no browser to open. Create a token under
+**Settings → API Tokens**, then on that machine run:
+
+```
+sparstrow setup --token=
+```
+
+Leaving the value empty prompts for it, so the token never lands in your shell history.
+This is the same credential the desktop app creates for itself — there's nothing special
+about a token you make by hand.
+
+## One computer, all your workspaces
+
+A computer belongs to **you**, not to a single workspace. Connect it once and it serves
+every workspace you belong to, including ones you create later — there is no per-workspace
+step and nothing to repeat.
+
+That's why the same physical machine appears in each workspace's list, and why work sent
+from either workspace runs on it. Switch workspaces from the menu at the top of the
+sidebar.
 
 ## What a row tells you
 
@@ -56,58 +82,65 @@ shows as available; a run dispatched to it starts, then fails a few minutes late
 clear auth error rather than failing instantly. If a run seems to hang and then fail,
 check that provider's own login state on that machine.
 
-## Rename, revoke, remove
+## Staying reachable
+
+A connected computer stays reachable whenever it's switched on — not only while the app's
+window is open. Closing the window minimises to the tray, and by default **quitting the
+app leaves the runtime running**, so tidying your taskbar doesn't take your machine
+offline.
+
+Both behaviours are switches under **Settings → Daemon**, along with a diagnostics block
+showing whether the runtime is running, how long it's been up, and which server it reports
+to. Turn *Keep running after quit* off and quitting makes that computer unreachable — the
+list will say so.
+
+## Rename, disconnect, remove
 
 **Rename** — click the machine's name, type, press Enter. Escape cancels. The new name
 is what that machine is called everywhere, including on the Runs page.
 
-**Revoke** cuts the machine off on its very next request. The row stays in the list;
-pairing it again restores access — but see the note below, the same computer needs
-`--force`. Use it for a computer you no longer control.
+**Disconnect** cuts the computer off on its very next request. Because its credential is
+yours rather than any one workspace's, this stops it reaching **all of your workspaces**,
+not just the one you're looking at — the confirmation says so, and warns you if it's the
+computer you're currently using. The row stays in the list, and connecting it again
+restores access.
 
-**Remove** deletes the machine and its pairing from the workspace, along with anything
-recorded against it. The computer itself keeps its local data — pair it again to
-reconnect, again with `--force` (see below).
+**Remove** deletes the computer from this workspace along with anything recorded against
+it. The computer itself keeps its local data.
 
-> **Re-pairing the same computer needs `--force`.** Revoking or removing a machine only
-> deletes its record in the workspace — nothing here can reach onto that computer's disk
-> and clear the token it already stored, so the CLI still sees itself as paired. Plain
-> `sparstrow pair` is refused with "already paired"; run `sparstrow pair --force` instead.
-> This is the CLI protecting against silently moving a machine between workspaces, not a
-> bug — it just means "pair it again" always means "with `--force`" when it's the same
-> computer.
+## When a computer doesn't appear
 
-Both ask you to confirm, and the dialog says which of the two you're about to do.
-
-## Snapshot uncommitted work
-
-Each row carries its own switch for work-in-progress snapshots on that machine. It shows
-what the machine last **confirmed**, not what you last clicked — so if the change didn't
-reach the computer, the switch doesn't move.
-
-The switch is **disabled while a machine is unreachable**, with the reason stated.
-Nothing is queued for later: a setting you believe you changed on a computer that is
-switched off is worse than a control that refuses.
-
-What the snapshots themselves are, and how to recover from one, is in
-[Settings](/knowledge/settings).
+- **In the desktop app, and it's not listed.** The runtime may not be running. Open
+  **Settings → Daemon** and check the diagnostics block — it names the failure.
+- **You just signed in as a different person on that computer.** The machine transfers to
+  the account that signed in most recently, and the previous account's workspaces lose it.
+  That's deliberate, not a bug.
+- **You created a workspace after connecting.** The computer picks up new workspaces on
+  its next check-in, within about 30 seconds — or immediately if you restart it.
+- **Nothing has access.** Check **Settings → API Tokens**. If the computer's token was
+  revoked, it stops connecting and needs `sparstrow setup --force` to reconnect.
 
 ## Known Limitations & Boundaries
 
-- **`sparstrow` is not installable yet.** Pairing requires a development checkout of the
-  repository on the target machine. This is the single biggest friction in the flow and
-  it is known, not overlooked.
-- **Pairing needs a browser on the machine being paired.** A headless server, most CI
-  runners, or anything with no local browser and nothing forwarding one can't be paired
-  today — the old code-you-could-type-anywhere flow is gone, and nothing has replaced its
-  ability to pair a machine you can't open a browser on.
-- **A pairing attempt expires after 5 minutes** if nobody confirms it — run the command
-  again to start a fresh one.
+- **The `sparstrow` CLI is not installable yet.** Adding a computer *other than the one
+  running the desktop app* requires a development checkout of the repository on that
+  machine. The desktop app's own computer needs nothing.
+- **A connection attempt expires after 5 minutes** if nobody confirms it — run
+  `sparstrow setup` again to start a fresh one.
+- **Reconnecting the same computer needs `--force`.** Disconnecting only deletes the
+  record here; nothing can reach onto that computer's disk to clear the credential it
+  stored, so the CLI still sees itself as connected. Plain `sparstrow setup` is refused
+  with "already connected" — this is the CLI protecting against silently moving a computer
+  between accounts.
 - **Status is inferred from the last check-in, not announced.** A machine reads as
   unreachable roughly **90 seconds** after it stops. A machine that crashes looks
   identical to one that was shut down cleanly, because from the workspace's side it is.
-- **Revoking is immediate but not retroactive.** It stops the next request; work already
-  in flight on that machine is not recalled.
+- **Disconnecting is immediate but not retroactive.** It stops the next request; work
+  already in flight on that machine is not recalled.
+- **A machine's credential acts as you.** It is not limited to one workspace or one
+  machine's worth of access. Anyone who obtains the token file from a computer can act as
+  you until it's revoked, which is why **Settings → API Tokens** shows when each was last
+  used. Treat a lost laptop as a reason to revoke, not just to disconnect.
 - **Snapshot settings are per machine and only editable while it is reachable**, since
   the change is carried to the machine rather than stored centrally.
 - **The list polls every 15 seconds.** A machine crossing the staleness threshold
@@ -115,3 +148,7 @@ What the snapshots themselves are, and how to recover from one, is in
   delay before a label changes.
 - **No per-machine detail page yet.** Everything a machine can tell you is on this one
   row; there is nowhere to drill into for its history or the agents that ran on it.
+- **Joining someone else's workspace is not designed for.** Your computer automatically
+  serves every workspace you belong to, which is right while those are all your own. If
+  you're ever added to a workspace you don't control, your machine would join it without
+  asking — a per-machine opt-in for that case is planned and not yet built.

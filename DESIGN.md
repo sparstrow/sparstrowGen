@@ -335,8 +335,15 @@ previous doctrine banned "decorative icons" and agents correctly generalised
 that to *no icons in content at all*, leaving iconography only in the sidebar.
 
 **Set:** `lucide-react` (already a dependency, in use across 59 files). Do not
-introduce a second icon set. Provider logos are the sole exception — those are
-external brand marks, not icons.
+introduce a second icon set. **Brand marks are the sole exception** — external,
+already-recognizable identities (OAuth providers, model providers, and OS/
+platform marks: Windows, Apple, Linux) render as their own SVG, not a
+`lucide-react` glyph standing in for them. `apps/web/src/components/auth/
+provider-icons.tsx` is the pattern: monochrome marks use `currentColor` so they
+follow the theme, marks whose own brand guideline fixes specific colours (e.g.
+Google's four-colour mark) keep those colours literally, and a mark with no
+brand colour of its own (Apple's guideline permits monochrome only) stays
+`currentColor` rather than inventing one.
 
 | Context | Size | Stroke |
 |---|---|---|
@@ -345,9 +352,25 @@ external brand marks, not icons.
 | Inside avatar/entity tiles | 16px | 1.8 |
 | Empty-state centrepiece | 24px | 1.5 |
 
-**Colour:** `--muted-foreground` by default. An icon takes `--brand` only when
-its control is active, and a status colour only when it *is* the status
-indicator.
+**Colour:** `--muted-foreground` by default, with three exceptions:
+
+- An icon takes `--brand` when its control is active.
+- An icon takes a status colour when it *is* the status indicator.
+- An icon takes `--destructive` when its control **triggers an irreversible or
+  destructive action** — delete, remove, revoke — even in its resting state,
+  not only on hover or inside the confirm dialog. A ghost/muted trigger for a
+  destructive action under-warns; the danger has to be visible before the
+  click, not just in the confirmation that follows it.
+
+**If a value is a unique, externally-recognizable identity rather than a
+generic category, show its own mark instead of text or a generic icon.** A
+machine's OS (`win32` / `darwin` / `linux`) is the concrete case that exposed
+this gap: rendering it as plain text next to the hostname works, but a reader
+scanning a room of tiles has to read every row to tell them apart. The
+Windows, Apple, and Linux marks are exactly as recognizable as the status dot
+next to them and should carry equal visual weight — this is the same
+"scanned, not read" principle §1 states for the whole app, applied to any
+column, not just status.
 
 ### Semantic map — one concept, one icon, everywhere
 
@@ -369,6 +392,10 @@ background) holding its 16px semantic icon, with an **9px status dot overlapping
 the lower-left corner**, ringed 2px in the parent surface colour. This is the
 single most important visual pattern in the app: it makes an entity
 recognisable and its state readable in one glance, without reading a word.
+**When the entity has a more specific identity than its category, the tile's
+icon is that identity's own mark, not the category's generic icon** — a
+machine's tile holds its platform mark (Windows/Apple/Linux), not `Monitor`;
+`Monitor` remains correct wherever no more specific mark exists.
 
 **Named rule — Icons Identify or Indicate.** Every icon either says *what a
 thing is* or *what state it is in*. An icon that does neither is decoration and
