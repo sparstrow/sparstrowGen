@@ -4,6 +4,7 @@ import {
   Loader2,
   Monitor,
   Pencil,
+  Plus,
   RefreshCw,
   Trash2,
   Unplug,
@@ -54,6 +55,8 @@ import {
   type MachineState,
 } from "@sparstrow/shared";
 import { cn } from "@/lib/utils";
+import { AddComputerDialog } from "./add-computer-dialog";
+import { desktopCloudStatus } from "@web/lib/desktop-machine";
 
 /**
  * M8 — Machines as a destination of its own (US1).
@@ -65,26 +68,27 @@ import { cn } from "@/lib/utils";
  * that a failed list no longer masquerades as an empty one.
  *
  * Without this page M3 is invisible: a paired machine that appears nowhere is
- * indistinguishable from a pairing that failed.
+ * indistinguishable from a connection that failed.
  */
 
 /**
- * `sparstrow` is not on npm and there is no installer yet (`D-10`). Saying
- * "run sparstrow pair" without this leaves someone with a command their
- * shell does not have.
+ * `sparstrow` is not on npm and there is no installer yet (`D-10`). Naming a
+ * command without this leaves someone with one their shell does not have.
  */
 const CHECKOUT_NOTE =
-  "sparstrow isn't published yet — the machine needs a checkout of this repository to run it. Packaged installers are coming.";
+  "The sparstrow CLI isn't published yet — another machine needs a checkout of this repository to run it. Packaged installers are coming.";
 
 /**
- * The deliberate "something just happened" moment when a new machine shows
- * up in the list without this page having done anything to cause it —
- * browser-loopback pairing starts entirely on the CLI side (`sparstrow
- * pair`), so there is no button here to attribute the arrival to. Without
- * this, a fresh row was silent: it just appeared, which reads as the page
- * skipping a step rather than a machine actually pairing.
+ * The deliberate "something just happened" moment when a computer shows up in
+ * the list without this page having done anything to cause it.
+ *
+ * That is now the NORMAL case, not the exception: the desktop app connects the
+ * computer it runs on the moment someone signs in, so the most common arrival
+ * has no button anywhere to attribute it to. Without this panel a fresh row is
+ * silent — it just appears, which reads as the page skipping a step rather
+ * than a computer actually connecting.
  */
-function PairingOutcomePanel({ name, onDismiss }: { name: string; onDismiss: () => void }) {
+function ConnectionOutcomePanel({ name, onDismiss }: { name: string; onDismiss: () => void }) {
   return (
     <div
       className="spg-turn flex items-start gap-3 rounded-lg border bg-muted/40 p-5"
@@ -98,9 +102,9 @@ function PairingOutcomePanel({ name, onDismiss }: { name: string; onDismiss: () 
       </span>
 
       <div className="min-w-0 flex-1 space-y-1">
-        <p className="text-sm font-medium">{name} is paired</p>
+        <p className="text-sm font-medium">{name} is connected</p>
         <p className="text-sm text-muted-foreground">
-          Restart core on that machine if it was already running.
+          It can run work in every workspace you belong to.
         </p>
       </div>
 
@@ -145,7 +149,40 @@ function MachineTile({ state }: { state: MachineState }) {
   );
 }
 
-function RuntimeRow({ runtime, canManageTerminals }: { runtime: Runtime; canManageTerminals: boolean }) {
+/**
+ * Which machine id is the computer this browser is running on, or null.
+ *
+ * Only the desktop shell can answer: a plain browser has no way to know what
+ * hardware it is on, and matching on hostname would badge the wrong row the
+ * first time someone has two machines called `localhost`. Null everywhere
+ * else, which is why the badge simply does not render in a web browser rather
+ * than guessing.
+ */
+function useThisMachineId(): string | null {
+  const [machineId, setMachineId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void desktopCloudStatus().then((status) => {
+      if (!cancelled) setMachineId(status.machineId ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return machineId;
+}
+
+function RuntimeRow({
+  runtime,
+  canManageTerminals,
+  isThisDevice,
+}: {
+  runtime: Runtime;
+  canManageTerminals: boolean;
+  isThisDevice: boolean;
+}) {
   const queryClient = useQueryClient();
   const [, startRename] = React.useTransition();
   const [revokePending, startRevoke] = React.useTransition();
@@ -209,6 +246,13 @@ function RuntimeRow({ runtime, canManageTerminals }: { runtime: Runtime; canMana
               <Pencil className="size-3 opacity-0 transition-opacity duration-100 group-hover:opacity-60 group-focus-visible:opacity-60" />
             </button>
           )}
+          {/* US1's "which one is mine". Neutral, not a status colour — this
+              says what a row IS, not what state it is in (§2.1). */}
+          {isThisDevice && (
+            <Badge variant="secondary" className="ml-2 font-normal">
+              This device
+            </Badge>
+          )}
         </ItemTitle>
 
         {/*
@@ -254,7 +298,7 @@ function RuntimeRow({ runtime, canManageTerminals }: { runtime: Runtime; canMana
         <Button
           size="sm"
           variant="ghost"
-          title="Revoke this machine's pairing"
+          title="Disconnect this computer from your account"
           aria-label={`Revoke ${runtime.name}`}
           onClick={() => setConfirming("revoke")}
         >
@@ -279,15 +323,27 @@ function RuntimeRow({ runtime, canManageTerminals }: { runtime: Runtime; canMana
       <ConfirmDialog
         open={confirming === "revoke"}
         onOpenChange={(open) => setConfirming(open ? "revoke" : null)}
-        title={`Revoke ${runtime.name}?`}
+        title={`Disconnect ${runtime.name}?`}
         description={
           <>
-            This machine stops reaching the workspace on its very next request. It stays in
-            the list, and pairing it again with a fresh code restores access.
+            {/* What "revoke" means changed with the credential. A computer now
+                belongs to a PERSON and reaches every workspace they are in, so
+                "revoke it for this workspace" would be a lie — it would carry
+                on working everywhere else while this page claimed otherwise.
+                The copy says what actually happens. */}
+            This computer stops reaching <strong>all of your workspaces</strong> on its very
+            next request — not just this one, because its credential is yours rather than this
+            workspace&apos;s. It stays in the list, and connecting it again restores access.
+            {isThisDevice && (
+              <>
+                {" "}
+                <strong>This is the computer you are using right now.</strong>
+              </>
+            )}
           </>
         }
-        confirmLabel="Revoke pairing"
-        pendingLabel="Revoking…"
+        confirmLabel="Disconnect"
+        pendingLabel="Disconnecting…"
         pending={revokePending}
         onConfirm={() =>
           startRevoke(async () => {
@@ -307,8 +363,8 @@ function RuntimeRow({ runtime, canManageTerminals }: { runtime: Runtime; canMana
         title={`Remove ${runtime.name}?`}
         description={
           <>
-            Deletes this machine and its pairing from the workspace. Anything recorded
-            against it goes too. The machine itself keeps its local data — pair it again to
+            Deletes this computer from this workspace. Anything recorded
+            against it goes too. The computer itself keeps its local data — connect it again to
             reconnect.
           </>
         }
@@ -534,6 +590,8 @@ export function MachinesPage() {
   // anyone else can either. Fail-closed while the role hasn't loaded yet.
   const canManageTerminals = workspace.data?.role === "owner" || workspace.data?.role === "admin";
   const [justPaired, setJustPaired] = React.useState<string | null>(null);
+  const [addOpen, setAddOpen] = React.useState(false);
+  const thisMachineId = useThisMachineId();
 
   const machines = runtimes.data ?? [];
 
@@ -543,8 +601,8 @@ export function MachinesPage() {
    * which breaks the moment `machines` is ever sorted by anything other than
    * insertion order.
    *
-   * Nothing on THIS page starts a pairing attempt any more (browser-loopback
-   * pairing runs entirely from `sparstrow pair` on the machine itself, see
+   * Nothing on THIS page starts a connection any more (the desktop app claims
+   * its own computer, and another machine runs `sparstrow setup`, see
    * `/pair`), so there is no "issued" moment to diff against like the old
    * code-based flow had. Instead the baseline is simply whatever this page
    * already knew the first time `runtimes` resolved — any id that shows up
@@ -579,18 +637,20 @@ export function MachinesPage() {
             these, not in the browser.
           </p>
         </div>
-        {/* No button here any more — only the CLI, running on the machine
-            being paired, can open that machine's own loopback listener. The
-            empty state below carries the instructions instead. */}
-        {machines.length > 0 ? (
-          <code className="rounded-md border bg-muted/40 px-3 py-1.5 font-mono text-sm">
-            sparstrow pair
-          </code>
-        ) : null}
+        {/* US5. Deliberately not a "find machines" button: there is nothing
+            safe to scan (see AddComputerDialog's header), so this opens a
+            waiting room with the two commands to run on the other computer.
+            The machine you are SITTING at needs none of this — the desktop app
+            connects it the moment you sign in. */}
+        <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
+          <Plus className="size-3.5" /> Add a computer
+        </Button>
       </div>
 
+      <AddComputerDialog open={addOpen} onOpenChange={setAddOpen} runtimeCount={machines.length} />
+
       {justPaired ? (
-        <PairingOutcomePanel name={justPaired} onDismiss={() => setJustPaired(null)} />
+        <ConnectionOutcomePanel name={justPaired} onDismiss={() => setJustPaired(null)} />
       ) : null}
 
       {/*
@@ -621,30 +681,29 @@ export function MachinesPage() {
             <EmptyMedia variant="icon" className="size-12">
               <Monitor className="size-6" strokeWidth={1.5} />
             </EmptyMedia>
-            <EmptyTitle>No machines paired yet</EmptyTitle>
+            <EmptyTitle>No computers yet</EmptyTitle>
             <EmptyDescription>
-              A machine is a computer running Sparstrow core. Pairing links it to this
-              workspace so agents have somewhere to actually run — nothing runs in the
-              browser.
+              A computer running Sparstrow core is where agents actually run — nothing runs in
+              the browser. Opening the desktop app on a computer connects it automatically, so
+              this list usually fills itself.
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <p className="text-sm text-muted-foreground">
-              On the machine you want to pair, run:
-            </p>
-            <code className="block rounded-md border bg-background px-3 py-2 font-mono text-sm">
-              sparstrow pair
-            </code>
-            <p className="text-xs text-muted-foreground">
-              It opens your browser to confirm — nothing to copy or type here.
-            </p>
+            <Button size="sm" onClick={() => setAddOpen(true)}>
+              <Plus className="size-3.5" /> Add a computer
+            </Button>
             <p className="text-xs text-muted-foreground">{CHECKOUT_NOTE}</p>
           </EmptyContent>
         </Empty>
       ) : (
         <ItemGroup className="gap-2">
           {machines.map((runtime) => (
-            <RuntimeRow key={runtime.id} runtime={runtime} canManageTerminals={canManageTerminals} />
+            <RuntimeRow
+              key={runtime.id}
+              runtime={runtime}
+              canManageTerminals={canManageTerminals}
+              isThisDevice={thisMachineId !== null && runtime.machineId === thisMachineId}
+            />
           ))}
         </ItemGroup>
       )}

@@ -1317,6 +1317,13 @@ export interface Runtime {
    * that machine's own local Settings card. M4 / `G-6`.
    */
   reportedSettings: Record<string, string>;
+  /**
+   * The physical computer this runtime lives on. The same machine appears once
+   * per workspace its owner belongs to, so this is what identifies two rows in
+   * two workspaces as one piece of hardware — and what the desktop shell
+   * matches against to badge a row "This device".
+   */
+  machineId: string;
 }
 
 /** A project as this machine reports having it. */
