@@ -1,36 +1,65 @@
 <!doctype html>
 <html class="dark"><head><meta charset="utf-8">
-<title>Type Scale</title>
-<meta name="description" content="Six steps — Inter Variable for UI, monospace for codes, IDs and figures">
+<title>Type scale</title>
+<meta name="description" content="DESIGN.md §3 specifies seven roles; the app has one font token and 97 arbitrary literal sizes">
 <link rel="stylesheet" href="../styles.css">
+<!-- Sizes below are LITERAL px on purpose: they are DESIGN.md §3's specified
+     scale, and no CSS token exists for any of them. Rendering them via
+     var(--text-body) would imply a token the app does not have. -->
 <style>
-  body{margin:0;padding:var(--space-5);background:var(--card);color:var(--foreground);
+  body{margin:0;padding:20px;background:var(--card);color:var(--foreground);
        font-family:var(--font-sans);font-size:14px}
-  .t{display:grid;grid-template-columns:150px 1fr;gap:var(--space-4);align-items:baseline;
-     padding:11px 0;border-bottom:1px solid var(--border)}
-  .t:last-of-type{border-bottom:0}
-  .spec{font-family:var(--font-mono);font-size:10.5px;color:var(--muted-foreground)}
-  .note{font-size:12px;color:var(--muted-foreground);line-height:1.55;
-        padding-top:var(--space-4);border-top:1px solid var(--border);margin-top:var(--space-2)}
-  code{font-family:var(--font-mono);font-size:11px;background:var(--muted);padding:1px 4px;border-radius:4px}
+  .row{display:grid;grid-template-columns:130px 1fr;gap:14px;align-items:baseline;
+       padding:9px 0;border-bottom:1px solid var(--border)}
+  .row:last-of-type{border-bottom:0}
+  .lbl{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+       color:var(--muted-foreground)}
+  .lbl em{display:block;font-weight:400;letter-spacing:0;text-transform:none;
+          font-style:normal;margin-top:2px;opacity:.8}
+  .note{margin-top:16px;font-size:12px;color:var(--muted-foreground);line-height:1.6}
+  .note strong{color:var(--foreground)}
+  .warn{margin-top:12px;padding:12px;border:1px dashed var(--border);
+        border-radius:var(--radius-md);font-size:12px;line-height:1.6;color:var(--muted-foreground)}
+  .warn strong{color:var(--foreground)}
+  code{font-size:11px;background:var(--muted);padding:1px 4px;border-radius:4px}
 </style></head><body>
-<div class="t"><div class="spec">18px / 700 / -0.02em</div>
-  <div style="font-size:18px;font-weight:700;letter-spacing:-.02em">Machines &mdash; workshop-desktop</div></div>
-<div class="t"><div class="spec">15px / 600 / -0.015em</div>
-  <div style="font-size:15px;font-weight:600;letter-spacing:-.015em">Runs &middot; Memory &middot; Agents</div></div>
-<div class="t"><div class="spec">14px / 400 / 1.5</div>
-  <div style="font-size:14px;max-width:70ch">Body text. Capped at 65&ndash;75ch so long run transcripts
-  stay readable instead of running the full width of a wide monitor.</div></div>
-<div class="t"><div class="spec">12px / 400</div>
-  <div style="font-size:12px;color:var(--muted-foreground)">Updated 2026-08-17 &middot; last heartbeat 40s ago</div></div>
-<div class="t"><div class="spec">11px / 600 / .05em</div>
-  <div style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground)">Status &middot; Runtime &middot; Started</div></div>
-<div class="t"><div class="spec">mono 12px / tabular</div>
-  <div style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">rt_9f2c1a&nbsp;&nbsp; run_04b8&nbsp;&nbsp; 1,204&nbsp;&nbsp; 98.4%</div></div>
+
+<div class="row"><div class="lbl">Display<em>28px / 650</em></div>
+  <div style="font-size:28px;font-weight:650;line-height:1.15">Machines</div></div>
+<div class="row"><div class="lbl">Headline<em>17px / 650</em></div>
+  <div style="font-size:17px;font-weight:650;line-height:1.3">Runtime health</div></div>
+<div class="row"><div class="lbl">Title<em>15px / 600</em></div>
+  <div style="font-size:15px;font-weight:600;line-height:1.35">workshop-desktop</div></div>
+<div class="row"><div class="lbl">Body<em>13px / 400</em></div>
+  <div style="font-size:13px;line-height:1.6">Default. Prose, descriptions, and agent output.</div></div>
+<div class="row"><div class="lbl">Meta<em>12px / 400</em></div>
+  <div style="font-size:12px;line-height:1.45;color:var(--muted-foreground)">Last seen 4 minutes ago</div></div>
+<div class="row"><div class="lbl">Label<em>11px / 700</em></div>
+  <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+              color:var(--muted-foreground)">Column heading</div></div>
+<div class="row"><div class="lbl">Mono<em>12px / 400</em></div>
+  <div style="font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">
+    refs/sparstrow/wip/a91f</div></div>
+
 <div class="note">
-  Hierarchy is carried by <strong>scale and weight</strong>, not colour or decoration &mdash;
-  inherited from the retired doctrine (DECISIONS.md DD-001) and pending re-decision.
-  Anything compared down a column (durations, counts, percentages) uses
-  <code>font-variant-numeric: tabular-nums</code>, without which right-aligned figures sit subtly ragged.
+  Tuned <strong>denser than shadcn&rsquo;s defaults</strong> — 13px body rather than 14px —
+  because this is a monitoring surface, read in long sittings and scanned rather than read.
 </div>
+
+<div class="warn">
+  <strong>Every size above is a literal in this card, not a token.</strong>
+  <code>DESIGN.md</code> §3 says so itself: the scale is &ldquo;a new decision, not mirrored
+  from the app&rdquo;. The only typography token that exists is <code>--font-sans</code>.
+  There is no <code>--font-mono</code> either — the mono row above uses the raw stack §3
+  names.
+  <br><br>
+  In the codebase, sizes come from Tailwind steps (<code>text-xs</code>,
+  <code>text-sm</code>) or arbitrary literals: the 2026-08-19 slop audit counted
+  <strong>97</strong> uses of <code>text-[10px]</code> / <code>text-[11px]</code>, several
+  of them below the 11px floor this scale defines. Sweeping them is deliberately
+  <em>not</em> in <code>doc/tasks/D1/</code> — there is nothing to sweep them onto until the
+  scale ships as CSS. Adding the tokens here first would invent them, which is
+  <code>doc/KnownGaps.md</code> G-18.
+</div>
+
 </body></html>

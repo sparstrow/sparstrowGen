@@ -112,6 +112,11 @@ Everything here was decided by the prototype and approved by nobody:
   mix per machine is invented for the mockup.
 - **Toast copy** ("workshop-desktop revoked — pair again to restore access.").
   Not sourced from anywhere real.
+- **The three platform-mark SVGs** (Windows/macOS/Linux, added in the
+  2026-09-01 revision below). Originally-authored shapes approximating each
+  brand's silhouette, not a copied brand path — fine for a prototype proving
+  the pattern, but production needs either a licensed icon set's version or a
+  design pass that treats these as first drafts, not source of truth.
 
 ## Open questions
 
@@ -192,3 +197,29 @@ States/Interactions tables above and the real `runtimes-card.tsx` source.
   a repeat of the `document.hasFocus()` limitation found in the previous
   verification pass. Confirmed by attaching a temporary listener and
   comparing both key labels directly before concluding either way.
+
+## Revision — 2026-09-01
+
+**Owner feedback:** OS values (`win32`/`darwin`/`linux`) should render as
+their own recognizable, brand-coloured mark, not plain text; the Remove
+control should read as destructive at rest, not only inside its confirm
+dialog; icons should stay consistent with the rest of the system rather than
+each surface inventing its own. Recorded as `DD-016` in
+`design-system/DECISIONS.md` and promoted into `DESIGN.md` §6 in the same
+change — this prototype is the concrete surface that exposed the gap, and is
+now the reference implementation of the rule, not just the thing it fixed.
+
+**Changed:**
+- The row's leading status dot became a full **entity tile** (32px,
+  `--accent`, `--radius-md`) holding the platform's 16px mark, with the
+  status dot repositioned to overlap its lower-left corner per the existing
+  Entity tile pattern (§6) — this row never actually used that pattern before,
+  despite machines being one of the pattern's three named examples.
+- `${r.os}` dropped from the plain-text `.rmeta` line; the mark plus a
+  `title`/`aria-label` on the tile now carries that meaning.
+- `data-remove`'s button moved from `.btn-ghost` to the new
+  `.btn-ghost-destructive` (same ghost sizing, `--destructive` resting
+  colour). `data-revoke` is unchanged — revoking is reversible (pair again
+  restores access), so it keeps the neutral ghost treatment.
+- `machines.card.html`'s three static rows updated to match at the card's
+  smaller scale.
