@@ -31,7 +31,6 @@ import { buildPreamble, type Assignment } from "./preamble.js";
 import { agentChildEnv } from "./child-env.js";
 import { isUntrustedRun } from "./untrusted.js";
 import { resolveRunEffectiveTools } from "../agents/tool-resolution.js";
-import { applyGraphAvailabilityGate, graphEngineInstalled } from "../graph/graph-tools.js";
 import { busyKey, ensureAgentInstance } from "../agents/instances.js";
 import { buildDirectivesBlock, listEnabledDirectives } from "../projects/directives.js";
 import { buildSkillsBlock } from "../agents/agent-skills.js";
@@ -309,14 +308,7 @@ export class RunManager {
     // P2/EH5: resolve the effective tool policy (Global→Agent→Project→Task) ONCE and
     // snapshot it on the run, so the provider reads an immutable set — a row edited
     // while the run was queued can't change what it may touch.
-    // P5 (#49): graph-tool availability is pinned into the same snapshot — engine
-    // missing or projectless run ⇒ graph tools disallowed for this run's lifetime,
-    // so surface, preamble, and P3 child-clamps can never disagree mid-run. Resolved
-    // BEFORE the preamble so the advertised tool list reads the same pinned truth.
-    const effectiveTools = applyGraphAvailabilityGate(
-      resolveRunEffectiveTools({ agent, project: projectRow, task: taskRow }),
-      { engineInstalled: graphEngineInstalled(), hasProject: row.projectId != null },
-    );
+    const effectiveTools = resolveRunEffectiveTools({ agent, project: projectRow, task: taskRow });
     db.update(runs).set({ effectiveTools }).where(eq(runs.id, row.id)).run();
 
     // EH7: an untrusted run's advertised write dirs are clamped to its own project.
@@ -327,7 +319,6 @@ export class RunManager {
     const preamble = buildPreamble(agent, projectSlug, assignment, {
       sandboxProjectSlug: isSandbox ? projectSlug : null,
       untrusted: isSandbox || delegated,
-      effectiveTools,
       projectRootDir: projectRootDir ?? null,
     });
     // P4 §2: project directives are GUARANTEED-injected — assembled here as their

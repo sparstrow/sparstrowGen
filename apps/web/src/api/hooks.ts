@@ -17,8 +17,6 @@ import type {
   Goal,
   GoalCreate,
   GoalDetail,
-  GraphEngineStatus,
-  GraphProjectStatus,
   CronJob,
   CronJobCreate,
   CronJobUpdate,
@@ -229,120 +227,6 @@ export function useSyncFromBase(): UseMutationResult<Task, ApiError, string> {
   return useMutation({
     mutationFn: (id: string) => api<Task>(`/projects/${id}/sync-from-base`, { method: "POST", body: {} }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["tasks"] }),
-  });
-}
-
-/** P4 §2 + P5: ONE Reindex action, two passes — notes indexer run + graph index. */
-export function useReindexProject(): UseMutationResult<
-  { started: boolean; runId: string | null; graph: string },
-  ApiError,
-  string
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api(`/projects/${id}/reindex`, { method: "POST" }),
-    onSuccess: (_res, id) => {
-      void queryClient.invalidateQueries({ queryKey: ["runs"] });
-      void queryClient.invalidateQueries({ queryKey: ["project-graph", id] });
-    },
-  });
-}
-
-// ── P5 code graph (engine-level in Settings; per-project panel on the project page) ──
-
-export function useGraphEngine(): UseQueryResult<GraphEngineStatus, ApiError> {
-  return useQuery({
-    queryKey: ["graph-engine"],
-    queryFn: () => api<GraphEngineStatus>("/graph/engine"),
-  });
-}
-
-/** T-a: explicit owner-initiated install (predictable Defender moment, never silent). */
-export function useInstallGraphEngine(): UseMutationResult<
-  { started: boolean; status: GraphEngineStatus },
-  ApiError,
-  "std" | "ui" | undefined
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (variant) =>
-      api("/graph/engine/install", { method: "POST", body: variant ? { variant } : undefined }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["graph-engine"] }),
-  });
-}
-
-/** Settings → Retry: clears crash-loop breaker latches (audit #40). */
-export function useRetryGraphEngine(): UseMutationResult<{ ok: boolean }, ApiError, void> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => api("/graph/engine/retry", { method: "POST" }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["graph-engine"] }),
-  });
-}
-
-/** T10: post-install backfill — serialized by the index semaphore, sandboxes excluded. */
-export function useIndexAllProjects(): UseMutationResult<
-  { queued: number; skipped: number },
-  ApiError,
-  void
-> {
-  return useMutation({
-    mutationFn: () => api("/graph/index-all", { method: "POST" }),
-  });
-}
-
-export function useProjectGraph(id: string): UseQueryResult<GraphProjectStatus, ApiError> {
-  return useQuery({
-    queryKey: ["project-graph", id],
-    queryFn: () => api<GraphProjectStatus>(`/projects/${id}/graph`),
-    enabled: Boolean(id),
-  });
-}
-
-// T11 (UC2): viz lifecycle — new tab, on-demand, idle auto-stop.
-export interface VizState {
-  running: boolean;
-  url: string | null;
-  startedAt: string | null;
-  idleStopMs: number;
-}
-export function useProjectViz(id: string, enabled: boolean): UseQueryResult<VizState, ApiError> {
-  return useQuery({
-    queryKey: ["project-viz", id],
-    queryFn: () => api<VizState>(`/projects/${id}/graph/viz`),
-    enabled: Boolean(id) && enabled,
-    refetchInterval: (q) => (q.state.data?.running ? 30_000 : false),
-  });
-}
-export function useLaunchViz(): UseMutationResult<
-  { ok: boolean; url?: string; reason?: string; detail?: string | null },
-  ApiError,
-  string
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api(`/projects/${id}/graph/viz`, { method: "POST" }),
-    onSuccess: (_r, id) => void queryClient.invalidateQueries({ queryKey: ["project-viz", id] }),
-  });
-}
-export function useStopViz(): UseMutationResult<void, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<void>(`/projects/${id}/graph/viz`, { method: "DELETE" }),
-    onSuccess: (_r, id) => void queryClient.invalidateQueries({ queryKey: ["project-viz", id] }),
-  });
-}
-
-/** T9: the success-criterion denominator — graph tools used in N of M runs. */
-export function useProjectGraphUsage(
-  id: string,
-  enabled: boolean,
-): UseQueryResult<{ runsWithGraph: number; totalRuns: number }, ApiError> {
-  return useQuery({
-    queryKey: ["project-graph-usage", id],
-    queryFn: () => api<{ runsWithGraph: number; totalRuns: number }>(`/projects/${id}/graph/usage`),
-    enabled: Boolean(id) && enabled,
-    staleTime: 60_000,
   });
 }
 

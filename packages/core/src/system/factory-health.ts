@@ -2,7 +2,6 @@ import fs from "node:fs";
 import type { FactoryHealth, FactoryHealthCheck } from "@sparstrow/shared";
 import { config } from "../config.js";
 import { getSqlite } from "../db/connection.js";
-import { graphEngineInstalled } from "../graph/graph-tools.js";
 import { embedderStatus } from "../memory/embedder.js";
 import { listProviders } from "../providers/index.js";
 import { SECRET_GITHUB_PAT, getSecretMeta } from "../secrets/secret-store.js";
@@ -11,8 +10,8 @@ import { SECRET_GITHUB_PAT, getSecretMeta } from "../secrets/secret-store.js";
  * Cross-cutting rule 23 — the factory-health self-check ("is my factory armed?").
  * The operator-side mirror of the agent's resolved-toolset preamble: one row per
  * degrade-by-design dependency, green when ready or degraded/off with a reason.
- * `armed` is true only when every REQUIRED check is ok; the optional ones (graph
- * engine, embedder, PAT) degrade the factory's abilities without disarming it.
+ * `armed` is true only when every REQUIRED check is ok; the optional ones
+ * (embedder, PAT) degrade the factory's abilities without disarming it.
  */
 
 interface CheckDef extends FactoryHealthCheck {
@@ -88,16 +87,6 @@ export async function getFactoryHealth(): Promise<FactoryHealth> {
       required,
     });
   }
-
-  // Code-graph engine (optional — agents fall back to Grep/Read).
-  const graphOk = graphEngineInstalled();
-  checks.push({
-    id: "graph-engine",
-    label: "Code-graph engine",
-    status: graphOk ? "ok" : "degraded",
-    detail: graphOk ? "installed" : "not installed — agents use file search instead (Settings → install)",
-    required: false,
-  });
 
   // Embedder (optional — search degrades to FTS-only).
   const emb = embedderStatus();
