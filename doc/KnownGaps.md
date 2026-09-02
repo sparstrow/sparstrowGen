@@ -2386,3 +2386,49 @@ be wrong.
 invocation ten times. If it flakes identically, this becomes a tooling entry
 (vitest worker concurrency on Windows) and the CI config caps concurrency. If it
 does not, the three routes get looked at properly.
+
+---
+
+### G-60 — staging's drizzle journal is empty, so `drizzle-kit migrate` cannot be used on it
+
+**Raised:** 2026-09-02, applying
+[`2026-09-02-computers-that-are-just-there`](plans/2026-09-02-computers-that-are-just-there.md)'s
+migrations.
+
+`packages/shared/drizzle/policies/README.md` documents the apply order as:
+
+```
+npx drizzle-kit migrate --config=packages/shared/drizzle.config.ts
+psql "$DATABASE_URL" -f .../001_rls.sql
+psql "$DATABASE_URL" -f .../002_realtime.sql
+```
+
+**Step 1 does not work against staging and evidently never has.** Checked
+directly on `pnymngoqseltgigcfevq`: `drizzle.__drizzle_migrations` holds **zero
+rows** while `public` holds **42 tables**. Staging was built by pasting
+`apply-to-supabase.sql`, not by running the migration sequence, so drizzle
+believes nothing has ever been applied and would start at `0000` — aborting on
+the first `CREATE TABLE "agent_instances"`, which already exists.
+
+Any environment bootstrapped from that bundle has the same problem, which
+plausibly means production too. Nobody noticed because every migration until now
+either went into a fresh database or was applied by hand.
+
+Compounding it: **`psql` is not installed** on the maintainer's Windows machine,
+so steps 2 and 3 as written don't run there either.
+
+**Worked around, not fixed.** `packages/shared/drizzle/apply-pending.mjs` applies
+named SQL files directly, in one transaction, with a post-condition check — see
+its header. It deliberately does **not** write to the journal, because filling in
+a journal that is already wrong would hide this rather than fix it.
+
+**If wrong (i.e. left as is):** every future migration needs the same manual
+handling, and the README keeps telling people to run a command that fails in a
+confusing way — it reports a table collision, which reads as "someone else
+already applied this" rather than "the journal is empty". The real risk is
+someone resolving that confusion by dropping the colliding table.
+
+**Closes when:** the journal is backfilled with the hashes of `0000`–`0012` on
+every environment built from the bundle, so `drizzle-kit migrate` resumes being
+the true apply path — and `policies/README.md` either regains accuracy or says
+plainly which environments it applies to.
