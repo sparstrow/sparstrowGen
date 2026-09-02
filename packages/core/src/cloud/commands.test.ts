@@ -9,7 +9,7 @@ import { closeDb, getDb, openDb } from "../db/connection.js";
 import { agents, settings } from "../db/schema.js";
 import { runManager } from "../orchestrator/run-manager.js";
 import { resetChatTurnInFlight } from "./chat-turn.js";
-import { invalidatePairingCache, savePairing } from "./client.js";
+import { invalidatePairingCache, saveConnection } from "./client.js";
 import { startCommandLoop, stopCommandLoop } from "./commands.js";
 import { resetMemorySync, startMemorySync } from "./memory-sync.js";
 import { resetDispatched } from "./run-reporter.js";
@@ -129,7 +129,7 @@ describe("command loop", () => {
   });
 
   it("polls immediately and then on the interval", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = routeFetch({});
 
     startCommandLoop();
@@ -141,7 +141,7 @@ describe("command loop", () => {
   });
 
   it("claims by GET, so nothing can smuggle a runtime id into the request", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = routeFetch({});
 
     startCommandLoop();
@@ -153,7 +153,7 @@ describe("command loop", () => {
   });
 
   it("dispatches run.start to the run manager and acks done", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const createRun = vi.spyOn(runManager, "createRun").mockReturnValue({ id: "run_cloud_1" } as never);
 
     let claimed = false;
@@ -182,7 +182,7 @@ describe("command loop", () => {
 
   it("acks a command it cannot resolve, rather than throwing out of the loop", async () => {
     // One bad row must not stop every other command on the machine.
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     getDb().delete(agents).where(eq(agents.id, "agt_local")).run();
 
     let claimed = false;
@@ -205,7 +205,7 @@ describe("command loop", () => {
   });
 
   it("acks a throwing createRun as failed instead of dying", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     vi.spyOn(runManager, "createRun").mockImplementation(() => {
       throw new Error("agent is disabled: Builder");
     });
@@ -231,7 +231,7 @@ describe("command loop", () => {
   it("treats a redelivered run.start as a replay and does not run it twice", async () => {
     // The exact scenario exactly-once exists for: the ack was lost, the lease
     // expired, and the row came back.
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     vi.spyOn(runManager, "getRun").mockReturnValue({ id: "run_cloud_1" } as never);
     const createRun = vi.spyOn(runManager, "createRun");
 
@@ -255,7 +255,7 @@ describe("command loop", () => {
 
   it("acks a cancel for an unknown run as done, not failed", async () => {
     // The command asked for that run not to be executing, and it is not.
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
 
     let claimed = false;
     const fetchMock = routeFetch({
@@ -281,7 +281,7 @@ describe("command loop", () => {
     // /runs/:id/status reporting already has. completeOnce is mocked to a
     // promise that never resolves in this file's top-level mock, so a `done`
     // ack here can only be explained by the dispatch not waiting on it.
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
 
     let claimed = false;
     const fetchMock = routeFetch({
@@ -321,7 +321,7 @@ describe("command loop", () => {
   });
 
   it("acks a chat.turn with an unresolvable agent as failed with agent_not_available", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
 
     let claimed = false;
     const fetchMock = routeFetch({
@@ -363,7 +363,7 @@ describe("command loop", () => {
   });
 
   it("applies an allowlisted setting", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
 
     let claimed = false;
     routeFetch({
@@ -387,7 +387,7 @@ describe("command loop", () => {
   });
 
   it("T-M17-04: switching SETTING_TERMINAL_ACCESS off kills every live session on the machine", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
 
     let claimed = false;
     routeFetch({
@@ -410,7 +410,7 @@ describe("command loop", () => {
   });
 
   it("T-M17-04: switching SETTING_TERMINAL_ACCESS on (or setting an unrelated key) does not kill anything", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
 
     let claimed = false;
     routeFetch({
@@ -435,7 +435,7 @@ describe("command loop", () => {
   it("refuses a setting outside the allowlist", async () => {
     // Without the allowlist this command is a remote write into every setting
     // the machine has, including ones added later.
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
 
     let claimed = false;
     const fetchMock = routeFetch({
@@ -466,7 +466,7 @@ describe("command loop", () => {
     // M6's doorbell. The command carries no payload: this machine already knows
     // its own workspace from its own token, so the row is a wake-up rather than
     // a delivery.
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
 
     let claimed = false;
     let pulls = 0;
@@ -500,7 +500,7 @@ describe("command loop", () => {
   });
 
   it("dispatches providers.discover_models: calls the provider, POSTs the result, acks done (T-CS3-03)", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const discoverModels = vi.fn().mockResolvedValue({
       models: ["Gemini 3.7 Flash (High)"],
       live: true,
@@ -541,7 +541,7 @@ describe("command loop", () => {
     // at all (Band 26 plan decision: its aliases don't drift). The control
     // plane shouldn't dispatch this provider here, but there's nothing to
     // retry, so this is success, not a red mark on the board.
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     getProviderMock.mockReturnValue({ id: "claude-code", kind: "cli" });
 
     let claimed = false;
@@ -564,7 +564,7 @@ describe("command loop", () => {
   });
 
   it("fails an unknown command kind explicitly, so the board says why", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
 
     let claimed = false;
     const fetchMock = routeFetch({
@@ -587,7 +587,7 @@ describe("command loop", () => {
   });
 
   it("stops permanently when the pairing was revoked", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = routeFetch({ "/commands": () => jsonResponse(403, { error: "revoked" }) });
 
     startCommandLoop();
@@ -599,7 +599,7 @@ describe("command loop", () => {
   });
 
   it("keeps polling through network failure", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("ECONNREFUSED"));
 
     startCommandLoop();
@@ -612,7 +612,7 @@ describe("command loop", () => {
   });
 
   it("single-flights: a slow poll does not overlap the next tick", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     // Definite assignment, not `| null`: the executor runs synchronously when
     // the mock builds the promise, so this is assigned before any use — but
     // control-flow analysis cannot see that and narrows the union to `null`,
@@ -636,7 +636,7 @@ describe("command loop", () => {
   });
 
   it("does not hold the process open", () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     routeFetch({});
     const unrefs: unknown[] = [];
     const original = globalThis.setInterval;

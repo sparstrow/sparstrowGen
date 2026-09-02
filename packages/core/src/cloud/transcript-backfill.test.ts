@@ -10,7 +10,7 @@ import {
 } from "@sparstrow/shared";
 import { closeDb, getSqlite, openDb } from "../db/connection.js";
 import { config } from "../config.js";
-import { invalidatePairingCache, savePairing } from "./client.js";
+import { invalidatePairingCache, saveConnection } from "./client.js";
 import { resetDispatched } from "./dispatched.js";
 import { resetTranscriptPusher, startTranscriptPusher, stopTranscriptPusher } from "./transcripts.js";
 
@@ -137,7 +137,7 @@ describe("transcript backfill", () => {
     seedEvents(sqlite, "run_1", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
     seedCursor(sqlite, "run_1", 4, recentTimestamp());
 
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = routeFetch();
 
     startTranscriptPusher(); // startup is one of the three backfill triggers
@@ -153,7 +153,7 @@ describe("transcript backfill", () => {
     seedEvents(sqlite, "run_1", [0, 1, 2]);
     seedCursor(sqlite, "run_1", 0, recentTimestamp());
 
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     routeFetch();
 
     startTranscriptPusher();
@@ -171,7 +171,7 @@ describe("transcript backfill", () => {
     seedEvents(sqlite, "run_1", [0, 1]);
     seedCursor(sqlite, "run_1", 0, recentTimestamp());
 
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     routeFetch();
 
     startTranscriptPusher();
@@ -183,7 +183,7 @@ describe("transcript backfill", () => {
   });
 
   it("does nothing when the backlog is empty — no candidates, no fetch calls, no throw", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = routeFetch();
 
     expect(() => startTranscriptPusher()).not.toThrow();
@@ -196,7 +196,7 @@ describe("transcript backfill", () => {
   });
 
   it("sweeps periodically, not only at startup", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = routeFetch();
     startTranscriptPusher();
     await vi.advanceTimersByTimeAsync(0);
@@ -230,7 +230,7 @@ describe("transcript backfill", () => {
       .run("run_older_gap", 0, "2025-01-01T00:00:00Z", "{}");
     seedCursor(sqlite, "run_older_gap", -1, recentTimestamp());
 
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = routeFetch();
 
     startTranscriptPusher();
@@ -252,7 +252,7 @@ describe("transcript backfill", () => {
     // No cursor yet — added below, AFTER the live push is already in flight,
     // so the periodic sweep sees a "candidate" that is simultaneously active.
 
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     let resolveLive!: (r: Response) => void;
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
@@ -291,7 +291,7 @@ describe("transcript backfill", () => {
     const longAgo = new Date(Date.now() - (TRANSCRIPT_BACKLOG_MAX_AGE_DAYS + 1) * 86_400_000).toISOString();
     seedCursor(sqlite, "run_ancient", 0, longAgo);
 
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = routeFetch();
     const warn = vi.spyOn((await import("../logger.js")).logger, "warn").mockImplementation(() => undefined as never);
 
@@ -321,7 +321,7 @@ describe("transcript backfill", () => {
       insertCursor.run(`run_${i}`, new Date(base + i * 1000).toISOString());
     }
 
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     routeFetch();
     const warn = vi.spyOn((await import("../logger.js")).logger, "warn").mockImplementation(() => undefined as never);
 
@@ -347,7 +347,7 @@ describe("transcript backfill", () => {
     const longAgo = new Date(Date.now() - (TRANSCRIPT_BACKLOG_MAX_AGE_DAYS + 1) * 86_400_000).toISOString();
     seedCursor(sqlite, "run_caught_up", 1, longAgo); // == max local seq
 
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = routeFetch();
 
     startTranscriptPusher();

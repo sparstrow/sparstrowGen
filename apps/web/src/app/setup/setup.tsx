@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
  *
  * Web-only (phase decision 2): this page is registered only under
  * `apps/web/src/app/setup/page.tsx`, never in `packages/ui/src/router.tsx`.
- * The local desktop build has no account, no cloud workspace and no pairing,
+ * The local desktop build has no account, no cloud workspace and no connection,
  * so a guide here would teach a workflow that host does not have.
  *
  * **Never a gate.** `todo` steps are collapsed but always expandable and
@@ -38,7 +38,7 @@ const STEP_META: Record<StepId, { title: string; blurb: string }> = {
   machine: {
     title: "Your first machine",
     blurb:
-      "Agents run on a computer you own, not in the browser. Pairing one is what makes everything else work.",
+      "Agents run on a computer you own, not in the browser. Connecting one is what makes everything else work.",
   },
 };
 
@@ -130,7 +130,7 @@ function MachineStepBody({
       <p className="text-sm text-muted-foreground">
         {state === "done"
           ? `${count} machine${count === 1 ? "" : "s"} paired.`
-          : "Pairing a machine needs a checkout of this repository today — sparstrow is not published as an installable package yet."}
+          : "Opening the desktop app on a computer connects it automatically. Connecting a DIFFERENT machine needs a checkout of this repository today — sparstrow is not published as an installable package yet."}
       </p>
       <Button asChild size="sm" variant={state === "done" ? "outline" : "default"}>
         <Link href="/machines">

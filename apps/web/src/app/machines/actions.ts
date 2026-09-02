@@ -49,11 +49,22 @@ export async function renameRuntimeAction(
 }
 
 /**
- * Moved verbatim from `DELETE /runtimes/:id/token`. `daemon_tokens` carries
- * `daemon_tokens_admin_all` — RLS refuses this to a non-admin member by
- * matching zero rows, which is indistinguishable from (and reported the same
- * as) "no active pairing found" below. There is nothing this action adds on
- * top of the RLS boundary the route already relied on.
+ * Disconnect a machine from the caller's account entirely.
+ *
+ * What "revoke" means changed with the credential. A workspace-scoped token
+ * could be revoked per workspace, because that is all it reached. A
+ * person-scoped token reaches every workspace its owner is in, so revoking it
+ * "for this workspace" would be a lie — the machine would carry on working
+ * everywhere else while this page claimed it had been cut off.
+ *
+ * So this revokes the machine's credential outright, and the confirm copy in
+ * the UI says so. Anything narrower would be a control that does not do what
+ * its label promises.
+ *
+ * Scoped by `user_id` rather than by RLS alone: `access_tokens` is owner-only,
+ * so a non-owner matches zero rows and gets the same "no active connection"
+ * answer as a machine that was already disconnected — the two are genuinely
+ * indistinguishable from here, and both mean "nothing to do".
  */
 export async function revokeRuntimeTokenAction(
   id: string,
@@ -61,20 +72,38 @@ export async function revokeRuntimeTokenAction(
   const ctx = await actionContext();
   if (!ctx) return actionFail(NOT_SIGNED_IN);
 
-  const { data, error } = await ctx.supabase
-    .from("daemon_tokens")
-    .update({ revoked_at: new Date().toISOString() })
-    .eq("runtime_id", id)
+  const {
+    data: { user },
+  } = await ctx.supabase.auth.getUser();
+  if (!user) return actionFail(NOT_SIGNED_IN);
+
+  // The runtime names a machine; the machine is what holds credentials. One
+  // hop, and it is scoped to a workspace the caller can see, so a runtime id
+  // from another workspace resolves to nothing.
+  const { data: runtime } = await ctx.supabase
+    .from("runtimes")
+    .select("machine_id")
+    .eq("id", id)
     .eq("workspace_id", ctx.workspaceId)
+    .maybeSingle<{ machine_id: string }>();
+
+  if (!runtime?.machine_id) return actionFail("Not Found");
+
+  const { data, error } = await ctx.supabase
+    .from("access_tokens")
+    .update({ revoked_at: new Date().toISOString() })
+    .eq("machine_id", runtime.machine_id)
+    .eq("user_id", user.id)
     .is("revoked_at", null)
     .select("id");
   if (error) return actionErrorFrom(error);
 
   if (!data || data.length === 0) {
-    return actionFail("No active pairing found for that machine.");
+    return actionFail("No active connection found for that computer.");
   }
 
   revalidatePath("/machines");
+  revalidatePath("/settings");
   return actionOk({ revoked: data.length });
 }
 

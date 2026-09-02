@@ -3,9 +3,10 @@ import { inArray } from "drizzle-orm";
 import { DAEMON_SETTABLE_KEYS, type RuntimeIdentity } from "@sparstrow/shared";
 import { getDb, isDbOpen } from "../db/connection.js";
 import { settings } from "../db/schema.js";
+import { claimMachine } from "./claim.js";
 import { logger } from "../logger.js";
 import { listProviders } from "../providers/index.js";
-import { cloudFetch, isPaired } from "./client.js";
+import { cloudFetch, getRuntimes, isPaired } from "./client.js";
 
 /**
  * M3 — tell the control plane what this machine is and what it can run.
@@ -163,19 +164,52 @@ export async function reportSettings(): Promise<void> {
 export async function register(): Promise<boolean> {
   if (!isPaired()) return false;
 
+  // Claim first, always. It is what tells this machine which runtime
+  // represents it in which workspace, and every call below needs that map to
+  // address anything at all. On a first boot after connecting there is no map
+  // yet; on every later boot the owner may have created or left a workspace
+  // while this machine was off.
   try {
-    const identity = await describeMachine();
-    await cloudFetch("/register", { body: identity });
-    logger.info(
-      { capabilities: identity.capabilities, hostname: identity.hostname },
-      "registered this machine with the cloud control plane",
-    );
-    return true;
+    await claimMachine();
   } catch (err) {
     logger.warn(
       { err: err instanceof Error ? err.message : String(err) },
-      "could not register with the cloud control plane — continuing locally",
+      "could not claim this computer — continuing locally",
     );
     return false;
   }
+
+  const runtimes = getRuntimes();
+  if (runtimes.length === 0) {
+    logger.info("connected, but this account has no workspace yet — nothing to register into");
+    return false;
+  }
+
+  // One registration per workspace. `capabilities` is the same everywhere —
+  // it describes the hardware, not the workspace — but each workspace's
+  // runtime row is a separate record and each has to be told.
+  //
+  // Settled rather than sequential-with-throw: one workspace failing must not
+  // stop the others being registered, or a single bad row would make the whole
+  // machine look offline everywhere.
+  const results = await Promise.allSettled(
+    runtimes.map(async (binding) => {
+      const identity = await describeMachine();
+      await cloudFetch("/register", { body: identity, runtimeId: binding.runtimeId });
+    }),
+  );
+
+  const registered = results.filter((r) => r.status === "fulfilled").length;
+  if (registered === 0) {
+    logger.warn(
+      "could not register with the cloud control plane in any workspace — continuing locally",
+    );
+    return false;
+  }
+
+  logger.info(
+    { workspaces: registered, of: runtimes.length },
+    "registered this computer with the cloud control plane",
+  );
+  return true;
 }

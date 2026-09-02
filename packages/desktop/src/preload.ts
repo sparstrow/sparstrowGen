@@ -1,9 +1,12 @@
 // Intentionally minimal: the UI talks to the core over HTTP/WS only. There are
-// two exceptions, both Electron-side by nature and both exposed as narrow,
+// three exceptions, all Electron-side by nature and all exposed as narrow,
 // invoke-only surfaces:
 //   - the self-update flow (0004 Phase 2)
 //   - the native folder picker (001 US1), because no web API can return a real
 //     host path from the OS directory dialog
+//   - claiming this computer, because the renderer holds the session that can
+//     mint a credential and the main process holds the only path to core's
+//     local authed API — neither half can do it alone
 // Neither hands a filesystem handle to the renderer; the picker returns a
 // string or null and can do nothing else.
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
@@ -34,4 +37,41 @@ contextBridge.exposeInMainWorld("sparstrowDesktop", {
     pickDirectory: (defaultPath?: string): Promise<string | null> =>
       ipcRenderer.invoke("sparstrow:pick-directory", defaultPath),
   },
+  machine: {
+    /**
+     * Hand this computer's core a credential the renderer just minted, and
+     * claim the machine with it (US1).
+     *
+     * One-way by shape: a token goes in, and what comes back says only whether
+     * it worked and how many workspaces this computer now serves. The renderer
+     * cannot read the stored credential back, and nothing here returns it.
+     */
+    claim: (token: string, name?: string): Promise<ClaimResult> =>
+      ipcRenderer.invoke("sparstrow:claim-machine", { token, name }),
+    /** Read-only status for the Settings -> Daemon card. Never carries a token. */
+    status: (): Promise<CloudStatus> => ipcRenderer.invoke("sparstrow:cloud-status"),
+  },
+  daemon: {
+    /** US2: the two lifecycle switches on the Settings -> Daemon card. */
+    getPrefs: (): Promise<DaemonPrefs> => ipcRenderer.invoke("sparstrow:daemon-prefs-get"),
+    setPrefs: (patch: Partial<DaemonPrefs>): Promise<DaemonPrefs> =>
+      ipcRenderer.invoke("sparstrow:daemon-prefs-set", patch),
+  },
 });
+
+type DaemonPrefs = {
+  autoStartOnLaunch: boolean;
+  autoStopOnQuit: boolean;
+};
+
+type ClaimResult =
+  | { ok: true; machineId: string; workspaces: number }
+  | { ok: false; error: string };
+
+type CloudStatus = {
+  connected: boolean;
+  machineId?: string | null;
+  workspaces?: number;
+  cloudUrl?: string;
+  error?: string;
+};

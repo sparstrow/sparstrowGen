@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { CHAT_ATTACHMENT_BUCKET } from "@sparstrow/shared";
-import { authenticateDaemon, daemonDb } from "@web/lib/daemon/auth";
+import { authenticateRuntime, daemonDb } from "@web/lib/daemon/auth";
 import { authFailureResponse, daemonError, readJson } from "@web/lib/daemon/respond";
 
 /**
@@ -17,7 +17,7 @@ import { authFailureResponse, daemonError, readJson } from "@web/lib/daemon/resp
  *
  * Same `/api/daemon/*` shape as every other route here (see
  * `apps/web/src/lib/daemon/auth.ts`'s header): `workspace_id` comes ONLY
- * from `authenticateDaemon`'s validated scope, never trusted from the body.
+ * from `authenticateRuntime`'s validated scope, never trusted from the body.
  * The body's `storagePath` is checked against that scope explicitly, below
  * — the bucket's own RLS (`025_chat_attachments_storage.sql`) has no
  * bearing here at all, since `daemonDb()` is a service-role client that
@@ -26,7 +26,7 @@ import { authFailureResponse, daemonError, readJson } from "@web/lib/daemon/resp
  * receive a real, working URL to it.
  */
 export async function POST(request: Request) {
-  const auth = await authenticateDaemon(request);
+  const auth = await authenticateRuntime(request);
   if (!auth.ok) return authFailureResponse(auth.failure);
 
   const body = await readJson(request);

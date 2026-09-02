@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateDaemon, daemonDb } from "@web/lib/daemon/auth";
+import { authenticateRuntime, daemonDb } from "@web/lib/daemon/auth";
 import { broadcastChatTurnEvents } from "@web/lib/daemon/broadcast";
 import { authFailureResponse, daemonError, readJson } from "@web/lib/daemon/respond";
 import { MAX_CHAT_BATCH_BYTES, parseChatResult } from "@web/lib/daemon/chat-transcript";
@@ -30,7 +30,7 @@ import { approximateBodyBytes } from "@web/lib/daemon/transcript";
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, { params }: RouteContext) {
-  const auth = await authenticateDaemon(request);
+  const auth = await authenticateRuntime(request);
   if (!auth.ok) return authFailureResponse(auth.failure);
 
   const { id } = await params;

@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RealtimeClient } from "@supabase/realtime-js";
 import { config } from "../config.js";
-import { invalidatePairingCache, savePairing } from "./client.js";
+import { invalidatePairingCache, saveConnection } from "./client.js";
 import { onMachineRequest, startRealtimeConnection, stopRealtimeConnection } from "./realtime.js";
 
 vi.mock("@supabase/realtime-js", () => ({ RealtimeClient: vi.fn() }));
@@ -106,7 +106,7 @@ describe("realtime connection", () => {
   });
 
   it("refreshes before the credential expires, without tearing the connection down", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     // A fresh Response per call -- its body can only be read once, and a
     // shared instance would make the SECOND (refresh) mint silently fail to
     // parse, masking exactly the behaviour this test exists to prove.
@@ -137,7 +137,7 @@ describe("realtime connection", () => {
     // docblock says so -- and core's callback used to close over the credential
     // minted at connect time. Every refresh therefore did nothing, while a test
     // asserting `setAuth` had been called with a token passed happily.
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     let mint = 0;
     vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
       mint += 1;
@@ -161,7 +161,7 @@ describe("realtime connection", () => {
     // Supabase decides the TTL now (T-DI-03), and it is typically an hour
     // rather than the 600s M16 assumed. Nothing may be hard-coded to that
     // old order of magnitude.
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     let mint = 0;
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
       mint += 1;
@@ -183,7 +183,7 @@ describe("realtime connection", () => {
   });
 
   it("backs off on repeated failure, retrying with increasing delay rather than a tight loop", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("ECONNREFUSED"));
 
     startRealtimeConnection();
@@ -205,7 +205,7 @@ describe("realtime connection", () => {
   });
 
   it("stops for good once the pairing is revoked, without retrying", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(jsonResponse(403, { reason: "revoked", error: "revoked" }));
@@ -220,7 +220,7 @@ describe("realtime connection", () => {
   });
 
   it("a handler that throws is caught, not left to crash the channel callback", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(200, credentialBody()));
 
     onMachineRequest(() => {
@@ -234,7 +234,7 @@ describe("realtime connection", () => {
   });
 
   it("is idempotent — starting twice does not open a second connection", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(200, credentialBody()));
 
     startRealtimeConnection();

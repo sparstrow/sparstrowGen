@@ -7,11 +7,11 @@ import {
   CloudAuthError,
   CloudRequestError,
   cloudFetch,
-  clearPairing,
+  clearConnection,
   getRuntimeId,
   invalidatePairingCache,
   isPaired,
-  savePairing,
+  saveConnection,
 } from "./client.js";
 
 const TOKEN = "test-daemon-token-abcdefghijklmnop";
@@ -52,26 +52,37 @@ describe("cloud client", () => {
     });
 
     it("round-trips a pairing", () => {
-      savePairing({ token: TOKEN, runtimeId: "rt-1", workspaceId: "ws-1" });
+      saveConnection({ token: TOKEN, machineId: "mach-test", runtimes: [{ runtimeId: "rt-1", workspaceId: "ws-1" }] });
       invalidatePairingCache();
       expect(isPaired()).toBe(true);
       expect(getRuntimeId()).toBe("rt-1");
     });
 
-    it("treats a half-written pairing as unpaired", () => {
-      // A token with no runtime id would authenticate but never identify
-      // itself. Reporting it as paired hides the problem behind requests that
-      // half-work; reporting unpaired makes `sparstrow pair` the fix.
-      savePairing({ token: TOKEN, runtimeId: "rt-1", workspaceId: "ws-1" });
-      clearPairing();
-      savePairing({ token: TOKEN, runtimeId: "", workspaceId: "" });
+    it("treats a token with no machine id as unconnected", () => {
+      // A token with no machine id would authenticate but never identify
+      // itself. Reporting it as connected hides the problem behind requests
+      // that half-work; reporting unconnected makes `sparstrow setup` the fix.
+      saveConnection({ token: TOKEN, machineId: "", runtimes: [] });
       invalidatePairingCache();
       expect(isPaired()).toBe(false);
     });
 
+    it("treats a connected machine with NO workspaces as connected", () => {
+      // The opposite of the case above, and the one that changed with
+      // person-scoped credentials. An empty runtime map is legitimate — a
+      // brand-new account whose first workspace has not been bootstrapped yet
+      // — and it resolves itself on the next claim. Reporting it as
+      // unconnected would send someone to re-run setup for a state that needs
+      // no action at all.
+      saveConnection({ token: TOKEN, machineId: "mach-test", runtimes: [] });
+      invalidatePairingCache();
+      expect(isPaired()).toBe(true);
+      expect(getRuntimeId()).toBeNull();
+    });
+
     it("clears every part of the pairing", () => {
-      savePairing({ token: TOKEN, runtimeId: "rt-1", workspaceId: "ws-1" });
-      clearPairing();
+      saveConnection({ token: TOKEN, machineId: "mach-test", runtimes: [{ runtimeId: "rt-1", workspaceId: "ws-1" }] });
+      clearConnection();
       expect(isPaired()).toBe(false);
       expect(getRuntimeId()).toBeNull();
     });
@@ -83,7 +94,7 @@ describe("cloud client", () => {
     });
 
     it("attaches the bearer token and returns the parsed body", async () => {
-      savePairing({ token: TOKEN, runtimeId: "rt-1", workspaceId: "ws-1" });
+      saveConnection({ token: TOKEN, machineId: "mach-test", runtimes: [{ runtimeId: "rt-1", workspaceId: "ws-1" }] });
       const fetchMock = vi
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse(200, { ok: true }));
@@ -107,7 +118,7 @@ describe("cloud client", () => {
     });
 
     it("throws CloudAuthError on 401 and does not retry", async () => {
-      savePairing({ token: TOKEN, runtimeId: "rt-1", workspaceId: "ws-1" });
+      saveConnection({ token: TOKEN, machineId: "mach-test", runtimes: [{ runtimeId: "rt-1", workspaceId: "ws-1" }] });
       const fetchMock = vi
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse(401, { reason: "unauthenticated", error: "nope" }));
@@ -122,7 +133,7 @@ describe("cloud client", () => {
     it("throws CloudAuthError with revoked=true on 403, and does not retry", async () => {
       // Retrying a revocation turns a deliberate owner action into a request
       // loop against the control plane. It will never start working.
-      savePairing({ token: TOKEN, runtimeId: "rt-1", workspaceId: "ws-1" });
+      saveConnection({ token: TOKEN, machineId: "mach-test", runtimes: [{ runtimeId: "rt-1", workspaceId: "ws-1" }] });
       const fetchMock = vi
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse(403, { reason: "revoked", error: "revoked" }));
@@ -134,17 +145,17 @@ describe("cloud client", () => {
     it("drops the cached token when auth fails", async () => {
       // Holding a rejected token in memory means re-pairing has no effect
       // until the process restarts.
-      savePairing({ token: TOKEN, runtimeId: "rt-1", workspaceId: "ws-1" });
+      saveConnection({ token: TOKEN, machineId: "mach-test", runtimes: [{ runtimeId: "rt-1", workspaceId: "ws-1" }] });
       vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(403, { error: "revoked" }));
       await expect(cloudFetch("/heartbeat")).rejects.toBeInstanceOf(CloudAuthError);
 
       // Re-reading picks up whatever is on disk now, not the rejected copy.
-      clearPairing();
+      clearConnection();
       expect(isPaired()).toBe(false);
     });
 
     it("does not retry a 4xx that is not an auth failure", async () => {
-      savePairing({ token: TOKEN, runtimeId: "rt-1", workspaceId: "ws-1" });
+      saveConnection({ token: TOKEN, machineId: "mach-test", runtimes: [{ runtimeId: "rt-1", workspaceId: "ws-1" }] });
       const fetchMock = vi
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse(400, { reason: "invalid_request", error: "bad" }));
@@ -158,7 +169,7 @@ describe("cloud client", () => {
     });
 
     it("retries a 5xx and succeeds", async () => {
-      savePairing({ token: TOKEN, runtimeId: "rt-1", workspaceId: "ws-1" });
+      saveConnection({ token: TOKEN, machineId: "mach-test", runtimes: [{ runtimeId: "rt-1", workspaceId: "ws-1" }] });
       const fetchMock = vi
         .spyOn(globalThis, "fetch")
         .mockResolvedValueOnce(jsonResponse(503, {}))
@@ -169,7 +180,7 @@ describe("cloud client", () => {
     });
 
     it("retries a network error and gives up as CloudRequestError", async () => {
-      savePairing({ token: TOKEN, runtimeId: "rt-1", workspaceId: "ws-1" });
+      saveConnection({ token: TOKEN, machineId: "mach-test", runtimes: [{ runtimeId: "rt-1", workspaceId: "ws-1" }] });
       const fetchMock = vi
         .spyOn(globalThis, "fetch")
         .mockRejectedValue(new Error("ECONNREFUSED"));
@@ -181,7 +192,7 @@ describe("cloud client", () => {
     });
 
     it("passes an abort signal so an unreachable host cannot hang forever", async () => {
-      savePairing({ token: TOKEN, runtimeId: "rt-1", workspaceId: "ws-1" });
+      saveConnection({ token: TOKEN, machineId: "mach-test", runtimes: [{ runtimeId: "rt-1", workspaceId: "ws-1" }] });
       const fetchMock = vi
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse(200, {}));
@@ -191,7 +202,7 @@ describe("cloud client", () => {
     });
 
     it("never puts the token in an error message", async () => {
-      savePairing({ token: TOKEN, runtimeId: "rt-1", workspaceId: "ws-1" });
+      saveConnection({ token: TOKEN, machineId: "mach-test", runtimes: [{ runtimeId: "rt-1", workspaceId: "ws-1" }] });
       vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("ECONNREFUSED"));
 
       const error = await cloudFetch("/heartbeat", { retries: 0 }).catch((e: unknown) => e);

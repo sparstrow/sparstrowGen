@@ -1,13 +1,13 @@
 ---
 title: Terminals
 section: Surfaces
-description: A real shell on a paired machine, reachable from any browser you're signed in on.
+description: A real shell on one of your machines, reachable from any browser you're signed in on.
 order: 13
-updated: 2026-08-27
+updated: 2026-09-02
 ---
 
 The **Terminals** page opens a real shell — or an interactive agent's own
-command-line tool — running on one of your paired machines, from any browser
+command-line tool — running on one of your connected machines, from any browser
 you're signed in on. It says whose computer you're on, and the session
 outlives the tab: close it, come back later, from a different browser even,
 and it's still there with everything it printed while you were gone.

@@ -58,7 +58,8 @@ test("returns 401 if not authenticated", async () => {
 test("returns workspace id if user has 1 membership", async () => {
   const supabase = createMockSupabase({ id: "1" }, [{ workspace_id: "ws-1" }]);
   const res = await getActiveWorkspaceId(supabase);
-  expect(res).toEqual({ workspaceId: "ws-1" });
+  expect(res.workspaceId).toBe("ws-1");
+  expect(res.error).toBeUndefined();
 });
 
 test("returns requested workspace if valid for >1 memberships", async () => {
@@ -68,25 +69,41 @@ test("returns requested workspace if valid for >1 memberships", async () => {
   ]);
   const searchParams = new URLSearchParams("workspaceId=ws-2");
   const res = await getActiveWorkspaceId(supabase, searchParams);
-  expect(res).toEqual({ workspaceId: "ws-2" });
+  expect(res.workspaceId).toBe("ws-2");
+  expect(res.error).toBeUndefined();
 });
 
-test("returns 400 if >1 memberships and invalid/missing request", async () => {
+// Was a hard 400 that locked the account out of every page, because nothing in
+// the interface could choose between two workspaces. There is a switcher now,
+// so an unspecified request lands on the first membership rather than erroring
+// — and still reports the full list, which is what the switcher renders.
+test("falls back to the first membership when >1 and nothing was requested", async () => {
   const workspaces = [
     { workspace_id: "ws-1", workspaces: { id: "ws-1", name: "w1" } },
     { workspace_id: "ws-2", workspaces: { id: "ws-2", name: "w2" } },
   ];
   const supabase = createMockSupabase({ id: "1" }, workspaces);
   const res = await getActiveWorkspaceId(supabase);
-  expect(res.status).toBe(400);
+  expect(res.error).toBeUndefined();
+  expect(res.workspaceId).toBe("ws-1");
   expect(res.workspaces).toHaveLength(2);
+});
+
+test("ignores a requested workspace the caller is not a member of", async () => {
+  const workspaces = [
+    { workspace_id: "ws-1", workspaces: { id: "ws-1", name: "w1" } },
+    { workspace_id: "ws-2", workspaces: { id: "ws-2", name: "w2" } },
+  ];
+  const supabase = createMockSupabase({ id: "1" }, workspaces);
+  const res = await getActiveWorkspaceId(supabase, new URLSearchParams("workspaceId=ws-999"));
+  expect(res.workspaceId).toBe("ws-1");
 });
 
 test("bootstraps via RPC if 0 memberships", async () => {
   const supabase = createMockSupabase({ id: "1", email: "a@b.com" }, []);
   const res = await getActiveWorkspaceId(supabase);
   expect(supabase.rpc).toHaveBeenCalledWith("bootstrap_workspace");
-  expect(res).toEqual({ workspaceId: "new-ws-id" });
+  expect(res.workspaceId).toBe("new-ws-id");
 });
 
 test("does not call the bootstrap RPC when a membership already exists", async () => {

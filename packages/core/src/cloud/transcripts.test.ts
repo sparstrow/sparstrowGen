@@ -10,7 +10,7 @@ import {
 import { config } from "../config.js";
 import { closeDb, getSqlite, openDb } from "../db/connection.js";
 import { bus } from "../events/bus.js";
-import { invalidatePairingCache, savePairing } from "./client.js";
+import { invalidatePairingCache, saveConnection } from "./client.js";
 import { isDispatched, markDispatched, resetDispatched } from "./dispatched.js";
 import { resetTranscriptPusher, startTranscriptPusher, stopTranscriptPusher } from "./transcripts.js";
 
@@ -104,7 +104,7 @@ describe("transcript pusher", () => {
   });
 
   it("ignores events for a run the cloud never dispatched", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = routeFetch();
     startTranscriptPusher();
 
@@ -116,7 +116,7 @@ describe("transcript pusher", () => {
   });
 
   it("flushes on the interval when nothing else triggers it first", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = routeFetch();
     startTranscriptPusher();
     markDispatched("run_1");
@@ -131,7 +131,7 @@ describe("transcript pusher", () => {
   });
 
   it("flushes immediately once the event count hits the ceiling, without waiting for the timer", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = routeFetch();
     startTranscriptPusher();
     markDispatched("run_1");
@@ -144,7 +144,7 @@ describe("transcript pusher", () => {
   });
 
   it("flushes immediately once the byte budget is hit, without waiting for the timer — chunked, not combined", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = routeFetch();
     startTranscriptPusher();
     markDispatched("run_1");
@@ -163,7 +163,7 @@ describe("transcript pusher", () => {
   });
 
   it("sends an event that alone exceeds the byte budget as its own batch, rather than dropping it", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = routeFetch();
     startTranscriptPusher();
     markDispatched("run_1");
@@ -176,7 +176,7 @@ describe("transcript pusher", () => {
   });
 
   it("serialises pushes for the SAME run — the second batch waits for the first to resolve", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     startTranscriptPusher();
     markDispatched("run_1");
 
@@ -206,7 +206,7 @@ describe("transcript pusher", () => {
   });
 
   it("pushes concurrently for two different runs", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     startTranscriptPusher();
     markDispatched("run_a");
     markDispatched("run_b");
@@ -233,7 +233,7 @@ describe("transcript pusher", () => {
   });
 
   it("advances from the SERVER'S storedThroughSeq, and does not resend an accepted batch", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = routeFetch();
     startTranscriptPusher();
     markDispatched("run_1");
@@ -251,7 +251,7 @@ describe("transcript pusher", () => {
     // The property T-M5-03 exists for. A run.completed immediately after a
     // run.event must still result in that event reaching the cloud — not "the
     // flush function was called", but the event itself present in a sent batch.
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = routeFetch();
     startTranscriptPusher();
     markDispatched("run_1");
@@ -266,7 +266,7 @@ describe("transcript pusher", () => {
   });
 
   it("releases the run from isDispatched only after the terminal flush lands", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     startTranscriptPusher();
     markDispatched("run_1");
 
@@ -290,7 +290,7 @@ describe("transcript pusher", () => {
   it("closes the loop for a run that completed with nothing ever queued", async () => {
     // A run that produced zero events (e.g. an instant cancel). No queue was
     // ever created for it; run.completed must not throw or hang.
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = routeFetch();
     startTranscriptPusher();
     markDispatched("run_empty");
@@ -301,7 +301,7 @@ describe("transcript pusher", () => {
   });
 
   it("drops a 404 run's queue without stalling any other run", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     startTranscriptPusher();
     markDispatched("run_gone");
     markDispatched("run_ok");
@@ -329,7 +329,7 @@ describe("transcript pusher", () => {
   });
 
   it("stops permanently on 403 and does not retry", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(jsonResponse(403, { reason: "revoked", error: "revoked" }));
@@ -349,13 +349,13 @@ describe("transcript pusher", () => {
   });
 
   it("re-reads the token store on 401 and retries once still paired", async () => {
-    savePairing({ token: "stale", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "stale", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     let first = true;
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
       if (first) {
         first = false;
         // Simulate `sparstrow pair` rewriting the store mid-flight.
-        savePairing({ token: "fresh", runtimeId: "rt", workspaceId: "ws" });
+        saveConnection({ token: "fresh", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
         return jsonResponse(401, { reason: "unauthenticated", error: "rejected" });
       }
       return jsonResponse(200, { storedThroughSeq: 0, stored: 1, duplicates: 0 });
@@ -372,7 +372,7 @@ describe("transcript pusher", () => {
   });
 
   it("backs off and retries on a network failure without dropping the queue", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     let fail = true;
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
       if (fail) {
@@ -394,7 +394,7 @@ describe("transcript pusher", () => {
   });
 
   it("does not hold the process open", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     routeFetch();
     const unrefs: unknown[] = [];
     const original = globalThis.setTimeout;

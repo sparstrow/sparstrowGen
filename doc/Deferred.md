@@ -1046,3 +1046,46 @@ server, CI-triggered agent runs, remote dev boxes) — then design a fallback
 explicitly, e.g. a `sparstrow pair --code`/device-code-style path analogous to
 `gh auth login`'s `--web` vs. device-flow split, rather than reintroducing the
 old always-on code path wholesale.
+
+> **Superseded 2026-09-02.** Picked up rather than left parked. Moving the
+> daemon to a person-scoped credential
+> ([`2026-09-02-computers-that-are-just-there`](specs/2026-09-02-computers-that-are-just-there.md))
+> makes the headless case nearly free: a credential created by hand in the
+> browser and pasted onto a machine with no display is the same credential the
+> desktop app mints for itself. It is US6 of that spec, at P3. The
+> device-code-style path this entry imagined is **not** what gets built — a
+> copy-once token from the credentials page is simpler and needs no second
+> code path.
+
+---
+
+## D-30 — A machine in someone else's workspace
+
+**Parked:** 2026-09-02, by the owner, while deciding
+[`2026-09-02-computers-that-are-just-there`](specs/2026-09-02-computers-that-are-just-there.md).
+
+That spec makes one computer serve **every workspace its owner belongs to**,
+automatically and with no per-workspace step. The owner scoped that deliberately
+to workspaces that are their own: *"Right now I am not gonna be added to client
+or external user workspace… I will create personal, work related workspace in
+same machine."*
+
+The moment the owner is added to a workspace they do **not** own, that automatic
+behaviour changes meaning: their personal laptop would begin accepting and
+executing work on behalf of a workspace someone else controls, without any
+action on their part, and possibly without them noticing they were added. That
+is not the same feature — it is a consent question wearing the same mechanism.
+
+The designed-but-unbuilt answer is per-machine opt-in: a workspace the owner did
+not create appears in Machines as *"Client Co. — enable on this machine?"* and
+nothing runs there until they say yes. It was scored at 7/10 in the same session
+and deliberately sequenced after, not dropped.
+
+**If wrong (i.e. left parked):** the first time the owner accepts an invitation
+to a workspace they don't control, their machine silently joins it and becomes
+executable by whoever administers that workspace. There is no warning designed
+for this today.
+
+**Unpark when:** the owner is invited to, or creates a workspace with, anyone
+else — whichever comes first. This must land **before** the first external
+membership exists, not after, because the failure is silent.

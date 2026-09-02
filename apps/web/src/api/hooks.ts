@@ -1317,6 +1317,13 @@ export interface Runtime {
    * that machine's own local Settings card. M4 / `G-6`.
    */
   reportedSettings: Record<string, string>;
+  /**
+   * The physical computer this runtime lives on. The same machine appears once
+   * per workspace its owner belongs to, so this is what identifies two rows in
+   * two workspaces as one piece of hardware — and what the desktop shell
+   * matches against to badge a row "This device".
+   */
+  machineId: string;
 }
 
 /** A project as this machine reports having it. */
@@ -1434,6 +1441,29 @@ export function useWorkspace(enabled = true): UseQueryResult<Workspace, ApiError
   return useQuery({
     queryKey: ["workspace"],
     queryFn: () => api<Workspace>("/workspace"),
+    enabled,
+  });
+}
+
+/** One row per workspace the signed-in person belongs to. What the switcher renders. */
+export type WorkspaceSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
+};
+
+/**
+ * US3 — every workspace this person can switch to.
+ *
+ * Gated on `enabled` for the same reason `useWorkspace` is: the local desktop
+ * build has no account, so firing this would be a doomed request on every
+ * render just to discard its result.
+ */
+export function useWorkspaces(enabled = true): UseQueryResult<WorkspaceSummary[], ApiError> {
+  return useQuery({
+    queryKey: ["workspaces"],
+    queryFn: () => api<WorkspaceSummary[]>("/workspaces"),
     enabled,
   });
 }

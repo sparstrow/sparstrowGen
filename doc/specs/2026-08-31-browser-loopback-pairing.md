@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Owner-reviewed 2026-08-31 (decisions taken live, in conversation) |
+| **Status** | Owner-reviewed 2026-08-31 (decisions taken live, in conversation) — **superseded 2026-09-02 by [`2026-09-02-computers-that-are-just-there`](2026-09-02-computers-that-are-just-there.md)**, which removes the pairing step altogether: a machine authenticates as the person rather than as one workspace, so the loopback confirm handshake this spec designed no longer has a job. Shipped and worked; replaced on a framing change, not a defect |
 | **Created** | 2026-08-31 |
 | **Trigger** | Owner, after reviewing how [multica](../../references/multica) pairs a local daemon to a workspace: "the pairing should be like finding a machine and pairing not with code." |
 | **Supersedes** | [`2026-08-16-setup-and-machines`](2026-08-16-setup-and-machines.md) US1 scenario 3, and US4 in full — both describe pairing-code behaviour that this spec replaces. Everything else in that spec (the Machines menu itself, the setup guide, machine status vocabulary) is untouched. |

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { BindingReportRequest, ProjectBinding } from "@sparstrow/shared";
-import { authenticateDaemon, daemonDb } from "@web/lib/daemon/auth";
+import { authenticateRuntime, daemonDb } from "@web/lib/daemon/auth";
 import { authFailureResponse, daemonError, readJson } from "@web/lib/daemon/respond";
 
 /**
@@ -27,7 +27,7 @@ import { authFailureResponse, daemonError, readJson } from "@web/lib/daemon/resp
 const STATES = new Set<ProjectBinding["state"]>(["bound", "missing", "cloning", "error"]);
 
 export async function POST(request: Request) {
-  const auth = await authenticateDaemon(request);
+  const auth = await authenticateRuntime(request);
   if (!auth.ok) return authFailureResponse(auth.failure);
 
   const body = (await readJson(request)) as BindingReportRequest | null;

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateDaemon, daemonDb } from "@web/lib/daemon/auth";
+import { authenticateRuntime, daemonDb } from "@web/lib/daemon/auth";
 import { authFailureResponse, daemonError, readJson } from "@web/lib/daemon/respond";
 
 /**
@@ -8,15 +8,15 @@ import { authFailureResponse, daemonError, readJson } from "@web/lib/daemon/resp
  *
  * Same shape as every other `/api/daemon/*` write (see
  * `apps/web/src/lib/daemon/auth.ts`'s header): `workspace_id` comes ONLY
- * from `authenticateDaemon`'s validated scope, never from the body.
+ * from `authenticateRuntime`'s validated scope, never from the body.
  * `record_provider_models` trusts it entirely and has no internal
- * membership check of its own — this route's `authenticateDaemon` call is
+ * membership check of its own — this route's `authenticateRuntime` call is
  * the actual boundary, and the migration additionally revokes PostgREST
  * execute on that function from every client role, so it cannot be reached
  * any other way.
  */
 export async function POST(request: Request) {
-  const auth = await authenticateDaemon(request);
+  const auth = await authenticateRuntime(request);
   if (!auth.ok) return authFailureResponse(auth.failure);
 
   const body = await readJson(request);

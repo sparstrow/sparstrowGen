@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { RealtimeCredential } from "@sparstrow/shared";
-import { authenticateDaemon } from "@web/lib/daemon/auth";
+import { authenticateRuntime } from "@web/lib/daemon/auth";
 import { authFailureResponse, daemonError } from "@web/lib/daemon/respond";
 import { mintRealtimeToken } from "@web/lib/daemon/realtime-token";
 
@@ -12,7 +12,7 @@ import { mintRealtimeToken } from "@web/lib/daemon/realtime-token";
  * banner comment).
  */
 export async function POST(request: Request) {
-  const auth = await authenticateDaemon(request);
+  const auth = await authenticateRuntime(request);
   if (!auth.ok) return authFailureResponse(auth.failure);
 
   let minted: RealtimeCredential;
