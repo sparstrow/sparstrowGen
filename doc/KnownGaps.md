@@ -2306,6 +2306,41 @@ wrongly — the flow either works from the first claim or visibly does not. The
 one quiet failure available is the `access_tokens` column grant, which is why
 it is listed second.
 
+**Narrowed 2026-09-02 by a runtime pass against the staging control plane**
+(`pnpm dev`, port 3080, migrations deliberately NOT applied — see below). What
+that proved, and what it could not:
+
+| Check | Result |
+|---|---|
+| `next build` | compiles; `/api/daemon/claim`, `/connect`, `/connect/exchange` all present in the route manifest |
+| App boots, login renders, no console errors | pass |
+| `/connect` unauthenticated | redirects to `/login`, guard works |
+| `POST /api/daemon/connect` `{}` | `400 invalid_request` — validation runs before any DB write |
+| `POST /api/daemon/connect` with `https://evil.example.com/cb` | `400 invalid_callback` — the loopback guard rejects a public address |
+| `POST /api/daemon/claim` no token / bogus token | `401 unauthenticated` both times, not 500 |
+| `POST /api/daemon/heartbeat` no token | `401 unauthenticated` |
+| `POST /api/daemon/connect/exchange` | `500`, log says `PGRST202: could not find the function public.exchange_connect_attempt` |
+
+That last row is the gap itself, observed: every route is wired and every code
+path that runs *before* the database is correct, and everything that needs the
+migration fails exactly where the migration is missing. Nothing above exercises
+`claim_machine`, `exchange_connect_attempt`, or a single RLS policy.
+
+**One real defect was found and fixed by this pass.** With `access_tokens`
+absent, `authenticateMachine` returned `401 "Missing or invalid access token"`
+and logged *nothing* — a misapplied migration was indistinguishable from every
+machine holding a bad credential. It now logs the Postgres error and still fails
+closed; confirmed by re-running the bogus-token request and reading
+`PGRST205: could not find the table 'public.access_tokens'` in the log.
+
+**Why the migrations were not applied.** `DATABASE_URL` in `apps/web/.env.local`
+points at the shared **staging** project (`pnymngoqseltgigcfevq`), and migration
+0012 drops `daemon_tokens` and `pairing_attempts` with `CASCADE`. `AGENTS.md`
+§3.7 requires explicit owner confirmation for dropping tables; the owner was
+asleep, and "build and test" is not that confirmation. Applying it would also
+have broken every other session and the owner's own machine, which talk to that
+same database on the current schema.
+
 **Closes when:** migrations 0011/0012 and `policies/033` are applied to a real
 database, one machine claims itself through the desktop app, a second workspace
 is created and confirmed to receive a runtime for that same machine, and a token

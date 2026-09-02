@@ -137,7 +137,20 @@ export async function authenticateMachine(request: Request): Promise<MachineAuth
     .eq("token_hash", hashToken(token))
     .maybeSingle();
 
-  if (error || !data) return { ok: false, failure: "unauthenticated" };
+  // A query ERROR and a missing ROW are both refused, but they are not the same
+  // event and must not be silent in the same way. Found by running this against
+  // a database where `access_tokens` did not exist yet: every request came back
+  // 401 "Missing or invalid access token", with nothing in the log — which
+  // reads as "every machine's credential is wrong" rather than "the migration
+  // has not been applied". That is an hour of looking in the wrong place.
+  //
+  // Still fails closed, deliberately: a database that cannot answer must not
+  // authenticate anyone. It just says so now.
+  if (error) {
+    console.error("access token lookup failed", { code: error.code, message: error.message });
+    return { ok: false, failure: "unauthenticated" };
+  }
+  if (!data) return { ok: false, failure: "unauthenticated" };
   if (data.revoked_at) return { ok: false, failure: "revoked" };
 
   // Best-effort, deliberately not awaited: this is what makes "last used 2
