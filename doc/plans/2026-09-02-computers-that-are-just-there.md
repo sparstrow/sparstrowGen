@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | [`../specs/2026-09-02-computers-that-are-just-there.md`](../specs/2026-09-02-computers-that-are-just-there.md) |
-| **Status** | Built 2026-09-02, all six phases — **unverified against a live database or daemon** ([`G-58`](../KnownGaps.md)) |
+| **Status** | Built and verified against staging 2026-09-02, all six phases — desktop auto-claim path still unproved ([`G-58`](../KnownGaps.md)) |
 | **Trigger** | Owner, 2026-09-02, with three multica screenshots: connecting a computer should take no steps, the machine should stay reachable whenever the laptop is on, and one machine should serve personal and work workspaces with a switcher |
 | **Depends on** | — (supersedes [`2026-08-31-browser-loopback-pairing`](2026-08-31-browser-loopback-pairing.md), whose loopback handshake is partly reused) |
 | **Touches** | `packages/shared/src/db/schema.ts`, `packages/shared/drizzle/`, `apps/web/src/lib/daemon/`, `apps/web/src/app/api/daemon/**`, `apps/web/src/app/machines/`, `apps/web/src/app/settings/`, `apps/web/src/lib/workspace.ts`, `apps/web/src/components/layout/`, `packages/core/src/cloud/`, `packages/core/src/cli/`, `packages/core/src/api/routes/system.ts`, `packages/desktop/src/` |
@@ -243,10 +243,29 @@ to go straight from plan to code without the spec review gate. Five commits on
 | E — always reachable | detached spawn, daemon prefs, quit honouring `autoStopOnQuit`, Settings → Daemon |
 | F — another computer | Add-a-computer dialog, "This device" badge, `sparstrow setup --token` |
 
-**Every story is code-complete. None is verified.** `pnpm typecheck` is clean and
-1,640 unit tests pass, but no part of this has met a Postgres instance or a live
-daemon — see [`G-58`](../KnownGaps.md), which lists what that leaves unproved and
-what closes it. The plan's Verification table is the closing checklist, unrun.
+**Every story is code-complete, and the Verification table below was run against
+staging** with the owner's explicit permission on 2026-09-02. `claim_machine`
+and every policy in `033` executed for the first time; the credential boundary,
+revocation, and one-machine-many-workspaces all behaved as designed. Staging was
+returned to its prior state afterwards.
+
+What is still unproved is the desktop auto-claim journey (renderer → IPC → core)
+and a real daemon's heartbeat/command loops — see [`G-58`](../KnownGaps.md).
+
+### What was found while VERIFYING that the plan didn't anticipate
+
+**`delete_own_account()` was collateral damage, twice over.** Dropping
+`pairing_attempts` broke it outright — it referenced that table, so every
+account deletion threw. And it had never swept the credential tables, which was
+harmless while a credential died with its workspace and a security hole the
+moment credentials belonged to a person. Neither was visible from the plan, from
+typecheck, or from 1,650 unit tests; both were obvious within a minute of
+cleaning up after a real account. Filed as `SEC-2026-09-02`.
+
+**The documented way to apply a migration does not work.** `drizzle-kit migrate`
+cannot run against staging — its journal is empty while 42 tables exist, because
+staging was built from `apply-to-supabase.sql`. `psql` is not installed either.
+Both facts were invisible until someone tried. `G-60`.
 
 ### What was found while building that the plan didn't anticipate
 
@@ -284,6 +303,13 @@ capability is not evidence the capability exists.
 - [`G-58`](../KnownGaps.md) — the whole feature, unverified against a live database.
 - [`G-59`](../KnownGaps.md) — the full suite flakes under parallel turbo; not
   proved to predate this work.
+- [`G-60`](../KnownGaps.md) — staging's drizzle journal is empty, so
+  `drizzle-kit migrate` cannot be used on it; `apply-pending.mjs` is the
+  workaround.
+- [`SEC-2026-09-02-deleted-account-kept-live-credentials`](../security/SEC-2026-09-02-deleted-account-kept-live-credentials.md)
+  — found and fixed during verification: `delete_own_account()` never swept the
+  credential tables, which only became a hole once credentials were
+  person-scoped.
 - [`D-30`](../Deferred.md) — a machine in someone else's workspace, which must
   land before the owner ever joins one.
 - [`SEC-2026-09-02`](../security/SEC-2026-09-02-daemon-credential-widened-to-person-scope.md)

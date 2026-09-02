@@ -2260,7 +2260,7 @@ requirement this whole spec turns on.
 
 ---
 
-### G-58 — the person-scoped machine credential has never run against a live database
+### G-58 — the person-scoped machine credential, mostly verified; the desktop path is not
 
 **Raised:** 2026-09-02, closing every phase of
 [`2026-09-02-computers-that-are-just-there`](plans/2026-09-02-computers-that-are-just-there.md).
@@ -2341,11 +2341,52 @@ asleep, and "build and test" is not that confirmation. Applying it would also
 have broken every other session and the owner's own machine, which talk to that
 same database on the current schema.
 
-**Closes when:** migrations 0011/0012 and `policies/033` are applied to a real
-database, one machine claims itself through the desktop app, a second workspace
-is created and confirmed to receive a runtime for that same machine, and a token
-is revoked and observed to stop the machine on its next request. That is the
-plan's Verification table, run.
+**LARGELY CLOSED 2026-09-02.** Migrations 0011/0012 and `policies/033` were
+applied to staging with the owner's explicit permission, and the plan's
+Verification table was run against the live database. What is now proved:
+
+| Check | Result |
+|---|---|
+| Migration applies, backfill correct | 1 machine created per runtime, `machine_id` NOT NULL, 0 orphans |
+| Schema matches intent | 14/14 structural assertions pass, incl. the unique index |
+| `token_hash` unreadable by `authenticated` | pass — selectable columns exclude it; insertable includes it, so minting works |
+| `claim_machine` | **first execution ever** — creates machine + runtime, idempotent on re-claim |
+| Gaining a workspace | re-claim produced a 2nd runtime automatically, no other step |
+| Leaving a workspace | re-claim removed that runtime |
+| `X-Sparstrow-Runtime` scoping | a valid token naming ANOTHER machine's runtime → 404, not 200 |
+| Revocation | effective on the very next request, reported `revoked` (403) not `unauthenticated` |
+| `last_used_at` | maintained — the control the security note depends on |
+| UI, signed in | Machines empty state, Add-a-computer dialog + headless disclosure, API Tokens create/reveal/list, Daemon card's browser branch |
+
+Both functions ran, every policy was enforced, and the credential boundary held.
+Staging was returned to its prior state afterwards (all `verify_` rows and the
+disposable account removed).
+
+**One real defect was found by this pass** and is filed separately:
+[`SEC-2026-09-02-deleted-account-kept-live-credentials`](security/SEC-2026-09-02-deleted-account-kept-live-credentials.md)
+— `delete_own_account()` never swept `access_tokens` or `machines`, which was
+harmless under a workspace-scoped credential and a hole under a person-scoped
+one. Fixed in `policies/034`, applied, and verified.
+
+**What remains unproved, and is all that keeps this entry open:**
+
+- **The desktop auto-claim path has never run.** Renderer → Server Action → IPC
+  → core → `/api/daemon/claim` crosses four process boundaries; the last one is
+  proved and the first three are not. Claiming was exercised over HTTP with a
+  hand-minted token, which is the same route the desktop app calls but not the
+  same journey to it.
+- **No real daemon has connected.** `register`, the heartbeat loop and the
+  command loop were each rewritten to iterate runtimes; the routes they call are
+  proved, the loops themselves are not.
+- **`exchange_connect_attempt` has still never run.** The `sparstrow setup`
+  browser handshake (US5) was not exercised — only the claim it ends in.
+- **The workspace switcher was not seen with two workspaces.** Every staging
+  user has exactly one, so the switcher correctly rendered no list. The
+  underlying mechanic is proved at the database level (above); the UI affordance
+  is not.
+
+**Closes when:** the desktop app claims its own computer on launch, and a real
+daemon heartbeats into two workspaces at once.
 
 ---
 
