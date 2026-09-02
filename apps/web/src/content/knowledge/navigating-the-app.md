@@ -3,7 +3,7 @@ title: Getting around
 section: Getting started
 description: Workspace tabs, the command palette, pinned items, and the grouped sidebar.
 order: 5
-updated: 2026-08-20
+updated: 2026-09-02
 ---
 
 The app is built for keeping several things open at once. Here's how to move around quickly.
@@ -16,9 +16,14 @@ The left sidebar groups every page under three headers:
 - **Workspace** — Agents, Teams, Projects, Runs, Machines, Pipelines, Schedule, Imports.
 - **Configure** — Skills, Terminals, Knowledge Center, Settings.
 
-The Dashboard sits above the groups. The **workspace switcher** at the very top holds your
-profile and workspace links. The sidebar-toggle button (in the tab bar) collapses the sidebar
-to an icon-only rail when you want more room; click it again to expand.
+The Dashboard sits above the groups. The **workspace switcher** at the very top names the
+workspace you're in and holds your profile and workspace links. If you have more than one
+workspace — a personal one and a work one, say — they're listed there and switching is one
+click; the whole app reloads into that workspace's own projects, chats and machines. With
+only one workspace the list isn't shown, since there'd be no choice to make.
+
+The sidebar-toggle button (in the tab bar) collapses the sidebar to an icon-only rail when
+you want more room; click it again to expand.
 
 ### Pinned items
 

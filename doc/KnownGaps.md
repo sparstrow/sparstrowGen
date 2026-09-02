@@ -2257,3 +2257,97 @@ chat bound to a real `rootDir`, confirming a file the agent edits inside the
 project folder produces neither a row nor a stored object (FR-016) — the
 requirement this whole spec turns on.
 
+
+---
+
+### G-56 — the person-scoped machine credential has never run against a live database
+
+**Raised:** 2026-09-02, closing every phase of
+[`2026-09-02-computers-that-are-just-there`](plans/2026-09-02-computers-that-are-just-there.md).
+
+The whole of that plan — new `machines` and `access_tokens` tables, migrations
+0011/0012, `policies/033`, the rewritten `daemon/auth.ts`, all 20 `/api/daemon/*`
+routes, core's claim/heartbeat/command loops, the desktop claim bridge, the
+workspace switcher, and both new Settings cards — **typechecks clean and passes
+1,640 unit tests, and has not been run against a Postgres instance or a live
+daemon even once.**
+
+What that specifically leaves unproved, most consequential first:
+
+- **`claim_machine` and `exchange_connect_attempt` have never executed.** They
+  are the two `SECURITY DEFINER` functions the whole flow hangs on. Their SQL
+  has never been parsed by Postgres, let alone run — a syntax error, a wrong
+  `on conflict` target, or a column name typo would all present as a total
+  failure to connect any machine at all.
+- **`policies/033`'s RLS has never been enforced against a real session.** The
+  column-level `grant`/`revoke` on `access_tokens` is the mechanism keeping
+  `token_hash` unreadable by `authenticated`; if the grants are wrong in either
+  direction the failure is silent-and-permissive or total-and-obvious, and
+  nothing here distinguishes them yet.
+- **Migration 0012's backfill has never run.** It creates one `machines` row per
+  existing runtime before tightening `runtimes.machine_id` to `NOT NULL`. If it
+  misses a row — a runtime whose workspace has no `owner_id`, say — the
+  `SET NOT NULL` fails and the migration aborts partway.
+- **No machine has ever claimed itself.** The desktop auto-claim path
+  (renderer → Server Action → IPC → core → `/api/daemon/claim`) crosses four
+  process boundaries and has been exercised at none of them.
+- **The multi-workspace behaviour is entirely theoretical.** `register`,
+  `beat` and `poll` were each changed from one call to one call per runtime.
+  Nobody has had two workspaces and watched work from the second one arrive.
+
+**Why not proved:** this session has no Postgres instance, no Supabase project
+it may migrate, and no running daemon — the same limitation `G-49`/`G-51`/`G-52`
+and `G-55` already record. `G-54` compounds it: the Vercel account is paused, so
+there is no preview deployment to verify against either.
+
+**If wrong:** severe and immediate, but loud rather than silent. Every failure
+mode above stops machines connecting entirely rather than connecting them
+wrongly — the flow either works from the first claim or visibly does not. The
+one quiet failure available is the `access_tokens` column grant, which is why
+it is listed second.
+
+**Closes when:** migrations 0011/0012 and `policies/033` are applied to a real
+database, one machine claims itself through the desktop app, a second workspace
+is created and confirmed to receive a runtime for that same machine, and a token
+is revoked and observed to stop the machine on its next request. That is the
+plan's Verification table, run.
+
+---
+
+### G-57 — the full test suite fails intermittently under parallel turbo, and it predates this work
+
+**Raised:** 2026-09-02, while verifying
+[`2026-09-02-computers-that-are-just-there`](plans/2026-09-02-computers-that-are-just-there.md).
+
+`pnpm test` (turbo, all five packages in parallel) intermittently reports 1–4
+failures in `apps/web`, and **a different set each run**. The same suites pass
+deterministically when run any other way:
+
+| How it was run | Result |
+|---|---|
+| `pnpm test` (turbo, parallel, 5 packages) | 1 failure, then 4 different failures |
+| `pnpm turbo run test --filter=web`, twice | 528/528 both times |
+| `pnpm turbo run test --concurrency=1` | web passed |
+| `npx vitest run` in `apps/web`, three times | 529/529 every time |
+| the named failing files alone | 15/15 |
+
+The failing tests vary across `realtime/token`, `chat/attachments/sign-upload`
+and `chat/turns/[id]/result` — files with no shared state, whose only common
+property is being vitest workers competing for CPU with four other packages'
+suites on Windows.
+
+**Not attributed to this change, and not proved to predate it either.** The
+evidence above is strong circumstantial evidence of harness contention rather
+than a logic error, but the decisive test — running the suite the same way on
+the base commit — was not done: it needs a second `pnpm install` in a scratch
+worktree, which this session did not have time for.
+
+**If wrong:** a real race in one of those three routes would be masked as flake
+and shipped. The routes involved all take the `authenticateRuntime` path this
+work rewrote, so "unrelated to my changes" is exactly the assumption that would
+be wrong.
+
+**Closes when:** the base commit's suite is run under the same parallel turbo
+invocation ten times. If it flakes identically, this becomes a tooling entry
+(vitest worker concurrency on Windows) and the CI config caps concurrency. If it
+does not, the three routes get looked at properly.

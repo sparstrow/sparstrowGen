@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | [`../specs/2026-09-02-computers-that-are-just-there.md`](../specs/2026-09-02-computers-that-are-just-there.md) |
-| **Status** | In progress — Phase A next |
+| **Status** | Built 2026-09-02, all six phases — **unverified against a live database or daemon** ([`G-56`](../KnownGaps.md)) |
 | **Trigger** | Owner, 2026-09-02, with three multica screenshots: connecting a computer should take no steps, the machine should stay reachable whenever the laptop is on, and one machine should serve personal and work workspaces with a switcher |
 | **Depends on** | — (supersedes [`2026-08-31-browser-loopback-pairing`](2026-08-31-browser-loopback-pairing.md), whose loopback handshake is partly reused) |
 | **Touches** | `packages/shared/src/db/schema.ts`, `packages/shared/drizzle/`, `apps/web/src/lib/daemon/`, `apps/web/src/app/api/daemon/**`, `apps/web/src/app/machines/`, `apps/web/src/app/settings/`, `apps/web/src/lib/workspace.ts`, `apps/web/src/components/layout/`, `packages/core/src/cloud/`, `packages/core/src/cli/`, `packages/core/src/api/routes/system.ts`, `packages/desktop/src/` |
@@ -230,5 +230,62 @@ not a tick.
 
 ## Result
 
-*Filled in as phases land — see the running notes at the end of each phase's
-commit.*
+**All six phases built in one session, 2026-09-02**, on the owner's instruction
+to go straight from plan to code without the spec review gate. Five commits on
+`claude/multica-device-pairing-1f41b7`.
+
+| Phase | Shipped |
+|---|---|
+| A — person-scoped boundary | `machines` + `access_tokens`, migrations 0011/0012, `policies/033`, `authenticateMachine`/`resolveRuntimeScope`, all 20 `/api/daemon/*` routes, core's client/claim/heartbeat/commands |
+| B — the computer claims itself | token-minting action, `sparstrow:claim-machine` IPC, core's `POST /system/cloud-token`, `DesktopAutoClaim` |
+| C — workspaces on one machine | cookie-based resolution, `GET /workspaces`, real switching in the sidebar |
+| D — what has access | Settings → API Tokens, one-time reveal, revoke |
+| E — always reachable | detached spawn, daemon prefs, quit honouring `autoStopOnQuit`, Settings → Daemon |
+| F — another computer | Add-a-computer dialog, "This device" badge, `sparstrow setup --token` |
+
+**Every story is code-complete. None is verified.** `pnpm typecheck` is clean and
+1,640 unit tests pass, but no part of this has met a Postgres instance or a live
+daemon — see [`G-56`](../KnownGaps.md), which lists what that leaves unproved and
+what closes it. The plan's Verification table is the closing checklist, unrun.
+
+### What was found while building that the plan didn't anticipate
+
+**The plan under-described `runtimes` as "unchanged".** It is, structurally —
+but every *caller* in core assumed one runtime existed. `register`, `beat` and
+`poll` each had to become one-call-per-runtime, and the failure they now handle
+(a runtime that vanished because the owner left a workspace) needed a new
+`unknown_runtime` reason distinct from `revoked`, or a machine would treat
+leaving a workspace as being cut off and stop.
+
+**Two real security holes were in the first draft of `policies/033`,** both
+found by re-reading it rather than by any test:
+
+1. `access_tokens_owner_insert` validated `user_id` but not `machine_id`, so a
+   member of a shared workspace could mint a token naming somebody else's
+   machine and then impersonate that computer within the workspace they legitimately
+   share.
+2. `claim_machine` was documented as adopting a hand-made token's machine and
+   never touched `access_tokens`, so US6's tokens would have named no machine
+   forever.
+
+**`drizzle-kit generate` cannot run without a TTY.** It prompts to disambiguate
+drop-versus-rename, which a non-interactive shell cannot answer. Splitting the
+change into an additive migration (0011) and a destructive one (0012) removes
+the ambiguity entirely and is a better migration anyway — the backfill has
+somewhere to live between the column being added and being tightened.
+
+**The existing `WorkspaceSwitcher` was an account menu wearing a switcher's
+name.** It showed the current workspace and offered no way to leave it, because
+belonging to two was a hard 400. Worth knowing that a component named for a
+capability is not evidence the capability exists.
+
+### What it spawned
+
+- [`G-56`](../KnownGaps.md) — the whole feature, unverified against a live database.
+- [`G-57`](../KnownGaps.md) — the full suite flakes under parallel turbo; not
+  proved to predate this work.
+- [`D-30`](../Deferred.md) — a machine in someone else's workspace, which must
+  land before the owner ever joins one.
+- [`SEC-2026-09-02`](../security/SEC-2026-09-02-daemon-credential-widened-to-person-scope.md)
+  — the accepted trust-boundary widening and its compensating controls.
+- [`D-29`](../Deferred.md) closed — headless connection, via `sparstrow setup --token`.

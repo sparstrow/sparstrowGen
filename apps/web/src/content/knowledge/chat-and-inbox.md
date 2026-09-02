@@ -3,7 +3,7 @@ title: Chat & Inbox
 section: Surfaces
 description: Free-form sessions with agents, and the message inbox where agents reach you (and each other).
 order: 6
-updated: 2026-08-29
+updated: 2026-09-02
 ---
 
 ## Chat — talk to your agents
@@ -11,7 +11,7 @@ updated: 2026-08-29
 **Chat** is the conversational surface: session-based, markdown-rendered. Create a
 session, send a message, and the agent's reply appears in the session as it's
 produced — in complete steps rather than one long wait followed by a wall of text.
-Sending needs a paired machine that's currently online; see Known Limitations below
+Sending needs a connected machine that's currently online; see Known Limitations below
 for what happens otherwise. A session has a *context* that shapes what the agent sees:
 
 - **Free** — just you and the agent.
@@ -93,11 +93,11 @@ be on the Dashboard, not just here.
 
 ## Known Limitations & Boundaries
 
-- **Sending needs at least one paired machine that's currently online, and —
+- **Sending needs at least one connected machine that's currently online, and —
   for a Project session — that machine needs the project checked out
-  locally.** With none paired, all paired machines offline, or the right
+  locally.** With none connected, all machines offline, or the right
   project unavailable anywhere online, you're told plainly which of the
-  three it is and pointed at pairing rather than left with a dead end.
+  three it is and pointed at connecting one rather than left with a dead end.
 - **An unanswered message waits up to 24 hours**, then is marked as having
   taken too long rather than left waiting silently forever; retry is offered
   — see above.
