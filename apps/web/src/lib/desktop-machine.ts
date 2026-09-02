@@ -20,12 +20,50 @@ export type CloudStatus = {
   machineId?: string | null;
   workspaces?: number;
   cloudUrl?: string;
+  pid?: number;
+  uptimeMs?: number;
+  /** Present when the shell could not reach core at all. */
   error?: string;
+};
+
+export type DaemonPrefs = {
+  autoStartOnLaunch: boolean;
+  autoStopOnQuit: boolean;
 };
 
 export interface DesktopMachineBridge {
   claim(token: string, name?: string): Promise<ClaimResult>;
   status(): Promise<CloudStatus>;
+}
+
+export interface DesktopDaemonBridge {
+  getPrefs(): Promise<DaemonPrefs>;
+  setPrefs(patch: Partial<DaemonPrefs>): Promise<DaemonPrefs>;
+}
+
+function daemonBridge(): DesktopDaemonBridge | null {
+  const host = globalThis as { sparstrowDesktop?: { daemon?: unknown } };
+  const daemon = host.sparstrowDesktop?.daemon as DesktopDaemonBridge | undefined;
+  return typeof daemon?.getPrefs === "function" && typeof daemon?.setPrefs === "function"
+    ? daemon
+    : null;
+}
+
+/** True only inside a desktop shell that exposes the lifecycle switches. */
+export function desktopDaemonAvailable(): boolean {
+  return daemonBridge() !== null;
+}
+
+export function desktopGetDaemonPrefs(): Promise<DaemonPrefs | null> {
+  const daemon = daemonBridge();
+  return daemon ? daemon.getPrefs() : Promise.resolve(null);
+}
+
+export function desktopSetDaemonPrefs(
+  patch: Partial<DaemonPrefs>,
+): Promise<DaemonPrefs | null> {
+  const daemon = daemonBridge();
+  return daemon ? daemon.setPrefs(patch) : Promise.resolve(null);
 }
 
 function bridge(): DesktopMachineBridge | null {

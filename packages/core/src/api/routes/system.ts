@@ -229,12 +229,20 @@ export async function systemRoutes(app: FastifyInstance): Promise<void> {
     }
   });
 
-  /** What the Settings -> Daemon card reads. Never includes the token. */
+  /**
+   * What the Settings -> Daemon card's diagnostics block reads.
+   *
+   * Deliberately never includes the token, at any level, including when
+   * something here fails — this is a support-facing endpoint and its whole
+   * output is expected to end up pasted into a bug report.
+   */
   app.get("/system/cloud-status", async () => ({
     connected: isPaired(),
     machineId: getMachineId(),
     workspaces: getRuntimes().length,
     cloudUrl: config.cloudUrl,
+    pid: process.pid,
+    uptimeMs: Date.now() - startedAt,
   }));
 
   app.post("/system/shutdown", async (_request, reply) => {

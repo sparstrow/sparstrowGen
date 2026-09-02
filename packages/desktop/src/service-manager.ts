@@ -149,14 +149,26 @@ export class ServiceManager {
       args = [tsxCli, path.join(coreDir, "src", "index.ts")];
       cwd = coreDir;
     }
+    // `detached` is what makes US2 possible: a child in its own process group
+    // is not killed when this shell exits, so quitting the app can leave the
+    // runtime running. Whether it actually SHOULD is `autoStopOnQuit`'s
+    // decision, made in `quitApp` — this only makes the choice available.
+    //
+    // stdio stays piped rather than "ignore" so the log file keeps working;
+    // `unref()` below is what actually releases the parent, and a piped child
+    // that has been unref'd no longer holds the event loop open.
     const child = spawn(nodeBin, args, {
       cwd,
       env: { ...process.env },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
+      detached: true,
     });
     this.child = child;
-    console.log(`[service] spawned core pid=${child.pid}`);
+    // Without this the shell cannot exit while the child lives, which would
+    // turn "keep the runtime running" into "the app never actually quits".
+    child.unref();
+    console.log(`[service] spawned core pid=${child.pid} (detached)`);
 
     const sink = (chunk: Buffer) => {
       this.logBytes += chunk.length;
@@ -291,7 +303,16 @@ export class ServiceManager {
   }
 
   /** Graceful stop: ask the core to drain, then force-kill as a fallback. */
-  async stop(): Promise<void> {
+  /**
+   * Stop the supervised processes.
+   *
+   * `stopCore: false` is US2's "keep running after quit": the bundled web
+   * server still goes (nothing can reach it once the window is gone, so
+   * leaving it would be a port held for no reason), but the runtime is left
+   * alive and detached. `stopping` is still set either way, so the exit
+   * handler does not treat a deliberate shutdown as a crash and restart it.
+   */
+  async stop(stopCore = true): Promise<void> {
     this.stopping = true;
     if (this.webChild && this.webChild.pid) {
       try {
@@ -302,6 +323,17 @@ export class ServiceManager {
     }
     this.webLogStream?.end();
     this.webLogStream = null;
+
+    if (!stopCore) {
+      // Deliberately not killed and deliberately not awaited. The log stream
+      // is closed because this process owns the file handle and is about to
+      // exit; the detached child keeps writing to its own inherited pipe,
+      // which the OS discards once nothing reads it.
+      console.log("[service] leaving core running (auto-stop on quit is off)");
+      this.logStream?.end();
+      this.logStream = null;
+      return;
+    }
 
     if (this.external || !this.child) return;
     const child = this.child;

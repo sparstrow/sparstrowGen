@@ -51,7 +51,18 @@ contextBridge.exposeInMainWorld("sparstrowDesktop", {
     /** Read-only status for the Settings -> Daemon card. Never carries a token. */
     status: (): Promise<CloudStatus> => ipcRenderer.invoke("sparstrow:cloud-status"),
   },
+  daemon: {
+    /** US2: the two lifecycle switches on the Settings -> Daemon card. */
+    getPrefs: (): Promise<DaemonPrefs> => ipcRenderer.invoke("sparstrow:daemon-prefs-get"),
+    setPrefs: (patch: Partial<DaemonPrefs>): Promise<DaemonPrefs> =>
+      ipcRenderer.invoke("sparstrow:daemon-prefs-set", patch),
+  },
 });
+
+type DaemonPrefs = {
+  autoStartOnLaunch: boolean;
+  autoStopOnQuit: boolean;
+};
 
 type ClaimResult =
   | { ok: true; machineId: string; workspaces: number }

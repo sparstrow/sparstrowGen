@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, User, Palette, Github, Settings as SettingsIcon, Key, Activity, AlertTriangle, Sun, Moon, Monitor } from "lucide-react";
+import { AccessTokensCard } from "./access-tokens-card";
+import { DaemonCard } from "./daemon-card";
+import { Trash2, User, Palette, Github, Settings as SettingsIcon, Key, Activity, AlertTriangle, Sun, Moon, Monitor, KeyRound } from "lucide-react";
 import { useAccount } from "@web/lib/account";
 import {
   useClearGithubPat,
@@ -790,6 +792,8 @@ export function SettingsPage() {
         { id: 'profile', label: 'Profile & Identity', icon: User },
         { id: 'appearance', label: 'Appearance & Theme', icon: Palette },
         { id: 'git', label: 'Git Credentials', icon: Github },
+        { id: 'tokens', label: 'API Tokens', icon: KeyRound },
+        { id: 'daemon', label: 'Daemon', icon: Monitor },
       ]
     },
     {
@@ -859,6 +863,8 @@ export function SettingsPage() {
         {activeTab === 'profile' && <ProfileCard />}
         {activeTab === 'appearance' && <AppearanceCard />}
         {activeTab === 'git' && <GitCard />}
+        {activeTab === 'tokens' && <AccessTokensCard />}
+        {activeTab === 'daemon' && <DaemonCard />}
         {activeTab === 'workspace' && <WorkspaceForm variant="card" />}
         {activeTab === 'providers' && <ProvidersCard />}
         {activeTab === 'health' && (
