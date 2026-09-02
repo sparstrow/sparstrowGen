@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec** | [`../specs/2026-09-02-computers-that-are-just-there.md`](../specs/2026-09-02-computers-that-are-just-there.md) |
-| **Status** | Built 2026-09-02, all six phases — **unverified against a live database or daemon** ([`G-56`](../KnownGaps.md)) |
+| **Status** | Built 2026-09-02, all six phases — **unverified against a live database or daemon** ([`G-58`](../KnownGaps.md)) |
 | **Trigger** | Owner, 2026-09-02, with three multica screenshots: connecting a computer should take no steps, the machine should stay reachable whenever the laptop is on, and one machine should serve personal and work workspaces with a switcher |
 | **Depends on** | — (supersedes [`2026-08-31-browser-loopback-pairing`](2026-08-31-browser-loopback-pairing.md), whose loopback handshake is partly reused) |
 | **Touches** | `packages/shared/src/db/schema.ts`, `packages/shared/drizzle/`, `apps/web/src/lib/daemon/`, `apps/web/src/app/api/daemon/**`, `apps/web/src/app/machines/`, `apps/web/src/app/settings/`, `apps/web/src/lib/workspace.ts`, `apps/web/src/components/layout/`, `packages/core/src/cloud/`, `packages/core/src/cli/`, `packages/core/src/api/routes/system.ts`, `packages/desktop/src/` |
@@ -245,7 +245,7 @@ to go straight from plan to code without the spec review gate. Five commits on
 
 **Every story is code-complete. None is verified.** `pnpm typecheck` is clean and
 1,640 unit tests pass, but no part of this has met a Postgres instance or a live
-daemon — see [`G-56`](../KnownGaps.md), which lists what that leaves unproved and
+daemon — see [`G-58`](../KnownGaps.md), which lists what that leaves unproved and
 what closes it. The plan's Verification table is the closing checklist, unrun.
 
 ### What was found while building that the plan didn't anticipate
@@ -281,8 +281,8 @@ capability is not evidence the capability exists.
 
 ### What it spawned
 
-- [`G-56`](../KnownGaps.md) — the whole feature, unverified against a live database.
-- [`G-57`](../KnownGaps.md) — the full suite flakes under parallel turbo; not
+- [`G-58`](../KnownGaps.md) — the whole feature, unverified against a live database.
+- [`G-59`](../KnownGaps.md) — the full suite flakes under parallel turbo; not
   proved to predate this work.
 - [`D-30`](../Deferred.md) — a machine in someone else's workspace, which must
   land before the owner ever joins one.

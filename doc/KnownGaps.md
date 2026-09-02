@@ -2260,7 +2260,7 @@ requirement this whole spec turns on.
 
 ---
 
-### G-56 — the person-scoped machine credential has never run against a live database
+### G-58 — the person-scoped machine credential has never run against a live database
 
 **Raised:** 2026-09-02, closing every phase of
 [`2026-09-02-computers-that-are-just-there`](plans/2026-09-02-computers-that-are-just-there.md).
@@ -2349,7 +2349,7 @@ plan's Verification table, run.
 
 ---
 
-### G-57 — the full test suite fails intermittently under parallel turbo, and it predates this work
+### G-59 — the full test suite fails intermittently under parallel turbo, and it predates this work
 
 **Raised:** 2026-09-02, while verifying
 [`2026-09-02-computers-that-are-just-there`](plans/2026-09-02-computers-that-are-just-there.md).
