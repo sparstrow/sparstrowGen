@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HEARTBEAT_INTERVAL_MS } from "@sparstrow/shared";
 import { config } from "../config.js";
-import { invalidatePairingCache, savePairing } from "./client.js";
+import { invalidatePairingCache, saveConnection } from "./client.js";
 import { declareDraining, startHeartbeat, stopHeartbeat } from "./heartbeat.js";
 
 function jsonResponse(status: number, body: unknown = {}): Response {
@@ -47,7 +47,7 @@ describe("heartbeat", () => {
   });
 
   it("beats immediately and then on the interval", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(200));
 
     startHeartbeat();
@@ -61,7 +61,7 @@ describe("heartbeat", () => {
   it("stops permanently once the pairing is revoked", async () => {
     // Retrying a revocation the owner performed deliberately turns it into a
     // request loop, and this token is never getting back in.
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(jsonResponse(403, { reason: "revoked" }));
@@ -75,7 +75,7 @@ describe("heartbeat", () => {
   });
 
   it("keeps trying while the network is down", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("ECONNREFUSED"));
 
     startHeartbeat();
@@ -88,7 +88,7 @@ describe("heartbeat", () => {
   });
 
   it("is idempotent — starting twice does not double the beat rate", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(200));
 
     startHeartbeat();
@@ -99,7 +99,7 @@ describe("heartbeat", () => {
 
   describe("declareDraining", () => {
     it("tells the cloud, so a clean stop is not mistaken for a crash", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(200));
 
       await declareDraining();
@@ -109,7 +109,7 @@ describe("heartbeat", () => {
     });
 
     it("stops the heartbeat so nothing resurrects the machine after it declares", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(200));
       startHeartbeat();
       await vi.advanceTimersByTimeAsync(0);
@@ -123,7 +123,7 @@ describe("heartbeat", () => {
     it("never throws, even with the network gone", async () => {
       // This runs inside shutdown. A rejection here would be the last thing in
       // the log, and would look like the cause of a failed shutdown.
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("ECONNREFUSED"));
       await expect(declareDraining()).resolves.toBeUndefined();
     });

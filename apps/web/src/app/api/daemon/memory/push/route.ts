@@ -6,7 +6,7 @@ import {
   type MemoryPushResponse,
   type MemoryPushResult,
 } from "@sparstrow/shared";
-import { authenticateDaemon, daemonDb } from "@web/lib/daemon/auth";
+import { authenticateRuntime, daemonDb } from "@web/lib/daemon/auth";
 import {
   decidePush,
   parsePushBatch,
@@ -40,7 +40,7 @@ import { authFailureResponse, daemonError, readJson } from "@web/lib/daemon/resp
 type ForeignIds = Set<string>;
 
 export async function POST(request: Request) {
-  const auth = await authenticateDaemon(request);
+  const auth = await authenticateRuntime(request);
   if (!auth.ok) return authFailureResponse(auth.failure);
 
   const parsed = parsePushBatch(await readJson(request));

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "../config.js";
 import * as providers from "../providers/index.js";
 import type { ModelProvider } from "../providers/types.js";
-import { invalidatePairingCache, savePairing } from "./client.js";
+import { invalidatePairingCache, saveConnection } from "./client.js";
 import { describeMachine, probeCapabilities, register } from "./registration.js";
 
 function fakeProvider(id: string, health: { ok: boolean } | "hang" | "throw"): ModelProvider {
@@ -132,7 +132,7 @@ describe("register", () => {
   });
 
   it("never sends a name, so the owner's chosen label survives a reboot", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
@@ -143,7 +143,7 @@ describe("register", () => {
   });
 
   it("swallows a cloud failure rather than taking startup with it", async () => {
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("ECONNREFUSED"));
     await expect(register()).resolves.toBe(false);
   });

@@ -1,17 +1,22 @@
-import { randomUUID } from "node:crypto";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { spawn } from "node:child_process";
-import type { PairResponse, StartPairingAttemptResponse } from "@sparstrow/shared";
+import type { ConnectExchangeResponse, StartConnectAttemptResponse } from "@sparstrow/shared";
 import { logger } from "../logger.js";
-import { cloudFetch, getRuntimeId, getWorkspaceId, savePairing } from "./client.js";
+import {
+  cloudFetch,
+  getOrCreateMachineId,
+  getWorkspaceId,
+  saveConnection,
+} from "./client.js";
+import { claimMachine } from "./claim.js";
 import { describeMachine } from "./registration.js";
 import { clearCloudLinks } from "./resolve.js";
 
 /**
  * Browser-loopback pairing — replaces the pairing-code exchange
  * (`pairWithCode`, removed) with the flow `doc/plans/2026-08-31-browser-
- * loopback-pairing.md` describes: this machine registers a pairing attempt,
+ * loopback-pairing.md` describes: this machine registers a connection attempt,
  * opens the owner's browser to confirm it on an already signed-in session,
  * and only THIS process — never the browser — ever exchanges the approved
  * attempt for the real daemon token. See that plan's Decisions section
@@ -53,11 +58,11 @@ export class PairError extends Error {
 
 const MESSAGES: Record<PairFailure, string> = {
   unknown_attempt:
-    "That pairing attempt was not recognised by the control plane. Run `sparstrow pair` again.",
-  attempt_not_approved: "The pairing attempt was exchanged before it was approved. This is a bug — run `sparstrow pair` again.",
+    "That connection attempt was not recognised by the control plane. Run `sparstrow setup` again.",
+  attempt_not_approved: "The connection attempt was exchanged before it was approved. This is a bug — run `sparstrow setup` again.",
   attempt_already_consumed:
-    "That pairing attempt has already been used. Run `sparstrow pair` again to start a fresh one.",
-  attempt_expired: "That pairing attempt expired. Run `sparstrow pair` again and confirm within 5 minutes.",
+    "That connection attempt has already been used. Run `sparstrow setup` again to start a fresh one.",
+  attempt_expired: "That connection attempt expired. Run `sparstrow setup` again and confirm within 5 minutes.",
   invalid_callback: "This machine could not register a valid callback address. This is a bug.",
   invalid_request: "This machine could not describe itself to the control plane.",
   no_browser:
@@ -73,7 +78,7 @@ const MESSAGES: Record<PairFailure, string> = {
 const ATTEMPT_TIMEOUT_MS = 5 * 60 * 1000;
 
 /**
- * Reported to the browser confirm page while `sparstrow pair` is waiting, and
+ * Reported to the browser confirm page while `sparstrow setup` is waiting, and
  * printed to the terminal. A caller wanting quieter output can ignore these.
  */
 export interface PairProgress {
@@ -99,9 +104,9 @@ export async function pairViaBrowser(
   /** Overridable only for tests — production callers always get the real
    *  5-minute window, matched to the control plane's own attempt TTL. */
   timeoutMs: number = ATTEMPT_TIMEOUT_MS,
-): Promise<PairResponse> {
+): Promise<ConnectExchangeResponse> {
   const identity = await describeMachine(name);
-  const runtimeId = getRuntimeId() ?? randomUUID();
+  const machineId = getOrCreateMachineId();
 
   let attemptId = "";
   let settled = false;
@@ -117,7 +122,7 @@ export async function pairViaBrowser(
   // the outer function's control flow is simpler to get right as one object
   // than as two variables TypeScript has to track independently across the
   // closure boundary.
-  const outcome: { result: PairResponse | null; error: unknown } = { result: null, error: null };
+  const outcome: { result: ConnectExchangeResponse | null; error: unknown } = { result: null, error: null };
 
   const server = http.createServer((req, res) => {
     void handleCallback(req, res, async () => {
@@ -130,7 +135,7 @@ export async function pairViaBrowser(
       }
       settled = true;
       try {
-        outcome.result = await cloudFetch<PairResponse>("/pair/exchange", {
+        outcome.result = await cloudFetch<ConnectExchangeResponse>("/connect/exchange", {
           anonymous: true,
           body: { attemptId },
           retries: 1,
@@ -149,11 +154,11 @@ export async function pairViaBrowser(
   const callback = `http://127.0.0.1:${port}/callback`;
 
   try {
-    let start: StartPairingAttemptResponse;
+    let start: StartConnectAttemptResponse;
     try {
-      start = await cloudFetch<StartPairingAttemptResponse>("/pair", {
+      start = await cloudFetch<StartConnectAttemptResponse>("/connect", {
         anonymous: true,
-        body: { runtimeId, callback, ...identity },
+        body: { machineId, callback, ...identity },
         retries: 1,
       });
     } catch (err) {
@@ -177,28 +182,40 @@ export async function pairViaBrowser(
 
   if (outcome.error) throw toPairError(outcome.error);
   const response = outcome.result;
-  if (!response?.token || !response.runtimeId || !response.workspaceId) {
+  if (!response?.token || !response.machineId) {
     throw new PairError("server_error", MESSAGES.server_error);
   }
 
-  // M4: cloud ids only mean anything within one workspace — cleared before
-  // the new pairing is saved so a crash in between leaves no links rather
-  // than wrong ones. Same reasoning `pairWithCode` used to carry.
+  // Cloud ids only mean anything within one workspace, so a machine that has
+  // moved to a different account must not keep the previous one's link table.
+  // Cleared BEFORE the new credential is saved, so a crash in between leaves
+  // no links rather than wrong ones.
   const previousWorkspaceId = getWorkspaceId();
-  if (previousWorkspaceId && previousWorkspaceId !== response.workspaceId) {
+  if (previousWorkspaceId) {
     try {
       clearCloudLinks();
-      logger.info("paired to a different workspace — cleared cloud id links");
+      logger.info("connected to a different account — cleared cloud id links");
     } catch (err) {
-      logger.debug({ err }, "could not clear cloud links while re-pairing");
+      logger.debug({ err }, "could not clear cloud links while reconnecting");
     }
   }
 
-  savePairing({
-    token: response.token,
-    runtimeId: response.runtimeId,
-    workspaceId: response.workspaceId,
-  });
+  // Saved with an empty runtime map: the credential exists, but which runtime
+  // represents this machine in which workspace is not known until the claim
+  // below answers it. Saving first means a claim that fails on a flaky network
+  // leaves a usable credential to retry with, rather than throwing the token
+  // away and making the whole browser dance happen again.
+  saveConnection({ token: response.token, machineId: response.machineId, runtimes: [] });
+
+  try {
+    await claimMachine(name ?? undefined);
+  } catch (err) {
+    // Non-fatal, and deliberately so. The machine IS connected — it holds a
+    // valid credential and will re-claim on its next boot and on its next
+    // heartbeat. Failing here would report "connecting failed" for something
+    // that has already succeeded in the only way that is hard to undo.
+    logger.warn({ err }, "connected, but could not register runtimes yet — will retry");
+  }
 
   return response;
 }

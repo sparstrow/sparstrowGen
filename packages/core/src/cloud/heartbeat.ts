@@ -2,10 +2,13 @@ import { HEARTBEAT_INTERVAL_MS } from "@sparstrow/shared";
 import { logger } from "../logger.js";
 import {
   CloudAuthError,
+  CloudRequestError,
   cloudFetch,
+  getRuntimes,
   invalidatePairingCache,
   isPaired,
 } from "./client.js";
+import { reclaimAfterUnknownRuntime } from "./claim.js";
 
 /**
  * M3 — "I am still here."
@@ -25,53 +28,85 @@ let stopped = false;
 async function beat(): Promise<void> {
   if (stopped || !isPaired()) return;
 
-  try {
-    await cloudFetch("/heartbeat", { retries: 1, timeoutMs: 10_000 });
+  const runtimes = getRuntimes();
+  if (runtimes.length === 0) {
+    // Connected but placed nowhere — a brand-new account whose first workspace
+    // has not been bootstrapped. Re-claiming is the only thing that can change
+    // that, and it is cheap at heartbeat cadence.
+    await reclaimAfterUnknownRuntime();
+    return;
+  }
+
+  // One beat per workspace. `runtimes.status` and `last_heartbeat` live on the
+  // per-workspace runtime row, so a machine that beat only into its first
+  // workspace would show as online there and unreachable in every other —
+  // which is exactly the bug a person with a personal and a work workspace
+  // would hit on day one.
+  const results = await Promise.allSettled(
+    runtimes.map((binding) =>
+      cloudFetch("/heartbeat", { retries: 1, timeoutMs: 10_000, runtimeId: binding.runtimeId }),
+    ),
+  );
+
+  const authFailure = results.find(
+    (r): r is PromiseRejectedResult =>
+      r.status === "rejected" && r.reason instanceof CloudAuthError,
+  );
+
+  if (authFailure) {
+    const err = authFailure.reason as CloudAuthError;
+    if (err.revoked) {
+      // The owner did this deliberately. Retrying forever would turn a
+      // revocation into a request loop against the control plane, and this
+      // machine is never getting back in on this token.
+      logger.warn(
+        "this computer's access was revoked — stopping heartbeat. Run `sparstrow setup --force` to reconnect.",
+      );
+      stopHeartbeat();
+      return;
+    }
+    // 401: the token was rejected but not revoked. Most often the store was
+    // rewritten while core was running, so re-read it before concluding
+    // anything. This is what lets connecting take effect without a restart.
+    invalidatePairingCache();
+    if (!isPaired()) {
+      logger.warn("access token is no longer valid — stopping heartbeat until reconnected");
+      stopHeartbeat();
+      return;
+    }
+    logger.info("access token was rejected; re-read the secret store and will retry");
+    return;
+  }
+
+  // A runtime that no longer exists means the owner left that workspace while
+  // this machine was running. Not a failure of this machine — a change
+  // underneath it — so it re-claims rather than treating itself as broken.
+  const unknownRuntime = results.some(
+    (r) =>
+      r.status === "rejected" &&
+      r.reason instanceof CloudRequestError &&
+      r.reason.reason === "unknown_runtime",
+  );
+  if (unknownRuntime) {
+    await reclaimAfterUnknownRuntime();
+    return;
+  }
+
+  const delivered = results.some((r) => r.status === "fulfilled");
+  if (delivered) {
     if (!healthy) {
       healthy = true;
       logger.info("cloud control plane reachable again");
     }
-  } catch (err) {
-    if (err instanceof CloudAuthError) {
-      if (err.revoked) {
-        // The owner did this deliberately. Retrying forever would turn a
-        // revocation into a request loop against the control plane, and this
-        // machine is never getting back in on this token.
-        logger.warn(
-          "this machine's pairing was revoked — stopping heartbeat. Run `sparstrow pair <code>` to reconnect.",
-        );
-        stopHeartbeat();
-        return;
-      }
-      // 401: the token was rejected but not revoked. Most often the store was
-      // rewritten by `sparstrow pair` while core was running, so re-read it
-      // before concluding anything. This is what lets pairing take effect
-      // without a restart.
-      invalidatePairingCache();
-      if (!isPaired()) {
-        logger.warn("daemon token is no longer valid — stopping heartbeat until re-paired");
-        stopHeartbeat();
-        return;
-      }
-      logger.info("daemon token was rejected; re-read the secret store and will retry");
-      return;
-    }
+    return;
+  }
 
-    if (healthy) {
-      healthy = false;
-      logger.warn(
-        { detail: err instanceof Error ? err.message : String(err) },
-        "cloud control plane unreachable — retrying in the background",
-      );
-    }
+  if (healthy) {
+    healthy = false;
+    logger.warn("cloud control plane unreachable — heartbeats will keep retrying");
   }
 }
 
-/**
- * Start beating. Safe to call on an unpaired machine: the loop runs and does
- * nothing until a pairing appears, which is what lets `sparstrow pair` be
- * noticed without a restart.
- */
 export function startHeartbeat(): void {
   if (timer) return;
   stopped = false;

@@ -1,10 +1,11 @@
 import { DAEMON_API_BASE } from "@sparstrow/shared";
 import { config } from "../config.js";
 import { logger } from "../logger.js";
+import { randomBytes } from "node:crypto";
 import {
-  SECRET_CLOUD_DAEMON_TOKEN,
-  SECRET_CLOUD_RUNTIME_ID,
-  SECRET_CLOUD_WORKSPACE_ID,
+  SECRET_CLOUD_ACCESS_TOKEN,
+  SECRET_CLOUD_MACHINE_ID,
+  SECRET_CLOUD_RUNTIMES,
   deleteSecret,
   getSecret,
   setSecret,
@@ -45,29 +46,60 @@ export class CloudRequestError extends Error {
   }
 }
 
-export interface PairingState {
-  token: string;
+/** Which runtime represents this machine in one of its owner's workspaces. */
+export interface RuntimeBinding {
   runtimeId: string;
   workspaceId: string;
 }
 
+export interface ConnectionState {
+  token: string;
+  machineId: string;
+  /** One entry per workspace the owner belongs to, as of the last claim. */
+  runtimes: RuntimeBinding[];
+}
+
 /**
- * In-process cache of the pairing, so a 30s heartbeat is not decrypting a file
- * every time. `null` means "not loaded yet"; a loaded-but-absent pairing is
- * represented by `loaded === true` with `cached === null`.
+ * In-process cache of the connection, so a 30s heartbeat is not decrypting a
+ * file every time. `null` means "not loaded yet"; a loaded-but-absent
+ * connection is `loaded === true` with `cached === null`.
  */
-let cached: PairingState | null = null;
+let cached: ConnectionState | null = null;
 let loaded = false;
 
-function load(): PairingState | null {
+function parseRuntimes(raw: string | null): RuntimeBinding[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (r): r is RuntimeBinding =>
+        !!r && typeof r.runtimeId === "string" && typeof r.workspaceId === "string",
+    );
+  } catch {
+    // A corrupt map is recoverable: the next claim rewrites it. Treating it as
+    // empty means this machine reports itself as connected-but-unplaced rather
+    // than refusing to start.
+    return [];
+  }
+}
+
+function load(): ConnectionState | null {
   if (loaded) return cached;
-  const token = getSecret(SECRET_CLOUD_DAEMON_TOKEN);
-  const runtimeId = getSecret(SECRET_CLOUD_RUNTIME_ID);
-  const workspaceId = getSecret(SECRET_CLOUD_WORKSPACE_ID);
-  // All three or nothing. A token with no runtime id is a half-written pairing
-  // that would authenticate but never identify itself; treating it as unpaired
-  // makes `sparstrow pair` the fix instead of a confusing partial state.
-  cached = token && runtimeId && workspaceId ? { token, runtimeId, workspaceId } : null;
+  const token = getSecret(SECRET_CLOUD_ACCESS_TOKEN);
+  const machineId = getSecret(SECRET_CLOUD_MACHINE_ID);
+  // Both, or nothing. A token with no machine id is a half-written connection
+  // that would authenticate but never identify itself.
+  //
+  // The runtime map is deliberately NOT part of that test: an empty map is a
+  // real, legitimate state (claimed, but the owner's first workspace has not
+  // been bootstrapped yet), and treating it as unconnected would make the
+  // machine re-run setup for a situation that resolves itself on the next
+  // claim.
+  cached =
+    token && machineId
+      ? { token, machineId, runtimes: parseRuntimes(getSecret(SECRET_CLOUD_RUNTIMES)) }
+      : null;
   loaded = true;
   return cached;
 }
@@ -82,34 +114,96 @@ export function isPaired(): boolean {
   return load() !== null;
 }
 
+/**
+ * This computer's stable id, minted on first use and then never changed.
+ *
+ * Generated here rather than by the server so that signing out and back in —
+ * or moving the machine to another account — lands on the same `machines` row
+ * instead of leaving a duplicate computer behind in the owner's list every
+ * time. Survives `clearConnection` for exactly that reason.
+ */
+export function getOrCreateMachineId(): string {
+  const existing = getSecret(SECRET_CLOUD_MACHINE_ID);
+  if (existing) return existing;
+  const id = `mach_${randomBytes(16).toString("hex")}`;
+  setSecret(SECRET_CLOUD_MACHINE_ID, id);
+  return id;
+}
+
+export function getMachineId(): string | null {
+  return load()?.machineId ?? getSecret(SECRET_CLOUD_MACHINE_ID);
+}
+
+/** Every workspace this machine currently serves. */
+export function getRuntimes(): RuntimeBinding[] {
+  return load()?.runtimes ?? [];
+}
+
+/**
+ * The runtime to use when a caller has not named a workspace.
+ *
+ * Most of core's cloud loops predate this machine serving more than one
+ * workspace and still ask for "the" runtime. Rather than have them silently
+ * address nothing, they address the first binding — which is the only one on a
+ * single-workspace machine, i.e. every machine until the owner creates a
+ * second workspace.
+ */
 export function getRuntimeId(): string | null {
-  return load()?.runtimeId ?? null;
+  return load()?.runtimes[0]?.runtimeId ?? null;
 }
 
 export function getWorkspaceId(): string | null {
-  return load()?.workspaceId ?? null;
+  return load()?.runtimes[0]?.workspaceId ?? null;
 }
 
-export function savePairing(state: PairingState): void {
-  setSecret(SECRET_CLOUD_DAEMON_TOKEN, state.token);
-  setSecret(SECRET_CLOUD_RUNTIME_ID, state.runtimeId);
-  setSecret(SECRET_CLOUD_WORKSPACE_ID, state.workspaceId);
+/** The runtime representing this machine in one specific workspace. */
+export function runtimeForWorkspace(workspaceId: string): string | null {
+  return load()?.runtimes.find((r) => r.workspaceId === workspaceId)?.runtimeId ?? null;
+}
+
+export function saveConnection(state: ConnectionState): void {
+  setSecret(SECRET_CLOUD_ACCESS_TOKEN, state.token);
+  setSecret(SECRET_CLOUD_MACHINE_ID, state.machineId);
+  setSecret(SECRET_CLOUD_RUNTIMES, JSON.stringify(state.runtimes));
   cached = state;
   loaded = true;
 }
 
-export function clearPairing(): void {
-  deleteSecret(SECRET_CLOUD_DAEMON_TOKEN);
-  deleteSecret(SECRET_CLOUD_RUNTIME_ID);
-  deleteSecret(SECRET_CLOUD_WORKSPACE_ID);
+/** Update the runtime map after a claim, keeping the existing credential. */
+export function saveRuntimes(runtimes: RuntimeBinding[]): void {
+  setSecret(SECRET_CLOUD_RUNTIMES, JSON.stringify(runtimes));
+  const current = load();
+  if (current) {
+    cached = { ...current, runtimes };
+    loaded = true;
+  }
+}
+
+/**
+ * Forget the credential. The machine id is deliberately kept — see
+ * `getOrCreateMachineId`.
+ */
+export function clearConnection(): void {
+  deleteSecret(SECRET_CLOUD_ACCESS_TOKEN);
+  deleteSecret(SECRET_CLOUD_RUNTIMES);
   invalidatePairingCache();
 }
 
 export interface CloudFetchOptions {
   method?: "GET" | "POST";
   body?: unknown;
-  /** Omit the bearer token — only /pair, whose credential is the pairing code. */
+  /** Omit the bearer token — only /connect, whose credential is the attempt id. */
   anonymous?: boolean;
+  /**
+   * Which runtime this request is about, i.e. which workspace it concerns.
+   *
+   * Defaults to the machine's first binding, which is the only one until the
+   * owner creates a second workspace. Routes that are about the MACHINE rather
+   * than a workspace (`/claim`) pass `null` explicitly — sending a runtime
+   * header there would be meaningless, and on the very first claim there is no
+   * runtime to send yet.
+   */
+  runtimeId?: string | null;
   timeoutMs?: number;
   /** Attempts after the first. 5xx and network errors only; never 4xx. */
   retries?: number;
@@ -136,18 +230,24 @@ export async function cloudFetch<T>(path: string, options: CloudFetchOptions = {
     method = "POST",
     body,
     anonymous = false,
+    runtimeId,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     retries = DEFAULT_RETRIES,
     baseUrl = config.cloudUrl,
   } = options;
 
   let token: string | null = null;
+  // `undefined` means "use the default binding"; an explicit `null` means "this
+  // request is about the machine, not a workspace". The two must stay
+  // distinguishable, which is why this is not `runtimeId ?? getRuntimeId()`.
+  let scopedRuntime: string | null = null;
   if (!anonymous) {
-    const pairing = load();
-    if (!pairing) {
-      throw new CloudAuthError("This machine is not paired to a workspace.", false);
+    const connection = load();
+    if (!connection) {
+      throw new CloudAuthError("This computer is not connected to an account.", false);
     }
-    token = pairing.token;
+    token = connection.token;
+    scopedRuntime = runtimeId === undefined ? (connection.runtimes[0]?.runtimeId ?? null) : runtimeId;
   }
 
   const url = `${baseUrl}${DAEMON_API_BASE}${path}`;
@@ -163,6 +263,7 @@ export async function cloudFetch<T>(path: string, options: CloudFetchOptions = {
         headers: {
           "content-type": "application/json",
           ...(token ? { authorization: `Bearer ${token}` } : {}),
+          ...(scopedRuntime ? { "x-sparstrow-runtime": scopedRuntime } : {}),
         },
         body: method === "GET" ? undefined : JSON.stringify(body ?? {}),
         signal: AbortSignal.timeout(timeoutMs),
@@ -180,7 +281,10 @@ export async function cloudFetch<T>(path: string, options: CloudFetchOptions = {
       // a stale cache would keep presenting the dead one forever.
       invalidatePairingCache();
       throw new CloudAuthError(
-        await messageFrom(response, revoked ? "This machine's pairing was revoked." : "The daemon token was rejected."),
+        await messageFrom(
+          response,
+          revoked ? "This computer's access was revoked." : "The access token was rejected.",
+        ),
         revoked,
       );
     }

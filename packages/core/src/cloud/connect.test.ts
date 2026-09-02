@@ -17,14 +17,19 @@ vi.mock("node:child_process", async (importOriginal) => ({
 }));
 
 const cloudFetchMock = vi.fn();
-const getRuntimeIdMock = vi.fn(() => null as string | null);
+const getMachineIdMock = vi.fn(() => "mach_test");
 const getWorkspaceIdMock = vi.fn(() => null as string | null);
-const savePairingMock = vi.fn();
+const saveConnectionMock = vi.fn();
 vi.mock("./client.js", () => ({
   cloudFetch: (...args: unknown[]) => cloudFetchMock(...args),
-  getRuntimeId: () => getRuntimeIdMock(),
+  getOrCreateMachineId: () => getMachineIdMock(),
   getWorkspaceId: () => getWorkspaceIdMock(),
-  savePairing: (...args: unknown[]) => savePairingMock(...args),
+  saveConnection: (...args: unknown[]) => saveConnectionMock(...args),
+}));
+
+const claimMachineMock = vi.fn(async (_name?: string) => ({ machineId: "mach_test", runtimes: [] }));
+vi.mock("./claim.js", () => ({
+  claimMachine: (name?: string) => claimMachineMock(name),
 }));
 
 const describeMachineMock = vi.fn(
@@ -46,7 +51,7 @@ vi.mock("./resolve.js", () => ({
   clearCloudLinks: (...args: unknown[]) => clearCloudLinksMock(...args),
 }));
 
-const { pairViaBrowser } = await import("./pairing.js");
+const { pairViaBrowser } = await import("./connect.js");
 
 /** A fake browser confirming: fetch the confirmUrl's callback address. */
 async function simulateBrowserConfirm(confirmUrl: string): Promise<Response> {
@@ -66,9 +71,10 @@ beforeEach(() => {
   spawnMock.mockReset();
   spawnMock.mockReturnValue({ on: vi.fn(), unref: vi.fn() });
   cloudFetchMock.mockReset();
-  getRuntimeIdMock.mockReset().mockReturnValue(null);
+  getMachineIdMock.mockReset().mockReturnValue("mach_test");
+  claimMachineMock.mockClear();
   getWorkspaceIdMock.mockReset().mockReturnValue(null);
-  savePairingMock.mockReset();
+  saveConnectionMock.mockReset();
   describeMachineMock.mockClear();
   clearCloudLinksMock.mockReset();
 });
@@ -77,12 +83,12 @@ describe("pairViaBrowser", () => {
   it("registers an attempt, opens a browser, and saves the token once the callback fires", async () => {
     let callbackUrl = "";
     cloudFetchMock.mockImplementation(async (path: string, opts: { body?: { callback?: string } }) => {
-      if (path === "/pair") {
+      if (path === "/connect") {
         callbackUrl = opts.body!.callback!;
         return startsResponse(callbackUrl);
       }
-      if (path === "/pair/exchange") {
-        return { token: "tok_abc", runtimeId: "rt_1", workspaceId: "ws_1" };
+      if (path === "/connect/exchange") {
+        return { token: "tok_abc", tokenId: "at_1", machineId: "mach_test" };
       }
       throw new Error(`unexpected path ${path}`);
     });
@@ -97,27 +103,33 @@ describe("pairViaBrowser", () => {
     });
 
     const result = await pairPromise;
-    expect(result).toEqual({ token: "tok_abc", runtimeId: "rt_1", workspaceId: "ws_1" });
-    expect(savePairingMock).toHaveBeenCalledWith({
+    expect(result).toEqual({ token: "tok_abc", tokenId: "at_1", machineId: "mach_test" });
+    // Saved with an EMPTY runtime map: which workspaces this computer serves is
+    // not known until the claim below answers it. Saving the credential first
+    // is what makes a failed claim retryable without redoing the browser dance.
+    expect(saveConnectionMock).toHaveBeenCalledWith({
       token: "tok_abc",
-      runtimeId: "rt_1",
-      workspaceId: "ws_1",
+      machineId: "mach_test",
+      runtimes: [],
     });
+    expect(claimMachineMock).toHaveBeenCalledOnce();
     // The confirm URL IS the callback URL in this test harness (see
     // simulateBrowserConfirm's note); a real browser instead opens the web
-    // app's /pair page, which is what actually issues the GET to callbackUrl.
+    // app's /connect page, which is what actually issues the GET to callbackUrl.
     expect(callbackUrl).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/callback$/);
     expect(spawnMock).toHaveBeenCalledTimes(1);
   });
 
-  it("reuses the stored runtime id across a re-pair, instead of minting a new one", async () => {
-    getRuntimeIdMock.mockReturnValue("rt_existing");
-    cloudFetchMock.mockImplementation(async (path: string, opts: { body?: { callback?: string; runtimeId?: string } }) => {
-      if (path === "/pair") {
-        expect(opts.body!.runtimeId).toBe("rt_existing");
+  it("reuses the stored machine id across a reconnect, instead of minting a new one", async () => {
+    // The whole reason `getOrCreateMachineId` persists: without it, every
+    // reconnect would leave a duplicate computer behind in the owner's list.
+    getMachineIdMock.mockReturnValue("mach_existing");
+    cloudFetchMock.mockImplementation(async (path: string, opts: { body?: { callback?: string; machineId?: string } }) => {
+      if (path === "/connect") {
+        expect(opts.body!.machineId).toBe("mach_existing");
         return startsResponse(opts.body!.callback!);
       }
-      return { token: "tok", runtimeId: "rt_existing", workspaceId: "ws_1" };
+      return { token: "tok", tokenId: "at_1", machineId: "mach_existing" };
     });
 
     await pairViaBrowser(undefined, {
@@ -125,11 +137,11 @@ describe("pairViaBrowser", () => {
     });
   });
 
-  it("clears cloud links when the workspace changes on re-pair", async () => {
+  it("clears cloud links when reconnecting a computer that was connected before", async () => {
     getWorkspaceIdMock.mockReturnValue("ws_old");
     cloudFetchMock.mockImplementation(async (path: string, opts: { body?: { callback?: string } }) => {
-      if (path === "/pair") return startsResponse(opts.body!.callback!);
-      return { token: "tok", runtimeId: "rt_1", workspaceId: "ws_new" };
+      if (path === "/connect") return startsResponse(opts.body!.callback!);
+      return { token: "tok", tokenId: "at_1", machineId: "mach_test" };
     });
 
     await pairViaBrowser(undefined, {
@@ -141,7 +153,7 @@ describe("pairViaBrowser", () => {
 
   it("maps a rejected exchange (e.g. an expired attempt) to a typed PairError", async () => {
     cloudFetchMock.mockImplementation(async (path: string, opts: { body?: { callback?: string } }) => {
-      if (path === "/pair") return startsResponse(opts.body!.callback!);
+      if (path === "/connect") return startsResponse(opts.body!.callback!);
       const err = new Error("That pairing attempt has expired.") as Error & { reason?: string };
       err.reason = "attempt_expired";
       throw err;
@@ -156,7 +168,7 @@ describe("pairViaBrowser", () => {
 
   it("times out if the callback never fires, without hanging forever", async () => {
     cloudFetchMock.mockImplementation(async (path: string, opts: { body?: { callback?: string } }) => {
-      if (path === "/pair") return startsResponse(opts.body!.callback!);
+      if (path === "/connect") return startsResponse(opts.body!.callback!);
       throw new Error("exchange should never be called in this test");
     });
 
@@ -171,8 +183,8 @@ describe("pairViaBrowser", () => {
       throw new Error("no display");
     });
     cloudFetchMock.mockImplementation(async (path: string, opts: { body?: { callback?: string } }) => {
-      if (path === "/pair") return startsResponse(opts.body!.callback!);
-      return { token: "tok", runtimeId: "rt_1", workspaceId: "ws_1" };
+      if (path === "/connect") return startsResponse(opts.body!.callback!);
+      return { token: "tok", tokenId: "at_1", machineId: "mach_test" };
     });
 
     let reportedFailedOpen = false;

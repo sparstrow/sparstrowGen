@@ -97,6 +97,44 @@ export const workspaceMembers = pgTable(
 // ─── 2. Machine registry ───────────────────────────────────────────────────────
 
 /**
+ * One row per physical computer, owned by a PERSON rather than a workspace.
+ *
+ * This table is what makes "one machine, many workspaces" expressible. Before
+ * it, `runtimes` *was* the machine, and its `workspace_id` meant a computer
+ * could only ever belong to one — connecting the same laptop to a personal and
+ * a work workspace meant two unrelated rows with no way to know they were the
+ * same hardware.
+ *
+ * `id` is generated ON THE MACHINE and persisted in its secrets dir, not
+ * assigned here. That is deliberate and load-bearing: it must survive a
+ * re-claim (signing out and back in, moving the machine to another account)
+ * so the same computer does not accumulate duplicate rows every time its
+ * credential is replaced.
+ *
+ * `user_id` is the claim. It moves when a different person signs in on this
+ * computer, and moving it is what makes the previous owner's runtimes
+ * invalid — see `claim_machine` in policies/033.
+ */
+export const machines = pgTable(
+  "machines",
+  {
+    id: text("id").primaryKey(),
+    /** Supabase auth uid of whoever currently owns this computer. */
+    userId: text("user_id").notNull(),
+    /** Editable label. Defaults to the hostname; renaming never re-claims. */
+    name: text("name").notNull(),
+    os: text("os").notNull(), // win32 | darwin | linux
+    hostname: text("hostname").notNull(),
+    isElectron: boolean("is_electron").notNull().default(false),
+    coreVersion: text("core_version"),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("idx_machines_user").on(t.userId)],
+);
+
+
+/**
  * One row per paired machine. `capabilities` is probed at registration from
  * core's provider registry (`listProviders()`), so the board knows which boxes
  * can serve which providers — e.g. ['claude-code', 'antigravity', 'ollama'].
@@ -112,6 +150,18 @@ export const runtimes = pgTable(
     workspaceId: text("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
+    /**
+     * The computer this runtime lives on. A runtime is a machine's presence in
+     * ONE workspace, so a laptop serving a personal and a work workspace has
+     * two rows here and one row in `machines`.
+     *
+     * Keeping `workspace_id` alongside it is what leaves every dispatch path
+     * untouched: `runtime_commands`, `run_events`, terminal channels and every
+     * RLS policy still filter on a flat `workspace_id`, exactly as before.
+     */
+    machineId: text("machine_id")
+      .notNull()
+      .references(() => machines.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     os: text("os").notNull(), // win32 | darwin | linux
     hostname: text("hostname").notNull(),
@@ -138,7 +188,13 @@ export const runtimes = pgTable(
     lastHeartbeat: timestamp("last_heartbeat", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("idx_runtimes_workspace").on(t.workspaceId, t.status)],
+  (t) => [
+    index("idx_runtimes_workspace").on(t.workspaceId, t.status),
+    index("idx_runtimes_machine").on(t.machineId),
+    // One runtime per machine per workspace. This is what stops a re-claim or a
+    // second registration creating a duplicate row for the same computer.
+    uniqueIndex("uq_runtimes_machine_workspace").on(t.machineId, t.workspaceId),
+  ],
 );
 
 /**
@@ -235,77 +291,92 @@ export const agentMachineRestrictions = pgTable(
   ],
 );
 
-// ─── 3. Daemon auth & dispatch ─────────────────────────────────────────────────
+
+// ─── 3. Machine auth & dispatch ────────────────────────────────────────────────
 
 /**
- * Browser-loopback pairing attempts — replaces the old `pairing_codes`.
+ * The one-time handshake that connects a machine with no signed-in app of its
+ * own — a server, a dev box, `sparstrow setup` in a terminal.
  *
- * `id` is a machine-generated bearer token (32 bytes, CSPRNG), never a code a
- * person reads or types: the daemon creates the row itself (`status:
- * 'pending'`) before opening the owner's browser to `/pair?attempt=<id>`, so
- * only the daemon process and whoever opens that exact URL ever see it.
+ * `id` is a machine-generated bearer value (32 bytes, CSPRNG), never a code a
+ * person reads or types: the machine creates the row itself (`status:
+ * 'pending'`) before opening a browser to `/connect?attempt=<id>`, so only
+ * that process and whoever opens that exact URL ever see it.
  *
- * Lifecycle: `pending` (daemon registered it, machine identity stored, no
- * workspace yet) -> `approved` (an authenticated member picked a workspace
- * and confirmed) -> `consumed` (the daemon exchanged it for a real daemon
- * token, exactly once). The daemon's own local HTTP listener is what makes
- * "approved" ever reach "consumed" — see `exchange_pairing_attempt`
- * (`policies/031_pairing_attempts.sql`) for why the real token is minted
- * there and not at approval time.
+ * Lifecycle: `pending` (the machine registered its identity, no owner yet) ->
+ * `approved` (a signed-in person confirmed it is their computer) ->
+ * `consumed` (the machine exchanged it for a real access token, exactly once).
+ *
+ * The real credential is minted at CONSUME, not at approval — see
+ * `exchange_connect_attempt` in policies/033. That ordering is what stops a
+ * ghost machine: the token only exists once the browser's redirect has already
+ * reached the machine's own loopback listener, so a machine that never came
+ * back never got a credential.
+ *
+ * Unlike the workspace-scoped version this replaces, no workspace is chosen
+ * here. A machine belongs to a person, and reaches every workspace that person
+ * is a member of.
  */
-export const pairingAttempts = pgTable(
-  "pairing_attempts",
+export const connectAttempts = pgTable(
+  "connect_attempts",
   {
     id: text("id").primaryKey(),
-    runtimeId: text("runtime_id").notNull(),
+    /** Stable machine id, generated on the machine. Becomes `machines.id`. */
+    machineId: text("machine_id").notNull(),
     name: text("name").notNull(),
     os: text("os").notNull(),
     hostname: text("hostname").notNull(),
     isElectron: boolean("is_electron").notNull().default(false),
     capabilities: jsonb("capabilities").$type<string[]>().notNull().default([]),
     coreVersion: text("core_version"),
-    /** Loopback URL the daemon's local listener is waiting on. Validated
+    /** Loopback URL the machine's local listener is waiting on. Validated
      *  host-is-loopback at insert time; never a public address. */
     callback: text("callback").notNull(),
     status: text("status").notNull().default("pending"), // pending | approved | consumed
-    workspaceId: text("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
     approvedByUserId: text("approved_by_user_id"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     consumedAt: timestamp("consumed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [
-    index("idx_pairing_attempts_status_expires").on(t.status, t.expiresAt),
-    index("idx_pairing_attempts_workspace").on(t.workspaceId),
-  ],
+  (t) => [index("idx_connect_attempts_status_expires").on(t.status, t.expiresAt)],
 );
 
 /**
- * Daemon credentials. Scoped to ONE workspace and ONE runtime — a
- * workspace-wide token would mean a single compromised laptop exposes every
- * machine. Only the hash is stored; the raw token is shown once at pairing and
- * then lives encrypted in the daemon's `secretsDir` (`~/.sparstrow`), outside
- * `dataDir` where Bash/Read-capable agents could reach it.
+ * What can act as a person. Replaces `daemon_tokens`, which was scoped to one
+ * workspace and one runtime.
+ *
+ * This is a deliberate widening of blast radius, taken with the owner on
+ * 2026-09-02 and recorded in full — with its compensating controls — in
+ * `doc/security/SEC-2026-09-02-daemon-credential-widened-to-person-scope.md`.
+ * Read that before changing anything here. In short: a leaked token acts as
+ * the person across every workspace they belong to, so `last_used_at`,
+ * `revoked_at` and the Settings -> API Tokens page that surfaces both are not
+ * decoration — they are the reason this shape is acceptable at all.
+ *
+ * Only the sha256 hash is stored; the raw value is returned exactly once, at
+ * creation, and then lives in the machine's encrypted secret store.
+ *
+ * `machine_id` is nullable on purpose: a token created by hand in the browser
+ * (for a headless box) has no machine yet, and adopts one when it is first
+ * used to claim.
  */
-export const daemonTokens = pgTable(
-  "daemon_tokens",
+export const accessTokens = pgTable(
+  "access_tokens",
   {
     id: text("id").primaryKey(),
-    workspaceId: text("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    runtimeId: text("runtime_id")
-      .notNull()
-      .references(() => runtimes.id, { onDelete: "cascade" }),
+    /** The person this token acts as. */
+    userId: text("user_id").notNull(),
+    machineId: text("machine_id").references(() => machines.id, { onDelete: "set null" }),
+    /** Human label, shown on the tokens page. e.g. "Sparstrow Desktop". */
+    name: text("name").notNull(),
     tokenHash: text("token_hash").notNull().unique(),
-    label: text("label").notNull().default(""),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    index("idx_daemon_tokens_runtime").on(t.runtimeId, t.revokedAt),
-    index("idx_daemon_tokens_workspace").on(t.workspaceId),
+    index("idx_access_tokens_user").on(t.userId, t.revokedAt),
+    index("idx_access_tokens_machine").on(t.machineId),
   ],
 );
 

@@ -18,7 +18,15 @@ import { getDb } from "../db/connection.js";
 import { settings } from "../db/schema.js";
 import { logger } from "../logger.js";
 import { runManager } from "../orchestrator/run-manager.js";
-import { CloudAuthError, cloudFetch, invalidatePairingCache, isPaired } from "./client.js";
+import {
+  CloudAuthError,
+  CloudRequestError,
+  cloudFetch,
+  getRuntimes,
+  invalidatePairingCache,
+  isPaired,
+} from "./client.js";
+import { reclaimAfterUnknownRuntime } from "./claim.js";
 import { cloneProject } from "./bindings.js";
 import { runChatTurnCommand } from "./chat-turn.js";
 import { pullOnce } from "./memory-sync.js";
@@ -58,50 +66,91 @@ async function poll(): Promise<void> {
   inFlight = true;
 
   try {
-    const { commands, workspaceTools } = await cloudFetch<ClaimResponse>("/commands", {
-      method: "GET",
-      retries: 1,
-      timeoutMs: 10_000,
-    });
-
-    if (workspaceTools) {
-      cacheWorkspacePolicy(workspaceTools);
+    const runtimes = getRuntimes();
+    if (runtimes.length === 0) {
+      await reclaimAfterUnknownRuntime();
+      return;
     }
 
-    if (!healthy) {
-      healthy = true;
-      logger.info("cloud control plane reachable again");
+    // One claim per workspace. Work is queued against a workspace-scoped
+    // runtime row, so a machine polling only its first binding would never
+    // pick up anything sent from the owner's other workspace — the machine
+    // would look online there and simply never do anything, which is the
+    // hardest kind of failure to diagnose.
+    //
+    // Sequential rather than parallel, deliberately: `dispatch` spawns agent
+    // processes, and claiming every workspace at once would let a machine take
+    // on N workspaces' worth of work in a single tick. One at a time keeps the
+    // existing single-workspace pacing intact.
+    let reachedAny = false;
+    let authError: CloudAuthError | null = null;
+    let sawUnknownRuntime = false;
+
+    for (const binding of runtimes) {
+      if (stopped) break;
+      try {
+        const { commands, workspaceTools } = await cloudFetch<ClaimResponse>("/commands", {
+          method: "GET",
+          retries: 1,
+          timeoutMs: 10_000,
+          runtimeId: binding.runtimeId,
+        });
+        reachedAny = true;
+
+        if (workspaceTools) {
+          cacheWorkspacePolicy(workspaceTools);
+        }
+
+        for (const command of commands ?? []) {
+          await dispatch(command);
+        }
+      } catch (err) {
+        if (err instanceof CloudAuthError) {
+          // The credential is the machine's, not the workspace's — one auth
+          // failure applies to all of them, so stop rather than trying the
+          // rest with a credential already known to be bad.
+          authError = err;
+          break;
+        }
+        if (err instanceof CloudRequestError && err.reason === "unknown_runtime") {
+          sawUnknownRuntime = true;
+          continue;
+        }
+        if (healthy) {
+          healthy = false;
+          logger.warn(
+            { detail: err instanceof Error ? err.message : String(err) },
+            "could not reach the control plane for commands — retrying in the background",
+          );
+        }
+      }
     }
 
-    for (const command of commands ?? []) {
-      await dispatch(command);
-    }
-  } catch (err) {
-    if (err instanceof CloudAuthError) {
-      if (err.revoked) {
+    if (authError) {
+      if (authError.revoked) {
         logger.warn(
-          "this machine's pairing was revoked — stopping the command loop. Run `sparstrow pair <code>` to reconnect.",
+          "this computer's access was revoked — stopping the command loop. Run `sparstrow setup --force` to reconnect.",
         );
         stopCommandLoop();
         return;
       }
-      // 401 rather than 403: most often `sparstrow pair` rewrote the store
+      // 401 rather than 403: most often `sparstrow setup` rewrote the store
       // while core was running. Re-read before concluding anything.
       invalidatePairingCache();
       if (!isPaired()) {
-        logger.warn("daemon token is no longer valid — stopping the command loop until re-paired");
+        logger.warn(
+          "access token is no longer valid — stopping the command loop until reconnected",
+        );
         stopCommandLoop();
-        return;
       }
       return;
     }
 
-    if (healthy) {
-      healthy = false;
-      logger.warn(
-        { detail: err instanceof Error ? err.message : String(err) },
-        "could not reach the control plane for commands — retrying in the background",
-      );
+    if (sawUnknownRuntime) await reclaimAfterUnknownRuntime();
+
+    if (reachedAny && !healthy) {
+      healthy = true;
+      logger.info("cloud control plane reachable again");
     }
   } finally {
     inFlight = false;

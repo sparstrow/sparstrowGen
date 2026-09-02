@@ -7,7 +7,7 @@ import { config } from "../config.js";
 import { closeDb, getDb, openDb } from "../db/connection.js";
 import { agents, projects } from "../db/schema.js";
 import { completeOnce } from "../orchestrator/one-shot.js";
-import { invalidatePairingCache, savePairing } from "./client.js";
+import { invalidatePairingCache, saveConnection } from "./client.js";
 
 vi.mock("../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), child: vi.fn() },
@@ -89,7 +89,7 @@ describe("runChatTurnCommand", () => {
     fs.mkdirSync(config.tmpDir, { recursive: true });
     config.cloudUrl = "http://cloud.test";
     invalidatePairingCache();
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
 
     closeDb();
     openDb(":memory:");

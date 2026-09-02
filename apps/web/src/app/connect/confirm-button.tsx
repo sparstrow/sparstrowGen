@@ -4,7 +4,7 @@ import * as React from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { callAction } from "@web/lib/call-action";
-import { approvePairingAttemptAction } from "./actions";
+import { approveConnectAttemptAction } from "./actions";
 
 /**
  * The one click US1 asks for. Approves the attempt via a real Server Action
@@ -19,14 +19,14 @@ import { approvePairingAttemptAction } from "./actions";
  * would be. The daemon's own listener renders whatever the browser shows
  * next; this component's job ends the moment the redirect fires.
  */
-export function ConfirmPairingButton({ attemptId }: { attemptId: string }) {
+export function ConfirmConnectButton({ attemptId }: { attemptId: string }) {
   const [pending, startTransition] = React.useTransition();
   const [error, setError] = React.useState<string | null>(null);
 
   const onConfirm = () => {
     setError(null);
     startTransition(async () => {
-      const result = await callAction(() => approvePairingAttemptAction(attemptId));
+      const result = await callAction(() => approveConnectAttemptAction(attemptId));
       if (!result.ok) {
         setError(result.error);
         return;

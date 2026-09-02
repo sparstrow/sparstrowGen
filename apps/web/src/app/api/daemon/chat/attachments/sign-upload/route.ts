@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { CHAT_ATTACHMENT_BUCKET } from "@sparstrow/shared";
-import { authenticateDaemon, daemonDb } from "@web/lib/daemon/auth";
+import { authenticateRuntime, daemonDb } from "@web/lib/daemon/auth";
 import { authFailureResponse, daemonError, readJson } from "@web/lib/daemon/respond";
 
 /**
@@ -9,7 +9,7 @@ import { authFailureResponse, daemonError, readJson } from "@web/lib/daemon/resp
  * put into the bucket, rather than one it is about to read from it.
  *
  * Same `/api/daemon/*` shape and the same reasoning as the sign-download
- * route: `workspace_id` comes ONLY from `authenticateDaemon`'s validated
+ * route: `workspace_id` comes ONLY from `authenticateRuntime`'s validated
  * scope, never trusted from the body, and the body's `storagePath` is
  * checked against that scope explicitly below. This check matters MORE here
  * than on the read side — `daemonDb()` is a service-role client that bypasses
@@ -22,7 +22,7 @@ import { authFailureResponse, daemonError, readJson } from "@web/lib/daemon/resp
  * daemon) is the one that knows the filename and picks the opaque id.
  */
 export async function POST(request: Request) {
-  const auth = await authenticateDaemon(request);
+  const auth = await authenticateRuntime(request);
   if (!auth.ok) return authFailureResponse(auth.failure);
 
   const body = await readJson(request);

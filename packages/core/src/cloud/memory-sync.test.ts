@@ -10,7 +10,7 @@ import {
 } from "@sparstrow/shared";
 import { config } from "../config.js";
 import { closeDb, getSqlite, openDb } from "../db/connection.js";
-import { invalidatePairingCache, savePairing } from "./client.js";
+import { invalidatePairingCache, saveConnection } from "./client.js";
 import {
   applyPulledNote,
   markNoteDirty,
@@ -204,7 +204,7 @@ describe("memory sync", () => {
     });
 
     it("debounces a burst of edits to one note into a single request", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       seedNote("mem_1", "hello");
       const fetchMock = routeFetch();
       startMemorySync();
@@ -220,7 +220,7 @@ describe("memory sync", () => {
     });
 
     it("coalesces several dirty notes into one batch", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       seedNote("mem_1", "one");
       seedNote("mem_2", "two");
       const fetchMock = routeFetch();
@@ -234,7 +234,7 @@ describe("memory sync", () => {
     });
 
     it("sends the WHOLE file, with a hash computed from exactly those bytes", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       const file = "---\nid: mem_1\ntitle: Hello\n---\n\nthe body\n";
       const seeded = seedNote("mem_1", file);
       const fetchMock = routeFetch();
@@ -253,7 +253,7 @@ describe("memory sync", () => {
     });
 
     it("never sends anything vector-shaped", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       seedNote("mem_1", "hello");
       const fetchMock = routeFetch();
       startMemorySync();
@@ -266,7 +266,7 @@ describe("memory sync", () => {
     });
 
     it("records syncedHash on an applied result, so the note stops being dirty", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       const seeded = seedNote("mem_1", "hello");
       routeFetch();
       startMemorySync();
@@ -281,7 +281,7 @@ describe("memory sync", () => {
     });
 
     it("keeps a note dirty across a failed push and lands it on a later attempt", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       const seeded = seedNote("mem_1", "hello");
       let attempt = 0;
       const fetchMock = routeFetch({
@@ -310,7 +310,7 @@ describe("memory sync", () => {
     });
 
     it("never marks a note synced when the push was refused outright", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       seedNote("mem_1", "hello");
       routeFetch({ "/memory/push": () => jsonResponse(500, {}) });
       startMemorySync();
@@ -326,7 +326,7 @@ describe("memory sync", () => {
       // `applied: false` with no `current` — the route could not store the row.
       // Recording syncedHash here would tell this machine the cloud has content
       // it never took, and the note would never be retried.
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       seedNote("mem_1", "hello");
       routeFetch({
         "/memory/push": () => jsonResponse(200, { results: [{ id: "mem_1", applied: false }] }),
@@ -340,7 +340,7 @@ describe("memory sync", () => {
     });
 
     it("stops permanently on a 403 — a revoked pairing is not a retryable error", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       seedNote("mem_1", "hello");
       const fetchMock = routeFetch({
         "/memory/push": () => jsonResponse(403, { reason: "revoked", error: "gone" }),
@@ -356,7 +356,7 @@ describe("memory sync", () => {
     });
 
     it("applies the cloud's winner when this machine loses last-write-wins", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       const seeded = seedNote("mem_1", "my version", { updatedAt: "2026-08-12T10:00:00.000Z" });
       const winner = remote({
         id: "mem_1",
@@ -387,7 +387,7 @@ describe("memory sync", () => {
 
   describe("reconciliation sweep", () => {
     it("finds a note that was never pushed — including every note predating M6", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       seedNote("mem_old", "written before this machine ever paired", { syncedHash: null });
       const fetchMock = routeFetch();
 
@@ -398,7 +398,7 @@ describe("memory sync", () => {
     });
 
     it("finds a note edited since its last confirmed push", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       seedNote("mem_stale", "new content", { syncedHash: "an-older-hash" });
       const fetchMock = routeFetch();
 
@@ -409,7 +409,7 @@ describe("memory sync", () => {
     });
 
     it("leaves an already-synced note alone", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       const content = "already up there";
       seedNote("mem_clean", content, { syncedHash: sha256(content) });
       const fetchMock = routeFetch();
@@ -421,7 +421,7 @@ describe("memory sync", () => {
     });
 
     it("skips a note whose file no longer matches its row — the scan reconciles first", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       const seeded = seedNote("mem_1", "as recorded");
       // An external edit the watcher has not caught up with yet. Pushing now
       // would ship content whose title/tags/updatedAt are stale.
@@ -575,7 +575,7 @@ describe("memory sync", () => {
 
   describe("pullOnce", () => {
     it("starts from the epoch on a machine that has never pulled", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       const fetchMock = routeFetch();
       startMemorySync();
       await vi.advanceTimersByTimeAsync(10);
@@ -584,7 +584,7 @@ describe("memory sync", () => {
     });
 
     it("pages until the server reports a short page, advancing the cursor as it goes", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       let call = 0;
       const fetchMock = routeFetch({
         "/memory/pull": () => {
@@ -613,7 +613,7 @@ describe("memory sync", () => {
     });
 
     it("does not advance the cursor past a page whose writes have not landed", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       routeFetch({
         "/memory/pull": () => jsonResponse(500, {}),
       });
@@ -628,7 +628,7 @@ describe("memory sync", () => {
     });
 
     it("stops rather than looping when the server hands back a cursor that did not move", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       let call = 0;
       routeFetch({
         "/memory/pull": () => {
@@ -648,7 +648,7 @@ describe("memory sync", () => {
     });
 
     it("re-pulls on the periodic sweep without needing a command", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       const fetchMock = routeFetch();
       startMemorySync();
       await vi.advanceTimersByTimeAsync(10);
@@ -670,7 +670,7 @@ describe("memory sync", () => {
 
   describe("lifecycle", () => {
     it("unrefs both timers, so a paired daemon can still exit cleanly", () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       routeFetch();
       const unrefs: string[] = [];
       const realSetInterval = globalThis.setInterval;
@@ -703,7 +703,7 @@ describe("memory sync", () => {
     });
 
     it("stops cleanly and ignores writes afterwards", async () => {
-      savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+      saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
       seedNote("mem_1", "hello");
       const fetchMock = routeFetch();
       startMemorySync();

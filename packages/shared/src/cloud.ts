@@ -117,42 +117,67 @@ export interface RuntimeIdentity {
 }
 
 /**
- * `POST /api/daemon/pair/attempts` request — the daemon registers itself
- * before opening a browser, instead of a human generating and typing a code.
- * `callback` is the daemon's own local loopback listener; validated
- * loopback-only server-side before a row is even created.
+ * `POST /api/daemon/connect` request — a machine with no signed-in app of its
+ * own registers itself before opening a browser. `callback` is that machine's
+ * local loopback listener; validated loopback-only server-side before a row is
+ * even created.
+ *
+ * The desktop app never sends this. It already has a signed-in session, so it
+ * mints a token directly and goes straight to `/api/daemon/claim`.
  */
-export interface StartPairingAttemptRequest extends RuntimeIdentity {
-  /** Stable across re-pairs of the same machine — generated once by the CLI. */
-  runtimeId: string;
+export interface StartConnectAttemptRequest extends RuntimeIdentity {
+  /** Stable across re-connects of the same computer — generated once, then
+   *  persisted in the machine's secrets dir. Becomes `machines.id`. */
+  machineId: string;
   callback: string;
 }
 
-/** `attemptId` is the bearer credential for `POST /api/daemon/pair/exchange` —
- *  never displayed or typed, only ever held by the daemon process that
- *  created it and embedded (as `?attempt=`) in the URL it opens a browser to. */
-export interface StartPairingAttemptResponse {
+/** `attemptId` is the bearer credential for `POST /api/daemon/connect/exchange`
+ *  — never displayed or typed, only ever held by the process that created it
+ *  and embedded (as `?attempt=`) in the URL it opens a browser to. */
+export interface StartConnectAttemptResponse {
   attemptId: string;
   confirmUrl: string;
 }
 
 /**
- * `POST /api/daemon/pair/exchange` — called by the daemon's own local
+ * `POST /api/daemon/connect/exchange` — called by the machine's own local
  * listener, server-to-server, only after the browser has already redirected
- * there post-approval. The real token is minted here and nowhere earlier, so
- * a failed browser redirect after approval can never leave a runtime that
- * exists with no process able to receive its token.
+ * there post-approval. The real token is minted there and nowhere earlier, so
+ * a failed redirect after approval can never leave a credential nothing can
+ * receive.
  */
-export interface ExchangePairingAttemptRequest {
+export interface ConnectExchangeRequest {
   attemptId: string;
 }
 
 /** The token is returned exactly once, here. It is never stored in plaintext,
  *  and it never reaches the browser at any point in this flow. */
-export interface PairResponse {
+export interface ConnectExchangeResponse {
   token: string;
-  runtimeId: string;
-  workspaceId: string;
+  tokenId: string;
+  machineId: string;
+}
+
+/**
+ * `POST /api/daemon/claim` request — sent on every boot, by every kind of
+ * machine, authenticated with the access token.
+ */
+export interface ClaimMachineRequest extends RuntimeIdentity {
+  machineId: string;
+}
+
+/**
+ * What the machine learns about itself: which runtime id represents it in each
+ * of its owner's workspaces. The machine keeps this list and sends the right
+ * runtime id in `X-Sparstrow-Runtime` on every subsequent request.
+ *
+ * An empty `runtimes` array is a real state, not an error — a brand-new account
+ * whose first workspace has not been bootstrapped yet.
+ */
+export interface ClaimMachineResponse {
+  machineId: string;
+  runtimes: { runtimeId: string; workspaceId: string }[];
 }
 
 /**
@@ -216,6 +241,11 @@ export type DaemonErrorReason =
   | "invalid_request"
   | "unauthenticated"
   | "revoked"
+  // The runtime named in `X-Sparstrow-Runtime` is not one this machine may act
+  // as — most often because the owner left that workspace, so the row was
+  // cleaned up on their last claim. Distinct from `revoked` on purpose: the
+  // machine's correct response is to re-claim, not to stop.
+  | "unknown_runtime"
   | "server_error";
 
 export interface DaemonErrorResponse {

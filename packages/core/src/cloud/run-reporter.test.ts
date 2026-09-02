@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Run } from "@sparstrow/shared";
 import { config } from "../config.js";
 import { bus } from "../events/bus.js";
-import { invalidatePairingCache, savePairing } from "./client.js";
+import { invalidatePairingCache, saveConnection } from "./client.js";
 import { markDispatched, resetDispatched, startRunReporter, stopRunReporter } from "./run-reporter.js";
 
 function jsonResponse(status: number, body: unknown = {}): Response {
@@ -55,7 +55,7 @@ describe("run reporter", () => {
     config.cloudUrl = "http://cloud.test";
     invalidatePairingCache();
     resetDispatched();
-    savePairing({ token: "t", runtimeId: "rt", workspaceId: "ws" });
+    saveConnection({ token: "t", machineId: "mach-test", runtimes: [{ runtimeId: "rt", workspaceId: "ws" }] });
     startRunReporter();
   });
 

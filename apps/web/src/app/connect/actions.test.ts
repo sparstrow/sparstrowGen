@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { actionContext } from "@web/lib/action-result";
-import { approvePairingAttemptAction } from "./actions";
+import { approveConnectAttemptAction } from "./actions";
 
 vi.mock("@web/lib/action-result", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@web/lib/action-result")>();
@@ -44,18 +44,18 @@ function mockCtx(queues: Record<string, Result[]>, opts: { user?: boolean } = {}
   vi.mocked(actionContext).mockResolvedValue({ supabase: supabase as never, workspaceId: "ws_1" });
 }
 
-describe("approvePairingAttemptAction", () => {
+describe("approveConnectAttemptAction", () => {
   it("fails when not signed in", async () => {
     mockCtx({}, { user: false });
-    const result = await approvePairingAttemptAction("att_1");
+    const result = await approveConnectAttemptAction("att_1");
     expect(result.ok).toBe(false);
   });
 
   it("approves and returns the attempt's callback", async () => {
     mockCtx({
-      pairing_attempts: [{ data: { callback: "http://127.0.0.1:54219/callback" }, error: null }],
+      connect_attempts: [{ data: { callback: "http://127.0.0.1:54219/callback" }, error: null }],
     });
-    const result = await approvePairingAttemptAction("att_1");
+    const result = await approveConnectAttemptAction("att_1");
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.data.callback).toBe("http://127.0.0.1:54219/callback");
   });
@@ -65,8 +65,8 @@ describe("approvePairingAttemptAction", () => {
     // row that's gone, already approved, consumed, or expired. All four
     // read identically here, matching the real database behavior this test
     // mocks.
-    mockCtx({ pairing_attempts: [{ data: null, error: null }] });
-    const result = await approvePairingAttemptAction("att_1");
+    mockCtx({ connect_attempts: [{ data: null, error: null }] });
+    const result = await approveConnectAttemptAction("att_1");
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toMatch(/no longer valid/i);
   });
