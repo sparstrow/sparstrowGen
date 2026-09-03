@@ -20,7 +20,7 @@ import { registerRoute, ok, fail, HandlerContext } from "../router";
  * re-exported below so this module's existing import sites are unaffected.
  */
 
-export { parseProfilePatch, type ProfilePatch } from "../../patch-validation";
+export { parseProfilePatch, type ProfilePatch } from "@sparstrow/shared";
 
 /** Everything GET returns. `role` is deliberately absent. */
 const SELECT = "id, email, name, avatar_url, bio";

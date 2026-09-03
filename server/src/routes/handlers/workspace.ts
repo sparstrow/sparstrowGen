@@ -28,8 +28,8 @@ import { registerRoute, ok, fail, HandlerContext } from "../router";
 /** Every column GET returns. `owner_id` is deliberately absent. */
 const SELECT = "id, name, slug, description, context, logo_url, created_at";
 
-export type { WorkspacePatch } from "../../patch-validation";
-export { parseWorkspacePatch, BOOTSTRAP_SLUG } from "../../patch-validation";
+export type { WorkspacePatch } from "@sparstrow/shared";
+export { parseWorkspacePatch, BOOTSTRAP_SLUG } from "@sparstrow/shared";
 
 /**
  * Slug helpers now live in `lib/slug.ts` and are re-exported here so every
@@ -39,7 +39,7 @@ export { parseWorkspacePatch, BOOTSTRAP_SLUG } from "../../patch-validation";
  * a Server Action importing `slugify` from here would pull the whole route
  * registry into the action's module graph as a side effect.
  */
-export { slugify, withCollisionSuffix } from "../../slug";
+export { slugifyShort, withCollisionSuffix } from "@sparstrow/shared";
 
 registerRoute({
   method: "GET",

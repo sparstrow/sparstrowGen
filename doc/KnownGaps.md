@@ -35,7 +35,7 @@ cost if the assumption is wrong, and the concrete thing that would close it.
 **Never reuse a `G-` number.** A cleared id looks free, so the next writer takes
 it, and every reference to the old meaning silently starts pointing at the new
 one. Allocate above the highest number this file has **ever** used — currently
-`G-60` — not above the highest currently present.
+`G-63` — not above the highest currently present.
 
 ---
 
@@ -333,6 +333,77 @@ session's `<workspace_id>/<session_id>/` prefix, and a test confirms a deleted
 session's prefix is empty. Whatever closes one cause should close both — the fix
 (a scheduled sweep of unreferenced objects, or tightening the POST's delivery
 guarantee) is the same shape.
+
+### G-62 — two different `slugify`s, and `projects.slug` gets whichever one the caller happened to import
+
+**Raised:** 2026-09-02, restructure Phase 1, when moving `apps/web/src/lib/slug.ts`
+into `@sparstrow/shared` put both functions in one namespace for the first time
+and the compiler refused the collision.
+
+There are two slug derivations, and they disagree:
+
+| | `schemas/common.ts` `slugify` | `slug.ts` `slugifyShort` (was also `slugify`) |
+|---|---|---|
+| Truncates at | 80 chars | 40 chars |
+| Trailing `-` after truncation | **can leave one** | cleaned up |
+| Used by | `server/src/api/routes/*`, `agents/ingestion.ts`, `memory/*`, `projects/provision.ts` | `server/src/routes/handlers/*`, the web Server Actions |
+
+They were never importable from the same place, so nothing ever compared them.
+**The consequence is real and already shipped:** `server/src/routes/handlers/
+projects.ts` derives `projects.slug` with the 40-char one while
+`server/src/api/routes/projects.ts` derives it with the 80-char one — so the
+same project gets a different slug depending on which path created it, and a
+name between 40 and 80 characters produces two different URLs for one thing.
+
+Phase 1 renamed the moved one to `slugifyShort` and **changed no behaviour**.
+That is deliberate: slugs are already written to a not-null unique column and
+already in URLs, so picking a winner is a data decision, not a refactor.
+
+**If wrong:** low severity, awkward to fix later. Nothing breaks today — both
+produce valid slugs and the unique constraint holds. The cost is that a project
+created through one path cannot be found by a link built from the other, and
+that unifying later either rewrites existing slugs (breaking saved links) or
+leaves a permanent split.
+
+**Clears when:** the owner decides which behaviour is canonical (recommendation:
+the 40-char one, because the trailing-dash cleanup is a strict improvement and
+40 is already the tighter constraint), the loser is deleted, and a migration
+either backfills the affected rows or the decision to leave them is recorded
+here.
+
+### G-63 — `apps/web` still reads the database directly in three places
+
+**Raised:** 2026-09-02, restructure Phase 1, while auditing what stops `apps/web`
+being a thin client.
+
+AGENTS.md §1 rule 1 says only `server/` talks to the database. Three surfaces in
+`apps/web` still do not obey it, and each needs a different fix:
+
+1. **`lib/chat-attachments.ts`'s `sessionAttachments`** — called with the
+   *browser's* Supabase client from `chat.tsx`, relying on RLS for scoping. A
+   real client→database query, the shape the restructure exists to remove.
+2. **`app/teams/page.tsx`** — a Server Component that resolves the workspace and
+   queries directly, rather than going through a route. It was built as the
+   deliberate worked example of the old `apps/web/CLAUDE.md` pattern, which that
+   file now says is forbidden.
+3. **the 44 Server Actions** across 18 `actions.ts` files — the main body of the
+   work, already scheduled as Phase 5.
+
+The audit's good news, recorded so it is not re-done: only **7** files in
+`apps/web/src` have a *runtime* `@supabase/*` import, not the 16 the plan
+counted — the other 9 are `import type`. Of those 7, three are the auth plumbing
+(`utils/supabase/{client,server,middleware}.ts`) which is genuinely web-only and
+stays, and one is a test. The real remaining surface is small.
+
+**If wrong:** this is not a security gap — RLS governs every one of these reads,
+and `G-35`'s "any member has full access" limitation is the boundary that
+actually matters. It is an architecture gap: each of these is a screen the
+desktop and mobile apps cannot have, which is precisely the failure the
+restructure is correcting.
+
+**Clears when:** all three are routes in `server/` called through
+`packages/core`, and `grep -rl "@supabase/" apps/web/src` returns only the auth
+plumbing.
 
 ### G-59 — the full test suite fails intermittently under parallel turbo
 

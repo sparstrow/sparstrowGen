@@ -1,4 +1,15 @@
-import { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+/**
+ * Which workspace is this request acting in?
+ *
+ * Moved from `apps/web/src/lib/workspace.ts` by restructure Phase 1 and
+ * de-Nexted on the way: it used to reach for `next/headers` `cookies()` on
+ * its own, which made a function every client needs callable only from
+ * inside a Next request. The cookie is a *web app* mechanism for remembering
+ * a choice; the desktop app will send a header and the CLI a flag. So the
+ * caller resolves it and passes the id in, and this decides what to trust.
+ */
 
 export type ActiveWorkspace = {
   workspaceId?: string;
@@ -9,7 +20,13 @@ export type ActiveWorkspace = {
 
 export async function getActiveWorkspaceId(
   supabase: SupabaseClient,
-  searchParams?: URLSearchParams
+  searchParams?: URLSearchParams,
+  /**
+   * The workspace the caller last switched to, however that client remembers
+   * it — a cookie in `apps/web`, stored preferences in the desktop app. Always
+   * validated against real membership below; never trusted on its own.
+   */
+  rememberedWorkspaceId?: string | null,
 ): Promise<ActiveWorkspace> {
   const {
     data: { user },
@@ -56,8 +73,16 @@ export async function getActiveWorkspaceId(
     .map((m) => m.workspaces)
     .filter(Boolean) as unknown as { id: string; name: string }[];
 
+  // `noUncheckedIndexedAccess` (on in server/, off in the web app's config)
+  // is right to ask: the empty case returned above, so this is safe, but say so
+  // once rather than asserting at both exits.
+  const firstWorkspaceId = memberships[0]?.workspace_id;
+  if (!firstWorkspaceId) {
+    return { error: "Database error", status: 500 };
+  }
+
   if (memberships.length === 1) {
-    return { workspaceId: memberships[0].workspace_id, workspaces };
+    return { workspaceId: firstWorkspaceId, workspaces };
   }
 
   // Belonging to more than one workspace used to be a hard 400 that locked the
@@ -67,38 +92,25 @@ export async function getActiveWorkspaceId(
   //
   // Order of precedence, most explicit first:
   //   1. `?workspaceId=` — someone followed a link to a specific workspace
-  //   2. the cookie — what they last switched to
+  //   2. what they last switched to, as remembered by whichever client this is
   //   3. the first membership — a sane landing place, never an error
   //
   // Every one of them is validated against actual membership before it is
-  // believed. The cookie in particular is client-supplied and must never be
-  // trusted on its own: RLS would deny the queries anyway, but a page that
-  // renders half-empty because the cookie named a workspace they left is a
+  // believed. The remembered id in particular is client-supplied and must never
+  // be trusted on its own: RLS would deny the queries anyway, but a page that
+  // renders half-empty because a stale value named a workspace they left is a
   // worse answer than quietly landing them somewhere real.
   const requestedWorkspaceId = searchParams?.get("workspaceId");
   if (requestedWorkspaceId && memberships.some((m) => m.workspace_id === requestedWorkspaceId)) {
     return { workspaceId: requestedWorkspaceId, workspaces };
   }
 
-  const cookieWorkspaceId = await readWorkspaceCookie();
-  if (cookieWorkspaceId && memberships.some((m) => m.workspace_id === cookieWorkspaceId)) {
-    return { workspaceId: cookieWorkspaceId, workspaces };
+  if (
+    rememberedWorkspaceId &&
+    memberships.some((m) => m.workspace_id === rememberedWorkspaceId)
+  ) {
+    return { workspaceId: rememberedWorkspaceId, workspaces };
   }
 
-  return { workspaceId: memberships[0].workspace_id, workspaces };
-}
-
-/** Name of the cookie the switcher writes. Read here, written by its action. */
-export const WORKSPACE_COOKIE = "sparstrow.workspace";
-
-async function readWorkspaceCookie(): Promise<string | null> {
-  try {
-    // Imported lazily so this module stays importable from a plain unit test
-    // that has no Next request context — `cookies()` throws outside one.
-    const { cookies } = await import("next/headers");
-    const store = await cookies();
-    return store.get(WORKSPACE_COOKIE)?.value ?? null;
-  } catch {
-    return null;
-  }
+  return { workspaceId: firstWorkspaceId, workspaces };
 }

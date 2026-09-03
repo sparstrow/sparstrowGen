@@ -1,4 +1,4 @@
-import { isOwnStorageUrl } from "./api/storage-url";
+import { isOwnStorageUrl } from "./storage-url";
 
 /**
  * Profile and workspace PATCH validation, extracted from
@@ -45,7 +45,10 @@ export type ProfilePatch = Record<string, string | null>;
  * route or the action) sees them, so the browser's `avatarUrl` is
  * `avatar_url` here.
  */
-export function parseProfilePatch(body: unknown): { error: string } | { patch: ProfilePatch } {
+export function parseProfilePatch(
+  body: unknown,
+  storageBaseUrl: string,
+): { error: string } | { patch: ProfilePatch } {
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     return { error: "Request body must be an object." };
   }
@@ -55,7 +58,12 @@ export function parseProfilePatch(body: unknown): { error: string } | { patch: P
 
   for (const [key] of entries) {
     if (editable.has(key)) continue;
-    if (key in PROFILE_REFUSED) return { error: PROFILE_REFUSED[key] };
+    // Read once rather than `key in PROFILE_REFUSED` then index again:
+    // `packages/shared` typechecks under `noUncheckedIndexedAccess`, which the
+    // web app's config did not enforce, and `in` does not narrow an index
+    // access. Same behaviour, and it no longer looks the value up twice.
+    const refusal = PROFILE_REFUSED[key];
+    if (refusal !== undefined) return { error: refusal };
     return {
       error: `Not editable on a profile: ${key}. Editable fields are ${PROFILE_EDITABLE.join(", ")}.`,
     };
@@ -69,7 +77,7 @@ export function parseProfilePatch(body: unknown): { error: string } | { patch: P
         patch.avatar_url = null;
         continue;
       }
-      if (typeof raw !== "string" || !isOwnStorageUrl(raw)) {
+      if (typeof raw !== "string" || !isOwnStorageUrl(raw, storageBaseUrl)) {
         return {
           error:
             "avatar_url must be null, or an image uploaded to this workspace. " +
@@ -125,6 +133,7 @@ export type WorkspacePatch = Record<string, string | null>;
  */
 export function parseWorkspacePatch(
   body: unknown,
+  storageBaseUrl: string,
 ): { error: string } | { patch: WorkspacePatch } {
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     return { error: "Request body must be an object." };
@@ -155,7 +164,7 @@ export function parseWorkspacePatch(
         patch.logo_url = null;
         continue;
       }
-      if (typeof raw !== "string" || !isOwnStorageUrl(raw)) {
+      if (typeof raw !== "string" || !isOwnStorageUrl(raw, storageBaseUrl)) {
         return {
           error:
             "logo_url must be null, or an image uploaded to this workspace. " +

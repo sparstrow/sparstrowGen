@@ -41,7 +41,7 @@ function fakeSupabase(rows: Row[]) {
 }
 
 async function callRoute(path: string, rows: Row[]) {
-  const [pathname, query] = path.split("?");
+  const [pathname = path, query] = path.split("?");
   const matched = matchRoute("GET", pathname);
   if (!matched) throw new Error(`GET ${pathname} is not registered`);
   const res = await matched.route.handler({
@@ -51,7 +51,7 @@ async function callRoute(path: string, rows: Row[]) {
     searchParams: new URLSearchParams(query ?? ""),
     body: {},
   });
-  return { status: res.status, json: await res.json() };
+  return { status: res.status, json: (await res.json()) as any };
 }
 
 const CACHED_ROW: Row = {

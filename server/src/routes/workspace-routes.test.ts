@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { matchRoute } from "./router";
-import { parseWorkspacePatch, slugify, withCollisionSuffix } from "./handlers/workspace";
+import { parseWorkspacePatch, slugifyShort, withCollisionSuffix } from "./handlers/workspace";
 import "./handlers";
 
 /**
@@ -53,7 +53,7 @@ describe("parseWorkspacePatch", () => {
       ["context", "A manufacturer of interior doors."],
       ["logo_url", OWN_IMAGE],
     ] as const) {
-      const parsed = parseWorkspacePatch({ [key]: value });
+      const parsed = parseWorkspacePatch({ [key]: value }, SUPABASE_URL);
       expect(parsed, key).toEqual({ patch: { [key]: value } });
     }
   });
@@ -61,7 +61,7 @@ describe("parseWorkspacePatch", () => {
   it("writes only the keys actually present", () => {
     // A form that saves one field sends one field. Building a fixed shape with
     // undefined holes would blank the other three.
-    const parsed = parseWorkspacePatch({ context: "just this" });
+    const parsed = parseWorkspacePatch({ context: "just this" }, SUPABASE_URL);
     expect(parsed).toEqual({ patch: { context: "just this" } });
   });
 
@@ -71,7 +71,7 @@ describe("parseWorkspacePatch", () => {
       description: "d",
       context: "c",
       logo_url: null,
-    });
+    }, SUPABASE_URL);
     expect(parsed).toEqual({
       patch: { name: "Renin", description: "d", context: "c", logo_url: null },
     });
@@ -81,12 +81,12 @@ describe("parseWorkspacePatch", () => {
     // The decision most likely to be reversed by reflex. T-M9-01 makes '' the
     // starting state, so refusing it would mean refusing to write the value the
     // database already holds.
-    expect(parseWorkspacePatch({ name: "" })).toEqual({ patch: { name: "" } });
-    expect(parseWorkspacePatch({ name: "   " })).toEqual({ patch: { name: "" } });
+    expect(parseWorkspacePatch({ name: "" }, SUPABASE_URL)).toEqual({ patch: { name: "" } });
+    expect(parseWorkspacePatch({ name: "   " }, SUPABASE_URL)).toEqual({ patch: { name: "" } });
   });
 
   it("trims before measuring", () => {
-    expect(parseWorkspacePatch({ name: `  ${"a".repeat(60)}  ` })).toEqual({
+    expect(parseWorkspacePatch({ name: `  ${"a".repeat(60)}  ` }, SUPABASE_URL)).toEqual({
       patch: { name: "a".repeat(60) },
     });
   });
@@ -97,7 +97,7 @@ describe("parseWorkspacePatch", () => {
       ["description", 280],
       ["context", 4000],
     ] as const) {
-      const parsed = parseWorkspacePatch({ [key]: "a".repeat(limit + 1) });
+      const parsed = parseWorkspacePatch({ [key]: "a".repeat(limit + 1) }, SUPABASE_URL);
       expect(parsed, key).toHaveProperty("error");
       const { error } = parsed as { error: string };
       expect(error, key).toContain(String(limit));
@@ -106,22 +106,22 @@ describe("parseWorkspacePatch", () => {
   });
 
   it("accepts each field exactly at its limit", () => {
-    expect(parseWorkspacePatch({ name: "a".repeat(60) })).toHaveProperty("patch");
-    expect(parseWorkspacePatch({ description: "a".repeat(280) })).toHaveProperty("patch");
-    expect(parseWorkspacePatch({ context: "a".repeat(4000) })).toHaveProperty("patch");
+    expect(parseWorkspacePatch({ name: "a".repeat(60) }, SUPABASE_URL)).toHaveProperty("patch");
+    expect(parseWorkspacePatch({ description: "a".repeat(280) }, SUPABASE_URL)).toHaveProperty("patch");
+    expect(parseWorkspacePatch({ context: "a".repeat(4000) }, SUPABASE_URL)).toHaveProperty("patch");
   });
 
   it("ignores slug rather than rejecting it", () => {
     // GET returns the slug, so a client handing the whole object back is normal
     // and 400-ing it would be hostile.
-    expect(parseWorkspacePatch({ slug: "anything", name: "Renin" })).toEqual({
+    expect(parseWorkspacePatch({ slug: "anything", name: "Renin" }, SUPABASE_URL)).toEqual({
       patch: { name: "Renin" },
     });
   });
 
   it("rejects fields that are not editable, naming them", () => {
     for (const key of ["owner_id", "id", "created_at", "updated_at", "nonsense"]) {
-      const parsed = parseWorkspacePatch({ [key]: "x" });
+      const parsed = parseWorkspacePatch({ [key]: "x" }, SUPABASE_URL);
       expect(parsed, key).toHaveProperty("error");
       expect((parsed as { error: string }).error, key).toContain(key);
     }
@@ -141,41 +141,41 @@ describe("parseWorkspacePatch", () => {
       "/storage/v1/object/public/public-images/a.png",
       "",
     ]) {
-      const parsed = parseWorkspacePatch({ logo_url: bad });
+      const parsed = parseWorkspacePatch({ logo_url: bad }, SUPABASE_URL);
       expect(parsed, bad).toHaveProperty("error");
     }
   });
 
   it("accepts null to clear the logo", () => {
-    expect(parseWorkspacePatch({ logo_url: null })).toEqual({ patch: { logo_url: null } });
+    expect(parseWorkspacePatch({ logo_url: null }, SUPABASE_URL)).toEqual({ patch: { logo_url: null } });
   });
 
   it("rejects a non-string where a string belongs", () => {
-    expect(parseWorkspacePatch({ name: 42 })).toHaveProperty("error");
-    expect(parseWorkspacePatch({ name: null })).toHaveProperty("error");
+    expect(parseWorkspacePatch({ name: 42 }, SUPABASE_URL)).toHaveProperty("error");
+    expect(parseWorkspacePatch({ name: null }, SUPABASE_URL)).toHaveProperty("error");
   });
 
   it("rejects a body that is not an object", () => {
     for (const body of [null, "name", 7, ["name"]]) {
-      expect(parseWorkspacePatch(body)).toHaveProperty("error");
+      expect(parseWorkspacePatch(body, SUPABASE_URL)).toHaveProperty("error");
     }
   });
 });
 
 // ─── the slug ────────────────────────────────────────────────────────────────
 
-describe("slugify", () => {
+describe("slugifyShort", () => {
   it("lowercases and collapses non-alphanumerics", () => {
-    expect(slugify("Renin Doors")).toBe("renin-doors");
-    expect(slugify("R&D   /  Ops")).toBe("r-d-ops");
+    expect(slugifyShort("Renin Doors")).toBe("renin-doors");
+    expect(slugifyShort("R&D   /  Ops")).toBe("r-d-ops");
   });
 
   it("trims leading and trailing separators", () => {
-    expect(slugify("  ...Renin!!  ")).toBe("renin");
+    expect(slugifyShort("  ...Renin!!  ")).toBe("renin");
   });
 
   it("truncates to 40 characters without leaving a trailing dash", () => {
-    const out = slugify(`${"a".repeat(38)} bcdefgh`);
+    const out = slugifyShort(`${"a".repeat(38)} bcdefgh`);
     expect(out.length).toBeLessThanOrEqual(40);
     expect(out.endsWith("-")).toBe(false);
   });
@@ -183,8 +183,8 @@ describe("slugify", () => {
   it("returns empty for a name that carries no slug material", () => {
     // Punctuation only, or a non-Latin script. The caller must keep the
     // existing slug rather than write '' into a not-null unique column.
-    expect(slugify("!!!")).toBe("");
-    expect(slugify("日本語")).toBe("");
+    expect(slugifyShort("!!!")).toBe("");
+    expect(slugifyShort("日本語")).toBe("");
   });
 });
 

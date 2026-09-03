@@ -1,5 +1,5 @@
 import { registerRoute, ok, fail, noContent, HandlerContext } from "../router";
-import { slugify, withCollisionSuffix } from "./workspace";
+import { slugifyShort, withCollisionSuffix } from "./workspace";
 
 function generateId(prefix: string) {
   return `${prefix}${crypto.randomUUID().replace(/-/g, "")}`;
@@ -31,7 +31,7 @@ registerRoute({
     // teams.slug — BUG-2026-08-22-team-create-500-missing-slug). Neither the
     // client nor this handler generated one, so every INSERT violated the
     // constraint and 500'd. One retry with a random suffix on collision.
-    const baseSlug = typeof body.slug === "string" && body.slug.trim() ? body.slug : slugify(body.name ?? "");
+    const baseSlug = typeof body.slug === "string" && body.slug.trim() ? body.slug : slugifyShort(body.name ?? "");
     const attempts = [baseSlug, withCollisionSuffix(baseSlug || "project")];
 
     for (let i = 0; i < attempts.length; i++) {

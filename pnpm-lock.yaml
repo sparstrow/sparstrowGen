@@ -90,6 +90,9 @@ importers:
       '@radix-ui/react-dialog':
         specifier: ^1.1.7
         version: 1.1.16(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@sparstrow/server':
+        specifier: workspace:*
+        version: link:../../server
       '@sparstrow/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -382,6 +385,9 @@ importers:
       '@supabase/realtime-js':
         specifier: ^2.112.4
         version: 2.112.4
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.112.2
       better-sqlite3:
         specifier: ^12.2.0
         version: 12.10.0

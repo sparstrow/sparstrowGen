@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { getActiveWorkspaceId } from "./workspace";
+import { getActiveWorkspaceId } from "./workspace-scope";
 import { SupabaseClient } from "@supabase/supabase-js";
 
 // Bootstrap is a single Postgres RPC (see policies/004_bootstrap_rpc.sql), not

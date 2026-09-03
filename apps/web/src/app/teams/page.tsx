@@ -6,7 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActorAvatar } from "@/components/actor-avatar";
 import { createClient } from "@web/utils/supabase/server";
-import { getActiveWorkspaceId } from "@web/lib/workspace";
+// Transitional, same as the /api/v1 adapter: this Server Component reads the
+// database directly, which restructure Phase 5 replaces with a packages/core
+// query against server/. See G-63.
+import { getActiveWorkspaceId } from "@sparstrow/server/routes";
 import { toCamel } from "@sparstrow/shared";
 import { TeamsPageClient } from "./teams-client";
 
@@ -151,7 +154,7 @@ export default async function TeamsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const ws = await getActiveWorkspaceId(supabase);
+  const ws = await getActiveWorkspaceId(supabase);  // no remembered id: this page has always taken the default
   if (ws.error || !ws.workspaceId) redirect("/login");
 
   const { teams, projects } = await loadTeams(supabase, ws.workspaceId);

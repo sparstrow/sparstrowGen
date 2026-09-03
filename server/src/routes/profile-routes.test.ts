@@ -62,7 +62,7 @@ async function call(body: unknown, row: Row | null, opts: { user?: boolean } = {
     searchParams: new URLSearchParams(),
     body,
   });
-  return { status: res.status, json: await res.json() };
+  return { status: res.status, json: (await res.json()) as any };
 }
 
 /** A user as `bootstrap_workspace` leaves them after T-M9-01: no name. */
@@ -95,19 +95,19 @@ describe("parseProfilePatch", () => {
       ["bio", "Builds agent harnesses."],
       ["avatar_url", OWN_IMAGE],
     ] as const) {
-      expect(parseProfilePatch({ [key]: value }), key).toEqual({ patch: { [key]: value } });
+      expect(parseProfilePatch({ [key]: value }, SUPABASE_URL), key).toEqual({ patch: { [key]: value } });
     }
   });
 
   it("accepts all three at once", () => {
-    expect(parseProfilePatch({ name: "Sri Hari", bio: "b", avatar_url: null })).toEqual({
+    expect(parseProfilePatch({ name: "Sri Hari", bio: "b", avatar_url: null }, SUPABASE_URL)).toEqual({
       patch: { name: "Sri Hari", bio: "b", avatar_url: null },
     });
   });
 
   it("accepts an empty name", () => {
-    expect(parseProfilePatch({ name: "" })).toEqual({ patch: { name: "" } });
-    expect(parseProfilePatch({ name: "  " })).toEqual({ patch: { name: "" } });
+    expect(parseProfilePatch({ name: "" }, SUPABASE_URL)).toEqual({ patch: { name: "" } });
+    expect(parseProfilePatch({ name: "  " }, SUPABASE_URL)).toEqual({ patch: { name: "" } });
   });
 
   it("rejects a name over 60 and a bio over 2000, naming the limit", () => {
@@ -115,25 +115,25 @@ describe("parseProfilePatch", () => {
       ["name", 60],
       ["bio", 2000],
     ] as const) {
-      const parsed = parseProfilePatch({ [key]: "a".repeat(limit + 1) });
+      const parsed = parseProfilePatch({ [key]: "a".repeat(limit + 1) }, SUPABASE_URL);
       expect(parsed, key).toHaveProperty("error");
       expect((parsed as { error: string }).error, key).toContain(String(limit));
     }
   });
 
   it("accepts each field exactly at its limit", () => {
-    expect(parseProfilePatch({ name: "a".repeat(60) })).toHaveProperty("patch");
-    expect(parseProfilePatch({ bio: "a".repeat(2000) })).toHaveProperty("patch");
+    expect(parseProfilePatch({ name: "a".repeat(60) }, SUPABASE_URL)).toHaveProperty("patch");
+    expect(parseProfilePatch({ bio: "a".repeat(2000) }, SUPABASE_URL)).toHaveProperty("patch");
   });
 
   it("refuses email, password, role and id with a reason, not a generic message", () => {
     // role especially: authorization data must never be settable by its subject.
-    const role = parseProfilePatch({ role: "admin" }) as { error: string };
+    const role = parseProfilePatch({ role: "admin" }, SUPABASE_URL) as { error: string };
     expect(role.error).toContain("role");
     expect(role.error).toMatch(/authorization/i);
 
     for (const key of ["email", "password", "id"]) {
-      const parsed = parseProfilePatch({ [key]: "x" });
+      const parsed = parseProfilePatch({ [key]: "x" }, SUPABASE_URL);
       expect(parsed, key).toHaveProperty("error");
       expect((parsed as { error: string }).error, key).toContain(key);
     }
@@ -147,17 +147,17 @@ describe("parseProfilePatch", () => {
       "javascript:alert(1)",
       "",
     ]) {
-      expect(parseProfilePatch({ avatar_url: bad }), bad).toHaveProperty("error");
+      expect(parseProfilePatch({ avatar_url: bad }, SUPABASE_URL), bad).toHaveProperty("error");
     }
   });
 
   it("accepts null to clear the avatar", () => {
-    expect(parseProfilePatch({ avatar_url: null })).toEqual({ patch: { avatar_url: null } });
+    expect(parseProfilePatch({ avatar_url: null }, SUPABASE_URL)).toEqual({ patch: { avatar_url: null } });
   });
 
   it("rejects a body that is not an object", () => {
     for (const body of [null, "name", 7, ["name"]]) {
-      expect(parseProfilePatch(body)).toHaveProperty("error");
+      expect(parseProfilePatch(body, SUPABASE_URL)).toHaveProperty("error");
     }
   });
 });

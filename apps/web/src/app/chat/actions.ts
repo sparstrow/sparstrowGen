@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   CHAT_MESSAGE_MAX_BYTES,
   OPAQUE_COLUMNS,
+  attachmentsByMessageId,
   chatTurnFailureFrom,
   executionModeForProvider,
 } from "@sparstrow/shared";
@@ -26,7 +27,6 @@ import {
   type ActionContext,
   type ActionResult,
 } from "@web/lib/action-result";
-import { attachmentsByMessageId } from "@web/lib/chat-attachments";
 
 const CHAT_SESSIONS_OPAQUE = ["draft"];
 const CHAT_SESSION_KINDS = ["free", "project", "agent", "agent-creator"];

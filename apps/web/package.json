@@ -16,6 +16,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@fontsource-variable/inter": "^5.2.8",
     "@radix-ui/react-dialog": "^1.1.7",
+    "@sparstrow/server": "workspace:*",
     "@sparstrow/shared": "workspace:*",
     "@sparstrow/ui": "workspace:*",
     "@supabase/ssr": "catalog:",

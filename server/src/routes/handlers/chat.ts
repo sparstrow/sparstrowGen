@@ -1,6 +1,6 @@
 import { registerRoute, ok, fail, HandlerContext } from "../router";
 import { OPAQUE_COLUMNS } from "@sparstrow/shared";
-import { attachmentsByMessageId } from "@web/lib/chat-attachments";
+import { attachmentsByMessageId } from "@sparstrow/shared";
 
 /**
  * `chat_messages.meta` and `chat_sessions.draft` are jsonb -- see

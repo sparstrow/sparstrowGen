@@ -133,7 +133,7 @@ async function callRoute(
     searchParams: new URLSearchParams(),
     body: {},
   });
-  return { status: res.status, json: await res.json() };
+  return { status: res.status, json: (await res.json()) as any };
 }
 
 describe("dispatch", () => {

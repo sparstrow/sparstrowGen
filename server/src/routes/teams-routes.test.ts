@@ -158,7 +158,7 @@ describe("GET /teams", () => {
       searchParams: new URLSearchParams(),
       body: {},
     });
-    const json = await res.json();
+    const json = (await res.json()) as any;
     expect(Array.isArray(json)).toBe(true);
     expect(json).toHaveLength(2);
     for (const item of json) {
@@ -176,7 +176,7 @@ describe("GET /teams", () => {
       searchParams: new URLSearchParams(),
       body: {},
     });
-    const json = await res.json();
+    const json = (await res.json()) as any;
     const alpha = json.find((t: any) => t.id === "tem_1");
     const empty = json.find((t: any) => t.id === "tem_2");
 
@@ -220,7 +220,7 @@ describe("GET /teams/:id", () => {
       body: {},
     });
     expect(res.status).toBe(200);
-    const json = await res.json();
+    const json = (await res.json()) as any;
     expect(() => teamDetailSchema.parse(json), JSON.stringify(json)).not.toThrow();
 
     expect(json.members).toEqual([
@@ -244,7 +244,7 @@ describe("GET /teams/:id", () => {
       body: {},
     });
     expect(res.status).toBe(200);
-    const json = await res.json();
+    const json = (await res.json()) as any;
     expect(() => teamDetailSchema.parse(json), JSON.stringify(json)).not.toThrow();
     expect(json.members).toEqual([]);
     expect(json.projects).toEqual([]);

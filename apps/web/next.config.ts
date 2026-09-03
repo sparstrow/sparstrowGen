@@ -19,7 +19,11 @@ const nextVersion = (require("next/package.json") as { version: string }).versio
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  transpilePackages: ["@sparstrow/ui", "@sparstrow/shared"],
+  // `@sparstrow/server` is here transitionally: the /api/v1 adapter imports
+  // the route registry in-process until server/ runs as its own process.
+  // Only the "./routes" subpath is ever imported -- the package root pulls
+  // the daemon and its native modules, which Next cannot bundle.
+  transpilePackages: ["@sparstrow/ui", "@sparstrow/shared", "@sparstrow/server"],
   env: {
     NEXT_PUBLIC_APP_VERSION: appVersion,
     NEXT_PUBLIC_NEXT_VERSION: nextVersion,

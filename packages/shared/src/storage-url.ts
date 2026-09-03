@@ -1,5 +1,4 @@
-import { PUBLIC_IMAGE_BUCKET } from "@sparstrow/shared";
-import { supabaseUrl } from "@web/utils/supabase/env";
+import { PUBLIC_IMAGE_BUCKET } from "./constants";
 
 /**
  * Is this a URL that *this project's* Supabase Storage produced?
@@ -21,12 +20,19 @@ import { supabaseUrl } from "@web/utils/supabase/env";
  * six ordinary fields, and that still holds — those are all inline. Two
  * hand-copied origin checks would drift, and the direction they drift in is
  * "accepts more".
+ *
+ * **Moved to `packages/shared` and given an explicit `storageBaseUrl` by
+ * restructure Phase 1.** It used to call `supabaseUrl()` from the web app's own
+ * env module, which is why a security check that `server/` also needs was
+ * reachable only from inside `apps/web`. Passing the origin in is the better
+ * shape regardless: a check whose answer depends on ambient process state is
+ * one whose tests cannot state what they are checking against.
  */
 
 /** How Supabase Storage serves a public object. */
 const PUBLIC_OBJECT_PREFIX = `/storage/v1/object/public/${PUBLIC_IMAGE_BUCKET}/`;
 
-export function isOwnStorageUrl(value: string): boolean {
+export function isOwnStorageUrl(value: string, storageBaseUrl: string): boolean {
   let candidate: URL;
   try {
     candidate = new URL(value);
@@ -35,11 +41,12 @@ export function isOwnStorageUrl(value: string): boolean {
     return false;
   }
 
-  // Deliberately NOT wrapped in try/catch. A missing NEXT_PUBLIC_SUPABASE_URL
-  // is a deployment fault and throws a MissingConfigError that becomes a 500;
-  // swallowing it here would report "that image URL is invalid" to someone
-  // whose URL was fine, and hide the real problem.
-  const expected = new URL(supabaseUrl()).origin;
+  // Deliberately NOT wrapped in try/catch, and deliberately not defaulted. A
+  // missing or malformed Supabase URL is a deployment fault, and it must throw
+  // rather than quietly fail the comparison — a swallowed error here would
+  // report "that image URL is invalid" to someone whose URL was fine, and an
+  // empty-string default would compare every candidate against nothing.
+  const expected = new URL(storageBaseUrl).origin;
 
   // `origin` compares scheme, host and port together, so a lookalike host or a
   // downgrade to http fails. `pathname` is already percent-decoded consistently
