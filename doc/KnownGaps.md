@@ -81,6 +81,49 @@ and verification no longer depends on a deployed host.
 
 ## Unverified
 
+### G-61 — `pnpm up` has never been run: local Supabase could not be started on this machine
+
+**Raised:** 2026-09-02, restructure Phase 0c, on the change that introduced it.
+
+`supabase/config.toml` and `scripts/dev-env.mjs` are written, reviewed and
+typecheck-clean, and `supabase init` genuinely ran (the config file is real
+CLI output, not hand-written). **But `pnpm up` has never once been executed
+end to end**, so nothing below the first line of that script is proved:
+
+- that `supabase start` succeeds with our edited `config.toml`
+- that `supabase status -o env` emits the keys `writeEnvFiles()` parses
+  (`API_URL`, `ANON_KEY`, `SERVICE_ROLE_KEY`, `DB_URL`) in the format the
+  regex expects
+- that the generated `apps/web/.env.local` actually lets the web app connect
+- that the wildcard `additional_redirect_urls` are accepted by the local Auth
+  container (the syntax is documented, but documented is not observed)
+- that magic-link emails land in Inbucket
+
+**Why it stopped here.** Docker Desktop is installed (v29.5.2) but its daemon
+does not accept connections on this machine: `docker info` hangs indefinitely
+rather than failing, with `Docker Desktop` and `com.docker.backend` processes
+running and Responding. Launching it and waiting four minutes did not change
+that. This has the signature of a UI prompt waiting on the owner — a sign-in,
+a licence acceptance, or a WSL2 update — which an agent cannot and should not
+clear.
+
+**If wrong:** moderate, and cheap to find out. The likely failure modes are a
+port already in use, a key name in `supabase status` output that differs from
+what the parser expects, or the redirect wildcards being rejected. All surface
+on the first run and all are minutes to fix. The one that would matter more is
+the redirect list, because a wrong entry there fails *silently at sign-in* and
+looks like a code bug — which is exactly the defect the generated default
+(`https://127.0.0.1:3000`, with an `s`, against a plain-http dev server) would
+have caused, and which was fixed unverified.
+
+**Clears when:** the owner starts Docker Desktop, runs `pnpm up`, and reaches
+the app signed in against the local stack. That is also the first half of
+restructure Phase 0's Definition of Done, so this gap and that gate close
+together.
+
+**Do not mark Phase 0 complete while this entry is open.** The whole point of
+the restructure is that "written and typechecked" stopped counting as done.
+
 ### G-1 — Ctrl+C graceful shutdown, on Windows
 
 **Raised:** 2026-08-10 (M3, `T-M3-08`).

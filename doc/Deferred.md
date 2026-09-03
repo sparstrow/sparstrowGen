@@ -27,9 +27,27 @@ being redesigned later — it is being **removed now**, schema and all.
 **Original parking:** 2026-08-09, by the owner — "One thing I want to modify is
 the human gate feature. We can do it later." No UI was ever built against it.
 
-**What is removed:** `tasks.hitl_approved`, the `paused_hitl` run status, and
-`taskQuestions`. Carrying a dead spine through the restructure means porting,
-typechecking and reasoning about a mechanism nothing uses.
+**What is removed:** `tasks.hitl_approved` (migration
+`packages/shared/drizzle/0013_drop_hitl_approved.sql`) and the `paused_hitl`
+mention in the `runs` schema comment. That is all of it. The column was declared
+`NOT NULL DEFAULT true` and read by nothing — no route, no action, no daemon
+path, no UI — and `paused_hitl` was never a value in `runStatusSchema`, so it
+needed no migration at all. Both existed only to make an approval gate look
+present in the schema when none existed in the product.
+
+**Correction, same day: `task_questions` is NOT part of this and stays.** The
+first draft of this entry and of the restructure plan both listed it for
+removal. That was wrong, and it would have broken live code:
+`apps/web/src/app/tasks/actions.ts` writes answers to it,
+`lib/api/handlers/tasks.ts` reads it, `components/providers.tsx` subscribes to
+it over realtime, and the local SQLite twin drives
+`packages/core/src/taskboard/questions.ts` and `delegation.ts`.
+
+The two were conflated because both involve a human. They are opposites:
+**the gate is a human granting permission before work runs; a task question is
+an agent asking for information during it.** Only the first is cut. Worth
+keeping in mind on unpark — "human in the loop" names two mechanisms in this
+codebase, and the useful one was never the one that was missing.
 
 **Why removing it is safe *today* and not safe later.** HITL gates are one of
 three mitigations for the security consequence of cloud-canonical dispatch —

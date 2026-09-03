@@ -1,0 +1,41 @@
+-- 0013 — drop the HITL approval column
+--
+-- Part of the 2026-09-02 restructure. See doc/Deferred.md D-1.
+--
+-- `tasks.hitl_approved` was declared with `NOT NULL DEFAULT true` and read by
+-- nothing: no route, no action, no daemon path, no UI. Its only effect was to
+-- make an approval gate look present in the schema when none existed in the
+-- product. A column that is always true and never consulted is worse than an
+-- absent one, because a future reader reasonably assumes something enforces it.
+--
+-- ─── What this deliberately does NOT drop ────────────────────────────────────
+--
+-- `task_questions` STAYS. It was listed for removal in the first draft of the
+-- restructure plan and that was wrong: it is not the approval gate. It is the
+-- agent-asks-a-question flow, and it is live — apps/web/src/app/tasks/actions.ts
+-- writes answers to it, lib/api/handlers/tasks.ts reads it, and
+-- components/providers.tsx subscribes to it over realtime. The local SQLite
+-- twin in packages/core/src/db/schema.ts is likewise used by
+-- taskboard/questions.ts and taskboard/delegation.ts.
+--
+-- The two mechanisms were conflated because both are "a human is involved".
+-- They are opposites: the gate is a human granting permission BEFORE work runs;
+-- a task question is an agent asking for information DURING it. Only the
+-- first is cut.
+--
+-- `paused_hitl` needs no migration: it was never a value in `runStatusSchema`
+-- and nothing ever wrote it. It existed only in a schema comment, which is
+-- removed in the same change.
+--
+-- ─── Reversibility ──────────────────────────────────────────────────────────
+--
+-- Restoring this is one statement, and D-1's unpark trigger (before the first
+-- external collaborator joins a workspace) is when to run it:
+--
+--   ALTER TABLE "tasks" ADD COLUMN "hitl_approved" boolean NOT NULL DEFAULT true;
+--
+-- Nothing reads the column today, so no data is lost that any code could
+-- observe. Re-adding it would restore the shape, not the behaviour — the gate
+-- has to be designed and built, which is exactly what D-1 records.
+
+ALTER TABLE "tasks" DROP COLUMN IF EXISTS "hitl_approved";

@@ -140,7 +140,20 @@ Nothing here changes behaviour. All of it changes what the next agent believes.
   `catalog:` block; **fix the React mismatch** (`apps/web` runs `next@16.3.0`
   with `react@18.3.1`; Next 16 requires 19); `Makefile`, `docker-compose.yml`
   with local Supabase, `scripts/dev-env.sh`; turbo `cache-inputs`; cap turbo
-  concurrency to test `G-59`; drop the HITL columns.
+  concurrency to test `G-59`; drop the HITL column.
+
+> **Scope correction, found while doing 0c.** "Cut the HITL gate" turned out to
+> mean exactly one dead column, `tasks.hitl_approved` — declared `NOT NULL
+> DEFAULT true` and read by nothing. `paused_hitl` needed no migration at all;
+> it existed only in a schema comment and was never a value in
+> `runStatusSchema`.
+>
+> **`task_questions` is NOT part of the cut**, though an earlier draft of this
+> plan said it was. It is the *agent asks a question* flow — live, and wired to
+> `tasks/actions.ts`, `handlers/tasks.ts` and realtime. The gate is a human
+> granting permission **before** work runs; a task question is an agent asking
+> for information **during** it. Dropping it would have broken working code to
+> remove a feature nobody asked to remove.
 
 **Done when:** `make up` starts local Supabase + server + web; `make status`
 proves which checkout owns them; `AGENTS.md` no longer describes a process nobody
