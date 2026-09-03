@@ -57,7 +57,12 @@ export type BuildOptions = {
 };
 
 export async function buildServer({ config, auth }: BuildOptions): Promise<FastifyInstance> {
-  const authProvider = auth ?? new SupabaseAuthProvider(config.supabaseUrl, config.supabaseAnonKey);
+  const authProvider =
+    auth ??
+    new SupabaseAuthProvider(config.supabaseUrl, config.supabaseAnonKey, {
+      serviceRoleKey: config.supabaseServiceRoleKey,
+      jwtSecret: config.supabaseJwtSecret,
+    });
 
   const app = Fastify({
     // Silent under vitest: a request log line per assertion buries the actual

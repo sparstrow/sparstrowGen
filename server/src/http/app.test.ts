@@ -23,6 +23,10 @@ const CONFIG: ServerConfig = {
   port: 8080,
   supabaseUrl: "http://127.0.0.1:54321",
   supabaseAnonKey: "anon-key",
+  // Null on purpose: these tests use a stub AuthProvider, so nothing here
+  // should be able to reach a service role or mint a token even by accident.
+  supabaseServiceRoleKey: null,
+  supabaseJwtSecret: null,
   corsOrigins: ["http://localhost:3000"],
 };
 

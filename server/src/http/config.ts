@@ -11,6 +11,15 @@ export type ServerConfig = {
   port: number;
   supabaseUrl: string;
   supabaseAnonKey: string;
+  /**
+   * Server-only, and both are needed together to authenticate desktop/CLI
+   * clients: the service role resolves a personal access token to a user, and
+   * the JWT secret mints the short-lived token that makes RLS apply to it.
+   * Absent them, `server/` still serves `apps/web` perfectly — it just cannot
+   * accept a PAT. See `src/auth/jwt.ts`.
+   */
+  supabaseServiceRoleKey: string | null;
+  supabaseJwtSecret: string | null;
   /** Origins allowed to call this server from a browser. */
   corsOrigins: string[];
 };
@@ -55,6 +64,8 @@ export function loadServerConfig(env: NodeJS.ProcessEnv = process.env): ServerCo
     port,
     supabaseUrl: supabaseUrl.replace(/\/+$/, ""),
     supabaseAnonKey,
+    supabaseServiceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY || null,
+    supabaseJwtSecret: env.SUPABASE_JWT_SECRET || null,
     corsOrigins: (env.SPARSTROW_SERVER_CORS_ORIGINS ?? "http://localhost:3000")
       .split(",")
       .map((o) => o.trim())
