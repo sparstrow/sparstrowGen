@@ -16,7 +16,7 @@ routes that belong to Phase 5.
 | install | ✅ `Sparstrowgen Setup 0.2.0.exe`, launched and inspected (Phase 3) |
 | open | ✅ window renders the SPA, no Next.js, no bundled server (Phase 3) |
 | sign in | ✅ browser loopback → PAT → OS keychain |
-| **my machine is there** | ✅ daemon spawned, computer claimed, runtime registered, row visible in the app |
+| **my machine is there** | ❌→✅ **This tick was wrong when written.** See the correction below. |
 | pick an agent / send a message | 🟡 executes, but there is no POST route yet — see below |
 | output streams back | ⬜ blocked by [`G-27`](../KnownGaps.md) |
 
@@ -37,7 +37,41 @@ clicking Confirm:
 - `access_tokens.last_used_at` updates on every call, so revocation has
   something to be judged against
 
-### "My machine is there", verified
+### ⚠️ Correction, 2026-09-03 — "my machine is there" was verified wrongly
+
+**The owner installed v0.3.0, signed in successfully, and saw "No machines
+yet".** The beat this phase ticked did not work in the application at all.
+
+The evidence below is real and every line of it still holds. The mistake is in
+what it was taken to prove. `machine.claim(token)` was invoked **by the verifier,
+over CDP** — and **nothing in the app has ever called it.** The old web UI had a
+Connect button; the SPA that replaced it in Phase 3 did not bring one across, and
+the IPC handler behind it has sat complete and unreferenced ever since.
+
+So this verified the *bridge*, not the *application*. A capability reachable only
+by someone holding a debugger is not a feature, and driving it by hand and then
+ticking a product beat is the precise failure this repo's header rule exists to
+prevent — "a feature is not done until it runs in the desktop app". A CDP call
+is not the app running it.
+
+**What made it possible:** every step was checked individually and nothing
+checked that any step *invoked the next one*. The composition was the only
+untested part, and it was the only broken part.
+
+**Fixed** in `apps/desktop/src/main/claim.ts`: the main process claims this
+computer automatically, at launch and immediately after sign-in, and tells the
+window to refetch when it lands. Automatic rather than a button, per #213's
+"computers that are just there" — a person-scoped token already proves who this
+is, so asking them to press Connect asks them to confirm what the app knows.
+`claim.test.ts` pins the trigger, which is the part that was missing.
+
+**Not yet proved end to end**, and deliberately not claimed as such: completing
+the sign-in needs a human clicking Confirm in a browser, and simulating that
+with a service-role write was correctly refused by the tooling. The real proof
+arrives when the owner updates to 0.3.1 — the same release that proves the
+update mechanism.
+
+### The evidence, which proved less than was claimed
 
 ```
 [service] spawned core pid=37912 (detached)

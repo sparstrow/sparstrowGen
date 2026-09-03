@@ -80,6 +80,19 @@ stays a human decision.
 Work down this list — each step distinguishes two things that look identical
 from the outside.
 
+0. **Is there a release with a tag like `untagged-0fbbfd8d…` and all the right
+   assets on it?** Then the build worked and the tag was lost. **PATCHing a
+   draft release without re-sending `tag_name` makes GitHub reset it to
+   `untagged-<hash>`** — assets, body and target commit all survive, but it can
+   no longer be found by tag, and the workflow's own error says "the build did
+   not create one", which is wrong and sends you to the wrong place. Recover
+   without rebuilding:
+   ```bash
+   gh api -X PATCH "repos/sparstrow/sparstrowGen/releases/<id>" -f tag_name="v<version>" -f target_commitish="<sha>" -F draft=false -F make_latest=true
+   ```
+   Read `latest.yml` off the draft first and check its version matches. Full
+   writeup: [`BUG-2026-09-03`](../../../doc/bug/BUG-2026-09-03-patching-a-draft-release-silently-clears-its-tag.md).
+
 1. **Did the workflow decide to release?** Its first job prints either
    `vX.Y.Z is already released` or `vX.Y.Z has not been released — building it`.
    The first means the version was not bumped, or a leftover release (**including

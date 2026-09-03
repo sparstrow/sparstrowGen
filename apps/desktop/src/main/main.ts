@@ -10,6 +10,7 @@ import { offlineScreenUrl } from "./offline";
 import { resolveAppUrl, resolveWindowUrl } from "./urls";
 import { readDaemonPrefs, writeDaemonPrefs, type DaemonPrefs } from "./daemon-prefs";
 import { forgetToken, readToken, signIn } from "./session";
+import { claimThisComputer, setClaimListener } from "./claim";
 
 /**
  * Where the window points. Resolution lives in `urls.ts` so it can be tested —
@@ -83,9 +84,18 @@ if (!app.requestSingleInstanceLock()) {
        * without one. So the runtime starts alongside the window instead of in
        * front of it, and a failure is reported rather than waited on.
        */
-      void services.start().catch((err) => {
-        console.error("[main] core failed to start:", err instanceof Error ? err.message : err);
-      });
+      void services
+        .start()
+        .then(() => {
+          // Re-assert this computer's registration on every launch. Idempotent
+          // (see `claim.ts`), and it repairs a machine whose registration went
+          // stale while the app was closed — which otherwise shows up as a
+          // machine that is present but permanently Offline.
+          void claimThisComputer("launch");
+        })
+        .catch((err) => {
+          console.error("[main] core failed to start:", err instanceof Error ? err.message : err);
+        });
     } else {
       console.log("[main] auto-start is off — not starting core");
     }
@@ -106,6 +116,16 @@ if (!app.requestSingleInstanceLock()) {
       console.log(`[main] sign-in requested via ${appUrl}`);
       const result = await signIn(appUrl);
       console.log(`[main] sign-in ${result.ok ? "succeeded" : `failed: ${result.error}`}`);
+      if (result.ok) {
+        // Awaited, not fired off: the renderer refreshes its machine list the
+        // moment this resolves, and a claim still in flight at that point is
+        // exactly how someone lands on "No machines yet" one second after
+        // connecting a computer that is, in fact, connected.
+        const claimed = await claimThisComputer("sign-in");
+        if (!claimed.ok) {
+          console.error(`[main] signed in, but this computer was not claimed: ${claimed.error}`);
+        }
+      }
       return result;
     });
 
@@ -193,6 +213,11 @@ if (!app.requestSingleInstanceLock()) {
       } catch (err) {
         return { connected: false, error: err instanceof Error ? err.message : String(err) };
       }
+    });
+
+    setClaimListener(() => {
+      const win = mainWindow;
+      if (win && !win.isDestroyed()) win.webContents.send("sparstrow:machines-changed");
     });
 
     tray = createTray({ openWindow, quit: () => quitApp() });
