@@ -35,7 +35,7 @@ cost if the assumption is wrong, and the concrete thing that would close it.
 **Never reuse a `G-` number.** A cleared id looks free, so the next writer takes
 it, and every reference to the old meaning silently starts pointing at the new
 one. Allocate above the highest number this file has **ever** used — currently
-`G-63` — not above the highest currently present.
+`G-64` — not above the highest currently present.
 
 ---
 
@@ -333,6 +333,47 @@ session's `<workspace_id>/<session_id>/` prefix, and a test confirms a deleted
 session's prefix is empty. Whatever closes one cause should close both — the fix
 (a scheduled sweep of unreferenced objects, or tightening the POST's delivery
 guarantee) is the same shape.
+
+### G-64 — the desktop installer still ships a whole Node runtime, for four native modules it mostly does not use
+
+**Raised:** 2026-09-03, restructure Phase 3, when the plan's instruction to
+delete the bundled Node runtime turned out to be only half safe.
+
+Phase 3 deleted the bundled **Next.js server** — the thing that actually made
+this app unbuildable — but the bundled **`node` binary** had to stay, and the
+reason is worth writing down so nobody deletes it again hoping.
+
+The daemon imports four native addons:
+
+| Module | For | Status |
+|---|---|---|
+| `better-sqlite3` | its own execution store | carried, genuinely needed |
+| `node-pty` | terminals | **parked** ([`D-37`](Deferred.md)) |
+| `fastembed` | memory embeddings | **parked** ([`D-31`](Deferred.md)) |
+| `sqlite-vec` | vector search | **parked** ([`D-31`](Deferred.md)) |
+
+A native addon is compiled against one Node ABI, and Electron's differs, so the
+daemon cannot run as Electron-as-Node and a packaged install must carry an
+interpreter for it. Three of the four belong to subsystems that are parked and
+that nothing in the carried product calls — but the modules are still
+**imported at module scope**, so they are still loaded, and the runtime is
+still required.
+
+**If wrong:** nothing breaks. This is installer weight and build complexity, not
+a correctness or security problem. The cost is roughly a Node binary per install
+plus the prebuild-staging step in `prepare-resources.mjs` that verifies them.
+
+**Clears when** — and the order matters, because the last step is the cheap one:
+
+1. the parked subsystems' imports are removed from the daemon's module graph
+   (unwiring, not deleting — the code stays per `D-31`/`D-37`),
+2. `better-sqlite3` is replaced by Node 22's built-in `node:sqlite`,
+3. the daemon then has **no** native addons, can run as Electron-as-Node, and
+   `node-runtime` leaves `extraResources` along with `nodeBin`.
+
+The restructure plan predicted exactly this — *"`better-sqlite3` is the only
+native module left, and Node 22 ships `node:sqlite` built in"* — it was simply
+premature by one phase: parking a subsystem is not the same as unwiring it.
 
 ### G-62 — two different `slugify`s, and `projects.slug` gets whichever one the caller happened to import
 

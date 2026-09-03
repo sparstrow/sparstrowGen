@@ -8,6 +8,7 @@
 //                      native .node prebuilds included)
 //     memory-mcp/      index.cjs
 //     memory-cli/      index.cjs
+//     node-runtime/    plain Node matching the natives' ABI (see step 4)
 //     channel.json     which backend this install talks to (stable/staging)
 import { execSync } from "node:child_process";
 import fs from "node:fs";
@@ -93,25 +94,37 @@ for (const name of ["memory-mcp", "memory-cli"]) {
   fs.copyFileSync(bundle, path.join(staging, name, "index.cjs"));
 }
 
-// 3. (removed) The bundled Next.js server and the bundled Node runtime.
+// 3. (removed) The bundled Next.js server.
 //
-// This is the largest simplification of the restructure, so it is worth saying
-// what used to be here rather than leaving a gap in the numbering.
+// The installer used to carry a full Next.js standalone build, because every
+// write in the app was a Server Action — callable only from inside a Next
+// render — so the only way the desktop app could have a feature was to ship the
+// web server inside it and load it over loopback. The renderer is now a plain
+// Vite SPA (`out/renderer`, built by `electron-vite`) talking HTTP to
+// `server/`, so there is nothing to stage and nothing to spawn.
 //
-// The installer used to carry a full Next.js standalone build AND a copy of the
-// `node` binary, because every write in the app was a Next.js Server Action —
-// callable only from inside a Next render — so the only way the desktop app
-// could have a feature was to ship the web server inside it and load it over
-// loopback. That meant three processes at launch, two Node runtimes with
-// different ABIs, and a packaging problem that is why this app was never once
-// opened and used in five months.
+// The node runtime below is a SEPARATE question and is deliberately still here
+// — see its own comment.
+
+// 4. Node runtime: the Node this script runs under IS the ABI the workspace's
+// native prebuilds were installed for — ship exactly that binary.
 //
-// The renderer is now a plain Vite SPA (`out/renderer`, built by
-// `electron-vite`) talking HTTP to `server/`. Nothing to stage.
+// The restructure plan expected this to go with the web server. It cannot yet,
+// and the reason is worth stating so nobody deletes it again hoping: the daemon
+// still imports four native modules — `better-sqlite3` (its own store) plus
+// `node-pty`, `fastembed` and `sqlite-vec` from the three PARKED subsystems
+// (terminals, memory/RAG). Native addons are compiled for a specific Node ABI,
+// and Electron's differs, so the daemon must run on plain Node and a packaged
+// install has to carry one.
 //
-// The node runtime is a separate question and is NOT resolved yet: the daemon
-// still runs on plain Node because `better-sqlite3` is compiled for the system
-// Node ABI, and a packaged build has to find one. See `G-64`.
+// The path to removing it is not a packaging change: it is unwiring the parked
+// subsystems (`D-31`, `D-37`), after which `better-sqlite3` is the last native
+// module and Node 22's built-in `node:sqlite` can replace it. Tracked as `G-64`.
+const nodeDir = path.join(staging, "node-runtime");
+fs.mkdirSync(nodeDir, { recursive: true });
+const nodeName = process.platform === "win32" ? "node.exe" : "node";
+fs.copyFileSync(process.execPath, path.join(nodeDir, nodeName));
+console.log(`[prepare] node runtime: ${process.version} (${process.execPath})`);
 
 // 5. Channel config: which backend THIS specific build talks to, baked in so
 // a packaged install works out of the box — see src/channel.ts for why this

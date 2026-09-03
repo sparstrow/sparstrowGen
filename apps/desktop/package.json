@@ -86,6 +86,13 @@
         ]
       },
       {
+        "from": "resources-staging/node-runtime",
+        "to": "node-runtime",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
         "from": "resources-staging/channel.json",
         "to": "channel.json"
       }

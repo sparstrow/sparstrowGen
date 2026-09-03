@@ -18,14 +18,17 @@ export interface PackagedPaths {
   coreEntry: string;
   /** cwd for the core process — its deployed package dir (node_modules beside it). */
   coreCwd: string;
-  /** Bundled plain-Node runtime (never Electron-as-Node: native-module ABI). */
+  /**
+   * Bundled plain-Node runtime — never Electron-as-Node.
+   *
+   * The daemon loads four native addons (`better-sqlite3`, plus `node-pty`,
+   * `fastembed` and `sqlite-vec` from the parked subsystems), and a native
+   * addon is compiled for one Node ABI. Electron's differs, so the daemon gets
+   * its own interpreter. See `G-64` for what has to happen before this can go.
+   */
   nodeBin: string;
   /** Supervisor log dir (lives under dataDir so it survives updates). */
   logDir: string;
-  /** Bundled Next.js standalone entry. */
-  webEntry: string;
-  /** cwd for the Next.js standalone server. */
-  webCwd: string;
   /** This install's baked channel config (stable vs. staging), or `null` if unresolved. See `channel.ts`. */
   channel: ChannelConfig | null;
 }
@@ -49,8 +52,6 @@ export function applyPackagedEnv(): PackagedPaths | null {
     coreCwd,
     nodeBin: path.join(res, "node-runtime", process.platform === "win32" ? "node.exe" : "node"),
     logDir: path.join(userData, "data", "logs"),
-    webEntry: path.join(res, "web", "apps", "web", "server.js"),
-    webCwd: path.join(res, "web", "apps", "web"),
     channel,
   };
   process.env.SPARSTROW_PACKAGED = "1";
