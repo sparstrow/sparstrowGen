@@ -17,7 +17,7 @@ import type { SpecterReport } from "../schemas/specter";
 /**
  * Cloud control plane (Postgres/Supabase).
  *
- * The daemon (`@sparstrow/core`) keeps its own SQLite store for execution and the
+ * The daemon (`@sparstrow/server`) keeps its own SQLite store for execution and the
  * derived memory index; this schema is the shared BOARD — identity, machines,
  * agents, projects, tasks, runs and transcripts — plus the durable hub that syncs
  * memory note content between machines.

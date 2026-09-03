@@ -40,7 +40,7 @@ export function readNoteRefs(note: MemoryNote): LessonRef[] {
  * Engine grammar (v0.8.1, spike-observed): `<engineProject>.<dotted path
  * without extension>.<symbolName>` where the file path's slashes become dots
  * and the extension is stripped — e.g. project `my-app` +
- * (`packages/core/src/orchestrator/run-manager.ts`, `RunManager.tick`) →
+ * (`server/src/orchestrator/run-manager.ts`, `RunManager.tick`) →
  * `my-app.packages.core.src.orchestrator.run-manager.RunManager.tick`.
  * If the engine's grammar ever changes, THIS is the only line to update.
  */

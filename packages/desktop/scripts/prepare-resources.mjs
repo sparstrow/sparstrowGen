@@ -45,9 +45,9 @@ fs.mkdirSync(staging, { recursive: true });
 // symlinks into .pnpm/, and electron-builder's copier can't follow them.
 // Hoisted emits a flat, symlink-free real tree (verified: 0 symlinks, every
 // native .node present).
-run("pnpm --filter @sparstrow/core build");
+run("pnpm --filter @sparstrow/server build");
 run(
-  `pnpm --filter @sparstrow/core deploy --prod --legacy --config.node-linker=hoisted --config.confirmModulesPurge=false "${path.join(staging, "core")}"`,
+  `pnpm --filter @sparstrow/server deploy --prod --legacy --config.node-linker=hoisted --config.confirmModulesPurge=false "${path.join(staging, "core")}"`,
 );
 // The legacy deploy implementation resolves the WHOLE workspace in
 // production-only mode (`--prod`) to produce its snapshot, then persists

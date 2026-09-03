@@ -17,7 +17,7 @@ import { cloudFetch, getRuntimes, isPaired } from "./client.js";
  * M4 dispatches on that picture.
  */
 
-/** The core version reported to the cloud. Matches packages/core/package.json. */
+/** The core version reported to the cloud. Matches server/package.json. */
 export const CORE_VERSION = "0.1.0";
 
 /**

@@ -209,7 +209,7 @@ registerRoute({
     // `ChatSessionDetail` (packages/shared/src/schemas/chat.ts) is
     // `{ session, messages, activeTurn }` -- a NESTED session, matching what
     // the local host's GET handler has always returned
-    // (packages/core/src/api/routes/chat.ts) and what every consumer reads
+    // (server/src/api/routes/chat.ts) and what every consumer reads
     // (`detail.data?.session`, `detail.data.session.id`/`.draft` in
     // chat.tsx/agent-create.tsx). The prior shape here spread the session's
     // columns onto the top level instead -- undetected until this pass

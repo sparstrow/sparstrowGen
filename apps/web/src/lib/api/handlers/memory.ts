@@ -40,7 +40,7 @@ registerRoute({
 
     // memory_notes.path is NOT NULL, but MemoryNoteCreate never carries one --
     // in the daemon the path is derived when the markdown file is written
-    // (packages/core/src/memory/vault.ts). Without deriving it here every note
+    // (server/src/memory/vault.ts). Without deriving it here every note
     // created from the web 500s on the not-null constraint.
     //
     // This must match scopeDir()/writeNote() exactly, because M6 syncs notes

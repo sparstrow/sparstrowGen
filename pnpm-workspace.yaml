@@ -1,6 +1,11 @@
 packages:
   - apps/*
   - packages/*
+  # `server/` is deliberately a sibling of apps/ and packages/, not a member of
+  # either. It is the one thing that talks to the database (AGENTS.md §1 rule
+  # 1), and a directory that sorts on its own is a cheap, permanent reminder
+  # that it is not just another package a client may import.
+  - server
   # The desktop packaging step deploys a copy of the runtime into
   # packages/desktop/resources-staging/ (and electron-builder writes to
   # release/). Exclude both so pnpm never discovers a duplicate workspace

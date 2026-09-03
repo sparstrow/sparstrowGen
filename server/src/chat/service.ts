@@ -246,7 +246,7 @@ const ISO = "2026-01-01T00:00:00.000Z";
  * chat gets no tools; project chat gets read-only repo access.
  *
  * Takes the session KIND rather than a whole `ChatSession` so the cloud
- * dispatch path (`packages/core/src/cloud/chat-turn.ts`, M12) can reuse this
+ * dispatch path (`server/src/cloud/chat-turn.ts`, M12) can reuse this
  * exact prompt-building logic without needing a local session row to exist —
  * a cloud-dispatched turn's session lives in Postgres, not this machine's
  * SQLite.

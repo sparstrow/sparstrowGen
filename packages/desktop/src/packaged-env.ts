@@ -61,7 +61,7 @@ export function applyPackagedEnv(): PackagedPaths | null {
   process.env.SPARSTROW_MEMORY_MCP ??= path.join(res, "memory-mcp", "index.cjs");
   process.env.SPARSTROW_MEMORY_CLI ??= path.join(res, "memory-cli", "index.cjs");
   process.env.SPARSTROW_NODE ??= paths.nodeBin;
-  // The daemon reads SPARSTROW_CLOUD_URL itself (packages/core/src/config.ts);
+  // The daemon reads SPARSTROW_CLOUD_URL itself (server/src/config.ts);
   // `??=` here means an operator's own override — per
   // doc/runbooks/deploy-web-app.md — still wins over this install's baked
   // channel target.

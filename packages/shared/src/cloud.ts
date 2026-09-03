@@ -1,7 +1,7 @@
 /**
  * M3 — the contract between a daemon and the cloud control plane.
  *
- * This file exists so `packages/core` and `apps/web` cannot disagree. The
+ * This file exists so `server/` and `apps/web` cannot disagree. The
  * heartbeat constants are the sharp case: if the daemon beats every 30s and the
  * web app decides "stale" means 20s, every machine in the fleet flickers
  * offline between beats and nothing in either codebase looks wrong on its own.
@@ -259,7 +259,7 @@ export interface DaemonErrorResponse {
 //
 // A command is a durable Postgres row with claim/lease/ack, not a message. The
 // daemon polls for its own; the cloud never pushes. Everything below is the
-// contract `packages/core` and `apps/web` share so they cannot disagree about
+// contract `server/` and `apps/web` share so they cannot disagree about
 // a field name at 3am.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -802,7 +802,7 @@ export interface ChatTurnStartPayload {
    * at the ORIGINAL dispatch attempt would already have expired by the time
    * a later rescan actually assigns it. The daemon mints its own short-lived
    * signed URL on demand, immediately before downloading — see
-   * `packages/core/src/cloud/chat-turn.ts`'s attachment step and the new
+   * `server/src/cloud/chat-turn.ts`'s attachment step and the new
    * `POST /api/daemon/chat/attachments/sign` route.
    */
   attachments: Array<{ storagePath: string; filename: string }>;

@@ -145,7 +145,7 @@ export async function completeOnce(
     child.on("error", (err) => {
       // Not draft-specific despite the historical name: this is completeOnce,
       // shared by the Agent Creator's draft flow AND M12's cloud chat turn
-      // executor (packages/core/src/cloud/chat-turn.ts). A caller-neutral
+      // executor (server/src/cloud/chat-turn.ts). A caller-neutral
       // message here is what a chat turn's TurnErrorBanner actually renders
       // to the owner -- "draft turn spawn error"/"draft turn timed out" read
       // as a bug report copy-pasted from the wrong feature when a Free/

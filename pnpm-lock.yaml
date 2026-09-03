@@ -179,97 +179,6 @@ importers:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4))
 
-  packages/core:
-    dependencies:
-      '@fastify/cors':
-        specifier: ^11.0.1
-        version: 11.2.0
-      '@fastify/static':
-        specifier: ^9.1.1
-        version: 9.1.3
-      '@fastify/websocket':
-        specifier: ^11.1.0
-        version: 11.2.0
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.12.1
-        version: 1.29.0(zod@3.25.76)
-      '@sparstrow/shared':
-        specifier: workspace:*
-        version: link:../shared
-      '@supabase/realtime-js':
-        specifier: ^2.112.4
-        version: 2.112.4
-      better-sqlite3:
-        specifier: ^12.2.0
-        version: 12.10.0
-      chokidar:
-        specifier: ^4.0.3
-        version: 4.0.3
-      croner:
-        specifier: ^9.0.0
-        version: 9.1.0
-      drizzle-orm:
-        specifier: 'catalog:'
-        version: 0.45.2(@types/better-sqlite3@7.6.13)(better-sqlite3@12.10.0)(postgres@3.4.9)
-      fastembed:
-        specifier: ^1.14.1
-        version: 1.14.4
-      fastify:
-        specifier: ^5.3.3
-        version: 5.8.5
-      js-yaml:
-        specifier: ^4.1.2
-        version: 4.2.0
-      nanoid:
-        specifier: ^5.1.5
-        version: 5.1.11
-      node-pty:
-        specifier: ^1.0.0
-        version: 1.1.0
-      pino:
-        specifier: ^9.7.0
-        version: 9.14.0
-      postgres:
-        specifier: 'catalog:'
-        version: 3.4.9
-      sqlite-vec:
-        specifier: ^0.1.6
-        version: 0.1.9
-      tree-kill:
-        specifier: ^1.2.2
-        version: 1.2.2
-      zod:
-        specifier: 'catalog:'
-        version: 3.25.76
-    devDependencies:
-      '@sparstrow/tsconfig':
-        specifier: workspace:*
-        version: link:../tsconfig
-      '@types/better-sqlite3':
-        specifier: ^7.6.13
-        version: 7.6.13
-      '@types/js-yaml':
-        specifier: ^4.0.9
-        version: 4.0.9
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.13.2
-      esbuild:
-        specifier: ^0.25.12
-        version: 0.25.12
-      pino-pretty:
-        specifier: ^13.0.0
-        version: 13.1.3
-      tsx:
-        specifier: ^4.20.0
-        version: 4.22.4
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.1.10(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4))
-
   packages/desktop:
     dependencies:
       electron-updater:
@@ -446,6 +355,97 @@ importers:
       tailwindcss:
         specifier: 'catalog:'
         version: 4.3.3
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4))
+
+  server:
+    dependencies:
+      '@fastify/cors':
+        specifier: ^11.0.1
+        version: 11.2.0
+      '@fastify/static':
+        specifier: ^9.1.1
+        version: 9.1.3
+      '@fastify/websocket':
+        specifier: ^11.1.0
+        version: 11.2.0
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.12.1
+        version: 1.29.0(zod@3.25.76)
+      '@sparstrow/shared':
+        specifier: workspace:*
+        version: link:../packages/shared
+      '@supabase/realtime-js':
+        specifier: ^2.112.4
+        version: 2.112.4
+      better-sqlite3:
+        specifier: ^12.2.0
+        version: 12.10.0
+      chokidar:
+        specifier: ^4.0.3
+        version: 4.0.3
+      croner:
+        specifier: ^9.0.0
+        version: 9.1.0
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.2(@types/better-sqlite3@7.6.13)(better-sqlite3@12.10.0)(postgres@3.4.9)
+      fastembed:
+        specifier: ^1.14.1
+        version: 1.14.4
+      fastify:
+        specifier: ^5.3.3
+        version: 5.8.5
+      js-yaml:
+        specifier: ^4.1.2
+        version: 4.3.1
+      nanoid:
+        specifier: ^5.1.5
+        version: 5.1.11
+      node-pty:
+        specifier: ^1.0.0
+        version: 1.1.0
+      pino:
+        specifier: ^9.7.0
+        version: 9.14.0
+      postgres:
+        specifier: 'catalog:'
+        version: 3.4.9
+      sqlite-vec:
+        specifier: ^0.1.6
+        version: 0.1.9
+      tree-kill:
+        specifier: ^1.2.2
+        version: 1.2.2
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
+    devDependencies:
+      '@sparstrow/tsconfig':
+        specifier: workspace:*
+        version: link:../packages/tsconfig
+      '@types/better-sqlite3':
+        specifier: ^7.6.13
+        version: 7.6.13
+      '@types/js-yaml':
+        specifier: ^4.0.9
+        version: 4.0.9
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.13.2
+      esbuild:
+        specifier: ^0.25.12
+        version: 0.25.12
+      pino-pretty:
+        specifier: ^13.0.0
+        version: 13.1.3
+      tsx:
+        specifier: ^4.20.0
+        version: 4.22.4
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -5620,11 +5620,6 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
-  semver@7.8.4:
-    resolution: {integrity: sha512-rUCObTnP32Q08R2uuIrt7r9PlEonuTmtuXYcW6s5kjdlj3xbnwe+21yXptAUYcMAABLkYYTtnmzb3w3EDZfueA==}
-    engines: {node: '>=10'}
-    hasBin: true
-
   semver@7.8.5:
     resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
     engines: {node: '>=10'}
@@ -8473,7 +8468,7 @@ snapshots:
       '@typescript-eslint/visitor-keys': 8.66.0
       debug: 4.4.3
       minimatch: 10.2.5
-      semver: 7.8.4
+      semver: 7.8.5
       tinyglobby: 0.2.17
       ts-api-utils: 2.5.0(typescript@5.9.3)
       typescript: 5.9.3
@@ -8716,7 +8711,7 @@ snapshots:
       hosted-git-info: 4.1.0
       isbinaryfile: 5.0.7
       jiti: 2.7.0
-      js-yaml: 4.2.0
+      js-yaml: 4.3.1
       json5: 2.2.3
       lazy-val: 1.0.5
       minimatch: 10.2.5
@@ -8939,7 +8934,7 @@ snapshots:
       fs-extra: 10.1.0
       http-proxy-agent: 7.0.2
       https-proxy-agent: 7.0.6
-      js-yaml: 4.2.0
+      js-yaml: 4.3.1
       sanitize-filename: 1.6.4
       source-map-support: 0.5.21
       stat-mode: 1.0.0
@@ -9264,7 +9259,7 @@ snapshots:
       app-builder-lib: 26.15.3(dmg-builder@26.15.3)(electron-builder-squirrel-windows@26.15.3)
       builder-util: 26.15.3
       fs-extra: 10.1.0
-      js-yaml: 4.2.0
+      js-yaml: 4.3.1
     transitivePeerDependencies:
       - electron-builder-squirrel-windows
       - supports-color
@@ -9952,7 +9947,7 @@ snapshots:
       process-warning: 5.0.0
       rfdc: 1.4.1
       secure-json-parse: 4.1.0
-      semver: 7.8.4
+      semver: 7.8.5
       toad-cache: 3.7.1
 
   fastq@1.20.1:
@@ -10157,7 +10152,7 @@ snapshots:
       es6-error: 4.1.1
       matcher: 3.0.0
       roarr: 2.15.4
-      semver: 7.8.4
+      semver: 7.8.5
       serialize-error: 7.0.1
 
   globals@14.0.0: {}
@@ -10369,7 +10364,7 @@ snapshots:
 
   is-bun-module@2.0.0:
     dependencies:
-      semver: 7.8.4
+      semver: 7.8.5
 
   is-callable@1.2.7: {}
 
@@ -11139,17 +11134,17 @@ snapshots:
 
   node-abi@3.92.0:
     dependencies:
-      semver: 7.8.4
+      semver: 7.8.5
 
   node-abi@4.31.0:
     dependencies:
-      semver: 7.8.4
+      semver: 7.8.5
 
   node-addon-api@7.1.1: {}
 
   node-api-version@0.2.1:
     dependencies:
-      semver: 7.8.4
+      semver: 7.8.5
 
   node-exports-info@1.6.2:
     dependencies:
@@ -11165,7 +11160,7 @@ snapshots:
       graceful-fs: 4.2.11
       nopt: 9.0.0
       proc-log: 6.1.0
-      semver: 7.8.4
+      semver: 7.8.5
       tar: 7.5.16
       tinyglobby: 0.2.17
       undici: 6.26.0
@@ -11810,10 +11805,7 @@ snapshots:
 
   semver@7.7.4: {}
 
-  semver@7.8.4: {}
-
-  semver@7.8.5:
-    optional: true
+  semver@7.8.5: {}
 
   send@1.2.1:
     dependencies:
@@ -11952,7 +11944,7 @@ snapshots:
 
   simple-update-notifier@2.0.0:
     dependencies:
-      semver: 7.8.4
+      semver: 7.8.5
 
   sonic-boom@4.2.1:
     dependencies:

@@ -32,7 +32,7 @@ export type TerminalRefusal = z.infer<typeof terminalRefusalSchema>;
 /**
  * What a subscriber renders about one session.
  *
- * NOT `packages/core`'s local `TerminalSession` — that interface carries
+ * NOT `server/`'s local `TerminalSession` — that interface carries
  * `agentId` as a machine-local id the browser cannot resolve on its own, so
  * this carries the agent's name alongside it (mirrors how `terminals.tsx`
  * already falls back to `shortId` when it can't find a match today).

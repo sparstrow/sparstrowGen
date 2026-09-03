@@ -29,7 +29,7 @@ export function findRepoRoot(start: string): string {
 /**
  * `/system/health` sits behind the same per-install bearer-token gate as the
  * rest of the human/UI API surface (`requireAuth` in `api/auth.ts`, wrapping
- * `systemRoutes` — see `packages/core/src/api/server.ts`), so a probe sent
+ * `systemRoutes` — see `server/src/api/server.ts`), so a probe sent
  * without the token gets a 401, not a 200, no matter how healthy the core
  * actually is. `token` should be the same per-install token `core-client.ts`
  * already reads for the tray/updater (`readApiToken`); omit it only when the
@@ -48,7 +48,7 @@ export async function probeHealth(timeoutMs = 1500, token: string | null = null)
 
 /**
  * Supervises the core Node service. If a core is already listening (dev:
- * `pnpm --filter @sparstrow/core start` in a terminal), adopts it in
+ * `pnpm --filter @sparstrow/server start` in a terminal), adopts it in
  * "external" mode and never restarts or stops it.
  */
 export class ServiceManager {

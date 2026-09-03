@@ -111,7 +111,7 @@ export class AntigravityCliProvider implements CliProvider {
    * `models` subcommand's interactive listing UI.
    *
    * The fix is `node-pty` (already a dependency here for the Terminals
-   * feature — `packages/core/src/terminal/manager.ts`), which gives the
+   * feature — `server/src/terminal/manager.ts`), which gives the
    * child a real pseudo-terminal. Verified this actually resolves it:
    * identical spawn, `node-pty`, exits 0 with the real list. Output then
    * arrives as raw terminal bytes, not clean lines — `parseAgyModelsOutput`
@@ -283,7 +283,7 @@ export class AntigravityCliProvider implements CliProvider {
    *    narration as incremental deltas (not full accumulated text), and
    *    parseLine is called per-line with no cross-line state (the provider
    *    instance is a shared singleton across concurrent runs — see
-   *    packages/core/src/providers/index.ts — so it must stay stateless),
+   *    server/src/providers/index.ts — so it must stay stateless),
    *    so each delta becomes its own small assistant bubble rather than one
    *    bubble per reasoning step. That still satisfies the "progressive"
    *    requirement (US3 scenario 2 / G-13): text appears as it streams,

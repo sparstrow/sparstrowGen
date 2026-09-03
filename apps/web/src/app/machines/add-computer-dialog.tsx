@@ -32,7 +32,7 @@ import {
  * its own end and will appear whether or not anyone is watching.
  */
 
-const INSTALL_COMMAND = "npm install -g @sparstrow/core";
+const INSTALL_COMMAND = "npm install -g @sparstrow/server";
 const SETUP_COMMAND = "sparstrow setup";
 
 function CommandBlock({ command }: { command: string }) {
