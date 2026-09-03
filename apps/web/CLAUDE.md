@@ -38,6 +38,29 @@ months of work.
 The same logic applies to querying Supabase from `page.tsx`. A page that talks to
 the database directly is a page only this app can render.
 
+## Where things actually are, as of Phase 1 (2026-09-02)
+
+This is no longer a plan — it has happened, and the paths below are real:
+
+- **`server/`** holds the API: `server/src/routes/` (the 71-route registry, 19
+  handler modules) served by `server/cmd/server.ts` on `127.0.0.1:8080`.
+- **`apps/web/src/app/api/v1/[...path]/route.ts` is a proxy.** It contains no
+  API. Its whole job is translating this app's Supabase **cookie session** and
+  workspace **cookie** into the `Authorization: Bearer` and
+  `X-Sparstrow-Workspace` headers every client sends. The browser still fetches
+  `/api/v1/*` exactly as before.
+- **`pnpm dev:up` starts both.** If `/api/v1` returns 502 with
+  `reason: "server_unreachable"`, `server/` is not running — that is the message
+  saying so, not a bug.
+- Pure helpers both sides need (`slugifyShort`, `parseProfilePatch`,
+  `isOwnStorageUrl`, `toCamel`/`toSnake`, `OPAQUE_COLUMNS`) live in
+  **`@sparstrow/shared`**, not in `lib/`.
+
+`apps/web` still lists `@sparstrow/server` as a dependency. That is **not** a
+pattern to copy: it exists only for `lib/action-result.ts` and
+`app/teams/page.tsx`, both on the Server Actions path Phase 5 deletes. Do not
+add a new import of it.
+
 ## The rules now
 
 - **Writes are HTTP routes in `server/`**, called through `packages/core`'s
