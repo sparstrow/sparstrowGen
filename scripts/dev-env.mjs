@@ -240,6 +240,49 @@ function applySchema() {
     process.exit(pushCode);
   }
 
+  // ── Restore Supabase's role grants ────────────────────────────────────────
+  //
+  // This step is not optional and its absence is invisible until you sign in.
+  //
+  // Supabase ships default privileges on `public` so that `anon` and
+  // `authenticated` hold table-level DML and RLS does the actual filtering.
+  // Two things here destroy that: `drop schema public cascade` takes the
+  // ALTER DEFAULT PRIVILEGES with it, and `drizzle-kit push` creates tables
+  // without granting anything to anyone.
+  //
+  // The result is a database that looks completely healthy — 42 tables, RLS on
+  // every one of them — where every query from the app fails with
+  // `permission denied for table ...`, surfacing in the UI as a generic
+  // "Database error". RLS is never even consulted, because the grant check
+  // happens first. This cost a real debugging session; it is written down so
+  // it costs nobody another one.
+  //
+  // Ordering matters: after push (the tables must exist), before the policy
+  // files (001_rls.sql does column-level REVOKEs on top of these, and would be
+  // undone by a blanket grant applied afterwards).
+  step("restoring role grants (anon / authenticated / service_role)");
+  const grantSql = [
+    "grant usage on schema public to anon, authenticated, service_role;",
+    "grant all on all tables in schema public to anon, authenticated, service_role;",
+    "grant all on all sequences in schema public to anon, authenticated, service_role;",
+    "grant all on all functions in schema public to anon, authenticated, service_role;",
+    "alter default privileges in schema public grant all on tables to anon, authenticated, service_role;",
+    "alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;",
+    "alter default privileges in schema public grant all on functions to anon, authenticated, service_role;",
+  ].join("\n");
+  const grantRes = spawnSync(
+    shellCommand("docker", [
+      "exec", "-i", DB_CONTAINER,
+      "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q", "-f", "-",
+    ]),
+    { cwd: repoRoot, input: grantSql, encoding: "utf8", shell: true },
+  );
+  if ((grantRes.status ?? 1) !== 0) {
+    fail("could not restore role grants:");
+    say((grantRes.stderr ?? "").trim());
+    process.exit(1);
+  }
+
   step("applying RLS policies");
   const dir = path.join(repoRoot, "packages", "shared", "drizzle", "policies");
   const files = fs.readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
@@ -291,7 +334,42 @@ function applySchema() {
     say("  This is the defect SEC-2026-09-02 describes. Do not develop against this.");
     process.exit(1);
   }
-  ok("schema built, RLS enabled on every table");
+
+  // The companion check to the one above, and the reason it exists: RLS being
+  // on proves nothing about whether the app can reach the table at all. A
+  // database with RLS on every table and grants on none looks perfect here and
+  // fails every query at runtime. Assert both or neither is worth asserting.
+  const { out: ungranted } = capture("docker", [
+    "exec", DB_CONTAINER, "psql", "-U", "postgres", "-d", "postgres", "-tAc",
+    // `has_any_column_privilege`, NOT `has_table_privilege`. Several credential
+    // tables deliberately revoke table-level SELECT and grant back only the safe
+    // columns — 033 does exactly that to `access_tokens` so a `select *` cannot
+    // hand a token hash to the browser. Checking table privilege alone reports
+    // that working security control as a defect, which is how a check earns
+    // itself a reputation for crying wolf and then gets ignored.
+    //
+    // `daemon_identities` is excluded: it is created by the policy files rather
+    // than by schema.ts, is reached only through SECURITY DEFINER functions, and
+    // belongs to the Realtime transport parked under D-37. No app query touches
+    // it, so it having no grant is correct rather than missing.
+    //
+    // Joins pg_class and passes c.oid rather than building a
+    // 'public.<name>'::regclass string: the string form throws "relation does
+    // not exist" on other schemas' tables, because Postgres may evaluate the
+    // cast before the nspname filter has excluded them.
+    //
+    // One line deliberately: this is a single shell argument on Windows, and
+    // embedded newlines truncate it mid-statement.
+    "select coalesce(string_agg(c.relname, ', '), '') from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and c.relname <> 'daemon_identities' and not has_any_column_privilege('authenticated', c.oid, 'SELECT');",
+  ]);
+  if (ungranted.trim()) {
+    fail(`tables 'authenticated' cannot SELECT: ${ungranted.trim()}`);
+    say("  RLS is on but grants are missing — every app query will fail with");
+    say("  'permission denied', surfacing in the UI as a generic Database error.");
+    process.exit(1);
+  }
+
+  ok("schema built, RLS on every table, grants in place");
 }
 
 function cmdUp() {

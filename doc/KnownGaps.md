@@ -77,55 +77,21 @@ and verification no longer depends on a deployed host.
 **`G-60` survives in narrowed form** — its staging half is moot, but the broken
 `drizzle-kit migrate` path applies to the one Supabase project we are keeping.
 
+**`G-61` was opened and closed the same day.** It recorded that `pnpm dev:up`
+had never been run, because Docker's daemon was not accepting connections. Docker
+finished starting later that session, and the whole path was then exercised:
+local Supabase up, `pnpm db:reset` building all 42 tables with RLS *and* grants
+asserted, the app signed in as `agent@sparstrow.com` via the magic-link procedure
+in [`runbooks/agent-browser-session.md`](runbooks/agent-browser-session.md), and
+Settings → Profile rendering real data from an authenticated query. Running it
+found three defects that inspection had not: missing role grants after a schema
+rebuild, a stale `apply-to-supabase.sql`, and the RLS abort recorded in
+[`SEC-2026-09-02-rls-bootstrap-aborts-leaving-dispatch-unprotected`](security/SEC-2026-09-02-rls-bootstrap-aborts-leaving-dispatch-unprotected.md).
+Which is the entry's own point, made twice: written and typechecked is not run.
+
 ---
 
 ## Unverified
-
-### G-61 — the local environment is proved up to the sign-in page, and no further
-
-**Raised:** 2026-09-02, restructure Phase 0c.
-**Mostly cleared the same day**, once Docker Desktop finished starting. Kept
-open, narrowed, because one specific thing remains unobserved.
-
-**What is now proved, by running it:**
-
-- `supabase start` succeeds with our edited `config.toml`
-- `supabase status -o env` emits `API_URL` / `ANON_KEY` / `SERVICE_ROLE_KEY` /
-  `DB_URL`, and `writeEnvFiles()` parses them — `apps/web/.env.local` is
-  written correctly and pre-existing keys in it survive
-- `pnpm db:reset` builds all 42 tables via `drizzle-kit push` and applies the
-  RLS policies, ending with **RLS enabled on every table** (asserted by the
-  script, not assumed)
-- `pnpm dev:up` starts the stack and the web dev server
-- the app renders its sign-in page and **reaches local Supabase Auth**:
-  `GET http://127.0.0.1:54321/auth/v1/settings → 200 OK`, no console errors
-- the app correctly reports GitHub/Google as unconfigured, which is true of a
-  local stack
-
-**What is NOT proved: anything past the sign-in button.** No account has been
-created and no session has ever existed against the local stack, so:
-
-- the wildcard `additional_redirect_urls` have never actually carried a
-  redirect. This is the one worth caring about — a wrong entry here fails
-  *silently at sign-in* and reads as a code bug. It is also exactly the defect
-  the generated default would have caused (`https://127.0.0.1:3000`, with an
-  `s`, against a plain-http dev server), which was corrected by inspection.
-- magic-link emails have never been seen arriving in Mailpit
-  (`http://127.0.0.1:54324`)
-- no authenticated query has ever run against the local database, so the RLS
-  policies are proved *present*, never proved *correct*
-
-**Why it stopped here:** creating an account and entering a password are
-actions this agent does not perform. That boundary is not a technical
-limitation and should not be worked around — it just means the last step
-belongs to the owner.
-
-**Clears when:** the owner runs `pnpm dev:up`, creates an account against the
-local stack (magic link or password), and reaches a signed-in page. Two
-minutes, and it closes the whole entry.
-
-**If wrong:** low and cheap. Failures surface immediately at sign-in and are
-minutes to fix.
 
 ### G-1 — Ctrl+C graceful shutdown, on Windows
 

@@ -27,6 +27,12 @@ being redesigned later — it is being **removed now**, schema and all.
 **Original parking:** 2026-08-09, by the owner — "One thing I want to modify is
 the human gate feature. We can do it later." No UI was ever built against it.
 
+**Applied to the shared Supabase project 2026-09-02**, with the owner's explicit
+approval, via `apply-pending.mjs` (dry-run first, then committed). Verified
+after: zero `hitl_approved` columns remain, and `task_questions` is still
+present — the check that the correction below was actually honoured, not just
+written down.
+
 **What is removed:** `tasks.hitl_approved` (migration
 `packages/shared/drizzle/0013_drop_hitl_approved.sql`) and the `paused_hitl`
 mention in the `runs` schema comment. That is all of it. The column was declared

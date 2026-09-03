@@ -399,6 +399,48 @@ localhost (fast iteration — local Docker Supabase, no push needed)
       machines, agents, chat, projects, runs — so the desktop app ships with the
       settings those need rather than acquiring them later as a retrofit.
 
+15. **Fetch current documentation before writing framework code** — ✅ **MANDATORY**
+    - Set 2026-09-02, by the owner. **Use the `context7` MCP server** for any
+      library, framework, SDK or CLI you are about to write against — Next.js,
+      React, Electron, Drizzle, Fastify, Tailwind, Supabase, Claude Code, and
+      anything else it carries.
+    - **Use it even when you think you know the answer.** Training data lags
+      reality, and this repo has already paid for that twice in ways that cost
+      real time: `apps/web` ran `next@16.3.0` against `react@18.3.1`, a
+      combination Next 16 does not support, for weeks; and a mocked class in a
+      vitest test was written as an arrow function, which vitest 4 cannot
+      construct. Both were "I know how this works" errors.
+    - `resolve-library-id` first, then `query-docs`. Prefer it over web search
+      and over memory for API syntax, config shape, and version-specific
+      behaviour.
+    - Do **not** use it for refactoring, business-logic debugging, code review,
+      or general programming concepts — it answers "what is the current API",
+      not "what should this code do".
+
+16. **The agent's own account, for driving the running app**
+    - Set 2026-09-02, by the owner, who created it: **`agent@sparstrow.com`**,
+      password `Ibelieveinyou`. Use this account for anything an agent needs to
+      do inside the running application — signing in, walking a flow,
+      reproducing a bug, verifying a screen.
+    - **Scope: the LOCAL Docker stack only.** This credential is written in a
+      file that is committed to git and therefore public to anyone with the
+      repository. It is acceptable *only* because a local Supabase database is
+      disposable, recreated by `pnpm db:reset`, and reachable from nowhere but
+      the developer's own machine.
+    - **Never use this password against a deployed environment**, and never set
+      it on one. If it is ever reused on the shared Supabase project, it stops
+      being a test credential and becomes a published one — at which point it
+      must be changed, and the change recorded in `doc/security/`.
+    - Sign-up needs no email confirmation locally: `supabase/config.toml` sets
+      `[auth.email] enable_confirmations = false`, which is why account creation
+      logs you straight in. That is local configuration, not a defect, and it
+      does **not** describe the deployed project.
+    - **Clean up test data an agent creates**, but leave this account in place —
+      it is shared infrastructure, not scratch data.
+    - Note for agents: *creating* an account and typing a password are actions
+      an agent does not perform. This account exists precisely so that boundary
+      does not block verification — it was created by the owner, once, for reuse.
+
 ---
 
 ## 4. Environment & Database Configuration

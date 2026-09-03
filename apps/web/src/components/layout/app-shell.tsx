@@ -211,7 +211,8 @@ function AuthenticatedShell({
             collapsed && "md:hidden",
           )}
         >
-          v0.1.0 · Next.js 15
+          v{process.env.NEXT_PUBLIC_APP_VERSION} · Next.js{" "}
+          {process.env.NEXT_PUBLIC_NEXT_VERSION}
         </div>
       </aside>
 
