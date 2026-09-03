@@ -1,5 +1,6 @@
 {
   "name": "@sparstrow/desktop",
+  "productName": "Sparstrowgen",
   "version": "0.2.0",
   "private": true,
   "description": "Sparstrowgen desktop shell",
