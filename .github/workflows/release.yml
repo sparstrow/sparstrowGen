@@ -87,6 +87,23 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SPARSTROW_RELEASE_SHA: ${{ github.sha }}
+      # ⚠️ EVERY PATCH to a draft release MUST re-send `tag_name`.
+      #
+      # A draft has no real git tag — GitHub only creates one when the draft is
+      # published — so it holds the intended tag as a plain field. PATCH that
+      # draft without `tag_name` and GitHub does not leave the field alone: it
+      # resets it to `untagged-<hash>`. The release keeps its assets and its
+      # body and silently stops being findable by tag.
+      #
+      # That is exactly how v0.3.0's first run failed. `ensure-draft-release`
+      # created the draft as `v0.3.0`, electron-builder uploaded all three
+      # assets to it, this step PATCHed the body alone — and the publish step
+      # below then reported "no draft release found for v0.3.0" about a draft
+      # sitting right there, fully built. The release was recovered by hand with
+      # a PATCH that re-sent the tag; nothing had to be rebuilt.
+      #
+      # Hence also `$GITHUB_ENV`: the release is carried forward by ID from here
+      # on. An ID cannot be reset out from under the next step.
       - name: Write release notes
         shell: bash
         run: |
@@ -94,8 +111,13 @@ jobs:
             -f tag_name="v${VERSION}" -f target_commitish="${GITHUB_SHA}" --jq .body > notes.md
           RELEASE_ID=$(gh api "repos/${GITHUB_REPOSITORY}/releases" \
             --jq ".[] | select(.tag_name==\"v${VERSION}\") | .id" | head -1)
+          if [ -z "$RELEASE_ID" ]; then
+            echo "::error::No release found for v${VERSION} — dist:stable did not create one."
+            exit 1
+          fi
+          echo "RELEASE_ID=${RELEASE_ID}" >> "$GITHUB_ENV"
           gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
-            -F body=@notes.md > /dev/null
+            -f tag_name="v${VERSION}" -F body=@notes.md > /dev/null
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.decide.outputs.version }}
@@ -109,15 +131,32 @@ jobs:
       - name: Publish the release
         shell: bash
         run: |
-          RELEASE_ID=$(gh api "repos/${GITHUB_REPOSITORY}/releases" \
-            --jq ".[] | select(.tag_name==\"v${VERSION}\" and .draft==true) | .id" | head -1)
-          if [ -z "$RELEASE_ID" ]; then
-            echo "::error::No draft release found for v${VERSION} — the build did not create one."
-            exit 1
-          fi
+          # `tag_name` again, for the reason above — this is the PATCH that
+          # creates the real git tag, and it creates it from this field.
           gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
-            -f draft=false -f make_latest=true > /dev/null
+            -f tag_name="v${VERSION}" -f target_commitish="${GITHUB_SHA}" \
+            -F draft=false -F make_latest=true > /dev/null
           echo "Published v${VERSION} (release ${RELEASE_ID})"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.decide.outputs.version }}
+
+      # The release is only real to an installed app once `latest.yml` is
+      # fetchable ANONYMOUSLY from the /latest/ URL electron-updater uses. Every
+      # check up to here passes just as well for a release nobody's app can see,
+      # which is the failure this repo has actually had — releases that existed
+      # and shipped nothing. `-u ""` drops the runner's credentials so this is
+      # the public view, not a privileged one.
+      - name: Prove the update feed is live
+        shell: bash
+        run: |
+          FEED=$(curl -sfL -u "" "https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/latest.yml")
+          echo "$FEED"
+          FEED_VERSION=$(echo "$FEED" | sed -n 's/^version: *//p' | tr -d '\r')
+          if [ "$FEED_VERSION" != "${VERSION}" ]; then
+            echo "::error::latest.yml advertises '${FEED_VERSION}', not '${VERSION}'. Installed apps would read this as 'already up to date' and never update."
+            exit 1
+          fi
+          echo "Update feed is live and advertises ${VERSION}."
+        env:
           VERSION: ${{ needs.decide.outputs.version }}

@@ -17,28 +17,89 @@ export const VAULT_DIRS = {
 export const DEFAULT_RUN_TIMEOUT_MS = 15 * 60 * 1000;
 export const DEFAULT_GLOBAL_CONCURRENCY = 4;
 
-/** Known model choices per provider (free-text also allowed). */
+/**
+ * FALLBACKS ONLY. The live list comes from `POST /providers/discover-models`.
+ *
+ * ## Read this before editing an entry
+ *
+ * Model lineups move faster than releases do — Opus 4.8 to 5, Fable 5 to 5.1,
+ * Gemini 3.6 to 3.7 to 3.8, inside weeks. **A hardcoded list is wrong by
+ * default and gets more wrong on its own.** These exist for exactly one job: to
+ * put *something* in a picker when the CLI cannot be reached (not installed,
+ * not logged in, offline). Anything that can ask the provider must ask the
+ * provider.
+ *
+ * How stale this got while nobody looked, measured 2026-09-03 against a live
+ * `agy models` (v1.1.25): the antigravity entry below offered three Gemini 3.5
+ * Flash tiers **that no longer exist**, and hid nine that do — 3.6, 3.7 and 3.8
+ * Flash, every tier. Six months of drift in a list that read as authoritative.
+ *
+ * **So: prefer a self-updating token over a version number wherever the
+ * provider offers one.** `claude-code`'s aliases are the model to copy — they
+ * are resolved by the CLI at spawn time and therefore cannot go stale here.
+ */
 export const KNOWN_MODELS: Record<string, string[]> = {
-  "claude-code": ["opus", "sonnet", "haiku"],
-  // P8.1: exact `agy models` display strings — verified as the tokens `--model`
-  // accepts (agy v1.1.0). The parenthetical is the reasoning-effort tier.
+  /**
+   * Aliases first, and they are not a shortcut — `claude --help` (v2.1.x)
+   * documents `--model` as taking "an alias for the latest model (e.g. 'sonnet'
+   * or 'opus') or a model's full name". An alias resolves to the newest model
+   * in its family every time the CLI runs, so these three entries stay correct
+   * with no maintenance, forever. The full names below them exist only so a
+   * specific model can be pinned deliberately.
+   *
+   * The Claude CLI has **no model-enumeration command** — verified against
+   * `claude --help`, which offers `--model` and `agents` but nothing that lists
+   * models. So this list is static by design rather than by failure, and it is
+   * the one provider here where that is not a shortcoming to fix.
+   */
+  "claude-code": [
+    "opus",
+    "sonnet",
+    "haiku",
+    "claude-opus-5",
+    "claude-sonnet-5",
+    "claude-fable-5-1",
+    "claude-haiku-4-5-20251001",
+  ],
+  /**
+   * `agy models`' display labels — the form `--model` is verified to accept
+   * (see `antigravity.ts`'s note on label-vs-slug; the slug is only confirmed
+   * for the interactive `/model` command).
+   *
+   * Captured live from agy v1.1.25 on 2026-09-03. It WILL be stale again —
+   * `AntigravityCliProvider.discoverModels()` is the real answer and runs
+   * `agy models` for itself.
+   */
   antigravity: [
+    "Gemini 3.8 Flash (High)",
+    "Gemini 3.8 Flash (Medium)",
+    "Gemini 3.8 Flash (Low)",
+    "Gemini 3.7 Flash (High)",
+    "Gemini 3.7 Flash (Medium)",
+    "Gemini 3.7 Flash (Low)",
+    "Gemini 3.6 Flash (High)",
+    "Gemini 3.6 Flash (Medium)",
+    "Gemini 3.6 Flash (Low)",
     "Gemini 3.1 Pro (High)",
     "Gemini 3.1 Pro (Low)",
-    "Gemini 3.5 Flash (High)",
-    "Gemini 3.5 Flash (Medium)",
-    "Gemini 3.5 Flash (Low)",
-    "Claude Opus 4.6 (Thinking)",
     "Claude Sonnet 4.6 (Thinking)",
+    "Claude Opus 4.6 (Thinking)",
     "GPT-OSS 120B (Medium)",
   ],
-  // P8 direct-API defaults; the live list comes from POST /providers/discover-models.
-  "anthropic-api": [
-    "claude-opus-4-8",
-    "claude-sonnet-5",
-    "claude-haiku-4-5",
-  ],
-  ollama: ["llama3.1", "qwen2.5", "mistral"],
+  /**
+   * Direct API. `AnthropicProvider.discoverModels()` calls `/v1/models`, which
+   * returns exactly the non-deprecated lineup — so this fallback only ever
+   * shows when there is no API key or no network.
+   */
+  "anthropic-api": ["claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5-20251001"],
+  /**
+   * Deliberately empty. Ollama models are whatever the person has *pulled onto
+   * this machine* — there is no lineup to guess at, and naming three popular
+   * models would offer a picker full of things that are not installed and
+   * cannot run. `ollama list` answers this exactly, so an empty fallback
+   * ("none found") is the truthful degraded state.
+   */
+  ollama: [],
 };
 
 export const MEMORY_INJECTION_MAX_CHARS = 8000;

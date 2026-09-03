@@ -49,6 +49,16 @@ contextBridge.exposeInMainWorld("sparstrowDesktop", {
     ipcRenderer.on("sparstrow:navigate", listener);
     return () => ipcRenderer.removeListener("sparstrow:navigate", listener);
   },
+  /**
+   * This computer's registration changed, so anything showing machines is
+   * stale. Carries no data — the renderer refetches through the same API it
+   * always uses, rather than being handed a machine over the bridge.
+   */
+  onMachinesChanged: (cb: () => void) => {
+    const listener = () => cb();
+    ipcRenderer.on("sparstrow:machines-changed", listener);
+    return () => ipcRenderer.removeListener("sparstrow:machines-changed", listener);
+  },
   updates: {
     getStatus: () => ipcRenderer.invoke("sparstrow:update-status-get"),
     check: () => ipcRenderer.invoke("sparstrow:update-check"),
