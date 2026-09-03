@@ -722,3 +722,41 @@ appears to work in the one environment where it is never really being used.
 **Closes when:** a packaged install opens, signs in, and shows its machine on a
 computer with **no repository checkout and nothing running on :8080 or :3000** —
 and the verification says so explicitly.
+
+### 🟡 Half closed, 2026-09-03 — the app now runs its own server
+
+`server/` ships as a second bundle (`dist/server.js`) and is supervised by the
+desktop app beside the daemon, configured from credentials stored in the OS
+keychain. Both halves now point at it: the renderer via `serverUrl()`, the
+daemon via `SPARSTROW_CLOUD_URL`, which no longer comes from `channel.cloudUrl`
+(that field named the host answering 402 and is dead alongside `appUrl`).
+
+Verified from a genuinely cold start — every process killed, `SUPABASE_*`,
+`NEXT_PUBLIC_SUPABASE_*` and `SPARSTROW_*` explicitly unset with `env -u`, so
+the configuration could only have come from the keychain:
+
+```
+[server] spawned pid=43420
+[service] spawned core pid=23148 (detached)
+[server] healthy
+[service] core is healthy
+[claim] launch: this computer is in 1 workspace(s) (mach_9fac26a1…)
+Your machines / Sri desktop / Windows · DESKTOP-GJ8NLB8 · Online
+```
+
+**What is still open, and why this entry stays.** That run was `npx electron`
+against a built tree, not an installed `.exe` on a machine with no checkout.
+The remaining unknowns are packaging-shaped, not design-shaped: whether
+`prepare-resources.mjs` stages `dist/server.js` into a real installer (it now
+asserts it does), and whether the bundled Node runs it. **Do not close this
+until an installed build does it on a computer with no repository.**
+
+### And a related gap this exposed: signing in still needs `apps/web`
+
+Pairing works without it — the stored credential is enough. But the `/connect`
+confirm page a *first* sign-in opens is a Next.js page, so a fresh install on a
+new machine still cannot complete sign-in without `apps/web` running somewhere.
+`server/` builds the confirm URL from `SPARSTROW_WEB_ORIGIN`, which defaults to
+`http://localhost:3000`. Tracked here rather than as its own entry because it
+has the same root and the same fix shape: either serve the confirm page from
+`server/`, or unpark hosting (`D-40`).

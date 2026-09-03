@@ -21,9 +21,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const coreFetch = vi.fn();
 const readToken = vi.fn();
+const probeServer = vi.fn();
 
 vi.mock("./core-client", () => ({ coreFetch: (...a: unknown[]) => coreFetch(...a) }));
 vi.mock("./session", () => ({ readToken: () => readToken() }));
+// The claim needs `server/` up as well as the runtime — the runtime receives
+// the claim, the server is what it then calls to register. Stubbed as ready by
+// default; one test below covers the cold-start race where it is not.
+vi.mock("./server-manager", () => ({ probeServer: () => probeServer() }));
 
 const { claimThisComputer, setClaimListener } = await import("./claim");
 
@@ -39,6 +44,7 @@ const UNAUTHORIZED = jsonRes(401, { error: "unauthorized" });
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers();
+  probeServer.mockResolvedValue(true);
   setClaimListener(() => {});
 });
 
@@ -77,9 +83,28 @@ describe("claimThisComputer", () => {
     coreFetch.mockResolvedValue(UNAUTHORIZED);
 
     const result = await run();
-    expect(result).toEqual({ ok: false, error: "the local runtime never became reachable" });
+    expect(result).toEqual({
+      ok: false,
+      error: "the local runtime and server never both became reachable",
+    });
     // Never attempted the claim against a runtime that had already refused it.
     for (const call of coreFetch.mock.calls) expect(call[0]).toBe("/system/health");
+  });
+
+  it("waits for server/ too, not just the runtime", async () => {
+    // The cold-start race, found by running with nothing pre-started: the
+    // runtime comes up first, the claim goes out, and the daemon fails with
+    // "Could not reach the control plane" about a server that becomes healthy a
+    // second later. Readiness means BOTH.
+    readToken.mockReturnValue("pat_abc");
+    probeServer.mockResolvedValueOnce(false).mockResolvedValue(true);
+    coreFetch
+      .mockResolvedValueOnce(HEALTHY)
+      .mockResolvedValueOnce(jsonRes(200, { machineId: "mach_1", workspaces: 1 }));
+
+    await expect(run()).resolves.toMatchObject({ ok: true });
+    // Nothing was sent while the server was still down.
+    expect(coreFetch).toHaveBeenCalledTimes(2);
   });
 
   it("does nothing, and reports no error, when signed out", async () => {

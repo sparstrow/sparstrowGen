@@ -12,6 +12,14 @@ import { resolveAppUrl, resolveWindowUrl } from "./urls";
 import { readDaemonPrefs, writeDaemonPrefs, type DaemonPrefs } from "./daemon-prefs";
 import { forgetToken, readToken, signIn } from "./session";
 import { claimThisComputer, setClaimListener } from "./claim";
+import { ServerManager, serverUrl } from "./server-manager";
+import {
+  clearServerConfig,
+  seedServerConfigFromEnv,
+  serverConfigStatus,
+  updateServerConfig,
+  type ServerCredentials,
+} from "./server-config";
 
 /**
  * Where the window points. Resolution lives in `urls.ts` so it can be tested —
@@ -47,6 +55,17 @@ const packagedPaths = applyPackagedEnv();
 if (packagedPaths) ensureCoreNodeModules(packagedPaths);
 const repoRoot = packagedPaths ? app.getPath("userData") : findRepoRoot(__dirname);
 const services = new ServiceManager(repoRoot, packagedPaths);
+// `G-67`: the API server, supervised by the app rather than assumed to exist.
+// A packaged install used to ship only the daemon, so the renderer pointed at a
+// port nothing listened on and the app worked exactly nowhere but a developer's
+// own machine.
+const apiServer = new ServerManager(repoRoot, packagedPaths);
+// The daemon registers, heartbeats and claims against THIS machine's server.
+// It used to be pointed at the baked `channel.cloudUrl` (`https://sparstrow.com`,
+// which answers 402), so the two halves of the app talked to two different
+// places and neither existed in a packaged install. `??=` so an operator
+// pointing a daemon somewhere else deliberately still wins.
+process.env.SPARSTROW_CLOUD_URL ??= serverUrl();
 // Token-authed shell→core client (tray, updater): the token file lives in
 // the active data dir — userData in packaged mode, repo data/ in dev.
 configureCoreClient(packagedPaths?.dataDir ?? path.join(repoRoot, "data"));
@@ -73,6 +92,45 @@ if (!app.requestSingleInstanceLock()) {
     // that is already listening — `services.start()` is what detects that, and
     // someone who turned auto-start off still wants the window to talk to a
     // runtime they started themselves.
+    // `G-67`, first half: start the API server before anything wants it.
+    //
+    // Seeded from the environment only when nothing is stored, so a developer
+    // with `apps/web/.env.local` exported into their shell gets a working app
+    // with no setup, and a real install is untouched by a stray variable.
+    seedServerConfigFromEnv();
+    apiServer.onStateChange((state) => {
+      const win = mainWindow;
+      if (win && !win.isDestroyed()) win.webContents.send("sparstrow:server-state", state);
+    });
+    // Not awaited, for the same reason the runtime is not: the window renders
+    // Settings — which is where an unconfigured server is fixed — without it.
+    void apiServer.start().catch((err) => {
+      console.error("[main] the API server failed to start:", err);
+    });
+
+    ipcMain.handle("sparstrow:server-config-get", () => serverConfigStatus());
+    ipcMain.handle("sparstrow:server-state-get", () => apiServer.state);
+    ipcMain.handle(
+      "sparstrow:server-config-set",
+      async (_e, patch: Partial<ServerCredentials>) => {
+        try {
+          const status = updateServerConfig(patch ?? {});
+          // Restart rather than asking the person to. The configuration they
+          // just entered is only a claim until a server actually starts with
+          // it, and the state push tells them which it turned out to be.
+          await apiServer.restart();
+          return { ok: true as const, status };
+        } catch (err) {
+          return { ok: false as const, error: err instanceof Error ? err.message : String(err) };
+        }
+      },
+    );
+    ipcMain.handle("sparstrow:server-config-clear", async () => {
+      const status = clearServerConfig();
+      await apiServer.stop();
+      return status;
+    });
+
     const prefs = readDaemonPrefs(app.getPath("userData"));
     if (prefs.autoStartOnLaunch) {
       /**
@@ -276,7 +334,7 @@ function openWindow(): void {
         // Where `server/` is. Passed as argv rather than read from
         // `process.env` in the renderer, which has no `process` at all under
         // contextIsolation — and should not.
-        `--sparstrow-server-url=${process.env.SPARSTROW_SERVER_URL ?? "http://127.0.0.1:8080"}`,
+        `--sparstrow-server-url=${serverUrl()}`,
       ],
     },
   });
@@ -350,6 +408,11 @@ function quitApp(): void {
   // "I closed the app to tidy my taskbar" — which is what made it silently
   // unreachable before.
   const { autoStopOnQuit } = readDaemonPrefs(app.getPath("userData"));
+  // The API server always stops, unlike the runtime. `autoStopOnQuit` exists so
+  // agents can keep working after the window closes — nothing keeps working
+  // through `server/`, and a survivor holding port 8080 is what makes the NEXT
+  // launch adopt a server built from the previous version's code.
+  void apiServer.stop().catch(() => undefined);
   void services.stop(autoStopOnQuit).finally(() => {
     tray?.destroy();
     app.quit();

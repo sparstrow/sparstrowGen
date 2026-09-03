@@ -71,6 +71,14 @@ for (const extra of ["src", "build.mjs", "tsconfig.json", "vitest.config.ts", "s
   fs.rmSync(path.join(staging, "core", extra), { recursive: true, force: true });
 }
 mustExist(path.join(staging, "core", "dist", "index.js"), "core build failed");
+// The API server, supervised alongside the daemon. Checked separately and by
+// name: an install that ships the daemon and no server is `G-67` all over
+// again, and from the outside it looks like a working app that cannot reach
+// anything.
+mustExist(
+  path.join(staging, "core", "dist", "server.js"),
+  "server bundle missing — server/build.mjs must emit dist/server.js",
+);
 // electron-builder's extraResources copier UNCONDITIONALLY skips any directory
 // literally named `node_modules` (a `filter` can't override it). So rename the
 // deployed deps to `vendor` — that survives packaging intact — and the desktop
