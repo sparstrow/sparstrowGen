@@ -5,12 +5,12 @@
   "packageManager": "pnpm@11.6.0",
   "description": "Sparstrowgen — local-first agent harness: orchestrate Claude Code / Antigravity CLI agents with scoped Obsidian-compatible memory, task board, pipelines, and cron.",
   "scripts": {
-    "//dev-env": "One command to a working local environment. See scripts/dev-env.mjs for why this is a Node script rather than the Makefile multica uses (short version: `make` is not installed on this project's Windows dev machine, and Node is the one runtime this repo cannot build without).",
-    "up": "node scripts/dev-env.mjs up",
-    "down": "node scripts/dev-env.mjs down",
-    "status": "node scripts/dev-env.mjs status",
+    "//dev-env": "One command to a working local environment. See scripts/dev-env.mjs for why this is a Node script rather than the Makefile multica uses. NAMES ARE PREFIXED ON PURPOSE: `up` and `env` are pnpm BUILT-INS (`pnpm up` is an alias for `pnpm update`, `pnpm env` manages Node versions), and a built-in always wins over a script of the same name. `pnpm up` therefore silently upgraded every dependency in the monorepo instead of starting anything. Do not un-prefix these.",
+    "dev:up": "node scripts/dev-env.mjs up",
+    "dev:down": "node scripts/dev-env.mjs down",
+    "dev:status": "node scripts/dev-env.mjs status",
+    "dev:env": "node scripts/dev-env.mjs env",
     "db:reset": "node scripts/dev-env.mjs db:reset",
-    "env": "node scripts/dev-env.mjs env",
     "check": "pnpm typecheck && pnpm test",
 
     "dev": "turbo run dev",

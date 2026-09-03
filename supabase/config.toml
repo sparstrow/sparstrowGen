@@ -81,6 +81,21 @@ schema_paths = []
 enabled = true
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
+#
+# Left at the default, and the schema is NOT loaded this way. Tried and
+# rejected 2026-09-02: pointing this at the repo's schema SQL fails with
+# `failed to send batch: ERROR: relation "runtimes" does not exist`, because
+# the seeder sends the file as one prepared batch. Every statement is prepared
+# before any is executed, so a statement referencing a table an earlier
+# statement creates cannot resolve. Seeds are for INSERTs; DDL needs a
+# statement-at-a-time client.
+#
+# `pnpm db:reset` therefore builds the schema itself, with drizzle-kit push
+# from packages/shared/src/db/schema.ts followed by the RLS policy files. That
+# is also strictly better than any SQL bundle: push derives from the schema, so
+# it cannot drift from it — and the bundle had in fact drifted, missing five
+# tables including chat_turns. See scripts/dev-env.mjs and
+# doc/security/SEC-2026-09-02-rls-bootstrap-aborts-leaving-dispatch-unprotected.md
 sql_paths = ["./seed.sql"]
 
 [db.network_restrictions]

@@ -487,7 +487,9 @@ CREATE TABLE "tasks" (
 	"disallowed_tools" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"parent_task_id" text,
 	"parent_effective_tools" jsonb,
-	"hitl_approved" boolean DEFAULT true NOT NULL,
+	-- "hitl_approved" removed 2026-09-02: this bundle builds a FRESH database,
+	-- and a fresh database should never gain a column that migration 0013 exists
+	-- to drop. Existing databases still need 0013. See doc/Deferred.md D-1.
 	"user_id" text,
 	"team_id" text,
 	"due_at" timestamp with time zone,
@@ -1237,10 +1239,30 @@ CREATE INDEX "idx_runtimes_machine" ON "runtimes" USING btree ("machine_id");
 CREATE UNIQUE INDEX "uq_runtimes_machine_workspace" ON "runtimes" USING btree ("machine_id","workspace_id");
 
 -- ── 6b. migration 0012 ─────────────────────────────────────────────────────
-ALTER TABLE "daemon_tokens" DISABLE ROW LEVEL SECURITY;
-ALTER TABLE "pairing_attempts" DISABLE ROW LEVEL SECURITY;
-DROP TABLE "daemon_tokens" CASCADE;
-DROP TABLE "pairing_attempts" CASCADE;
+--
+-- `IF EXISTS` added 2026-09-02, and it fixed a bundle that could not run.
+--
+-- These four statements replay migration 0012, which dropped two legacy
+-- tables. But section 1 is regenerated from the current schema, and the
+-- current schema no longer contains `pairing_attempts` (it became
+-- `connect_attempts`), so section 1 stopped creating it while section 6b went
+-- on trying to drop it. The two halves of this file disagreed, and the
+-- unconditional `ALTER TABLE "pairing_attempts"` aborted the whole run at this
+-- line — after 39 tables, before RLS and realtime.
+--
+-- That means **a fresh deploy from this bundle has been broken**, and nobody
+-- noticed because no fresh deploy has been done since the rename. It was found
+-- by pointing local Docker Supabase at this file. `daemon_tokens` is still
+-- created by section 1, so it still genuinely needs dropping here — which is
+-- why the fix is to tolerate absence rather than to delete these lines.
+--
+-- Keep `IF EXISTS` on any statement in sections 5-6 that names a table section
+-- 1 might legitimately stop creating. Section 1 tracks the schema; these
+-- sections track history, and history does not get to assume the schema.
+ALTER TABLE IF EXISTS "daemon_tokens" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS "pairing_attempts" DISABLE ROW LEVEL SECURITY;
+DROP TABLE IF EXISTS "daemon_tokens" CASCADE;
+DROP TABLE IF EXISTS "pairing_attempts" CASCADE;
 -- Backfill: every existing runtime becomes its own machine before
 -- `machine_id` is tightened to NOT NULL. We cannot tell which runtimes shared
 -- a physical computer -- that knowledge only ever existed on the machines
