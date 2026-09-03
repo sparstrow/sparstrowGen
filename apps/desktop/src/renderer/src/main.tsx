@@ -36,10 +36,15 @@ createRoot(root).render(
         version: window.sparstrowDesktop?.version ?? "dev",
         os: navigator.platform || null,
       }}
-      // No token yet: the loopback sign-in that mints one is the next phase.
-      // Returning null is a supported answer, not a stub -- it is exactly what
-      // the web app returns, for a different reason.
-      getToken={() => null}
+      /**
+       * Asked on EVERY request, never captured once.
+       *
+       * The token lives in the main process behind the OS keychain; this call
+       * crosses the bridge to fetch it. Reading it once at startup would keep
+       * authenticating after a sign-out, and would miss a sign-in that happened
+       * while the window was open.
+       */
+      getToken={() => window.sparstrowDesktop?.session.token() ?? null}
     >
       <App />
     </CoreProvider>

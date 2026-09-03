@@ -87,20 +87,23 @@ export function App() {
           </div>
         ) : null}
 
-        {state.kind === "signed-out" ? (
-          <div className="rounded-lg border p-4">
-            <p className="text-sm font-medium">Not signed in</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              The server is running and reachable. Signing in from the desktop app
-              lands in the next phase — it opens your browser and hands this window a
-              session, so no password is ever typed here.
-            </p>
-          </div>
-        ) : null}
+        {state.kind === "signed-out" ? <SignIn onSignedIn={() => void recheck()} /> : null}
 
         {state.kind === "ready" ? (
           <section className="space-y-3">
-            <h1 className="text-sm font-medium">Your machines</h1>
+            <div className="flex items-center justify-between">
+              <h1 className="text-sm font-medium">Your machines</h1>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  await window.sparstrowDesktop?.session.signOut();
+                  void recheck();
+                }}
+              >
+                Sign out
+              </Button>
+            </div>
             {/*
               The same component `apps/web` renders on its home page. It arrives
               here through `@sparstrow/views` with no adapter and no shim, which
@@ -110,6 +113,57 @@ export function App() {
           </section>
         ) : null}
       </main>
+    </div>
+  );
+}
+
+/**
+ * The one human moment.
+ *
+ * No password field, and there never will be: a native window asking for
+ * credentials is indistinguishable from one that is phishing them, and it would
+ * have to handle MFA, OAuth providers and password resets itself. The browser
+ * already does all of that, so the button opens it and waits.
+ *
+ * The promise this awaits does not settle until the browser has actually
+ * redirected back — so "Waiting for your browser…" is the true state, not an
+ * optimistic one, and a cancelled sign-in ends in a real error rather than a
+ * spinner that never stops.
+ */
+function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const start = async () => {
+    setBusy(true);
+    setError(null);
+    const bridge = window.sparstrowDesktop?.session;
+    if (!bridge) {
+      setError("This build has no desktop bridge — it is running outside Electron.");
+      setBusy(false);
+      return;
+    }
+    const result = await bridge.signIn();
+    setBusy(false);
+    if (result.ok) onSignedIn();
+    else setError(result.error);
+  };
+
+  return (
+    <div className="mx-auto max-w-md rounded-lg border p-6 text-center">
+      <p className="text-sm font-medium">Connect this computer</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Sparstrowgen signs you in through your browser, where you are already signed
+        in. Nothing is typed here.
+      </p>
+      <Button className="mt-4" onClick={() => void start()} disabled={busy}>
+        {busy ? "Waiting for your browser…" : "Sign in with your browser"}
+      </Button>
+      {error ? (
+        <p role="alert" className="mt-3 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

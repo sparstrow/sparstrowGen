@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isUnconfigured, resolveAppUrl } from "./urls";
+import { isUnconfigured, resolveAppUrl, resolveWindowUrl } from "./urls";
 
 /**
  * Which URL the desktop window loads.
@@ -67,6 +67,19 @@ describe("isUnconfigured", () => {
 
   it("is false when a hosted app is configured", () => {
     expect(isUnconfigured({ SPARSTROW_APP_URL: "https://app.example.com" })).toBe(false);
+  });
+});
+
+describe("resolveWindowUrl vs resolveAppUrl — two different questions", () => {
+  it("does not let the web app's address repoint the window", () => {
+    // Caught the first time both were needed at once: setting SPARSTROW_APP_URL
+    // so sign-in could find the confirm page ALSO loaded the web app into the
+    // window instead of the SPA. Separate variables, separate readers.
+    expect(resolveWindowUrl({ SPARSTROW_APP_URL: "http://localhost:3000" })).toBeNull();
+    expect(resolveWindowUrl({ SPARSTROW_WINDOW_URL: "http://localhost:3000" })).toBe(
+      "http://localhost:3000",
+    );
+    expect(resolveAppUrl({ SPARSTROW_WINDOW_URL: "http://localhost:3000" })).toBeNull();
   });
 });
 

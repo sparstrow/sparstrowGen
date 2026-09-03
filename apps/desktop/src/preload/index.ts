@@ -52,6 +52,21 @@ contextBridge.exposeInMainWorld("sparstrowDesktop", {
     pickDirectory: (defaultPath?: string): Promise<string | null> =>
       ipcRenderer.invoke("sparstrow:pick-directory", defaultPath),
   },
+  session: {
+    /** Opens the browser and waits for the confirm. Never returns a token. */
+    signIn: (): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke("sparstrow:sign-in"),
+    signOut: (): Promise<{ ok: true }> => ipcRenderer.invoke("sparstrow:sign-out"),
+    /**
+     * The credential for an Authorization header, or null when signed out.
+     *
+     * This is the one call that hands a secret to the renderer, and it is
+     * deliberately a FUNCTION rather than a value captured at startup: the
+     * stored token can change under it (sign-out, re-connect), and a value read
+     * once is one that keeps authenticating after the user signed out.
+     */
+    token: (): Promise<string | null> => ipcRenderer.invoke("sparstrow:session-token"),
+  },
   machine: {
     /**
      * Hand this computer's core a credential the renderer just minted, and

@@ -7,8 +7,9 @@ import { configureCoreClient, coreFetch } from "./core-client";
 import { setupUpdater } from "./updater";
 import { createTray } from "./tray";
 import { offlineScreenUrl } from "./offline";
-import { resolveAppUrl } from "./urls";
+import { resolveAppUrl, resolveWindowUrl } from "./urls";
 import { readDaemonPrefs, writeDaemonPrefs, type DaemonPrefs } from "./daemon-prefs";
+import { forgetToken, readToken, signIn } from "./session";
 
 /**
  * Where the window points. Resolution lives in `urls.ts` so it can be tested —
@@ -75,6 +76,36 @@ if (!app.requestSingleInstanceLock()) {
     } else {
       console.log("[main] auto-start is off — not starting core");
     }
+
+    /**
+     * Signing this window in, via the browser.
+     *
+     * Three handlers, and the split is the security boundary. `sign-in` and
+     * `sign-out` return only whether they worked. `session-token` is the ONE
+     * place a credential crosses into the renderer, and it crosses to our own
+     * renderer over a contextIsolated bridge so it can put it in an
+     * Authorization header. Nothing here lets the renderer read the stored
+     * file, choose where the token comes from, or point the flow at another
+     * host — `appUrl` is decided in this process.
+     */
+    ipcMain.handle("sparstrow:sign-in", async () => {
+      const appUrl = resolveAppUrl(process.env) ?? "http://localhost:3000";
+      console.log(`[main] sign-in requested via ${appUrl}`);
+      const result = await signIn(appUrl);
+      console.log(`[main] sign-in ${result.ok ? "succeeded" : `failed: ${result.error}`}`);
+      return result;
+    });
+
+    ipcMain.handle("sparstrow:sign-out", () => {
+      // Forgets this computer's copy. Deliberately does NOT revoke the token
+      // server-side: revocation is an account-level decision made on the
+      // tokens page, and silently revoking on every sign-out would cut off a
+      // second machine sharing the credential.
+      forgetToken();
+      return { ok: true };
+    });
+
+    ipcMain.handle("sparstrow:session-token", () => readToken());
 
     // 001 US1: the native folder picker for the New project dialog. Registered
     // once, alongside the update handlers, and always window-modal.
@@ -236,7 +267,7 @@ function openWindow(): void {
       // `validatedURL` rather than APP_URL: it is what actually failed, which
       // after an in-app navigation is not necessarily where the window started.
       const failed =
-        validatedURL || resolveAppUrl(process.env) || rendererDevUrl() || "the app";
+        validatedURL || resolveWindowUrl(process.env) || rendererDevUrl() || "the app";
       console.warn(`[main] window failed to load ${failed}: ${errorDescription} (${errorCode})`);
       // Rebuilt per failure rather than cached, so the error named on screen is
       // the current one. Retry is a plain link back: it either succeeds, or
@@ -248,11 +279,11 @@ function openWindow(): void {
   // Precedence, most explicit first: an operator's override, then the dev
   // server, then the SPA on disk. One line logged either way, so a support
   // question is a log lookup rather than a guess about where a build pointed.
-  const override = resolveAppUrl(process.env);
+  const override = resolveWindowUrl(process.env);
   const devUrl = rendererDevUrl();
 
   if (override) {
-    console.log(`[main] loading window: ${override} (SPARSTROW_APP_URL)`);
+    console.log(`[main] loading window: ${override} (SPARSTROW_WINDOW_URL)`);
     void mainWindow.loadURL(override);
   } else if (devUrl) {
     console.log(`[main] loading window: ${devUrl} (vite dev server)`);

@@ -17,6 +17,11 @@ declare global {
         onStatus(cb: (status: unknown) => void): () => void;
       };
       dialogs: { pickDirectory(defaultPath?: string): Promise<string | null> };
+      session: {
+        signIn(): Promise<{ ok: true } | { ok: false; error: string }>;
+        signOut(): Promise<{ ok: true }>;
+        token(): Promise<string | null>;
+      };
       machine: {
         claim(token: string, name?: string): Promise<unknown>;
         status(): Promise<unknown>;
