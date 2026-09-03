@@ -127,11 +127,16 @@ export class ServiceManager {
       args = [this.packaged.coreEntry];
       cwd = this.packaged.coreCwd;
     } else {
-      const coreDir = path.join(this.repoRoot, "packages", "core");
-      const tsxCli = require.resolve("tsx/cli", { paths: [coreDir] });
+      // `server/`, not `packages/core` — the restructure moved the daemon and
+      // gave that name to the CLIENT package, which has no daemon and no tsx.
+      // This pointed at the old path for four commits and nothing noticed,
+      // because typechecking a string literal proves nothing about whether the
+      // directory exists. Running the app is what found it.
+      const serverDir = path.join(this.repoRoot, "server");
+      const tsxCli = require.resolve("tsx/cli", { paths: [serverDir] });
       nodeBin = process.env.SPARSTROW_NODE ?? "node";
-      args = [tsxCli, path.join(coreDir, "src", "index.ts")];
-      cwd = coreDir;
+      args = [tsxCli, path.join(serverDir, "cmd", "daemon.ts")];
+      cwd = serverDir;
     }
     // `detached` is what makes US2 possible: a child in its own process group
     // is not killed when this shell exits, so quitting the app can leave the
