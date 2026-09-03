@@ -27,6 +27,7 @@ const CONFIG: ServerConfig = {
   // should be able to reach a service role or mint a token even by accident.
   supabaseServiceRoleKey: null,
   supabaseJwtSecret: null,
+  webOrigin: "http://localhost:3000",
   corsOrigins: ["http://localhost:3000"],
 };
 

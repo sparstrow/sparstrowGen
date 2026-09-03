@@ -16,6 +16,8 @@ export interface PackagedPaths {
   vaultPath: string;
   /** Bundled core entry (built JS, not tsx). */
   coreEntry: string;
+  /** The API server bundle, supervised alongside the daemon (G-67). */
+  serverEntry: string;
   /** cwd for the core process — its deployed package dir (node_modules beside it). */
   coreCwd: string;
   /**
@@ -49,6 +51,7 @@ export function applyPackagedEnv(): PackagedPaths | null {
     dataDir: path.join(userData, "data"),
     vaultPath: path.join(userData, "memory"),
     coreEntry: path.join(coreCwd, "dist", "index.js"),
+    serverEntry: path.join(coreCwd, "dist", "server.js"),
     coreCwd,
     nodeBin: path.join(res, "node-runtime", process.platform === "win32" ? "node.exe" : "node"),
     logDir: path.join(userData, "data", "logs"),
@@ -62,11 +65,15 @@ export function applyPackagedEnv(): PackagedPaths | null {
   process.env.SPARSTROW_MEMORY_MCP ??= path.join(res, "memory-mcp", "index.cjs");
   process.env.SPARSTROW_MEMORY_CLI ??= path.join(res, "memory-cli", "index.cjs");
   process.env.SPARSTROW_NODE ??= paths.nodeBin;
-  // The daemon reads SPARSTROW_CLOUD_URL itself (server/src/config.ts);
-  // `??=` here means an operator's own override — per
-  // doc/runbooks/deploy-web-app.md — still wins over this install's baked
-  // channel target.
-  if (channel) process.env.SPARSTROW_CLOUD_URL ??= channel.cloudUrl;
+  // `channel.cloudUrl` is NOT applied here any more, and the field is dead
+  // alongside `appUrl`.
+  //
+  // It named `https://sparstrow.com`, which answers 402 to everything, so every
+  // packaged install pointed its daemon at a host that could not register it —
+  // half of `G-67`. Under `OQ-9`'s answer the daemon talks to THIS machine's
+  // own `server/`, and `main.ts` sets `SPARSTROW_CLOUD_URL` from the supervisor
+  // that actually owns that URL. Do not wire this back up; when hosting arrives
+  // (`D-40`) it comes back as configuration, not as a baked constant.
   return paths;
 }
 

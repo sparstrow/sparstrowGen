@@ -21,6 +21,27 @@ declare global {
     startedAt: string | null;
   }
 
+  /** What Settings may know about the local server. Never a secret's value. */
+  interface DesktopServerConfig {
+    configured: boolean;
+    supabaseUrl: string | null;
+    hasServiceRoleKey: boolean;
+    hasJwtSecret: boolean;
+    encryptionAvailable: boolean;
+  }
+
+  type DesktopServerState =
+    | { state: "stopped" }
+    | { state: "external" }
+    | { state: "starting" }
+    | { state: "running" }
+    | { state: "unconfigured" }
+    | { state: "failed"; message: string };
+
+  type DesktopServerFields = Partial<
+    Record<"supabaseUrl" | "supabaseAnonKey" | "supabaseServiceRoleKey" | "supabaseJwtSecret", string>
+  >;
+
   type DesktopUpdateStatus =
     | { state: "idle" }
     | { state: "checking" }
@@ -43,6 +64,15 @@ declare global {
         install(opts?: { force?: boolean }): Promise<void>;
         cancel(): Promise<void>;
         onStatus(cb: (status: DesktopUpdateStatus) => void): () => void;
+      };
+      server: {
+        getConfig(): Promise<DesktopServerConfig>;
+        setConfig(
+          patch: DesktopServerFields,
+        ): Promise<{ ok: true; status: DesktopServerConfig } | { ok: false; error: string }>;
+        clearConfig(): Promise<DesktopServerConfig>;
+        getState(): Promise<DesktopServerState>;
+        onState(cb: (state: DesktopServerState) => void): () => void;
       };
       dialogs: { pickDirectory(defaultPath?: string): Promise<string | null> };
       session: {

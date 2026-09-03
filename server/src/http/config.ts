@@ -22,6 +22,15 @@ export type ServerConfig = {
   supabaseJwtSecret: string | null;
   /** Origins allowed to call this server from a browser. */
   corsOrigins: string[];
+  /**
+   * Where the browser-facing web app lives.
+   *
+   * Used to build the `/connect` confirm URL a machine sends someone to. Not
+   * derived from the incoming request: `server/` may be on `127.0.0.1` inside a
+   * desktop install while the confirm page is served from somewhere else
+   * entirely, and a loopback confirm URL is one nobody can open.
+   */
+  webOrigin: string;
 };
 
 export class MissingServerConfigError extends Error {
@@ -66,6 +75,7 @@ export function loadServerConfig(env: NodeJS.ProcessEnv = process.env): ServerCo
     supabaseAnonKey,
     supabaseServiceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY || null,
     supabaseJwtSecret: env.SUPABASE_JWT_SECRET || null,
+    webOrigin: (env.SPARSTROW_WEB_ORIGIN ?? "http://localhost:3000").replace(/\/+$/, ""),
     corsOrigins: (env.SPARSTROW_SERVER_CORS_ORIGINS ?? "http://localhost:3000")
       .split(",")
       .map((o) => o.trim())

@@ -60,6 +60,22 @@ function useServerStatus() {
     void check();
   }, [check]);
 
+  /**
+   * Re-check when the server actually comes up.
+   *
+   * The window renders before `server/` is healthy — deliberately, so a slow
+   * start never looks like an app that failed to launch. Without this the first
+   * check lands on a port nothing is listening to yet, and the window then sits
+   * on "The Sparstrow server is not running" forever, correctly reporting a
+   * fact that stopped being true two seconds later. Found by running it with
+   * nothing pre-started, which is the only way to see it.
+   */
+  React.useEffect(() => {
+    return window.sparstrowDesktop?.server.onState((next) => {
+      if (next.state === "running" || next.state === "external") void check();
+    });
+  }, [check]);
+
   return { state, recheck: check };
 }
 
