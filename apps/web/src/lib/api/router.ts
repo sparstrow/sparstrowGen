@@ -1,6 +1,26 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
 import { toCamel, toSnake } from "../case";
+
+/**
+ * This registry deliberately depends on **no web framework at all** — the only
+ * response type it knows is the platform `Response`.
+ *
+ * It used to return `NextResponse`, which was invisible as a constraint while
+ * Next.js was the only host: 71 routes across 19 handler modules, every one of
+ * them reachable solely from inside a Next render. Restructure Phase 1 re-hosts
+ * these same handlers on Fastify in `server/` so desktop and mobile can call
+ * them, and this line is what makes that an adapter swap instead of a rewrite.
+ *
+ * `Response` is not a downgrade. Next's own route-module validator
+ * (`validateExecutionResponse`) accepts any `response instanceof Response`, and
+ * `NextResponse` extends it — the two Next-only behaviours it gates on,
+ * `NextResponse.rewrite()` and `.next()`, are both *forbidden* in an app route
+ * handler anyway. Nothing here ever used them.
+ *
+ * Keep it that way: no `next/*` import belongs in this file or in any handler
+ * module. `apps/web/src/app/api/v1/[...path]/route.ts` is the Next adapter and
+ * is the only place that may know Next exists.
+ */
 
 export type HandlerContext = {
   supabase: SupabaseClient;
@@ -10,7 +30,7 @@ export type HandlerContext = {
   body: any;
 };
 
-export type Handler = (ctx: HandlerContext) => Promise<NextResponse> | NextResponse;
+export type Handler = (ctx: HandlerContext) => Promise<Response> | Response;
 
 export type RouteDefinition = {
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
@@ -100,11 +120,11 @@ export function matchRoute(method: string, path: string): { route: RouteDefiniti
 }
 
 export function ok(data: any, opaqueKeys?: string[]) {
-  return NextResponse.json(toCamel(data, opaqueKeys));
+  return Response.json(toCamel(data, opaqueKeys));
 }
 
 export function noContent() {
-  return new NextResponse(null, { status: 204 });
+  return new Response(null, { status: 204 });
 }
 
 /**
@@ -115,7 +135,7 @@ export function noContent() {
  * This is the same rule /api/daemon/* has had since M3.
  */
 export function fail(status: number, message: string, reason?: string) {
-  return NextResponse.json(reason ? { error: message, reason } : { error: message }, { status });
+  return Response.json(reason ? { error: message, reason } : { error: message }, { status });
 }
 
 export function parseBody(rawBody: any, opaqueKeys?: string[]) {
