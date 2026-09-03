@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { app } from "electron";
 import { readChannelConfig, type ChannelConfig } from "./channel";
+import { portsForChannel, setPorts } from "./ports";
 
 /**
  * 0004 Phase 0 — the three-locations separation. In packaged mode every data
@@ -57,6 +58,25 @@ export function applyPackagedEnv(): PackagedPaths | null {
     logDir: path.join(userData, "data", "logs"),
     channel,
   };
+  /**
+   * This install's ports, BEFORE anything resolves a URL from them.
+   *
+   * `applyPackagedEnv()` is called on `main.ts` line 52, after every import has
+   * run — which is precisely why `ports.ts` resolves lazily and takes a setter
+   * instead of reading an env var. Two installs sharing a port is not a
+   * cosmetic clash: the second adopts the first one's server and starts
+   * operating on its data.
+   *
+   * A `channel.json` from an older build carries no ports, so fall back to the
+   * table for its channel, and to stable's if even the channel is unreadable —
+   * an install that cannot identify itself must keep the behaviour it had.
+   */
+  const channelPorts = portsForChannel(channel?.channel);
+  setPorts({
+    core: channel?.corePort ?? channelPorts.core,
+    server: channel?.serverPort ?? channelPorts.server,
+  });
+
   process.env.SPARSTROW_PACKAGED = "1";
   // `??=` so an explicit override (e.g. pointing a packaged build at a test
   // data dir) still wins over the defaults.

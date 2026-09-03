@@ -313,14 +313,30 @@ if (!app.requestSingleInstanceLock()) {
 
     if (app.isPackaged) {
       app.setLoginItemSettings({ openAtLogin: true });
-      // 0004 Phase 2: notify-only update checks (packaged only — dev has no
-      // release feed to compare against). The channel argument picks which
-      // GitHub Release feed this install tracks (channel.ts).
-      // An update replaces resources/core, so the running runtime must go
-      // down first regardless of the auto-stop-on-quit preference — see
-      // `installNow` in updater.ts for why this is not a preference.
-      setRuntimeStopper(() => services.stop(true));
-      setupUpdater(() => mainWindow, packagedPaths?.channel?.updateChannel);
+
+      /**
+       * 0004 Phase 2: notify-only update checks. The channel argument picks
+       * which GitHub Release feed this install tracks (channel.ts).
+       *
+       * The `dev` channel is excluded, and that exclusion is the point of the
+       * channel existing. A dev build is never published, so the only feed it
+       * could find is the stable one — it would announce the owner's release
+       * as an "update", and installing it would replace the test build with
+       * the real app under a different app ID. Leaving `setupUpdater`
+       * unregistered is also what makes the Settings card say so: `supported`
+       * is decided by whether the IPC handler answers, not by a flag that
+       * could drift from reality.
+       *
+       * An update replaces resources/core, so the running runtime must go
+       * down first regardless of the auto-stop-on-quit preference — see
+       * `installNow` in updater.ts for why this is not a preference.
+       */
+      if (packagedPaths?.channel?.channel === "dev") {
+        console.log("[updater] dev channel — self-update is deliberately not wired up");
+      } else {
+        setRuntimeStopper(() => services.stop(true));
+        setupUpdater(() => mainWindow, packagedPaths?.channel?.updateChannel);
+      }
     }
   });
 

@@ -20,8 +20,9 @@ export function updateStatusLine(
   if (supported === null) return "Checking whether this build can update itself…";
   if (!supported) {
     return (
-      "This build cannot update itself. Automatic updates are part of the installed " +
-      "app. A build run from source has no release to compare itself against."
+      "This build cannot update itself. Automatic updates belong to the released " +
+      "app. A build run from source, or a development build, has no release feed " +
+      "to compare itself against."
     );
   }
   switch (status.state) {
