@@ -672,3 +672,74 @@ someone with no reason to trust an unknown publisher, and no way to check. The
 SmartScreen warning is correct in that situation and telling a stranger to click
 past a security warning is a bad habit to teach. Until then it costs one extra
 click, once, on one machine.
+
+---
+
+## G-67 — CLOSED 2026-09-03: a packaged install now runs its own `server/`
+
+**Was:** a packaged install shipped only the daemon. The renderer pointed at
+`127.0.0.1:8080`, where nothing listened, and the daemon pointed at
+`https://sparstrow.com`, which answers **402 Payment Required**. The app worked
+on exactly one machine in the world — the developer's — and only while a
+checkout happened to be running beside it. Every desktop verification before
+this was performed in that borrowed environment.
+
+**Closed by** shipping `server/` as a second bundle (`dist/server.js`)
+supervised by the app beside the daemon, configured from credentials in the OS
+credential store, with both halves pointed at it. `channel.cloudUrl` is dead
+alongside `appUrl`.
+
+**Proof — the INSTALLED build, on a machine with nothing running.** Ports
+checked empty first (`8080: 0  48750: 0`), then
+`Sparstrowgen Setup 0.3.2.exe` installed silently and launched from the Start
+Menu path, no environment variables, no checkout involved:
+
+```
+[main] loading window: …\Programs\Sparstrowgenesourcespp.asar\outenderer\index.html
+[server] spawned pid=48096
+[service] spawned core pid=44308 (detached)
+[server] healthy
+[service] core is healthy
+[claim] launch: this computer is in 1 workspace(s) (mach_9fac26a1…)
+```
+
+and the daemon's own account of itself:
+
+```json
+{"connected":true,"machineId":"mach_9fac26a1…","workspaces":1,
+ "cloudUrl":"http://127.0.0.1:8080","uptimeMs":85522}
+```
+
+`cloudUrl` is the local server, not the host that answers 402. That single
+field is the whole gap, closed.
+
+**What this deliberately does NOT claim.** The machine was already signed in.
+A *first* sign-in on a new computer still needs `apps/web`, because the
+`/connect` confirm page is a Next page — see `G-68`. And the test machine is
+the one the app was built on; a genuinely foreign computer has still never run
+this, so "no checkout involved" is proved and "no developer tooling installed
+anywhere" is not.
+
+---
+
+## G-68 — A first sign-in still needs `apps/web` running
+
+**Opened:** 2026-09-03, splitting out of `G-67` as the part that did not close.
+
+Pairing needs no web app — a stored credential is enough, which is why an
+already-signed-in machine now works entirely on its own. But the `/connect`
+confirm page a *first* sign-in opens is a Next.js page in `apps/web`.
+`server/` builds the confirm URL from `SPARSTROW_WEB_ORIGIN`, defaulting to
+`http://localhost:3000`, and nothing serves that in a packaged install.
+
+So: **a new computer cannot complete its first sign-in from the desktop app
+alone.** Updating or re-launching an already-connected computer is unaffected.
+
+**If wrong (i.e. left as is):** the app can only ever be adopted by someone who
+already has the repository, which is the same class of "works only where it was
+built" problem `G-67` was.
+
+**Closes when** either the confirm page is served by `server/` (it is one page
+and one approve action — the write is already a Server Action that Phase 5 has
+to port anyway), or hosting is unparked (`D-40`). Serving it locally is the
+smaller of the two and does not need TLS.

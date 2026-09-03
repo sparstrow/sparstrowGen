@@ -64,6 +64,10 @@ jobs:
     needs: decide
     if: needs.decide.outputs.should_release == 'true'
     runs-on: windows-latest
+    # A release build takes about six minutes. Without this, a step that hangs
+    # holds a runner for GitHub's six-hour default — which is what the `-u ""`
+    # bug did on v0.3.1, long after the release itself had published fine.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0 — SHA-pinned (third-party); reads packageManager from package.json
@@ -142,15 +146,29 @@ jobs:
           VERSION: ${{ needs.decide.outputs.version }}
 
       # The release is only real to an installed app once `latest.yml` is
-      # fetchable ANONYMOUSLY from the /latest/ URL electron-updater uses. Every
-      # check up to here passes just as well for a release nobody's app can see,
-      # which is the failure this repo has actually had — releases that existed
-      # and shipped nothing. `-u ""` drops the runner's credentials so this is
-      # the public view, not a privileged one.
+      # fetchable from the /latest/ URL electron-updater uses. Every check up to
+      # here passes just as well for a release nobody's app can see, which is
+      # the failure this repo has actually had — releases that existed and
+      # shipped nothing.
+      #
+      # This is the public view because curl sends no credentials of its own:
+      # the runner's GITHUB_TOKEN lives in the `gh` CLI's environment, not in
+      # curl's. It previously passed `-u ""` to force that, which was both
+      # unnecessary and actively broken — an empty `-u` makes curl PROMPT for a
+      # password, and on a runner with no terminal that hangs until the job
+      # times out. It did, on v0.3.1's release: every step before it succeeded,
+      # the release published correctly, and the step added to prove the release
+      # was fine is the one that hung. Hence `--max-time` as well — a
+      # verification step that can hang is worse than no verification step,
+      # because it fails a run that succeeded.
+      #
+      # `--retry` covers GitHub's own propagation: the /latest/ redirect can
+      # briefly 404 immediately after a publish.
       - name: Prove the update feed is live
         shell: bash
         run: |
-          FEED=$(curl -sfL -u "" "https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/latest.yml")
+          FEED=$(curl -sfL --max-time 30 --retry 5 --retry-all-errors --retry-delay 5 \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/latest.yml")
           echo "$FEED"
           FEED_VERSION=$(echo "$FEED" | sed -n 's/^version: *//p' | tr -d '\r')
           if [ "$FEED_VERSION" != "${VERSION}" ]; then

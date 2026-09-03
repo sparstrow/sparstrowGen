@@ -1,6 +1,6 @@
 import { coreFetch } from "./core-client";
-import { probeHealth } from "./service-manager";
 import { readToken } from "./session";
+import { probeServer } from "./server-manager";
 
 /**
  * Put this computer into the workspaces its credential can see.
@@ -37,6 +37,55 @@ import { readToken } from "./session";
 /** How long to keep waiting for the local runtime before giving up on a claim. */
 const CLAIM_WINDOW_MS = 60_000;
 const CLAIM_POLL_MS = 2_000;
+
+/**
+ * Is the local runtime up AND willing to talk to us?
+ *
+ * Deliberately `coreFetch` rather than `probeHealth`. This function is a
+ * correction: the first version of this file called `probeHealth(1500, null)`,
+ * and `/system/health` sits behind the per-install bearer-token gate — so an
+ * unauthenticated probe returns 401 no matter how healthy the runtime is.
+ * `probeHealth` says exactly that in its own doc comment. The claim therefore
+ * could NEVER see a ready runtime: it polled for the full sixty seconds and
+ * gave up, at every launch and after every sign-in, which is why v0.3.1 still
+ * showed "No machines yet".
+ *
+ * The unit tests did not catch it because they mocked `probeHealth`, so it
+ * returned `true` regardless of the argument that was wrong. That is the same
+ * mistake one layer down from the bug this file was written to fix: the parts
+ * were tested and the composition was not.
+ *
+ * `coreFetch` cannot make that mistake — it attaches the token itself, from the
+ * data dir `configureCoreClient` was given, which is the same credential the
+ * claim POST below uses. One auth path, so a claim can never authenticate for
+ * the check and then fail on the call.
+ */
+async function runtimeReady(): Promise<boolean> {
+  try {
+    const res = await coreFetch("/system/health", { timeoutMs: 1500 });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Both halves, because a claim needs both.
+ *
+ * The runtime is what receives the claim; `server/` is what the runtime then
+ * calls to register the machine. Waiting only for the runtime looks correct and
+ * is not: on a cold start the runtime comes up first, the claim is sent, and it
+ * fails with *"Could not reach the control plane at http://127.0.0.1:8080:
+ * fetch failed"* about a server that becomes healthy a second later.
+ *
+ * Found by running a genuinely cold start — nothing pre-started, no environment
+ * variables — which is the only arrangement where the two can be observed
+ * racing. Every earlier run had a server already up, which is exactly the
+ * blindness `G-67` was about.
+ */
+async function readyToClaim(): Promise<boolean> {
+  return (await probeServer()) && (await runtimeReady());
+}
 
 export type ClaimOutcome =
   | { ok: true; machineId: string; workspaces: number }
@@ -83,9 +132,9 @@ export async function claimThisComputer(
   }
 
   const deadline = Date.now() + CLAIM_WINDOW_MS;
-  let lastError = "the local runtime never became reachable";
+  let lastError = "the local runtime and server never both became reachable";
   while (Date.now() < deadline) {
-    if (await probeHealth(1500, null)) {
+    if (await readyToClaim()) {
       try {
         const res = await coreFetch("/system/cloud-token", {
           method: "POST",

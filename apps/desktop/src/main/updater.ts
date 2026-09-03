@@ -122,7 +122,7 @@ async function beginInstall(force: boolean): Promise<void> {
         if (r.busy === 0) {
           stopDrainPoll();
           setStatus({ state: "installing", version: availableVersion });
-          autoUpdater.quitAndInstall();
+          void installNow();
         } else {
           setStatus({ state: "waiting", version: availableVersion, busy: r.busy, runs: r.runs });
         }
@@ -131,6 +131,57 @@ async function beginInstall(force: boolean): Promise<void> {
   } catch (err) {
     setStatus({ state: "error", message: err instanceof Error ? err.message : String(err) });
   }
+}
+
+/**
+ * Stop the runtime, then install.
+ *
+ * ## Why the runtime must be stopped, whatever the auto-stop preference says
+ *
+ * "Leave the runtime running when I close the window" is a deliberate feature —
+ * agents keep working after someone tidies their taskbar. It is the wrong
+ * behaviour for an **update**, and the difference is not a preference:
+ *
+ * An update replaces `resources/core`, so the still-running old runtime is
+ * executing code that no longer exists on disk. It also keeps port 48750, and
+ * the new app cannot take it back: it cannot bind (the port is held) and it
+ * cannot adopt (the old process authenticates with a credential the new one
+ * cannot reproduce — observed live after v0.3.1's update, where a runtime
+ * started before the update rejected the very `.api-token` sitting in the data
+ * directory). The result is an updated app with no runtime at all, and no way
+ * to get one short of a reboot.
+ *
+ * ## Why `isSilent: true`
+ *
+ * `quitAndInstall()` defaults to `isSilent = false`, which runs the full NSIS
+ * wizard — "Choose Installation Options", "Completing Setup", the lot. That is
+ * why v0.3.1 "felt like a reinstall, not an update": it *was* a reinstall,
+ * visually, because the default shows the installer. An update the user
+ * approved in Settings should apply itself and reopen.
+ */
+async function installNow(): Promise<void> {
+  try {
+    await stopRuntimeForUpdate?.();
+  } catch (err) {
+    // Never block the update on this. A runtime that would not stop is a worse
+    // outcome than an update that proceeds — and the installer's own
+    // file-in-use handling is the backstop.
+    console.error("[updater] could not stop the runtime before installing:", err);
+  }
+  // (isSilent, isForceRunAfter): apply without the wizard, then reopen.
+  autoUpdater.quitAndInstall(true, true);
+}
+
+/**
+ * How to stop the local runtime, injected by `main.ts`.
+ *
+ * A function rather than an import so this module keeps knowing nothing about
+ * `ServiceManager` — the updater's job is to decide *when*, and the supervisor
+ * already owns *how* (graceful shutdown, then kill).
+ */
+let stopRuntimeForUpdate: (() => Promise<void>) | null = null;
+export function setRuntimeStopper(fn: () => Promise<void>): void {
+  stopRuntimeForUpdate = fn;
 }
 
 async function cancelInstall(): Promise<void> {

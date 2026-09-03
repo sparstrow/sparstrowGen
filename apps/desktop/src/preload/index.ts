@@ -71,6 +71,30 @@ contextBridge.exposeInMainWorld("sparstrowDesktop", {
       return () => ipcRenderer.removeListener("sparstrow:update-status", listener);
     },
   },
+  /**
+   * This machine's `server/` — its state, and the Supabase credentials it runs
+   * with.
+   *
+   * `get` NEVER returns a secret's value, only whether one is stored. A service
+   * role key that has crossed into the renderer is a service role key in a
+   * process that renders untrusted content, and there is no reason for it to be
+   * there: the form writes, it does not read back.
+   */
+  server: {
+    getConfig: (): Promise<ServerConfigStatus> => ipcRenderer.invoke("sparstrow:server-config-get"),
+    setConfig: (
+      patch: Partial<Record<"supabaseUrl" | "supabaseAnonKey" | "supabaseServiceRoleKey" | "supabaseJwtSecret", string>>,
+    ): Promise<{ ok: true; status: ServerConfigStatus } | { ok: false; error: string }> =>
+      ipcRenderer.invoke("sparstrow:server-config-set", patch),
+    clearConfig: (): Promise<ServerConfigStatus> =>
+      ipcRenderer.invoke("sparstrow:server-config-clear"),
+    getState: (): Promise<unknown> => ipcRenderer.invoke("sparstrow:server-state-get"),
+    onState: (cb: (state: unknown) => void) => {
+      const listener = (_e: IpcRendererEvent, state: unknown) => cb(state);
+      ipcRenderer.on("sparstrow:server-state", listener);
+      return () => ipcRenderer.removeListener("sparstrow:server-state", listener);
+    },
+  },
   dialogs: {
     /** Absolute path of the chosen directory, or null when cancelled. */
     pickDirectory: (defaultPath?: string): Promise<string | null> =>
@@ -112,6 +136,14 @@ contextBridge.exposeInMainWorld("sparstrowDesktop", {
       ipcRenderer.invoke("sparstrow:daemon-prefs-set", patch),
   },
 });
+
+type ServerConfigStatus = {
+  configured: boolean;
+  supabaseUrl: string | null;
+  hasServiceRoleKey: boolean;
+  hasJwtSecret: boolean;
+  encryptionAvailable: boolean;
+};
 
 type DaemonPrefs = {
   autoStartOnLaunch: boolean;

@@ -6,6 +6,7 @@ import { Label } from "@sparstrow/ui/components/ui/label";
 import { AlertTriangle, Check, Download, Loader2, RefreshCw } from "lucide-react";
 import { updateStatusLine } from "./update-copy";
 import { useUpdates } from "./use-updates";
+import { ServerSettings } from "./server-settings";
 
 /**
  * Settings.
@@ -23,6 +24,10 @@ export function Settings() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="text-sm font-medium">Settings</h1>
+      {/* Server first: nothing else in this app works until it is running, so
+          it is the first thing to look at when something is wrong. */}
+      <ServerSettings />
+      <Separator />
       <UpdatesSection />
       <Separator />
       <DaemonSection />
