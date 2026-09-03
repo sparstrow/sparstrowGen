@@ -244,14 +244,22 @@ function NavButton({
 /**
  * The one human moment.
  *
- * No password field, and there never will be: a native window asking for
- * credentials is indistinguishable from one that is phishing them, and it would
- * have to handle MFA, OAuth providers and password resets itself. The browser
- * already does all of that, so the button opens it and waits.
+ * No password field IN THIS WINDOW, and there never will be: a native window
+ * asking for credentials is indistinguishable from one that is phishing them.
+ * The browser is where you sign in, and the address bar is the thing that makes
+ * that checkable.
+ *
+ * The copy used to promise "nothing is typed here" AND "you are already signed
+ * in", which stopped being true when `server/` began serving the confirm page
+ * itself (`G-68`): that page does ask for a password, because a loopback
+ * address is not a redirect URL an identity provider will accept, so the
+ * provider's own screen is not available until hosting arrives (`D-40`). Saying
+ * "nothing is typed" while the next screen asks you to type is the kind of
+ * small lie that makes someone distrust the rest of the app.
  *
  * The promise this awaits does not settle until the browser has actually
- * redirected back — so "Waiting for your browser…" is the true state, not an
- * optimistic one, and a cancelled sign-in ends in a real error rather than a
+ * redirected back, so "Waiting for your browser…" is the true state rather than
+ * an optimistic one, and a cancelled sign-in ends in a real error rather than a
  * spinner that never stops.
  */
 function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
@@ -263,7 +271,7 @@ function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
     setError(null);
     const bridge = window.sparstrowDesktop?.session;
     if (!bridge) {
-      setError("This build has no desktop bridge — it is running outside Electron.");
+      setError("This build has no desktop bridge. It is running outside Electron.");
       setBusy(false);
       return;
     }
@@ -277,8 +285,8 @@ function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
     <div className="mx-auto max-w-md rounded-lg border p-6 text-center">
       <p className="text-sm font-medium">Connect this computer</p>
       <p className="mt-1 text-sm text-muted-foreground">
-        Sparstrowgen signs you in through your browser, where you are already signed
-        in. Nothing is typed here.
+        Sparstrowgen opens your browser to confirm this computer. Nothing is typed
+        in this window.
       </p>
       <Button className="mt-4" onClick={() => void start()} disabled={busy}>
         {busy ? "Waiting for your browser…" : "Sign in with your browser"}

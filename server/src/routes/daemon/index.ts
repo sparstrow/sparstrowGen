@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   HEARTBEAT_STALE_AFTER_MS,
   isLoopbackCallback,
@@ -42,6 +42,9 @@ import { authFailureResponse, daemonError, parseIdentity, readJson } from "./res
 export type DaemonContext = {
   /** Service-role client. RLS does not apply — read `auth.ts` before using it. */
   db: SupabaseClient;
+  /** Where Supabase is, and the public key, for the confirm page's own sign-in. */
+  supabaseUrl: string;
+  supabaseAnonKey: string;
   /**
    * Where the person's browser should be sent to confirm a connection.
    *
@@ -357,4 +360,140 @@ route("GET", "/me", async (request, { db }) => {
     machineId: auth.scope.machineId,
     tokenId: auth.scope.tokenId,
   });
+});
+
+
+// ── the confirm page's own three calls ──────────────────────────────────────
+//
+// These exist so a computer that has NEVER been connected can be, without a
+// Next.js server anywhere (`G-68`). They are unauthenticated in the same narrow
+// sense `/connect` is: the attempt id is a 32-byte secret this machine
+// generated, and holding it is the only thing they let you act on.
+
+/** What is being connected, so the page can name it before you confirm. */
+route("POST", "/connect/attempt", async (request, { db }) => {
+  const body = (await readJson(request)) as { attemptId?: unknown } | null;
+  const attemptId = typeof body?.attemptId === "string" ? body.attemptId.trim() : "";
+  if (!attemptId) return daemonError(400, "invalid_request", "An attempt id is required.");
+
+  const { data, error } = await db
+    .from("connect_attempts")
+    .select("name, hostname, os, status, expires_at")
+    .eq("id", attemptId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("connect attempt lookup failed", { message: error.message });
+    return daemonError(500, "server_error", "Could not read this connection attempt.");
+  }
+  if (!data) return daemonError(404, "unknown_attempt", "This connection request no longer exists.");
+  if (data.status !== "pending") {
+    return daemonError(409, "attempt_already_consumed", "This connection request has already been used.");
+  }
+  if (new Date(data.expires_at as string) <= new Date()) {
+    return daemonError(410, "attempt_expired", "This connection request has expired. Start again from the app.");
+  }
+
+  // Deliberately no ids and nothing about the account. Enough to recognise the
+  // computer you are approving, and nothing that would be worth guessing an
+  // attempt id to read.
+  return Response.json({ name: data.name, hostname: data.hostname, os: data.os });
+});
+
+/**
+ * Sign in, against Supabase's own endpoint.
+ *
+ * Proxied through here rather than called from the page so the anon key stays
+ * on this side and the browser talks to one origin. The password is forwarded
+ * and never stored, logged, or returned.
+ */
+route("POST", "/connect/signin", async (request, { supabaseUrl, supabaseAnonKey }) => {
+  const body = (await readJson(request)) as { email?: unknown; password?: unknown } | null;
+  const email = typeof body?.email === "string" ? body.email.trim() : "";
+  const password = typeof body?.password === "string" ? body.password : "";
+  if (!email || !password) {
+    return daemonError(400, "invalid_request", "An email and password are both required.");
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: { "content-type": "application/json", apikey: supabaseAnonKey },
+      body: JSON.stringify({ email, password }),
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    return daemonError(502, "server_error", "Could not reach the sign-in service.");
+  }
+
+  const payload = (await res.json().catch(() => null)) as
+    | { access_token?: string; error_description?: string; msg?: string }
+    | null;
+
+  if (!res.ok || !payload?.access_token) {
+    // Supabase's own wording, which distinguishes a wrong password from an
+    // unconfirmed email. Inventing a generic message here would hide the one
+    // difference that tells someone what to do next.
+    const detail = payload?.error_description || payload?.msg || "Those details were not accepted.";
+    return daemonError(401, "unauthenticated", detail);
+  }
+
+  return Response.json({ accessToken: payload.access_token });
+});
+
+/**
+ * Approve the attempt, as the person who just signed in.
+ *
+ * The update runs with the USER's token, never the service role, so
+ * `connect_attempts_approve` (policies/033) is what decides whether it is
+ * allowed: pending, unexpired, and stamped with the approver's own id. The
+ * database is the authority, and this route could not bypass it if it tried.
+ */
+route("POST", "/connect/approve", async (request, { db, supabaseUrl, supabaseAnonKey }) => {
+  const body = (await readJson(request)) as
+    | { attemptId?: unknown; accessToken?: unknown }
+    | null;
+  const attemptId = typeof body?.attemptId === "string" ? body.attemptId.trim() : "";
+  const accessToken = typeof body?.accessToken === "string" ? body.accessToken : "";
+  if (!attemptId || !accessToken) {
+    return daemonError(400, "invalid_request", "An attempt id and a session are both required.");
+  }
+
+  const asUser = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+  });
+
+  const { data: userResult, error: userError } = await asUser.auth.getUser(accessToken);
+  if (userError || !userResult?.user) {
+    return daemonError(401, "unauthenticated", "That sign-in is no longer valid. Try again.");
+  }
+
+  const { data, error } = await asUser
+    .from("connect_attempts")
+    .update({ status: "approved", approved_by_user_id: userResult.user.id })
+    .eq("id", attemptId)
+    .select("callback")
+    .maybeSingle();
+
+  if (error) {
+    console.error("connect approve failed", { code: error.code, message: error.message });
+    return daemonError(500, "server_error", "Could not approve this computer.");
+  }
+  // RLS denies by returning zero rows rather than erroring, so "no row" here
+  // covers missing, already-approved, and expired alike. All three mean the
+  // same thing to the person: start again from the app.
+  if (!data?.callback) {
+    return daemonError(
+      409,
+      "attempt_not_approved",
+      "This connection request is no longer open. Start again from the app.",
+    );
+  }
+
+  // The callback is read from the row, never from the request, so an approved
+  // attempt can only ever hand its credential to the machine that created it.
+  void db;
+  return Response.json({ callback: data.callback });
 });

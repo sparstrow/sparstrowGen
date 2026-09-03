@@ -8,7 +8,7 @@ import { startFileLogging } from "./log-file";
 import { setupUpdater, setRuntimeStopper } from "./updater";
 import { createTray } from "./tray";
 import { offlineScreenUrl } from "./offline";
-import { resolveAppUrl, resolveWindowUrl } from "./urls";
+import { resolveWindowUrl, signInOrigin } from "./urls";
 import { readDaemonPrefs, writeDaemonPrefs, type DaemonPrefs } from "./daemon-prefs";
 import { forgetToken, readToken, signIn } from "./session";
 import { claimThisComputer, setClaimListener } from "./claim";
@@ -176,7 +176,7 @@ if (!app.requestSingleInstanceLock()) {
      * host — `appUrl` is decided in this process.
      */
     ipcMain.handle("sparstrow:sign-in", async () => {
-      const appUrl = resolveAppUrl(process.env) ?? "http://localhost:3000";
+      const appUrl = signInOrigin(process.env, serverUrl());
       console.log(`[main] sign-in requested via ${appUrl}`);
       const result = await signIn(appUrl);
       console.log(`[main] sign-in ${result.ok ? "succeeded" : `failed: ${result.error}`}`);

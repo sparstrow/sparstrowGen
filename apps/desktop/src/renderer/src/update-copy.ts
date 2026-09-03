@@ -21,7 +21,7 @@ export function updateStatusLine(
   if (!supported) {
     return (
       "This build cannot update itself. Automatic updates are part of the installed " +
-      "app — a build run from source has no release to compare itself against."
+      "app. A build run from source has no release to compare itself against."
     );
   }
   switch (status.state) {
@@ -37,7 +37,7 @@ export function updateStatusLine(
     case "available":
       return `Version ${status.version} is available.`;
     case "downloading":
-      return `Downloading version ${status.version} — ${status.percent}%.`;
+      return `Downloading version ${status.version}, ${status.percent}%.`;
     case "downloaded":
       return `Version ${status.version} is downloaded and ready to install.`;
     case "waiting":

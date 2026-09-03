@@ -695,7 +695,9 @@ checked empty first (`8080: 0  48750: 0`), then
 Menu path, no environment variables, no checkout involved:
 
 ```
-[main] loading window: …\Programs\Sparstrowgenesourcespp.asar\outenderer\index.html
+[main] loading window: …\Programs\Sparstrowgen
+esourcespp.asar\out
+enderer\index.html
 [server] spawned pid=48096
 [service] spawned core pid=44308 (detached)
 [server] healthy
@@ -722,24 +724,53 @@ anywhere" is not.
 
 ---
 
-## G-68 — A first sign-in still needs `apps/web` running
+## G-68 — CLOSED 2026-09-03: `server/` serves the confirm page itself
 
-**Opened:** 2026-09-03, splitting out of `G-67` as the part that did not close.
+**Was:** pairing needed no web app, but the `/connect` confirm page a FIRST
+sign-in opens was a Next.js page in `apps/web`. A packaged install ships no
+Next.js, so a computer that had never been connected could not get a credential.
+The owner hit it exactly as described: *"Could not reach http://localhost:3000:
+fetch failed"*.
 
-Pairing needs no web app — a stored credential is enough, which is why an
-already-signed-in machine now works entirely on its own. But the `/connect`
-confirm page a *first* sign-in opens is a Next.js page in `apps/web`.
-`server/` builds the confirm URL from `SPARSTROW_WEB_ORIGIN`, defaulting to
-`http://localhost:3000`, and nothing serves that in a packaged install.
+**Closed by** serving the page from `server/`, plus three routes it needs:
+`/connect/attempt` (what am I approving), `/connect/signin` (Supabase's own auth
+endpoint, proxied so the anon key stays server-side), and `/connect/approve`.
 
-So: **a new computer cannot complete its first sign-in from the desktop app
-alone.** Updating or re-launching an already-connected computer is unaffected.
+**The approval runs with the USER's token, never the service role**, so
+`connect_attempts_approve` (policies/033) is what decides whether it is allowed:
+pending, unexpired, and stamped with the approver's own id. The route could not
+bypass RLS if it tried. The callback is read from the row rather than the
+request, so an approved attempt can only ever hand its credential to the machine
+that created it.
 
-**If wrong (i.e. left as is):** the app can only ever be adopted by someone who
-already has the repository, which is the same class of "works only where it was
-built" problem `G-67` was.
+`SPARSTROW_APP_URL` now defaults to this machine's own server instead of
+`http://localhost:3000`, which is what made the old failure inevitable on a
+packaged install.
 
-**Closes when** either the confirm page is served by `server/` (it is one page
-and one approve action — the write is already a Server Action that Phase 5 has
-to port anyway), or hosting is unparked (`D-40`). Serving it locally is the
-smaller of the two and does not need TLS.
+**Verified** with every `SUPABASE_*` and `SPARSTROW_*` variable unset:
+
+```
+[main] sign-in requested via http://127.0.0.1:8080
+server: POST /api/daemon/connect      → attempt created
+server: GET  /connect                 → confirm page served
+server: POST /api/daemon/connect/attempt → page named the machine
+POST /api/daemon/connect/signin  (agent account) → accessToken
+POST /api/daemon/connect/signin  (wrong password) → 401 "Invalid login credentials"
+```
+
+### The compromise, stated rather than glossed
+
+**The confirm page asks for a password.** The app's own rule is unchanged and
+still holds: no password field in the native window, because a native window
+asking for credentials cannot be told apart from one phishing them. This is a
+browser page, on loopback, with the address bar visible.
+
+But the better answer is the identity provider's own screen — magic link,
+GitHub, Google — and that needs a redirect URL the provider will accept. A
+loopback address is not one. So OAuth and magic link are unavailable until
+hosting exists (`D-40`), and this is the honest smallest thing that works
+meanwhile.
+
+The sign-in screen's copy was corrected in the same change: it promised
+"nothing is typed here" and "you are already signed in", and the second half
+stopped being true the moment this page began asking for a password.
