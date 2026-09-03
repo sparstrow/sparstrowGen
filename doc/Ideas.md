@@ -69,20 +69,32 @@ with uncommitted changes, which is how this repo is actually used. Worth
 revisiting as an *option per project* rather than a global mode — sandbox and
 `is_sandbox` projects are the natural candidates.
 
+**Note, 2026-09-02.** The restructure adopts multica's *repo and server*
+architecture, not its execution model, so this stays an open idea rather than
+becoming a decision. It is worth re-reading once the slice works: with the
+architecture converged, the argument for converging execution too gets cheaper,
+and the "option per project" framing above is still the right shape.
+
 ---
 
-## I-5 — Self-hosted Postgres
-
-Removes the free-tier ceiling, gives backups on your own terms, and makes
-transcript retention a non-issue. Rejected during Decision 1 because it trades
-"management is easier" — the actual reason cloud-canonical won — for an
-operational burden.
-
-Only interesting if self-hosting becomes necessary for another reason.
+*`I-5` — self-hosted Postgres — was **answered 2026-09-02**. The restructure
+chose **Supabase behind the server**: clients never touch it, `server/` verifies
+the JWT and owns all database access, and feature branches use a local Docker
+Supabase. Self-hosting was considered against it and rejected for the reason this
+idea already named — it trades easier management for operational burden — plus
+the cost of rewriting magic-link, OAuth and password reset, which work today.
+`server/src/auth/provider.ts` is deliberately an interface, so this stays
+reversible without touching route code. Do not re-raise it as an idea; re-open it
+as a decision if hosting ever becomes the constraint.*
 
 ---
 
 ## I-6 — Surface memory-retrieval failures in the UI
+
+**Parked 2026-09-02 with [`D-31`](Deferred.md)** — memory retrieval is not
+carried across the restructure's first pass, so there is no retrieval to surface
+a failure from. Unpark this with `D-31`, not before; the "degraded-retrieval
+badge" idea below is still the right answer when there is.
 
 `buildMemoryBlock` catches retrieval errors and silently falls back to recency:
 

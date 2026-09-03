@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "_comment": [
+    "The desktop app compiles THREE different things with different globals,",
+    "so this file only aggregates: `electron-vite` builds each target, and",
+    "`pnpm typecheck` runs both project references.",
+    "",
+    "Splitting them is not ceremony. main/ and preload/ run in Node and must",
+    "not see `document`; the renderer runs in a browser and must not see",
+    "`process`. One merged config let each half compile against the other's",
+    "globals, which is exactly how a `process.env` read ends up in renderer",
+    "code and fails only once the window is open."
+  ],
+  "files": [],
+  "references": [{ "path": "./tsconfig.node.json" }, { "path": "./tsconfig.web.json" }]
+}

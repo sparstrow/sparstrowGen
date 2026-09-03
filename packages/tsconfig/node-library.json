@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "_comment": [
+    "For code that runs on Node rather than in a browser: server/ (both the API",
+    "and the daemon entry points), packages/shared, and build scripts.",
+    "",
+    "No DOM lib on purpose. A server file that compiles only because DOM types",
+    "were in scope is a file that will fail at runtime."
+  ],
+  "extends": "./base.json",
+  "compilerOptions": {
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "types": ["node"]
+  }
+}

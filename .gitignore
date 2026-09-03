@@ -39,3 +39,6 @@ docs/archive/design-src/**/decoded/
 # Visual brainstorming companion (superpowers)
 .superpowers/
 .playwright-mcp/
+
+# electron-vite build output (apps/desktop)
+out/

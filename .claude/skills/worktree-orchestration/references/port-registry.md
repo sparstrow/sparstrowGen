@@ -48,10 +48,10 @@ for allow-listing the next range — don't quietly assign an unlisted port.
 | 3100 | 🟢 available | — | — | — |
 
 **3050/3060 are not worktree-assignable** — they're a permanent reservation
-for `packages/desktop/scripts/run-local.mjs` (see below), same non-worktree
+for `apps/desktop/scripts/run-local.mjs` (see below), same non-worktree
 pattern as the Core/UI ports further down. Don't hand either out to a
 worktree even if the row above ever looks stale; check
-`packages/desktop/scripts/run-local.mjs`'s `PORTS` map first.
+`apps/desktop/scripts/run-local.mjs`'s `PORTS` map first.
 
 **Pool exhausted (all 10 assignable rows locked)?** Add more rows to the
 Supabase dashboard allow-list first (same `http://localhost:<port>/**`
@@ -71,7 +71,7 @@ have to come from that Supabase-allow-listed range, not an arbitrary unused
 port: a local sign-in/magic-link/reset flow bounces to the Site URL instead
 of back to the app on any port not in that allow-list.
 
-`packages/desktop/scripts/run-local.mjs <stable|staging>` reads these from
+`apps/desktop/scripts/run-local.mjs <stable|staging>` reads these from
 its own `PORTS` map (not from this file — this table is the change-control
 record, the script is the source of truth at runtime) and: starts
 `apps/web`'s dev server on the channel's port if nothing is already listening

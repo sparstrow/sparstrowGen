@@ -181,25 +181,31 @@ create policy users_self_update on public.users
   with check (id = (select auth.uid())::text);
 
 -- ── daemon_tokens ──────────────────────────────────────────────────────────
--- Credentials that let a machine claim work. Admin-only, and the hash column is
--- withheld: RLS filters rows, never columns, so a `select *` by an admin would
--- otherwise hand the hash to the browser.
-
-alter table public.daemon_tokens enable row level security;
-
-drop policy if exists daemon_tokens_admin_all on public.daemon_tokens;
-create policy daemon_tokens_admin_all on public.daemon_tokens
-  for all to authenticated
-  using (workspace_id in (select private.current_admin_workspace_ids()))
-  with check (workspace_id in (select private.current_admin_workspace_ids()));
-
--- Column privileges do not override table privileges: while `authenticated`
--- holds table-level SELECT, a column-level REVOKE on token_hash is silently
--- ineffective. The table grant has to go first, then the safe columns back.
-revoke select on public.daemon_tokens from authenticated;
-grant select (
-  id, workspace_id, runtime_id, label, last_used_at, revoked_at, created_at
-) on public.daemon_tokens to authenticated;
+-- REMOVED 2026-09-02: the table itself is dropped (migration 0012, which
+-- replaced workspace-scoped daemon tokens with person-scoped access_tokens);
+-- see policies/033_machines_and_access_tokens.sql for the replacement's RLS.
+--
+-- Deleted for exactly the reason the pairing_codes block below already gives,
+-- and this file is the proof that the reasoning was right. The pairing_codes
+-- removal was done when migration 0009 dropped that table. Migration 0012 then
+-- dropped daemon_tokens and this block was NOT removed with it — so from that
+-- day, replaying this file aborted here, at line 188 of 233.
+--
+-- What made it costly rather than merely untidy: psql commits each statement
+-- as it goes, so the abort was SILENT and PARTIAL. Everything above this point
+-- applied; everything below did not. Below is `runtime_commands` — the
+-- dispatch queue, where a row causes code to run on somebody's machine — which
+-- therefore ended up with row-level security never enabled at all, on any
+-- environment provisioned by replaying these files.
+--
+-- Found 2026-09-02 by pointing local Docker Supabase at this sequence and
+-- checking `pg_tables.rowsecurity` afterwards: 42 of 43 tables protected, the
+-- 43rd being runtime_commands. Recorded in doc/security/.
+--
+-- The rule this file already states, restated because it has now been broken
+-- twice: a policy statement against a table that no longer exists breaks the
+-- "safe to re-run" guarantee for every environment, fresh or existing. When a
+-- migration drops a table, its block here goes in the same change.
 
 -- ── pairing_codes ──────────────────────────────────────────────────────────
 -- REMOVED 2026-08-31: the table itself is dropped (migration 0009), replaced

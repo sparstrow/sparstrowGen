@@ -127,7 +127,7 @@ const TERMINAL_ACCESS_OFF_WORDS = ["off", "false", "0", "no"];
  * state to show) and the Machines toggle (deciding what to render as checked)
  * must not each carry their own copy of what counts as "off".
  *
- * `packages/core/src/cloud/terminal-bridge.ts`'s `terminalAccessEnabled()`
+ * `server/src/cloud/terminal-bridge.ts`'s `terminalAccessEnabled()`
  * — the actual enforcement point, per FR-011 — is NOT this function: it reads
  * the daemon's own local `settings` table, not `reportedSettings` off a
  * `Runtime`, so it has no shared type to read this against. It re-implements

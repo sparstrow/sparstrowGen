@@ -12,7 +12,7 @@ import {
   NOT_SIGNED_IN,
   type ActionResult,
 } from "@web/lib/action-result";
-import { slugify, withCollisionSuffix } from "@web/lib/slug";
+import { slugifyShort, withCollisionSuffix } from "@sparstrow/shared";
 
 const AGENTS_OPAQUE = ["mcp_servers", "specter_report"];
 
@@ -33,7 +33,7 @@ export async function createAgentAction(input: AgentCreate): Promise<ActionResul
   const id = generateId("agt_");
   const snake = toSnake(input) as Record<string, unknown>;
   const baseSlug =
-    typeof snake.slug === "string" && snake.slug.trim() ? snake.slug : slugify((input.name as string) ?? "");
+    typeof snake.slug === "string" && snake.slug.trim() ? snake.slug : slugifyShort((input.name as string) ?? "");
   const attempts = [baseSlug, withCollisionSuffix(baseSlug || "agent")];
 
   for (let i = 0; i < attempts.length; i++) {

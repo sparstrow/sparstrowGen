@@ -1,7 +1,7 @@
 import * as React from "react";
 import { CircleCheck, Info, Loader2, OctagonX, TriangleAlert } from "lucide-react";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
-import { useTheme } from "@/theme/theme-provider";
+import { useTheme } from "../../theme/theme-provider";
 
 /**
  * Toast surface. Upstream reads the theme from next-themes, which this repo

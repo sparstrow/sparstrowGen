@@ -1,0 +1,7 @@
+{
+  "extends": "@sparstrow/tsconfig/node-library.json",
+  "include": [
+    "src",
+    "cmd"
+  ]
+}

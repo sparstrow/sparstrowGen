@@ -14,9 +14,18 @@ import {
   NOT_SIGNED_IN,
   type ActionResult,
 } from "@web/lib/action-result";
-import { parseProfilePatch, parseWorkspacePatch, BOOTSTRAP_SLUG } from "@web/lib/patch-validation";
-import { slugify, withCollisionSuffix } from "@web/lib/slug";
-import { WORKSPACE_COOKIE } from "@web/lib/workspace";
+import {
+  BOOTSTRAP_SLUG,
+  parseProfilePatch,
+  parseWorkspacePatch,
+  slugifyShort,
+  withCollisionSuffix,
+} from "@sparstrow/shared";
+// The avatar/logo origin allowlist takes the Supabase base URL explicitly now
+// that the check lives in `@sparstrow/shared` (server/ needs it too). Resolving
+// it here keeps the loud MissingConfigError exactly where it always was.
+import { supabaseUrl } from "@web/utils/supabase/env";
+import { WORKSPACE_COOKIE } from "@web/lib/workspace-cookie";
 
 const PROFILE_SELECT = "id, email, name, avatar_url, bio";
 const WORKSPACE_SELECT = "id, name, slug, description, context, logo_url, created_at";
@@ -46,7 +55,7 @@ export async function updateProfileAction(
   } = await ctx.supabase.auth.getUser();
   if (!user) return actionFail(NOT_SIGNED_IN);
 
-  const parsed = parseProfilePatch(toSnake(data));
+  const parsed = parseProfilePatch(toSnake(data), supabaseUrl());
   if ("error" in parsed) return actionFail(parsed.error);
   const { patch } = parsed;
 
@@ -127,7 +136,7 @@ export async function updateWorkspaceAction(
   const ctx = await actionContext();
   if (!ctx) return actionFail(NOT_SIGNED_IN);
 
-  const parsed = parseWorkspacePatch(toSnake(data));
+  const parsed = parseWorkspacePatch(toSnake(data), supabaseUrl());
   if ("error" in parsed) return actionFail(parsed.error);
   const { patch } = parsed;
 
@@ -148,7 +157,7 @@ export async function updateWorkspaceAction(
     if (!current) return actionFail("Not Found");
 
     if (BOOTSTRAP_SLUG.test(current.slug as string)) {
-      const derived = slugify(patch.name);
+      const derived = slugifyShort(patch.name);
       if (derived) slug = derived;
     }
   }

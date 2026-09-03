@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import {
   DAEMON_SETTABLE_KEYS,
   type DaemonErrorReason,
@@ -13,14 +12,21 @@ import type { DaemonAuthFailure } from "@web/lib/daemon/auth";
  * Every failure carries a stable `reason` token alongside its prose. The CLI
  * (T-M3-04) has to tell a typo from a reused code from an expired one, and
  * matching on message text breaks the first time someone improves the wording.
+ *
+ * Framework-free by the same rule as `lib/api/router.ts`: these 21 routes move
+ * to `server/src/routes/daemon/` in Phase 1, and a `next/server` import here
+ * would have made that a rewrite rather than a move. The body type that
+ * `NextResponse<DaemonErrorResponse>` used to carry is stated on the parameters
+ * instead — it was never checked against the object literal anyway, since
+ * `NextResponse.json` does not constrain its argument to the generic.
  */
 
 export function daemonError(
   status: number,
   reason: DaemonErrorReason,
   error: string,
-): NextResponse<DaemonErrorResponse> {
-  return NextResponse.json({ reason, error }, { status });
+): Response {
+  return Response.json({ reason, error } satisfies DaemonErrorResponse, { status });
 }
 
 /**

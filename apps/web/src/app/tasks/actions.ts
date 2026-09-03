@@ -12,7 +12,7 @@ import {
   NOT_SIGNED_IN,
   type ActionResult,
 } from "@web/lib/action-result";
-import { enqueueFailureFrom } from "@web/lib/api/enqueue";
+import { enqueueFailureFrom } from "@sparstrow/shared";
 
 const TASKS_OPAQUE = ["parent_effective_tools"];
 

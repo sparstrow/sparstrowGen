@@ -63,6 +63,6 @@ without colliding with the always-on packaged app on `48750`. That mechanism was
 removed 2026-08-16 once testing shifted to `apps/web` instead — the always-on app at
 `48750`/`5173` remains a singleton with no per-worktree isolated copy. If desktop-UI
 preview testing is needed again later, `SPARSTROW_PORT`/`SPARSTROW_DATA_DIR` support
-still exists in `packages/core`, `packages/ui`, and `packages/desktop` — only the
+still exists in `packages/core`, `packages/ui`, and `apps/desktop` — only the
 convenience launcher and worktree-scoping pattern were removed; rebuild from git
 history (`scripts/dev-preview.mjs`, pre-2026-08-16) rather than from scratch.

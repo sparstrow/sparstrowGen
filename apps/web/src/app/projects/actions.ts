@@ -12,7 +12,7 @@ import {
   NOT_SIGNED_IN,
   type ActionResult,
 } from "@web/lib/action-result";
-import { slugify, withCollisionSuffix } from "@web/lib/slug";
+import { slugifyShort, withCollisionSuffix } from "@sparstrow/shared";
 
 function generateId(prefix: string) {
   return `${prefix}${crypto.randomUUID().replace(/-/g, "")}`;
@@ -41,7 +41,7 @@ export async function provisionProjectAction(
   const baseSlug =
     typeof body.slug === "string" && (body.slug as string).trim()
       ? (body.slug as string)
-      : slugify(input.name ?? "");
+      : slugifyShort(input.name ?? "");
   const attempts = [baseSlug, withCollisionSuffix(baseSlug || "project")];
 
   for (let i = 0; i < attempts.length; i++) {

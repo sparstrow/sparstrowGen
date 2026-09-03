@@ -3,12 +3,49 @@
 | | |
 |---|---|
 | **Spec** | n/a (internal) — this changes how a write is transported, not what the owner can do. No screen gains or loses a control. |
-| **Status** | In progress — WA2 next |
+| **Status** | ⛔ **SUPERSEDED 2026-09-02** by [`2026-09-02-multica-architecture-restructure`](2026-09-02-multica-architecture-restructure.md). All 9 tasks completed 2026-08-26; the 44 Server Actions they produced are being reversed back into HTTP routes. See the note directly below. |
 | **Trigger** | The owner, 2026-08-24, answering [`OQ-7`](../OpenQuestions.md) with **option A**: rewrite every existing write to the one-step way now, rather than converting opportunistically. |
 | **Depends on** | [`retire-the-vite-app`](2026-08-24-retire-the-vite-app.md) — complete. `T-VR-05` is the worked read conversion this builds on. |
 | **Touches** | `apps/web/src/app/**/actions.ts` (new), `apps/web/src/api/hooks.ts`, the 21 client components listed in WA1, `apps/web/src/lib/api/handlers/*.ts`, `apps/web/CLAUDE.md` |
 | **Tasks** | [`doc/tasks/WA/`](../tasks/WA/README.md) |
 | **Open questions** | none — `OQ-7` closed 2026-08-24 |
+
+## ⛔ Superseded 2026-09-02 — and the reason is not "this was bad work"
+
+This plan was executed exactly as written and completed on 2026-08-26. It is
+being **reversed** by the
+[restructure](2026-09-02-multica-architecture-restructure.md), and the reversal
+needs explaining rather than quietly doing, because this plan already contains a
+section explaining that the owner bought the expensive option deliberately.
+
+**What was not known when this was chosen.** A Server Action is only callable
+from inside a Next.js render. Converting every write to one made `apps/web` the
+only client that can ever write — so the desktop app could only work by shipping
+a Next.js server inside Electron, alongside a second Node runtime and the
+daemon's native modules. That is the packaging problem that kept the app from
+being opened once in five months. The connection between "all writes are Server
+Actions" and "the desktop app cannot be built" was never drawn at the time.
+
+**What is being reversed, and what is not.** The 44 exported actions across 18
+`actions.ts` files move back to HTTP routes — but into `server/`, not back into
+`apps/web`. They rejoin the route registry
+(`apps/web/src/lib/api/router.ts` → `server/src/routes/`) that was never removed
+and still serves 71 read routes. So the destination already exists and is proven;
+this is not a rebuild.
+
+**What this plan got right, and the restructure keeps.** Its central technical
+finding — that `revalidatePath` does nothing for a React Query cache living in
+the browser, so a Server Action is not by itself "one step" — is correct and
+still load-bearing. The restructure's answer is the same one this plan reached:
+the client cache is the thing that must be updated, and `packages/core` now owns
+that in one place for every app.
+
+**Do not treat a remaining Server Action as evidence this plan is still policy.**
+The reversal is per-feature and deliberately not on the critical path: only
+machines, agents, chat and runs are needed for the slice, and the rest follow in
+restructure Phase 5.
+
+---
 
 ## Summary
 

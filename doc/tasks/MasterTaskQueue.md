@@ -1,5 +1,28 @@
 # Master Task Queue
 
+> # ❄️ FROZEN 2026-09-02 — do not regenerate, archive, or drift-check this file
+>
+> The [restructure](../plans/2026-09-02-multica-architecture-restructure.md)
+> suspends this queue and its whole protocol (`AGENTS.md` §2 rule 9).
+>
+> **What replaces it:** the restructure plan's phases are the run order. A task
+> file's own `Status` row is the record. That is the entire protocol now.
+>
+> **Why.** This queue's machinery — whole-file regeneration, band archiving into
+> `CompletedMasterQueue.md`, the status drift check, and the rule that
+> decomposition may only happen with zero open branches — existed to coordinate
+> **parallel bands across many open branches**. There are no bands any more, and
+> there is one branch at a time. Every one of those mechanisms is now pure
+> overhead, and one of them (regeneration colliding with every open branch) was
+> actively slowing work down.
+>
+> **Do not** flip statuses here, archive rows, or re-sequence. Everything below
+> is preserved as the historical record of what was run before 2026-09-02.
+>
+> **Unfreeze when:** the restructure completes and normal multi-plan feature work
+> resumes — at which point re-read `README.md`'s protocol before regenerating,
+> and expect the statuses below to be stale.
+
 Global run order across every plan. This file is the **single source of truth for
 what runs next**. Task documents hold the detail; this holds the sequence.
 

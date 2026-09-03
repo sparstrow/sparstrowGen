@@ -17,7 +17,7 @@ import type { SpecterReport } from "../schemas/specter";
 /**
  * Cloud control plane (Postgres/Supabase).
  *
- * The daemon (`@sparstrow/core`) keeps its own SQLite store for execution and the
+ * The daemon (`@sparstrow/server`) keeps its own SQLite store for execution and the
  * derived memory index; this schema is the shared BOARD — identity, machines,
  * agents, projects, tasks, runs and transcripts — plus the durable hub that syncs
  * memory note content between machines.
@@ -736,8 +736,13 @@ export const tasks = pgTable(
       allowed: string[];
       disallowed: string[];
     } | null>(),
-    /** HITL gate. Redesign pending — the column exists so the spine keeps it available. */
-    hitlApproved: boolean("hitl_approved").notNull().default(true),
+    // `hitl_approved` was removed 2026-09-02 by the restructure. It was
+    // declared here with a default of `true` and read by nothing — a column
+    // whose only effect was to make an approval gate look present. See
+    // `doc/Deferred.md` D-1: the gate is cut until the first external
+    // collaborator, because with one person in the workspace it mitigates a
+    // threat that does not exist. Its removal from the live database is a
+    // separate, owner-approved step; see the migration alongside this change.
     userId: text("user_id"),
     teamId: text("team_id").references(() => teams.id, { onDelete: "set null" }),
     dueAt: timestamp("due_at", { withTimezone: true }),
@@ -808,7 +813,12 @@ export const messages = pgTable(
 
 /**
  * `status` mirrors `runStatusSchema` — queued | running | succeeded | failed |
- * cancelled | timeout — plus `paused_hitl` for the human gate.
+ * cancelled | timeout.
+ *
+ * This comment previously also promised `paused_hitl` "for the human gate".
+ * Nothing ever set that status, and `runStatusSchema` never contained it, so
+ * the sentence documented a state the system could not reach. Removed
+ * 2026-09-02 with the rest of the HITL gate (`doc/Deferred.md` D-1).
  *
  * `pid` and `exitCode` are deliberately NOT mirrored here: they are meaningless
  * off the machine that owns the process, and they stay in the daemon's SQLite.

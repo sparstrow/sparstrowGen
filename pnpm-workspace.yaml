@@ -1,13 +1,66 @@
 packages:
   - apps/*
   - packages/*
-  - apps/*
-  # The desktop packaging step deploys a copy of @sparstrow/core into
-  # packages/desktop/resources-staging/core (and electron-builder writes to
+  # `server/` is deliberately a sibling of apps/ and packages/, not a member of
+  # either. It is the one thing that talks to the database (AGENTS.md §1 rule
+  # 1), and a directory that sorts on its own is a cheap, permanent reminder
+  # that it is not just another package a client may import.
+  - server
+  # The desktop packaging step deploys a copy of the runtime into
+  # packages/desktop/resources-staging/ (and electron-builder writes to
   # release/). Exclude both so pnpm never discovers a duplicate workspace
   # package mid-build and tries to reconcile/purge the real node_modules.
   - "!packages/*/resources-staging/**"
   - "!packages/*/release/**"
+  - "!apps/*/resources-staging/**"
+  - "!apps/*/release/**"
+
+# ─── Catalog ────────────────────────────────────────────────────────────────
+# One version of every shared dependency (AGENTS.md §1 rule 4). Packages
+# reference these as `"react": "catalog:"` rather than pinning their own range.
+#
+# Added 2026-09-02 by the restructure, and it found real drift on arrival:
+#
+#   vitest        3.2.0 / 3.2.6 / 4.1.10   ← two MAJORS, running concurrently
+#                                            under turbo. A prime suspect for
+#                                            KnownGaps G-59 (the suite fails
+#                                            intermittently in parallel, a
+#                                            different set of tests each run).
+#   @types/node   ^20 / ^24
+#   typescript    ^5 / ^5.8.3
+#   tailwindcss   ^4 / ^4.1.8
+#
+# None of that was deliberate; it accumulated because nothing forced the
+# question. That is exactly what a catalog is for.
+catalog:
+  # React 19 — required by Next 16. apps/web was running next@16.3.0 against
+  # react@18.3.1, an unsupported combination that had simply not broken loudly
+  # yet. Shared packages cannot straddle two React majors, so this had to be
+  # settled before packages/views exists.
+  react: ^19.2.0
+  react-dom: ^19.2.0
+  "@types/react": ^19.2.0
+  "@types/react-dom": ^19.2.0
+
+  # Unified UP to 4. Moving the four v3 packages forward is lower risk than
+  # moving apps/web back across a major.
+  vitest: ^4.1.10
+
+  typescript: ^5.8.3
+  "@types/node": ^24.0.0
+
+  zod: ^3.24.2
+  drizzle-orm: ^0.45.2
+  postgres: ^3.4.9
+
+  "@supabase/supabase-js": ^2.112.2
+  "@supabase/ssr": ^0.12.4
+
+  "@tanstack/react-query": ^5.101.0
+  tailwindcss: ^4.1.8
+  "@tailwindcss/vite": ^4.1.8
+  "@tailwindcss/postcss": ^4.1.8
+  lucide-react: ^0.514.0
 
 # Security: force patched versions of transitive deps flagged by `pnpm audit`.
 # js-yaml <4.1.2 (via gray-matter) has a quadratic-complexity merge-key DoS.

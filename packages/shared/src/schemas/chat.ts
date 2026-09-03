@@ -120,7 +120,7 @@ export type ChatSearchQuery = z.infer<typeof chatSearchQuerySchema>;
 
 /**
  * A message becomes an argv-bound prompt on someone's machine (see
- * `TRANSCRIPT_BUDGET_BYTES` in `packages/core/src/chat/service.ts`, which
+ * `TRANSCRIPT_BUDGET_BYTES` in `server/src/chat/service.ts`, which
  * this ceiling deliberately sits above — a route-level clamp, not the
  * budget itself). Unbounded input is a spawn failure on a laptop rather than
  * a 400 here; this is the one clamp DD-8 (M12 plan) asks for at this
@@ -166,7 +166,13 @@ export const CHAT_ATTACHMENTS_MAX_PER_MESSAGE = 10;
 export const chatTurnRequestSchema = z.object({
   content: z
     .string()
-    .refine((s) => Buffer.byteLength(s, "utf8") <= CHAT_MESSAGE_MAX_BYTES, {
+    // `TextEncoder`, not `Buffer.byteLength`. Both count UTF-8 bytes
+    // identically, but `Buffer` is a Node global, and this schema is validated
+    // on BOTH sides — a browser importing `@sparstrow/shared` for this type got
+    // a package that could not typecheck without `@types/node`, and would have
+    // thrown at runtime had anything called it client-side. `TextEncoder` is
+    // standard in every browser, Node 11+, and React Native.
+    .refine((s) => new TextEncoder().encode(s).length <= CHAT_MESSAGE_MAX_BYTES, {
       message: `content must not exceed ${CHAT_MESSAGE_MAX_BYTES} bytes`,
     }),
   draft: z.record(z.unknown()).optional(),

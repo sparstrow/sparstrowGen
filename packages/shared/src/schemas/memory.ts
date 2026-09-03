@@ -25,7 +25,7 @@ export const MEMORY_NOTE_TYPES = memoryNoteTypeSchema.options;
  * P5 LESSONS (plan item 7, amended 2026-07-05): lessons store PORTABLE
  * (filePath, symbolName) refs — never the graph engine's qualified-name
  * grammar, which is vendor-coupled. One core-owned fn translates these to
- * engine names at query time (packages/core/src/memory/lessons.ts).
+ * engine names at query time (server/src/memory/lessons.ts).
  */
 export const lessonRefSchema = z.object({
   /** Repo-relative file path, forward slashes. */
