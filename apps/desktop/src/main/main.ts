@@ -68,11 +68,24 @@ if (!app.requestSingleInstanceLock()) {
     // runtime they started themselves.
     const prefs = readDaemonPrefs(app.getPath("userData"));
     if (prefs.autoStartOnLaunch) {
-      try {
-        await services.start();
-      } catch (err) {
-        console.error("[main] core failed to start:", err);
-      }
+      /**
+       * Deliberately NOT awaited.
+       *
+       * This used to block everything below it, including `openWindow()`, so
+       * anything that made the runtime slow to start made the whole app appear
+       * not to launch — no window, no icon, no error, for up to a minute
+       * (`start()`'s own deadline). A person in that minute has no way to tell
+       * a slow start from a dead app, and the honest reading of a window that
+       * never appears is that the app is broken.
+       *
+       * The window does not need the runtime to render: it shows sign-in,
+       * Settings, and its own "the server is not running" state perfectly well
+       * without one. So the runtime starts alongside the window instead of in
+       * front of it, and a failure is reported rather than waited on.
+       */
+      void services.start().catch((err) => {
+        console.error("[main] core failed to start:", err instanceof Error ? err.message : err);
+      });
     } else {
       console.log("[main] auto-start is off — not starting core");
     }

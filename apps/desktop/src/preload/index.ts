@@ -36,8 +36,22 @@ contextBridge.exposeInMainWorld("__SPARSTROW_SERVER_URL__", serverUrl);
 
 contextBridge.exposeInMainWorld("sparstrowDesktop", {
   version: appVersion,
+  /**
+   * Somewhere the main process wants the window to be.
+   *
+   * Currently only the update notification uses it: clicking an OS notification
+   * about a new version should land on the screen that installs it, not on
+   * whatever screen happened to be open. One-way main → renderer, and a hint
+   * rather than a command — the renderer decides what the name means.
+   */
+  onNavigate: (cb: (screen: string) => void) => {
+    const listener = (_e: IpcRendererEvent, screen: string) => cb(screen);
+    ipcRenderer.on("sparstrow:navigate", listener);
+    return () => ipcRenderer.removeListener("sparstrow:navigate", listener);
+  },
   updates: {
     getStatus: () => ipcRenderer.invoke("sparstrow:update-status-get"),
+    check: () => ipcRenderer.invoke("sparstrow:update-check"),
     download: () => ipcRenderer.invoke("sparstrow:update-download"),
     install: (opts?: { force?: boolean }) => ipcRenderer.invoke("sparstrow:update-install", opts),
     cancel: () => ipcRenderer.invoke("sparstrow:update-cancel"),

@@ -47,6 +47,30 @@ export async function probeHealth(timeoutMs = 1500, token: string | null = null)
 }
 
 /**
+ * Is anything at all accepting connections on this URL's port?
+ *
+ * Deliberately a raw TCP connect rather than an HTTP request: the question is
+ * "will a `listen()` on this port fail", and that is answered by the socket
+ * layer regardless of whether whatever holds it speaks HTTP, answers 401, or
+ * answers nothing.
+ */
+export async function portInUse(url: string, timeoutMs = 500): Promise<boolean> {
+  const { hostname, port } = new URL(url);
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    const done = (result: boolean) => {
+      socket.destroy();
+      resolve(result);
+    };
+    socket.setTimeout(timeoutMs);
+    socket.once("connect", () => done(true));
+    socket.once("timeout", () => done(false));
+    socket.once("error", () => done(false));
+    socket.connect(Number(port), hostname);
+  });
+}
+
+/**
  * Supervises the core Node service. If a core is already listening (dev:
  * `pnpm --filter @sparstrow/server start` in a terminal), adopts it in
  * "external" mode and never restarts or stops it.
@@ -98,6 +122,31 @@ export class ServiceManager {
       console.log("[service] core already running — external mode");
       return;
     }
+
+    /**
+     * Someone else has the port, and it is not a runtime we can talk to.
+     *
+     * The two cases above and below this check look identical from a failed
+     * health probe: "nothing is listening" and "something is listening that
+     * will not authenticate us". Only the first can be fixed by spawning. The
+     * second used to fall through anyway, so the child hit EADDRINUSE and died
+     * instantly, five times, over ten seconds of backoff — and because
+     * `start()` is awaited before the window opens, the app showed nothing at
+     * all for a minute and then opened with no explanation.
+     *
+     * Observed live 2026-09-03 with a second Sparstrowgen install (the retired
+     * Staging channel) holding 48750: two installs share one hardcoded port,
+     * and each has its own `.api-token`, so neither can ever adopt the other.
+     * See doc/bug/BUG-2026-09-03-two-desktop-installs-fight-over-the-daemon-port.md.
+     */
+    if (await portInUse(CORE_URL)) {
+      throw new Error(
+        `Something else is already using ${CORE_URL}. That is usually another ` +
+          `Sparstrowgen install still running — quit it (check the system tray), ` +
+          `or set SPARSTROW_CORE_URL to a different port for this one.`,
+      );
+    }
+
     this.spawnCore();
     const deadline = Date.now() + 60_000;
     while (Date.now() < deadline) {

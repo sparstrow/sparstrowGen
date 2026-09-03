@@ -1,61 +1,72 @@
-name: Release (stable)
+name: Release
 
-# 0004 Phase 3 — the release gesture is a version tag: bump
-# packages/desktop/package.json's version, tag vX.Y.Z, push the tag. This
-# builds the self-contained NSIS installer and publishes it + latest.yml
-# (electron-updater's feed) to a GitHub Release; every always-on packaged app
-# then shows "Update available" and updates only on an explicit click.
+# One channel, one trigger: a push to `main` releases the desktop app, but ONLY
+# when `apps/desktop/package.json`'s version is one that has not been released
+# before. A docs merge, a test fix, a revert — anything that lands on main
+# without touching that version — builds nothing and publishes nothing.
 #
-# This is the stable counterpart to release-staging.yml — same
-# build-channel-config.mjs pipeline, "stable" channel: same appId/productName
-# the app has always shipped under, draft release (a human click is still the
-# gate), latest.yml as the update feed.
+# WHY NOT "every merge to main is a release": every merge would burn a version
+# number and push an update notification onto every installed app, including for
+# changes nobody can see. WHY NOT the previous "push a v* tag by hand": tagging
+# is a second gesture that has to be remembered, performed from the right
+# checkout, and kept in sync with a version field in a file — the exact
+# bookkeeping this repo has already got wrong once (see the note the old
+# workflow carried: "THE TAG NAME IS NOT THE VERSION").
 #
-# THE TAG NAME IS NOT THE VERSION. electron-updater compares the installed
-# app's version against the version inside latest.yml, which comes from
-# packages/desktop/package.json — not from the tag. Tagging v0.2.0 while that
-# file still says 0.1.0 publishes a feed advertising 0.1.0, which every client
-# reads as "already up to date". The release then looks successful and ships
-# nothing. Bump the file and tag the commit that contains the bump.
+# So the release gesture is a line in a diff. Bump the version in
+# apps/desktop/package.json inside the development -> main PR, and merging that
+# PR ships it. Leave the version alone and merging ships nothing. The decision
+# is visible in code review, which is where release decisions belong.
+#
+# Superseded release-staging.yml, deleted in the same change: the `staging`
+# branch it triggered on was retired by the 2026-09-02 restructure (AGENTS.md
+# §2), so it was a workflow waiting for a push that can no longer happen.
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+  # Re-run a release that failed partway without needing an empty commit.
+  workflow_dispatch:
 
 permissions:
   contents: write # create the release + upload installer assets
 
 jobs:
-  # A tag trigger cannot be filtered by branch — `on.push.tags` fires for a v*
-  # tag pushed anywhere, including staging or a feature branch. CLAUDE.md's
-  # contract is "CI ships on MAIN tags", so the branch check has to happen here.
-  # Cheap, and it fails the release before any build work.
-  guard:
-    name: tag must be on main
+  decide:
+    name: is this version already released?
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      should_release: ${{ steps.check.outputs.should_release }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # need main's history to test ancestry
-      - name: Verify the tagged commit is on main
+      - id: check
         shell: bash
         run: |
-          git fetch origin main --quiet
-          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
-            echo "::error::Tag ${GITHUB_REF_NAME} points at ${GITHUB_SHA}, which is not on origin/main."
-            echo "Releases ship from main only. Promote staging -> main first, then tag that commit."
-            exit 1
+          VERSION=$(node -p "require('./apps/desktop/package.json').version")
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          # Any release for this tag counts, draft included — a draft left over
+          # from a half-finished run must be finished or deleted by hand, not
+          # raced by a second build uploading a second copy of every asset.
+          if gh api "repos/${GITHUB_REPOSITORY}/releases" --paginate \
+               --jq '.[].tag_name' | grep -qx "v${VERSION}"; then
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::v${VERSION} is already released. Bump apps/desktop/package.json to ship a new version."
+          else
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::v${VERSION} has not been released — building it."
           fi
-          echo "OK: ${GITHUB_SHA} is on main."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release:
     name: build & publish installer
-    needs: guard
+    needs: decide
+    if: needs.decide.outputs.should_release == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0 — SHA-pinned (third-party); reads packageManager (pnpm@11.6.0) from package.json
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0 — SHA-pinned (third-party); reads packageManager from package.json
       - uses: actions/setup-node@v4
         with:
           # Must match the native prebuilds' ABI: prepare-resources.mjs ships
@@ -64,27 +75,49 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      - run: pnpm test
       - run: pnpm --filter @sparstrow/memory-mcp build
       - run: pnpm --filter @sparstrow/memory-cli build
-      # dist:stable = tsc → prepare-resources (channel=stable) →
-      # build-channel-config → electron-builder --publish always (draft;
-      # release.yml's own generate-notes step below fills it, a human still
-      # clicks publish).
+      # dist:stable = build -> prepare-resources -> build-channel-config ->
+      # ensure-draft-release -> electron-builder --publish always. The draft is
+      # pre-created (and pinned to this commit) to close a race where
+      # electron-builder's per-artifact publishers each create their own
+      # release; see ensure-draft-release.mjs.
       - run: pnpm --filter @sparstrow/desktop dist:stable
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # electron-builder leaves the release as an empty-bodied DRAFT. Fill the
-      # notes from the merged PRs since the previous tag; the draft stays a
-      # draft — publishing it (a human click) is the release gate, and
-      # electron-updater only sees the update once it's published.
-      - name: Generate release notes
+          SPARSTROW_RELEASE_SHA: ${{ github.sha }}
+      - name: Write release notes
         shell: bash
         run: |
           gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
-            -f tag_name="${GITHUB_REF_NAME}" --jq .body > notes.md
+            -f tag_name="v${VERSION}" -f target_commitish="${GITHUB_SHA}" --jq .body > notes.md
           RELEASE_ID=$(gh api "repos/${GITHUB_REPOSITORY}/releases" \
-            --jq ".[] | select(.tag_name==\"${GITHUB_REF_NAME}\") | .id" | head -1)
+            --jq ".[] | select(.tag_name==\"v${VERSION}\") | .id" | head -1)
           gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
             -F body=@notes.md > /dev/null
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.decide.outputs.version }}
+      # Publishing is what creates the git tag and what makes electron-updater's
+      # clients see the new version at all — a draft is invisible to them. No
+      # human click here: the gate for this release already happened when the
+      # owner merged development -> main (AGENTS.md §2 rule 8), and a second
+      # gate on a page nobody visits is how "released" and "actually shipped"
+      # drift apart. That drift is real history here: every stable release
+      # before this workflow existed stopped at the draft and never shipped.
+      - name: Publish the release
+        shell: bash
+        run: |
+          RELEASE_ID=$(gh api "repos/${GITHUB_REPOSITORY}/releases" \
+            --jq ".[] | select(.tag_name==\"v${VERSION}\" and .draft==true) | .id" | head -1)
+          if [ -z "$RELEASE_ID" ]; then
+            echo "::error::No draft release found for v${VERSION} — the build did not create one."
+            exit 1
+          fi
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            -f draft=false -f make_latest=true > /dev/null
+          echo "Published v${VERSION} (release ${RELEASE_ID})"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.decide.outputs.version }}

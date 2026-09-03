@@ -598,3 +598,43 @@ plainly which environments it applies to.
 first migration of the rebuild, and it must go through `apply-pending.mjs`, not
 `drizzle-kit migrate`. Local Docker Supabase per feature branch is a fresh
 database and does not have this problem — which is a second reason to prefer it.
+
+---
+
+## G-65 — Two desktop installs cannot both run; the daemon port is a single hardcoded constant
+
+**Opened:** 2026-09-03, by running the app on a machine that already had one.
+
+`packages/shared/src/constants.ts` fixes `DEFAULT_PORT = 48750` for every
+install. Stable and Staging were separated at every other level — `appId`,
+`productName`, `userData` — and each separation was verified; the runtime port
+was not among them, and nothing ever ran both at once to find out.
+
+Adoption cannot paper over it either: `ServiceManager.start()` adopts an
+already-listening runtime, but only via `probeHealth`, which authenticates with
+the **per-install** `.api-token`. A second install's token gets a 401, which is
+indistinguishable from "nothing is listening".
+
+**Mitigated in the same change, not fixed.** The second install now fails fast
+with a sentence naming the cause instead of crash-looping into EADDRINUSE for a
+minute, and the window no longer waits for the runtime before opening. It still
+has no runtime, so it cannot execute agent work.
+
+Full writeup, including the ~60 s invisible-window failure it presented as:
+[`BUG-2026-09-03`](bug/BUG-2026-09-03-two-desktop-installs-fight-over-the-daemon-port.md).
+
+**Operationally, right now:** uninstall "Sparstrowgen Staging" before installing
+0.3.0. That channel was retired with the `staging` branch on 2026-09-02 and will
+never receive another release.
+
+**If wrong (i.e. left as is):** the moment a second Sparstrowgen exists on any
+machine — a staging build kept for testing, a second account, a future beta
+channel — one of them silently has no runtime. That is exactly the "installed
+side by side without conflicting" claim `0.2.0`'s changelog already makes, so
+the documentation is currently ahead of the behaviour.
+
+**Closes when:** the port is per-install rather than global — derived from the
+channel, or negotiated at first start and written to a file the way `.api-token`
+already is — and two installs are proved to run their runtimes simultaneously on
+one machine. Touching it means touching the daemon, `core-client.ts`,
+`memory-cli`, `memory-mcp` and the packaged resources together.

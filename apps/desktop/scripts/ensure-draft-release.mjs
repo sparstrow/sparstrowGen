@@ -69,10 +69,22 @@ async function main() {
     return;
   }
 
+  // A draft release has no tag yet — GitHub creates it only when the draft is
+  // published, and it points the new tag at `target_commitish`. Left unset that
+  // defaults to the repository's default branch AT PUBLISH TIME, so any commit
+  // that lands on `main` between the build and the publish would silently get
+  // the tag instead of the commit that was actually built. Pinning the SHA the
+  // workflow checked out makes `v<version>` mean the artifact people install.
+  const target = process.env.SPARSTROW_RELEASE_SHA || undefined;
   const createRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases`, {
     method: "POST",
     headers: { ...headers, "Content-Type": "application/json" },
-    body: JSON.stringify({ tag_name: tag, name: version, draft: true }),
+    body: JSON.stringify({
+      tag_name: tag,
+      name: version,
+      draft: true,
+      ...(target ? { target_commitish: target } : {}),
+    }),
   });
   if (!createRes.ok) {
     console.error(`[ensure-draft-release] failed to create draft release: ${createRes.status} ${await createRes.text()}`);

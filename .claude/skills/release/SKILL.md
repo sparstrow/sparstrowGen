@@ -1,53 +1,30 @@
 ---
 name: release
 description: >-
-  Cut a Sparstrowgen desktop release. Staging ships itself — every push to
-  `staging` auto-builds and auto-publishes "Sparstrowgen Staging" with no
-  manual step (.github/workflows/release-staging.yml). Stable is the
-  deliberate-gesture path: bump apps/desktop/package.json's version, write
-  the changelog entry, tag, push the tag, and publish the resulting GitHub
-  Release draft by hand. Use when asked to "cut a release", "ship the desktop
-  app", "release stable", "release v0.x.0", or "publish a new version".
+  Cut a Sparstrowgen desktop release. There is one channel and no manual
+  release gesture: bumping `apps/desktop/package.json`'s version inside the
+  `development` → `main` PR is what ships it, and merging that PR builds,
+  publishes and tags automatically (.github/workflows/release.yml). Use when
+  asked to "cut a release", "ship the desktop app", "release v0.x.0", or
+  "publish a new version" — and to diagnose a release that did not appear.
 metadata:
   sparstrowgen-owner: coordinator
 ---
 
 # Releasing the desktop app
 
-Two channels, two very different amounts of ceremony. Full architecture:
-[`doc/plans/2026-08-29-two-channel-desktop-release.md`](../../../doc/plans/2026-08-29-two-channel-desktop-release.md).
+**The release gesture is a line in a diff.** Bump the `version` field in
+`apps/desktop/package.json`; merging that to `main` publishes it.
 
-## Staging — nothing to do here
+There is no tag to push and no draft to publish by hand. Both used to exist and
+both were skipped in practice — every stable release before 2026-09-03 stopped
+at an unpublished GitHub draft, which is why no stable version ever reached an
+installed app.
 
-Every push to `staging` (i.e. every `development` → `staging` PR merge)
-already builds and publishes a new **Sparstrowgen Staging** installer
-automatically, non-draft, via
-[`.github/workflows/release-staging.yml`](../../../.github/workflows/release-staging.yml).
-There is no release gesture to perform — if you're being asked to "release to
-staging," the PR merge already did it. Confirm at
-`https://github.com/sparstrow/sparstrowGen/releases` — the newest
-`vX.Y.Z-staging.N` tag should match the merge commit's run.
+## Cutting a release
 
-## Stable — the deliberate path
+1. **Write the changelog entry** — `apps/web/src/content/changelog/<version>.md`:
 
-**Stable only ships from `main`.**
-[`release.yml`](../../../.github/workflows/release.yml)'s `guard` job hard-fails
-the build if the tagged commit isn't an ancestor of `main` — don't tag a
-`staging` or feature-branch commit expecting it to work.
-
-1. **Confirm you're releasing a commit that's actually on `main`** (the
-   `development` → `staging` → `main` promotion chain has already run per
-   `AGENTS.md` §2 rule 8 — this skill does not perform that promotion, only
-   the release gesture once it's done).
-
-2. **Bump the version.** `apps/desktop/package.json`'s `version` field —
-   THE TAG NAME IS NOT THE VERSION (see `release.yml`'s header comment).
-   electron-updater compares against the version baked into `latest.yml`,
-   which comes from this file. Tagging `v0.3.0` while this still says `0.2.0`
-   publishes a feed nobody's client will see as an update.
-
-3. **Write the changelog entry.** New file at
-   `apps/web/src/content/changelog/<version>.md`:
    ```markdown
    ---
    version: <version>
@@ -65,82 +42,109 @@ the build if the tagged commit isn't an ancestor of `main` — don't tag a
    **Fixed**
    - ...
    ```
-   Skip empty sections. This is user-facing copy — see it from the person
-   installing the update, not from the commit log (`release.yml`'s own
-   `generate-notes` step already produces a raw PR-derived draft for the
-   GitHub Release body; that stays a secondary/internal aid, not this file).
 
-4. **Commit, tag, push** — [`scripts/cut-stable-release.sh`](scripts/cut-stable-release.sh)
-   does steps 2 and 4 together once you've written the changelog entry:
-   ```bash
-   .claude/skills/release/scripts/cut-stable-release.sh <version>
-   ```
-   Or by hand:
-   ```bash
-   git checkout main && git pull origin main
-   # edit apps/desktop/package.json's version, write the changelog entry
-   git add apps/desktop/package.json apps/web/src/content/changelog/<version>.md
-   git commit -m "release: v<version>"
-   git push origin main
-   git tag v<version>
-   git push origin v<version>
-   ```
+   Skip empty sections. Write it from the position of the person installing the
+   update, not from the commit log — the GitHub Release body is generated from
+   merged PRs separately and is the internal aid, not this.
 
-5. **Wait for the build**, then **publish the draft release by hand** at
-   `https://github.com/sparstrow/sparstrowGen/releases` — this click is the
-   release gate; electron-updater's clients see nothing until it's published.
-   `release.yml` has already filled the release notes from merged PRs — review
-   before publishing, don't just click through.
+   If the release ships something visibly unfinished, say so under a **Known
+   limitations in this release** heading. Someone who hits it and was warned is
+   in a different situation from someone who hits it and was not.
 
-## Testing a build before you actually ship it
+2. **Bump `apps/desktop/package.json`'s `version`.** Semver against what is
+   already released: a new feature is a minor, a fix-only release is a patch.
 
-If you've touched anything in the build chain (`prepare-resources.mjs`,
-`build-channel-config.mjs`, `channel.ts`, the workflow files) — or just want
-to sanity-check before a real release — build locally without publishing:
+3. **Put both in the `development` → `main` PR.** Merging it releases.
+
+That is the whole procedure. The workflow then, on its own:
+
+- notices the version has no release yet (a merge that does not bump the version
+  builds nothing — that is the point),
+- runs `pnpm typecheck` and `pnpm test`,
+- builds the NSIS installer and uploads it plus `latest.yml`,
+- generates the release notes from merged PRs,
+- publishes the release and creates the `v<version>` tag on the built commit.
+
+Within 30 minutes every installed app shows **Update available**; the person
+using it chooses whether to download and whether to install.
+
+## Merging to `main` is still the owner's call
+
+`AGENTS.md` §2 rule 8 is unchanged and this skill does not override it: an agent
+may open the `development` → `main` PR, and only the owner may merge it. Under
+this workflow that merge is also the release approval, which is exactly why it
+stays a human decision.
+
+## When a release does not appear
+
+Work down this list — each step distinguishes two things that look identical
+from the outside.
+
+1. **Did the workflow decide to release?** Its first job prints either
+   `vX.Y.Z is already released` or `vX.Y.Z has not been released — building it`.
+   The first means the version was not bumped, or a leftover release (**including
+   a draft**) already claims that tag. Delete the stale draft or bump again.
+2. **Is the release published, or still a draft?** electron-updater cannot see a
+   draft at all. A draft that survived the run means the publish step failed
+   after the upload.
+3. **Does the release carry `latest.yml`?** That file, not the `.exe`, is the
+   update feed. An installer with no `latest.yml` is a release nobody's app can
+   discover.
+4. **Does `latest.yml`'s version match the tag?** They come from different
+   places — the tag from the workflow, the version from
+   `apps/desktop/package.json` baked into the build. The app compares against
+   the file, so a mismatch ships a release that every client reads as "already
+   up to date".
+5. **Is the app looking at the right feed?** `updater.ts` sets
+   `autoUpdater.channel` from the baked `channel.json`. A build made with
+   `channel=staging` reads `staging.yml` and will never see a stable release.
+
+## Testing a build without shipping it
+
+If you have touched the build chain (`prepare-resources.mjs`,
+`build-channel-config.mjs`, `ensure-draft-release.mjs`, `channel.ts`,
+`release.yml`), build a real installer that touches GitHub not at all:
 
 ```bash
-cd apps/desktop
-npm run build
-node scripts/prepare-resources.mjs staging   # or: stable
-node scripts/build-channel-config.mjs staging
-npx electron-builder --win nsis --publish never --config electron-builder.staging.generated.json
+cd apps/desktop && pnpm build && node scripts/prepare-resources.mjs stable && node scripts/build-channel-config.mjs stable && npx electron-builder --win nsis --publish never --config electron-builder.stable.generated.json
 ```
 
-`--publish never` is the important part — it builds a real installer without
-touching GitHub Releases at all, so you can install and test it with zero
-external footprint. Install silently with `<installer>.exe /S` (note: run
-that from PowerShell, not Git Bash — Git Bash's MSYS layer mangles the `/S`
-flag into a path). Point the installed app at a local dev server by setting
-`SPARSTROW_APP_URL=http://localhost:3000` as a Windows environment variable
-before launching it — a packaged app doesn't inherit a terminal session's env
-the way `npm start` does in dev mode.
+`--publish never` is the important part. Install it silently with
+`<installer>.exe /S` — **from PowerShell, not Git Bash**, whose MSYS layer
+mangles `/S` into a path.
 
-This is exactly how both channels' side-by-side coexistence was verified —
-see [T-DR-04](../../../doc/tasks/DR/README.md#t-dr-04--fix-the-desktop-build-chain-and-verify-a-real-installer)
-if you want the full verification writeup.
+**To test the update mechanism itself you need two builds**, since "an update is
+available" is a comparison and not a state. Install version A, publish version
+B, then watch A find it. There is no way to shortcut this with one build.
+
+## The staging channel
+
+The `staging` branch was retired by the 2026-09-02 restructure, and
+`release-staging.yml` was deleted with it. The per-channel *machinery*
+(`build-channel-config.mjs`, `channel.ts`, `run:local:staging`) is deliberately
+kept: it is what allows a second install to coexist with the real one on the
+same machine, which is genuinely useful for testing an installer without
+destroying your working app. Nothing publishes to that channel automatically any
+more.
 
 ## Known-fixed issues, for context if something looks similar
 
 **The build chain used to break itself.** Before 2026-08-30,
-`prepare-resources.mjs`'s `core deploy --prod --legacy` step silently
-poisoned the whole workspace's pnpm state, causing the *next* command in the
-chain to demand an interactive confirmation — and forcing past that with
-`CI=true` stripped devDependencies repo-wide, breaking an earlier step. Fixed
-with a `pnpm install` immediately after the deploy step. If you ever see a
-build fail with `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` or a mysterious
-`Cannot find package 'esbuild'` partway through this chain, that fix
-regressed — see the commit that added the `pnpm install` line in
-`prepare-resources.mjs` before reaching for `CI=true` again.
+`prepare-resources.mjs`'s deploy step poisoned the workspace's pnpm state,
+making the *next* command demand an interactive confirmation. Fixed with a
+`pnpm install` immediately after it. If you see
+`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` or a mysterious
+`Cannot find package 'esbuild'` partway through, that fix regressed — find the
+commit that added the `pnpm install` line before reaching for `CI=true`.
 
-**Stable and staging used to share a userData directory.** Distinct
-`appId`/`productName` per channel does *not* separate Electron's userData
-path — that's keyed off `app.name`, which resolves from the packaged
-`package.json`'s `name` field, not `productName`. Fixed via a per-channel
-`name` override in `build-channel-config.mjs`'s `extraMetadata`. Full
-writeup: [`doc/bug/BUG-2026-08-30-desktop-stable-staging-share-userdata-dir.md`](../../../doc/bug/BUG-2026-08-30-desktop-stable-staging-share-userdata-dir.md).
+**Two channels used to share a userData directory.** Distinct
+`appId`/`productName` does *not* separate it — Electron keys userData off
+`app.name`, from the packaged `package.json`'s `name`. Fixed with a per-channel
+`name` in `build-channel-config.mjs`'s `extraMetadata`. Writeup:
+[`doc/bug/BUG-2026-08-30-desktop-stable-staging-share-userdata-dir.md`](../../../doc/bug/BUG-2026-08-30-desktop-stable-staging-share-userdata-dir.md).
 
-## If you're asked to "add a channel" or change release mechanics
-
-That's not this skill — it's the underlying infrastructure
-(`apps/desktop/scripts/build-channel-config.mjs`, the two workflow files,
-`apps/desktop/src/channel.ts`). Read the plan doc linked above first.
+**The app quit instantly when run unpackaged.** A missing `productName` made
+`app.getName()` resolve to the npm scope `@sparstrow/desktop`, producing a
+userData path Windows could not create, so the single-instance lock could never
+be acquired. Writeup:
+[`doc/bug/BUG-2026-09-03-desktop-app-quits-instantly-when-run-unpackaged.md`](../../../doc/bug/BUG-2026-09-03-desktop-app-quits-instantly-when-run-unpackaged.md).

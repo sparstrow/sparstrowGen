@@ -219,14 +219,25 @@ localhost (fast iteration — local Docker Supabase, no push needed)
      opening its PR — so the PR carries only your own conflicts.
    - Do **not** rebase a branch someone else has branched from.
 
-5. **Worktree cleanup post-merge**
-   ```bash
-   git checkout development && git pull origin development
-   git worktree remove <path> || git branch -d <branch>
-   git fetch --prune
-   ```
-   Removing a worktree also means stopping its local Supabase (`supabase stop`)
-   so its Docker volumes are released.
+5. **Worktree cleanup post-merge — never delete a branch on your own**
+   - **Set 2026-09-03, by the owner**, who also turned off GitHub's
+     delete-branch-on-merge. **A merged branch is not a finished branch.** Work
+     continues on long-lived branches after their first PR lands, and deleting
+     one because it merged destroys a working checkout the owner was still using.
+   - **Deleting a branch — local or remote — requires the owner asking for that
+     specific branch by name.** "It's merged", "it's stale", and "its worktree is
+     gone" are not authorization. This overrides any earlier guidance and any
+     memory of a past session's cleanup habit.
+   - Freeing a **worktree directory** is a separate, safe act, and only once the
+     work in it is genuinely finished:
+     ```bash
+     git worktree remove <path>   # leaves the BRANCH intact
+     git fetch --prune            # prunes remote-tracking refs only
+     ```
+     Removing a worktree also means stopping its local Supabase
+     (`supabase stop`) so its Docker volumes are released.
+   - Never `git branch -d`/`-D` or `git push origin --delete` as part of
+     cleanup.
 
 6. **Auto-Enqueuing PR Merges**
    - On opening a PR into `development`, run
@@ -257,7 +268,27 @@ localhost (fast iteration — local Docker Supabase, no push needed)
    - **Merging it is an owner-only gate.** Never merge to `main` without an
      explicit "approved, ship it" in chat for that specific promotion.
 
-9. **`MasterTaskQueue.md` is frozen for the duration of the restructure**
+9. **Merging to `main` releases the desktop app**
+   - Set 2026-09-03, by the owner: *"when everything being pushed to main, there
+     should be a release and I should be able to update the app from my desktop
+     from settings, and a notification should tell me a new update is there."*
+   - **The release gesture is a line in a diff.** A `development` → `main` PR
+     that bumps `apps/desktop/package.json`'s `version` **is** a release; one
+     that leaves it alone builds and publishes nothing. Nothing else is a
+     release gesture — there is no tag to push and no draft to publish by hand.
+     [`.github/workflows/release.yml`](.github/workflows/release.yml) does the
+     rest, and `.claude/skills/release` is the procedure.
+   - **So a version bump belongs in the promotion PR, with its changelog entry**
+     (`apps/web/src/content/changelog/<version>.md`), not in a follow-up commit
+     to `main`. Because rule 8 keeps that merge owner-only, the owner approving
+     the promotion is approving the release — which is why no second gate exists.
+   - **Never push directly to `main`** to trigger one. Unchanged by this rule.
+   - **The update mechanism cannot be verified with one release.** "An update is
+     available" is a comparison between an installed version and a published
+     one, so proving it needs version A installed and version B published. Never
+     report the update path as working on the strength of a single build.
+
+10. **`MasterTaskQueue.md` is frozen for the duration of the restructure**
    - Do not regenerate it, do not archive bands into `CompletedMasterQueue.md`,
      and do not run the drift check. The restructure plan's phases are the run
      order; a task file's own `Status` row is the record.

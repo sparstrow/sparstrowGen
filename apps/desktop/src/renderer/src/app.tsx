@@ -2,6 +2,11 @@ import * as React from "react";
 import { MachineList } from "@sparstrow/views";
 import { ApiError, useApi } from "@sparstrow/core";
 import { Button } from "@sparstrow/ui/components/ui/button";
+import { Monitor, Settings as SettingsIcon, Sparkles } from "lucide-react";
+import { Settings } from "./settings";
+import { isNewsworthy, useUpdates } from "./use-updates";
+
+type Screen = "machines" | "settings";
 
 /**
  * The desktop window.
@@ -58,22 +63,73 @@ function useServerStatus() {
 
 export function App() {
   const { state, recheck } = useServerStatus();
+  const [screen, setScreen] = React.useState<Screen>("machines");
+  const { status: update } = useUpdates();
+
+  // Clicking the OS update notification should land on the screen that installs
+  // it. The main process only says where; what the name means is decided here.
+  React.useEffect(() => {
+    return window.sparstrowDesktop?.onNavigate((target) => {
+      if (target === "settings") setScreen("settings");
+    });
+  }, []);
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
-      <header className="flex h-11 shrink-0 items-center justify-between border-b px-4">
-        <p className="text-sm font-medium">Sparstrowgen</p>
-        <p className="text-xs text-muted-foreground">
-          v{window.sparstrowDesktop?.version ?? "dev"}
-        </p>
+      <header className="flex h-11 shrink-0 items-center justify-between gap-2 border-b px-4">
+        <div className="flex items-center gap-1">
+          <p className="mr-2 text-sm font-medium">Sparstrowgen</p>
+          <NavButton
+            active={screen === "machines"}
+            onClick={() => setScreen("machines")}
+            icon={<Monitor className="size-3.5" strokeWidth={2} />}
+            label="Machines"
+          />
+          <NavButton
+            active={screen === "settings"}
+            onClick={() => setScreen("settings")}
+            icon={<SettingsIcon className="size-3.5" strokeWidth={2} />}
+            label="Settings"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/*
+            The notification, in the one place it is always visible. It is a
+            button, not a badge: news the user cannot act on from where they are
+            standing is just an interruption, so this goes to the screen that
+            does something about it.
+          */}
+          {isNewsworthy(update) && screen !== "settings" ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5 border-brand/40 text-brand"
+              onClick={() => setScreen("settings")}
+            >
+              <Sparkles className="size-3.5" strokeWidth={2} />
+              {update.state === "downloaded" ? "Update ready" : "Update available"}
+            </Button>
+          ) : null}
+          <p className="text-xs text-muted-foreground">
+            v{window.sparstrowDesktop?.version ?? "dev"}
+          </p>
+        </div>
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto p-5">
-        {state.kind === "checking" ? (
+        {/*
+          Settings is reachable whatever the server is doing. It is where the
+          update lives, and an app that cannot reach its server is a moment when
+          being able to install a fix matters more than usual, not less.
+        */}
+        {screen === "settings" ? <Settings /> : null}
+
+        {screen === "machines" && state.kind === "checking" ? (
           <p className="text-sm text-muted-foreground">Connecting…</p>
         ) : null}
 
-        {state.kind === "unreachable" ? (
+        {screen === "machines" && state.kind === "unreachable" ? (
           <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
             <p className="text-sm font-medium">{state.message}</p>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -87,9 +143,11 @@ export function App() {
           </div>
         ) : null}
 
-        {state.kind === "signed-out" ? <SignIn onSignedIn={() => void recheck()} /> : null}
+        {screen === "machines" && state.kind === "signed-out" ? (
+          <SignIn onSignedIn={() => void recheck()} />
+        ) : null}
 
-        {state.kind === "ready" ? (
+        {screen === "machines" && state.kind === "ready" ? (
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <h1 className="text-sm font-medium">Your machines</h1>
@@ -114,6 +172,42 @@ export function App() {
         ) : null}
       </main>
     </div>
+  );
+}
+
+/**
+ * A tab in the header strip.
+ *
+ * Deliberately not a router. Two screens with no URLs to share and no back
+ * button to honour do not need one, and adding it now would be the fourth
+ * navigation abstraction this repo has carried — `DESIGN.md` §9's tab strip is
+ * the contract to grow into when there are enough screens to justify it.
+ */
+function NavButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      className={`flex h-7 items-center gap-1.5 rounded-md px-2 text-xs transition-colors duration-110 ${
+        active
+          ? "bg-accent text-foreground [&_svg]:text-brand"
+          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 
