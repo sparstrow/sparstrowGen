@@ -21,7 +21,18 @@ export interface ChannelConfig {
   channel: "stable" | "staging";
   /** electron-updater's `autoUpdater.channel` — which GitHub Release feed this install checks. */
   updateChannel: string;
-  /** Default value for `SPARSTROW_APP_URL` — what the window loads. */
+  /**
+   * ⚠️ **Dead since restructure Phase 3, and kept only so old `channel.json`
+   * files still validate.**
+   *
+   * It used to be the default for `SPARSTROW_APP_URL` — what the window loads.
+   * The window now loads the SPA this app ships, and nothing reads this field.
+   * Do not wire it back up: a per-install file naming a remote web app is how
+   * a desktop build ends up depending on a deployed website again.
+   *
+   * `cloudUrl` below is still live and still means something different — where
+   * this machine's DAEMON reports to.
+   */
   appUrl: string;
   /** Default value for `SPARSTROW_CLOUD_URL` — what the local daemon reports to. */
   cloudUrl: string;
