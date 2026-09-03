@@ -1402,3 +1402,72 @@ this park rather than fixed.
 articles must be re-read against reality *before* being shown again — assume every
 one of them is wrong until checked, because the restructure changes the product's
 shape underneath all 27. `AGENTS.md` §3.2 is restored in the same change.
+
+---
+
+## D-39 — Cloud agents become the only agents (OQ-12's option C)
+
+**Deferred:** 2026-09-03, by the owner, in the same breath as choosing option A:
+*"go with A for now and C later."*
+
+**What it is.** Delete the daemon's local agent store entirely. A dispatch
+payload carries the full agent definition and the machine runs what it is told.
+One definition, one place — the duplication that made `OQ-12` a question stops
+existing rather than being kept in sync.
+
+**Why A first, not C.** A (the daemon mirrors the workspace's agents down) is
+additive and reversible, and it reuses the one-way sync shape `memory-sync`
+already has. C touches the daemon's own model, its local API, and the offline
+story at once — `sparstrow setup`'s headless machine assumes it can run an agent
+while unclaimed, and C removes that. Scored 7/10 as a destination and 4/10 as
+the next move, which is exactly the shape of a thing to do second.
+
+**What A leaves behind for C to fix.** Every machine gets every agent, including
+agents meant for a machine they are not. An agent carries `cwd`, `addDirs` and
+MCP server configs naming paths that may not exist on the machine that received
+it — so a synced agent can be *present and unrunnable*, which is a subtler
+failure than today's honest refusal. That is `G-27`'s shape again, and it is the
+strongest argument for C.
+
+**Unpark trigger:** when either (a) a second machine is in regular use and the
+present-but-unrunnable failure has actually been hit, or (b) agent path fields
+are made per-machine or resolved at run time — because doing that work is most
+of C anyway, and doing it inside A's sync would be paying C's cost without
+getting C's simplification.
+
+**Do not unpark it as a tidy-up.** It is a rewrite of how a machine knows what
+it can run, and it should be triggered by a problem, not by the fact that the
+duplication is untidy.
+
+---
+
+## D-40 — Host `server/` somewhere other than the owner's own machine (OQ-9's option B)
+
+**Deferred:** 2026-09-03, by the owner: *"go with your recommendation as a for
+now and B later when we are to host the server."*
+
+**Now:** `server/` runs locally, one per machine, started alongside the desktop
+app. `SPARSTROW_SERVER_URL` already points a client anywhere, so this is
+configuration, not architecture — which is why it was safe to defer.
+
+**Later:** one hosted `server/` that every client and daemon reaches over the
+network.
+
+**What actually has to be true first**, and none of it is true today:
+
+- **TLS and a real origin.** The daemon and desktop app currently talk to
+  `http://127.0.0.1`, where "no transport security" is a defensible choice
+  because the traffic never leaves the machine. That stops being true the moment
+  it is hosted, and the bearer tokens on `/api` and `/ws` become interceptable.
+- **[`G-65`](KnownGaps.md) stops mattering, and a new version of it starts.**
+  Port collision is a local concern; multi-tenancy is the hosted equivalent.
+- **[`G-35`](KnownGaps.md) becomes urgent.** Every content table is governed by
+  a generic "are you a member" policy — any member has full read and write on
+  all workspace content, and there is no viewer role. Acceptable for one person
+  on one machine; not acceptable on a shared host.
+- **The `SUPABASE_SERVICE_ROLE_KEY` boundary needs re-examining.** It is
+  `server/`-only today and that is enforced by nothing but discipline.
+
+**Unpark trigger:** the first time a person who is not the owner needs to reach
+this workspace — which is the same trigger as `D-1`'s HITL redesign, and not by
+coincidence. Both are things that are only safe while there is exactly one user.

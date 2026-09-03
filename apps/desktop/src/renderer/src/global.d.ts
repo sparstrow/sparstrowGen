@@ -35,6 +35,7 @@ declare global {
     sparstrowDesktop?: {
       version: string;
       onNavigate(cb: (screen: string) => void): () => void;
+      onMachinesChanged(cb: () => void): () => void;
       updates: {
         getStatus(): Promise<DesktopUpdateStatus>;
         check(): Promise<void>;

@@ -638,3 +638,37 @@ channel, or negotiated at first start and written to a file the way `.api-token`
 already is — and two installs are proved to run their runtimes simultaneously on
 one machine. Touching it means touching the daemon, `core-client.ts`,
 `memory-cli`, `memory-mcp` and the packaged resources together.
+
+---
+
+## G-66 — The Windows installer is unsigned, deliberately and indefinitely
+
+**Decided:** 2026-09-03, by the owner, closing `OQ-10`: *"keep it free. This app
+is an agent harness, is only for me."*
+
+`Sparstrowgen-Setup-<version>.exe` carries no Authenticode signature. A code
+signing certificate is a real recurring cost (OV around $200–400/year, EV more)
+and it buys reputation with SmartScreen for an audience of one person who built
+the thing.
+
+**What this actually means when installing:**
+
+- Windows SmartScreen shows **"Windows protected your PC"** on first run.
+  Getting past it is *More info* → *Run anyway*.
+- Some browsers flag the download.
+- **Auto-updates are unaffected.** electron-updater verifies the installer
+  against the `sha512` in `latest.yml`, which is integrity, not identity — it
+  proves the file is the one the release published, not who published it. The
+  update path does not need a certificate to be safe against corruption or a
+  swapped asset; it needs one to be safe against a compromised release pipeline,
+  which is a different threat and not one signing an unsigned-until-now app
+  addresses either.
+
+**This is not a bug and should not be "fixed" opportunistically.** It is a
+priced decision, and the price is paid annually.
+
+**Reconsider when** the app is installed by someone who did not build it —
+someone with no reason to trust an unknown publisher, and no way to check. The
+SmartScreen warning is correct in that situation and telling a stranger to click
+past a security warning is a bad habit to teach. Until then it costs one extra
+click, once, on one machine.

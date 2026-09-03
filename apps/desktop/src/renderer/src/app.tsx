@@ -2,6 +2,8 @@ import * as React from "react";
 import { MachineList } from "@sparstrow/views";
 import { ApiError, useApi } from "@sparstrow/core";
 import { Button } from "@sparstrow/ui/components/ui/button";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@sparstrow/core";
 import { Monitor, Settings as SettingsIcon, Sparkles } from "lucide-react";
 import { Settings } from "./settings";
 import { isNewsworthy, useUpdates } from "./use-updates";
@@ -66,6 +68,8 @@ export function App() {
   const [screen, setScreen] = React.useState<Screen>("machines");
   const { status: update } = useUpdates();
 
+  const queryClient = useQueryClient();
+
   // Clicking the OS update notification should land on the screen that installs
   // it. The main process only says where; what the name means is decided here.
   React.useEffect(() => {
@@ -73,6 +77,16 @@ export function App() {
       if (target === "settings") setScreen("settings");
     });
   }, []);
+
+  // The main process claims this computer at launch and after sign-in, and that
+  // finishes AFTER this window has already rendered — the runtime has to come
+  // up first. Without this the list would render "No machines yet" and go on
+  // saying it, correctly, about data fetched a second too early.
+  React.useEffect(() => {
+    return window.sparstrowDesktop?.onMachinesChanged(() => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.machines.all });
+    });
+  }, [queryClient]);
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
