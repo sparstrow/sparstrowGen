@@ -23,7 +23,13 @@ const nextConfig: NextConfig = {
   // the route registry in-process until server/ runs as its own process.
   // Only the "./routes" subpath is ever imported -- the package root pulls
   // the daemon and its native modules, which Next cannot bundle.
-  transpilePackages: ["@sparstrow/ui", "@sparstrow/shared", "@sparstrow/server"],
+  transpilePackages: [
+    "@sparstrow/ui",
+    "@sparstrow/shared",
+    "@sparstrow/core",
+    "@sparstrow/views",
+    "@sparstrow/server",
+  ],
   env: {
     NEXT_PUBLIC_APP_VERSION: appVersion,
     NEXT_PUBLIC_NEXT_VERSION: nextVersion,

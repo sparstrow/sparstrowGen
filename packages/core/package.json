@@ -1,0 +1,40 @@
+{
+  "name": "@sparstrow/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "_comment": [
+    "CLIENT domain logic: ApiClient, WSClient, react-query hooks, stores.",
+    "NO UI and NO server code — see AGENTS.md §1.",
+    "",
+    "Exports SOURCE, not a build (rule 3): no dist/, no watch, no build step.",
+    "Each app's bundler transpiles what it imports."
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": [
+      "./src/*.tsx",
+      "./src/*.ts",
+      "./src/*"
+    ]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@sparstrow/shared": "workspace:*"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "catalog:",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@sparstrow/tsconfig": "workspace:*",
+    "@tanstack/react-query": "catalog:",
+    "@types/react": "catalog:",
+    "react": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

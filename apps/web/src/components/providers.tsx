@@ -10,6 +10,8 @@ import { createClient } from "@web/utils/supabase/client";
 import { WebAccountProvider } from "@web/components/auth/account-provider";
 import type { AccountSnapshot } from "@web/lib/auth/account-snapshot";
 import { RealtimeLiveEventSource } from "@web/lib/realtime-live-events";
+import { CoreProvider } from "@sparstrow/core";
+import { browserStorage } from "@web/lib/browser-storage";
 
 export function Providers({
   account,
@@ -32,6 +34,7 @@ export function Providers({
   // Given `queryClient` so an oversized-event marker can invalidate the
   // affected run's `useRunEvents` query directly.
   const [liveEvents] = useState(() => new RealtimeLiveEventSource(queryClient));
+  const [storage] = useState(() => browserStorage());
 
   useEffect(() => {
     // Bridge local websocket push events into query invalidation
@@ -143,10 +146,33 @@ export function Providers({
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <LiveEventsContext.Provider value={liveEvents}>
-          <WebAccountProvider initial={account}>{children}</WebAccountProvider>
-          <Toaster />
-        </LiveEventsContext.Provider>
+        {/*
+          `@sparstrow/core` is the data layer every client shares. It is given
+          THIS app's query client rather than making its own, so the screens
+          still on `@web/api/hooks` and the ones already on `packages/views`
+          read from one cache — two caches would show the same row in two
+          states depending on which component you looked at.
+
+          `apiBaseUrl: ""` means same-origin: this app's session is an httpOnly
+          cookie, so the browser must send it itself and `/api/v1` proxies to
+          `server/`. The desktop app passes a real URL and a bearer token
+          instead, and no screen has to know the difference.
+        */}
+        <CoreProvider
+          apiBaseUrl=""
+          storage={storage}
+          queryClient={queryClient}
+          identity={{
+            platform: "web",
+            version: process.env.NEXT_PUBLIC_APP_VERSION ?? "0.0.0",
+            os: null,
+          }}
+        >
+          <LiveEventsContext.Provider value={liveEvents}>
+            <WebAccountProvider initial={account}>{children}</WebAccountProvider>
+            <Toaster />
+          </LiveEventsContext.Provider>
+        </CoreProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );

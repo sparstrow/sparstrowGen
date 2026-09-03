@@ -1,0 +1,44 @@
+{
+  "name": "@sparstrow/views",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "_comment": [
+    "Feature UI per domain, mirroring packages/core one-to-one.",
+    "A view knows @sparstrow/core (data) and @sparstrow/ui (primitives).",
+    "It must NOT know which app is rendering it: no next/*, no electron,",
+    "no router import. Navigation arrives as props.",
+    "",
+    "Exports SOURCE, not a build (AGENTS.md §1 rule 3)."
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": [
+      "./src/*.tsx",
+      "./src/*.ts",
+      "./src/*"
+    ]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@sparstrow/core": "workspace:*",
+    "@sparstrow/shared": "workspace:*",
+    "@sparstrow/ui": "workspace:*",
+    "lucide-react": "catalog:"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "catalog:",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@sparstrow/tsconfig": "workspace:*",
+    "@tanstack/react-query": "catalog:",
+    "@types/react": "catalog:",
+    "react": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

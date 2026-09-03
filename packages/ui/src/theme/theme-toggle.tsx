@@ -1,12 +1,12 @@
 import { Check, Moon, Sun } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "../components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useTheme, type Theme } from "@/theme/theme-provider";
+} from "../components/ui/dropdown-menu";
+import { useTheme, type Theme } from "./theme-provider";
 
 const OPTIONS: { value: Theme; label: string }[] = [
   { value: "light", label: "Light" },

@@ -1,0 +1,4 @@
+{
+  "extends": "@sparstrow/tsconfig/react-library.json",
+  "include": ["src"]
+}

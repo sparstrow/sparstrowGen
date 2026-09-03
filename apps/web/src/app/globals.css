@@ -22,4 +22,23 @@
  */
 @source "../../../../packages/ui/src";
 
+/*
+ * `packages/views` needs this for exactly the same reason, and the failure was
+ * measured rather than assumed: with this line removed, `MachineList`'s status
+ * dot computes to `width: 0px` and disappears.
+ *
+ * The precise trap is worth stating, because it is narrower and nastier than
+ * "shared component loses its styles". Utilities the app ALSO uses elsewhere
+ * (`bg-success`, `rounded-full`) keep working, because some scanned file
+ * generated them. What breaks is anything used ONLY in `packages/views` —
+ * above all **arbitrary values** like `size-[9px]`, which cannot be generated
+ * by coincidence. So a component does not look broken; it looks 90% right with
+ * one detail silently missing, and no error is ever printed.
+ *
+ * Every app that renders `@sparstrow/views` must declare this. `apps/desktop`
+ * will need it in Phase 3; if a shared component looks 90% right there, this is
+ * the first thing to check.
+ */
+@source "../../../../packages/views/src";
+
 /* Any web-specific overrides can go below */

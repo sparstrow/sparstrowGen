@@ -166,7 +166,13 @@ export const CHAT_ATTACHMENTS_MAX_PER_MESSAGE = 10;
 export const chatTurnRequestSchema = z.object({
   content: z
     .string()
-    .refine((s) => Buffer.byteLength(s, "utf8") <= CHAT_MESSAGE_MAX_BYTES, {
+    // `TextEncoder`, not `Buffer.byteLength`. Both count UTF-8 bytes
+    // identically, but `Buffer` is a Node global, and this schema is validated
+    // on BOTH sides — a browser importing `@sparstrow/shared` for this type got
+    // a package that could not typecheck without `@types/node`, and would have
+    // thrown at runtime had anything called it client-side. `TextEncoder` is
+    // standard in every browser, Node 11+, and React Native.
+    .refine((s) => new TextEncoder().encode(s).length <= CHAT_MESSAGE_MAX_BYTES, {
       message: `content must not exceed ${CHAT_MESSAGE_MAX_BYTES} bytes`,
     }),
   draft: z.record(z.unknown()).optional(),

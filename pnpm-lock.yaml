@@ -90,6 +90,9 @@ importers:
       '@radix-ui/react-dialog':
         specifier: ^1.1.7
         version: 1.1.16(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@sparstrow/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sparstrow/server':
         specifier: workspace:*
         version: link:../../server
@@ -99,6 +102,9 @@ importers:
       '@sparstrow/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@sparstrow/views':
+        specifier: workspace:*
+        version: link:../../packages/views
       '@supabase/ssr':
         specifier: 'catalog:'
         version: 0.12.4(@supabase/supabase-js@2.112.2)
@@ -175,6 +181,31 @@ importers:
       tailwindcss:
         specifier: 'catalog:'
         version: 4.3.3
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4))
+
+  packages/core:
+    dependencies:
+      '@sparstrow/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@sparstrow/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@tanstack/react-query':
+        specifier: 'catalog:'
+        version: 5.101.0(react@19.2.8)
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.18
+      react:
+        specifier: 'catalog:'
+        version: 19.2.8
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -358,6 +389,40 @@ importers:
       tailwindcss:
         specifier: 'catalog:'
         version: 4.3.3
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4))
+
+  packages/views:
+    dependencies:
+      '@sparstrow/core':
+        specifier: workspace:*
+        version: link:../core
+      '@sparstrow/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@sparstrow/ui':
+        specifier: workspace:*
+        version: link:../ui
+      lucide-react:
+        specifier: 'catalog:'
+        version: 0.514.0(react@19.2.8)
+    devDependencies:
+      '@sparstrow/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@tanstack/react-query':
+        specifier: 'catalog:'
+        version: 5.101.0(react@19.2.8)
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.18
+      react:
+        specifier: 'catalog:'
+        version: 19.2.8
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
