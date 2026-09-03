@@ -1,10 +1,4 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "module": "Preserve",
-    "moduleResolution": "Bundler",
-    "noEmit": true,
-    "types": ["node"]
-  },
+  "extends": "@sparstrow/tsconfig/node-library.json",
   "include": ["src"]
 }

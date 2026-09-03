@@ -18,11 +18,12 @@
     "run:local:staging": "node scripts/run-local.mjs staging"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "catalog:",
     "electron": "^36.4.0",
     "electron-builder": "^26.0.12",
-    "typescript": "^5.8.3",
-    "vitest": "^3.2.6"
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "@sparstrow/tsconfig": "workspace:*"
   },
   "dependencies": {
     "electron-updater": "^6.6.2"
@@ -37,13 +38,52 @@
       "dist/**/*"
     ],
     "extraResources": [
-      { "from": "resources-staging/core", "to": "core", "filter": ["**/*"] },
-      { "from": "resources-staging/ui", "to": "ui", "filter": ["**/*"] },
-      { "from": "resources-staging/memory-mcp", "to": "memory-mcp", "filter": ["**/*"] },
-      { "from": "resources-staging/memory-cli", "to": "memory-cli", "filter": ["**/*"] },
-      { "from": "resources-staging/node-runtime", "to": "node-runtime", "filter": ["**/*"] },
-      { "from": "resources-staging/web", "to": "web", "filter": ["**/*"] },
-      { "from": "resources-staging/channel.json", "to": "channel.json" }
+      {
+        "from": "resources-staging/core",
+        "to": "core",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "resources-staging/ui",
+        "to": "ui",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "resources-staging/memory-mcp",
+        "to": "memory-mcp",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "resources-staging/memory-cli",
+        "to": "memory-cli",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "resources-staging/node-runtime",
+        "to": "node-runtime",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "resources-staging/web",
+        "to": "web",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "resources-staging/channel.json",
+        "to": "channel.json"
+      }
     ],
     "win": {
       "target": "nsis"

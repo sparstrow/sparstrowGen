@@ -7,15 +7,17 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "test": "turbo run test",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "//test": "--concurrency=1 is load-bearing, not a preference. Each package spawns its own full vitest worker pool, so running five in parallel oversubscribes the CPU and apps/web fails 1-4 tests, a DIFFERENT set each run, while passing 529/529 on its own. That is KnownGaps G-59. Serialising the packages costs about a minute and buys a suite whose result means something. Use `pnpm test:parallel` if you are deliberately reproducing the flake.",
+    "test": "turbo run test --concurrency=1",
+    "test:parallel": "turbo run test"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.10",
     "turbo": "^2.5.4",
-    "typescript": "^5.8.3"
+    "typescript": "catalog:"
   },
   "dependencies": {
-    "postgres": "^3.4.9"
+    "postgres": "catalog:"
   }
 }

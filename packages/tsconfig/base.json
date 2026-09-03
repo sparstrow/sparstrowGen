@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "_comment": [
+    "Shared base. Every package extends this or one of its siblings.",
+    "",
+    "Moved here from the repo-root tsconfig.base.json on 2026-09-02 so that",
+    "compiler settings travel as a workspace dependency like everything else,",
+    "rather than as a relative path each package has to get right. The root",
+    "tsconfig.base.json is kept as a one-line re-export so nothing breaks",
+    "mid-restructure.",
+    "",
+    "Deliberately NOT enabled yet: noUnusedLocals, noUnusedParameters,",
+    "noImplicitReturns. Multica runs all three and they are good rules, but",
+    "turning them on here would produce a large, unrelated cleanup diff across",
+    "60K LOC in the middle of a restructure. Enable them as their own change",
+    "once the layout has settled."
+  ],
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "exclude": ["node_modules", "dist"]
+}

@@ -75,7 +75,28 @@ describe("realtime connection", () => {
 
     createdClients = [];
     clientOptions = [];
-    vi.mocked(RealtimeClient).mockImplementation((_url, options) => {
+    // Explicit, because `afterEach`'s `vi.restoreAllMocks()` no longer does it.
+    // In vitest 3 that call also cleared `vi.fn()` call history; in vitest 4 it
+    // only restores originals for spies created with `vi.spyOn`, so this
+    // module-factory mock accumulated calls across tests and every count
+    // assertion below drifted upward.
+    vi.mocked(RealtimeClient).mockReset();
+
+    // A `function` expression, deliberately, NOT an arrow. `RealtimeClient` is
+    // constructed with `new` in realtime.ts, and vitest 4 invokes a mocked
+    // class's implementation as a constructor — an arrow function has no
+    // [[Construct]] slot, so it fails with "is not a constructor". vitest 3
+    // called the implementation as a plain function and used its return value,
+    // which is why this passed before the catalog unified vitest to 4.
+    // Returning an object from a constructor overrides `this`, so the fake is
+    // still what `new RealtimeClient(...)` yields.
+    // Params annotated explicitly: the cast on the whole expression (below)
+    // is what makes a constructible `function` assignable here, and it also
+    // costs contextual inference for the parameters.
+    vi.mocked(RealtimeClient).mockImplementation(function (
+      _url: ConstructorParameters<typeof RealtimeClient>[0],
+      options: ConstructorParameters<typeof RealtimeClient>[1],
+    ) {
       const c = makeFakeClient();
       createdClients.push(c);
       // Captured so a test can ask what token the client would ACTUALLY send.
@@ -84,7 +105,7 @@ describe("realtime connection", () => {
       // nothing about the token in use.
       clientOptions.push(options as FakeClientOptions);
       return c as unknown as RealtimeClient;
-    });
+    } as unknown as (...args: ConstructorParameters<typeof RealtimeClient>) => RealtimeClient);
   });
 
   afterEach(() => {

@@ -325,6 +325,53 @@ guarantee) is the same shape.
 ### G-59 — the full test suite fails intermittently under parallel turbo
 
 **Raised:** 2026-09-02.
+**Diagnosed and mitigated 2026-09-02** (restructure Phase 0c). **Narrowed, not
+closed** — read what was and was not proved before trusting it.
+
+**What was proved.** The flake is CPU contention between vitest worker pools, not
+a logic error in the three routes. Same commit, three invocations:
+
+| Invocation | Result |
+|---|---|
+| `turbo run test` (5 packages in parallel) | `apps/web` failed 1 test file |
+| `turbo run test --filter=web` (alone) | 529/529 |
+| `turbo run test --concurrency=1` | all 5 packages green, **4 consecutive runs** |
+
+Each package spawns its own full vitest worker pool, so five at once
+oversubscribes the CPU on Windows. This is the disposition the entry's own
+"closes when" clause named as the tooling outcome.
+
+**The mitigation.** `pnpm test` is now `turbo run test --concurrency=1`
+(root `package.json`, with the reasoning inline next to it). `pnpm test:parallel`
+is kept to reproduce the flake deliberately. Cost: ~54s serial versus ~53s
+parallel — the packages were never the bottleneck, the contention was.
+
+**A confounder worth naming.** The same change unified vitest from a 3/4 major
+split to 4 everywhere via the pnpm catalog, and fixed two genuine vitest-4
+breakages in `packages/core/src/cloud/realtime.test.ts` (an arrow function used
+as a mocked constructor; `restoreAllMocks` no longer clearing `vi.fn()` call
+history). So "mixed vitest majors" cannot be fully separated from "worker
+contention" as the original cause. The serial-vs-parallel result above is
+measured on the *unified* tree, so it isolates contention on today's code — but
+it does not retroactively prove which of the two caused the original reports.
+
+**What is still unproved:** four consecutive green serial runs, not ten. The
+original entry asked for ten runs of the parallel invocation on a base commit;
+that specific test is now moot, since the parallel invocation is no longer what
+`pnpm test` does.
+
+- **If wrong:** a real race in `realtime/token`, `chat/attachments/sign-upload`
+  or `chat/turns/[id]/result` is now merely *less likely to be observed* rather
+  than absent. Serialising reduces the interleaving that would expose it.
+- **Closes when:** ten consecutive green `pnpm test` runs, **or** the three
+  routes are read for shared state directly. Whoever adds CI should cap
+  concurrency there too — the flake is a property of the machine, not the repo.
+
+---
+
+<!-- original text of G-59, preserved -->
+
+**Original report, 2026-09-02:**
 
 `pnpm test` (turbo, all packages in parallel) intermittently reports 1–4 failures
 in `apps/web`, and **a different set each run**. The same suites pass
