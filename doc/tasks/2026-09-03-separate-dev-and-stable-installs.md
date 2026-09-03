@@ -1,6 +1,6 @@
 # Separate the agent's test build from the owner's app
 
-**Status:** In progress
+**Status:** Done except the 0.3.3 release, which needs the owner's approval
 **Branch:** `claude/multica-app-architecture-0a3e6f`
 **Ships as:** 0.3.3
 
@@ -84,14 +84,75 @@ Three layers, and fixing only the visible one would have made things worse.
 - [x] `ports.test.ts` asserts a `setPorts` after import is observed, that the
       two channels' four ports are disjoint, and that stable's are unchanged
 
-## Not done yet
+## Found by running it, not by reasoning about it
 
-- [ ] Install the dev build and confirm it appears as a **separate** app with
-      its own userData
-- [ ] Run both installs at once with both runtimes alive — this is `G-65`'s
-      stated close condition and it is not closed until that is observed
-- [ ] Ship 0.3.3 so the owner's app self-updates to a build where sign-in works
+**`productName`, not `name`, decides userData.** The first dev build installed
+as its own app, launched, and immediately logged
+`AppData\Roaming\Sparstrowgen\data\logs\main.log` — the *stable* install's
+directory — then quit on the single-instance lock the owner's app was holding.
+`extraMetadata.name` had been set correctly and made no difference: Electron
+reads `productName` from the packaged package.json in preference to `name`, and
+`productName` exists twice in `apps/desktop/package.json` (root, which ships and
+is read; and under `build`, which only names the installer). Only the second had
+been overridden.
+
+It quit only because the owner's app happened to be running. Otherwise the dev
+build would have started on their data and their ports and said nothing.
+
+This contradicted a comment in `build-channel-config.mjs` that had asserted the
+opposite for a month, citing a real verification (T-DR-04) whose observation was
+correct and whose stated mechanism was never isolated. Corrected in place with
+the evidence, and written up in
+[`BUG-2026-09-03`](../bug/BUG-2026-09-03-productName-not-name-decides-userdata.md).
+
+**The daemon inherited no port**, so it would have bound 48750 whichever install
+spawned it. Separating the port the app dials without the port the daemon binds
+moves the collision somewhere quieter.
+
+**A dev build added itself to login items**, so the owner would have had two
+apps starting every boot. Now gated on the channel; the entry it had already
+written was removed.
 
 ## Result
 
-_Pending the three items above._
+**`G-65` closed on observation.** Both installs' runtimes alive at the same
+moment, which is exactly what that entry demanded:
+
+```
+8080   LISTENING  pid=21384  ...\Programs\Sparstrowgen\...
+ode.exe
+48750  LISTENING  pid=22852  ...\Programs\Sparstrowgen\...
+ode.exe
+48850  LISTENING  pid=13848  ...\Programs\Sparstrowgen Dev\...
+ode.exe
+```
+
+Separate installs, separate data:
+
+```
+Programs\Sparstrowgen           3:27 PM   (owner's, untouched)
+Programs\Sparstrowgen Dev       6:47 PM
+Roaming\Sparstrowgen            (owner's)
+Roaming\Sparstrowgen Dev        (agent's)
+```
+
+Dev build log confirms the two deliberate abstentions:
+
+```
+[updater] dev channel - self-update is deliberately not wired up
+[server]  no Supabase configuration stored - not starting
+[service] core is healthy
+```
+
+The second line is the isolation working: a dev install cannot read the stable
+install's credential store, so its `server/` declines to start. That is why 8180
+is free rather than listening — the daemon separation is observed, the API-port
+separation is proved at the config layer (`channel.json` carries 8180) but not
+seen bound. Stated rather than glossed.
+
+`pnpm typecheck` clean. `pnpm test` 62 passed.
+
+**Not done, and needs the owner:** merging 0.3.3 to `main`. The version and
+changelog are ready. That merge is the release gesture and is owner-only per
+AGENTS.md §2.8, and it is also the only way to prove the update path, which
+needs version A installed and version B published.

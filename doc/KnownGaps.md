@@ -601,43 +601,46 @@ database and does not have this problem — which is a second reason to prefer i
 
 ---
 
-## G-65 — Two desktop installs cannot both run; the daemon port is a single hardcoded constant
 
-**Opened:** 2026-09-03, by running the app on a machine that already had one.
+## G-65 — CLOSED 2026-09-03: desktop installs have per-channel ports
 
-`packages/shared/src/constants.ts` fixes `DEFAULT_PORT = 48750` for every
-install. Stable and Staging were separated at every other level — `appId`,
-`productName`, `userData` — and each separation was verified; the runtime port
-was not among them, and nothing ever ran both at once to find out.
+**Was:** every install hardcoded 48750 (daemon) and 8080 (API), so two
+Sparstrowgens on one machine could not both run. Worse than the crash it was
+opened for: because the app ADOPTS a server it finds listening, a second install
+of a similar build would quietly operate on the first one's data.
 
-Adoption cannot paper over it either: `ServiceManager.start()` adopts an
-already-listening runtime, but only via `probeHealth`, which authenticates with
-the **per-install** `.api-token`. A second install's token gets a 401, which is
-indistinguishable from "nothing is listening".
+**Closed by** `apps/desktop/src/main/ports.ts` — a per-channel table, baked into
+each install's own `channel.json`, with stable's numbers unchanged so no
+existing install is orphaned. Every URL on that path became a function, because
+`main.ts` imports `core-client` and `service-manager` on lines 3 and 6 while
+applying the channel config on line 52; the env-var implementation could never
+have worked and would have failed silently.
 
-**Mitigated in the same change, not fixed.** The second install now fails fast
-with a sentence naming the cause instead of crash-looping into EADDRINUSE for a
-minute, and the window no longer waits for the runtime before opening. It still
-has no runtime, so it cannot execute agent work.
+**Proof, which is what this entry asked for.** Both installs' runtimes observed
+alive at the same moment:
 
-Full writeup, including the ~60 s invisible-window failure it presented as:
+```
+8080   LISTENING  pid=21384  ...\Programs\Sparstrowgenesources
+ode-runtime
+ode.exe
+48750  LISTENING  pid=22852  ...\Programs\Sparstrowgenesources
+ode-runtime
+ode.exe
+48850  LISTENING  pid=13848  ...\Programs\Sparstrowgen Devesources
+ode-runtime
+ode.exe
+```
+
+8180 is free rather than listening because the dev install has no Supabase
+credentials of its own, so its `server/` correctly declines to start. That is
+the isolation working, not a gap: a dev install cannot read the stable install's
+credential store. The daemon separation — the thing this entry was about — is
+observed, not inferred.
+
+Full writeup:
 [`BUG-2026-09-03`](bug/BUG-2026-09-03-two-desktop-installs-fight-over-the-daemon-port.md).
-
-**Operationally, right now:** uninstall "Sparstrowgen Staging" before installing
-0.3.0. That channel was retired with the `staging` branch on 2026-09-02 and will
-never receive another release.
-
-**If wrong (i.e. left as is):** the moment a second Sparstrowgen exists on any
-machine — a staging build kept for testing, a second account, a future beta
-channel — one of them silently has no runtime. That is exactly the "installed
-side by side without conflicting" claim `0.2.0`'s changelog already makes, so
-the documentation is currently ahead of the behaviour.
-
-**Closes when:** the port is per-install rather than global — derived from the
-channel, or negotiated at first start and written to a file the way `.api-token`
-already is — and two installs are proved to run their runtimes simultaneously on
-one machine. Touching it means touching the daemon, `core-client.ts`,
-`memory-cli`, `memory-mcp` and the packaged resources together.
+The `productName`-versus-`name` trap found on the way is
+[`BUG-2026-09-03`](bug/BUG-2026-09-03-productName-not-name-decides-userdata.md).
 
 ---
 

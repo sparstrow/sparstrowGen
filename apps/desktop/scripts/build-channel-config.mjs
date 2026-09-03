@@ -24,16 +24,30 @@ const channel = process.argv[2];
 // one machine at the install-directory / Start Menu / GitHub-release level.
 // It does NOT, on its own, separate userData: Electron derives
 // `app.getPath("userData")` from `app.name`, which resolves from the
-// packaged app's own `package.json` `name` field (`@sparstrow/desktop` for
-// both channels here). `productName` is an electron-builder installer/build
-// concept, not something Electron's app module reads at runtime. Verified
-// 2026-08-30 (T-DR-04) against the since-retired Staging channel: a real
-// second install launched with
-// `--user-data-dir=...\Roaming\@sparstrow/desktop`, the same default stable
-// would use, so the two channels shared a userData dir until `name` below was
-// added to the non-stable `extraMetadata`. `extraMetadata` is merged into the
-// packaged app's `package.json`, so overriding `name` there is what actually
-// changes `app.name`, and with it every userData-derived path.
+// packaged app's own `package.json` - and it reads `productName` there in
+// PREFERENCE to `name`, falling back to `name` only when `productName` is
+// absent.
+//
+// WARNING: this file used to state the opposite - that `productName` is "an
+// electron-builder installer/build concept, not something Electron's app
+// module reads at runtime". That is wrong, and it cost a build. Corrected
+// 2026-09-03 with direct evidence: a dev-channel install whose asar
+// package.json read {"name": "sparstrow-desktop-dev", "productName":
+// "Sparstrowgen"} launched and logged its main.log under
+// AppData/Roaming/Sparstrowgen - the STABLE install's userData - then quit on
+// its single-instance lock. `name` had been overridden correctly and made no
+// difference at all.
+//
+// The trap is that `productName` exists TWICE in apps/desktop/package.json: at
+// the root (which electron-builder copies into the packaged app, and which
+// Electron reads) and under `build` (which only names the installer and the
+// .exe). Overriding the `build` one renames the installer while leaving every
+// runtime path pointing at the other channel. BOTH have to move, which is why
+// `extraMetadata` below carries `productName` as well as `name`.
+//
+// The T-DR-04 verification on 2026-08-30 was real but incomplete: it proved
+// the two channels stopped SHARING a dir, without establishing which field
+// did it.
 //
 // Identity is necessary and not sufficient. Two installs also have to stop
 // fighting over a port: both channels hardcoded 48750 and 8080, so the second
@@ -59,6 +73,9 @@ const OVERRIDES = {
 // its userData dir (and anything else Electron keys off `app.name`) never
 // overlaps with stable's.
 const APP_NAME = { stable: pkg.name, dev: "sparstrow-desktop-dev" };
+// Root `productName`, the field Electron actually resolves `app.name` from.
+// Stable keeps its existing value so no installed build is orphaned.
+const PRODUCT_NAME = { stable: pkg.productName, dev: "Sparstrowgen Dev" };
 
 if (!OVERRIDES[channel]) {
   console.error(
@@ -76,7 +93,7 @@ const version = channel === "dev" ? `${pkg.version}-dev.${buildNumber}` : pkg.ve
 const merged = {
   ...pkg.build,
   ...OVERRIDES[channel],
-  extraMetadata: { name: APP_NAME[channel], version },
+  extraMetadata: { name: APP_NAME[channel], productName: PRODUCT_NAME[channel], version },
 };
 
 const outPath = path.join(desktopDir, `electron-builder.${channel}.generated.json`);

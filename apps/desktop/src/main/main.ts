@@ -312,7 +312,15 @@ if (!app.requestSingleInstanceLock()) {
     openWindow();
 
     if (app.isPackaged) {
-      app.setLoginItemSettings({ openAtLogin: true });
+      /**
+       * Start with Windows. Deliberately NOT for a dev build: that install
+       * exists so an agent can drive a real packaged app, and it has no
+       * business launching on the owner's machine every morning alongside the
+       * app they actually use.
+       */
+      if (packagedPaths?.channel?.channel !== "dev") {
+        app.setLoginItemSettings({ openAtLogin: true });
+      }
 
       /**
        * 0004 Phase 2: notify-only update checks. The channel argument picks
