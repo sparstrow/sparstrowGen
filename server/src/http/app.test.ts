@@ -154,6 +154,31 @@ describe("the HTTP boundary", () => {
     expect(res.json().workspaceId).toBe("ws-1");
   });
 
+  it("accepts an empty body on a JSON content type instead of 400ing before the route", async () => {
+    // Fastify's default parser rejects "" with FST_ERR_CTP_EMPTY_JSON_BODY
+    // BEFORE any route runs. Found by running it: a DELETE sent with
+    // `Content-Type: application/json` and no body 400d, and the row it was
+    // aimed at was still there afterwards.
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/__probe",
+      headers: { authorization: "Bearer good-token", "content-type": "application/json" },
+      payload: "",
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().workspaceId).toBe("ws-1");
+  });
+
+  it("still refuses a malformed JSON body, rather than treating it as empty", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/__probe",
+      headers: { authorization: "Bearer good-token", "content-type": "application/json" },
+      payload: "{not json",
+    });
+    expect(res.statusCode).toBeGreaterThanOrEqual(400);
+  });
+
   it("404s an unregistered path rather than falling through to Fastify's own handler", async () => {
     const res = await app.inject({
       method: "GET",

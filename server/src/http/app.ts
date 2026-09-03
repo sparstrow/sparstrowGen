@@ -71,11 +71,39 @@ export async function buildServer({ config, auth }: BuildOptions): Promise<Fasti
       process.env.NODE_ENV === "test"
         ? false
         : { level: process.env.SPARSTROW_LOG_LEVEL ?? "info" },
-    // Trust nothing about the body until a route asks for it: the registry
-    // does its own snake-casing via `parseBody`, and several routes accept an
-    // empty body where Fastify's default parser would 400 on `""`.
     bodyLimit: 8 * 1024 * 1024,
   });
+
+  /**
+   * Accept an empty body on a JSON content type.
+   *
+   * Fastify's default parser rejects `""` with `FST_ERR_CTP_EMPTY_JSON_BODY`
+   * **before any route runs**, so a `DELETE` sent with
+   * `Content-Type: application/json` and no body 400s with a Fastify error the
+   * caller cannot act on — and the route it was aimed at never executes.
+   *
+   * Found by running it: a `DELETE /chat/sessions/:id` from the desktop app
+   * returned 400 and the session was still there afterwards. Worth noting that
+   * this file previously *claimed* to handle it in a comment while doing
+   * nothing of the sort — the comment described an intention, and a comment
+   * that describes an intention as a behaviour is worse than no comment, since
+   * it stops the next reader from checking.
+   *
+   * `null` rather than `{}` so a handler can still tell "no body" from "an
+   * empty object", which `parseBody` and the registry both cope with.
+   */
+  app.addContentTypeParser(
+    "application/json",
+    { parseAs: "string" },
+    (_req, body: string, done) => {
+      if (!body || !body.trim()) return done(null, null);
+      try {
+        done(null, JSON.parse(body));
+      } catch (err) {
+        done(err as Error, undefined);
+      }
+    },
+  );
 
   await app.register(cors, {
     origin: config.corsOrigins,
