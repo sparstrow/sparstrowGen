@@ -1,5 +1,7 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
+import { createClient } from "@supabase/supabase-js";
+import { matchDaemonRoute, type DaemonContext } from "../routes/daemon/index.js";
 import {
   fail,
   getActiveWorkspaceId,
@@ -117,6 +119,56 @@ export async function buildServer({ config, auth }: BuildOptions): Promise<Fasti
    * supervisor to restart a process that is fine.
    */
   app.get("/healthz", async () => ({ ok: true, service: "sparstrow-server" }));
+
+  /**
+   * The daemon protocol.
+   *
+   * Separate from `/api/v1/*` above and authenticated completely differently:
+   * that surface takes a user JWT and lets RLS be the backstop, this one takes
+   * a machine's bearer token and uses the service role, for which there is no
+   * backstop at all. Two mount points rather than one router with a mode flag,
+   * so the two credential models can never be confused for one another.
+   *
+   * Absent a service-role key this is not mounted. That is not a degraded mode
+   * to paper over — `server/` genuinely cannot resolve a machine token without
+   * it, and a 404 saying so is better than a 500 on every heartbeat.
+   */
+  if (config.supabaseServiceRoleKey) {
+    const serviceDb = createClient(config.supabaseUrl, config.supabaseServiceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const daemonCtx: DaemonContext = { db: serviceDb, webOrigin: config.webOrigin };
+
+    app.all("/api/daemon/*", async (req: FastifyRequest, reply: FastifyReply) => {
+      try {
+        const url = new URL(req.url, `http://${config.host}:${config.port}`);
+        const path = url.pathname.replace(/^\/api\/daemon/, "") || "/";
+        const handler = matchDaemonRoute(req.method, path);
+        if (!handler) return sendResponse(reply, fail(404, "Not Found"));
+
+        // Rebuilt as a web `Request` because that is what these handlers took
+        // when they lived in Next, and keeping the signature is what made the
+        // move a move. Body is re-serialised rather than streamed: every daemon
+        // route reads JSON, and a stream would have to be buffered anyway.
+        const request = new Request(url, {
+          method: req.method,
+          headers: req.headers as Record<string, string>,
+          body:
+            req.method === "GET" || req.method === "HEAD" || req.body == null
+              ? undefined
+              : JSON.stringify(req.body),
+        });
+
+        return sendResponse(reply, await handler(request, daemonCtx));
+      } catch (err) {
+        return sendResponse(reply, handleError(err));
+      }
+    });
+  } else {
+    app.log.warn(
+      "SUPABASE_SERVICE_ROLE_KEY is not set — /api/daemon is not served, so no machine can pair with this server.",
+    );
+  }
 
   app.all("/api/v1/*", async (req: FastifyRequest, reply: FastifyReply) => {
     try {
