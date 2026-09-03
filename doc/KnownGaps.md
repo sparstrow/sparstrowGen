@@ -672,3 +672,53 @@ someone with no reason to trust an unknown publisher, and no way to check. The
 SmartScreen warning is correct in that situation and telling a stranger to click
 past a security warning is a bad habit to teach. Until then it costs one extra
 click, once, on one machine.
+
+---
+
+## G-67 — A packaged desktop install has no `server/` to talk to
+
+**Found:** 2026-09-03, by diagnosing why v0.3.1 still showed "No machines yet"
+on the owner's real installation. **This is the reason the app cannot work on a
+clean machine, and it invalidates the environment every previous desktop
+verification was performed in.**
+
+A packaged install ships exactly one background process: the **daemon**
+(`resources/core/dist/index.js`, `server/cmd/daemon.ts`). It does not ship or
+start `server/` — the API every client talks to.
+
+The two halves then point at two different places, neither of which works
+standalone:
+
+| Half | Points at | State |
+|---|---|---|
+| Renderer (machines, chat, everything) | `http://127.0.0.1:8080`, hardcoded in `main.ts` unless `SPARSTROW_SERVER_URL` is set | **Nothing listens there** in a packaged install |
+| Daemon (register, heartbeat, claim) | `cloudUrl` from the baked `channel.json` — `https://sparstrow.com` | Returns **402 Payment Required** (Vercel, the `G-54`/`OQ-5` block) |
+
+**Why nobody noticed.** Every desktop verification so far has run on a machine
+with a development stack up — `server/` on :8080 and `apps/web` on :3000. The
+installed app silently used them. Sign-in worked, the workspace query worked,
+the UI looked correct. Stop that dev stack and the same install has no server at
+all.
+
+So "the desktop app works" has never been tested; "the desktop app works **next
+to a running dev checkout**" has.
+
+**This is `OQ-9`'s decision not actually implemented.** The owner chose "`server/`
+runs locally, one per machine" on 2026-09-03 — and nothing was built to make
+that true for an installed app. The decision was recorded and the code was not
+changed.
+
+**Fix, in the shape the decision already implies:** the desktop app supervises
+`server/` the same way it supervises the daemon — a second `extraResources`
+entry and a second child in `ServiceManager`, on a fixed local port, with the
+renderer and the daemon's `cloudUrl` both pointed at it. `channel.json`'s
+`cloudUrl` stops naming a public host until `D-40` unparks hosting.
+
+**If wrong (i.e. left as is):** the installed app works only on the developer's
+own machine, and only while a checkout happens to be running. That is precisely
+the failure mode this whole restructure exists to end — an application that
+appears to work in the one environment where it is never really being used.
+
+**Closes when:** a packaged install opens, signs in, and shows its machine on a
+computer with **no repository checkout and nothing running on :8080 or :3000** —
+and the verification says so explicitly.

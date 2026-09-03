@@ -4,7 +4,8 @@ import { ServiceManager, findRepoRoot } from "./service-manager";
 import { pickDirectory } from "./dialogs";
 import { applyPackagedEnv, ensureCoreNodeModules } from "./packaged-env";
 import { configureCoreClient, coreFetch } from "./core-client";
-import { setupUpdater } from "./updater";
+import { startFileLogging } from "./log-file";
+import { setupUpdater, setRuntimeStopper } from "./updater";
 import { createTray } from "./tray";
 import { offlineScreenUrl } from "./offline";
 import { resolveAppUrl, resolveWindowUrl } from "./urls";
@@ -49,6 +50,11 @@ const services = new ServiceManager(repoRoot, packagedPaths);
 // Token-authed shell→core client (tray, updater): the token file lives in
 // the active data dir — userData in packaged mode, repo data/ in dev.
 configureCoreClient(packagedPaths?.dataDir ?? path.join(repoRoot, "data"));
+
+// Before anything else worth logging happens. A packaged app has no console,
+// so without this every line below is written to a void — which is exactly how
+// two releases shipped a broken claim whose cause the app had already logged.
+startFileLogging(packagedPaths?.logDir ?? path.join(repoRoot, "data", "logs"));
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -228,6 +234,10 @@ if (!app.requestSingleInstanceLock()) {
       // 0004 Phase 2: notify-only update checks (packaged only — dev has no
       // release feed to compare against). The channel argument picks which
       // GitHub Release feed this install tracks (channel.ts).
+      // An update replaces resources/core, so the running runtime must go
+      // down first regardless of the auto-stop-on-quit preference — see
+      // `installNow` in updater.ts for why this is not a preference.
+      setRuntimeStopper(() => services.stop(true));
       setupUpdater(() => mainWindow, packagedPaths?.channel?.updateChannel);
     }
   });
