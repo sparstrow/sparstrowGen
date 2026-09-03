@@ -137,9 +137,22 @@ async function callRoute(
 }
 
 describe("dispatch", () => {
-  it("no longer serves the writes T-WA-07 moved to Server Actions", () => {
-    expect(matchRoute("POST", "/chat/sessions")).toBeNull();
-    expect(matchRoute("POST", "/chat/sessions/chs_1/messages")).toBeNull();
+  it("serves the writes again — T-WA-07 moved them to Server Actions, and the restructure moved them back", () => {
+    // This test used to assert the OPPOSITE, and the reversal is the point
+    // rather than a mistake being corrected. `T-WA-07` deleted these routes
+    // because `OQ-7` chose "every write is a Server Action"; the restructure
+    // reversed that decision, because a Server Action is callable only from
+    // inside a Next render and therefore a write the desktop app can never
+    // perform. See apps/web/CLAUDE.md, which carries the same reversal.
+    expect(matchRoute("POST", "/chat/sessions")).not.toBeNull();
+    expect(matchRoute("PATCH", "/chat/sessions/chs_1")).not.toBeNull();
+    expect(matchRoute("DELETE", "/chat/sessions/chs_1")).not.toBeNull();
+    expect(matchRoute("POST", "/chat/sessions/chs_1/messages")).not.toBeNull();
+  });
+
+  it("does NOT yet serve retry — it is still a Server Action", () => {
+    // Deliberately not ported in this slice. Listing it here keeps the gap
+    // visible instead of leaving a reader to infer it from an absence.
     expect(matchRoute("POST", "/chat/sessions/chs_1/retry")).toBeNull();
   });
 
