@@ -39,7 +39,7 @@
  * looks like a code bug.
  */
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -84,6 +84,20 @@ function run(cmd, args, opts = {}) {
     ? spawnSync(shellCommand(cmd, args), { cwd: repoRoot, stdio: "inherit", shell: true, ...opts })
     : spawnSync(cmd, args, { cwd: repoRoot, stdio: "inherit", ...opts });
   return res.status ?? 1;
+}
+
+/**
+ * Start a long-running command in the background and return the child.
+ *
+ * `run()` is `spawnSync` and therefore blocks, which is right for every
+ * one-shot step in this file but cannot start two servers at once. `pnpm
+ * dev:up` needs server/ listening *and* the web app in the foreground, so the
+ * API goes here and the app keeps the terminal.
+ */
+function runBackground(cmd, args, opts = {}) {
+  return isWindows
+    ? spawn(shellCommand(cmd, args), { cwd: repoRoot, stdio: "inherit", shell: true, ...opts })
+    : spawn(cmd, args, { cwd: repoRoot, stdio: "inherit", ...opts });
 }
 
 /** Run a command and capture stdout+stderr. Returns { code, out }. */
@@ -134,6 +148,21 @@ function supabaseEnv() {
     if (m) env[m[1]] = m[2];
   }
   return env;
+}
+
+/**
+ * The subset of local Supabase values `server/` needs, under the names it reads.
+ *
+ * Passed as environment rather than written to a file: server/ is started by
+ * this script, so there is nothing to persist, and one fewer committed file
+ * holding local keys is one fewer file to leak them.
+ */
+function supabaseEnvForServer() {
+  const env = supabaseEnv();
+  return {
+    SUPABASE_URL: env.API_URL,
+    SUPABASE_ANON_KEY: env.ANON_KEY,
+  };
 }
 
 /**
@@ -406,11 +435,38 @@ function cmdUp() {
   say(`  ${BOLD}API${RESET}       ${env.API_URL}`);
   say(`  ${BOLD}Inbucket${RESET}  ${env.INBUCKET_URL ?? "http://127.0.0.1:54324"}  ${DIM}(magic-link emails land here)${RESET}`);
   say("");
-  step("starting the web dev server");
-  say(`${DIM}  (server/ does not exist yet — it arrives in restructure Phase 1,${RESET}`);
-  say(`${DIM}   and this command starts it alongside the app when it does)${RESET}`);
+  step("starting server/ and the web dev server");
+  say(`${DIM}  server/ is the API every client talks to; the web app proxies${RESET}`);
+  say(`${DIM}  /api/v1 to it. Both stop when you Ctrl+C this command.${RESET}`);
   say("");
-  process.exit(run("pnpm", ["--filter", "web", "dev"]));
+
+  // server/ reads the same Supabase values the web app does — see
+  // `loadServerConfig`'s note on why it accepts the NEXT_PUBLIC_* names.
+  const api = runBackground("pnpm", ["--filter", "@sparstrow/server", "dev:server"], {
+    env: { ...process.env, ...supabaseEnvForServer() },
+  });
+
+  let stopping = false;
+  const stopApi = () => {
+    if (stopping) return;
+    stopping = true;
+    // Without this, Ctrl+C leaves server/ holding :8080 and the next `dev:up`
+    // fails with EADDRINUSE pointing at a process nobody remembers starting.
+    if (api.exitCode === null) api.kill();
+  };
+  process.on("exit", stopApi);
+  process.on("SIGINT", stopApi);
+  process.on("SIGTERM", stopApi);
+
+  api.on("exit", (code) => {
+    if (!stopping && code !== 0) {
+      fail(`server/ exited with code ${code} — the web app's /api/v1 will 502 until it is back.`);
+    }
+  });
+
+  const status = run("pnpm", ["--filter", "web", "dev"]);
+  stopApi();
+  process.exit(status);
 }
 
 function cmdDown() {
