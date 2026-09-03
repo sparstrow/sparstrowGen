@@ -148,6 +148,33 @@ export class ApiClient {
   delete<T>(path: string): Promise<T> {
     return this.request<T>(path, { method: "DELETE" });
   }
+
+  /**
+   * Is `server/` there at all?
+   *
+   * Its own method because `/healthz` sits OUTSIDE `/api/v1` — it is
+   * unauthenticated on purpose, and it deliberately says nothing about the
+   * database, so a slow Supabase does not tell a supervisor to restart a
+   * process that is fine.
+   *
+   * Worth separating from every other call: "cannot reach the server" and
+   * "reachable but not signed in" have completely different answers, and an app
+   * that collapses them into one spinner is how someone ends up restarting
+   * something that was working.
+   */
+  async isReachable(signal?: AbortSignal): Promise<boolean> {
+    try {
+      const res = await this.doFetch(`${this.baseUrl}/healthz`, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        signal,
+        cache: "no-store",
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
 }
 
 /** Build a query string from defined params; returns "" when empty. */

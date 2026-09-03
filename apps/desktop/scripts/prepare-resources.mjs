@@ -8,9 +8,6 @@
 //                      native .node prebuilds included)
 //     memory-mcp/      index.cjs
 //     memory-cli/      index.cjs
-//     web/             Next.js standalone server (apps/web build output)
-//     node-runtime/    plain Node binary matching the natives' ABI (never
-//                      Electron-as-Node)
 //     channel.json     which backend this install talks to (stable/staging)
 import { execSync } from "node:child_process";
 import fs from "node:fs";
@@ -96,26 +93,25 @@ for (const name of ["memory-mcp", "memory-cli"]) {
   fs.copyFileSync(bundle, path.join(staging, name, "index.cjs"));
 }
 
-// 3. Web app: build Next.js standalone server
-run("pnpm --filter web build");
-const webDir = path.join(repoRoot, "apps", "web");
-const webStaging = path.join(staging, "web");
-mustExist(path.join(webDir, ".next", "standalone"), "web build failed or not standalone");
-copy(path.join(webDir, ".next", "standalone"), webStaging);
-// Standalone requires static assets to be copied manually
-const webStandaloneAppDir = path.join(webStaging, "apps", "web");
-copy(path.join(webDir, ".next", "static"), path.join(webStandaloneAppDir, ".next", "static"));
-if (fs.existsSync(path.join(webDir, "public"))) {
-  copy(path.join(webDir, "public"), path.join(webStandaloneAppDir, "public"));
-}
-
-// 4. Node runtime: the Node this script runs under IS the ABI the workspace's
-// native prebuilds were installed for — ship exactly that binary.
-const nodeDir = path.join(staging, "node-runtime");
-fs.mkdirSync(nodeDir, { recursive: true });
-const nodeName = process.platform === "win32" ? "node.exe" : "node";
-fs.copyFileSync(process.execPath, path.join(nodeDir, nodeName));
-console.log(`[prepare] node runtime: ${process.version} (${process.execPath})`);
+// 3. (removed) The bundled Next.js server and the bundled Node runtime.
+//
+// This is the largest simplification of the restructure, so it is worth saying
+// what used to be here rather than leaving a gap in the numbering.
+//
+// The installer used to carry a full Next.js standalone build AND a copy of the
+// `node` binary, because every write in the app was a Next.js Server Action —
+// callable only from inside a Next render — so the only way the desktop app
+// could have a feature was to ship the web server inside it and load it over
+// loopback. That meant three processes at launch, two Node runtimes with
+// different ABIs, and a packaging problem that is why this app was never once
+// opened and used in five months.
+//
+// The renderer is now a plain Vite SPA (`out/renderer`, built by
+// `electron-vite`) talking HTTP to `server/`. Nothing to stage.
+//
+// The node runtime is a separate question and is NOT resolved yet: the daemon
+// still runs on plain Node because `better-sqlite3` is compiled for the system
+// Node ABI, and a packaged build has to find one. See `G-64`.
 
 // 5. Channel config: which backend THIS specific build talks to, baked in so
 // a packaged install works out of the box — see src/channel.ts for why this

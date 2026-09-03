@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "_comment": [
+    "The renderer: a plain Vite React SPA. Browser globals, no `process`.",
+    "",
+    "It imports @sparstrow/core, /views and /ui as TypeScript SOURCE, so those",
+    "packages are typechecked in this app's config -- which is precisely the",
+    "constraint that found packages/ui's `@/` alias in Phase 2."
+  ],
+  "extends": "@sparstrow/tsconfig/react-library.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": true,
+    "types": []
+  },
+  "include": ["src/renderer"]
+}

@@ -3,30 +3,48 @@
   "version": "0.2.0",
   "private": true,
   "description": "Sparstrowgen desktop shell",
-  "main": "dist/main.js",
+  "main": "out/main/index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "electron .",
-    "typecheck": "tsc --noEmit",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --build --force",
     "test": "vitest run",
     "dist:prepare": "node scripts/prepare-resources.mjs",
-    "dist": "npm run build && npm run dist:prepare && electron-builder --win nsis --publish never",
-    "dist:publish": "npm run build && npm run dist:prepare && electron-builder --win nsis --publish always",
-    "dist:stable": "npm run build && node scripts/prepare-resources.mjs stable && node scripts/build-channel-config.mjs stable && node scripts/ensure-draft-release.mjs stable && electron-builder --win nsis --publish always --config electron-builder.stable.generated.json",
-    "dist:staging": "npm run build && node scripts/prepare-resources.mjs staging && node scripts/build-channel-config.mjs staging && node scripts/ensure-draft-release.mjs staging && electron-builder --win nsis --publish always --config electron-builder.staging.generated.json",
+    "dist": "pnpm build && pnpm dist:prepare && electron-builder --win nsis --publish never",
+    "dist:publish": "pnpm build && pnpm dist:prepare && electron-builder --win nsis --publish always",
+    "dist:stable": "pnpm build && node scripts/prepare-resources.mjs stable && node scripts/build-channel-config.mjs stable && node scripts/ensure-draft-release.mjs stable && electron-builder --win nsis --publish always --config electron-builder.stable.generated.json",
+    "dist:staging": "pnpm build && node scripts/prepare-resources.mjs staging && node scripts/build-channel-config.mjs staging && node scripts/ensure-draft-release.mjs staging && electron-builder --win nsis --publish always --config electron-builder.staging.generated.json",
     "run:local:stable": "node scripts/run-local.mjs stable",
     "run:local:staging": "node scripts/run-local.mjs staging"
   },
   "devDependencies": {
+    "@sparstrow/tsconfig": "workspace:*",
+    "@tailwindcss/postcss": "catalog:",
+    "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "^5.0.0",
     "electron": "^36.4.0",
     "electron-builder": "^26.0.12",
+    "electron-vite": "^4.0.0",
+    "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "@sparstrow/tsconfig": "workspace:*"
+    "vite": "^7.0.0",
+    "vitest": "catalog:"
   },
   "dependencies": {
-    "electron-updater": "^6.6.2"
+    "@sparstrow/core": "workspace:*",
+    "@sparstrow/shared": "workspace:*",
+    "@sparstrow/ui": "workspace:*",
+    "@sparstrow/views": "workspace:*",
+    "@tanstack/react-query": "catalog:",
+    "electron-updater": "^6.6.2",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
   },
   "build": {
     "appId": "com.sparstrow.sparstrowgen",
@@ -35,7 +53,7 @@
       "output": "release"
     },
     "files": [
-      "dist/**/*"
+      "out/**/*"
     ],
     "extraResources": [
       {
@@ -62,20 +80,6 @@
       {
         "from": "resources-staging/memory-cli",
         "to": "memory-cli",
-        "filter": [
-          "**/*"
-        ]
-      },
-      {
-        "from": "resources-staging/node-runtime",
-        "to": "node-runtime",
-        "filter": [
-          "**/*"
-        ]
-      },
-      {
-        "from": "resources-staging/web",
-        "to": "web",
         "filter": [
           "**/*"
         ]

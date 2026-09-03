@@ -15,9 +15,24 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 // directly. `main.ts` passes it through `additionalArguments` on the
 // BrowserWindow instead, so this reads real argv rather than a literal that
 // drifts from package.json the moment either one is bumped alone.
-const VERSION_ARG_PREFIX = "--sparstrow-version=";
-const versionArg = process.argv.find((a) => a.startsWith(VERSION_ARG_PREFIX));
-const appVersion = versionArg ? versionArg.slice(VERSION_ARG_PREFIX.length) : "unknown";
+function argValue(prefix: string, fallback: string): string {
+  const arg = process.argv.find((a) => a.startsWith(prefix));
+  return arg ? arg.slice(prefix.length) : fallback;
+}
+
+const appVersion = argValue("--sparstrow-version=", "unknown");
+
+/**
+ * Where `server/` is, handed down from the main process.
+ *
+ * The renderer has no `process` under contextIsolation and should not — this is
+ * the narrow, read-only way it learns one string. Exposed on its own global
+ * rather than inside `sparstrowDesktop` because `main.tsx` needs it before any
+ * React code runs, and reaching into a nested object at that point reads worse
+ * than a single documented name.
+ */
+const serverUrl = argValue("--sparstrow-server-url=", "http://127.0.0.1:8080");
+contextBridge.exposeInMainWorld("__SPARSTROW_SERVER_URL__", serverUrl);
 
 contextBridge.exposeInMainWorld("sparstrowDesktop", {
   version: appVersion,

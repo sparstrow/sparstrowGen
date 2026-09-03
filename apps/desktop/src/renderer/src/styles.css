@@ -1,0 +1,30 @@
+@import "@sparstrow/ui/styles";
+
+/*
+ * The desktop app's stylesheet, and the two @source lines it cannot do without.
+ *
+ * Tailwind v4 discovers classes by scanning the filesystem around the
+ * stylesheet, and it skips node_modules — which is where both shared packages
+ * live from here, via workspace symlinks. Without these, every utility used
+ * ONLY inside packages/ui or packages/views is silently dropped: no rule is
+ * generated, the class does nothing, and nothing anywhere reports an error.
+ *
+ * Phase 2 measured the failure in apps/web: with the views line removed, the
+ * machine status dot computes to `width: 0px`. The trap is that utilities the
+ * app also uses elsewhere keep working, so a component looks 90% right with one
+ * detail missing rather than obviously unstyled.
+ */
+@source "../../../../../packages/ui/src";
+@source "../../../../../packages/views/src";
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  /* An Electron window is a document, not a page: it should not scroll as a
+     whole. Panes inside it scroll on their own. */
+  overflow: hidden;
+}

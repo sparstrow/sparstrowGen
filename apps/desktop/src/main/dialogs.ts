@@ -41,6 +41,11 @@ export async function pickDirectory(
   const result = win
     ? await dialog.showOpenDialog(win, options)
     : await dialog.showOpenDialog(options);
+  // `?? null` rather than a non-null assertion: `noUncheckedIndexedAccess`
+  // (on since the shared tsconfig landed) is right that an index can be
+  // undefined, and the length check above is a separate statement it cannot
+  // see through. Returning null for "no path" is already this function's
+  // contract, so there is nothing to invent.
   if (result.canceled || result.filePaths.length === 0) return null;
-  return result.filePaths[0];
+  return result.filePaths[0] ?? null;
 }

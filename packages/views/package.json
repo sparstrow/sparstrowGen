@@ -12,12 +12,7 @@
     "Exports SOURCE, not a build (AGENTS.md §1 rule 3)."
   ],
   "exports": {
-    ".": "./src/index.ts",
-    "./*": [
-      "./src/*.tsx",
-      "./src/*.ts",
-      "./src/*"
-    ]
+    ".": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

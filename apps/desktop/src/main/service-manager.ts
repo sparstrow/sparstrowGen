@@ -53,17 +53,12 @@ export async function probeHealth(timeoutMs = 1500, token: string | null = null)
  */
 export class ServiceManager {
   private child: ChildProcess | null = null;
-  private webChild: ChildProcess | null = null;
-  public webPort: number | null = null;
   private external = false;
   private stopping = false;
   private restarts: number[] = [];
   private logStream: fs.WriteStream | null = null;
   private logBytes = 0;
   private logPath: string;
-  private webLogStream: fs.WriteStream | null = null;
-  private webLogBytes = 0;
-  private webLogPath: string;
   /** Same data dir `core-client.ts` reads `.api-token` from — kept in sync so
    *  the supervisor's own health probe authenticates the same way the
    *  tray/updater's `coreFetch` does. */
@@ -81,7 +76,6 @@ export class ServiceManager {
     const logDir = packaged?.logDir ?? path.join(repoRoot, "data", "logs");
     fs.mkdirSync(logDir, { recursive: true });
     this.logPath = path.join(logDir, "core-service.log");
-    this.webLogPath = path.join(logDir, "web-service.log");
     this.dataDir = packaged?.dataDir ?? path.join(repoRoot, "data");
   }
 
@@ -102,19 +96,9 @@ export class ServiceManager {
     if (await probeHealth(1500, this.token())) {
       this.external = true;
       console.log("[service] core already running — external mode");
-      if (this.packaged) {
-        await this.spawnWeb();
-      } else {
-        this.webPort = 3000; // Dev mode default
-      }
       return;
     }
     this.spawnCore();
-    if (this.packaged) {
-      await this.spawnWeb();
-    } else {
-      this.webPort = 3000;
-    }
     const deadline = Date.now() + 60_000;
     while (Date.now() < deadline) {
       if (await probeHealth(1500, this.token())) {
@@ -234,51 +218,6 @@ export class ServiceManager {
     return env;
   }
 
-  private async spawnWeb(): Promise<void> {
-    if (!this.packaged) return;
-    this.rotateLogIfNeeded();
-    this.webLogStream ??= fs.createWriteStream(this.webLogPath, { flags: "a" });
-    
-    this.webPort = await this.getFreePort();
-    const nodeBin = process.env.SPARSTROW_NODE ?? this.packaged.nodeBin;
-    const args = [this.packaged.webEntry];
-    
-    const envPath = path.join(app.getPath("userData"), ".env");
-    const userEnv = this.parseEnv(envPath);
-    
-    const env = {
-      ...process.env,
-      ...userEnv,
-      PORT: this.webPort.toString(),
-      HOSTNAME: "127.0.0.1",
-    };
-
-    const child = spawn(nodeBin, args, {
-      cwd: this.packaged.webCwd,
-      env,
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true,
-    });
-    this.webChild = child;
-    console.log(`[service] spawned web pid=${child.pid} on port=${this.webPort}`);
-
-    const sink = (chunk: Buffer) => {
-      this.webLogBytes += chunk.length;
-      this.webLogStream?.write(chunk);
-      if (this.webLogBytes > LOG_MAX_BYTES) this.rotateLogIfNeeded();
-    };
-    child.stdout?.on("data", sink);
-    child.stderr?.on("data", sink);
-
-    child.on("exit", (code) => {
-      console.log(`[service] web exited code=${code}`);
-      this.webChild = null;
-      if (this.stopping) return;
-      // In a real app we might want to restart web, for now just log it
-      console.error("[service] web crashed!");
-    });
-  }
-
   private rotateLogIfNeeded(): void {
     try {
       if (fs.existsSync(this.logPath) && fs.statSync(this.logPath).size > LOG_MAX_BYTES) {
@@ -290,39 +229,23 @@ export class ServiceManager {
       // best effort
     }
     this.logBytes = 0;
-    try {
-      if (fs.existsSync(this.webLogPath) && fs.statSync(this.webLogPath).size > LOG_MAX_BYTES) {
-        this.webLogStream?.end();
-        this.webLogStream = null;
-        fs.renameSync(this.webLogPath, `${this.webLogPath}.1`);
-      }
-    } catch {
-      // best effort
-    }
-    this.webLogBytes = 0;
   }
 
   /** Graceful stop: ask the core to drain, then force-kill as a fallback. */
   /**
    * Stop the supervised processes.
    *
-   * `stopCore: false` is US2's "keep running after quit": the bundled web
-   * server still goes (nothing can reach it once the window is gone, so
-   * leaving it would be a port held for no reason), but the runtime is left
-   * alive and detached. `stopping` is still set either way, so the exit
-   * handler does not treat a deliberate shutdown as a crash and restart it.
+   * `stopCore: false` is US2's "keep running after quit": the daemon is left
+   * alive and detached so scheduled work keeps happening. `stopping` is still
+   * set either way, so the exit handler does not treat a deliberate shutdown
+   * as a crash and restart it.
+   *
+   * There is only ONE child to reason about now. This method used to also kill
+   * a bundled Next.js server; the renderer is a static SPA and there is no
+   * second process.
    */
   async stop(stopCore = true): Promise<void> {
     this.stopping = true;
-    if (this.webChild && this.webChild.pid) {
-      try {
-        process.kill(this.webChild.pid);
-      } catch {
-        // already gone
-      }
-    }
-    this.webLogStream?.end();
-    this.webLogStream = null;
 
     if (!stopCore) {
       // Deliberately not killed and deliberately not awaited. The log stream

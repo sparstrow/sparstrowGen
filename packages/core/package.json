@@ -11,12 +11,7 @@
     "Each app's bundler transpiles what it imports."
   ],
   "exports": {
-    ".": "./src/index.ts",
-    "./*": [
-      "./src/*.tsx",
-      "./src/*.ts",
-      "./src/*"
-    ]
+    ".": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

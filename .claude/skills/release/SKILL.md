@@ -4,7 +4,7 @@ description: >-
   Cut a Sparstrowgen desktop release. Staging ships itself — every push to
   `staging` auto-builds and auto-publishes "Sparstrowgen Staging" with no
   manual step (.github/workflows/release-staging.yml). Stable is the
-  deliberate-gesture path: bump packages/desktop/package.json's version, write
+  deliberate-gesture path: bump apps/desktop/package.json's version, write
   the changelog entry, tag, push the tag, and publish the resulting GitHub
   Release draft by hand. Use when asked to "cut a release", "ship the desktop
   app", "release stable", "release v0.x.0", or "publish a new version".
@@ -40,7 +40,7 @@ the build if the tagged commit isn't an ancestor of `main` — don't tag a
    `AGENTS.md` §2 rule 8 — this skill does not perform that promotion, only
    the release gesture once it's done).
 
-2. **Bump the version.** `packages/desktop/package.json`'s `version` field —
+2. **Bump the version.** `apps/desktop/package.json`'s `version` field —
    THE TAG NAME IS NOT THE VERSION (see `release.yml`'s header comment).
    electron-updater compares against the version baked into `latest.yml`,
    which comes from this file. Tagging `v0.3.0` while this still says `0.2.0`
@@ -78,8 +78,8 @@ the build if the tagged commit isn't an ancestor of `main` — don't tag a
    Or by hand:
    ```bash
    git checkout main && git pull origin main
-   # edit packages/desktop/package.json's version, write the changelog entry
-   git add packages/desktop/package.json apps/web/src/content/changelog/<version>.md
+   # edit apps/desktop/package.json's version, write the changelog entry
+   git add apps/desktop/package.json apps/web/src/content/changelog/<version>.md
    git commit -m "release: v<version>"
    git push origin main
    git tag v<version>
@@ -99,7 +99,7 @@ If you've touched anything in the build chain (`prepare-resources.mjs`,
 to sanity-check before a real release — build locally without publishing:
 
 ```bash
-cd packages/desktop
+cd apps/desktop
 npm run build
 node scripts/prepare-resources.mjs staging   # or: stable
 node scripts/build-channel-config.mjs staging
@@ -142,5 +142,5 @@ writeup: [`doc/bug/BUG-2026-08-30-desktop-stable-staging-share-userdata-dir.md`]
 ## If you're asked to "add a channel" or change release mechanics
 
 That's not this skill — it's the underlying infrastructure
-(`packages/desktop/scripts/build-channel-config.mjs`, the two workflow files,
-`packages/desktop/src/channel.ts`). Read the plan doc linked above first.
+(`apps/desktop/scripts/build-channel-config.mjs`, the two workflow files,
+`apps/desktop/src/channel.ts`). Read the plan doc linked above first.

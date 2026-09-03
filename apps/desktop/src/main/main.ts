@@ -21,16 +21,18 @@ import { readDaemonPrefs, writeDaemonPrefs, type DaemonPrefs } from "./daemon-pr
  * this window displays — and collapsing them would make pointing a window at
  * staging a code change. See doc/tasks/M7/README.md decision 6.
  *
- * A function, not a `const`: `services.webPort` isn't known until
- * `services.start()` spawns the bundled web server and resolves, well after
- * this module's top-level code runs — every caller below evaluates this
- * lazily, after `app.whenReady()`. The packaged app is fully local now (see
- * `service-manager.ts`'s `spawnWeb()`): it never loads a remote host by
- * default. `channel.json` (`channel.ts`) still supplies `updateChannel` and
- * the daemon's `cloudUrl`, just not the window's URL.
+ * **The renderer is now a static SPA this app owns**, so in production there is
+ * no URL and no server at all — `loadFile` reads `out/renderer/index.html` off
+ * disk. In development `electron-vite` runs a Vite dev server and passes its
+ * URL in `ELECTRON_RENDERER_URL`, which is what gives HMR.
+ *
+ * This replaces a `services.webPort` lookup that pointed the window at a
+ * bundled Next.js server this app used to spawn. `SPARSTROW_APP_URL` survives
+ * as an override, because pointing a build at a deployed web app is a genuine
+ * thing to want — it is just no longer the only path to a UI.
  */
-function getAppUrl() {
-  return resolveAppUrl(process.env, services.webPort);
+function rendererDevUrl(): string | null {
+  return process.env.ELECTRON_RENDERER_URL?.trim() || null;
 }
 
 // 0004 Phase 0: in packaged mode, point every data path at persistent
@@ -187,10 +189,16 @@ function openWindow(): void {
       // The renderer is our own served web app; no Node access needed.
       contextIsolation: true,
       nodeIntegration: false,
-      preload: path.join(__dirname, "preload.js"),
+      preload: path.join(__dirname, "..", "preload", "index.js"),
       // preload cannot import `app` (main-process only) — pass the real
       // version through argv instead of letting preload guess. See preload.ts.
-      additionalArguments: [`--sparstrow-version=${app.getVersion()}`],
+      additionalArguments: [
+        `--sparstrow-version=${app.getVersion()}`,
+        // Where `server/` is. Passed as argv rather than read from
+        // `process.env` in the renderer, which has no `process` at all under
+        // contextIsolation — and should not.
+        `--sparstrow-server-url=${process.env.SPARSTROW_SERVER_URL ?? "http://127.0.0.1:8080"}`,
+      ],
     },
   });
   mainWindow.on("close", (e) => {
@@ -227,7 +235,8 @@ function openWindow(): void {
       }
       // `validatedURL` rather than APP_URL: it is what actually failed, which
       // after an in-app navigation is not necessarily where the window started.
-      const failed = validatedURL || getAppUrl() || "the app";
+      const failed =
+        validatedURL || resolveAppUrl(process.env) || rendererDevUrl() || "the app";
       console.warn(`[main] window failed to load ${failed}: ${errorDescription} (${errorCode})`);
       // Rebuilt per failure rather than cached, so the error named on screen is
       // the current one. Retry is a plain link back: it either succeeds, or
@@ -236,22 +245,23 @@ function openWindow(): void {
     },
   );
 
-  // One line, so a support question is a log lookup rather than a guess about
-  // where this build was pointed.
-  const appUrl = getAppUrl();
-  if (appUrl === null) {
-    console.warn("[main] SPARSTROW_APP_URL is not set — nothing to load");
-    void mainWindow.loadURL(
-      offlineScreenUrl({
-        intendedUrl: "no app URL configured",
-        errorDescription:
-          "SPARSTROW_APP_URL is not set. Set it to the Sparstrowgen web app this machine should open.",
-      }),
-    );
-    return;
+  // Precedence, most explicit first: an operator's override, then the dev
+  // server, then the SPA on disk. One line logged either way, so a support
+  // question is a log lookup rather than a guess about where a build pointed.
+  const override = resolveAppUrl(process.env);
+  const devUrl = rendererDevUrl();
+
+  if (override) {
+    console.log(`[main] loading window: ${override} (SPARSTROW_APP_URL)`);
+    void mainWindow.loadURL(override);
+  } else if (devUrl) {
+    console.log(`[main] loading window: ${devUrl} (vite dev server)`);
+    void mainWindow.loadURL(devUrl);
+  } else {
+    const indexHtml = path.join(__dirname, "..", "renderer", "index.html");
+    console.log(`[main] loading window: ${indexHtml} (bundled SPA)`);
+    void mainWindow.loadFile(indexHtml);
   }
-  console.log(`[main] loading window: ${appUrl}`);
-  void mainWindow.loadURL(appUrl);
 }
 
 function quitApp(): void {

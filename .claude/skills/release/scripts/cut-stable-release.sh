@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bumps packages/desktop/package.json's version, commits, tags, and pushes —
+# Bumps apps/desktop/package.json's version, commits, tags, and pushes —
 # the mechanical half of the stable release skill. Run from the repo root.
 #
 # Does NOT write the changelog entry for you (that's copy, not mechanics —
@@ -29,7 +29,7 @@ if [[ ! -f "$CHANGELOG" ]]; then
   exit 1
 fi
 
-PKG="packages/desktop/package.json"
+PKG="apps/desktop/package.json"
 node -e "
   const fs = require('fs');
   const pkg = JSON.parse(fs.readFileSync('$PKG', 'utf8'));

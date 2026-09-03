@@ -5,11 +5,9 @@
   "type": "module",
   "exports": {
     "./styles": "./src/styles/globals.css",
-    "./*": [
-      "./src/*.tsx",
-      "./src/*.ts",
-      "./src/*"
-    ]
+    "./lib/*": "./src/lib/*.ts",
+    "./components/*": "./src/components/*.tsx",
+    "./theme/*": "./src/theme/*.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
