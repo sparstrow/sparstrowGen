@@ -178,8 +178,27 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle("sparstrow:sign-in", async () => {
       const appUrl = signInOrigin(process.env, serverUrl());
       console.log(`[main] sign-in requested via ${appUrl}`);
+      /**
+       * Say what is happening, at each step.
+       *
+       * Sign-in is three waits stacked on one another: the browser, then the
+       * runtime and server becoming ready, then the claim. The button said
+       * "Waiting for your browser…" through all of it, so after confirming in
+       * the browser a person watched an unchanged screen for ten to fifteen
+       * seconds with no way to tell working from stuck. The steps were always
+       * distinct; only the reporting was not.
+       */
+      const stage = (name: string) => {
+        const win = mainWindow;
+        if (win && !win.isDestroyed()) win.webContents.send("sparstrow:sign-in-stage", name);
+      };
+
+      stage("browser");
       const result = await signIn(appUrl);
       console.log(`[main] sign-in ${result.ok ? "succeeded" : `failed: ${result.error}`}`);
+      if (result.ok) {
+        stage("connecting");
+      }
       if (result.ok) {
         // Awaited, not fired off: the renderer refreshes its machine list the
         // moment this resolves, and a claim still in flight at that point is
@@ -188,6 +207,11 @@ if (!app.requestSingleInstanceLock()) {
         const claimed = await claimThisComputer("sign-in");
         if (!claimed.ok) {
           console.error(`[main] signed in, but this computer was not claimed: ${claimed.error}`);
+          // Signed in but unclaimed is a real, reportable state, not a failure
+          // of sign-in. Returned as its own stage so the window can say which
+          // half worked instead of showing a generic error over a session that
+          // is actually fine.
+          stage("unclaimed");
         }
       }
       return result;

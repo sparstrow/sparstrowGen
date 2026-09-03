@@ -54,6 +54,17 @@ contextBridge.exposeInMainWorld("sparstrowDesktop", {
    * stale. Carries no data — the renderer refetches through the same API it
    * always uses, rather than being handed a machine over the bridge.
    */
+  /**
+   * Which step of signing in is happening. One-way main → renderer.
+   *
+   * "browser", then "connecting", and "unclaimed" if the session worked but
+   * this computer could not be registered.
+   */
+  onSignInStage: (cb: (stage: string) => void) => {
+    const listener = (_e: IpcRendererEvent, stage: string) => cb(stage);
+    ipcRenderer.on("sparstrow:sign-in-stage", listener);
+    return () => ipcRenderer.removeListener("sparstrow:sign-in-stage", listener);
+  },
   onMachinesChanged: (cb: () => void) => {
     const listener = () => cb();
     ipcRenderer.on("sparstrow:machines-changed", listener);

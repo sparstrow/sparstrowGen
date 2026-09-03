@@ -10,6 +10,19 @@ const CORE_URL = process.env.SPARSTROW_CORE_URL ?? "http://127.0.0.1:48750";
 const HEALTH_URL = `${CORE_URL}/api/v1/system/health`;
 const SHUTDOWN_URL = `${CORE_URL}/api/v1/system/shutdown`;
 
+/**
+ * How often to re-check a runtime we ADOPTED rather than started.
+ *
+ * Adoption is a one-time judgement, and that was the bug: the app decides "one
+ * is already running, leave it alone" and then never looks again. When that
+ * process later dies — a developer stopping their checkout, or a cleanup
+ * killing it — the app is left with no runtime and no intention of getting one.
+ * Observed live: a machine sat at "Unreachable" indefinitely and a sign-in's
+ * claim failed with "the local runtime and server never both became reachable"
+ * about a runtime the app had adopted and never replaced.
+ */
+const ADOPTED_CHECK_MS = 15_000;
+
 const RESTART_BACKOFF_MS = 2000;
 const MAX_RESTARTS = 5;
 const RESTART_WINDOW_MS = 5 * 60 * 1000;
@@ -80,6 +93,7 @@ export class ServiceManager {
   private external = false;
   private stopping = false;
   private restarts: number[] = [];
+  private watchdog: NodeJS.Timeout | null = null;
   private logStream: fs.WriteStream | null = null;
   private logBytes = 0;
   private logPath: string;
@@ -120,6 +134,7 @@ export class ServiceManager {
     if (await probeHealth(1500, this.token())) {
       this.external = true;
       console.log("[service] core already running — external mode");
+      this.startWatchdog();
       return;
     }
 
@@ -157,6 +172,35 @@ export class ServiceManager {
       await new Promise((r) => setTimeout(r, 500));
     }
     throw new Error(`core did not become healthy; see ${this.logPath}`);
+  }
+
+  /**
+   * Keep watching a runtime we did not start.
+   *
+   * Only ever acts on an ADOPTED runtime: one we spawned already has an `exit`
+   * handler that restarts it. This closes the other half, where the process we
+   * decided to trust goes away and nothing notices.
+   */
+  private startWatchdog(): void {
+    if (this.watchdog) return;
+    this.watchdog = setInterval(() => {
+      void (async () => {
+        if (this.stopping || !this.external) return;
+        if (await probeHealth(1500, this.token())) return;
+        console.log("[service] the adopted core is gone — starting our own");
+        this.external = false;
+        this.restarts = [];
+        this.spawnCore();
+      })();
+    }, ADOPTED_CHECK_MS);
+    // Never hold the process open for a timer whose only job is to notice
+    // something is missing.
+    this.watchdog.unref?.();
+  }
+
+  private stopWatchdog(): void {
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.watchdog = null;
   }
 
   private spawnCore(): void {
@@ -300,6 +344,7 @@ export class ServiceManager {
    */
   async stop(stopCore = true): Promise<void> {
     this.stopping = true;
+    this.stopWatchdog();
 
     if (!stopCore) {
       // Deliberately not killed and deliberately not awaited. The log stream

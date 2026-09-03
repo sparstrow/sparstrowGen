@@ -4,7 +4,7 @@ import { ApiError, useApi } from "@sparstrow/core";
 import { Button } from "@sparstrow/ui/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@sparstrow/core";
-import { Monitor, Settings as SettingsIcon, Sparkles } from "lucide-react";
+import { Loader2, Monitor, Settings as SettingsIcon, Sparkles } from "lucide-react";
 import { Settings } from "./settings";
 import { isNewsworthy, useUpdates } from "./use-updates";
 
@@ -262,13 +262,39 @@ function NavButton({
  * an optimistic one, and a cancelled sign-in ends in a real error rather than a
  * spinner that never stops.
  */
+const SIGN_IN_STAGE_LABEL: Record<string, string> = {
+  browser: "Waiting for your browser",
+  connecting: "Connecting this computer",
+};
+
 function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
   const [busy, setBusy] = React.useState(false);
+  const [stage, setStage] = React.useState<string | null>(null);
+  const [note, setNote] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+
+  // The main process says which of the three waits is happening. Without this
+  // the button read "Waiting for your browser" for the whole flow, including
+  // the ten to fifteen seconds AFTER the browser had already come back, which
+  // is exactly the stretch where someone cannot tell working from stuck.
+  React.useEffect(() => {
+    return window.sparstrowDesktop?.onSignInStage((next) => {
+      if (next === "unclaimed") {
+        setNote(
+          "You are signed in, but this computer could not be registered yet. " +
+            "It will try again on its own.",
+        );
+        return;
+      }
+      setStage(next);
+    });
+  }, []);
 
   const start = async () => {
     setBusy(true);
     setError(null);
+    setNote(null);
+    setStage("browser");
     const bridge = window.sparstrowDesktop?.session;
     if (!bridge) {
       setError("This build has no desktop bridge. It is running outside Electron.");
@@ -277,6 +303,7 @@ function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
     }
     const result = await bridge.signIn();
     setBusy(false);
+    setStage(null);
     if (result.ok) onSignedIn();
     else setError(result.error);
   };
@@ -288,9 +315,19 @@ function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
         Sparstrowgen opens your browser to confirm this computer. Nothing is typed
         in this window.
       </p>
-      <Button className="mt-4" onClick={() => void start()} disabled={busy}>
-        {busy ? "Waiting for your browser…" : "Sign in with your browser"}
+      <Button className="mt-4 gap-2" onClick={() => void start()} disabled={busy}>
+        {busy ? <Loader2 className="size-3.5 animate-spin" strokeWidth={2} /> : null}
+        {busy
+          ? `${(stage && SIGN_IN_STAGE_LABEL[stage]) ?? "Signing in"}…`
+          : "Sign in with your browser"}
       </Button>
+      {busy && stage === "connecting" ? (
+        <p className="mt-3 text-sm text-muted-foreground">
+          Your browser is done. Starting this computer&rsquo;s services and
+          registering it, which can take a few seconds.
+        </p>
+      ) : null}
+      {note ? <p className="mt-3 text-sm text-warning">{note}</p> : null}
       {error ? (
         <p role="alert" className="mt-3 text-sm text-destructive">
           {error}

@@ -29,6 +29,9 @@ import { readServerConfig } from "./server-config";
  * one of those differences.
  */
 
+/** See `ServiceManager`'s note: adoption is a judgement that must be re-made. */
+const ADOPTED_CHECK_MS = 15_000;
+
 const RESTART_BACKOFF_MS = 2000;
 const MAX_RESTARTS = 5;
 const RESTART_WINDOW_MS = 5 * 60 * 1000;
@@ -65,6 +68,7 @@ export class ServerManager {
   private external = false;
   private stopping = false;
   private restarts: number[] = [];
+  private watchdog: NodeJS.Timeout | null = null;
   private logStream: fs.WriteStream | null = null;
   private logBytes = 0;
   private logPath: string;
@@ -108,6 +112,7 @@ export class ServerManager {
       this.external = true;
       console.log("[server] already running — adopting it");
       this.setState({ state: "external" });
+      this.startWatchdog();
       return;
     }
 
@@ -136,6 +141,40 @@ export class ServerManager {
     const message = `the server did not become healthy; see ${this.logPath}`;
     console.error(`[server] ${message}`);
     this.setState({ state: "failed", message });
+  }
+
+  /**
+   * Keep watching a server we did not start.
+   *
+   * Adopting one and never looking again is how the app ends up with no server
+   * and no intention of getting one: a developer stops their checkout, and the
+   * app that decided to use it never notices. A server we spawned is covered by
+   * its own `exit` handler; this is the other half.
+   */
+  private startWatchdog(): void {
+    if (this.watchdog) return;
+    this.watchdog = setInterval(() => {
+      void (async () => {
+        if (this.stopping || !this.external) return;
+        if (await probeServer()) return;
+        console.log("[server] the adopted server is gone — starting our own");
+        this.external = false;
+        this.restarts = [];
+        const config = readServerConfig();
+        if (config) {
+          this.setState({ state: "starting" });
+          this.spawnServer(config);
+        } else {
+          this.setState({ state: "unconfigured" });
+        }
+      })();
+    }, ADOPTED_CHECK_MS);
+    this.watchdog.unref?.();
+  }
+
+  private stopWatchdog(): void {
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.watchdog = null;
   }
 
   private spawnServer(config: ReturnType<typeof readServerConfig> & object): void {
@@ -222,6 +261,7 @@ export class ServerManager {
 
   async stop(): Promise<void> {
     this.stopping = true;
+    this.stopWatchdog();
     this.logStream?.end();
     this.logStream = null;
 
