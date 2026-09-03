@@ -87,6 +87,16 @@ that change before the machine-reaching spec is built, `host-fs` and
 `terminal` are the two to fill first, in that order — the picker is smaller
 and on the entry path.
 
+> **Reversed for the code graph, 2026-09-01.** The owner decided against
+> reviving it and asked for it to be removed outright instead of kept dormant.
+> Unlike the other 30 handlers, the code-graph engine/client/lifecycle/viz
+> module, its 9 API routes, the 7 curated MCP tools, and every consumer
+> (preamble, capability docs, factory-health, project provisioning, the
+> Settings and project-workspace UI) were deleted — not left in place. See
+> [`Ideas.md` I-11](../Ideas.md#i-11--the-rest-of-the-machine-reaching-surfaces)
+> for the removal record. The other 30 handlers are unaffected by this — this
+> decision's reasoning still holds for them.
+
 ### 2. Move the pages; do not convert them
 
 `D-25` already settled that converting the 26 pages to Server Components is a

@@ -1,5 +1,5 @@
 import { Bot, User } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../lib/utils";
 
 /**
  * The six actor-identity roles of `DESIGN.md` §2.5. Hues 50/135/185/235/285/335

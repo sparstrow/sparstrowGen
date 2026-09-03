@@ -150,3 +150,38 @@ capping concurrency — `turbo --concurrency`, or `poolOptions` in
 full-run reliability. **That is a real trade and should be chosen
 deliberately**, not slipped into a bug-fix pass, which is why this entry stays
 open rather than being marked resolved.
+
+## Recurrence 2026-08-27 (`T-DI-02`) — now hitting `apps/web` too
+
+Three consecutive `pnpm test` runs at the repo root on the same unchanged tree,
+during `T-DI-02` (a SQL-and-docs-only task — no TypeScript changed between the
+runs):
+
+| Run | Result |
+|---|---|
+| 1 | `Tasks: 5 successful, 5 total` — fully green |
+| 2 | `Tasks: 3 successful, 5 total` — `web` reported `1 failed \| 441 passed` |
+| 3 | `Tasks: 3 successful, 5 total` — `web` passed 442/442; a different task failed |
+
+Every package passes in isolation, immediately after: `web` 40 files / 442
+tests, `@sparstrow/core` 87 files / 748 passed + 4 skipped, `@sparstrow/shared`
+316, `@sparstrow/desktop` 28.
+
+**What this adds to the report:** the contention tail is no longer confined to
+`@sparstrow/core`. `apps/web` — whose own flake
+([`BUG-2026-08-20-flaky-realtime-live-events-test`](BUG-2026-08-20-flaky-realtime-live-events-test.md))
+was fixed at the source and closed — now also fails intermittently under
+five-way turbo contention while passing alone. That is consistent with this
+report's stated cause (CPU oversubscription, not any one suite's budget) and is
+further evidence against another timeout bump: two different packages failing
+on alternating runs of an unchanged tree is a scheduling problem, not a slow
+test.
+
+The failing test's name was not captured — the failure did not reproduce on the
+next run, and re-running to catch it produced a failure in a *different* task
+instead. Recording that honestly rather than guessing which test it was.
+
+**Practical effect on this band:** `T-DI-01` and `T-DI-02` were verified by
+running each package's suite separately, and their Results say so. A green
+per-package run is the stronger evidence here anyway; a red full-run that goes
+green in isolation says nothing about the code under test.

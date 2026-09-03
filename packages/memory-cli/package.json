@@ -11,8 +11,9 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "catalog:",
     "esbuild": "^0.25.5",
-    "typescript": "^5.8.3"
+    "typescript": "catalog:",
+    "@sparstrow/tsconfig": "workspace:*"
   }
 }

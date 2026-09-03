@@ -12,6 +12,29 @@ metadata:
   sparstrowgen-owner: coordinator
 ---
 
+> ## ⚠️ 2026-09-02 — the port registry is being replaced, and the branch model changed
+>
+> Two things in this skill are now wrong. Read this before following it.
+>
+> **1. Ports no longer come from a Supabase-constrained pool.** Each worktree
+> gets its **own local Supabase** (`supabase start`, Docker) plus its own port
+> block, allocated by `scripts/dev-env.sh`. The fixed pool existed only because
+> every worktree shared one cloud Supabase project whose Auth Redirect URLs
+> allow-list had to name each port in advance. A local stack has its own
+> allow-list, so the constraint is gone — and so is the silent-redirect-failure
+> mode it protected against.
+>
+> Until `scripts/dev-env.sh` lands (restructure Phase 0c), keep using
+> [references/port-registry.md](references/port-registry.md) as written below.
+> After it lands, the registry is retired and this skill should be rewritten
+> around `make up`.
+>
+> **2. There are no band branches.** `AGENTS.md` §2 now reads
+> `slice/* → development → main`. Any instruction below about band branches,
+> two-tier PRs, or band-freshness merges no longer applies.
+>
+> Plan: [`doc/plans/2026-09-02-multica-architecture-restructure.md`](../../../doc/plans/2026-09-02-multica-architecture-restructure.md)
+
 > **Port allocation is not "pick a number that looks free."** Every worktree's
 > web dev-server port is tracked in
 > [references/port-registry.md](references/port-registry.md) — read it before

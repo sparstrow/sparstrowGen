@@ -1,11 +1,22 @@
 # Ideas
 
 Unscoped. No commitment, no decision behind them, possibly never built. If an
-idea graduates, it becomes a plan in `doc/plans/` — or gets a decision and moves
-to `Deferred.md`.
+idea graduates it becomes a **spec** in `doc/specs/` — owner review first, per
+`doc/README.md`'s lifecycle — or gets a decision and moves to `Deferred.md`.
+(I-10 is the worked example: it spawned a spec and stayed open, because the
+spec took only one dimension of it.)
 
 Distinct from `Deferred.md`: those were agreed and parked. These were merely
 noticed.
+
+**Writing an entry here is a procedure — invoke the
+[`elaborating-ideas`](../.claude/skills/elaborating-ideas/SKILL.md) skill.**
+An idea's whole value is that it makes something *thinkable*: what is true in
+the code today, the reframe that changes what the idea is about, a shape
+concrete enough to argue with, what it collides with, and the decisions it
+would need — named, and answered nowhere. An entry that decides its own open
+questions has become an unreviewed spec; one written without opening the code
+reads exactly like one that was.
 
 ---
 
@@ -58,20 +69,32 @@ with uncommitted changes, which is how this repo is actually used. Worth
 revisiting as an *option per project* rather than a global mode — sandbox and
 `is_sandbox` projects are the natural candidates.
 
+**Note, 2026-09-02.** The restructure adopts multica's *repo and server*
+architecture, not its execution model, so this stays an open idea rather than
+becoming a decision. It is worth re-reading once the slice works: with the
+architecture converged, the argument for converging execution too gets cheaper,
+and the "option per project" framing above is still the right shape.
+
 ---
 
-## I-5 — Self-hosted Postgres
-
-Removes the free-tier ceiling, gives backups on your own terms, and makes
-transcript retention a non-issue. Rejected during Decision 1 because it trades
-"management is easier" — the actual reason cloud-canonical won — for an
-operational burden.
-
-Only interesting if self-hosting becomes necessary for another reason.
+*`I-5` — self-hosted Postgres — was **answered 2026-09-02**. The restructure
+chose **Supabase behind the server**: clients never touch it, `server/` verifies
+the JWT and owns all database access, and feature branches use a local Docker
+Supabase. Self-hosting was considered against it and rejected for the reason this
+idea already named — it trades easier management for operational burden — plus
+the cost of rewriting magic-link, OAuth and password reset, which work today.
+`server/src/auth/provider.ts` is deliberately an interface, so this stays
+reversible without touching route code. Do not re-raise it as an idea; re-open it
+as a decision if hosting ever becomes the constraint.*
 
 ---
 
 ## I-6 — Surface memory-retrieval failures in the UI
+
+**Parked 2026-09-02 with [`D-31`](Deferred.md)** — memory retrieval is not
+carried across the restructure's first pass, so there is no retrieval to surface
+a failure from. Unpark this with `D-31`, not before; the "degraded-retrieval
+badge" idea below is still the right answer when there is.
 
 `buildMemoryBlock` catches retrieval errors and silently falls back to recency:
 
@@ -236,6 +259,19 @@ individually, by whichever the owner misses first, rather than as one batch.
 
 *Surfaced while scoping that spec's Assumptions.*
 
+> **The code graph is no longer one of the seven — removed outright, 2026-09-01.**
+> The owner decided against reviving it and asked for complete removal instead:
+> the whole `packages/core/src/graph/` engine/client/lifecycle/viz module, its
+> 9 API routes, the 7 curated MCP tools (`search_graph`, `trace_path`,
+> `query_graph`, `get_graph_schema`, `get_code_snippet`, `get_architecture`,
+> `detect_changes`) and their preamble/capability-docs wiring, the factory-health
+> check, the project-creation/-deletion hooks, the Settings engine-install row,
+> and the project workspace's Code-graph panel. This reverses
+> [`retire-the-vite-app`](plans/2026-08-24-retire-the-vite-app.md) Decision 1,
+> which had deliberately kept the handlers for exactly this kind of revival —
+> see that decision's note for the reversal record. The remaining six items
+> above are unaffected.
+
 ---
 
 ## I-12 — Retire the "two hosts disagree about accounts" branch in three files
@@ -302,3 +338,178 @@ the ones that attempt got wrong by answering them itself.
 *Surfaced 2026-08-24 from an owner request to design the chat right-click menu;
 parked by the owner the same day as a design addition wanting its own proper
 pass.*
+
+## I-14 — Sweep orphaned daemon auth identities
+
+Each paired machine gets its own Supabase Auth user (plan
+[`2026-08-27-the-daemon-gets-a-real-identity`](plans/2026-08-27-the-daemon-gets-a-real-identity.md),
+`DI-1`). When a machine is unpaired or removed, that identity is deliberately
+left behind rather than deleted — `DI-3` explains why: deleting it would need
+the Auth admin API from a Server Action that today runs as the *caller's*
+RLS-scoped client, which would widen the service role's blast radius past
+`/api/daemon/*`, a boundary
+[`auth.ts`](../apps/web/src/lib/daemon/auth.ts) states explicitly.
+
+The leftover row is inert by construction — no membership, no `public.users`
+row, and no `public.daemon_identities` row after the cascade — so it can reach
+nothing. This is a tidiness idea, not a security one.
+
+**What would make it real work:** enough unpair/re-pair churn that the Auth →
+Users list becomes hard to read, or an audit that wants the count to be exact.
+Neither is true today with one owner and a handful of machines.
+
+**If picked up:** the deletion needs a service-role path that does not live in a
+Server Action — most likely a `/api/daemon/*`-adjacent internal route, or a
+scheduled sweep matching on `app_metadata` plus the absence of a
+`daemon_identities` row. Note the lesson from
+[`BUG-2026-08-18-orphaned-account-rows-on-staging`](bug/BUG-2026-08-18-orphaned-account-rows-on-staging.md):
+`auth.admin.deleteUser` does not cascade, so anything built here proves what it
+leaves behind before it deletes anything.
+
+*Surfaced 2026-08-27 while planning the daemon identity; parked in the plan's
+own Scope boundaries rather than built.*
+
+---
+
+## I-15 — Per-machine status indicator in the header, replacing the global connection badge
+
+The header's connection badge (`app-shell.tsx`) reads "live"/"offline" from
+the Realtime run/chat channel connection state, not from whether any paired
+machine is reachable — see
+[`BUG-2026-08-27-header-badge-shows-offline-with-active-machine`](bug/BUG-2026-08-27-header-badge-shows-offline-with-active-machine.md).
+Even relabelled correctly, a single global pill can't answer "which of my
+machines is up" once a workspace has more than one paired.
+
+Shape: an aggregate `n/total online` pill in the header, sourced from the same
+heartbeat-derived `machineState()` query `machines.tsx` already computes (not
+from `useLiveEvents`), reusing its `active`/`draining`/`unreachable` dot
+vocabulary so the header and `/machines` can never visually disagree.
+Click/hover expands a popover listing each machine by name with its own dot.
+Zero machines paired is neutral, not red.
+
+*Surfaced while documenting `BUG-2026-08-27-header-badge-shows-offline-with-active-machine`.*
+
+---
+
+## I-17 — What a turn changed in a project, which is a different problem from what a turn produced
+
+### What was noticed
+
+The owner, 2026-08-28, reading the draft of
+[`seeing-what-my-agent-made`](specs/2026-08-28-seeing-what-my-agent-made.md):
+
+> what if we chat about the project. There is already folders and repository
+> in there. The agents can make file edits, create new files, media, delete
+> etc. how the media is handled then. can we have this as an separate or same
+> idea?
+
+### What is true today
+
+- **Project chats already run somewhere real.** `kind: "project"` is
+  machine-affine by design — [`schema.ts:820`](../packages/shared/src/db/schema.ts:820)
+  says so explicitly, because the session builds context from a project bound
+  to that runtime. The agent works in that directory, with the CLI's own file
+  tools.
+- **The app has no idea what happens in there.** Git usage is a single
+  `git clone` when a project is bound
+  ([`bindings.ts:145`](../packages/core/src/cloud/bindings.ts:145)) — no
+  status, no diff, no branch, no changed-file list anywhere. `runs` records
+  `effective_tools` but nothing about files touched.
+- **Reading project files from a browser is specified and accepted, not
+  built.** [`reaching-my-machine`](specs/2026-08-24-reaching-my-machine-from-the-browser.md)
+  US1 — "see the real folder tree as it exists on the machine… open a file to
+  read it" — was owner-reviewed and accepted 2026-08-24 and is not yet
+  planned. The web app still stubs local filesystem access entirely.
+- So after an agent edits a project during a chat, the only way to learn what
+  it did is to go to the machine and look.
+
+### The reframe
+
+**Media is not the special case — every file is.** The question asks how media
+is handled in a project chat, but a generated logo and an edited `route.ts`
+have exactly the same problem: the app does not know the turn touched either
+of them. Media is simply where the absence is most visible, because it is the
+file you would want to *look* at rather than read.
+
+**The noun is different, and that is the real seam.** In a free chat the agent
+**produces an artifact** that has no other home, so the app must keep it — the
+model the spec adopts. In a project chat the agent **changes a working tree
+that already has a home.** Copying those files into app storage would
+manufacture a second, instantly-stale copy of something the repository already
+owns and git already versions. The right treatment is the opposite of the
+spec's: reference, never copy.
+
+So the split the owner sensed is real, but it does not run between *media and
+other files*. It runs between **artifact and change** — and it happens to line
+up with a boundary the data model already draws for an unrelated reason, which
+is decent evidence it is a genuine seam rather than one invented for this
+feature.
+
+**Corroboration from outside:** Multica does not build an in-app diff either.
+Their server has no diff, PR, git or review handler, and their README puts
+codebase work behind "review gates where work lands in pull requests" — i.e.
+reviewed on the git host, not in the product. Their chat is positioned as the
+surface for work that "hasn't formed a clear issue yet." (Their web components
+could not be enumerated — a 404 — so this is a server-side and docs reading,
+not exhaustive.)
+
+### A shape
+
+A project-chat turn ends with a compact **what changed** summary attached to
+its reply: paths added, modified, and deleted, grouped by turn. Each path links
+through to the file viewer `reaching-my-machine` US1 specifies, where an image
+previews and a text file reads.
+
+The property that makes this work, and that neither "copy everything" nor "show
+nothing" achieves: **the summary is metadata, so it syncs even when the content
+cannot.** A list of paths and change kinds is tiny. So with the machine asleep
+you still see *what* the agent did last night — you just cannot open the files
+until it wakes. That degrades honestly instead of going blank.
+
+### What it touches
+
+- **[`seeing-what-my-agent-made`](specs/2026-08-28-seeing-what-my-agent-made.md)
+  must draw the boundary explicitly**, or its implementation will do the wrong
+  thing: a project chat's edits are not "produced items" and must not be
+  copied. Amended in that spec the same day this was raised.
+- **`reaching-my-machine` US1 is the viewer this needs** and it is already
+  owner-accepted. The only addition it wants is rendering an image rather than
+  offering to read it as text — much smaller than a viewer of its own.
+- **[`I-11`](#i-11--the-rest-of-the-machine-reaching-surfaces)** already parks
+  "a project's git state and pull requests". This is a narrower, chat-shaped
+  consumer of that — *what did this turn do*, not *what is the state of the
+  repo*. If I-11's git surface is ever built, this becomes a filtered view of
+  it rather than separate machinery.
+- **[`what-an-agent-is-allowed-to-do`](specs/2026-08-24-what-an-agent-is-allowed-to-do.md)**
+  and [`G-5`](KnownGaps.md)'s unfinished write clamp: showing what an agent
+  changed is the natural place to notice it changed something it should not
+  have. Related, and deliberately not merged — one decides what is permitted,
+  this reports what happened.
+
+### Decisions this needs
+
+1. **Where does "what changed" come from — git, or the agent's own report?**
+   Git is truthful but cannot separate the agent's edits from the owner's own
+   uncommitted work in the same tree. Self-reporting is precise about
+   attribution but trusts the agent to be honest and complete.
+2. **Does a project chat offer to commit, branch, or open a pull request?**
+   Multica's answer is that this is exactly where work should land. Ours has
+   no opinion yet, and it is a product question, not a technical one.
+3. **What happens to a project chat when the machine is offline** — is the
+   whole conversation read-only, or can you queue a request for later?
+4. **What does a deleted file look like** when you can see it in the summary
+   but can never open it?
+
+### What would make it real
+
+Project chats actually being used to edit code — which the owner is only now
+starting to do, and which is what surfaced this.
+
+**What would shrink or kill it:** if `reaching-my-machine` US1 ships first and
+simply browsing the tree turns out to be enough in practice, this collapses to
+"add image rendering to the file viewer" and needs no change summary at all.
+Worth shipping that viewer before scoping this.
+
+*Raised 2026-08-28 by the owner while reviewing the spec above, asking whether
+project-chat media was the same idea or a separate one. Separate — but not
+along the line the question drew.*

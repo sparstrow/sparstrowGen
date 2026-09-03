@@ -1,0 +1,1 @@
+# T-CH2-01 — multi file composer\n\n**Status**: 🟡 Pending\n\n## Checklist\n- [ ] Update `chat.tsx` state to `pendingAttachments: ChatAttachmentUpload[]`\n- [ ] Update `handleFileSelect` to support multiple files\n- [ ] Render multiple pending chips in composer\n- [ ] Block send until all uploads complete

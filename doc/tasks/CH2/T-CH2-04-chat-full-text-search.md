@@ -1,0 +1,1 @@
+# T-CH2-04 — chat full text search\n\n**Status**: 🟡 Pending\n\n## Checklist\n- [ ] Add `searchChats` TRPC route in `chat.ts` router\n- [ ] Add Search input to sidebar in `chat.tsx`\n- [ ] Render search results list above session list

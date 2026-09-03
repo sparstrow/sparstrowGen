@@ -1,37 +1,26 @@
-# Card
+# Card — usage notes
 
-Source of truth: `packages/ui/src/components/ui/card.tsx`
+**Source:** `packages/ui/src/components/ui/card.tsx`. Mirror mode.
 
-The standard surface: one lightness step above the page background, a 1px
-border, and no drop shadow. Composed from `Card`, `CardHeader`, `CardTitle`,
-`CardDescription`, `CardContent`, `CardFooter`.
+Parts: `Card` > `CardHeader` > `CardTitle` / `CardDescription` > `CardContent`
+> `CardFooter`.
 
-## Usage
+## Rules
 
-```tsx
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@sparstrow/ui";
+- **Never nest a Card in a Card.** `nested-cards` is a certain-tier rule in the
+  `ai-design-slop` catalogue: it is depth standing in for hierarchy. Use
+  spacing, weight, and dividers instead. The card shows both versions side by
+  side.
+- **A card is a grouping, not a decoration.** If the content inside has no
+  relationship, the border is drawing a box around a coincidence.
+- **Do not use a grid of identical cards as the page structure.** That is
+  `card-grid-as-structure` — the container that fits any content, and therefore
+  says nothing about this content.
+- **Cards do not stack elevation.** There are no shadow tokens, and the app
+  separates surfaces with `--border` plus a lightness step. In light mode there
+  is no lightness step at all, so the border is load-bearing.
 
-<Card>
-  <CardHeader>
-    <CardTitle>Machines</CardTitle>
-    <CardDescription>3 active, 1 unreachable</CardDescription>
-  </CardHeader>
-  <CardContent>{/* … */}</CardContent>
-</Card>
-```
+## Where it belongs
 
-## Notes
-
-- **Cards carry no drop shadow today.** This was the retired doctrine's
-  defining rule (see `DECISIONS.md` DD-001) — depth is the surface step plus
-  the border. It describes what the app currently does; it is no longer a rule
-  anyone stands behind, and the new doctrine may change it.
-- `--card` and `--background` are the *same value* in light mode. A card on a
-  light page is distinguished purely by its border, so removing the border makes
-  it vanish. In dark they differ by one step.
-- No coloured left-border stripes as accents — a Don't inherited from the
-  retired doctrine, pending re-decision.
-- Padding is 20px (`--space-5`). Keep it; inconsistent card padding is the
-  fastest way for a layout to look unconsidered.
-- For a card that is entirely a table, drop `CardContent`'s padding so the table
-  meets the border — a table inset inside padding reads as floating.
+Entity summaries, settings groups, and dialogs. Lists of rows are better as a
+table or a divided list than as a column of cards.

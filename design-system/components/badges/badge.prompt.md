@@ -1,56 +1,37 @@
-# Badge
+# Badge — usage notes
 
-Source of truth: `packages/ui/src/components/ui/badge.tsx`
-
-Status indicator used in tables, list rows, drawers, and next to page titles.
-Seven variants; four carry semantic meaning, and choosing between them is a
-product decision rather than a colour preference.
-
-## Usage
+**Source:** `packages/ui/src/components/ui/badge.tsx`. Mirror mode.
 
 ```tsx
-import { Badge } from "@sparstrow/ui";
-
-<Badge variant="success">Completed</Badge>
-<Badge variant="info">Running</Badge>
-<Badge variant="warning">Queued</Badge>
-<Badge variant="destructive">Failed</Badge>
-<Badge variant="outline">Draft</Badge>
+<Badge variant="warning">needs attention</Badge>
 ```
 
-## Variant → meaning
+Variants: `default` `secondary` `destructive` `outline` `success` `info` `warning`.
 
-Pick by what the state *means*, never by what colour looks right.
-`variant="success"` and "make it green" produce identical pixels and completely
-different maintainability.
+## The rule that gets broken
 
-| Variant | Means | Sparstrowgen examples |
-|---|---|---|
-| `success` | Terminal good state — finished, nothing left to do | Run completed, machine active, task done |
-| `info` | In flight, progressing normally, no action needed | Run running, syncing, dispatched |
-| `warning` | Needs attention but is not yet wrong | Queued too long, machine unreachable, nearing a limit |
-| `destructive` | Actually wrong — failed or blocked | Run failed, auth expired, migration blocked |
-| `secondary` | Neutral count or muted tag, no signal intended | Row counts, tag chips |
-| `outline` | Lowest emphasis — a label, not a status | Draft, unset, category label |
-| `default` | High-contrast emphasis, rare in this app | Plan tier, one featured label |
+**Use the status variant. Do not hand-roll one.** `success`, `info`, and
+`warning` already exist and already carry both modes. A call site writing
+`border-amber-500/40 text-amber-600 dark:text-amber-400` is re-implementing
+`variant="warning"` badly, and then owns those values forever. The 2026-08-19
+audit found this pattern across 23 files; the sweep is `doc/tasks/D1/`.
 
-The `success`/`info`/`warning`/`destructive` set mirrors the run and task status
-vocabularies in `packages/shared/src/schemas/run.ts` and `.../task.ts`. Map the
-enum to the variant once in a shared helper rather than branching on status
-strings at each call site — that is where drift starts.
+## Choosing
 
-## Notes
+| Variant | Means |
+|---|---|
+| `success` | Online, passed, connected |
+| `warning` | Needs a human — blocked or degraded |
+| `info` | Queued, informational, no action implied |
+| `destructive` | Failed, revoked, errored |
+| `secondary` / `outline` | A label, not a state |
 
-- **`default` is not the default choice.** It renders high-contrast
-  primary-on-inverse and pulls the eye harder than any status colour; in a
-  twenty-row table it reads as an alert. Use `secondary` or `outline` for
-  anything neutral.
-- **Never use a status variant decoratively.** A green badge that does not mean
-  "succeeded" teaches people to ignore green.
-- Colour alone is never the signal — every badge carries text. A dot may be
-  added but never replaces the label. Accessibility requirement, not a style
-  preference.
-- It renders a `<span>` and is not interactive. If it needs a click, wrap it or
-  use a different control.
-- Counts belong beside a page title (`Machines 12`), not inside table cells
-  where they compete with the row's own data.
+## Rules
+
+- **Badges carry status, never brand.** Brand is identity; status is meaning.
+- **A badge is not a button.** No click handlers. If it acts, it is a Button.
+- **Colour is never the only signal.** Pair with the word, as every example on
+  the card does. A colour-blind user reading a grid of dots learns nothing.
+- **Approval has no variant yet.** `DESIGN.md` §2.4 specifies it (hue 310); it
+  is not built. Until it is, do not approximate it with `warning` — that is the
+  exact collapse the doctrine argues against.

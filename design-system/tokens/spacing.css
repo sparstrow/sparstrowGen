@@ -1,42 +1,41 @@
-/* spacing.css — radius is MIRRORED from globals.css (--radius: 0.625rem).
+/* spacing.css — radius, shadow, and motion. MIRRORED.
  *
- * Spacing and shadow scales were transcribed from the RETIRED doctrine's prose
- * and carry no authority now (see DECISIONS.md DD-001). Placeholders until
- * design-brief produces the replacement.
+ * Source of truth: packages/ui/src/styles/globals.css
  *
- * --transition-base below is worse than a placeholder: it was INVENTED during
- * the mirror pass and exists in no real stylesheet. The app's four actual
- * animations live in packages/ui/src/styles/globals.css (spg-slide-in-right,
- * spg-fade-in, spg-pulse, spg-turn-in) and should be the new Motion section's
- * source.
- *
- * shadcn derives its radius steps from a single --radius base, so the four
- * values below are computed, not independently chosen. Changing --radius in
- * globals.css moves all of them together — that is the intended behaviour.
+ * Radius is the one foundation here the app genuinely decides, and it decides
+ * it well: one root value with three derived steps, so changing the character
+ * of every corner is a one-line edit. Mirrored exactly.
  */
 
 :root {
-  --radius: 0.625rem;              /* 10px — the base every step derives from */
-  --radius-sm: calc(var(--radius) - 4px);   /*  6px — small badges, chips */
-  --radius-md: calc(var(--radius) - 2px);   /*  8px — inputs, buttons */
-  --radius-lg: var(--radius);               /* 10px — cards, panels */
-  --radius-xl: calc(var(--radius) + 4px);   /* 14px — modals */
-  --radius-full: 999px;                     /*        pills, avatars */
+  --radius: 0.625rem;
 
-  /* 4px base grid */
-  --space-1: 4px;    /* icon gaps */
-  --space-2: 8px;    /* icon + label */
-  --space-3: 12px;   /* inline */
-  --space-4: 16px;   /* form fields */
-  --space-5: 20px;   /* card padding — from the retired doctrine */
-  --space-6: 24px;   /* section padding */
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
-
-  /* Flat-by-default: the ONLY shadow in the system, reserved for floating
-     popovers, dropdowns and command palettes. Cards and panels get none. */
-  --shadow-popover: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-
-  --transition-base: 140ms ease;
+  /* Derived in globals.css @theme inline — kept as calc() rather than resolved,
+   * because the relationship IS the decision. Resolving them to 6px/8px/10px/14px
+   * would mirror the output and lose the rule that produced it. */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
+
+/* SPACING — no tokens exist. Spacing comes from Tailwind's default scale at
+ * every call site. DESIGN.md §4 specifies a base unit and row density; that is
+ * a specification, and nothing in the app reads it.
+ *
+ * SHADOW — no tokens exist. DESIGN.md §5 describes elevation as something the
+ * code already does; it does it with Tailwind shadow utilities, not variables.
+ *
+ * MOTION — no tokens exist, but the app DOES have real motion. Four keyframes
+ * ship in globals.css and are the honest source for DESIGN.md §7:
+ *
+ *   spg-slide-in-right   0.2s   cubic-bezier(0.3, 0.7, 0.4, 1)
+ *   spg-fade-in          0.15s  ease-out
+ *   spg-pulse            1s     ease-in-out infinite
+ *   spg-turn-in          0.18s  cubic-bezier(0.165, 0.84, 0.44, 1)
+ *
+ * The previous system invented `--transition-base: 140ms ease` here during its
+ * mirror pass. It exists in no stylesheet, nothing consumes it, and a clean
+ * `check` run laundered it as mirrored fact for months — doc/KnownGaps.md G-18.
+ * It is deliberately absent below. Four real durations beat one invented one.
+ */

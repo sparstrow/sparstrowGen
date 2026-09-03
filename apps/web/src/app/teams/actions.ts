@@ -12,7 +12,7 @@ import {
   NOT_SIGNED_IN,
   type ActionResult,
 } from "@web/lib/action-result";
-import { slugify, withCollisionSuffix } from "@web/lib/slug";
+import { slugifyShort, withCollisionSuffix } from "@sparstrow/shared";
 
 function generateId(prefix: string) {
   return `${prefix}${crypto.randomUUID().replace(/-/g, "")}`;
@@ -50,7 +50,7 @@ export async function createTeamAction(input: {
   // rather than re-derived, because re-deriving it is how the identical bug
   // reappeared on POST /projects/provision
   // (BUG-2026-08-24-project-provision-always-400s).
-  const baseSlug = slugify(input.name ?? "");
+  const baseSlug = slugifyShort(input.name ?? "");
   const attempts = [baseSlug, withCollisionSuffix(baseSlug || "team")];
 
   for (let i = 0; i < attempts.length; i++) {

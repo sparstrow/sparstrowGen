@@ -1,6 +1,6 @@
-import { toCamel, toSnake } from "./case";
+import { toCamel, toSnake } from "@sparstrow/shared";
 import { createClient } from "@web/utils/supabase/server";
-import { getActiveWorkspaceId } from "./workspace";
+import { getActiveWorkspaceId } from "@sparstrow/server/routes";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**

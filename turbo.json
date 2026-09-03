@@ -3,15 +3,45 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "out/**"],
+      "env": ["NODE_ENV", "DATABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
     },
+
     "dev": {
       "cache": false,
       "persistent": true
     },
+
+    // Hash-only transit task, borrowed from multica. No package implements a
+    // `cache-inputs` script, so every node resolves to <NONEXISTENT> and
+    // nothing is ever executed -- but the edges still pull each dependency's
+    // file hashes into whatever depends on it. `dependsOn: ["^cache-inputs"]`
+    // makes that recursive, so the chain stays complete if a package gains a
+    // purely transitive dependency.
+    //
+    // This exists because a turbo task hash covers a workspace dependency's
+    // sources only when a task edge reaches them.
+    "cache-inputs": {
+      "dependsOn": ["^cache-inputs"]
+    },
+
+    // Without the edge, editing packages/shared or packages/ui left web's
+    // typecheck hash byte-identical, so a cached PASS was replayed over
+    // changed code. `^cache-inputs` closes that for the price of nothing:
+    // `^typecheck` would also work but drags every dependency's real `tsc`
+    // run into the job.
+    "typecheck": {
+      "dependsOn": ["^cache-inputs"]
+    },
+
+    // Deliberately NOT cached, and deliberately not given a `^cache-inputs`
+    // edge to make caching safe. This repo's whole problem has been green
+    // signals that meant nothing (see KnownGaps G-59 and the ~20 closed
+    // "built, never run" entries), and a replayed test pass is exactly that
+    // failure mode wearing a faster hat. Tests are cheap here; certainty is
+    // not. Revisit once the suite is proved deterministic.
     "test": {
       "cache": false
-    },
-    "typecheck": {}
+    }
   }
 }

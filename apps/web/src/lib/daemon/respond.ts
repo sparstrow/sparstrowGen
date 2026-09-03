@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import {
   DAEMON_SETTABLE_KEYS,
   type DaemonErrorReason,
@@ -13,32 +12,57 @@ import type { DaemonAuthFailure } from "@web/lib/daemon/auth";
  * Every failure carries a stable `reason` token alongside its prose. The CLI
  * (T-M3-04) has to tell a typo from a reused code from an expired one, and
  * matching on message text breaks the first time someone improves the wording.
+ *
+ * Framework-free by the same rule as `lib/api/router.ts`: these 21 routes move
+ * to `server/src/routes/daemon/` in Phase 1, and a `next/server` import here
+ * would have made that a rewrite rather than a move. The body type that
+ * `NextResponse<DaemonErrorResponse>` used to carry is stated on the parameters
+ * instead — it was never checked against the object literal anyway, since
+ * `NextResponse.json` does not constrain its argument to the generic.
  */
 
 export function daemonError(
   status: number,
   reason: DaemonErrorReason,
   error: string,
-): NextResponse<DaemonErrorResponse> {
-  return NextResponse.json({ reason, error }, { status });
+): Response {
+  return Response.json({ reason, error } satisfies DaemonErrorResponse, { status });
 }
 
-/** 401 for an absent or unrecognised token, 403 for one the owner revoked. */
+/**
+ * 401 for an absent or unrecognised token, 403 for one the owner revoked, 404
+ * for a runtime this token may not act as.
+ *
+ * `unknown_runtime` is deliberately NOT a 403. A machine hits it in one
+ * ordinary, non-suspicious situation — the owner left a workspace, so the
+ * runtime it was addressing no longer exists — and the machine's correct
+ * response is to re-claim and pick up its current runtime list, not to treat
+ * itself as revoked and stop. Conflating the two would make leaving a
+ * workspace look identical to being cut off.
+ */
 export function authFailureResponse(failure: DaemonAuthFailure) {
-  return failure === "revoked"
-    ? daemonError(
-        403,
-        "revoked",
-        "This machine's pairing has been revoked. Pair it again to reconnect.",
-      )
-    : daemonError(401, "unauthenticated", "Missing or invalid daemon token.");
+  if (failure === "revoked") {
+    return daemonError(
+      403,
+      "revoked",
+      "This machine's access has been revoked. Connect it again to reconnect.",
+    );
+  }
+  if (failure === "unknown_runtime") {
+    return daemonError(
+      404,
+      "unknown_runtime",
+      "That runtime is not available to this machine. Re-claim to refresh its workspaces.",
+    );
+  }
+  return daemonError(401, "unauthenticated", "Missing or invalid access token.");
 }
 
 /**
  * Pull the self-reported identity out of a body.
  *
  * Note what is NOT here: `workspaceId` and `runtimeId`. Both come from the
- * bearer token via `authenticateDaemon`, and this function existing is part of
+ * bearer token via `authenticateRuntime`, and this function existing is part of
  * how that stays true — a route calling `parseIdentity(body)` has no way to
  * accidentally pick up a scope field, because the returned type has none.
  */

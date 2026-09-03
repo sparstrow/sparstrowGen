@@ -1,5 +1,19 @@
+"use client";
+
+import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Bot, BookOpen, ChevronsUpDown, LogOut, Settings, UserPlus, User } from "lucide-react";
+import {
+  Bot,
+  BookOpen,
+  Check,
+  ChevronsUpDown,
+  Loader2,
+  LogOut,
+  Plus,
+  Settings,
+  UserPlus,
+  User,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,8 +22,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useWorkspace } from "@web/api/hooks";
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspace, useWorkspaces } from "@web/api/hooks";
 import { useAccount } from "@web/lib/account";
+import { callAction } from "@web/lib/call-action";
+import { switchWorkspaceAction } from "@web/app/settings/actions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -21,6 +38,17 @@ import { cn } from "@/lib/utils";
  * account to sign out of and keeps them disabled with a tooltip explaining
  * why. See `@/lib/account` for why that distinction lives in context.
  *
+ * **US3 (2026-09-02): it now actually switches.** Until then this was an
+ * account menu wearing a switcher's name — it showed the current workspace and
+ * offered no way to leave it, because belonging to two workspaces was a hard
+ * 400 and there was nothing to switch between. The owner keeps a personal and
+ * a work workspace on one machine, so the list below is the point of the
+ * component rather than an addition to it.
+ *
+ * With exactly one workspace the list is deliberately not rendered: a menu
+ * section offering a single choice that is already made is noise, and the spec
+ * asks for the switcher to identify the workspace without demanding a decision.
+ *
  * **T-M10-04: shows the real workspace name.** Falls back to "Sparstrowgen"
  * in two cases, not one — no data at all (the desktop build, which has no
  * cloud workspace, hence `enabled: Boolean(account)`), and `workspace.name`
@@ -31,7 +59,28 @@ import { cn } from "@/lib/utils";
 export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }) {
   const router = useRouter();
   const account = useAccount();
+  const queryClient = useQueryClient();
   const workspace = useWorkspace(Boolean(account));
+  const workspaces = useWorkspaces(Boolean(account));
+  const [switching, setSwitching] = React.useState<string | null>(null);
+
+  const otherWorkspaces = (workspaces.data ?? []).filter((ws) => ws.id !== workspace.data?.id);
+
+  async function switchTo(workspaceId: string) {
+    setSwitching(workspaceId);
+    const result = await callAction(() => switchWorkspaceAction(workspaceId));
+    if (!result.ok) {
+      setSwitching(null);
+      return;
+    }
+    // Every cached query is workspace-scoped, so there is no narrower
+    // invalidation that would be correct. `router.refresh()` alone would
+    // re-render server components against the new workspace while React Query
+    // kept serving the old one's data underneath them.
+    await queryClient.invalidateQueries();
+    router.refresh();
+    setSwitching(null);
+  }
 
   const workspaceName = workspace.data?.name || "Sparstrowgen";
   // The dropdown label answers "who am I", not "what is this workspace" —
@@ -82,7 +131,46 @@ export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }
             {account ? account.email : "Single-user agent factory · 127.0.0.1"}
           </span>
         </DropdownMenuLabel>
+        {otherWorkspaces.length > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+              Switch workspace
+            </DropdownMenuLabel>
+            {workspaces.data?.map((ws) => {
+              const isCurrent = ws.id === workspace.data?.id;
+              return (
+                <DropdownMenuItem
+                  key={ws.id}
+                  disabled={switching !== null}
+                  // Current workspace stays in the list rather than being
+                  // filtered out: a switcher that hides where you are makes you
+                  // work out which of the remaining names is not you.
+                  onSelect={(event) => {
+                    if (isCurrent) return;
+                    // The menu would close and unmount this item mid-await,
+                    // cancelling the switch on slower connections.
+                    event.preventDefault();
+                    void switchTo(ws.id);
+                  }}
+                >
+                  {switching === ws.id ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : isCurrent ? (
+                    <Check className="size-4" />
+                  ) : (
+                    <span className="size-4" aria-hidden="true" />
+                  )}
+                  <span className="truncate">{ws.name || "Untitled workspace"}</span>
+                </DropdownMenuItem>
+              );
+            })}
+          </>
+        )}
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => void router.push("/settings")}>
+          <Plus className="size-4" /> New workspace
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => void router.push("/settings")}>
           <User className="size-4" /> Profile &amp; settings
         </DropdownMenuItem>

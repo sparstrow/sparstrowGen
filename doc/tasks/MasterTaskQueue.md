@@ -1,5 +1,28 @@
 # Master Task Queue
 
+> # ❄️ FROZEN 2026-09-02 — do not regenerate, archive, or drift-check this file
+>
+> The [restructure](../plans/2026-09-02-multica-architecture-restructure.md)
+> suspends this queue and its whole protocol (`AGENTS.md` §2 rule 9).
+>
+> **What replaces it:** the restructure plan's phases are the run order. A task
+> file's own `Status` row is the record. That is the entire protocol now.
+>
+> **Why.** This queue's machinery — whole-file regeneration, band archiving into
+> `CompletedMasterQueue.md`, the status drift check, and the rule that
+> decomposition may only happen with zero open branches — existed to coordinate
+> **parallel bands across many open branches**. There are no bands any more, and
+> there is one branch at a time. Every one of those mechanisms is now pure
+> overhead, and one of them (regeneration colliding with every open branch) was
+> actively slowing work down.
+>
+> **Do not** flip statuses here, archive rows, or re-sequence. Everything below
+> is preserved as the historical record of what was run before 2026-09-02.
+>
+> **Unfreeze when:** the restructure completes and normal multi-plan feature work
+> resumes — at which point re-read `README.md`'s protocol before regenerating,
+> and expect the statuses below to be stale.
+
 Global run order across every plan. This file is the **single source of truth for
 what runs next**. Task documents hold the detail; this holds the sequence.
 
@@ -270,66 +293,15 @@ different agents.
 
 ### Band 20 — M16 a live channel to a machine (2026-08-24)
 
-Phase spec: [`M16/README.md`](M16/README.md). Plan:
-[`2026-08-24-a-terminal-on-my-machine.md`](../plans/2026-08-24-a-terminal-on-my-machine.md).
-Decomposed 2026-08-24 — six tasks, all written.
-
-**Foundational: nothing in this band is visible to the owner.** It builds the
-daemon-side Realtime credential that M5 named and declined, the two channel
-families, their policies, and the terminal manager rework. At the end of it the
-Terminals page is exactly as dead as it is today.
-
-| # | Task | Tag | Depends on | Status |
-|---|---|---|---|---|
-| 20.1 | [T-M16-01 — channel contracts](M16/T-M16-01-channel-contracts.md) | `[S]` | — | queued |
-| 20.2 | [T-M16-02 — daemon Realtime credential](M16/T-M16-02-daemon-realtime-credential.md) | `[P]` | 20.1 | queued |
-| 20.3 | [T-M16-03 — `017_terminal_channels.sql`](M16/T-M16-03-channel-policies.md) | `[P]` | 20.1 | queued |
-| 20.4 | [T-M16-04 — core: the Realtime connection](M16/T-M16-04-core-realtime-connection.md) | `[C]` | 20.1, 20.2 | queued |
-| 20.5 | [T-M16-05 — core: terminal manager rework](M16/T-M16-05-terminal-manager.md) | `[P]` | 20.1 | queued |
-| 20.6 | [T-M16-06 — verification](M16/T-M16-06-verification.md) | `[S]` | 20.1—20.5 | queued |
-
-20.1 is `[S]` for the same reason M3's and M4's first tasks were: four tasks in
-three packages are written against its topics and event names, and 20.3 authors a
-policy that pins two of those names literally. 20.4 is `[C]` rather than `[P]`
-because it edits `packages/core/src/index.ts`, which 20.5 also touches.
-
-**20.2 needs an owner action** — a signing credential set on the Vercel project.
-That task adds the row to [`../runbooks/README.md`](../runbooks/README.md).
-Nothing else in the band is blocked on it; 20.6 is.
-
-**This band unblocks more than M17.** The request/reply half of
-[`reaching-my-machine-from-the-browser`](../specs/2026-08-24-reaching-my-machine-from-the-browser.md)
-and the [`I-11`](../Ideas.md) surfaces behind it become buildable once a machine
-can be asked a question at all. Neither is built here, and both still need their
-own owner review — see that spec's status.
+✅ **Archived 2026-08-26 — done except `G-47`, which does not block the
+archive per `doc/tasks/README.md`'s own rule.** Full task table, tags and
+notes: [`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-20).
 
 ### Band 21 — M17 the terminal itself (2026-08-24)
 
-Phase spec: [`M17/README.md`](M17/README.md). Same plan as band 20.
-Decomposed 2026-08-24 — six tasks, all written.
-
-| # | Task | Tag | Depends on | Status |
-|---|---|---|---|---|
-| 21.1 | [T-M17-01 — the channel client](M17/T-M17-01-terminal-channel-client.md) | `[S]` | 20.6 | queued |
-| 21.2 | [T-M17-02 — the Terminals page](M17/T-M17-02-terminals-page.md) | `[S]` | 21.1 | queued |
-| 21.3 | [T-M17-03 — agent terminals](M17/T-M17-03-agent-terminals.md) | `[C]` | 21.2 | queued |
-| 21.4 | [T-M17-04 — the per-machine off switch](M17/T-M17-04-terminal-access-switch.md) | `[P]` | 20.6 | queued |
-| 21.5 | [T-M17-05 — Knowledge Center](M17/T-M17-05-knowledge-center.md) | `[P]` | 21.2 | queued |
-| 21.6 | [T-M17-06 — verification](M17/T-M17-06-verification.md) | `[S]` | 21.1—21.5 | queued |
-
-21.3 is `[C]` rather than `[P]` because it edits `terminals.tsx`, which 21.2
-writes. 21.4 is `[P]`: `machines.tsx` and core's settings handling are touched by
-nothing else in the band, so it can run alongside the whole web half.
-
-**21.5 closes [`BUG-2026-08-24-terminals-article-describes-a-transport-that-no-longer-exists`](../bug/BUG-2026-08-24-terminals-article-describes-a-transport-that-no-longer-exists.md)**
-— pre-existing drift, filed 2026-08-24 while planning this work: the Terminals
-Knowledge Center article describes a transport that no longer exists and states
-the opposite of the machine's real session behaviour.
-
-**Runs against nothing else.** Bands 19 and 20 must be complete first. Any other
-work touching `apps/web/src/app/terminals/`, `machines.tsx`, or
-`packages/core/src/terminal/` must wait rather than run `[P]` alongside — the
-file overlap is total.
+✅ **Archived 2026-08-27 — done except `G-48`, which does not block the
+archive per `doc/tasks/README.md`'s own rule.** Full task table, tags and
+notes: [`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-21).
 
 ### Band 22 — WA every write becomes a Server Action (2026-08-24)
 
@@ -342,6 +314,115 @@ file overlap is total.
 PR #129 without this flip; caught while promoting band 22, per
 `doc/tasks/README.md`'s "check the other bands too" step).** Full task
 table, tags and notes: [`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-23).
+
+### Band 25 — DI the daemon gets a real identity (2026-08-27) · **run this first**
+
+Plan: [`../plans/2026-08-27-the-daemon-gets-a-real-identity.md`](../plans/2026-08-27-the-daemon-gets-a-real-identity.md).
+Spec: [`../specs/2026-08-24-a-terminal-on-my-machine.md`](../specs/2026-08-24-a-terminal-on-my-machine.md)
+— no new spec; this delivers stories that one already owns.
+Phase spec: [`DI/README.md`](DI/README.md). Decomposed 2026-08-27.
+
+| # | Task | Tag | Depends on | Status |
+|---|---|---|---|---|
+| 25.1 | [T-DI-01 — the session topic carries the runtime id](DI/T-DI-01-session-topic-runtime-id.md) | `[S]` | — | done (2026-08-27) |
+| 25.2 | [T-DI-02 — the daemon identity: schema, helper, policies](DI/T-DI-02-daemon-identity-schema.md) | `[S]` | 25.1 | written, not applied — owner (2026-08-27) |
+| 25.3 | [T-DI-03 — the token route mints a Supabase session](DI/T-DI-03-token-route-supabase-session.md) | `[S]` | 25.2 | done except live checks (2026-08-27) |
+| 25.4 | [T-DI-04 — core adapts to the new credential](DI/T-DI-04-core-credential-lifetime.md) | `[P]` | 25.3 | done (2026-08-27) |
+| 25.5 | [T-DI-05 — verification: the live pass that has never run](DI/T-DI-05-verification.md) | `[S]` | 25.1–25.4 | blocked → owner applies SQL, then a live pass |
+
+25.1–25.3 are `[S]` in a chain: each defines the contract the next compiles or
+authorizes against, and they touch overlapping files. 25.4 is `[P]` — it lives
+entirely in `packages/core` and needs only 25.3's response shape.
+
+**This band is ahead of band 24 in priority despite the higher number.** M16 and
+M17 both merged and neither has ever carried a byte: the daemon could not sign a
+credential Supabase would accept (`G-48` — Supabase never exports an asymmetric
+private key, confirmed live in the dashboard 2026-08-27), *and* the credential
+`DD-2` specified could never have passed `018_terminal_channels.sql`'s RLS
+anyway, because it deliberately carries no `sub` and those policies resolve the
+caller through `workspace_members` ([`BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls`](../bug/BUG-2026-08-27-daemon-realtime-token-cannot-pass-terminal-channel-rls.md)).
+Two independent blockers, each hiding the other, both found on 2026-08-27.
+
+**No UI work.** M17's surfaces, states and sentences are all built and stay
+exactly as they are. This band changes one topic string, adds one table, one
+function and four policies, and rewrites one module's internals.
+
+**Landed on `development` 2026-08-27, code-complete and unverified** — see
+[`KnownGaps.md` `G-49`](../KnownGaps.md). `T-DI-01` and `T-DI-04` are fully
+done; `T-DI-02`'s SQL is written but not applied to any database (needs a
+Supabase CLI login or MCP authorization no agent in this session had);
+`T-DI-03` is done except the live checks that need `T-DI-02`'s SQL; `T-DI-05`
+is blocked on both. Also found and fixed, in already-merged M16 code:
+[`BUG-2026-08-27-realtime-refresh-never-took-effect`](../bug/BUG-2026-08-27-realtime-refresh-never-took-effect.md)
+— core's credential refresh had never taken effect.
+
+**25.5 updated 2026-08-28** — `T-DI-02`'s SQL is now applied and a real
+daemon paired live (PR #149). Two genuine platform-adjacent races were found
+and fixed in the same pass:
+[`BUG-2026-08-28-realtime-connect-races-channel-subscribe-auth`](../bug/BUG-2026-08-28-realtime-connect-races-channel-subscribe-auth.md)
+and
+[`BUG-2026-08-28-terminal-channel-sends-before-control-channel-joined`](../bug/BUG-2026-08-28-terminal-channel-sends-before-control-channel-joined.md).
+`T-DI-05` is now blocked on neither of those, but on a third, non-repo issue
+found while chasing the remaining timeout:
+[`BUG-2026-08-28-private-broadcast-channels-not-relaying`](../bug/BUG-2026-08-28-private-broadcast-channels-not-relaying.md)
+— private-channel broadcast relay not working on this Supabase project,
+escalated to Supabase, outside this repo's code. Full task file is the
+authoritative record; this line is the mirror.
+
+### Band 26 — CS chat session & conversation UX (2026-08-27)
+
+✅ **Archived 2026-08-28 — every row done.** Full task table, tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-26--cs-chat-session--conversation-ux-2026-08-27).
+`T-CS6-02` found and fixed two cross-story regressions that each phase's own
+verification had passed over; `G-52` and `G-53` remain open.
+
+✅ **Archived 2026-08-29 — every row done or done-except.** Full task table,
+tags and notes:
+[`CompletedMasterQueue.md`](CompletedMasterQueue.md#band-27--am-seeing-what-my-agent-made-2026-08-29).
+`T-AM4-02` found and fixed a real focus-restoration defect its own closing
+verification pass caught, that no earlier phase verification had; `G-55`
+remains open — the produced-file pipeline has never run end to end against a
+live daemon.
+
+**Cross-phase collisions worth knowing before scheduling:**
+
+- **`apps/web/src/app/chat/chat.tsx`** — 27.7 edits the preview panel. The open
+  [`BUG-2026-08-28-project-chat-cannot-choose-model-at-creation`](../bug/BUG-2026-08-28-project-chat-cannot-choose-model-at-creation.md)
+  fix edits the *creation form* in the same file. Different regions, same file;
+  if both run at once, whoever is second rebases.
+- **`doc/KnownGaps.md`** — 27.3 extends `G-53` and every verification task adds
+  entries. The two open `task/T-DI-05-*` branches are also editing it heavily
+  and already conflict with each other. Expect to resolve by hand; do not take
+  `--ours` wholesale.
+- **`packages/shared/drizzle/policies/`** — 27.3 claims `028`. The open
+  `T-DI-05-live-verification` branch adds a `021_daemon_identities_workspace_index.sql`,
+  an out-of-sequence *lower* number that will not collide but does mean the
+  directory is not a reliable guide to "next free". `028` is next free as of
+  2026-08-29; re-check before writing it.
+- **Band 25 (DI) and band 24** — no file overlap with this band at all. DI is
+  terminals/realtime/daemon identity; band 24 is project files and browsing.
+
+**Decomposed while `task/T-DI-05-*` was still open — deliberately, and with the
+owner's explicit go-ahead 2026-08-29.** The `decomposing-plans` gate normally
+refuses this. Two things made it the right call rather than a shortcut, and
+both were true *before* the exception was asked for:
+
+1. **The plan pre-registered it.** Its Sequencing section named the real
+   trigger as *"band 26 merging to `development`"* and explicitly rejected
+   "drain to zero branches" as the criterion, on the grounds that it "would
+   make this plan hostage to a third-party ticket". Band 26 merged 2026-08-29
+   ([#174](https://github.com/sparstrow/sparstrowGen/pull/174)).
+2. **The gate's two stated reasons don't bite here.** Its *correctness* reason
+   is that open branches mean the code is still moving — but T-DI-05 touches
+   terminals, realtime and daemon identity, and this band's foundation
+   (`chat_message_attachments`, `chat-turn.ts`, the chat components) is fully
+   landed and untouched by it. Its *merge-conflict* reason is about regenerating
+   this file — and neither T-DI-05 branch touches it, correctly, per §2.9.
+
+T-DI-05 is blocked on a filed Supabase support ticket
+([`BUG-2026-08-28-private-broadcast-channels-not-relaying`](../bug/BUG-2026-08-28-private-broadcast-channels-not-relaying.md))
+and could stay open indefinitely. **This is a documented exception for this
+band, not a precedent** — the gate stands for every other decomposition.
 
 ### Band 24 — M22–M24 reaching my machine from the browser (2026-08-24)
 
@@ -386,7 +467,7 @@ bands 20 and 21 own it.
 | ~~`/runs/[runId]` transcript~~ | ~~M5 (7.6)~~ | **Resolved 2026-08-22.** `T-M11-02` dispatched a real run and watched `/runs/[runId]` populate live — cloud/local `run_events` counts matched exactly (3/3 and 13/13 across two runs). Rendering the transcript for every provider is not fully closed — see [`BUG-2026-08-22-antigravity-transcript-not-rendered`](../bug/BUG-2026-08-22-antigravity-transcript-not-rendered.md) — but the page is no longer empty by construction. |
 | Realtime doorbell for dispatch | **Deferred → [D-12](../Deferred.md)** | Not blocked work. The 3s poll is correct and always-on; the doorbell is a latency improvement that M5's decision 1 declined to buy with a second daemon auth model. |
 | Agent definitions differ between cloud and machine | **Deferred → [D-9](../Deferred.md)** | Not blocked work. M4 resolves a cloud agent to a local one by slug and blocks legibly on a miss; syncing definitions is a separate feature with its own conflict model. |
-| **Band 24 (M22–M24) in its entirety** | **Band 20 (M16)** | Hard, not soft. This plan builds no transport of its own — a browser reaches a machine over M16's `machine:<workspace_id>:<runtime_id>` control channel or not at all, and building a second path is the relay service M16's DD-1 rejected. Its tasks are also not written yet, on purpose: they extend an envelope `T-M16-01` defines. |
+| **Band 24 (M22–M24) in its entirety** | **Band 25 (DI)**, not band 20 | Hard, not soft. This plan builds no transport of its own — a browser reaches a machine over M16's `machine:<workspace_id>:<runtime_id>` control channel or not at all, and building a second path is the relay service M16's DD-1 rejected. **Corrected 2026-08-27:** the blocker used to read "band 20 (M16)", which was true and insufficient — band 20 merged, and its transport has still never carried a byte. The real gate is band 25, which makes a daemon able to authenticate to that channel and pass its RLS. Band 24's tasks are also not written yet, on purpose: they extend an envelope `T-M16-01` defines, and now also a topic shape `T-DI-01` changes. |
 | **23.4's `users.role` drop** | **Owner action** | A column drop is `AGENTS.md` §3.7 destructive even when the column is provably inert (nothing reads it; the profile route strips it with a test). Everything else in 23.4 proceeds without it. |
 | **M24 (Browse) specifically** | **M20, in band 23's plan** | The folder picker's boundary is what a machine says it shares — the access model's US4, which is `OQ-6`'s answer. A picker built before that exists is `OQ-6` option A, which the owner rejected. M23 (project files) has no such dependency and ships first. |
 

@@ -37,20 +37,48 @@ for allow-listing the next range — don't quietly assign an unlisted port.
 |---|---|---|---|---|
 | 3000 | 🔒 reserved | — | main checkout (no worktree) | — |
 | 3010 | 🔒 locked | `feature/supabase-email-delivery` | `.claude/worktrees/supabase-email-delivery` | 2026-08-16 |
-| 3020 | 🟢 available | — | — | — |
-| 3030 | 🟢 available | — | — | — |
+| 3020 | 🔒 locked | `task/T-DI-05-live-verification` | `.claude/worktrees/di-live-verification` | 2026-08-28 |
+| 3030 | 🔒 locked | `claude/feedback-spec-plan-tasks-2c5017` | `.claude/worktrees/feedback-spec-plan-tasks-2c5017` | 2026-08-29 |
 | 3040 | 🔒 locked | `task/T-WA-08-settings-machines` | `.claude/worktrees/task-T-WA-08-settings-machines` | 2026-08-26 |
-| 3050 | 🟢 available | — | — | — |
-| 3060 | 🟢 available | — | — | — |
-| 3070 | 🟢 available | — | — | — |
+| 3050 | 🔒 reserved | — | desktop channel local dev — `stable` (see below) | 2026-08-30 |
+| 3060 | 🔒 reserved | — | desktop channel local dev — `staging` (see below) | 2026-08-30 |
+| 3070 | 🔒 locked | `task/browser-loopback-pairing` | `.claude/worktrees/browser-loopback-pairing` | 2026-08-31 |
 | 3080 | 🟢 available | — | — | — |
 | 3090 | 🟢 available | — | — | — |
 | 3100 | 🟢 available | — | — | — |
+
+**3050/3060 are not worktree-assignable** — they're a permanent reservation
+for `apps/desktop/scripts/run-local.mjs` (see below), same non-worktree
+pattern as the Core/UI ports further down. Don't hand either out to a
+worktree even if the row above ever looks stale; check
+`apps/desktop/scripts/run-local.mjs`'s `PORTS` map first.
 
 **Pool exhausted (all 10 assignable rows locked)?** Add more rows to the
 Supabase dashboard allow-list first (same `http://localhost:<port>/**`
 pattern, next step of 10), then add matching rows here. Adding the dashboard
 rows is an owner action — see `doc/runbooks/README.md`.
+
+## Desktop channel local dev — `3050` (stable), `3060` (staging)
+
+Added 2026-08-30 while Vercel's free-plan usage cap left every hosted
+environment (`sparstrow.com`, `staging.sparstrow.com`, `development.sparstrow.com`)
+paused — see `doc/KnownGaps.md` **G-54**. The installed desktop app's default
+`appUrl` per channel is the hosted one; pointing it at a local `apps/web dev`
+server instead (via `SPARSTROW_APP_URL`) is the workaround, and each channel
+needs its own fixed port so both can run side by side without colliding —
+same reasoning as the Web pool above, and for the same reason these two also
+have to come from that Supabase-allow-listed range, not an arbitrary unused
+port: a local sign-in/magic-link/reset flow bounces to the Site URL instead
+of back to the app on any port not in that allow-list.
+
+`apps/desktop/scripts/run-local.mjs <stable|staging>` reads these from
+its own `PORTS` map (not from this file — this table is the change-control
+record, the script is the source of truth at runtime) and: starts
+`apps/web`'s dev server on the channel's port if nothing is already listening
+there, waits for it to respond, then launches the channel's installed app
+with `SPARSTROW_APP_URL` pointed at it. See the script's own header comment
+for the full behavior and `doc/runbooks/deploy-web-app.md` for when this
+workaround can be retired (once G-54 clears).
 
 ## Core / UI (`@sparstrow/core`, `@sparstrow/ui`) — singleton, no worktree pool
 

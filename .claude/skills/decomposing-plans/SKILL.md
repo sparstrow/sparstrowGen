@@ -14,6 +14,22 @@ metadata:
 
 # Decomposing a plan into doc/tasks/<phase>/
 
+> ## ⏸️ Suspended for restructure work (2026-09-02)
+>
+> While the
+> [restructure](../../../doc/plans/2026-09-02-multica-architecture-restructure.md)
+> is in progress, **do not run this procedure for work inside it.** Its phases
+> are already the run order, and `AGENTS.md` §5 reduces the artifacts to one task
+> file per slice plus an honest Result section.
+>
+> Specifically suspended: the phase `README.md`, concurrency tags, the
+> verification task every phase ends with, `MasterTaskQueue.md` regeneration
+> (the queue is frozen), and the zero-open-branches gate below — which was a
+> precondition for a whole-file rewrite that no longer happens.
+>
+> **Still use this skill** for a genuine new product capability the owner asks
+> for that sits outside the restructure. Ask if it's unclear which you're in.
+
 The third step of the chain, and the one that had no written procedure until
 now: `writing-specs` → `writing-plans` → **this** → code.
 

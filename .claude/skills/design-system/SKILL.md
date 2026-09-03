@@ -108,7 +108,10 @@ into silence.
 4. **Write foundation cards** for what the system actually decides: color
    surfaces, foreground/text hierarchy, brand/primary, status colors, type
    scale, spacing scale, border radius, shadows, borders/dividers, motion. A
-   foundation with no card is a decision nobody can see.
+   foundation with no card is a decision nobody can see. If the project's
+   `DESIGN.md` has an Iconography section, its brand-mark and destructive-icon
+   rules (e.g. this repo's DD-016) apply to every entity/component card you
+   write next, not just a dedicated icon card — check it before, not after.
 5. **Write component cards**, one per component or tight family (buttons,
    badges, form fields, avatar+tabs). Register each with `--source` in mirror
    mode.

@@ -41,3 +41,19 @@ export interface DiscoverModelsResult {
   live: boolean;
   detail: string | null;
 }
+
+/**
+ * A workspace's cached model list for a provider (`provider_model_cache`,
+ * T-CS3-02) — cloud-side and workspace-scoped, unlike `DiscoverModelsResult`
+ * above which is the LOCAL host's own in-process discovery response
+ * (`server/src/api/routes/providers.ts`, a different consumer).
+ * `GET /providers/model-cache?provider=` (T-CS4-01) returns this or `null`
+ * when no discovery has ever completed for that provider in this workspace.
+ */
+export interface ProviderModelCacheRow {
+  provider: string;
+  models: string[];
+  live: boolean;
+  detail: string | null;
+  checkedAt: string;
+}

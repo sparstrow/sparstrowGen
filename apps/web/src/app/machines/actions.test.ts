@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { actionContext } from "@web/lib/action-result";
 import {
   cloneProjectAction,
-  createPairingCodeAction,
   relinkProjectAction,
   removeRuntimeAction,
   renameRuntimeAction,
@@ -62,18 +61,6 @@ function mockCtx(queues: Record<string, Result[]>, opts: { user?: boolean } = {}
   vi.mocked(actionContext).mockResolvedValue({ supabase: supabase as never, workspaceId: "ws_1" });
 }
 
-describe("createPairingCodeAction", () => {
-  it("issues a code and its expiry", async () => {
-    mockCtx({ pairing_codes: [{ data: null, error: null }] });
-    const result = await createPairingCodeAction();
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.data.code).toMatch(/^[A-Z0-9]{5}-[A-Z0-9]{5}$/);
-      expect(new Date(result.data.expiresAt).getTime()).toBeGreaterThan(Date.now());
-    }
-  });
-});
-
 describe("renameRuntimeAction", () => {
   it("rejects a blank name before writing", async () => {
     mockCtx({});
@@ -90,15 +77,24 @@ describe("renameRuntimeAction", () => {
 });
 
 describe("revokeRuntimeTokenAction", () => {
-  it("fails when nothing was revoked (no active pairing, or RLS hid it)", async () => {
-    mockCtx({ daemon_tokens: [{ data: [], error: null }] });
+  it("fails when nothing was revoked (no active connection, or RLS hid it)", async () => {
+    // Revocation is now two hops: resolve the runtime to its machine, then
+    // revoke that machine's credentials. An empty second hop means there was
+    // nothing live to revoke.
+    mockCtx({
+      runtimes: [{ data: { machine_id: "mach_1" }, error: null }],
+      access_tokens: [{ data: [], error: null }],
+    });
     const result = await revokeRuntimeTokenAction("rt_1");
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/No active pairing/);
+    if (!result.ok) expect(result.error).toMatch(/No active connection/);
   });
 
   it("revokes an active token", async () => {
-    mockCtx({ daemon_tokens: [{ data: [{ id: "dt_1" }], error: null }] });
+    mockCtx({
+      runtimes: [{ data: { machine_id: "mach_1" }, error: null }],
+      access_tokens: [{ data: [{ id: "tok_1" }], error: null }],
+    });
     const result = await revokeRuntimeTokenAction("rt_1");
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.data.revoked).toBe(1);

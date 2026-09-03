@@ -5,7 +5,7 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import { Check, Copy, Play } from "lucide-react";
+import { Check, Copy, ImageOff, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -145,6 +145,35 @@ export function Markdown({ content }: { content: string }) {
             </blockquote>
           ),
           hr: () => <hr className="my-4 border-border" />,
+          img: ({ src, alt }) => {
+            // T-AM2-02. NOT the produced-item path (phase decision 1) --
+            // `ProducedItem` renders from `message.attachments`, driven by the
+            // stored row. This is the separate case of an agent writing
+            // `![chart](C:\out.png)` inline in its own reply text: a local
+            // filesystem path can never resolve in a browser, and a private,
+            // signed bucket URL is never something an agent would write by
+            // hand either way. Only `http(s)` sources render as an <img>;
+            // everything else falls back to the alt text as a caption instead
+            // of a broken-image glyph.
+            const httpSrc = typeof src === "string" && /^https?:\/\//.test(src) ? src : null;
+            if (!httpSrc) {
+              return (
+                <span className="my-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <ImageOff className="size-3 shrink-0" aria-hidden="true" />
+                  {alt || "Image unavailable"}
+                </span>
+              );
+            }
+            return (
+              // eslint-disable-next-line @next/next/no-img-element -- arbitrary remote source from markdown text, not a local/optimizable asset
+              <img
+                src={httpSrc}
+                alt={alt ?? ""}
+                loading="lazy"
+                className="my-2 max-w-full rounded-lg border"
+              />
+            );
+          },
           pre: CodeBlock,
           code: ({ className, children, ...props }) => {
             // Fenced blocks arrive with a `language-*` class and render inside

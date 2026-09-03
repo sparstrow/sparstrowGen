@@ -3,7 +3,7 @@
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { DAEMON_SETTABLE_KEYS, isRuntimeOnline } from "@sparstrow/shared";
-import type { PairingCode, Runtime, RuntimeProject } from "@web/api/hooks";
+import type { Runtime, RuntimeProject } from "@web/api/hooks";
 import {
   actionContext,
   actionErrorFrom,
@@ -14,54 +14,10 @@ import {
   type ActionResult,
 } from "@web/lib/action-result";
 
-/**
- * Code alphabet, chosen for being read aloud and retyped on another machine.
- * Moved verbatim from `POST /pairing-codes` (`handlers/runtimes.ts`).
- */
-const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-const CODE_LENGTH = 10;
-const CODE_TTL_MS = 10 * 60 * 1000;
-
-function generateCode(): string {
-  const limit = Math.floor(256 / ALPHABET.length) * ALPHABET.length;
-  let out = "";
-  while (out.length < CODE_LENGTH) {
-    for (const byte of randomBytes(CODE_LENGTH)) {
-      if (byte >= limit) continue;
-      out += ALPHABET[byte % ALPHABET.length];
-      if (out.length === CODE_LENGTH) break;
-    }
-  }
-  return `${out.slice(0, 5)}-${out.slice(5)}`;
-}
-
-/**
- * Moved verbatim from `POST /pairing-codes`. Member-level (`pairing_codes_own_insert`
- * RLS requires only workspace membership) — the caller's own supabase client
- * enforces this the same way it did as a route handler.
- */
-export async function createPairingCodeAction(): Promise<ActionResult<PairingCode>> {
-  const ctx = await actionContext();
-  if (!ctx) return actionFail(NOT_SIGNED_IN);
-
-  const {
-    data: { user },
-  } = await ctx.supabase.auth.getUser();
-  if (!user) return actionFail(NOT_SIGNED_IN);
-
-  const code = generateCode();
-  const expiresAt = new Date(Date.now() + CODE_TTL_MS).toISOString();
-
-  const { error } = await ctx.supabase.from("pairing_codes").insert({
-    code,
-    workspace_id: ctx.workspaceId,
-    created_by_user_id: user.id,
-    expires_at: expiresAt,
-  });
-  if (error) return actionErrorFrom(error);
-
-  return actionOk({ code, expiresAt });
-}
+// Pairing a machine no longer starts from anything in this file — browser-
+// loopback pairing (`/pair`, `apps/web/src/app/pair/actions.ts`) is initiated
+// entirely by `sparstrow pair` on the machine itself. What used to live here
+// as `createPairingCodeAction` is gone along with `pairing_codes`.
 
 /**
  * Moved verbatim from `PATCH /runtimes/:id`. Only `name` — everything else is
@@ -93,11 +49,22 @@ export async function renameRuntimeAction(
 }
 
 /**
- * Moved verbatim from `DELETE /runtimes/:id/token`. `daemon_tokens` carries
- * `daemon_tokens_admin_all` — RLS refuses this to a non-admin member by
- * matching zero rows, which is indistinguishable from (and reported the same
- * as) "no active pairing found" below. There is nothing this action adds on
- * top of the RLS boundary the route already relied on.
+ * Disconnect a machine from the caller's account entirely.
+ *
+ * What "revoke" means changed with the credential. A workspace-scoped token
+ * could be revoked per workspace, because that is all it reached. A
+ * person-scoped token reaches every workspace its owner is in, so revoking it
+ * "for this workspace" would be a lie — the machine would carry on working
+ * everywhere else while this page claimed it had been cut off.
+ *
+ * So this revokes the machine's credential outright, and the confirm copy in
+ * the UI says so. Anything narrower would be a control that does not do what
+ * its label promises.
+ *
+ * Scoped by `user_id` rather than by RLS alone: `access_tokens` is owner-only,
+ * so a non-owner matches zero rows and gets the same "no active connection"
+ * answer as a machine that was already disconnected — the two are genuinely
+ * indistinguishable from here, and both mean "nothing to do".
  */
 export async function revokeRuntimeTokenAction(
   id: string,
@@ -105,20 +72,38 @@ export async function revokeRuntimeTokenAction(
   const ctx = await actionContext();
   if (!ctx) return actionFail(NOT_SIGNED_IN);
 
-  const { data, error } = await ctx.supabase
-    .from("daemon_tokens")
-    .update({ revoked_at: new Date().toISOString() })
-    .eq("runtime_id", id)
+  const {
+    data: { user },
+  } = await ctx.supabase.auth.getUser();
+  if (!user) return actionFail(NOT_SIGNED_IN);
+
+  // The runtime names a machine; the machine is what holds credentials. One
+  // hop, and it is scoped to a workspace the caller can see, so a runtime id
+  // from another workspace resolves to nothing.
+  const { data: runtime } = await ctx.supabase
+    .from("runtimes")
+    .select("machine_id")
+    .eq("id", id)
     .eq("workspace_id", ctx.workspaceId)
+    .maybeSingle<{ machine_id: string }>();
+
+  if (!runtime?.machine_id) return actionFail("Not Found");
+
+  const { data, error } = await ctx.supabase
+    .from("access_tokens")
+    .update({ revoked_at: new Date().toISOString() })
+    .eq("machine_id", runtime.machine_id)
+    .eq("user_id", user.id)
     .is("revoked_at", null)
     .select("id");
   if (error) return actionErrorFrom(error);
 
   if (!data || data.length === 0) {
-    return actionFail("No active pairing found for that machine.");
+    return actionFail("No active connection found for that computer.");
   }
 
   revalidatePath("/machines");
+  revalidatePath("/settings");
   return actionOk({ revoked: data.length });
 }
 

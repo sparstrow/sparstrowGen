@@ -7,7 +7,7 @@
 | **Spec** | [`../../specs/2026-08-24-a-terminal-on-my-machine.md`](../../specs/2026-08-24-a-terminal-on-my-machine.md) |
 | **Depends on** | M3 (pairing + daemon bearer token), M4 (`settings.set`), M5 (the broadcast pattern this extends) — all shipped |
 | **Blocks** | M17 |
-| **Status** | not started |
+| **Status** | done except G-47 (2026-08-26) — built, unit-tested, and §C/§D live-verified against the real project; §A/§B's live-wire pass needs the owner's own hands, see [`KnownGaps.md`](../../KnownGaps.md) G-47 |
 | **Open questions** | none |
 
 ## Tasks
@@ -16,12 +16,12 @@ Run order and concurrency live in [`../MasterTaskQueue.md`](../MasterTaskQueue.m
 
 | Task | Tag | Serves | Depends on | Status |
 |---|---|---|---|---|
-| [T-M16-01 — channel contracts](T-M16-01-channel-contracts.md) | `[S]` | foundational | — | not started |
-| [T-M16-02 — daemon Realtime credential](T-M16-02-daemon-realtime-credential.md) | `[P]` | foundational | T-M16-01 | not started |
-| [T-M16-03 — `017_terminal_channels.sql`](T-M16-03-channel-policies.md) | `[P]` | foundational | T-M16-01 | not started |
-| [T-M16-04 — core: the Realtime connection](T-M16-04-core-realtime-connection.md) | `[C]` | foundational | T-M16-01, T-M16-02 | not started |
-| [T-M16-05 — core: terminal manager rework](T-M16-05-terminal-manager.md) | `[P]` | foundational | T-M16-01 | not started |
-| [T-M16-06 — verification](T-M16-06-verification.md) | `[S]` | foundational | T-M16-01…05 | not started |
+| [T-M16-01 — channel contracts](T-M16-01-channel-contracts.md) | `[S]` | foundational | — | done (2026-08-26) |
+| [T-M16-02 — daemon Realtime credential](T-M16-02-daemon-realtime-credential.md) | `[P]` | foundational | T-M16-01 | done (2026-08-26) |
+| [T-M16-03 — `018_terminal_channels.sql`](T-M16-03-channel-policies.md) | `[P]` | foundational | T-M16-01 | done (2026-08-26) |
+| [T-M16-04 — core: the Realtime connection](T-M16-04-core-realtime-connection.md) | `[C]` | foundational | T-M16-01, T-M16-02 | done (2026-08-26) |
+| [T-M16-05 — core: terminal manager rework](T-M16-05-terminal-manager.md) | `[P]` | foundational | T-M16-01 | done (2026-08-26) |
+| [T-M16-06 — verification](T-M16-06-verification.md) | `[S]` | foundational | T-M16-01…05 | done except G-47 (2026-08-26) |
 
 This file holds what they share. Individual tasks reference it rather than
 restating it.
@@ -146,7 +146,7 @@ by that task; nothing else in this phase is blocked on it, and `T-M16-06` is.
 | `packages/shared/src/schemas/terminal.ts` | new — envelopes, event names, Zod schemas |
 | `packages/shared/src/cloud.ts` | edit — topic helpers, limits, `SETTING_TERMINAL_ACCESS` |
 | `packages/shared/src/index.ts` | edit — re-export |
-| `packages/shared/drizzle/policies/017_terminal_channels.sql` | new — subscribe + send policies |
+| `packages/shared/drizzle/policies/018_terminal_channels.sql` | new — subscribe + send policies |
 | `apps/web/src/app/api/daemon/realtime/token/route.ts` | new — the minting endpoint |
 | `apps/web/src/lib/daemon/realtime-token.ts` | new — signing, claims, TTL |
 | `packages/core/src/cloud/realtime.ts` | new — connection, refresh, backoff, control channel |

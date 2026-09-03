@@ -118,6 +118,10 @@ names, real-shaped codes, realistic quantities and dates.
 
 1. **Read** `system.json`, `README.md`, and the cards for the components you will
    use — especially their `.prompt.md` files, which say what each variant *means*.
+   Also check `DESIGN.md` §6 (Iconography): does any value on this screen have a
+   unique, externally-recognizable identity that should carry its own mark rather
+   than text (DD-016)? Does any control trigger an irreversible action, which
+   changes its resting colour, not just its hover/confirm state?
 2. **Create the files** via the design-system CLI so the folder contract and the
    manifest stay correct:
    ```bash

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "_comment": [
+    "For packages that ship React components and export .ts/.tsx SOURCE rather",
+    "than a build (AGENTS.md §1 rule 3): packages/ui, packages/views, and the",
+    "client half of packages/core.",
+    "",
+    "noEmit is on because nothing here is compiled — each app's bundler",
+    "transpiles the source it imports. If you find yourself wanting declaration",
+    "output from one of these packages, something has drifted from rule 3."
+  ],
+  "extends": "./base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "noEmit": true
+  }
+}

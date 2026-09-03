@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Profile, Workspace } from "@web/api/hooks";
 import {
@@ -13,8 +14,18 @@ import {
   NOT_SIGNED_IN,
   type ActionResult,
 } from "@web/lib/action-result";
-import { parseProfilePatch, parseWorkspacePatch, BOOTSTRAP_SLUG } from "@web/lib/patch-validation";
-import { slugify, withCollisionSuffix } from "@web/lib/slug";
+import {
+  BOOTSTRAP_SLUG,
+  parseProfilePatch,
+  parseWorkspacePatch,
+  slugifyShort,
+  withCollisionSuffix,
+} from "@sparstrow/shared";
+// The avatar/logo origin allowlist takes the Supabase base URL explicitly now
+// that the check lives in `@sparstrow/shared` (server/ needs it too). Resolving
+// it here keeps the loud MissingConfigError exactly where it always was.
+import { supabaseUrl } from "@web/utils/supabase/env";
+import { WORKSPACE_COOKIE } from "@web/lib/workspace-cookie";
 
 const PROFILE_SELECT = "id, email, name, avatar_url, bio";
 const WORKSPACE_SELECT = "id, name, slug, description, context, logo_url, created_at";
@@ -44,7 +55,7 @@ export async function updateProfileAction(
   } = await ctx.supabase.auth.getUser();
   if (!user) return actionFail(NOT_SIGNED_IN);
 
-  const parsed = parseProfilePatch(toSnake(data));
+  const parsed = parseProfilePatch(toSnake(data), supabaseUrl());
   if ("error" in parsed) return actionFail(parsed.error);
   const { patch } = parsed;
 
@@ -125,7 +136,7 @@ export async function updateWorkspaceAction(
   const ctx = await actionContext();
   if (!ctx) return actionFail(NOT_SIGNED_IN);
 
-  const parsed = parseWorkspacePatch(toSnake(data));
+  const parsed = parseWorkspacePatch(toSnake(data), supabaseUrl());
   if ("error" in parsed) return actionFail(parsed.error);
   const { patch } = parsed;
 
@@ -146,7 +157,7 @@ export async function updateWorkspaceAction(
     if (!current) return actionFail("Not Found");
 
     if (BOOTSTRAP_SLUG.test(current.slug as string)) {
-      const derived = slugify(patch.name);
+      const derived = slugifyShort(patch.name);
       if (derived) slug = derived;
     }
   }
@@ -154,4 +165,55 @@ export async function updateWorkspaceAction(
   const result = await writeWorkspace(ctx.supabase, ctx.workspaceId, patch, slug);
   if (result.ok) revalidatePath("/settings");
   return result;
+}
+
+/**
+ * US3 — switch which of the owner's workspaces they are looking at.
+ *
+ * The choice is a cookie rather than a route segment. Putting the workspace in
+ * the URL (`/w/<id>/machines`) is the better long-term shape and rewrites every
+ * link, route and redirect in the app — disproportionate inside a change whose
+ * subject is machines. Noted in the plan's Decisions as a future refactor
+ * rather than smuggled in here.
+ *
+ * Membership is verified before the cookie is written. RLS would deny the
+ * queries anyway, but a page rendering half-empty because the cookie names a
+ * workspace they left is a worse answer than refusing the switch outright.
+ */
+export async function switchWorkspaceAction(
+  workspaceId: string,
+): Promise<ActionResult<{ workspaceId: string }>> {
+  const ctx = await actionContext();
+  if (!ctx) return actionFail(NOT_SIGNED_IN);
+
+  const {
+    data: { user },
+  } = await ctx.supabase.auth.getUser();
+  if (!user) return actionFail(NOT_SIGNED_IN);
+
+  const { data: membership, error } = await ctx.supabase
+    .from("workspace_members")
+    .select("workspace_id")
+    .eq("user_id", user.id)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
+  if (error) return actionErrorFrom(error);
+  if (!membership) return actionFail("You are not a member of that workspace.", "not_a_member");
+
+  const store = await cookies();
+  store.set(WORKSPACE_COOKIE, workspaceId, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    // A year. This is a preference, not a credential — it names a workspace the
+    // reader is checked against on every request, so a stale one is harmless.
+    maxAge: 60 * 60 * 24 * 365,
+  });
+
+  // Everything is workspace-scoped, so there is no narrower invalidation that
+  // would be correct here.
+  revalidatePath("/", "layout");
+  return actionOk({ workspaceId });
 }

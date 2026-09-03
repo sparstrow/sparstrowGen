@@ -17,8 +17,6 @@ import type {
   Goal,
   GoalCreate,
   GoalDetail,
-  GraphEngineStatus,
-  GraphProjectStatus,
   CronJob,
   CronJobCreate,
   CronJobUpdate,
@@ -72,6 +70,7 @@ import type {
   ChatSessionListQuery,
   ChatTurn,
   ChatTurnRequest,
+  ProviderModelCacheRow,
 } from "@sparstrow/shared";
 import { api, type ApiError } from "@web/lib/api-client";
 
@@ -228,120 +227,6 @@ export function useSyncFromBase(): UseMutationResult<Task, ApiError, string> {
   return useMutation({
     mutationFn: (id: string) => api<Task>(`/projects/${id}/sync-from-base`, { method: "POST", body: {} }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["tasks"] }),
-  });
-}
-
-/** P4 §2 + P5: ONE Reindex action, two passes — notes indexer run + graph index. */
-export function useReindexProject(): UseMutationResult<
-  { started: boolean; runId: string | null; graph: string },
-  ApiError,
-  string
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api(`/projects/${id}/reindex`, { method: "POST" }),
-    onSuccess: (_res, id) => {
-      void queryClient.invalidateQueries({ queryKey: ["runs"] });
-      void queryClient.invalidateQueries({ queryKey: ["project-graph", id] });
-    },
-  });
-}
-
-// ── P5 code graph (engine-level in Settings; per-project panel on the project page) ──
-
-export function useGraphEngine(): UseQueryResult<GraphEngineStatus, ApiError> {
-  return useQuery({
-    queryKey: ["graph-engine"],
-    queryFn: () => api<GraphEngineStatus>("/graph/engine"),
-  });
-}
-
-/** T-a: explicit owner-initiated install (predictable Defender moment, never silent). */
-export function useInstallGraphEngine(): UseMutationResult<
-  { started: boolean; status: GraphEngineStatus },
-  ApiError,
-  "std" | "ui" | undefined
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (variant) =>
-      api("/graph/engine/install", { method: "POST", body: variant ? { variant } : undefined }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["graph-engine"] }),
-  });
-}
-
-/** Settings → Retry: clears crash-loop breaker latches (audit #40). */
-export function useRetryGraphEngine(): UseMutationResult<{ ok: boolean }, ApiError, void> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => api("/graph/engine/retry", { method: "POST" }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["graph-engine"] }),
-  });
-}
-
-/** T10: post-install backfill — serialized by the index semaphore, sandboxes excluded. */
-export function useIndexAllProjects(): UseMutationResult<
-  { queued: number; skipped: number },
-  ApiError,
-  void
-> {
-  return useMutation({
-    mutationFn: () => api("/graph/index-all", { method: "POST" }),
-  });
-}
-
-export function useProjectGraph(id: string): UseQueryResult<GraphProjectStatus, ApiError> {
-  return useQuery({
-    queryKey: ["project-graph", id],
-    queryFn: () => api<GraphProjectStatus>(`/projects/${id}/graph`),
-    enabled: Boolean(id),
-  });
-}
-
-// T11 (UC2): viz lifecycle — new tab, on-demand, idle auto-stop.
-export interface VizState {
-  running: boolean;
-  url: string | null;
-  startedAt: string | null;
-  idleStopMs: number;
-}
-export function useProjectViz(id: string, enabled: boolean): UseQueryResult<VizState, ApiError> {
-  return useQuery({
-    queryKey: ["project-viz", id],
-    queryFn: () => api<VizState>(`/projects/${id}/graph/viz`),
-    enabled: Boolean(id) && enabled,
-    refetchInterval: (q) => (q.state.data?.running ? 30_000 : false),
-  });
-}
-export function useLaunchViz(): UseMutationResult<
-  { ok: boolean; url?: string; reason?: string; detail?: string | null },
-  ApiError,
-  string
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api(`/projects/${id}/graph/viz`, { method: "POST" }),
-    onSuccess: (_r, id) => void queryClient.invalidateQueries({ queryKey: ["project-viz", id] }),
-  });
-}
-export function useStopViz(): UseMutationResult<void, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api<void>(`/projects/${id}/graph/viz`, { method: "DELETE" }),
-    onSuccess: (_r, id) => void queryClient.invalidateQueries({ queryKey: ["project-viz", id] }),
-  });
-}
-
-/** T9: the success-criterion denominator — graph tools used in N of M runs. */
-export function useProjectGraphUsage(
-  id: string,
-  enabled: boolean,
-): UseQueryResult<{ runsWithGraph: number; totalRuns: number }, ApiError> {
-  return useQuery({
-    queryKey: ["project-graph-usage", id],
-    queryFn: () => api<{ runsWithGraph: number; totalRuns: number }>(`/projects/${id}/graph/usage`),
-    enabled: Boolean(id) && enabled,
-    staleTime: 60_000,
   });
 }
 
@@ -692,11 +577,37 @@ export function useChatSessions(
   });
 }
 
+export function useSearchChatSessions(
+  q: string,
+): UseQueryResult<ChatSession[], ApiError> {
+  return useQuery({
+    queryKey: ["chat-sessions", "search", q],
+    queryFn: () => api<ChatSession[]>(`/chat/search${qs({ q })}`),
+    enabled: q.trim().length > 0,
+  });
+}
+
 export function useChatSession(id: string | null): UseQueryResult<ChatSessionDetail, ApiError> {
   return useQuery({
     queryKey: ["chat-session", id],
     queryFn: () => api<ChatSessionDetail>(`/chat/sessions/${id}`),
     enabled: Boolean(id),
+  });
+}
+
+/**
+ * T-CS4-01 (US3). This workspace's cached model list for `provider`, or
+ * `null` if no discovery has ever landed. Read-only — triggering a fresh
+ * discovery is `requestModelDiscoveryAction` (`chat/actions.ts`, T-CS3-03),
+ * a Server Action, not a query here.
+ */
+export function useProviderModelCache(
+  provider: ProviderId | null,
+): UseQueryResult<ProviderModelCacheRow | null, ApiError> {
+  return useQuery({
+    queryKey: ["provider-model-cache", provider],
+    queryFn: () => api<ProviderModelCacheRow | null>(`/providers/model-cache${qs({ provider: provider ?? undefined })}`),
+    enabled: Boolean(provider),
   });
 }
 
@@ -1038,47 +949,6 @@ export function useRunCronJobNow(): UseMutationResult<{ ok: boolean }, ApiError,
   return useMutation({
     mutationFn: (id: string) =>
       api<{ ok: boolean }>(`/cron-jobs/${id}/run-now`, { method: "POST" }),
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Terminals
-// ---------------------------------------------------------------------------
-
-export interface TerminalSession {
-  id: string;
-  agentId: string | null;
-  cols: number;
-  rows: number;
-  createdAt: string;
-}
-
-export function useTerminalSessions(): UseQueryResult<TerminalSession[], ApiError> {
-  return useQuery({
-    queryKey: ["terminal-sessions"],
-    queryFn: () => api<TerminalSession[]>("/terminal/sessions"),
-  });
-}
-
-export function useCreateTerminalSession(): UseMutationResult<
-  TerminalSession,
-  ApiError,
-  { agentId?: string; cols?: number; rows?: number }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body) =>
-      api<TerminalSession>("/terminal/sessions", { method: "POST", body }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["terminal-sessions"] }),
-  });
-}
-
-export function useKillTerminalSession(): UseMutationResult<void, ApiError, string> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) =>
-      api<void>(`/terminal/sessions/${id}`, { method: "DELETE" }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["terminal-sessions"] }),
   });
 }
 
@@ -1426,44 +1296,14 @@ export function useTeamManagerChat(teamId: string): UseMutationResult<
 // Runtimes & pairing (M3)
 // ---------------------------------------------------------------------------
 
-/** A machine paired to this workspace. `online` is derived server-side from
- *  `lastHeartbeat` age — never read `status` for liveness. */
-export interface Runtime {
-  id: string;
-  name: string;
-  os: string;
-  hostname: string;
-  isElectron: boolean;
-  capabilities: string[];
-  status: string;
-  coreVersion: string | null;
-  lastHeartbeat: string | null;
-  createdAt: string;
-  online: boolean;
-  /**
-   * What the machine last CONFIRMED about its remotely-settable settings.
-   * Written only by the daemon, so a switch rendered from this is showing an
-   * acked value rather than a hopeful one — including when it was flipped in
-   * that machine's own local Settings card. M4 / `G-6`.
-   */
-  reportedSettings: Record<string, string>;
-}
-
-/** A project as this machine reports having it. */
-export interface RuntimeProject {
-  runtimeId: string;
-  projectId: string;
-  localPath: string | null;
-  /** bound | missing | cloning | error */
-  state: string;
-  detail: string | null;
-  lastSeen: string | null;
-}
-
-export interface PairingCode {
-  code: string;
-  expiresAt: string;
-}
+/**
+ * `Runtime` and `RuntimeProject` moved to `@sparstrow/shared` in restructure
+ * Phase 2 — they are the response contract for a `server/` route, so declaring
+ * them in a client meant `packages/core` could not have them. Re-exported here
+ * so the ~30 existing import sites are untouched.
+ */
+import type { Runtime, RuntimeProject } from "@sparstrow/shared";
+export type { Runtime, RuntimeProject };
 
 export function useRuntimes(): UseQueryResult<Runtime[], ApiError> {
   return useQuery({
@@ -1516,6 +1356,13 @@ export interface Workspace {
   context: string;
   logoUrl: string | null;
   createdAt: string;
+  /**
+   * The CALLER's own role in this workspace ("owner" | "admin" | "member"),
+   * not a property of the workspace itself — added by `T-M17-02` for the
+   * Terminals page's FR-009 check (owner/admin only). Defaults to "member"
+   * if the lookup fails for any reason, which is the fail-closed direction.
+   */
+  role: string;
 }
 
 /**
@@ -1562,6 +1409,29 @@ export function useWorkspace(enabled = true): UseQueryResult<Workspace, ApiError
   return useQuery({
     queryKey: ["workspace"],
     queryFn: () => api<Workspace>("/workspace"),
+    enabled,
+  });
+}
+
+/** One row per workspace the signed-in person belongs to. What the switcher renders. */
+export type WorkspaceSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
+};
+
+/**
+ * US3 — every workspace this person can switch to.
+ *
+ * Gated on `enabled` for the same reason `useWorkspace` is: the local desktop
+ * build has no account, so firing this would be a doomed request on every
+ * render just to discard its result.
+ */
+export function useWorkspaces(enabled = true): UseQueryResult<WorkspaceSummary[], ApiError> {
+  return useQuery({
+    queryKey: ["workspaces"],
+    queryFn: () => api<WorkspaceSummary[]>("/workspaces"),
     enabled,
   });
 }

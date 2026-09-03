@@ -7,6 +7,7 @@ import { Menu, Search, X } from "lucide-react";
 import { cn } from "@sparstrow/ui/lib/utils";
 import { Badge } from "@sparstrow/ui/components/ui/badge";
 import { UpdateBanner } from "@web/components/update-banner";
+import { DesktopAutoClaim } from "@web/components/desktop-auto-claim";
 import { useLiveEvents } from "@web/lib/live-events";
 import { useAttentionQueue } from "@web/api/hooks";
 import { ThemeToggle } from "@sparstrow/ui/theme/theme-toggle";
@@ -44,6 +45,11 @@ function useWsConnected(): boolean {
  * count depend on the URL, so the very first navigation after signing in
  * ("/login" -> "/") crashed with "rendered more hooks than during the previous
  * render" -- the one transition every single user makes.
+ *
+ * `/pair` joins this list for the same reason: it's a focused, one-decision
+ * confirm screen a browser lands on mid-`sparstrow pair`, not a page anyone
+ * navigates to from inside the app -- the full sidebar/header chrome around
+ * it would only compete with the one thing on screen that matters.
  */
 export function AppShell({
   children,
@@ -54,7 +60,7 @@ export function AppShell({
 }) {
   const pathname = usePathname() || "/";
 
-  if (pathname === "/login" || pathname.startsWith("/auth/")) {
+  if (pathname === "/login" || pathname === "/connect" || pathname.startsWith("/auth/")) {
     return <div className="min-h-screen w-full bg-background text-foreground">{children}</div>;
   }
 
@@ -205,7 +211,8 @@ function AuthenticatedShell({
             collapsed && "md:hidden",
           )}
         >
-          v0.1.0 · Next.js 15
+          v{process.env.NEXT_PUBLIC_APP_VERSION} · Next.js{" "}
+          {process.env.NEXT_PUBLIC_NEXT_VERSION}
         </div>
       </aside>
 
@@ -248,6 +255,7 @@ function AuthenticatedShell({
             <ThemeToggle />
           </div>
         </header>
+        <DesktopAutoClaim />
         <UpdateBanner />
         <main className="min-h-0 flex-1 overflow-y-auto p-5">
           {children}

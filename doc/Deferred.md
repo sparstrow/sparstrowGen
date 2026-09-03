@@ -6,24 +6,71 @@ decision behind them and a reason they're not being built *yet*.
 Each entry records what triggers picking it back up, so nothing sits here purely
 because it was forgotten.
 
+> **2026-09-02 — the restructure rewrote parts of this file.** The
+> [restructure plan](plans/2026-09-02-multica-architecture-restructure.md)
+> superseded five entries (`D-1`, `D-15`, `D-19`, `D-24`, `D-25`) and **added
+> eight**, one per parked subsystem. This is the one register that got *bigger*:
+> parking a subsystem is a real decision with a real unpark trigger, and writing
+> it down here is what keeps "parked" from silently becoming "abandoned".
+>
+> `D-24` deserves particular attention if you are reading this file for
+> direction. It described the target architecture in the owner's own words, and
+> it is the architecture the restructure exists to undo.
+
 ---
 
-## D-1 — HITL gate redesign
+## D-1 — HITL gate ~~redesign~~ — **CUT 2026-09-02, superseded**
 
-**Parked:** 2026-08-09, by the owner — "One thing I want to modify is the human
-gate feature. We can do it later."
+**Superseded:** 2026-09-02, by the owner, during the restructure. The gate is not
+being redesigned later — it is being **removed now**, schema and all.
 
-The cloud schema keeps `tasks.hitl_approved` and the `paused_hitl` run status so
-the spine stays available, but **no UI is built against the current shape**
-pending a redesign.
+**Original parking:** 2026-08-09, by the owner — "One thing I want to modify is
+the human gate feature. We can do it later." No UI was ever built against it.
 
-This matters more than it looks: HITL gates are one of the three mitigations for
-the security consequence of cloud-canonical dispatch (anyone who can write a task
-row targeting your runtime can cause code to run on that machine). The other two
-— workspace-scoped RLS and the `effectiveTools` clamp at spawn — are live.
+**Applied to the shared Supabase project 2026-09-02**, with the owner's explicit
+approval, via `apply-pending.mjs` (dry-run first, then committed). Verified
+after: zero `hitl_approved` columns remain, and `task_questions` is still
+present — the check that the correction below was actually honoured, not just
+written down.
 
-**Unpark when:** the owner has a design, or before any external collaborator is
-added to a workspace.
+**What is removed:** `tasks.hitl_approved` (migration
+`packages/shared/drizzle/0013_drop_hitl_approved.sql`) and the `paused_hitl`
+mention in the `runs` schema comment. That is all of it. The column was declared
+`NOT NULL DEFAULT true` and read by nothing — no route, no action, no daemon
+path, no UI — and `paused_hitl` was never a value in `runStatusSchema`, so it
+needed no migration at all. Both existed only to make an approval gate look
+present in the schema when none existed in the product.
+
+**Correction, same day: `task_questions` is NOT part of this and stays.** The
+first draft of this entry and of the restructure plan both listed it for
+removal. That was wrong, and it would have broken live code:
+`apps/web/src/app/tasks/actions.ts` writes answers to it,
+`lib/api/handlers/tasks.ts` reads it, `components/providers.tsx` subscribes to
+it over realtime, and the local SQLite twin drives
+`packages/core/src/taskboard/questions.ts` and `delegation.ts`.
+
+The two were conflated because both involve a human. They are opposites:
+**the gate is a human granting permission before work runs; a task question is
+an agent asking for information during it.** Only the first is cut. Worth
+keeping in mind on unpark — "human in the loop" names two mechanisms in this
+codebase, and the useful one was never the one that was missing.
+
+**Why removing it is safe *today* and not safe later.** HITL gates are one of
+three mitigations for the security consequence of cloud-canonical dispatch —
+anyone who can write a task row targeting your runtime can cause code to run on
+that machine. The other two, workspace-scoped RLS and the `effectiveTools` clamp
+at spawn, are live and stay live. With exactly one person in the workspace, the
+gate mitigates a threat that does not exist: the only person who can write that
+task row is the person who owns the machine.
+
+That stops being true the moment a second person joins, because
+[`G-35`](KnownGaps.md) records that **any workspace member has full read and
+write on all workspace content** — there is no viewer role and no read-only
+anything. A second member is, today, someone who can run code on your computer.
+
+**Unpark when:** before the first external collaborator is added to any
+workspace. Not "when there is a design" — the design is the easy half. This is a
+hard precondition, and `G-35` is the entry that proves why.
 
 ---
 
@@ -349,7 +396,22 @@ providers work and the rate-limit settings to raise afterwards:
 
 ---
 
-## D-15 — Production Supabase project for `main`
+## D-15 — ~~Production Supabase project for `main`~~ — **SUPERSEDED 2026-09-02**
+
+> **Superseded** by the restructure. The owner's decision: **one Supabase project
+> serves both `development` and `main`**, and feature branches use a local Docker
+> Supabase (`supabase start`) instead of sharing the cloud project. `staging` is
+> retired entirely, so the "promote into `main` once `staging` is solid" trigger
+> below no longer describes a real workflow.
+>
+> Note what survives: a dedicated production project is still the *right* end
+> state once there are real users and real data to protect. It is now an
+> `Ideas.md`-shaped thought rather than an agreed-and-parked one, because the
+> condition that made it agreed — a separate `staging` tier to promote from —
+> is gone. Re-raise it deliberately when the app has users, not by reviving this
+> entry.
+>
+> Everything below is kept as the historical record of the DNS/Vercel wiring.
 
 **Parked:** 2026-08-16, by the owner, while walking through the Vercel/DNS
 deployment — "later I will create a new Supabase project, and that will be
@@ -524,7 +586,22 @@ working code rather than new work.
 
 ---
 
-## D-19 — Rename `@sparstrow/daemon` back to `@sparstrow/core`
+## D-19 — ~~Rename `@sparstrow/daemon` back to `@sparstrow/core`~~ — **SUPERSEDED 2026-09-02**
+
+> **Superseded** by the restructure, which resolves the naming question in the
+> opposite direction and for a different reason.
+>
+> The owner's preference for the word "core" is honoured — but it now names the
+> **client** package, matching multica's layout exactly: `packages/core` is
+> ApiClient / WSClient / react-query / stores, with no UI and no server code.
+> Today's `packages/core` (the Fastify server + agent engine) becomes `server/`,
+> and the daemon becomes `server/cmd/daemon.ts` — a second entry point over
+> shared `server/src/internal/` code, exactly as multica's `cmd/multica` and
+> `cmd/server` share `internal/`.
+>
+> So "daemon" stops being a package name at all, which was the actual complaint.
+> It becomes a *role* — what one of the two binaries does — which is what the
+> word should have meant from the start.
 
 **Parked:** 2026-08-22, by the owner — "I like the word core than daemon, at
 the end of complete development when we have to discard the old core folder,
@@ -695,7 +772,36 @@ doesn't work in this environment.
 
 ---
 
-## D-24 — Collapse to three components: one Next.js UI, Electron as a shell, headless core
+## D-24 — ~~Collapse to three components: one Next.js UI, Electron as a shell, headless core~~ — **SUPERSEDED 2026-09-02**
+
+> **Superseded, and this is the one to read carefully.** This entry recorded the
+> target architecture in the owner's own words, and it is the architecture the
+> 2026-09-02 restructure exists to undo. An agent that follows it will rebuild
+> the exact trap the restructure is removing.
+>
+> **What it got right:** "Electron is a shell, not a second UI." That sentence is
+> still true and the restructure keeps it.
+>
+> **What it got wrong:** *which* UI the shell displays. This entry says Electron
+> points a window at the Next.js app. That single choice is what forced the
+> packaged desktop build to bundle a Next.js standalone server, a second Node
+> runtime, and every native module the daemon needs — three runtimes inside one
+> installer, all required to ABI-match. It is why the desktop app was never once
+> opened and used in five months of work.
+>
+> **What replaces it.** The window renders a Vite React SPA
+> (`apps/desktop/src/renderer`) that imports the same `packages/core` +
+> `packages/views` + `packages/ui` the web app imports, and talks to `server/`
+> over HTTP/WS. Nothing but the UI ships inside Electron. The daemon is
+> supervised as a separate process, as it already is.
+>
+> The three-component instinct was right; the mistake was making the *UI* the
+> shared thing instead of the *server*. Sharing a server gives web, desktop and
+> mobile the same product. Sharing a Next.js UI gives desktop a packaging problem
+> and gives mobile nothing at all.
+>
+> Everything below is kept as the historical record — including its accurate
+> account of the Vite-app removal, which did happen.
 
 **Parked:** 2026-08-24, by the owner — "My expectation is to have one webapp
 next.js and same app in electron app for desktop. If the people don't want to
@@ -828,7 +934,24 @@ it; delete the Vite app last.
 
 ---
 
-## D-25 — Converge the existing pages on Server Components
+## D-25 — ~~Converge the existing pages on Server Components~~ — **SUPERSEDED 2026-09-02**
+
+> **Superseded** by the restructure. This entry proposes moving pages *deeper*
+> into Next.js; the restructure moves them out, into `packages/views`, so desktop
+> and mobile can render the same screens.
+>
+> The problem it identifies is real and worth keeping in mind: a `"use client"`
+> page fetching through React Query arrives as a loading state, and creating
+> something costs two round trips. But Server Components are a Next-only answer,
+> and any screen that depends on them is a screen the desktop app cannot show.
+>
+> **The restructure's answer to the same problem** is prefetching and cache
+> seeding inside `packages/core` — hydrate the query cache from a single response
+> rather than render on the server. That works identically in Next.js, in the
+> Electron renderer, and in Expo, which is the whole point.
+>
+> Everything below is kept as the historical record of the latency analysis,
+> which remains accurate.
 
 **Parked:** 2026-08-24, by the owner, on reviewing the target state — the shape
 is agreed; only the timing is parked.
@@ -1010,3 +1133,272 @@ named there.
 decomposed for it — either folded into whatever comes after `WA1`/`WA2`, or
 its own small band. Whoever picks this up should re-run the same sweep first
 in case anything else has drifted since 2026-08-26.
+
+---
+
+## D-29 — Headless/remote machine pairing (no local browser)
+
+**Parked:** 2026-08-31, by the owner, while deciding
+[`2026-08-31-browser-loopback-pairing`](specs/2026-08-31-browser-loopback-pairing.md).
+
+That spec replaces the typed pairing code with a browser-loopback flow
+(`sparstrow pair` opens a browser, the already-signed-in tab completes
+pairing) — modeled on [multica](../references/multica)'s `multica login`. The
+old code-based flow had one capability the new one cannot reproduce on its
+own: a code could be generated on *any* signed-in device (a laptop's browser)
+and typed into a completely different, disconnected terminal — a bare remote
+server, a CI runner, a WSL shell with no browser reachable from it. Pure
+browser-loopback assumes the machine running the pair command either has a
+browser or can be told a URL to open *somewhere* that then talks back to that
+same machine — neither holds for a genuinely headless box with no path back.
+
+Presented as an explicit fork (keep a `--code` escape hatch vs. drop it
+outright) — the owner chose to drop it outright rather than maintain two
+pairing code paths, accepting that headless/remote pairing is unsupported
+until this is picked up.
+
+**If wrong (i.e. left parked):** anyone trying to pair a server/VM/CI runner/
+WSL box with no local browser has no way to pair it at all after this ships —
+not degraded, entirely blocked. Today's code-based flow supports exactly this
+case, so shipping the spec above is a real regression for that scenario, not
+just a UX change. Whether that matters depends on whether Sparstrowgen is
+ever used against machines that aren't someone's own desktop/laptop.
+
+**Unpark when:** a real need for headless pairing shows up (self-hosting on a
+server, CI-triggered agent runs, remote dev boxes) — then design a fallback
+explicitly, e.g. a `sparstrow pair --code`/device-code-style path analogous to
+`gh auth login`'s `--web` vs. device-flow split, rather than reintroducing the
+old always-on code path wholesale.
+
+> **Superseded 2026-09-02.** Picked up rather than left parked. Moving the
+> daemon to a person-scoped credential
+> ([`2026-09-02-computers-that-are-just-there`](specs/2026-09-02-computers-that-are-just-there.md))
+> makes the headless case nearly free: a credential created by hand in the
+> browser and pasted onto a machine with no display is the same credential the
+> desktop app mints for itself. It is US6 of that spec, at P3. The
+> device-code-style path this entry imagined is **not** what gets built — a
+> copy-once token from the credentials page is simpler and needs no second
+> code path.
+
+---
+
+## D-30 — A machine in someone else's workspace
+
+**Parked:** 2026-09-02, by the owner, while deciding
+[`2026-09-02-computers-that-are-just-there`](specs/2026-09-02-computers-that-are-just-there.md).
+
+That spec makes one computer serve **every workspace its owner belongs to**,
+automatically and with no per-workspace step. The owner scoped that deliberately
+to workspaces that are their own: *"Right now I am not gonna be added to client
+or external user workspace… I will create personal, work related workspace in
+same machine."*
+
+The moment the owner is added to a workspace they do **not** own, that automatic
+behaviour changes meaning: their personal laptop would begin accepting and
+executing work on behalf of a workspace someone else controls, without any
+action on their part, and possibly without them noticing they were added. That
+is not the same feature — it is a consent question wearing the same mechanism.
+
+The designed-but-unbuilt answer is per-machine opt-in: a workspace the owner did
+not create appears in Machines as *"Client Co. — enable on this machine?"* and
+nothing runs there until they say yes. It was scored at 7/10 in the same session
+and deliberately sequenced after, not dropped.
+
+**If wrong (i.e. left parked):** the first time the owner accepts an invitation
+to a workspace they don't control, their machine silently joins it and becomes
+executable by whoever administers that workspace. There is no warning designed
+for this today.
+
+**Unpark when:** the owner is invited to, or creates a workspace with, anyone
+else — whichever comes first. This must land **before** the first external
+membership exists, not after, because the failure is silent.
+
+---
+
+# Parked by the 2026-09-02 restructure
+
+The eight entries below are a different *kind* of deferral from everything above,
+and the difference matters when you read them.
+
+Everything above was parked **before** it was built. These were parked **after**.
+The code exists, it is tested, and in most cases it works — it is simply not
+being carried across the restructure's first pass.
+
+**What "parked" means here, precisely:**
+
+- The code **stays on disk**, in `server/src/internal/`, after the
+  `packages/core` → `server/` move.
+- The tables **stay in the schema**. Nothing is dropped. (The one exception is
+  the HITL gate — see `D-1` — which is cut outright.)
+- What stops: it is **not** ported to a `server/` route, **not** rebuilt in
+  `packages/views`, **not** reachable from the desktop app, and **carries no
+  verification burden**. No `KnownGaps.md` entry is owed for a parked subsystem
+  not being proved, because nobody is claiming it works.
+
+**Why park rather than delete.** The restructure's whole thesis is that the app
+was never usable because too much was built and none of it was finished. Deleting
+working code would repeat that mistake from the other direction. Parking is
+reversible in an afternoon; deleting is not.
+
+**Why park rather than carry.** Every subsystem carried across is a subsystem
+that must be ported, wired, styled, and *proved in the desktop app* before Phase 4
+can be called done. The slice is `machine + agent + chat`. Anything not on that
+path is weight on the one gate that has never been passed.
+
+---
+
+## D-31 — Memory vault and semantic search
+
+**Parked:** 2026-09-02, by the owner, in the restructure's feature cull.
+
+The Obsidian-compatible vault, the FastEmbed embedder, the `sqlite-vec` index,
+the vault file watcher, and the cloud `memory_notes` sync all exist and are unit
+tested (`packages/core/src/memory/`, `packages/core/src/cloud/memory-sync.ts`).
+
+**Why it is the most consequential park.** It carries three of the four native
+modules in the desktop bundle — `fastembed`, `onnxruntime-node`, and
+`sqlite-vec`. With this and `D-37` parked, `better-sqlite3` is the only native
+dependency left, and Node 22's built-in `node:sqlite` may remove that too. **A
+desktop app with zero native modules is a categorically easier thing to ship than
+one with four**, and shipping the desktop app is the entire point of the
+restructure. This park is not incidental to the plan; it is a large part of why
+the plan can work.
+
+**What parking costs:** the product's most differentiating capability is absent
+from the first release. An agent will not remember anything across runs.
+
+**Unpark when:** the slice is proved end to end (restructure Phase 4) and an
+agent's inability to remember is the most-felt limitation in real use. Bring it
+back behind an explicit capability check so a machine without the native modules
+degrades rather than fails to start. `G-15`, which recorded that memory sync had
+never synced between two real machines, was closed as superseded by this park —
+whoever unparks this owes a fresh live proof, not a revival of that entry.
+
+## D-32 — Pipelines
+
+**Parked:** 2026-09-02, by the owner, in the restructure's feature cull.
+
+Multi-step pipelines with a step executor and orphan sweeper exist
+(`packages/core/src/orchestrator/pipeline-executor.ts`), backed by `pipelines`,
+`pipeline_steps` and `pipeline_runs`, with a `/pipelines` page and server actions.
+
+**What parking costs:** an agent can be asked to do one thing, not a sequence.
+
+**Unpark when:** single-turn chat is proved and real use produces a repeated
+multi-step task worth naming. Pipelines are a generalisation, and generalising
+before there is a concrete repeated case is how the first five months went.
+
+## D-33 — Cron and the schedule surface
+
+**Parked:** 2026-09-02, by the owner, in the restructure's feature cull.
+
+The Croner-based scheduler service and `cron_jobs` exist, with a `/schedule`
+page.
+
+**What parking costs:** nothing runs unattended. Every run is one the owner
+started.
+
+**Unpark when:** there is a run the owner wants to happen without them. Note this
+one is cheap to unpark — the daemon already has a scheduler loop — and is a
+strong candidate for the first unpark after the slice.
+
+## D-34 — GOAP goal planner
+
+**Parked:** 2026-09-02, by the owner, in the restructure's feature cull.
+
+The goal-oriented action planner, goal watcher and reconciler
+(`packages/core/src/goap/`), backed by `goals`, `plan_nodes` and `plan_edges`,
+with `/tasks/goals/[goalId]`.
+
+**What parking costs:** the largest single capability drop in the cull. Autonomous
+multi-step planning is what "agent harness" promises over "a chat box that can run
+commands".
+
+**Unpark when:** chat-driven single runs are proved *and* the owner has found the
+ceiling of asking for one thing at a time. `G-49` recorded that the `DI` band was
+code-complete and had never touched a database or a running machine; that entry
+was closed as superseded by this park, and its underlying warning — that this
+subsystem has never run for real — stands and must be honoured on unpark.
+
+## D-35 — Teams and the messages surface
+
+**Parked:** 2026-09-02, by the owner, in the restructure's feature cull.
+
+`teams`, `team_members`, `team_projects` and `messages`, with `/teams`,
+`/teams/[teamId]` and `/messages`.
+
+**What parking costs:** approximately nothing today. These are multi-person
+features on a single-person product, and
+[`G-35`](KnownGaps.md) records that there is no per-member access scoping behind
+them anyway — any member already has full read and write on everything.
+
+**Unpark when:** a second person joins a workspace. At that point this unparks
+*together with* `D-1` (the HITL gate) and the access-model work `G-35` describes —
+they are one piece of work, not three, and shipping teams without the other two
+would be shipping the appearance of access control.
+
+## D-36 — Skills ingestion, the Specter quarantine, and imports
+
+**Parked:** 2026-09-02, by the owner, in the restructure's feature cull.
+
+Skill ingestion with the Extractor/Specter quarantine pipeline
+(`packages/core/src/agents/ingestion.ts`, `specter.ts`), `skills`, `skill_files`,
+`agent_skills`, `skill_imports`, and the `/skills` and `/imports` pages.
+
+**Note the asymmetry:** agents themselves are **carried** — the slice needs an
+agent to chat with. What is parked is *importing skills into* an agent. An agent
+in the first release is a name, a provider, a model and a system prompt.
+
+**What parking costs:** agents cannot be extended with packaged capabilities.
+
+**Unpark when:** an agent's fixed instructions are the thing limiting real use.
+The quarantine design was security work worth preserving — a P9 review caught a
+`PUT`-arming bypass in it — so unpark the quarantine *with* the ingestion, never
+the ingestion alone.
+
+## D-37 — Terminals and the Realtime terminal bridge
+
+**Parked:** 2026-09-02, by the owner, in the restructure's feature cull.
+
+The PTY manager (`packages/core/src/terminal/`), the Supabase-Realtime terminal
+bridge (`packages/core/src/cloud/terminal-bridge.ts`), and the `/terminals` page.
+Built across M16 and M17.
+
+**Parked with a transport caveat that changes the unpark work.** This is not a
+clean park. The restructure replaces Supabase Realtime with a server-owned
+WebSocket, so the bridge does not merely wait — **the transport half of it stops
+being the right design while it waits**. Unparking is therefore a port, not a
+revival: the PTY manager and the session/channel semantics survive, the
+Realtime-specific connection code does not.
+
+It also carries `node-pty`, the second of the four native modules (see `D-31`).
+
+**What parking costs:** no shell access to a paired machine from the app.
+
+**Unpark when:** the server-owned WS is proved by the chat stream in Phase 4 —
+which is exactly the thing that gives the terminal a transport to move onto.
+`G-47` and `G-48`, which recorded that nothing had ever connected to Realtime and
+that the shell had never authenticated, were closed as superseded by this park.
+
+## D-38 — The Knowledge Center
+
+**Parked:** 2026-09-02, by the owner, in the restructure's process cull.
+
+27 user-facing articles in `apps/web/src/content/knowledge/`, plus `AGENTS.md`
+§3.2's rule requiring every user-facing change to update them in the same PR and
+to re-read four "global claim" articles each time.
+
+**Why parking the *rule* is the point.** The articles are not the cost; the
+per-PR obligation is. It is a real tax on every change, paid to keep documentation
+accurate for a product that currently has **zero users** — while the app itself
+has never been opened. That is the priority inversion the restructure exists to
+correct.
+
+**What parking costs:** the articles drift, and they are already drifting.
+`G-10` (quota figures published without a source) was closed as superseded by
+this park rather than fixed.
+
+**Unpark when:** the app has users who are not the owner. At that point the
+articles must be re-read against reality *before* being shown again — assume every
+one of them is wrong until checked, because the restructure changes the product's
+shape underneath all 27. `AGENTS.md` §3.2 is restored in the same change.

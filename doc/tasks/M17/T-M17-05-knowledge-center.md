@@ -7,7 +7,7 @@
 | **Depends on** | T-M17-02 (the behaviour must be settled before it is described) |
 | **Blocks** | — |
 | **Phase spec** | [README.md](README.md) |
-| **Status** | not started |
+| **Status** | done (2026-08-27) |
 
 ## Objective
 
@@ -61,21 +61,23 @@ capability sentence.
 
 ## Checklist
 
-- [ ] `terminals.md` rewritten: what it is now, who may open one and why, session
+- [x] `terminals.md` rewritten: what it is now, who may open one and why, session
       lifetime and the ceiling, the off switch, output suppression
-- [ ] `terminals.md` gains a `## Known Limitations & Boundaries` section with the
+- [x] `terminals.md` gains a `## Known Limitations & Boundaries` section with the
       real numbers — ten sessions, 256 KB scrollback, the throttle threshold,
       owner/admin only, ends on machine restart
-- [ ] The three false sentences above are gone
-- [ ] `updated:` bumped on every article whose content meaningfully changed
-- [ ] The four global-claim pages re-read and corrected where this plan made them
-      wrong
-- [ ] `tool-permissions.md` gains the owner/admin sentence
-- [ ] `navigating-the-app.md` and `projects-and-workspaces.md` checked for stale
-      claims about what Terminals can do
-- [ ] Nothing describes project files, folder browsing, or any other `I-11`
+- [x] The three false sentences above are gone
+- [x] `updated:` bumped on every article whose content meaningfully changed
+- [x] The four global-claim pages re-read and corrected where this plan made them
+      wrong — `what-is-sparstrowgen.md` and `first-run-setup.md` re-read, found
+      still accurate, left untouched (see Result); `limitations.md` and
+      `providers-and-execution-modes.md` edited
+- [x] `tool-permissions.md` gains the owner/admin sentence
+- [x] `navigating-the-app.md` and `projects-and-workspaces.md` checked for stale
+      claims about what Terminals can do — both still accurate, no edit needed
+- [x] Nothing describes project files, folder browsing, or any other `I-11`
       surface as available
-- [ ] The bug file is marked resolved in place, pointing at this task
+- [x] The bug file is marked resolved in place, pointing at this task
 
 ## Traps
 
@@ -95,14 +97,18 @@ freshness signal.
 
 ## Verification
 
-- [ ] Every edited article renders at `/knowledge/<id>` with its breadcrumb and
-      title correct — the `BUG-2026-08-24-knowledge-breadcrumb-title-silently-blank`
-      failure shape
-- [ ] `grep -rn "local WebSocket\|no detach/reattach" apps/web/src/content/knowledge/`
-      returns nothing
-- [ ] Read `limitations.md` end to end against `Deferred.md` and `KnownGaps.md`
-      and confirm every sentence is still true
-- [ ] The bug file's status row says resolved and names this task
+- [x] Every edited article renders at `/knowledge/<id>` with its breadcrumb and
+      title correct — live, real browser: `terminals`, `limitations`,
+      `tool-permissions`, `providers-and-execution-modes` all checked, breadcrumb
+      and title correct on each, console clean
+- [~] `grep -rn "local WebSocket\|no detach/reattach" apps/web/src/content/knowledge/`
+      returns nothing — **true of `terminals.md`**; the grep also surfaced an
+      unrelated pre-existing hit in `dashboard.md`, filed as its own bug rather
+      than fixed here (see Result)
+- [x] Read `limitations.md` end to end against `Deferred.md` and `KnownGaps.md`
+      and confirm every sentence is still true — done; the new terminal bullets
+      match what `T-M17-01`–`T-M17-04` actually shipped, not the plan's outline
+- [x] The bug file's status row says resolved and names this task
 
 ## On completion
 
@@ -114,9 +120,63 @@ freshness signal.
 > beside you. Record this task's outcome in the **Status** row and **Result**
 > section of *this* file.
 
-- [ ] Update this file's **Status** row and the phase README's task table
-- [ ] Mark the bug resolved and add it to `doc/bug/README.md`'s index row
+- [x] Update this file's **Status** row and the phase README's task table
+- [x] Mark the bug resolved and add it to `doc/bug/README.md`'s index row
 
 ## Result
 
-*(filled in when the task lands)*
+`terminals.md` fully rewritten: what it is, opening a shell or an agent
+session, the session list and lifetime (US2), the off switch and who may
+use it (US4/FR-009), and a new `## Known Limitations & Boundaries` section
+with the real numbers (ten sessions, 256 KB ring, owner/admin only, the
+four end reasons, SC-001's 200ms figure, the two explicit scope boundaries
+— no project files here, no cloud record of activity). All three sentences
+the bug file named are gone.
+
+**Global-claim pages, re-read per §3.2's own instruction, not just
+grepped:** `what-is-sparstrowgen.md` and `first-run-setup.md` were read in
+full against what M16/M17 actually ship and found still accurate — neither
+claims anything about browser reachability that this plan contradicts, so
+neither was touched (a real re-read reaching "no change needed" is a
+different outcome than not reading it, and worth recording as such).
+`limitations.md` gained the three new terminal-specific limitations the
+phase README's Decisions section named (owner/admin only, ten-session
+ceiling, output suppression) as a new "By design" bullet, and its existing
+per-machine-settings bullet now names the terminal-access switch alongside
+the WIP-snapshot one it already covered.
+`providers-and-execution-modes.md` gained a paragraph connecting a CLI
+provider to the interactive session `T-M17-03` built (US3), since that
+page is where "what a provider can do" already lives.
+
+**The three linking pages, checked individually:** `tool-permissions.md`
+got the owner/admin sentence the task called for, next to its existing
+"Terminals are outside this system" line — reads very differently now that
+a terminal is reachable from any browser, which is exactly the
+task's own reasoning. `navigating-the-app.md` (a sidebar link name) and
+`projects-and-workspaces.md` ("agents — and you, in Terminals — do the
+writing") were both re-read and found already accurate; neither needed a
+change.
+
+**Found a second, unrelated instance of the same bug class while
+verifying — filed rather than fixed.** The task's own verification grep
+(`local WebSocket|no detach/reattach`) also matched `dashboard.md`, whose
+"Notes & limitations" section makes the identical false claim about the
+attention queue ("updates live over the local WebSocket") — it is actually
+a plain 5-second REST poll (`useAttentionQueue`), same root cause
+(`wsHub`'s retirement from the hosted app) as the bug this task exists to
+fix. Filed as
+[`BUG-2026-08-27-dashboard-article-describes-a-transport-that-no-longer-exists`](../../bug/BUG-2026-08-27-dashboard-article-describes-a-transport-that-no-longer-exists.md)
+rather than fixed here — `dashboard.md` is outside this task's file scope
+(`apps/web/src/content/knowledge/terminals.md` and the named cross-reference
+pages), and AGENTS.md's own guidance is to document a bug the turn it
+surfaces, not to widen a task's scope to absorb it. Also flagged as a
+standalone spawn-task suggestion for a quick follow-up session.
+
+**Live-verified**, real signed-in browser session: `/knowledge/terminals`,
+`/knowledge/limitations`, `/knowledge/tool-permissions`, and
+`/knowledge/providers-and-execution-modes` all render with correct
+breadcrumb, title, and content, no console errors — the specific failure
+shape `BUG-2026-08-24-knowledge-breadcrumb-title-silently-blank` warns
+about did not occur on any of them. Screenshot of the rewritten Terminals
+article on file. `pnpm typecheck` green (no code touched by this task, but
+confirmed nothing else regressed).

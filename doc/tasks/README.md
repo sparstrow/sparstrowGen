@@ -1,5 +1,32 @@
 # doc/tasks/
 
+> ## ⏸️ Most of this protocol is suspended (2026-09-02)
+>
+> The [restructure](../plans/2026-09-02-multica-architecture-restructure.md)
+> reduces task documentation to three things (`AGENTS.md` §5):
+>
+> 1. the restructure plan itself,
+> 2. **one task file per slice**, and
+> 3. a **Result section** in it saying what was actually run.
+>
+> **Suspended:** phase `README.md`s, `MasterTaskQueue.md` regeneration, band
+> archiving, the status drift check, concurrency tags, and the
+> zero-open-branches precondition for decomposition. `MasterTaskQueue.md` is
+> frozen — see its own banner.
+>
+> **Why.** This lifecycle produced 13 specs, 23 plans, 40 task folders, 336
+> documents and 59,142 lines, alongside an application the owner had never once
+> opened and used. It is a good process for a product that works; on one that
+> didn't, it was a way of appearing productive. The parts that carried real
+> information — a checklist, and an honest Result — are the parts kept.
+>
+> **Still fully in force:** the four registers (`OpenQuestions`, `Deferred`,
+> `KnownGaps`, `Ideas`), `doc/bug/`, `doc/security/`, and the rule that a caveat
+> raised only in chat does not exist.
+>
+> **Unsuspend when:** the restructure completes and normal multi-plan feature
+> work resumes. Everything below still describes that world accurately.
+
 Executable specs, one folder per phase, plus the global run order.
 
 ```

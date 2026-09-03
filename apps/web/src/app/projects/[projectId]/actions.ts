@@ -12,7 +12,7 @@ import {
   NOT_SIGNED_IN,
   type ActionResult,
 } from "@web/lib/action-result";
-import { slugify, withCollisionSuffix } from "@web/lib/slug";
+import { slugifyShort, withCollisionSuffix } from "@sparstrow/shared";
 
 function generateId(prefix: string) {
   return `${prefix}${crypto.randomUUID().replace(/-/g, "")}`;
@@ -68,7 +68,7 @@ export async function createVariantAction(input: {
   if (!ctx) return actionFail(NOT_SIGNED_IN);
 
   const id = generateId("prj_");
-  const baseSlug = slugify(input.name ?? "");
+  const baseSlug = slugifyShort(input.name ?? "");
   const attempts = [baseSlug, withCollisionSuffix(baseSlug || "project")];
 
   for (let i = 0; i < attempts.length; i++) {

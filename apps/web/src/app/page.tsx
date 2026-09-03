@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@sparstrow/ui/components/ui/table";
+import { MachineList } from "@sparstrow/views";
 import { RunStatusBadge } from "@web/components/run-status-badge";
 import { AttentionQueue } from "@web/components/attention-queue";
 import { SetupCard } from "@web/components/setup-card";
@@ -36,6 +37,40 @@ export default function Home() {
     <div className="space-y-5">
       <SetupCard />
       <AttentionQueue />
+
+      {/*
+        The first screen rendered through the restructured stack:
+        `@sparstrow/views` -> `@sparstrow/core` -> `server/`. `MachineList`
+        knows nothing about Next.js, so the desktop window renders this exact
+        component in Phase 3.
+
+        It belongs here because "is my machine there?" is the question this
+        product exists to answer, and the home page was answering every other
+        question first.
+      */}
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+          <CardTitle className="text-sm">Your machines</CardTitle>
+          <Link
+            href="/machines"
+            className="text-xs text-muted-foreground transition-colors duration-110 hover:text-foreground"
+          >
+            Manage
+          </Link>
+        </CardHeader>
+        <CardContent>
+          <MachineList
+            emptyAction={
+              <Link
+                href="/machines"
+                className="text-sm font-medium text-brand transition-colors duration-110 hover:underline"
+              >
+                Connect a computer
+              </Link>
+            }
+          />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>

@@ -3,7 +3,7 @@ title: Limitations & gotchas
 section: Reference
 description: The honest list — what Sparstrowgen deliberately doesn't do, and the sharp edges to know about.
 order: 1
-updated: 2026-08-22
+updated: 2026-09-02
 ---
 
 Knowing the edges is part of knowing the tool. These are current and deliberate unless
@@ -13,8 +13,8 @@ marked otherwise.
 
 - **Agents run on your machines, never in the cloud.** The cloud holds the board —
   workspace, agents, tasks, runs, memory text — so you can watch and steer from a
-  browser. Execution needs a **paired machine that's switched on**. With none online you
-  can plan, but nothing runs.
+  browser. Execution needs a **connected machine that's switched on**. With none online
+  you can plan, but nothing runs.
 - **Your project files never leave the machine they're on.** Nothing syncs them. If a
   task is queued for a machine that doesn't have the project, it parks with four ways
   out — run it on a machine that does have it, point Sparstrowgen at the copy already
@@ -31,6 +31,11 @@ marked otherwise.
 - **Humans merge.** No agent can merge a PR or push a trunk branch — ever.
 - **Nothing self-approves.** Delegations, quarantined imports, and memory contradictions
   wait in the attention queue until you act.
+- **Browser terminals are owner/admin only, capped at ten per machine, and
+  throttle a flooding command rather than freezing.** A terminal runs with
+  your own full user permissions — not a policy-clamped set — from any
+  browser you're signed in on, which is the largest single grant this app
+  hands out. See [Terminals](/knowledge/terminals).
 
 ## Sign-in
 
@@ -48,7 +53,12 @@ marked otherwise.
   unaffected.
 - **Passwords aren't checked against known breaches** — that screening needs a paid
   plan. Use a password you don't reuse, or skip passwords with the emailed link.
-- **One workspace per person.** There's no workspace switcher yet.
+- **Workspaces are your own, and there's no way to share one.** You can create as many as
+  you like — a personal one and a work one, say — and switch between them from the menu at
+  the top of the sidebar. Inviting other people isn't built, and being added to somebody
+  else's workspace isn't designed for: your computer serves *every* workspace you belong
+  to automatically, which is right while they're all yours and would need a per-machine
+  opt-in if they weren't.
 
 ## Current sharp edges
 
@@ -77,13 +87,21 @@ marked otherwise.
 - **A machine reads unreachable about 90 seconds after it stops.** Status is derived
   from the last check-in, so a crash and a clean shutdown look the same for that
   window — which is why the app says "unreachable" rather than naming a cause.
-- **Pairing codes are single-use and expire.** Generate a new one per machine.
-- **Some settings are per-machine, not per-workspace** — work-in-progress snapshots,
-  for one. You can change them from the browser, but you change them *for one machine
-  at a time*, on the [Machines](/knowledge/machines) page, because machines can
-  legitimately disagree: a
+- **The `sparstrow` CLI isn't published.** The computer running the desktop app connects
+  itself with no command at all, but adding a *different* machine needs a checkout of this
+  repository on it. A connection attempt expires after 5 minutes if nobody confirms it.
+- **A machine's credential acts as you, not as one machine in one workspace.** Anyone who
+  obtains the token file from a computer can reach every workspace you belong to, and
+  queue work on any of your machines, until it's revoked. Tokens don't expire on their
+  own; **Settings → API Tokens** lists them with when each was last used, and revoking one
+  takes effect on that machine's next request. Treat a lost laptop as a reason to revoke.
+- **Some settings are per-machine, not per-workspace** — work-in-progress snapshots and
+  whether a machine allows browser terminals, for two. You can change them from the
+  browser, but you change them *for one machine at a time*, on the
+  [Machines](/knowledge/machines) page, because machines can legitimately disagree: a
   laptop with a small disk and a workstation with a large one have different right
-  answers. The switch is disabled while a machine is offline rather than queueing a
+  answers about snapshots, and a machine's owner may simply want terminals off on that
+  one. Both switches are disabled while a machine is offline rather than queueing a
   change against a computer that is switched off.
 - **Platform quotas come from the hosting plan** (auth requests, connections, realtime
   channels) and change with it. Read them from the Supabase dashboard rather than

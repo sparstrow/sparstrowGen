@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sparstrowgen</title>
+    <!--
+      Locked down deliberately. The renderer talks to `server/` over HTTP and
+      WS and loads nothing from anywhere else, so the policy can say exactly
+      that rather than the permissive default an Electron app usually ships.
+
+      `connect-src` names both the loopback default and any origin the app is
+      pointed at, because `SPARSTROW_SERVER_URL` is configurable — the desktop
+      shell substitutes it at load time in `main.ts`.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https: wss:; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>
