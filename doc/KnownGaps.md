@@ -141,6 +141,34 @@ spawn") — except it didn't even die at spawn, which is arguably worse.
 premise is "pick an agent and it runs on my machine" — so it is a strong
 candidate to close during Phase 4 rather than survive it.
 
+**CONFIRMED with direct evidence, 2026-09-03 (Phase 4).** This was previously a
+prediction from reading `healthCheck()`. It is now measured:
+
+- the daemon registered with `capabilities: ["claude-code","antigravity","ollama"]`
+  — the probe said claude-code was available
+- a real chat turn was enqueued, assigned to that runtime, claimed by the daemon
+  in under 10 seconds, and executed
+- it ran to the full `TURN_TIMEOUT_MS` (120s) and failed with
+  `"the provider timed out"` — no output at all
+- **`claude -p "Reply with exactly one word: ready"` run directly in the same
+  shell produced nothing in 100 seconds either**, while `claude --version`
+  returned `2.1.90` instantly
+
+So the gap is exactly what it said: `--version` succeeding proves the binary
+runs and nothing more, and a capability derived from it will happily route work
+to a machine that cannot complete it.
+
+⚠️ **Caveat on the environment, so this is not over-read.** That measurement was
+taken inside a running Claude Code session, and a nested non-interactive
+`claude -p` may be blocked by that context rather than by anything about the
+owner's setup. What is proved is the *shape* — the probe cannot tell a runnable
+binary from a usable one — not that this machine's CLI is broken.
+
+**What the same run DID prove**, and it is the more important half: enqueue →
+runtime assignment → daemon claim → execution → failure reported back to the
+control plane all work, end to end, in under ten seconds. The dispatch spine is
+sound; only the provider's own readiness is unverified.
+
 ### G-51 — `claude-code`'s `--allowedTools`/`cwd` scoping for a chat turn is unverified live; `antigravity`'s is confirmed NOT to work at all
 
 **Raised:** 2026-08-28, while implementing `T-CS5-03` (Band 26, CS5 chat

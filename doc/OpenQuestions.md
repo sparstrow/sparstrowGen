@@ -13,6 +13,114 @@ When one is answered, record the answer in the plan or task that consumes it and
 
 ---
 
+## OQ-12 — an agent you create in the app does not exist on any machine
+
+**Raised:** 2026-09-03, restructure Phase 4, by sending a real chat turn and
+watching it come back refused.
+**Blocks:** the "pick an agent, send a message" half of the vertical slice. Does
+not block sign-in, machines, or anything already shipped.
+
+### Context
+
+Agents exist in **two** places. The control plane has an `agents` table; each
+machine's daemon has its **own** agent table in local SQLite. Dispatch links
+them **by slug**: a turn carries `agentSlug`, and the daemon looks that slug up
+in its own store.
+
+Nothing puts an agent into a machine's store. Creating one in the web UI writes
+the cloud row and stops there — so the first real turn came back with:
+
+> This machine has no agent with the slug "slice-probe". Create it here, or run
+> this on a machine that has it.
+
+The message is genuinely good. The product story it interrupts is the problem:
+"pick an agent and send it a message" currently has a step in the middle that no
+screen performs, and the app gives you no way to do the thing the error asks for.
+
+### Scenario
+
+You open the app, create an agent called *Researcher*, pick it, and send "what
+changed in this repo this week?"
+
+### Options
+
+**A — The daemon syncs the workspace's agents down**
+
+*What it is:* the daemon pulls the workspace's agent list on register and on
+change, mirroring each cloud agent into its local store. The same one-way sync
+`memory-sync` already does for notes.
+
+*Your scenario, under A:* you create *Researcher*, and within a second or two
+every machine you own can run it. Sending the message just works.
+
+- **Pros:** the story reads the way a person expects — an agent belongs to the
+  workspace, not to a laptop. One place to create things. Works on a second
+  machine with no extra step.
+- **Cons:** every machine gets every agent, including ones meant for a machine
+  it is not. An agent carries `cwd`, `addDirs` and MCP server configs that may
+  name paths that do not exist on that machine — so a synced agent can be
+  *present* and still not runnable, which is a subtler failure than the honest
+  one we get today.
+- **Score: 8/10**
+- **Blast radius if wrong:** Low-moderate. Sync is additive and reversible; the
+  risk is agents that look available and fail at spawn, which is `G-27`'s shape
+  again.
+- **Caveats:** wants the path fields to be per-machine, or resolved at run time,
+  rather than baked into a shared row.
+
+**B — The UI names the machine, and creates the agent there**
+
+*What it is:* creating an agent asks which machine (or machines) it runs on, and
+writes to those daemons' local stores through the existing local API.
+
+*Your scenario, under B:* you create *Researcher*, and the dialog asks where it
+should live. You pick this computer. It runs.
+
+- **Pros:** honest about what an agent is today — a thing configured against one
+  machine's filesystem. Path fields have a real machine to be validated against.
+  No agent is ever present-but-unrunnable.
+- **Cons:** more friction per agent, and it makes "my agents" a per-machine list
+  rather than a workspace one. A second computer means doing it again.
+- **Score: 6/10**
+- **Blast radius if wrong:** Low. It is the conservative option; the cost is
+  friction, not breakage.
+- **Caveats:** gets worse the more machines you own, which is the direction the
+  product is heading.
+
+**C — Cloud agents are the only agents; the daemon stops keeping its own**
+
+*What it is:* delete the local agent store. The turn payload carries the full
+agent definition, and the daemon runs what it is told.
+
+*Your scenario, under C:* identical to A from where you sit — you create it, it
+runs.
+
+- **Pros:** removes the entire class of problem by removing the duplication.
+  One definition, one place, no sync and no drift.
+- **Cons:** the largest change of the three, and it removes something the daemon
+  currently relies on — a machine could no longer run an agent while offline or
+  unclaimed, which `sparstrow setup`'s headless story assumes. Also makes every
+  dispatch payload carry the whole agent.
+- **Score: 7/10** as a destination, 4/10 as the next move.
+- **Blast radius if wrong:** High. It touches the daemon's own model, the local
+  API, and the offline story all at once, in a phase whose goal is to get one
+  path working.
+- **Caveats:** worth revisiting once the slice runs; not the way to make it run.
+
+### Recommendation
+
+**A**, with the path fields treated as the known wrinkle rather than ignored.
+It matches what a person already believes ("I made an agent, it is mine"), it
+reuses a sync shape the daemon already has for memory notes, and it is
+reversible. **B** is the safer answer to a question nobody asked; **C** is
+probably right eventually and is the wrong size for right now.
+
+**Not proceeding on a default here.** Unlike `OQ-9`, this one has no shared
+prefix — A, B and C write different code from the first line — so the slice's
+last beat waits for an answer rather than guessing and rewriting.
+
+---
+
 ## OQ-9 — Where does `server/` actually run?
 
 **Raised:** 2026-09-02, closing Phase 0 of the restructure.
