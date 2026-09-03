@@ -1,5 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { toCamel, toSnake } from "../case";
+import { toCamel, toSnake } from "@sparstrow/shared";
 
 /**
  * This registry deliberately depends on **no web framework at all** — the only

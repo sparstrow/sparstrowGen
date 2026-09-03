@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chatTurnFailureFrom, enqueueFailureFrom } from "./enqueue";
+import { chatTurnFailureFrom, enqueueFailureFrom } from "./enqueue-failure";
 
 /** Shaped like a PostgREST error: the SQLSTATE arrives as `code`. */
 const pgError = (code: string, message = "boom") => ({ code, message, details: null, hint: null });

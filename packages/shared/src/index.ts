@@ -1,5 +1,9 @@
 export * from "./constants";
 export * from "./cloud";
+// The client/server wire contract: the snake<->camel convention both sides must
+// agree on, and the SQLSTATE->HTTP mapping server/ raises and clients switch on.
+export * from "./wire-case";
+export * from "./enqueue-failure";
 export * from "./events";
 export * from "./skill-md";
 export * from "./wake-prompt";

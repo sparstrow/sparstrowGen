@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActorAvatar } from "@/components/actor-avatar";
 import { createClient } from "@web/utils/supabase/server";
 import { getActiveWorkspaceId } from "@web/lib/workspace";
-import { toCamel } from "@web/lib/case";
+import { toCamel } from "@sparstrow/shared";
 import { TeamsPageClient } from "./teams-client";
 
 /**

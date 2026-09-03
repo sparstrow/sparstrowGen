@@ -3,14 +3,20 @@ import {
   ENQUEUE_ERRCODE_REASONS,
   type ChatTurnEnqueueFailureReason,
   type EnqueueFailureReason,
-} from "@sparstrow/shared";
+} from "./cloud";
 
 /**
  * Translating `start_run`'s error contract into HTTP.
  *
  * The SQLSTATEs are defined in `packages/shared/drizzle/policies/009_command_spine.sql`
- * and the token map lives in `@sparstrow/shared`, so three places cannot drift:
- * the function that raises, the client that switches, and this, which converts.
+ * and the token map lives in `./cloud.ts`, so three places cannot drift: the
+ * function that raises, the client that switches, and this, which converts.
+ *
+ * Moved here from `apps/web/src/lib/api/` by restructure Phase 1, which is
+ * where it should always have been — this file *is* the contract between the
+ * two sides, and the comment above already said so by pointing at a SQL file
+ * and a shared token map while sitting in the web app. `server/` raises the
+ * status; `packages/core` switches on the reason. Both import it from here.
  *
  * Pure and separate from the handlers so the mapping is testable without
  * standing up a supabase client — the status code chosen for each failure is a

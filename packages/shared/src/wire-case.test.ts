@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { toCamel, toSnake, OPAQUE_COLUMNS } from "./case";
+import { toCamel, toSnake, OPAQUE_COLUMNS } from "./wire-case";
 
 test("toCamel converts keys", () => {
   expect(toCamel({ created_at: 1 })).toEqual({ createdAt: 1 });

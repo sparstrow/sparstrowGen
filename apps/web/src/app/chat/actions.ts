@@ -1,7 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { CHAT_MESSAGE_MAX_BYTES, executionModeForProvider } from "@sparstrow/shared";
+import {
+  CHAT_MESSAGE_MAX_BYTES,
+  OPAQUE_COLUMNS,
+  chatTurnFailureFrom,
+  executionModeForProvider,
+} from "@sparstrow/shared";
 import type {
   ChatRetryRequest,
   ChatSession,
@@ -21,9 +26,7 @@ import {
   type ActionContext,
   type ActionResult,
 } from "@web/lib/action-result";
-import { chatTurnFailureFrom } from "@web/lib/api/enqueue";
 import { attachmentsByMessageId } from "@web/lib/chat-attachments";
-import { OPAQUE_COLUMNS } from "@web/lib/case";
 
 const CHAT_SESSIONS_OPAQUE = ["draft"];
 const CHAT_SESSION_KINDS = ["free", "project", "agent", "agent-creator"];

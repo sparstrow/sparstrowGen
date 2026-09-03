@@ -1,5 +1,5 @@
 import { registerRoute, ok, fail, HandlerContext } from "../router";
-import { OPAQUE_COLUMNS } from "../../case";
+import { OPAQUE_COLUMNS } from "@sparstrow/shared";
 import { attachmentsByMessageId } from "@web/lib/chat-attachments";
 
 /**

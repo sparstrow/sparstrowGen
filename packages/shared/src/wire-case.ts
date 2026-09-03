@@ -1,3 +1,19 @@
+/**
+ * The wire-format convention: Postgres speaks `snake_case`, clients speak
+ * `camelCase`, and these two functions are the only place that is true.
+ *
+ * Moved here from `apps/web/src/lib/case.ts` by restructure Phase 1. It is a
+ * contract, not a web-app utility — `server/` encodes with `toCamel` on the way
+ * out and decodes with `toSnake` on the way in, and every client must agree
+ * about both. A second copy on the client side would be a second convention.
+ *
+ * `OPAQUE_COLUMNS` is the load-bearing half. These columns hold caller-supplied
+ * JSON whose *own* keys are data, not identifiers — a `payload`, an agent's
+ * `mcp_servers` block, a node's `position`. Converting inside them would
+ * silently rewrite a user's data, so they are copied through untouched. A new
+ * jsonb column that stores anything but a fixed, code-defined shape belongs in
+ * this list.
+ */
 export const OPAQUE_COLUMNS: Record<string, string[]> = {
   run_events:       ["payload"],
   runs:             ["injected_memory", "effective_tools"],

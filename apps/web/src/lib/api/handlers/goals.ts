@@ -1,5 +1,5 @@
 import { registerRoute, ok, fail, noContent, HandlerContext } from "../router";
-import { OPAQUE_COLUMNS } from "../../case";
+import { OPAQUE_COLUMNS } from "@sparstrow/shared";
 
 function generateId(prefix: string) {
   return `${prefix}${crypto.randomUUID().replace(/-/g, "")}`;
