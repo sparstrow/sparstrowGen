@@ -675,88 +675,71 @@ click, once, on one machine.
 
 ---
 
-## G-67 — A packaged desktop install has no `server/` to talk to
+## G-67 — CLOSED 2026-09-03: a packaged install now runs its own `server/`
 
-**Found:** 2026-09-03, by diagnosing why v0.3.1 still showed "No machines yet"
-on the owner's real installation. **This is the reason the app cannot work on a
-clean machine, and it invalidates the environment every previous desktop
-verification was performed in.**
+**Was:** a packaged install shipped only the daemon. The renderer pointed at
+`127.0.0.1:8080`, where nothing listened, and the daemon pointed at
+`https://sparstrow.com`, which answers **402 Payment Required**. The app worked
+on exactly one machine in the world — the developer's — and only while a
+checkout happened to be running beside it. Every desktop verification before
+this was performed in that borrowed environment.
 
-A packaged install ships exactly one background process: the **daemon**
-(`resources/core/dist/index.js`, `server/cmd/daemon.ts`). It does not ship or
-start `server/` — the API every client talks to.
+**Closed by** shipping `server/` as a second bundle (`dist/server.js`)
+supervised by the app beside the daemon, configured from credentials in the OS
+credential store, with both halves pointed at it. `channel.cloudUrl` is dead
+alongside `appUrl`.
 
-The two halves then point at two different places, neither of which works
-standalone:
-
-| Half | Points at | State |
-|---|---|---|
-| Renderer (machines, chat, everything) | `http://127.0.0.1:8080`, hardcoded in `main.ts` unless `SPARSTROW_SERVER_URL` is set | **Nothing listens there** in a packaged install |
-| Daemon (register, heartbeat, claim) | `cloudUrl` from the baked `channel.json` — `https://sparstrow.com` | Returns **402 Payment Required** (Vercel, the `G-54`/`OQ-5` block) |
-
-**Why nobody noticed.** Every desktop verification so far has run on a machine
-with a development stack up — `server/` on :8080 and `apps/web` on :3000. The
-installed app silently used them. Sign-in worked, the workspace query worked,
-the UI looked correct. Stop that dev stack and the same install has no server at
-all.
-
-So "the desktop app works" has never been tested; "the desktop app works **next
-to a running dev checkout**" has.
-
-**This is `OQ-9`'s decision not actually implemented.** The owner chose "`server/`
-runs locally, one per machine" on 2026-09-03 — and nothing was built to make
-that true for an installed app. The decision was recorded and the code was not
-changed.
-
-**Fix, in the shape the decision already implies:** the desktop app supervises
-`server/` the same way it supervises the daemon — a second `extraResources`
-entry and a second child in `ServiceManager`, on a fixed local port, with the
-renderer and the daemon's `cloudUrl` both pointed at it. `channel.json`'s
-`cloudUrl` stops naming a public host until `D-40` unparks hosting.
-
-**If wrong (i.e. left as is):** the installed app works only on the developer's
-own machine, and only while a checkout happens to be running. That is precisely
-the failure mode this whole restructure exists to end — an application that
-appears to work in the one environment where it is never really being used.
-
-**Closes when:** a packaged install opens, signs in, and shows its machine on a
-computer with **no repository checkout and nothing running on :8080 or :3000** —
-and the verification says so explicitly.
-
-### 🟡 Half closed, 2026-09-03 — the app now runs its own server
-
-`server/` ships as a second bundle (`dist/server.js`) and is supervised by the
-desktop app beside the daemon, configured from credentials stored in the OS
-keychain. Both halves now point at it: the renderer via `serverUrl()`, the
-daemon via `SPARSTROW_CLOUD_URL`, which no longer comes from `channel.cloudUrl`
-(that field named the host answering 402 and is dead alongside `appUrl`).
-
-Verified from a genuinely cold start — every process killed, `SUPABASE_*`,
-`NEXT_PUBLIC_SUPABASE_*` and `SPARSTROW_*` explicitly unset with `env -u`, so
-the configuration could only have come from the keychain:
+**Proof — the INSTALLED build, on a machine with nothing running.** Ports
+checked empty first (`8080: 0  48750: 0`), then
+`Sparstrowgen Setup 0.3.2.exe` installed silently and launched from the Start
+Menu path, no environment variables, no checkout involved:
 
 ```
-[server] spawned pid=43420
-[service] spawned core pid=23148 (detached)
+[main] loading window: …\Programs\Sparstrowgenesourcespp.asar\outenderer\index.html
+[server] spawned pid=48096
+[service] spawned core pid=44308 (detached)
 [server] healthy
 [service] core is healthy
 [claim] launch: this computer is in 1 workspace(s) (mach_9fac26a1…)
-Your machines / Sri desktop / Windows · DESKTOP-GJ8NLB8 · Online
 ```
 
-**What is still open, and why this entry stays.** That run was `npx electron`
-against a built tree, not an installed `.exe` on a machine with no checkout.
-The remaining unknowns are packaging-shaped, not design-shaped: whether
-`prepare-resources.mjs` stages `dist/server.js` into a real installer (it now
-asserts it does), and whether the bundled Node runs it. **Do not close this
-until an installed build does it on a computer with no repository.**
+and the daemon's own account of itself:
 
-### And a related gap this exposed: signing in still needs `apps/web`
+```json
+{"connected":true,"machineId":"mach_9fac26a1…","workspaces":1,
+ "cloudUrl":"http://127.0.0.1:8080","uptimeMs":85522}
+```
 
-Pairing works without it — the stored credential is enough. But the `/connect`
-confirm page a *first* sign-in opens is a Next.js page, so a fresh install on a
-new machine still cannot complete sign-in without `apps/web` running somewhere.
-`server/` builds the confirm URL from `SPARSTROW_WEB_ORIGIN`, which defaults to
-`http://localhost:3000`. Tracked here rather than as its own entry because it
-has the same root and the same fix shape: either serve the confirm page from
-`server/`, or unpark hosting (`D-40`).
+`cloudUrl` is the local server, not the host that answers 402. That single
+field is the whole gap, closed.
+
+**What this deliberately does NOT claim.** The machine was already signed in.
+A *first* sign-in on a new computer still needs `apps/web`, because the
+`/connect` confirm page is a Next page — see `G-68`. And the test machine is
+the one the app was built on; a genuinely foreign computer has still never run
+this, so "no checkout involved" is proved and "no developer tooling installed
+anywhere" is not.
+
+---
+
+## G-68 — A first sign-in still needs `apps/web` running
+
+**Opened:** 2026-09-03, splitting out of `G-67` as the part that did not close.
+
+Pairing needs no web app — a stored credential is enough, which is why an
+already-signed-in machine now works entirely on its own. But the `/connect`
+confirm page a *first* sign-in opens is a Next.js page in `apps/web`.
+`server/` builds the confirm URL from `SPARSTROW_WEB_ORIGIN`, defaulting to
+`http://localhost:3000`, and nothing serves that in a packaged install.
+
+So: **a new computer cannot complete its first sign-in from the desktop app
+alone.** Updating or re-launching an already-connected computer is unaffected.
+
+**If wrong (i.e. left as is):** the app can only ever be adopted by someone who
+already has the repository, which is the same class of "works only where it was
+built" problem `G-67` was.
+
+**Closes when** either the confirm page is served by `server/` (it is one page
+and one approve action — the write is already a Server Action that Phase 5 has
+to port anyway), or hosting is unparked (`D-40`). Serving it locally is the
+smaller of the two and does not need TLS.
