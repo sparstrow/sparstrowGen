@@ -79,3 +79,31 @@ gh api -X PATCH "repos/<owner>/<repo>/releases/<id>" \
 before publishing — a feed whose version disagrees with the installer is read by
 every client as "already up to date", which would have looked like a successful
 release that shipped nothing.
+
+---
+
+## Follow-up, same day — the verification step added above then hung the next release
+
+**`curl -u ""` makes curl prompt for a password.** On a runner with no terminal
+that waits forever.
+
+The "Prove the update feed is live" step passed `-u ""` to force an anonymous
+fetch. That was unnecessary — curl sends no credentials of its own; the runner's
+`GITHUB_TOKEN` lives in `gh`'s environment, not curl's — and it was actively
+broken.
+
+On v0.3.1's release every prior step succeeded, **the release published
+correctly and its feed was live**, and the step whose entire job is to confirm
+that hung the run. A verification step that can hang is worse than no
+verification step, because it fails a run that succeeded and it teaches the next
+reader to distrust a red build.
+
+Fixed with `--max-time 30`, `--retry` for GitHub's own post-publish propagation
+delay, and a `timeout-minutes: 45` on the job so no future step can hold a
+runner for GitHub's six-hour default.
+
+**The lesson worth keeping:** this file already documents one failure where the
+last step reported a disaster about a healthy release. That is now twice. Both
+times the release was fine and the *checking* was broken — which is an argument
+for keeping the number of things that run after a successful publish small, and
+for every one of them being bounded in time.
