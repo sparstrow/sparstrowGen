@@ -1,35 +1,73 @@
 # .sparstrowgen/blueprint.yaml — the single place stack/command facts live.
 # Agent/skill instructions reference these instead of restating them inline.
 # Source of truth for prose remains AGENTS.md §1; keep this file in sync with it.
+#
+# 2026-09-02: rewritten for the multica-architecture restructure.
+# See doc/plans/2026-09-02-multica-architecture-restructure.md
+# Entries marked `target: true` describe where phases 1-3 are taking the repo;
+# until those land, the old shape may still be on disk.
 
 project:
   name: sparstrowgen
   type: web
 
 stack:
+  # ONE server. Every client talks to it over HTTP/WS and nothing else
+  # touches the database. This is the load-bearing fact of the whole repo.
+  server:
+    target: true
+    language: "TypeScript"
+    framework: "Fastify (HTTP + WebSocket)"
+    runtime: "Node.js 22"
+    location: "server/"
+    entrypoints:
+      api: "server/cmd/server.ts"
+      daemon: "server/cmd/daemon.ts"
+      migrate: "server/cmd/migrate.ts"
+  clients:
+    web: "Next.js 16.3 (App Router, Turbopack) — apps/web"
+    desktop: "Electron + Vite React SPA (electron-vite) — apps/desktop"
+    mobile: "Expo — apps/mobile (not started)"
+  shared_packages:
+    target: true
+    core: "@sparstrow/core — ApiClient, WSClient, TanStack Query, Zustand. Client logic only, no UI."
+    views: "@sparstrow/views — feature UI per domain"
+    ui: "@sparstrow/ui — shadcn primitives + design tokens"
+    shared: "@sparstrow/shared — Zod contracts + Drizzle schema, imported by both sides"
+    note: "Export .ts source directly. No build step, no dist/."
   frontend:
-    framework: "Next.js 16.3 (App Router, Turbopack)"
     styling: "Tailwind CSS v4"
     ui: "Radix UI + @sparstrow/ui (shadcn)"
-    state: "TanStack Router via custom navigation adapter"
-  backend:
-    language: "TypeScript"
-    framework: "Next.js route handlers + @sparstrow/core"
-    runtime: "Node.js"
+    routing: "plain next/navigation in apps/web; plain SPA router in apps/desktop. No adapter."
+    data: "@sparstrow/core (TanStack Query + Zustand) — never fetch directly"
   database:
-    engine: "Supabase Postgres"
+    engine: "Supabase Postgres (cloud control plane)"
     orm: "Drizzle ORM"
-    vector: "local sqlite-vec (FastEmbed, 384-dim) — not cloud pgvector"
-  desktop:
-    shell: "Electron 36"
+    local_dev: "supabase start (Docker) per feature branch"
+    accessed_by: "server/ ONLY — no client imports @supabase/*"
+    migrations: "packages/shared/drizzle/apply-pending.mjs (NOT drizzle-kit migrate — see KnownGaps G-60)"
+    vector: "parked (Deferred D-31) — was local sqlite-vec + FastEmbed 384-dim; never cloud pgvector"
+  auth:
+    provider: "Supabase Auth, verified by server/"
+    clients: "server-issued session token; desktop signs in via browser loopback"
+  realtime:
+    transport: "server-owned WebSocket (NOT Supabase Realtime)"
   infra:
     host: "Vercel (apps/web)"
     package_manager: "pnpm 11.6.0"
-    monorepo: "Turbo 2.9.18"
+    monorepo: "Turbo 2.9.18 with pnpm catalog: for single-version deps"
+
+environments:
+  # staging was retired 2026-09-02 — one Supabase project serves both.
+  branches: "slice/* -> development -> main"
+  supabase: "one shared cloud project for development and main; local Docker per feature branch"
 
 commands:
   install: "pnpm install"
-  dev: "turbo run dev"
+  dev: "make up"          # local Supabase + server + app
+  down: "make down"
+  status: "make status"
+  check: "make check"     # typecheck + tests + desktop smoke
   build: "turbo run build"
   test: "turbo run test"
   typecheck: "turbo run typecheck"

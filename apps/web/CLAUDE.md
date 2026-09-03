@@ -10,49 +10,71 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-## New surfaces are Server Components
+# ⛔ The rules that used to be in this file have been reversed
 
-Build new routes in the App Router idiom, not the transitional one:
+**2026-09-02.** This file previously said, in bold, **"A new write is a Server
+Action. Always."** It also told you to query Supabase directly from `page.tsx`.
 
-- `page.tsx` is a Server Component. Do the auth check and the data query there,
-  against Supabase directly — not via `fetch` to our own `/api/v1`.
-- Push `"use client"` down to the smallest interactive island.
-- Ordinary writes are Server Actions with `revalidatePath`, not a POST to
-  `/api/v1` followed by a React Query invalidation.
-- Page components live in `apps/web/src/app/<route>/`, not in `packages/ui`.
-  `packages/ui` is the design system: `components/ui/*`, tokens, `cn()`.
+**Both are now forbidden.** See `AGENTS.md` §1 and the
+[restructure plan](../../doc/plans/2026-09-02-multica-architecture-restructure.md).
 
-**Exception — streaming.** Server Actions do not stream. A live byte stream (a
-terminal, a run transcript) needs a route handler or WebSocket. Using one is
-not a violation of the above.
+This is the single most important correction in the repo, so it is worth stating
+why rather than just what.
 
-The ~25 existing pages do **not** follow this yet — they re-export client
-components from `packages/ui` and fetch via React Query. That is a known
-transitional state (`doc/Deferred.md` D-25), and is **not a pattern to copy.**
-The modules still stubbed in `src/lib/api/handlers/stubs.ts` — Terminals,
-host-fs, project files, goals, agent draft and the rest — should each be built
-the new way.
+## What changed, and why
 
-## Writes: every one of them, not just the new ones
+`apps/web` is no longer *the* app. It is one of three clients — web, desktop,
+and later mobile — that all render the same `packages/views` components against
+the same `packages/core` data layer, talking to one `server/`.
 
-**Decided by the owner on 2026-08-24 (`OQ-7`, option A).** The write rule above
-is not aspirational and is not applied opportunistically: **every existing
-`useMutation` + `router.refresh()` pair is being rewritten as a Server Action
-with `revalidatePath`**, on every page, whether or not anything else is touching
-that page. 98 mutation hooks across 28 files are in scope. The work is
-[`doc/plans/2026-08-24-server-action-write-conversion.md`](../../doc/plans/2026-08-24-server-action-write-conversion.md).
+A **Server Action is only callable from inside a Next.js render.** So every write
+built as a Server Action is a feature the desktop app and the mobile app can
+never have. That is not a theoretical cost: the previous rule made `apps/web` the
+only possible client, which forced the desktop app to ship a whole Next.js server
+inside Electron alongside a second Node runtime and four native modules — and
+that packaging problem is why the app was never once opened and used in five
+months of work.
 
-Two things follow for anyone writing a write here:
+The same logic applies to querying Supabase from `page.tsx`. A page that talks to
+the database directly is a page only this app can render.
 
-- **A new write is a Server Action. Always.** There is no "but the page next to
-  it does it the old way" exception any more — that exception is exactly what
-  option A was chosen to remove.
-- **If you find a `useMutation` still in place, it is a not-yet-converted one,
-  not a precedent.** `T-VR-05` left `teams`' create button on the old pattern
-  as a deliberate scope call; it is a leftover, and it is on the conversion
-  list like everything else.
+## The rules now
 
-The owner chose this over converting opportunistically (option C, which the
-question recommended) with the cost stated: ~20 pages of rewrite that no user
-will ever see the result of. That cost was accepted deliberately — do not
-re-litigate it in a task, and do not quietly narrow the scope back to C.
+- **Writes are HTTP routes in `server/`**, called through `packages/core`'s
+  `ApiClient` via a TanStack Query mutation. Never a Server Action.
+- **Reads are `packages/core` queries**, not direct Supabase calls and not
+  `page.tsx` database access.
+- **No file under `apps/web/src` imports `@supabase/*`** — except the auth
+  callback, which is genuinely web-only. `server/` owns the database.
+- **Feature UI lives in `packages/views`**, so desktop renders the same screen.
+  `apps/web/src/app/<route>/page.tsx` becomes a thin shell: layout, metadata,
+  and the view component.
+- **`packages/ui` stays the design system** — `components/ui/*`, tokens, `cn()`.
+
+**Streaming** still needs a route handler or WebSocket, as before — but it is now
+the server-owned WebSocket in `packages/core`'s `WSClient`, not Supabase
+Realtime.
+
+## What you will find in the tree, and what to do about it
+
+The 44 Server Actions across 18 `actions.ts` files are **not a pattern to
+copy** — they are the thing being reversed. Restructure Phase 5 moves them into
+`server/` one feature at a time, rejoining the route registry
+(`src/lib/api/router.ts`, 71 routes across 19 handler modules) that was never
+removed and still serves every read.
+
+If you are touching a page that still uses a Server Action and your change is
+small, leaving it is fine — the reversal is deliberately not on the critical
+path. If you are adding a write, add it the new way.
+
+**Do not restore the old rule** on the grounds that most of the code still
+follows it. The old rule is why the code looks like that.
+
+## The record of the decision this reverses
+
+The previous rule came from `OQ-7`, answered by the owner on 2026-08-24 with
+option A — convert everything now — over the recommended option C. That plan was
+executed correctly and completely. What nobody drew at the time was the line
+between "all writes are Server Actions" and "the desktop app cannot be built".
+The full note is in the
+[superseded plan](../../doc/plans/2026-08-24-server-action-write-conversion.md).
