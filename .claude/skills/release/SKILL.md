@@ -68,12 +68,24 @@ That is the whole procedure. The workflow then, on its own:
 Within 30 minutes every installed app shows **Update available**; the person
 using it chooses whether to download and whether to install.
 
-## Merging to `main` is still the owner's call
+## The agent merges it, as of 2026-09-03
 
-`AGENTS.md` §2 rule 8 is unchanged and this skill does not override it: an agent
-may open the `development` → `main` PR, and only the owner may merge it. Under
-this workflow that merge is also the release approval, which is exactly why it
-stays a human decision.
+The owner removed the approval gate that used to sit here (`AGENTS.md` §2 rules
+6, 8 and 9). An agent opens the `development` → `main` PR **and merges it**, and
+no "approved, ship it" is required.
+
+**So the judgement moved rather than disappeared.** Bumping the version in that
+diff is the entire decision to ship a build onto the owner's machine. Before
+merging one:
+
+- satisfy `AGENTS.md` §3.10 — the app has to have been *run*, not just tested
+- be able to state what you actually ran, in the task's Result section
+- if you cannot, **leave the version alone**. A promotion PR with no version
+  bump lands the work on `main` and publishes nothing, which is the right move
+  whenever you are not confident the build is one the owner should be running.
+
+The old gate's real function was to stop an unverified build reaching a person.
+That still needs stopping; there is just no longer anyone else to do it.
 
 ## When a release does not appear
 
