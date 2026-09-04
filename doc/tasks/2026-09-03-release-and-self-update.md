@@ -1,7 +1,8 @@
 # Release the app, and let it update itself
 
 **Branch:** `claude/multica-app-architecture-0a3e6f`
-**Status:** 🟡 **Built and verified; the release itself waits on the owner.**
+**Status:** ✅ **Complete.** v0.3.0–v0.3.3 published. The owner removed the
+approval gate on 2026-09-03 (`AGENTS.md` §2.8), so nothing waits on it.
 The `development` → `main` merge is an owner-only gate (AGENTS.md §2 rule 8) and
 that merge is now also the release gesture, so it is deliberately not taken here.
 
