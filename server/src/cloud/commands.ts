@@ -33,6 +33,7 @@ import { pullOnce } from "./memory-sync.js";
 import { discoverProviderModels } from "./provider-discovery.js";
 import { reportSettings } from "./registration.js";
 import { resolveAgent } from "./resolve.js";
+import { ensureAgentLocal } from "./agent-sync.js";
 import { markDispatched } from "./run-reporter.js";
 import { cacheWorkspacePolicy } from "../agents/tool-resolution.js";
 import { killAllSessions } from "../terminal/manager.js";
@@ -168,19 +169,29 @@ async function poll(): Promise<void> {
 async function dispatch(command: ClaimedCommand): Promise<void> {
   try {
     switch (command.kind) {
-      case "run.start":
-        await ackResult(command, startRun(command.payload as unknown as RunStartPayload));
+      case "run.start": {
+        // OQ-12 option A. An agent created in the app is only a cloud row until
+        // this machine pulls it down, and a dispatch is the moment we learn the
+        // local copy is stale. Done here, in the async loop, so `startRun` and
+        // `resolveAgent` stay synchronous.
+        const start = command.payload as unknown as RunStartPayload;
+        await ensureAgentLocal(start.agentSlug);
+        await ackResult(command, startRun(start));
         return;
+      }
       case "run.cancel":
         await ackResult(command, cancelRun(command.payload as unknown as RunCancelPayload));
         return;
-      case "chat.turn":
+      case "chat.turn": {
         // M12: unlike every case above, this ack does NOT mean the work is
         // done — only that it has started. Completion is reported through
         // T-M12-03's own routes, the same split `run.start`'s ack/status
         // reporting already has. See chat-turn.ts's own header comment.
-        await ackResult(command, runChatTurnCommand(command.payload as unknown as ChatTurnStartPayload));
+        const turn = command.payload as unknown as ChatTurnStartPayload;
+        await ensureAgentLocal(turn.agentSlug);
+        await ackResult(command, runChatTurnCommand(turn));
         return;
+      }
       case "project.clone": {
         const result = await cloneProject(command.payload as unknown as ProjectClonePayload);
         await ackResult(command, result.ok ? { ok: true } : result);

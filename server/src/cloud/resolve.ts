@@ -50,7 +50,12 @@ function readLink(kind: LinkKind, cloudId: string): string | null {
   return row?.localId ?? null;
 }
 
-function writeLink(kind: LinkKind, cloudId: string, localId: string): void {
+/**
+ * Exported for `agent-sync.ts`, which writes the link at pull time rather than
+ * leaving `resolveAgent` to discover it by slug on the first dispatch. Same
+ * function, so there stays one definition of what a link is.
+ */
+export function writeLink(kind: LinkKind, cloudId: string, localId: string): void {
   const db = getDb();
   // A local row can be re-linked to a different cloud row (the workspace's
   // agent was recreated), so the old link for that local id has to go first or
