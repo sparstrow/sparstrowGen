@@ -115,7 +115,11 @@ story "pick an agent and send it a message" currently has a step in the middle
 that nothing in the UI performs. This needs a decision, not a patch — filed as
 [`OQ-12`](../OpenQuestions.md).
 
-**2. [`G-27`](../KnownGaps.md) is confirmed, with measurements.** It was a
+**2. [`G-27`](../KnownGaps.md) is confirmed, with measurements** — though see
+the 2026-09-03 update in that entry: re-run from a clean environment, the CLI
+turned out to work fine and the real causes were an expired OAuth token plus a
+turn timeout shorter than the CLI's retry ladder. The nested-session caveat
+below was the right thing to write, and the theory in it was wrong. It was a
 prediction from reading `healthCheck()`; it is now evidence. The probe reported
 `claude-code` available, a turn ran to the full 120s ceiling and failed with
 *"the provider timed out"*, and `claude -p` run **directly in the same shell**
@@ -130,10 +134,18 @@ complete — not that the owner's CLI is broken.
 
 ## What is left, and why it is not a patch
 
-- **`POST /chat/sessions` and `POST /chat/sessions/:id/messages` do not exist in
-  `server/`.** Sending a message is still a Server Action, so the desktop app
-  cannot send one. That is Phase 5 work reached early, and it is the right next
-  slice.
+- ~~**`POST /chat/sessions` and `POST /chat/sessions/:id/messages` do not exist
+  in `server/`.** Sending a message is still a Server Action, so the desktop app
+  cannot send one.~~
+
+  ⚠️ **Corrected 2026-09-03: both routes exist.** They are real handlers in
+  `server/src/routes/handlers/chat.ts` — validation, workspace scoping, an
+  `enqueue_chat_turn` call — landed by `558ad25 feat(server): chat writes are
+  HTTP routes`. The gap is one layer up: `packages/core/src/chat/` has
+  `queries.ts` and **no `mutations.ts`**, so the client can read chat and not
+  write it. That makes the remaining work *wire the client*, not *port the write
+  path*, which is a much smaller slice. Left struck through rather than deleted
+  because it was planned against for a day.
 - **No WebSocket yet**, so "output streams back" has no transport. The polling
   fallback already proves the data path; the WS is a latency improvement over a
   working design, not a missing foundation.
