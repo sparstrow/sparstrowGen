@@ -1,7 +1,7 @@
 {
   "name": "@sparstrow/desktop",
   "productName": "Sparstrowgen",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "private": true,
   "description": "Sparstrowgen desktop shell",
   "main": "out/main/index.js",
