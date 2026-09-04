@@ -46,10 +46,24 @@ export function startFileLogging(logDir: string): void {
       // No existing file, or a rename that lost a race. Either is fine.
     }
 
-    const stream = fs.createWriteStream(file, { flags: "a" });
+    let stream: fs.WriteStream | null = fs.createWriteStream(file, { flags: "a" });
     currentPath = file;
 
+    // `createWriteStream` returns before the fd is actually open — a transient
+    // failure to open (antivirus holding a just-installed directory, e.g.)
+    // surfaces as an async 'error' event, not a throw the try/catch below can
+    // see. Unhandled, that event is fatal to the process. Handled, logging for
+    // this session just goes dark instead of taking the app down with it —
+    // `console[level]` below already prints to the real console as a fallback.
+    // See BUG-2026-09-03-update-restart-leaves-broken-install-and-silences-
+    // main-log.md, where main.log went silent for an entire incident with no
+    // trace of why.
+    stream.on("error", () => {
+      stream = null;
+    });
+
     const write = (level: string, args: unknown[]) => {
+      if (!stream) return;
       const line = args
         .map((a) => {
           if (typeof a === "string") return a;
