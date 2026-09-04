@@ -357,7 +357,20 @@ An agent created in the app is only a cloud row; the daemon links agents by slug
 in its local SQLite, so a dispatched turn fails with *"This machine has no agent
 with the slug …"*. This is the one missing link in an otherwise proved chain.
 
-#### 4c. Wire chat sending in the client
+#### 4c. Command delivery ✅ — **done 2026-09-04; a real turn returned "PONG"**
+
+Ported `/commands`, `/commands/:id/ack`, `/chat/turns/:id/events` and
+`/chat/turns/:id/result`. The daemon router gained path parameters. The Realtime
+broadcast is deliberately not ported (`D-37`), so a reply lands on completion
+rather than streaming.
+
+**It also found that the provider-env fix merged the day before was inert** — a
+mangled escape made both registry reads throw, so every group fell back to
+ambient. The unit tests only covered the fallback and the manual check used a
+separate copy of the parser, so both were green. Guarded now by two source
+assertions and a Windows-only read of `HKCU\Environment`.
+
+#### 4d. Wire chat sending in the client
 
 Add `packages/core/src/chat/mutations.ts` against the routes that **already
 exist** (see *Corrections*), plus a chat surface in `packages/views`. No new

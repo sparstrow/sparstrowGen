@@ -110,7 +110,7 @@ export interface DiscoveredProviderEnv {
 function readRegistryEnv(root: string, path: string): Record<string, string> {
   let raw: string;
   try {
-    raw = execFileSync("reg", ["query", `${root}\${path}`], {
+    raw = execFileSync("reg", ["query", `${root}\\${path}`], {
       encoding: "utf8",
       windowsHide: true,
       timeout: 5000,
@@ -156,7 +156,7 @@ export function discoverProviderEnv(): DiscoveredProviderEnv {
       ? {
           ...readRegistryEnv(
             "HKLM",
-            "SYSTEM\CurrentControlSet\Control\Session Manager\Environment",
+            "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
           ),
           ...readRegistryEnv("HKCU", "Environment"),
         }

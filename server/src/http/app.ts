@@ -168,8 +168,8 @@ export async function buildServer({ config, auth }: BuildOptions): Promise<Fasti
       try {
         const url = new URL(req.url, `http://${config.host}:${config.port}`);
         const path = url.pathname.replace(/^\/api\/daemon/, "") || "/";
-        const handler = matchDaemonRoute(req.method, path);
-        if (!handler) return sendResponse(reply, fail(404, "Not Found"));
+        const match = matchDaemonRoute(req.method, path);
+        if (!match) return sendResponse(reply, fail(404, "Not Found"));
 
         // Rebuilt as a web `Request` because that is what these handlers took
         // when they lived in Next, and keeping the signature is what made the
@@ -184,7 +184,7 @@ export async function buildServer({ config, auth }: BuildOptions): Promise<Fasti
               : JSON.stringify(req.body),
         });
 
-        return sendResponse(reply, await handler(request, daemonCtx));
+        return sendResponse(reply, await match.handler(request, daemonCtx, match.params));
       } catch (err) {
         return sendResponse(reply, handleError(err));
       }

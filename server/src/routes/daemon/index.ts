@@ -1,14 +1,43 @@
 import { randomBytes } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
+  COMMAND_LEASE_MS,
   HEARTBEAT_STALE_AFTER_MS,
   isLoopbackCallback,
+  type AckRequest,
   type ClaimMachineResponse,
+  type ClaimResponse,
+  type ClaimedCommand,
+  type CommandFailureReason,
   type HeartbeatResponse,
   type StartConnectAttemptResponse,
 } from "@sparstrow/shared";
 import { authenticateMachine, authenticateRuntime, hashToken } from "./auth.js";
 import { authFailureResponse, daemonError, parseIdentity, readJson } from "./respond.js";
+import {
+  MAX_CHAT_BATCH_BYTES,
+  latestOf,
+  parseChatEventBatch,
+  parseChatResult,
+} from "./chat-transcript.js";
+import { boardEffectFor } from "./reconcile.js";
+
+/**
+ * Byte size of a parsed body, for the batch ceilings above.
+ *
+ * Ported alongside the routes rather than pulled from a shared module: it is
+ * four lines, and the alternative was carrying `transcript.ts`'s other 160 for
+ * the run-events path that is not ported yet.
+ */
+function approximateBodyBytes(body: unknown): number {
+  try {
+    return Buffer.byteLength(JSON.stringify(body) ?? "", "utf8");
+  } catch {
+    // Circular or otherwise unserialisable. It cannot have come from JSON.parse,
+    // so treat it as malformed rather than as enormous.
+    return 0;
+  }
+}
 
 /**
  * The daemon protocol, served by `server/`.
@@ -56,17 +85,68 @@ export type DaemonContext = {
   webOrigin: string;
 };
 
-type DaemonHandler = (request: Request, ctx: DaemonContext) => Promise<Response>;
+/** Values captured from `:name` segments in the route path. */
+export type DaemonParams = Record<string, string>;
 
-/** Path (below `/api/daemon`) and method → handler. */
-const ROUTES = new Map<string, DaemonHandler>();
+type DaemonHandler = (
+  request: Request,
+  ctx: DaemonContext,
+  params: DaemonParams,
+) => Promise<Response>;
+
+type Entry = { method: string; segments: string[]; handler: DaemonHandler };
+
+/**
+ * Method + path (below `/api/daemon`) → handler.
+ *
+ * A list rather than a map because the daemon protocol has parameterised paths
+ * (`/commands/:id/ack`, `/chat/turns/:id/events`). Exact routes are still
+ * matched first, so a literal segment always beats a `:param` that could also
+ * accept it — otherwise adding a `/commands/:id` route would start swallowing a
+ * future `/commands/pending`.
+ */
+const ROUTES: Entry[] = [];
 
 function route(method: string, path: string, handler: DaemonHandler): void {
-  ROUTES.set(`${method} ${path}`, handler);
+  ROUTES.push({ method, segments: path.split("/").filter(Boolean), handler });
 }
 
-export function matchDaemonRoute(method: string, path: string): DaemonHandler | null {
-  return ROUTES.get(`${method.toUpperCase()} ${path}`) ?? null;
+export type DaemonMatch = { handler: DaemonHandler; params: DaemonParams };
+
+export function matchDaemonRoute(method: string, path: string): DaemonMatch | null {
+  const wanted = method.toUpperCase();
+  const parts = path.split("/").filter(Boolean);
+
+  let fallback: DaemonMatch | null = null;
+
+  for (const entry of ROUTES) {
+    if (entry.method !== wanted || entry.segments.length !== parts.length) continue;
+
+    const params: DaemonParams = {};
+    let matched = true;
+    let literal = true;
+
+    for (let i = 0; i < entry.segments.length; i += 1) {
+      const segment = entry.segments[i] as string;
+      const actual = parts[i] as string;
+      if (segment.startsWith(":")) {
+        // An empty segment cannot fill a parameter — `/commands//ack` must not
+        // resolve to an ack for the command with the empty id.
+        if (!actual) { matched = false; break; }
+        params[segment.slice(1)] = decodeURIComponent(actual);
+        literal = false;
+      } else if (segment !== actual) {
+        matched = false;
+        break;
+      }
+    }
+
+    if (!matched) continue;
+    if (literal) return { handler: entry.handler, params };
+    fallback ??= { handler: entry.handler, params };
+  }
+
+  return fallback;
 }
 
 // ── connect ─────────────────────────────────────────────────────────────────
@@ -409,6 +489,435 @@ route("GET", "/agents", async (request, { db }) => {
   if (error) return daemonError(500, "server_error", error.message);
   return Response.json({ agents: data ?? [] });
 });
+
+
+// ── command delivery ────────────────────────────────────────────────────────
+//
+// Ported from `apps/web/src/app/api/daemon/commands/*`. Without these a turn
+// can be assigned in the cloud and the daemon has nothing to poll, so it never
+// learns about it — which is what stood between 4b landing and an agent
+// actually replying.
+//
+// **The Supabase Realtime broadcast is deliberately NOT ported.** The
+// restructure replaced Realtime with a server-owned WebSocket (`D-37` parks the
+// Realtime bridge), so the durable write is carried across and the fan-out is
+// not. The consequence is stated rather than hidden: a reply lands when the
+// turn completes instead of streaming in progressively. Wiring it to
+// `server/src/ws` is the follow-up.
+
+/**
+ * "What have you got for me?" — the daemon's poll.
+ *
+ * A GET with no body, on purpose. Everything it needs — which runtime, which
+ * workspace — comes from the bearer token. A POST would invite a parameter, and
+ * the first one anyone would reach for is a runtime id, which is exactly the
+ * thing that must never come from the caller.
+ *
+ * Atomicity lives in `claim_runtime_commands`: one UPDATE ... RETURNING with
+ * FOR UPDATE SKIP LOCKED, which is what stops two polls — or two machines
+ * racing a re-dispatch after a lease expiry — from both getting the same row.
+ *
+ * Empty is the common answer and is not an error. A machine idle overnight asks
+ * about 28,000 times and gets `{ commands: [] }` every time.
+ */
+route("GET", "/commands", async (request, { db }) => {
+  const auth = await authenticateRuntime(db, request);
+  if (!auth.ok) return authFailureResponse(auth.failure);
+
+  const { data, error } = await db.rpc("claim_runtime_commands", {
+    p_runtime_id: auth.scope.runtimeId,
+    p_limit: 10,
+    p_lease_ms: COMMAND_LEASE_MS,
+  });
+
+  if (error) return daemonError(500, "server_error", "Could not claim commands.");
+
+  // Belt and braces: the RPC already scopes to the runtime, and a runtime
+  // belongs to exactly one workspace. It stays because this route holds the
+  // service role, and "the id was already scoped upstream" is precisely the
+  // reasoning that produced M2's cross-workspace defects.
+  const rows = (data ?? []) as Array<Record<string, unknown>>;
+  const commands: ClaimedCommand[] = rows
+    .filter((row) => row.workspace_id === auth.scope.workspaceId)
+    .map((row) => ({
+      id: row.id as string,
+      kind: row.kind as ClaimedCommand["kind"],
+      payload: (row.payload ?? {}) as Record<string, unknown>,
+      attempts: (row.attempts as number) ?? 0,
+      leaseExpiresAt: (row.lease_expires_at as string | null) ?? null,
+      createdAt: row.created_at as string,
+    }));
+
+  const { data: workspace } = await db
+    .from("workspaces")
+    .select("allowed_tools, disallowed_tools")
+    .eq("id", auth.scope.workspaceId)
+    .maybeSingle();
+
+  const response: ClaimResponse = {
+    commands,
+    workspaceTools: workspace
+      ? {
+          allowedTools: (workspace.allowed_tools as string[]) ?? [],
+          disallowedTools: (workspace.disallowed_tools as string[]) ?? [],
+        }
+      : undefined,
+  };
+  return Response.json(response);
+});
+
+const ACK_REASONS = new Set<CommandFailureReason>([
+  "project_not_available",
+  "agent_not_available",
+  "agent_disabled",
+  "spawn_failed",
+  "clone_failed",
+  "setting_not_allowed",
+  "unknown_kind",
+]);
+
+/**
+ * "Here is what happened to that command."
+ *
+ * Two jobs, and the split between them is the security boundary:
+ *
+ * 1. Close the command row — `ack_runtime_command`, scoped to the runtime that
+ *    claimed it, and idempotent, because a daemon retries an ack whose response
+ *    was lost and an error on the retry would tell it to redo finished work.
+ *
+ * 2. Translate the failure reason into BOARD state. That happens HERE, from a
+ *    closed set of tokens, never in the daemon. A daemon able to write task
+ *    statuses directly could mark every task in a workspace done; dispatch
+ *    already means a task row can run code on someone's machine, and it must
+ *    not also mean a machine can rewrite the board.
+ */
+route("POST", "/commands/:id/ack", async (request, { db }, params) => {
+  const auth = await authenticateRuntime(db, request);
+  if (!auth.ok) return authFailureResponse(auth.failure);
+
+  const id = params.id as string;
+  const body = (await readJson(request)) as AckRequest | null;
+  const status = body?.status;
+
+  if (status !== "done" && status !== "failed") {
+    return daemonError(400, "invalid_request", "status must be done or failed.");
+  }
+  const reason = body?.reason && ACK_REASONS.has(body.reason) ? body.reason : null;
+
+  // Read BEFORE acking, for the payload. Reading first keeps the ordering
+  // obvious: learn which run and task this was about, close it, reconcile.
+  const { data: command } = await db
+    .from("runtime_commands")
+    .select("id, kind, payload, workspace_id")
+    .eq("id", id)
+    .eq("runtime_id", auth.scope.runtimeId)
+    .eq("workspace_id", auth.scope.workspaceId)
+    .maybeSingle();
+
+  const { data: acked, error } = await db.rpc("ack_runtime_command", {
+    p_id: id,
+    p_runtime_id: auth.scope.runtimeId,
+    p_status: status,
+    p_error: body?.error ?? null,
+  });
+
+  if (error) return daemonError(500, "server_error", "Could not record the acknowledgement.");
+
+  const result = (acked ?? {}) as { ok?: boolean; alreadyCompleted?: boolean };
+  if (result.ok === false) {
+    // Deliberately the same answer for "not yours" and "does not exist":
+    // separating them would make this an oracle for other machines' command ids.
+    return daemonError(404, "invalid_request", "No such command for this machine.");
+  }
+
+  const payload = (command?.payload ?? {}) as Record<string, unknown>;
+
+  if (status === "failed" && reason && command) {
+    await reconcileBoard(db, {
+      workspaceId: auth.scope.workspaceId,
+      runtimeId: auth.scope.runtimeId,
+      payload,
+      reason,
+      error: body?.error ?? null,
+      detail: body?.detail ?? null,
+    });
+  }
+
+  // A `chat.turn` failing here means the daemon rejected it before ever
+  // reaching the turn routes below, and nothing else closes the row. Confirmed
+  // live during M12: the turn stayed `in_progress` forever until this existed.
+  // Deliberately not gated on `reason` — a bare failed ack must not leave a
+  // turn stuck either.
+  if (status === "failed" && command?.kind === "chat.turn") {
+    await closeFailedChatTurn(db, auth.scope.runtimeId, payload, reason, body?.error ?? null);
+  }
+
+  return Response.json({ ok: true, alreadyCompleted: result.alreadyCompleted === true });
+});
+
+// ── a chat turn's reply ─────────────────────────────────────────────────────
+
+/**
+ * Resolve a turn this runtime is allowed to write to.
+ *
+ * Ownership is checked BEFORE and SEPARATELY from the write, even though
+ * `ingest_chat_turn_reply` scopes itself to `(turn id, assigned runtime id)`.
+ * Folding it into the write's predicate would make "this turn is not yours"
+ * indistinguishable from "your write was a no-op", and this route holds the
+ * service role, so RLS is not there to catch a mistake.
+ */
+async function ownedTurn(
+  db: SupabaseClient,
+  turnId: string,
+  workspaceId: string,
+  runtimeId: string,
+): Promise<{ ok: true } | { ok: false; response: Response }> {
+  const { data, error } = await db
+    .from("chat_turns")
+    .select("id")
+    .eq("id", turnId)
+    .eq("workspace_id", workspaceId)
+    .eq("assigned_runtime_id", runtimeId)
+    .maybeSingle();
+
+  if (error) {
+    return {
+      ok: false,
+      response: daemonError(500, "server_error", "Could not read the chat turn."),
+    };
+  }
+  if (!data) {
+    return {
+      ok: false,
+      response: daemonError(404, "invalid_request", "No such chat turn for this machine."),
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * The streamed half of a reply.
+ *
+ * Every event carries the FULL accumulated reply rather than a delta, so only
+ * the highest-seq event in the batch needs to be written — `latestOf`. The
+ * broadcast that used to fan the whole batch out is not ported (see the note
+ * above), so today this is a durable write and nothing else.
+ */
+route("POST", "/chat/turns/:id/events", async (request, { db }, params) => {
+  const auth = await authenticateRuntime(db, request);
+  if (!auth.ok) return authFailureResponse(auth.failure);
+
+  const id = params.id as string;
+  const body = await readJson(request);
+
+  if (approximateBodyBytes(body) > MAX_CHAT_BATCH_BYTES) {
+    return daemonError(
+      413,
+      "invalid_request",
+      `A chat event batch may not exceed ${MAX_CHAT_BATCH_BYTES} bytes.`,
+    );
+  }
+
+  const parsed = parseChatEventBatch(body);
+  if (!parsed.ok) {
+    return daemonError(400, "invalid_request", `${parsed.rejection}: ${parsed.detail}`);
+  }
+
+  const owned = await ownedTurn(db, id, auth.scope.workspaceId, auth.scope.runtimeId);
+  if (!owned.ok) return owned.response;
+
+  const latest = latestOf(parsed.events);
+
+  const { data, error } = await db.rpc("ingest_chat_turn_reply", {
+    p_turn_id: id,
+    p_runtime_id: auth.scope.runtimeId,
+    p_seq: latest.seq,
+    p_reply_text: latest.replyText,
+    p_status: "running",
+  });
+
+  // The reply text is NEVER logged: it is the person's conversation, not
+  // diagnostic data.
+  if (error) return daemonError(500, "server_error", "Could not record the chat turn events.");
+
+  const result = (data ?? {}) as { ok?: boolean; alreadyCompleted?: boolean };
+  if (result.ok === false) {
+    // Ownership was confirmed a moment ago, so this can only mean the turn was
+    // deleted in between. Same answer as "not yours", not a 500.
+    return daemonError(404, "invalid_request", "No such chat turn for this machine.");
+  }
+
+  return Response.json({
+    ok: true,
+    storedThroughSeq: latest.seq,
+    alreadyCompleted: result.alreadyCompleted === true,
+  });
+});
+
+/** The turn's final state. This is what closes the row. */
+route("POST", "/chat/turns/:id/result", async (request, { db }, params) => {
+  const auth = await authenticateRuntime(db, request);
+  if (!auth.ok) return authFailureResponse(auth.failure);
+
+  const id = params.id as string;
+  const body = await readJson(request);
+
+  if (approximateBodyBytes(body) > MAX_CHAT_BATCH_BYTES) {
+    return daemonError(
+      413,
+      "invalid_request",
+      `A chat result may not exceed ${MAX_CHAT_BATCH_BYTES} bytes.`,
+    );
+  }
+
+  const parsed = parseChatResult(body);
+  if (!parsed.ok) {
+    return daemonError(400, "invalid_request", `${parsed.rejection}: ${parsed.detail}`);
+  }
+
+  const owned = await ownedTurn(db, id, auth.scope.workspaceId, auth.scope.runtimeId);
+  if (!owned.ok) return owned.response;
+
+  const { result } = parsed;
+
+  const { data, error } = await db.rpc("ingest_chat_turn_reply", {
+    p_turn_id: id,
+    p_runtime_id: auth.scope.runtimeId,
+    p_seq: result.seq,
+    p_reply_text: result.replyText,
+    p_status: result.status,
+    p_error: result.error ?? null,
+    // The jsonb the RPC receives is always snake_case, whichever side of the
+    // wire produced the camelCase TS shape.
+    p_produced: (result.produced ?? []).map((f) => ({
+      storage_path: f.storagePath,
+      filename: f.filename,
+      mime_type: f.mimeType,
+      size_bytes: f.sizeBytes,
+    })),
+  });
+
+  if (error) return daemonError(500, "server_error", "Could not record the chat turn result.");
+
+  const ack = (data ?? {}) as { ok?: boolean; alreadyCompleted?: boolean; stale?: boolean };
+  if (ack.ok === false) {
+    return daemonError(404, "invalid_request", "No such chat turn for this machine.");
+  }
+
+  if (ack.stale) {
+    // This seq did not advance past the last streamed event, so the turn is
+    // STILL open. Loud on purpose: that is a daemon sequencing bug, not a
+    // client race to shrug off.
+    console.error("[daemon] chat turn result arrived stale — the turn did not close", {
+      turnId: id,
+      seq: result.seq,
+    });
+  }
+
+  return Response.json({
+    ok: true,
+    alreadyCompleted: ack.alreadyCompleted === true,
+    stale: ack.stale === true,
+  });
+});
+
+/**
+ * Close a `chat_turns` row for a command that never reached the turn routes at
+ * all. Scoped by `(turn id, assigned runtime id)` — the same containment the
+ * RPC enforces — so a miss here (turn reassigned or deleted since the command
+ * was claimed) is a legitimate no-op rather than an error.
+ */
+async function closeFailedChatTurn(
+  db: SupabaseClient,
+  runtimeId: string,
+  payload: Record<string, unknown>,
+  reason: CommandFailureReason | null,
+  error: string | null,
+): Promise<void> {
+  const turnId = typeof payload.turnId === "string" ? payload.turnId : null;
+  if (!turnId) return;
+
+  const { data: turn } = await db
+    .from("chat_turns")
+    .select("reply_seq, reply_text")
+    .eq("id", turnId)
+    .eq("assigned_runtime_id", runtimeId)
+    .maybeSingle();
+
+  if (!turn) return;
+
+  await db.rpc("ingest_chat_turn_reply", {
+    p_turn_id: turnId,
+    p_runtime_id: runtimeId,
+    p_seq: ((turn.reply_seq as number) ?? 0) + 1,
+    p_reply_text: (turn.reply_text as string) ?? "",
+    p_status: "failed",
+    p_error: error ?? reason ?? "The command failed before it could run.",
+  });
+}
+
+/**
+ * Apply the board effect a failure reason implies. The mapping itself — the
+ * part with judgement in it — lives in `reconcile.ts` and is tested there.
+ */
+async function reconcileBoard(
+  db: SupabaseClient,
+  args: {
+    workspaceId: string;
+    runtimeId: string;
+    payload: Record<string, unknown>;
+    reason: CommandFailureReason;
+    error: string | null;
+    detail: string | null;
+  },
+): Promise<void> {
+  const { workspaceId, runtimeId, payload, reason, error, detail } = args;
+  const effect = boardEffectFor(reason);
+  const now = new Date().toISOString();
+
+  const taskId = typeof payload.taskId === "string" ? payload.taskId : null;
+  const runId = typeof payload.runId === "string" ? payload.runId : null;
+  const projectId = typeof payload.projectId === "string" ? payload.projectId : null;
+
+  if (effect.markBindingMissing && projectId) {
+    // `detail` carries the path the daemon actually checked, so the relink
+    // action can pre-fill it rather than asking where the project used to live.
+    await db
+      .from("runtime_projects")
+      .update({ state: "missing", detail: detail ?? error, updated_at: now })
+      .eq("workspace_id", workspaceId)
+      .eq("runtime_id", runtimeId)
+      .eq("project_id", projectId);
+  }
+
+  if (effect.taskStatus && taskId) {
+    await db
+      .from("tasks")
+      .update({ status: effect.taskStatus, result: error, updated_at: now })
+      .eq("workspace_id", workspaceId)
+      .eq("id", taskId);
+  }
+
+  if (effect.failRun && runId) {
+    await db
+      .from("runs")
+      .update({ status: "failed", error: error ?? reason, finished_at: now, updated_at: now })
+      .eq("workspace_id", workspaceId)
+      .eq("id", runId)
+      .in("status", ["queued", "running"]);
+  }
+
+  // A clone that failed has no run and no task — the binding is the only thing
+  // that can carry the error, and it is what the UI is showing.
+  if (reason === "clone_failed" && projectId) {
+    await db
+      .from("runtime_projects")
+      .update({ state: "error", detail: error, updated_at: now })
+      .eq("workspace_id", workspaceId)
+      .eq("runtime_id", runtimeId)
+      .eq("project_id", projectId);
+  }
+}
 
 
 // ── the confirm page's own three calls ──────────────────────────────────────
