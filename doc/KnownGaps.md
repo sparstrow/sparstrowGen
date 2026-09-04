@@ -169,6 +169,52 @@ runtime assignment → daemon claim → execution → failure reported back to t
 control plane all work, end to end, in under ten seconds. The dispatch spine is
 sound; only the provider's own readiness is unverified.
 
+---
+
+### ✅ The caveat is resolved, 2026-09-03 — and the shape was right for a reason nobody had named
+
+Re-ran from a clean environment with every `CLAUDE*`/`ANTHROPIC*` variable
+stripped, which is what `orchestrator/child-env.ts` actually hands the CLI. So
+this is the daemon's real condition, not a nested session:
+
+```
+CLAUDE*/ANTHROPIC* vars remaining: 0
+claude 2.1.90
+elapsed 186.1s, exit 1
+{"error_status":401,"error":"authentication_failed"}   x10, exponential backoff
+"OAuth access token has expired. Re-authenticate to continue."
+```
+
+**The nested-session theory was wrong. The CLI runs fine.** It started, resolved
+`claude-sonnet-4-6`, called the API, retried ten times, and returned a correctly
+structured `result` event. `claude -p --output-format stream-json` is a working
+integration.
+
+**Two separate facts were hiding behind one symptom:**
+
+1. **The owner's `claude` CLI OAuth token is expired.** Until they re-run the
+   CLI's login, no agent turn can succeed on this machine, whatever else is
+   built. An owner action — an agent cannot authenticate on their behalf.
+2. **`TURN_TIMEOUT_MS` (120 s) is shorter than the CLI's retry ladder (~186 s)**,
+   so the daemon kills the run 66 seconds before the CLI says why. That is the
+   entire reason an auth failure presented as *"the provider timed out"*. The
+   provider's own `extractResult` already parses expired-token errors correctly —
+   the M4 comment above it says so — it simply never receives a result event to
+   parse. Split out as
+   [`BUG-2026-09-03`](bug/BUG-2026-09-03-turn-timeout-masks-the-real-provider-error.md).
+
+**This gap stays open, and its close condition is unchanged**: `healthCheck()`
+still runs only `claude --version` and still sets `authenticated: null`. What
+changed is that the fix is now obvious and cheap — the CLI reports auth state in
+its own `stream-json` output, so a probe can read it rather than inventing a
+separate API call. Closing it would have turned three minutes of silence into an
+immediate, accurate *"your Claude CLI needs re-authenticating"*.
+
+**Also ruled out**, so nobody re-investigates it: the env allowlist is correct.
+`AGENT_ENV_ALLOWLIST` forwards `USERPROFILE`, `APPDATA` and `HOME`, so the CLI
+can find its stored credentials. That was the other plausible cause of a blanket
+auth failure.
+
 ### G-51 — `claude-code`'s `--allowedTools`/`cwd` scoping for a chat turn is unverified live; `antigravity`'s is confirmed NOT to work at all
 
 **Raised:** 2026-08-28, while implementing `T-CS5-03` (Band 26, CS5 chat
@@ -620,13 +666,16 @@ have worked and would have failed silently.
 alive at the same moment:
 
 ```
-8080   LISTENING  pid=21384  ...\Programs\Sparstrowgenesources
+8080   LISTENING  pid=21384  ...\Programs\Sparstrowgen
+esources
 ode-runtime
 ode.exe
-48750  LISTENING  pid=22852  ...\Programs\Sparstrowgenesources
+48750  LISTENING  pid=22852  ...\Programs\Sparstrowgen
+esources
 ode-runtime
 ode.exe
-48850  LISTENING  pid=13848  ...\Programs\Sparstrowgen Devesources
+48850  LISTENING  pid=13848  ...\Programs\Sparstrowgen Dev
+esources
 ode-runtime
 ode.exe
 ```
