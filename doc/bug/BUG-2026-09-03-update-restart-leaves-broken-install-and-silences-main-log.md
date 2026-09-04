@@ -154,23 +154,28 @@ during the one incident investigated here.
 
 ## Resolution
 
-Not yet fixed. Recommended next steps, in order:
+**Partially fixed** — two of the four items below landed in
+[PR #227](https://github.com/sparstrow/sparstrowGen/pull/227)
+(`claude/app-crash-update-1d416a`, commit `d85cb16`). Still 🔴 open overall:
+neither fix has been verified against a real packaged build yet, and item 1
+(the owner's own broken install) is unresolved until they reinstall from a
+build that carries this fix.
 
-1. **Immediate, for the owner:** a clean reinstall (uninstall, then run a
-   freshly downloaded 0.3.3 installer) is very likely needed to get a working
-   app back, given a fully clean process relaunch against the current on-disk
-   install still renders a permanently blank window. Not performed by this
-   agent — downloading/running an installer needs the owner's own action.
-2. Make `apiServer.stop()` part of the update-teardown path in
-   `updater.ts`/`main.ts`, alongside `services.stop(true)`, so a healthy
-   `server/` child can never again survive an update the way v0.3.1's
-   `services` child did.
-3. Attach an `'error'` listener to the `main.log` write stream in
-   `log-file.ts` (and to `server.log`'s in `server-manager.ts`, which has the
-   identical unguarded `fs.createWriteStream` shape) so a broken stream
-   degrades to "logging is off, console still works via `original(...)`"
-   instead of a possible silent process-wide logging blackout.
-4. Investigate why the actual file replacement on disk (20:40:50 local) came
-   roughly two hours after the owner's first restart click (~18:48) — confirm
-   or rule out `beginInstall()`'s drain-wait stalling indefinitely against an
-   already-unreachable core.
+1. **For the owner:** a clean reinstall is still needed to get a working app
+   back today — the fix here prevents a *future* recurrence, it does not
+   repair the currently-broken on-disk install. Best done once a build
+   containing this fix is published, so the reinstall lands on the fixed
+   version directly rather than needing to update again immediately after.
+2. ✅ **Fixed.** `apiServer.stop()` is now part of the update-teardown path —
+   `main.ts`'s `setRuntimeStopper` call stops both `services` and `apiServer`
+   before `updater.ts` calls `quitAndInstall`.
+3. ✅ **Fixed.** Both `log-file.ts`'s and `server-manager.ts`'s write streams
+   now have an `'error'` listener that drops the stream reference instead of
+   leaving an unhandled async `'error'` event to crash the process.
+   `log-file.test.ts` reproduces the exact failure (a directory where
+   `main.log` should be, forcing `EISDIR` on open) — confirmed to throw an
+   uncaught exception against the pre-fix code, passes against the fix.
+4. **Still open.** Why the actual file replacement on disk (20:40:50 local)
+   came roughly two hours after the owner's first restart click (~18:48) is
+   unconfirmed — `beginInstall()`'s drain-wait stalling against an
+   already-unreachable core remains the leading theory, untested.
