@@ -239,12 +239,16 @@ localhost (fast iteration — local Docker Supabase, no push needed)
    - Never `git branch -d`/`-D` or `git push origin --delete` as part of
      cleanup.
 
-6. **Auto-Enqueuing PR Merges**
-   - On opening a PR into `development`, run
+6. **Open PRs and enqueue their merges without asking**
+   - **Changed 2026-09-03, by the owner:** *"you can open pr when it is
+     necessary without my approval."* This supersedes every earlier instruction
+     to hold `gh pr create` until told, and the reviewer requirement that used
+     to apply to promotions.
+   - Open a PR when the work is ready. Then run
      `gh pr merge <pr_number> --auto --squash` so GitHub merges it when CI
      passes.
-   - The `development` → `main` PR is the exception: it gets a reviewer and is
-     not auto-merged.
+   - **This applies to `development` → `main` too.** There is no longer an
+     exception, no reviewer, and no approval step — see rule 8.
 
 7. **Commit and Push Without Asking**
    - Once edits for a coherent unit of work are complete, commit them on the
@@ -256,17 +260,27 @@ localhost (fast iteration — local Docker Supabase, no push needed)
      specifically so work survives a lost local session. A commit that never
      leaves the local checkout is exactly as unrecoverable as one never made.
    - This covers **the agent's own current branch only**. It does not authorize
-     pushing to `development` or `main`, and does not change anything about
-     **opening** a PR or **merging** one.
+     pushing to `development` or `main` directly — those still change only
+     through a PR. Opening and merging that PR is rules 6 and 8.
    - If a push is rejected (diverged), do not force-push. Fetch, reconcile, push
      the reconciled result.
 
-8. **Development → Main Promotion (agent-initiated)**
+8. **Development → Main Promotion (agent-initiated AND agent-merged)**
    - The agent judges for itself whether the work is complete and
-     production-ready, and opens the `development` → `main` PR without being
-     asked for that specific step.
-   - **Merging it is an owner-only gate.** Never merge to `main` without an
-     explicit "approved, ship it" in chat for that specific promotion.
+     production-ready, opens the `development` → `main` PR, and **merges it**.
+     No approval in chat is required for either step.
+   - **Changed 2026-09-03, by the owner**, who removed the gate that used to sit
+     here: *"remove the rule, merge it and release it, also you can open pr when
+     it is necessary without my approval."* The previous rule demanded an
+     explicit "approved, ship it" for each promotion; it no longer exists.
+   - **What the gate was actually protecting, and what now replaces it.**
+     Merging here publishes a release to the owner's machine (rule 9), so the
+     judgement it used to force still has to happen — it is just yours now.
+     Before merging, satisfy rule 3's verification **and** be able to say what
+     you ran. A promotion whose desktop behaviour you have not observed is one
+     you should not merge, whatever the tests say.
+   - **Still never push directly to `main`.** The PR is the mechanism, and CI on
+     it is the last thing standing between a bad build and an install.
 
 9. **Merging to `main` releases the desktop app**
    - Set 2026-09-03, by the owner: *"when everything being pushed to main, there
@@ -280,8 +294,13 @@ localhost (fast iteration — local Docker Supabase, no push needed)
      rest, and `.claude/skills/release` is the procedure.
    - **So a version bump belongs in the promotion PR, with its changelog entry**
      (`apps/web/src/content/changelog/<version>.md`), not in a follow-up commit
-     to `main`. Because rule 8 keeps that merge owner-only, the owner approving
-     the promotion is approving the release — which is why no second gate exists.
+     to `main`.
+   - **There is no approval step in front of this, as of 2026-09-03.** Rule 8's
+     owner-only gate was removed, so bumping the version is the whole decision:
+     the diff you write is the release you ship. A promotion PR that leaves the
+     version alone is a safe way to land work on `main` without releasing it,
+     and is the right choice whenever you are not confident the build is one the
+     owner should be running.
    - **Never push directly to `main`** to trigger one. Unchanged by this rule.
    - **The update mechanism cannot be verified with one release.** "An update is
      available" is a comparison between an installed version and a published
