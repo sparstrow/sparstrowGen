@@ -21,6 +21,8 @@
  * (claude reads ~/.claude via HOME/USERPROFILE; git needs PATH). None is a
  * secret; each is safe to hand any local process the user already runs.
  */
+import { PROVIDER_AUTH_ENV_KEYS, ambientProviderKeys, discoverProviderEnv } from "./provider-env.js";
+
 const RUNTIME_ENV_KEYS = [
   // Cross-platform
   "PATH",
@@ -61,36 +63,27 @@ const RUNTIME_ENV_KEYS = [
   "PROCESSOR_ARCHITEW6432",
   "PROGRAMFILES",
   "PROGRAMDATA",
-  // Claude Code CLI honours these for locating/selecting its own config; they
-  // are switches/paths, not credentials.
+  // Where the Claude Code CLI finds its own config. A path, not a credential,
+  // and identical however the daemon was launched.
+  //
+  // `CLAUDE_CODE_USE_BEDROCK` / `CLAUDE_CODE_USE_VERTEX` used to sit here and
+  // have moved into `provider-env.ts`'s anthropic group. They choose which
+  // endpoint a credential is spent against, so resolving them from a different
+  // source than the credential itself is the exact mix this rewrite removes.
   "CLAUDE_CONFIG_DIR",
-  "CLAUDE_CODE_USE_BEDROCK",
-  "CLAUDE_CODE_USE_VERTEX",
 ] as const;
 
 /**
- * Provider auth / endpoint config — forwarded when present so an agent can still
- * authenticate its own model. These are the ONE deliberate exception to "no
- * `*_KEY`/`*_TOKEN` reaches an agent": a run's own model credential is the run's
- * to use (and is commonly config-file auth via `claude login`, in which case
- * none of these is even set). The list is explicit and closed — an arbitrary
- * `AWS_SECRET_ACCESS_KEY` or the app's `SPARSTROW_TOKEN` is NOT here, so it is
- * stripped. Widening this list is the only sanctioned way to pass a new secret
- * to agents, and it is reviewable in one place.
+ * Provider auth now comes from `provider-env.ts`, NOT from `process.env`.
+ *
+ * It used to be a slice of this allowlist read off the daemon's own inherited
+ * environment, which made a run's credentials depend on how the daemon happened
+ * to be launched. From Explorer it works; from a shell exporting
+ * `ANTHROPIC_BASE_URL` — every agent session sets one — the daemon forwarded
+ * that proxy to each `claude` child and every turn failed auth, reported as
+ * "the provider timed out" 120 seconds later. See `provider-env.ts` for the
+ * full account and `G-27`'s retraction for what it cost.
  */
-const PROVIDER_AUTH_ENV_KEYS = [
-  "ANTHROPIC_API_KEY",
-  "ANTHROPIC_AUTH_TOKEN",
-  "ANTHROPIC_BASE_URL",
-  "ANTHROPIC_MODEL",
-  "ANTHROPIC_SMALL_FAST_MODEL",
-  "CLAUDE_CODE_OAUTH_TOKEN",
-  "AWS_REGION", // Bedrock routing (region id, not a credential)
-  "GEMINI_API_KEY",
-  "GOOGLE_API_KEY",
-  "GOOGLE_GENAI_API_KEY",
-  "OLLAMA_HOST",
-] as const;
 
 /** The union of keys that may be copied from the parent process into a child. */
 export const AGENT_ENV_ALLOWLIST: readonly string[] = [
@@ -108,10 +101,34 @@ export function agentChildEnv(
   extraEnv: Record<string, string | undefined> = {},
 ): Record<string, string> {
   const env: Record<string, string> = {};
-  for (const key of AGENT_ENV_ALLOWLIST) {
+
+  // OS/runtime essentials still come from this process: PATH, USERPROFILE and
+  // friends describe the machine, are identical however the daemon started,
+  // and are not credentials.
+  for (const key of RUNTIME_ENV_KEYS) {
     const value = process.env[key];
     if (value != null) env[key] = value;
   }
+
+  // Provider credentials come from the user's persistent configuration, so a
+  // run's auth does not depend on the daemon's launch context.
+  const discovered = discoverProviderEnv();
+  for (const [key, value] of Object.entries(discovered.values)) {
+    env[key] = value;
+  }
+
+  const ambient = ambientProviderKeys(discovered);
+  if (ambient.length > 0) {
+    // Worth a line every spawn: this is the state in which a turn can fail for
+    // reasons the machine's owner cannot see, and silence here is exactly what
+    // made the original misdiagnosis possible.
+    console.warn(
+      `[env] provider credentials inherited from this process rather than your ` +
+        `saved settings: ${ambient.join(", ")}. They depend on how the daemon was ` +
+        `started and may differ from what you configured.`,
+    );
+  }
+
   for (const [key, value] of Object.entries(extraEnv)) {
     if (value != null) env[key] = value;
   }

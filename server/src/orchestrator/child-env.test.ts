@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { AGENT_ENV_ALLOWLIST, agentChildEnv } from "./child-env.js";
+import { ambientProviderKeys, resetProviderEnvCache } from "./provider-env.js";
 
 /**
  * EC2 (P7): the child env handed to an agent spawn must be an explicit allowlist,
@@ -54,11 +55,47 @@ describe("agentChildEnv — EC2 no-process.env-spread allowlist", () => {
   });
 
   it("forwards a provider credential from the closed auth list when present", () => {
+    // `resetProviderEnvCache` is required, and its absence is what this test
+    // caught when discovery was introduced: provider credentials are resolved
+    // once per process, so a variable exported after the first spawn is not
+    // picked up. That is deliberate — Windows imposes the same rule on every
+    // running process — but it means a test must clear the cache to plant one.
     process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    resetProviderEnvCache();
     try {
       expect(agentChildEnv().ANTHROPIC_API_KEY).toBe("sk-ant-test");
     } finally {
       delete process.env.ANTHROPIC_API_KEY;
+      resetProviderEnvCache();
+    }
+  });
+
+  it("reports an inherited provider credential as ambient rather than passing it silently", () => {
+    // The whole point of the rewrite. A credential that came from this
+    // process's environment depends on how the daemon was launched, and a
+    // daemon started from an agent's shell forwards that shell's
+    // ANTHROPIC_BASE_URL to every `claude` child — which fails auth for a
+    // reason the machine's owner cannot see. It is still forwarded (a
+    // developer exporting a key locally is a real workflow) but it is never
+    // silent. See G-27's retraction for what the silence cost.
+    process.env.ANTHROPIC_BASE_URL = "http://127.0.0.1:9999/proxy";
+    resetProviderEnvCache();
+    try {
+      expect(agentChildEnv().ANTHROPIC_BASE_URL).toBe("http://127.0.0.1:9999/proxy");
+      expect(ambientProviderKeys()).toContain("ANTHROPIC_BASE_URL");
+    } finally {
+      delete process.env.ANTHROPIC_BASE_URL;
+      resetProviderEnvCache();
+    }
+  });
+
+  it("reports nothing as ambient when no provider credential is inherited", () => {
+    resetProviderEnvCache();
+    const inherited = ambientProviderKeys();
+    // Whatever this machine happens to have set, every reported key must be one
+    // from the closed list — never an arbitrary ambient variable.
+    for (const key of inherited) {
+      expect(AGENT_ENV_ALLOWLIST).toContain(key);
     }
   });
 
