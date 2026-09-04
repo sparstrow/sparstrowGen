@@ -1,7 +1,7 @@
 {
   "name": "@sparstrow/desktop",
   "productName": "Sparstrowgen",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "description": "Sparstrowgen desktop shell",
   "main": "out/main/index.js",
@@ -12,13 +12,10 @@
     "start": "electron-vite preview",
     "typecheck": "tsc --build --force",
     "test": "vitest run",
-    "dist:prepare": "node scripts/prepare-resources.mjs",
-    "dist": "pnpm build && pnpm dist:prepare && electron-builder --win nsis --publish never",
-    "dist:publish": "pnpm build && pnpm dist:prepare && electron-builder --win nsis --publish always",
+    "dist:prepare": "node scripts/prepare-resources.mjs dev",
+    "dist": "pnpm dist:dev",
     "dist:stable": "pnpm build && node scripts/prepare-resources.mjs stable && node scripts/build-channel-config.mjs stable && node scripts/ensure-draft-release.mjs stable && electron-builder --win nsis --publish always --config electron-builder.stable.generated.json",
-    "dist:staging": "pnpm build && node scripts/prepare-resources.mjs staging && node scripts/build-channel-config.mjs staging && node scripts/ensure-draft-release.mjs staging && electron-builder --win nsis --publish always --config electron-builder.staging.generated.json",
-    "run:local:stable": "node scripts/run-local.mjs stable",
-    "run:local:staging": "node scripts/run-local.mjs staging"
+    "dist:dev": "pnpm build && node scripts/prepare-resources.mjs dev && node scripts/build-channel-config.mjs dev && electron-builder --win nsis --publish never --config electron-builder.dev.generated.json"
   },
   "devDependencies": {
     "@sparstrow/tsconfig": "workspace:*",

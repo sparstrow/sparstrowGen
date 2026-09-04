@@ -49,15 +49,31 @@ export function ServerSettings() {
   const save = async () => {
     setSaving(true);
     setError(null);
-    const result = await bridge.setConfig(fields);
-    setSaving(false);
-    if (result.ok) {
-      setConfig(result.status);
-      // Cleared so the next render shows "stored" rather than the typed value,
-      // and so a secret does not sit in React state longer than the call.
+    try {
+      const result = await bridge.setConfig(fields);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      // Read back rather than trusting the reply. A save that never reached the
+      // main process used to look identical to one that worked: the button
+      // returned, the form cleared, and nothing was stored. Asking the store
+      // what it now holds is the only answer that cannot be a wish.
+      const stored = await bridge.getConfig();
+      setConfig(stored);
+      if (!stored.configured) {
+        setError("Nothing was saved. Check that this computer allows credential storage.");
+        return;
+      }
+      // Cleared only after the store confirms, so a secret does not sit in React
+      // state longer than the call and the fields show what is really there.
       setFields({});
-    } else {
-      setError(result.error);
+    } catch (err) {
+      // The bridge itself failed. Silence here is what let a broken save look
+      // like a successful one.
+      setError(err instanceof Error ? err.message : "The app could not save these.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -100,16 +116,17 @@ export function ServerSettings() {
           <Field
             id="supabase-url"
             label="Supabase URL"
-            hint={config?.supabaseUrl ? `Currently ${config.supabaseUrl}` : SUPABASE_HELP}
+            hint={SUPABASE_HELP}
             placeholder="https://your-project.supabase.co"
-            value={fields.supabaseUrl ?? ""}
+            value={fields.supabaseUrl ?? config?.supabaseUrl ?? ""}
             onChange={(v) => setFields((f) => ({ ...f, supabaseUrl: v }))}
           />
           <Field
             id="supabase-anon"
             label="Anon key"
-            hint={`Public by design — it appears in every web page. ${SUPABASE_HELP}`}
-            placeholder={config?.configured ? "Stored — type to replace" : "eyJ…"}
+            stored={config?.configured}
+            hint={`Public by design. It appears in every web page. ${SUPABASE_HELP}`}
+            placeholder="eyJ…"
             value={fields.supabaseAnonKey ?? ""}
             onChange={(v) => setFields((f) => ({ ...f, supabaseAnonKey: v }))}
           />
@@ -117,12 +134,13 @@ export function ServerSettings() {
             id="supabase-service"
             label="Service role key"
             secret
+            stored={config?.hasServiceRoleKey}
             hint={
               config?.hasServiceRoleKey
-                ? "Stored. Type a new one to replace it."
+                ? SUPABASE_HELP
                 : `Needed before this computer can pair. ${SUPABASE_HELP}`
             }
-            placeholder={config?.hasServiceRoleKey ? "Stored — type to replace" : "eyJ…"}
+            placeholder="eyJ…"
             value={fields.supabaseServiceRoleKey ?? ""}
             onChange={(v) => setFields((f) => ({ ...f, supabaseServiceRoleKey: v }))}
           />
@@ -130,12 +148,13 @@ export function ServerSettings() {
             id="supabase-jwt"
             label="JWT secret"
             secret
+            stored={config?.hasJwtSecret}
             hint={
               config?.hasJwtSecret
-                ? "Stored. Type a new one to replace it."
+                ? "Supabase → Project Settings → API → JWT Settings"
                 : "Needed to sign in on this computer. Supabase → Project Settings → API → JWT Settings"
             }
-            placeholder={config?.hasJwtSecret ? "Stored — type to replace" : "your-jwt-secret"}
+            placeholder="your-jwt-secret"
             value={fields.supabaseJwtSecret ?? ""}
             onChange={(v) => setFields((f) => ({ ...f, supabaseJwtSecret: v }))}
           />
@@ -175,7 +194,7 @@ function stateLine(state: DesktopServerState, config: DesktopServerConfig | null
       // Worth naming rather than reporting as plain "running": someone with a
       // dev checkout open is talking to THAT server, and the settings below are
       // not what it is using.
-      return "Using a server that was already running on this computer — a development checkout, most likely. These settings are not what it is using.";
+      return "Using a server that was already running on this computer, most likely a development checkout. These settings are not what it is using.";
     case "starting":
       return "Starting…";
     case "unconfigured":
@@ -239,6 +258,7 @@ function Field({
   placeholder,
   value,
   secret,
+  stored,
   onChange,
 }: {
   id: string;
@@ -247,13 +267,25 @@ function Field({
   placeholder: string;
   value: string;
   secret?: boolean;
+  /** Whether a value is already held. `undefined` for fields with no secret half. */
+  stored?: boolean;
   onChange: (value: string) => void;
 }) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id} className="text-sm font-medium">
-        {label}
-      </Label>
+      <div className="flex items-baseline justify-between gap-3">
+        <Label htmlFor={id} className="text-sm font-medium">
+          {label}
+        </Label>
+        {/*
+          Whether a key is held is STATE, so it belongs next to the label where
+          state lives, not inside the box as placeholder text. Placeholder text
+          is an example of what to type; using it to report status made the
+          field look pre-filled with the word "Stored", and said the same thing
+          twice, once in the box and once in the hint below it.
+        */}
+        {stored === undefined ? null : <StoredBadge stored={stored} />}
+      </div>
       <Input
         id={id}
         // `password` for the two that are secrets, so they are not readable
@@ -268,4 +300,18 @@ function Field({
       <p className="text-xs text-muted-foreground">{hint}</p>
     </div>
   );
+}
+
+function StoredBadge({ stored }: { stored: boolean }) {
+  if (stored) {
+    return (
+      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+        <Check className="size-3 text-success" strokeWidth={2.5} />
+        Stored
+      </span>
+    );
+  }
+  // Not an error: a fresh install has none of these yet, and colouring it
+  // destructive would make first-run setup look broken.
+  return <span className="text-xs text-warning">Not set</span>;
 }

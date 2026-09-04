@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { coreBaseUrl } from "./ports";
 
 /**
  * Minimal authed HTTP client for the core, used by the shell (tray, updater).
@@ -7,12 +8,16 @@ import path from "node:path";
  * first boot; the shell reads the same file (SPARSTROW_TOKEN wins if set).
  */
 
-const CORE_URL = process.env.SPARSTROW_CORE_URL ?? "http://127.0.0.1:48750";
-
 let cachedToken: string | null = null;
 
+/**
+ * Resolved per call, not captured at import time. `main.ts` imports this
+ * module before it applies this install's channel config, so a module-scope
+ * constant here was always the default and never the configured value — see
+ * `ports.ts` for the whole story.
+ */
 export function coreUrl(): string {
-  return CORE_URL;
+  return coreBaseUrl();
 }
 
 export function readApiToken(dataDir: string): string | null {
@@ -41,7 +46,7 @@ export async function coreFetch(
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const token = tokenDataDir ? readApiToken(tokenDataDir) : null;
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  return fetch(`${CORE_URL}/api/v1${apiPath}`, {
+  return fetch(`${coreBaseUrl()}/api/v1${apiPath}`, {
     method: init.method ?? "GET",
     headers,
     body: init.body === undefined ? undefined : JSON.stringify(init.body),

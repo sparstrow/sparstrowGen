@@ -14,7 +14,7 @@
 // the tag already has exactly one, and each instance's own find-existing
 // check (electron-publish's getOrCreateRelease) converges on reusing it.
 //
-// Usage: node scripts/ensure-draft-release.mjs <stable|staging>
+// Usage: node scripts/ensure-draft-release.mjs <stable>
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

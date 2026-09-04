@@ -18,7 +18,7 @@ import path from "node:path";
  * always win over this — see `urls.ts` and `packaged-env.ts`.
  */
 export interface ChannelConfig {
-  channel: "stable" | "staging";
+  channel: "stable" | "dev";
   /** electron-updater's `autoUpdater.channel` — which GitHub Release feed this install checks. */
   updateChannel: string;
   /**
@@ -36,19 +36,41 @@ export interface ChannelConfig {
   appUrl: string;
   /** Default value for `SPARSTROW_CLOUD_URL` — what the local daemon reports to. */
   cloudUrl: string;
+  /**
+   * The ports this install owns.
+   *
+   * Optional so a `channel.json` written by an older build still validates and
+   * the install keeps working across an update. Absent means "the defaults for
+   * this channel" — see `ports.ts`, which holds the table and the reason these
+   * are resolved lazily rather than captured at import time.
+   *
+   * These live here, per install, for exactly the reason the rest of this file
+   * does: a machine-wide env var would let installing one channel silently
+   * repoint the other, and two apps fighting over one port is the specific
+   * failure this field exists to prevent.
+   */
+  corePort?: number;
+  serverPort?: number;
+}
+
+/** Absent is fine; present must be a real port number, not a string or 0. */
+function isOptionalPort(value: unknown): boolean {
+  return value === undefined || (typeof value === "number" && Number.isInteger(value) && value > 0 && value < 65536);
 }
 
 function isChannelConfig(value: unknown): value is ChannelConfig {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
   return (
-    (v.channel === "stable" || v.channel === "staging") &&
+    (v.channel === "stable" || v.channel === "dev") &&
     typeof v.updateChannel === "string" &&
     v.updateChannel.length > 0 &&
     typeof v.appUrl === "string" &&
     v.appUrl.length > 0 &&
     typeof v.cloudUrl === "string" &&
-    v.cloudUrl.length > 0
+    v.cloudUrl.length > 0 &&
+    isOptionalPort(v.corePort) &&
+    isOptionalPort(v.serverPort)
   );
 }
 

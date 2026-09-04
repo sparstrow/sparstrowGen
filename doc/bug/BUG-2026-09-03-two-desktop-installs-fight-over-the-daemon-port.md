@@ -1,8 +1,8 @@
 # BUG-2026-09-03 — Two desktop installs fight over the daemon port, and the second one shows no window for a minute
 
-**Status:** 🟡 Mitigated, not fixed. The failure is now fast and explained; the
-underlying single-port design is unchanged. Tracked onward as
-[`G-65`](../KnownGaps.md).
+**Status:** 🟢 **Fixed 2026-09-03** in the same change that added the `dev`
+channel. The per-install port this file called "the real fix" is built:
+`apps/desktop/src/main/ports.ts`. `G-65` is closed with it.
 **Found:** 2026-09-03, while verifying the Settings/update screen against a
 running app.
 **Severity:** High for the owner's very next action — installing the 0.3.0
@@ -83,3 +83,34 @@ written to a file the way the API token already is. Deferred rather than done
 here because it touches the daemon, `core-client`, `memory-cli`, `memory-mcp`
 and the packaged resources, and doing it inside a release change would put an
 untested port negotiation into the first build the owner installs.
+
+## Fixed, 2026-09-03
+
+Derived from the channel, as this file predicted. `apps/desktop/src/main/ports.ts`
+holds the table:
+
+| channel | core | server |
+|---|---|---|
+| `stable` | 48750 | 8080 |
+| `dev` | 48850 | 8180 |
+
+`prepare-resources.mjs` bakes both numbers into each install's own
+`channel.json`, so the separation lives in the install rather than in a
+machine-wide env var that one installer could rewrite for the other.
+
+**One thing this cost that is worth remembering.** The obvious implementation —
+have `packaged-env.ts` set `SPARSTROW_CORE_URL` from the channel — cannot work,
+and would have failed silently. `core-client.ts` and `service-manager.ts` each
+held `const CORE_URL = process.env.SPARSTROW_CORE_URL ?? "…48750"` at module
+scope, and `main.ts` imports both on lines 3 and 6 while calling
+`applyPackagedEnv()` on line 52. The constants were captured before the env var
+was ever written. Every URL in that path is now a function for this reason, and
+`ports.test.ts` asserts that a `setPorts` after import is actually observed.
+
+**Why this became urgent.** The mitigation above said "uninstall Sparstrowgen
+Staging first", which treats the collision as a leftover to tidy. It is not: the
+owner's machine is *supposed* to hold two installs — the app they use, and the
+one an agent builds to test with. Without separate ports the second app adopts
+the first one's server (adoption succeeds when both are the same build and share
+a token shape) and silently operates on the other install's data. That is worse
+than the crash-loop this file was originally about, because nothing reports it.

@@ -66,7 +66,52 @@ describe("readChannelConfig", () => {
     });
   });
 
-  it("reads a well-formed staging config", () => {
+  it("reads a well-formed dev config, ports and all", () => {
+    const dir = makeResourcesDir(
+      JSON.stringify({
+        channel: "dev",
+        updateChannel: "none",
+        appUrl: "http://127.0.0.1:8180",
+        cloudUrl: "http://127.0.0.1:8180",
+        corePort: 48850,
+        serverPort: 8180,
+      }),
+    );
+    const config = readChannelConfig(dir);
+    expect(config?.channel).toBe("dev");
+    expect(config?.corePort).toBe(48850);
+    expect(config?.serverPort).toBe(8180);
+  });
+
+  it("still accepts a config from before ports existed", () => {
+    // An install updated from an older build carries a channel.json with no
+    // ports. Rejecting it would make the app fall back to "no channel at all",
+    // which is a bigger behaviour change than the missing field.
+    const dir = makeResourcesDir(
+      JSON.stringify({
+        channel: "stable",
+        updateChannel: "latest",
+        appUrl: "https://sparstrow.com",
+        cloudUrl: "https://sparstrow.com",
+      }),
+    );
+    expect(readChannelConfig(dir)?.corePort).toBeUndefined();
+  });
+
+  it("rejects a config whose ports are not real ports", () => {
+    const dir = makeResourcesDir(
+      JSON.stringify({
+        channel: "dev",
+        updateChannel: "none",
+        appUrl: "http://127.0.0.1:8180",
+        cloudUrl: "http://127.0.0.1:8180",
+        corePort: "48850",
+      }),
+    );
+    expect(readChannelConfig(dir)).toBeNull();
+  });
+
+  it("rejects the retired staging channel", () => {
     const dir = makeResourcesDir(
       JSON.stringify({
         channel: "staging",
@@ -75,6 +120,6 @@ describe("readChannelConfig", () => {
         cloudUrl: "https://staging.sparstrow.com",
       }),
     );
-    expect(readChannelConfig(dir)?.channel).toBe("staging");
+    expect(readChannelConfig(dir)).toBeNull();
   });
 });

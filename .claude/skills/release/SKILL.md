@@ -130,15 +130,27 @@ mangles `/S` into a path.
 available" is a comparison and not a state. Install version A, publish version
 B, then watch A find it. There is no way to shortcut this with one build.
 
-## The staging channel
+## The `dev` channel — build THIS, never stable
 
-The `staging` branch was retired by the 2026-09-02 restructure, and
-`release-staging.yml` was deleted with it. The per-channel *machinery*
-(`build-channel-config.mjs`, `channel.ts`, `run:local:staging`) is deliberately
-kept: it is what allows a second install to coexist with the real one on the
-same machine, which is genuinely useful for testing an installer without
-destroying your working app. Nothing publishes to that channel automatically any
-more.
+The retired `staging` channel was replaced on 2026-09-03 by a `dev` channel,
+for one reason: an agent building `pnpm dist` produced an installer with the
+**stable** appId and productName, which Windows treated as an upgrade and
+installed over the owner's real app. It happened. The owner went looking for
+their app and it was gone, replaced by a test build wearing its name.
+
+So:
+
+- **`pnpm --filter @sparstrow/desktop dist`** now builds the `dev` channel.
+  Distinct appId (`com.sparstrow.sparstrowgen.dev`), productName
+  (`Sparstrowgen Dev`), `extraMetadata.name` (which is what actually separates
+  userData), and ports (48850/8180 rather than 48750/8080). It never publishes.
+- **`dist:stable` is the only way to build the real app**, and in practice only
+  `.github/workflows/release.yml` should run it. If you are typing it by hand,
+  stop and check why.
+
+A dev build deliberately does **not** wire up the updater. The only feed it
+could reach is stable's, so it would offer the owner's release as an "update"
+to itself.
 
 ## Known-fixed issues, for context if something looks similar
 
