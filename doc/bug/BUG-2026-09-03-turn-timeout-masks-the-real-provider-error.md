@@ -1,7 +1,22 @@
 # BUG-2026-09-03 — the turn timeout is shorter than the CLI's retry ladder, so every auth failure reports as "the provider timed out"
 
-**Status:** 🔴 Open. Root cause measured; not yet fixed.
+**Status:** 🔴 Open. The mechanism is real and unfixed. **The example that
+found it was not** — see the correction below before reading further.
 **Found:** 2026-09-03, re-testing [`G-27`](../KnownGaps.md) from a clean shell.
+
+> ## ⚠️ Correction, same day
+>
+> This file was written from a test that stripped every `CLAUDE*`/`ANTHROPIC*`
+> variable, including the four `AGENT_ENV_ALLOWLIST` deliberately forwards. That
+> removed the credential, so the 401 below says nothing about the owner's setup.
+> Re-run keeping the persistent User-scope variables, the same command returns
+> `"result":"PONG"`, `is_error:false`, **in 10.1 seconds**. The owner's
+> `CLAUDE_CODE_OAUTH_TOKEN` is valid and multica uses it on this machine daily.
+>
+> **The bug itself stands**: `TURN_TIMEOUT_MS` (120 s) is shorter than the CLI's
+> retry ladder (~186 s), so any real auth failure is reported as "the provider
+> timed out". Read the 401 below as a *reproduction* of that mechanism, which it
+> is, and not as evidence about this machine, which it is not.
 **Severity:** High for diagnosis, not for correctness. Nothing is corrupted; the
 owner is simply told the wrong thing about why their agent did not reply, and
 told it three minutes late.
