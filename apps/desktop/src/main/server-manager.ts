@@ -186,7 +186,16 @@ export class ServerManager {
 
   private spawnServer(config: ReturnType<typeof readServerConfig> & object): void {
     this.rotateLogIfNeeded();
-    this.logStream ??= fs.createWriteStream(this.logPath, { flags: "a" });
+    if (!this.logStream) {
+      const stream = fs.createWriteStream(this.logPath, { flags: "a" });
+      // See log-file.ts's identical fix: an async open failure with no
+      // 'error' listener is fatal to the process, not something this
+      // object's own try/catch (there is none here) could ever see.
+      stream.on("error", () => {
+        if (this.logStream === stream) this.logStream = null;
+      });
+      this.logStream = stream;
+    }
 
     let nodeBin: string;
     let args: string[];
