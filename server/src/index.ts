@@ -16,6 +16,7 @@ import { ensureSystemAgents } from "./agents/system-agents.js";
 import { startScheduler, stopScheduler } from "./scheduler/service.js";
 import { register } from "./cloud/registration.js";
 import { declareDraining, startHeartbeat } from "./cloud/heartbeat.js";
+import { syncAgents } from "./cloud/agent-sync.js";
 import { startCommandLoop, stopCommandLoop } from "./cloud/commands.js";
 import { startRunReporter, stopRunReporter } from "./cloud/run-reporter.js";
 import { startTranscriptPusher, stopTranscriptPusher } from "./cloud/transcripts.js";
@@ -108,6 +109,11 @@ async function main(): Promise<void> {
   // capability this daemon gained, not a dependency it acquired.
   void register();
   startHeartbeat();
+  // OQ-12 option A: pull the workspace's agents at boot so a machine that has
+  // been offline comes back with a current roster, rather than waiting for the
+  // first dispatch to discover it is stale. Same no-op-while-unpaired,
+  // cannot-reject contract as the two above.
+  void syncAgents();
 
   // M4/M5: accept dispatched work, and report on it — the run row and its
   // transcript. Same contract as the two above — no-ops while unpaired, and

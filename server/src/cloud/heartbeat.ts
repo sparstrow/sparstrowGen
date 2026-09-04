@@ -9,6 +9,7 @@ import {
   isPaired,
 } from "./client.js";
 import { claimMachine, reclaimAfterUnknownRuntime } from "./claim.js";
+import { syncAgents } from "./agent-sync.js";
 
 /**
  * M3 — "I am still here."
@@ -74,6 +75,13 @@ async function beat(): Promise<void> {
       // would turn "could not check for new workspaces" into "this machine
       // stopped reporting", which is far worse and far less true.
     }
+
+    // Same tick, same reasoning: refresh the workspace's agents so a machine
+    // that has been idle for hours is not carrying a stale roster. Responsive
+    // creation does NOT depend on this - a dispatch for an unknown agent pulls
+    // on demand (`resolveAgentWithSync`), which is what makes "create an agent
+    // and message it" work immediately instead of depending on the clock.
+    await syncAgents();
   }
 
   const runtimes = getRuntimes();

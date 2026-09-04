@@ -351,7 +351,7 @@ long-term design and remain worth building; this is the half that stops silent
 breakage without giving up the allowlist, which is a stronger posture than a
 blocklist for a process that can run Bash.
 
-#### 4b. OQ-12 option A — the daemon syncs workspace agents down
+#### 4b. OQ-12 option A — the daemon syncs workspace agents down ✅ — **done 2026-09-04**
 
 An agent created in the app is only a cloud row; the daemon links agents by slug
 in its local SQLite, so a dispatched turn fails with *"This machine has no agent
