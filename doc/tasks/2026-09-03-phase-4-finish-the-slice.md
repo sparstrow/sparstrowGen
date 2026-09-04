@@ -118,3 +118,75 @@ pass.
 ## Result
 
 _Pending 4b–4d._
+
+
+## 4b. The daemon syncs workspace agents down (OQ-12 option A) — done 2026-09-04
+
+`GET /api/daemon/agents` in `server/src/routes/daemon/index.ts`, and
+`server/src/cloud/agent-sync.ts` on the daemon side. Pulled at boot, on the
+heartbeat's reconcile tick, and on demand when a dispatch names a slug this
+machine does not hold — the last one is what stops "create an agent then message
+it" from depending on when the periodic sync last ran.
+
+### Verified end to end, against local Docker Supabase and a real `server/`
+
+Not a unit-test rerun. Local Supabase (43 tables), `server/` on :8280 with the
+daemon routes mounted, signed in as `agent@sparstrow.com`, and the daemon's own
+`syncAgents`/`ensureAgentLocal` driven against it.
+
+**Server side — the route (steps 1-8):**
+
+| # | check | result |
+|---|---|---|
+| 1 | sign in as the local agent account | user `67369a0c…` |
+| 2 | workspace resolved | `d2085eb9…` |
+| 3 | agent created as a **cloud row only** | `e2e-probe-042ce0` |
+| 4 | machine + runtime + hashed machine token | `mch_e637…` / `rt_c5f4…` |
+| 5 | `GET /api/daemon/agents` | 3 agents, including the probe |
+| 6 | a **quarantined** agent is withheld | withheld |
+| 6 | a **system** agent is withheld | withheld |
+| 7 | another workspace's agent | not visible to this runtime |
+| 8 | unknown runtime / bogus token | 404 / 401 |
+
+Step 6 is the one worth keeping. P9 quarantines an imported skill precisely so
+it cannot run until a person promotes it; handing one to a machine as a runnable
+agent would walk through that gate on a box the reviewer never looked at.
+
+**Daemon side — the sync (steps 9-15):**
+
+| # | check | result |
+|---|---|---|
+| 10 | the agent is absent locally to begin with | absent, so the test is not vacuous |
+| 11 | `ensureAgentLocal` pulls it | `agt_qVKS-SuAaU`, model and provider intact |
+| 12 | `resolveAgent` now succeeds | resolves to that local id |
+| 13 | a second sync is idempotent | 3 rows before and after |
+| 14 | a local-only agent survives a sync | `local-only-probe` survived |
+| 15 | withheld agents never reach local SQLite | neither is present |
+
+Log line from the run, which is the behaviour in one sentence:
+
+```
+agent is not on this machine yet - pulling the workspace's agents before dispatching
+    agentSlug: "e2e-probe-042ce0"
+```
+
+**Step 14 was wrong on its first run and is worth recording.** It asserted "0
+local-only agents survived" against a fresh data dir — vacuously true, proving
+nothing about the guarantee that matters most (a sync must never delete). It now
+plants an agent that exists in no workspace, syncs, and checks it is still
+there.
+
+855 server tests pass (11 new), `pnpm typecheck` clean.
+
+### What this does NOT prove, and what now blocks the reply
+
+**A full "message an agent and get a reply" still does not work**, and the reason
+has moved. It is no longer the agent link:
+
+```
+GET /api/daemon/commands  ->  404
+```
+
+`server/` serves 10 daemon routes; the command-delivery half is not among them.
+A turn can be assigned in the cloud, but the daemon has nothing to poll, so it
+never learns about it. That is the next piece of work, not a defect in 4b.
