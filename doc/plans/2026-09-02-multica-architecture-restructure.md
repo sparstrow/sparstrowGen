@@ -304,9 +304,12 @@ elapsed 186.1s, exit 1
 started, resolved its model, called the API, and returned a correctly structured
 error. Two real findings replace the vague one:
 
-- **The owner's `claude` CLI OAuth token has expired.** Until they re-run
-  `claude` login, no agent turn can succeed. An owner action; an agent cannot
-  perform it.
+- ~~**The owner's `claude` CLI OAuth token has expired.**~~ **Retracted the same
+  day.** That test stripped the four auth variables `AGENT_ENV_ALLOWLIST`
+  forwards, so it removed the credential and then reported the 401 as a fact.
+  Keeping the persistent User-scope variables, the same command returns
+  `"result":"PONG"` in **10.1 s**. Auth comes from a user-scope
+  `CLAUDE_CODE_OAUTH_TOKEN`; the owner runs multica against it daily.
 - **The daemon's 120 s ceiling is shorter than the CLI's ~186 s retry ladder**
   (`TURN_TIMEOUT_MS`, `server/src/chat/service.ts:43`), so the turn is killed
   before the CLI reports why, and the owner sees *"the provider timed out"*
@@ -315,12 +318,38 @@ error. Two real findings replace the vague one:
   result event. Filed as a bug; fix by surfacing `api_retry` events rather than
   only by raising the ceiling.
 
-The env allowlist (`orchestrator/child-env.ts`) was checked and is correct: it
-forwards `USERPROFILE`/`APPDATA`/`HOME`, so the CLI can find its own
-credentials. That was the other plausible cause and it is ruled out.
+**The likelier cause of the original Phase 4 failure, found while correcting
+this:** `ANTHROPIC_BASE_URL` is on the allowlist, so a daemon started from a
+shell that has one set — every agent session has one — forwards that proxy URL
+to each `claude` child it spawns. Ambient inheritance of a *credential-shaped*
+variable is the defect. Multica does not have it because those are per-agent
+settings there, not inherited. Addressed by 4e.
 
 **Because the provider works, 4b–4d are not wasted work.** That was the question
 this step existed to answer.
+
+#### 4e. Provider credentials come from saved settings, not the launch context ✅ — **done 2026-09-03**
+
+The original Phase 4 failure, finally explained. `agentChildEnv` read provider
+credentials off `process.env`, so a daemon started from an agent's shell handed
+`claude` an `ANTHROPIC_BASE_URL` **with no token**, while the owner's valid
+`CLAUDE_CODE_OAUTH_TOKEN` sat unused in the Windows persistent environment.
+Guaranteed 401 → ~186 s of retries → killed at 120 s → *"the provider timed
+out"*.
+
+`server/src/orchestrator/provider-env.ts` discovers them from `HKCU`/`HKLM`
+instead — the same values every Explorer-launched app sees. Resolution is **per
+provider group, never per key**, because `ANTHROPIC_BASE_URL` decides where a
+token is spent and a per-key fallback recreates the same bug out of two
+reasonable-looking halves. The first attempt did exactly that and was caught by
+running it, not by reading it.
+
+**This is multica's shape reached by a different route.** Multica inherits
+`os.Environ()` and layers a per-agent `CustomEnv` from its agent settings UI,
+with a blocklist over daemon-internal keys. Per-agent overrides are the better
+long-term design and remain worth building; this is the half that stops silent
+breakage without giving up the allowlist, which is a stronger posture than a
+blocklist for a process that can run Bash.
 
 #### 4b. OQ-12 option A — the daemon syncs workspace agents down
 

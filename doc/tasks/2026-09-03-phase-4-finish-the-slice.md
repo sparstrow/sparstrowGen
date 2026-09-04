@@ -28,14 +28,51 @@ elapsed 186.1s, exit 1
 **The CLI and the provider integration both work.** Two real findings replaced
 one vague one:
 
-- **The owner's `claude` OAuth token is expired.** No agent turn can succeed
-  until they re-run the CLI's login. Owner action; an agent cannot do it.
+- ~~**The owner's `claude` OAuth token is expired.**~~ **Retracted.** The test
+  stripped the four auth variables the allowlist forwards. Keeping the
+  persistent User-scope set, the same command returns `"result":"PONG"` in
+  10.1 s. Nothing needs re-authenticating.
 - **`TURN_TIMEOUT_MS` (120 s) < the CLI's retry ladder (~186 s)**, so the daemon
   kills the run before the CLI says why and reports *"the provider timed out"*
   for an auth failure — [`BUG-2026-09-03`](../bug/BUG-2026-09-03-turn-timeout-masks-the-real-provider-error.md).
 
-Ruled out and recorded so nobody re-investigates: the env allowlist is correct,
-forwarding `USERPROFILE`/`APPDATA`/`HOME`.
+## 4e. Provider credentials come from saved settings ✅ done 2026-09-03
+
+Found by the owner pointing at multica running the same CLI fine on the same
+machine, which disproved the retracted claim in one sentence.
+
+`agentChildEnv` read provider credentials off `process.env`, so a daemon started
+from an agent's shell handed `claude` an endpoint with **no** credential:
+
+```
+persistent scope : CLAUDE_CODE_OAUTH_TOKEN = sk-ant-oat01...   (valid)
+agent's shell    : ANTHROPIC_BASE_URL = https://api.anth...  and NO token
+```
+
+Guaranteed 401 → ~186 s of retries → killed at 120 s → "the provider timed out".
+This is the complete explanation of the original Phase 4 failure.
+
+**Fixed** in `server/src/orchestrator/provider-env.ts`: discovery from the
+persistent Windows environment (`HKCU`/`HKLM`), resolved **per provider group,
+never per key** — `ANTHROPIC_BASE_URL` decides where a token is spent, so a
+per-key fallback rebuilds the same bug from two reasonable halves. The first
+version of the fix did exactly that; running it against the real machine caught
+it. Verified in the poisoned context:
+
+```
+[anthropic] configured persistently: true
+    ANTHROPIC_BASE_URL        DROPPED (ambient https://api.anthropi...)
+    CLAUDE_CODE_OAUTH_TOKEN   persistent  sk-ant-oat01-J...
+```
+
+844 server tests pass; `pnpm typecheck` 9/9 and `pnpm test` 7/7 across the
+monorepo.
+
+**Multica's shape, different route.** It inherits `os.Environ()` plus a
+per-agent `CustomEnv` from the agent settings UI, with a blocklist. Per-agent
+overrides remain worth building (4d's Settings surface is where they belong);
+the allowlist stays, because it is a stronger posture than a blocklist for a
+process that can run Bash.
 
 ## 4b. The daemon syncs workspace agents down (OQ-12 option A)
 

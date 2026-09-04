@@ -215,6 +215,94 @@ immediate, accurate *"your Claude CLI needs re-authenticating"*.
 can find its stored credentials. That was the other plausible cause of a blanket
 auth failure.
 
+---
+
+### ❌ RETRACTED, same day — that test was wrong, and so was the conclusion
+
+**The owner's token is NOT expired. Nothing needs re-authenticating.** The claim
+above was produced by a broken measurement and is withdrawn in full.
+
+**What was wrong with the test.** It stripped *every* `CLAUDE*`/`ANTHROPIC*`
+variable in the name of reproducing the daemon's environment. But
+`AGENT_ENV_ALLOWLIST` **deliberately forwards four of them** —
+`CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`,
+`ANTHROPIC_BASE_URL` — plus `CLAUDE_CONFIG_DIR`. So the test removed the
+credential and then reported the resulting 401 as a fact about the machine. It
+was cleaner than the daemon's environment, not equal to it.
+
+**The owner disproved it in one sentence:** multica runs Claude Code on this
+same machine, right now, with two agents online and 2.2M tokens billed.
+
+**Re-run keeping only the persistent (User + Machine scope) variables — what any
+Explorer-launched app actually inherits:**
+
+```
+CLAUDE_CODE_OAUTH_TOKEN = sk-ant-oat01...   (User scope, set permanently)
+elapsed 10.1s, exit 0
+{"type":"result","subtype":"success","is_error":false,"result":"PONG",
+ "num_turns":1,"total_cost_usd":0.0767}
+```
+
+**The CLI, the auth and the provider integration all work.** Authentication
+comes from a user-scope `CLAUDE_CODE_OAUTH_TOKEN`, not from
+`~/.claude/.credentials.json` — which is stale (2026-08-19) and irrelevant,
+because the env var takes precedence. That stale file is what the broken test
+fell back to.
+
+**What survives from the retracted entry:** `TURN_TIMEOUT_MS` (120 s) really is
+shorter than the CLI's retry ladder (~186 s), so *when* an auth failure does
+occur it is reported as "the provider timed out". That mechanism is real and
+worth fixing. It is simply not what is happening here.
+
+**The lesson, which is the same one this file recorded three days ago about
+`productName`:** a test that changes several things at once and gets the
+expected-looking answer has proved nothing about *why*. "Reproduce the daemon's
+environment" was the right intention; blanket-stripping a prefix was not a
+reproduction of it, and the allowlist it was supposed to imitate was open in
+another window at the time.
+
+### The actual root cause of the Phase 4 failure, found and fixed
+
+Measured from inside an agent session — the context the failing turn ran in:
+
+```
+persistent scope : CLAUDE_CODE_OAUTH_TOKEN = sk-ant-oat01...   (valid, multica uses it)
+agent's shell    : ANTHROPIC_BASE_URL = https://api.anth...  and NO token
+```
+
+`agentChildEnv` read provider credentials off `process.env`, so a daemon started
+from an agent's shell handed `claude` **an endpoint with no credential**. A
+guaranteed 401, retried for ~186 s, killed by the 120 s ceiling, reported as
+*"the provider timed out"*. Nothing to do with the owner's token, which was
+valid the entire time.
+
+**Fixed** in `server/src/orchestrator/provider-env.ts`: provider credentials are
+discovered from the **persistent** Windows environment (`HKCU`/`HKLM`), which is
+the same value every Explorer-launched app sees, so a run's auth no longer
+depends on how the daemon was launched.
+
+The load-bearing detail is that resolution is **per provider group, never per
+key**. `ANTHROPIC_BASE_URL` decides where `CLAUDE_CODE_OAUTH_TOKEN` is spent, so
+a per-key fallback would have combined a good token from saved settings with a
+stray endpoint from a shell — the same 401, assembled from two individually
+reasonable values. The first version of this fix did exactly that and was caught
+by running it against the real machine. Verified in the poisoned context:
+
+```
+[anthropic] configured persistently: true
+    ANTHROPIC_BASE_URL        DROPPED (ambient https://api.anthropi...)
+    CLAUDE_CODE_OAUTH_TOKEN   persistent  sk-ant-oat01-J...
+```
+
+This is also `OQ-11`'s "models auto-discovered from Windows environment
+variables" arriving from the other direction — discovery and correctness wanted
+the same source of truth.
+
+**Still genuinely open:** `healthCheck()` runs only `claude --version`, so
+`authenticated` stays `null`. That is the original gap and it is unchanged. The
+cheap fix is still to read what the CLI already reports about its own auth state
+rather than inventing a separate probe.
+
 ### G-51 — `claude-code`'s `--allowedTools`/`cwd` scoping for a chat turn is unverified live; `antigravity`'s is confirmed NOT to work at all
 
 **Raised:** 2026-08-28, while implementing `T-CS5-03` (Band 26, CS5 chat
