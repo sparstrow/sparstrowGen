@@ -8,7 +8,7 @@ import { startFileLogging } from "./log-file";
 import { setupUpdater, setRuntimeStopper } from "./updater";
 import { createTray } from "./tray";
 import { offlineScreenUrl } from "./offline";
-import { resolveAppUrl, resolveWindowUrl } from "./urls";
+import { resolveWindowUrl, signInOrigin } from "./urls";
 import { readDaemonPrefs, writeDaemonPrefs, type DaemonPrefs } from "./daemon-prefs";
 import { forgetToken, readToken, signIn } from "./session";
 import { claimThisComputer, setClaimListener } from "./claim";
@@ -176,10 +176,29 @@ if (!app.requestSingleInstanceLock()) {
      * host — `appUrl` is decided in this process.
      */
     ipcMain.handle("sparstrow:sign-in", async () => {
-      const appUrl = resolveAppUrl(process.env) ?? "http://localhost:3000";
+      const appUrl = signInOrigin(process.env, serverUrl());
       console.log(`[main] sign-in requested via ${appUrl}`);
+      /**
+       * Say what is happening, at each step.
+       *
+       * Sign-in is three waits stacked on one another: the browser, then the
+       * runtime and server becoming ready, then the claim. The button said
+       * "Waiting for your browser…" through all of it, so after confirming in
+       * the browser a person watched an unchanged screen for ten to fifteen
+       * seconds with no way to tell working from stuck. The steps were always
+       * distinct; only the reporting was not.
+       */
+      const stage = (name: string) => {
+        const win = mainWindow;
+        if (win && !win.isDestroyed()) win.webContents.send("sparstrow:sign-in-stage", name);
+      };
+
+      stage("browser");
       const result = await signIn(appUrl);
       console.log(`[main] sign-in ${result.ok ? "succeeded" : `failed: ${result.error}`}`);
+      if (result.ok) {
+        stage("connecting");
+      }
       if (result.ok) {
         // Awaited, not fired off: the renderer refreshes its machine list the
         // moment this resolves, and a claim still in flight at that point is
@@ -188,6 +207,11 @@ if (!app.requestSingleInstanceLock()) {
         const claimed = await claimThisComputer("sign-in");
         if (!claimed.ok) {
           console.error(`[main] signed in, but this computer was not claimed: ${claimed.error}`);
+          // Signed in but unclaimed is a real, reportable state, not a failure
+          // of sign-in. Returned as its own stage so the window can say which
+          // half worked instead of showing a generic error over a session that
+          // is actually fine.
+          stage("unclaimed");
         }
       }
       return result;
@@ -288,15 +312,39 @@ if (!app.requestSingleInstanceLock()) {
     openWindow();
 
     if (app.isPackaged) {
-      app.setLoginItemSettings({ openAtLogin: true });
-      // 0004 Phase 2: notify-only update checks (packaged only — dev has no
-      // release feed to compare against). The channel argument picks which
-      // GitHub Release feed this install tracks (channel.ts).
-      // An update replaces resources/core, so the running runtime must go
-      // down first regardless of the auto-stop-on-quit preference — see
-      // `installNow` in updater.ts for why this is not a preference.
-      setRuntimeStopper(() => services.stop(true));
-      setupUpdater(() => mainWindow, packagedPaths?.channel?.updateChannel);
+      /**
+       * Start with Windows. Deliberately NOT for a dev build: that install
+       * exists so an agent can drive a real packaged app, and it has no
+       * business launching on the owner's machine every morning alongside the
+       * app they actually use.
+       */
+      if (packagedPaths?.channel?.channel !== "dev") {
+        app.setLoginItemSettings({ openAtLogin: true });
+      }
+
+      /**
+       * 0004 Phase 2: notify-only update checks. The channel argument picks
+       * which GitHub Release feed this install tracks (channel.ts).
+       *
+       * The `dev` channel is excluded, and that exclusion is the point of the
+       * channel existing. A dev build is never published, so the only feed it
+       * could find is the stable one — it would announce the owner's release
+       * as an "update", and installing it would replace the test build with
+       * the real app under a different app ID. Leaving `setupUpdater`
+       * unregistered is also what makes the Settings card say so: `supported`
+       * is decided by whether the IPC handler answers, not by a flag that
+       * could drift from reality.
+       *
+       * An update replaces resources/core, so the running runtime must go
+       * down first regardless of the auto-stop-on-quit preference — see
+       * `installNow` in updater.ts for why this is not a preference.
+       */
+      if (packagedPaths?.channel?.channel === "dev") {
+        console.log("[updater] dev channel — self-update is deliberately not wired up");
+      } else {
+        setRuntimeStopper(() => services.stop(true));
+        setupUpdater(() => mainWindow, packagedPaths?.channel?.updateChannel);
+      }
     }
   });
 

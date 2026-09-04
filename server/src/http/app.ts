@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import cors from "@fastify/cors";
 import { createClient } from "@supabase/supabase-js";
 import { matchDaemonRoute, type DaemonContext } from "../routes/daemon/index.js";
+import { connectPageHtml } from "../routes/daemon/connect-page.js";
 import {
   fail,
   getActiveWorkspaceId,
@@ -137,7 +138,31 @@ export async function buildServer({ config, auth }: BuildOptions): Promise<Fasti
     const serviceDb = createClient(config.supabaseUrl, config.supabaseServiceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    const daemonCtx: DaemonContext = { db: serviceDb, webOrigin: config.webOrigin };
+    const daemonCtx: DaemonContext = {
+      db: serviceDb,
+      supabaseUrl: config.supabaseUrl,
+      supabaseAnonKey: config.supabaseAnonKey,
+      webOrigin: config.webOrigin,
+    };
+
+    /**
+     * The confirm page (`G-68`).
+     *
+     * Served here rather than only by `apps/web` so a computer that has never
+     * been connected can be, without a Next.js server anywhere. Deliberately at
+     * the same path `apps/web` uses, so one `webOrigin` names either.
+     */
+    app.get("/connect", async (req: FastifyRequest, reply: FastifyReply) => {
+      const attempt = (req.query as { attempt?: unknown } | undefined)?.attempt;
+      if (typeof attempt !== "string" || !attempt.trim()) {
+        return sendResponse(reply, fail(400, "This link is missing its connection request."));
+      }
+      reply.header("content-type", "text/html; charset=utf-8");
+      // No caching: the page embeds a one-time attempt id, and a cached copy
+      // would offer to approve a request that has already been used.
+      reply.header("cache-control", "no-store");
+      return reply.send(connectPageHtml(attempt.trim()));
+    });
 
     app.all("/api/daemon/*", async (req: FastifyRequest, reply: FastifyReply) => {
       try {

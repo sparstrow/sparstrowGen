@@ -57,6 +57,7 @@ declare global {
       version: string;
       onNavigate(cb: (screen: string) => void): () => void;
       onMachinesChanged(cb: () => void): () => void;
+      onSignInStage(cb: (stage: string) => void): () => void;
       updates: {
         getStatus(): Promise<DesktopUpdateStatus>;
         check(): Promise<void>;

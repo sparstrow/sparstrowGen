@@ -1,6 +1,6 @@
 // Generates a channel-specific electron-builder config.
 //
-// Stable and staging share every field EXCEPT app identity and version — one
+// Stable and dev share every field EXCEPT app identity and version — one
 // electron-builder `build` block (package.json) plus a small per-channel
 // override, merged here in Node, rather than two config files that can
 // quietly drift out of sync (extraResources, the win/nsis block, the GitHub
@@ -9,7 +9,7 @@
 // package.json's `build` itself rather than relying on electron-builder's own
 // merge/extends behavior.
 //
-// Usage: node scripts/build-channel-config.mjs <stable|staging>
+// Usage: node scripts/build-channel-config.mjs <stable|dev>
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,48 +24,58 @@ const channel = process.argv[2];
 // one machine at the install-directory / Start Menu / GitHub-release level.
 // It does NOT, on its own, separate userData: Electron derives
 // `app.getPath("userData")` from `app.name`, which resolves from the
-// packaged app's own `package.json` `name` field (`@sparstrow/desktop` for
-// both channels here) — `productName` is an electron-builder installer/build
-// concept, not something Electron's app module reads at runtime. Verified
-// 2026-08-30 (T-DR-04): a real staging install launched with
-// `--user-data-dir=...\Roaming\@sparstrow/desktop`, the same default stable
-// would use — the two channels shared a userData dir until `name` below was
-// added to staging's `extraMetadata`. `extraMetadata` is merged into the
-// packaged app's `package.json`, so overriding `name` there is what actually
-// changes `app.name`, and with it every userData-derived path.
+// packaged app's own `package.json` - and it reads `productName` there in
+// PREFERENCE to `name`, falling back to `name` only when `productName` is
+// absent.
 //
-// Staging used to force `releaseType: "release"` here so electron-builder
-// would create the GitHub Release already published, skipping the human
-// click stable leaves in place. That broke 2026-08-30 (T-DR-05): GitHub's
-// release-creation endpoint now rejects a `draft: false` create call outright
-// with "Published releases must have a valid tag" when the tag doesn't exist
-// yet — and it never does, since electron-builder creates the tag AS PART OF
-// the release, not before it. Draft creation is unaffected (the whole point
-// of a draft is that GitHub defers creating the tag until it's published), so
-// staging now creates a draft exactly like stable, and
-// release-staging.yml publishes it immediately afterward via a follow-up API
-// call — same "no human click" outcome, different mechanism.
+// WARNING: this file used to state the opposite - that `productName` is "an
+// electron-builder installer/build concept, not something Electron's app
+// module reads at runtime". That is wrong, and it cost a build. Corrected
+// 2026-09-03 with direct evidence: a dev-channel install whose asar
+// package.json read {"name": "sparstrow-desktop-dev", "productName":
+// "Sparstrowgen"} launched and logged its main.log under
+// AppData/Roaming/Sparstrowgen - the STABLE install's userData - then quit on
+// its single-instance lock. `name` had been overridden correctly and made no
+// difference at all.
+//
+// The trap is that `productName` exists TWICE in apps/desktop/package.json: at
+// the root (which electron-builder copies into the packaged app, and which
+// Electron reads) and under `build` (which only names the installer and the
+// .exe). Overriding the `build` one renames the installer while leaving every
+// runtime path pointing at the other channel. BOTH have to move, which is why
+// `extraMetadata` below carries `productName` as well as `name`.
+//
+// The T-DR-04 verification on 2026-08-30 was real but incomplete: it proved
+// the two channels stopped SHARING a dir, without establishing which field
+// did it.
+//
+// Identity is necessary and not sufficient. Two installs also have to stop
+// fighting over a port: both channels hardcoded 48750 and 8080, so the second
+// app found the first one's server listening and ADOPTED it, then operated on
+// the other install's data. `src/main/ports.ts` holds the per-channel table
+// that closes that, and `prepare-resources.mjs` bakes the numbers into each
+// install's own channel.json.
 const OVERRIDES = {
   stable: {},
-  staging: {
-    appId: "com.sparstrow.sparstrowgen.staging",
-    productName: "Sparstrowgen Staging",
-    // `publish.channel` — NOT inferred from the version's `-staging.N`
-    // prerelease suffix, despite what this file used to claim (never
-    // actually verified until T-DR-05). app-builder-lib's
-    // `computeChannelNames` reads `publishConfig.channel` directly,
-    // defaulting to "latest" when absent — so without this, staging was
-    // silently publishing `latest.yml` (confirmed live, T-DR-05), which
-    // `updater.ts`'s `autoUpdater.channel = "staging"` would never find.
-    publish: { ...pkg.build.publish, channel: "staging" },
+  dev: {
+    appId: "com.sparstrow.sparstrowgen.dev",
+    productName: "Sparstrowgen Dev",
+    // NEVER published. A dev build exists so an agent can install and drive a
+    // real packaged app without touching the one the owner uses; putting it on
+    // a GitHub release feed would defeat that twice over — the owner's app
+    // could find it, and it could find the owner's.
+    publish: null,
   },
 };
 // Stable deliberately keeps `pkg.name` (`@sparstrow/desktop`) unchanged —
 // that's the userData path any already-installed stable build is already
-// using, and this fix must not orphan it. Staging gets its own distinct name
-// so its userData dir (and anything else Electron keys off `app.name`) never
+// using, and this fix must not orphan it. Dev gets its own distinct name so
+// its userData dir (and anything else Electron keys off `app.name`) never
 // overlaps with stable's.
-const APP_NAME = { stable: pkg.name, staging: "sparstrow-desktop-staging" };
+const APP_NAME = { stable: pkg.name, dev: "sparstrow-desktop-dev" };
+// Root `productName`, the field Electron actually resolves `app.name` from.
+// Stable keeps its existing value so no installed build is orphaned.
+const PRODUCT_NAME = { stable: pkg.productName, dev: "Sparstrowgen Dev" };
 
 if (!OVERRIDES[channel]) {
   console.error(
@@ -74,19 +84,16 @@ if (!OVERRIDES[channel]) {
   process.exit(1);
 }
 
-// Staging auto-publishes on every push (see .github/workflows/release-staging.yml).
-// `OVERRIDES.staging.publish.channel` above is what makes electron-builder
-// write `staging.yml` instead of `latest.yml`, matching the
-// `autoUpdater.channel = "staging"` that updater.ts sets from the baked
-// channel.json. The build number keeps every staging push's version
-// distinct; GITHUB_RUN_NUMBER in Actions, a timestamp for a local test build.
+// A dev build is never published, so its version only has to be distinct from
+// the last one an agent built on this machine — a timestamp is enough, and the
+// `-dev.N` suffix makes it obvious in the title bar which build is running.
 const buildNumber = process.env.SPARSTROW_BUILD_NUMBER || String(Date.now());
-const version = channel === "staging" ? `${pkg.version}-staging.${buildNumber}` : pkg.version;
+const version = channel === "dev" ? `${pkg.version}-dev.${buildNumber}` : pkg.version;
 
 const merged = {
   ...pkg.build,
   ...OVERRIDES[channel],
-  extraMetadata: { name: APP_NAME[channel], version },
+  extraMetadata: { name: APP_NAME[channel], productName: PRODUCT_NAME[channel], version },
 };
 
 const outPath = path.join(desktopDir, `electron-builder.${channel}.generated.json`);

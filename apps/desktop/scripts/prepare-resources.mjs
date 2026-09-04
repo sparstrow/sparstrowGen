@@ -9,7 +9,7 @@
 //     memory-mcp/      index.cjs
 //     memory-cli/      index.cjs
 //     node-runtime/    plain Node matching the natives' ABI (see step 4)
-//     channel.json     which backend this install talks to (stable/staging)
+//     channel.json     this install's channel: backend, ports, update feed
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -134,30 +134,47 @@ const nodeName = process.platform === "win32" ? "node.exe" : "node";
 fs.copyFileSync(process.execPath, path.join(nodeDir, nodeName));
 console.log(`[prepare] node runtime: ${process.version} (${process.execPath})`);
 
-// 5. Channel config: which backend THIS specific build talks to, baked in so
-// a packaged install works out of the box — see src/channel.ts for why this
-// is a per-install resource file rather than a machine-wide env var (stable
-// and staging now install side by side; a shared env var would let one
-// silently repoint the other).
+// 5. Channel config: which backend THIS specific build talks to and which
+// ports it owns, baked in so a packaged install works out of the box — see
+// src/channel.ts for why this is a per-install resource file rather than a
+// machine-wide env var (stable and dev install side by side; a shared env var
+// would let one silently repoint the other).
+//
+// `corePort`/`serverPort` are the half that stops the two installs from
+// destroying each other. They shared 48750 and 8080, and because the app
+// ADOPTS a server it finds already listening, the second install would quietly
+// start driving the first one's data. Observed live 2026-09-03 —
+// doc/bug/BUG-2026-09-03-two-desktop-installs-fight-over-the-daemon-port.md.
+// Stable's numbers must not change: an already-installed build is using them.
+//
+// `appUrl` is dead (see src/channel.ts) and kept only so an older install's
+// channel.json still validates.
 const CHANNELS = {
   stable: {
     channel: "stable",
     updateChannel: "latest",
     appUrl: "https://sparstrow.com",
     cloudUrl: "https://sparstrow.com",
+    corePort: 48750,
+    serverPort: 8080,
   },
-  staging: {
-    channel: "staging",
-    updateChannel: "staging",
-    appUrl: "https://staging.sparstrow.com",
-    cloudUrl: "https://staging.sparstrow.com",
+  dev: {
+    channel: "dev",
+    // Never consulted: main.ts does not wire up the updater for a dev build,
+    // because the only feed one could reach is stable's — it would offer the
+    // owner's release as an "update" to a test install.
+    updateChannel: "none",
+    appUrl: "http://127.0.0.1:8180",
+    cloudUrl: "http://127.0.0.1:8180",
+    corePort: 48850,
+    serverPort: 8180,
   },
 };
-// CLI arg takes precedence (dist:stable/dist:staging pass it explicitly, so
-// this never depends on shell env-var syntax, which differs between the bash
-// and cmd.exe/PowerShell steps this repo's workflows and machines mix); the
-// env var is kept as a fallback for a manual local run.
-const buildChannel = process.argv[2] || process.env.SPARSTROW_BUILD_CHANNEL || "stable";
+// CLI arg takes precedence (dist:stable/dist:dev pass it explicitly, so this
+// never depends on shell env-var syntax, which differs between the bash and
+// cmd.exe/PowerShell steps this repo's workflows and machines mix); the env
+// var is kept as a fallback for a manual local run.
+const buildChannel = process.argv[2] || process.env.SPARSTROW_BUILD_CHANNEL || "dev";
 if (!CHANNELS[buildChannel]) {
   console.error(
     `[prepare] unknown SPARSTROW_BUILD_CHANNEL="${buildChannel}" — expected one of: ${Object.keys(CHANNELS).join(", ")}`,
@@ -165,6 +182,8 @@ if (!CHANNELS[buildChannel]) {
   process.exit(1);
 }
 fs.writeFileSync(path.join(staging, "channel.json"), JSON.stringify(CHANNELS[buildChannel], null, 2));
-console.log(`[prepare] channel: ${buildChannel} (${CHANNELS[buildChannel].appUrl})`);
+console.log(
+  `[prepare] channel: ${buildChannel} (core ${CHANNELS[buildChannel].corePort}, server ${CHANNELS[buildChannel].serverPort})`,
+);
 
 console.log(`[prepare] staged at ${staging}`);

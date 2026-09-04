@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { PackagedPaths } from "./packaged-env";
 import { readServerConfig } from "./server-config";
+import { serverBaseUrl, serverPort } from "./ports";
 
 /**
  * Supervises `server/` — the API both halves of this app talk to.
@@ -29,15 +30,24 @@ import { readServerConfig } from "./server-config";
  * one of those differences.
  */
 
+/** See `ServiceManager`'s note: adoption is a judgement that must be re-made. */
+const ADOPTED_CHECK_MS = 15_000;
+
 const RESTART_BACKOFF_MS = 2000;
 const MAX_RESTARTS = 5;
 const RESTART_WINDOW_MS = 5 * 60 * 1000;
 const LOG_MAX_BYTES = 5 * 1024 * 1024;
 
-export const DEFAULT_SERVER_PORT = 8080;
-
+/**
+ * This install's API port, resolved per call.
+ *
+ * Was a module constant, which meant every install of this app on a machine
+ * listened on 8080 — so a second install adopted the first one's server and
+ * operated on its data. `ports.ts` holds the per-channel table and explains
+ * why capturing the value at import time could never have worked.
+ */
 export function serverUrl(): string {
-  return process.env.SPARSTROW_SERVER_URL ?? `http://127.0.0.1:${DEFAULT_SERVER_PORT}`;
+  return serverBaseUrl();
 }
 
 /** Is anything serving the API at this URL? Unauthenticated by design. */
@@ -65,6 +75,7 @@ export class ServerManager {
   private external = false;
   private stopping = false;
   private restarts: number[] = [];
+  private watchdog: NodeJS.Timeout | null = null;
   private logStream: fs.WriteStream | null = null;
   private logBytes = 0;
   private logPath: string;
@@ -108,6 +119,7 @@ export class ServerManager {
       this.external = true;
       console.log("[server] already running — adopting it");
       this.setState({ state: "external" });
+      this.startWatchdog();
       return;
     }
 
@@ -136,6 +148,40 @@ export class ServerManager {
     const message = `the server did not become healthy; see ${this.logPath}`;
     console.error(`[server] ${message}`);
     this.setState({ state: "failed", message });
+  }
+
+  /**
+   * Keep watching a server we did not start.
+   *
+   * Adopting one and never looking again is how the app ends up with no server
+   * and no intention of getting one: a developer stops their checkout, and the
+   * app that decided to use it never notices. A server we spawned is covered by
+   * its own `exit` handler; this is the other half.
+   */
+  private startWatchdog(): void {
+    if (this.watchdog) return;
+    this.watchdog = setInterval(() => {
+      void (async () => {
+        if (this.stopping || !this.external) return;
+        if (await probeServer()) return;
+        console.log("[server] the adopted server is gone — starting our own");
+        this.external = false;
+        this.restarts = [];
+        const config = readServerConfig();
+        if (config) {
+          this.setState({ state: "starting" });
+          this.spawnServer(config);
+        } else {
+          this.setState({ state: "unconfigured" });
+        }
+      })();
+    }, ADOPTED_CHECK_MS);
+    this.watchdog.unref?.();
+  }
+
+  private stopWatchdog(): void {
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.watchdog = null;
   }
 
   private spawnServer(config: ReturnType<typeof readServerConfig> & object): void {
@@ -172,7 +218,7 @@ export class ServerManager {
           ? { SUPABASE_SERVICE_ROLE_KEY: config.supabaseServiceRoleKey }
           : {}),
         ...(config.supabaseJwtSecret ? { SUPABASE_JWT_SECRET: config.supabaseJwtSecret } : {}),
-        SPARSTROW_SERVER_PORT: String(DEFAULT_SERVER_PORT),
+        SPARSTROW_SERVER_PORT: String(serverPort()),
       },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
@@ -222,6 +268,7 @@ export class ServerManager {
 
   async stop(): Promise<void> {
     this.stopping = true;
+    this.stopWatchdog();
     this.logStream?.end();
     this.logStream = null;
 

@@ -47,6 +47,21 @@ export function resolveAppUrl(env: UrlEnv): string | null {
 }
 
 /**
+ * Where sign-in starts.
+ *
+ * `server/` serves `/connect`, `/api/daemon/connect` and `.../exchange`, so the
+ * whole flow lives on this machine and the default is this machine's server.
+ *
+ * It used to fall back to `http://localhost:3000`, which is why a first sign-in
+ * on a packaged install failed with "Could not reach http://localhost:3000":
+ * the app does not ship a Next.js server, so nothing was ever there.
+ * `SPARSTROW_APP_URL` still overrides, for pointing at a deployed web app.
+ */
+export function signInOrigin(env: UrlEnv, localServerUrl: string): string {
+  return resolveAppUrl(env) ?? localServerUrl;
+}
+
+/**
  * A rare override for what the WINDOW loads, distinct from `SPARSTROW_APP_URL`.
  *
  * The two were briefly the same variable and that was a conflation, caught the

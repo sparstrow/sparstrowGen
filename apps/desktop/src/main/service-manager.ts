@@ -5,10 +5,27 @@ import net from "node:net";
 import { app } from "electron";
 import type { PackagedPaths } from "./packaged-env";
 import { readApiToken } from "./core-client";
+import { coreBaseUrl, corePort } from "./ports";
 
-const CORE_URL = process.env.SPARSTROW_CORE_URL ?? "http://127.0.0.1:48750";
-const HEALTH_URL = `${CORE_URL}/api/v1/system/health`;
-const SHUTDOWN_URL = `${CORE_URL}/api/v1/system/shutdown`;
+// Functions, not constants: this module is imported before `main.ts` applies
+// the install's channel config, so a captured value is always the default.
+// See `ports.ts`.
+const CORE_URL = (): string => coreBaseUrl();
+const HEALTH_URL = (): string => `${coreBaseUrl()}/api/v1/system/health`;
+const SHUTDOWN_URL = (): string => `${coreBaseUrl()}/api/v1/system/shutdown`;
+
+/**
+ * How often to re-check a runtime we ADOPTED rather than started.
+ *
+ * Adoption is a one-time judgement, and that was the bug: the app decides "one
+ * is already running, leave it alone" and then never looks again. When that
+ * process later dies — a developer stopping their checkout, or a cleanup
+ * killing it — the app is left with no runtime and no intention of getting one.
+ * Observed live: a machine sat at "Unreachable" indefinitely and a sign-in's
+ * claim failed with "the local runtime and server never both became reachable"
+ * about a runtime the app had adopted and never replaced.
+ */
+const ADOPTED_CHECK_MS = 15_000;
 
 const RESTART_BACKOFF_MS = 2000;
 const MAX_RESTARTS = 5;
@@ -39,7 +56,7 @@ export async function probeHealth(timeoutMs = 1500, token: string | null = null)
   try {
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    const res = await fetch(HEALTH_URL, { headers, signal: AbortSignal.timeout(timeoutMs) });
+    const res = await fetch(HEALTH_URL(), { headers, signal: AbortSignal.timeout(timeoutMs) });
     return res.ok;
   } catch {
     return false;
@@ -80,6 +97,7 @@ export class ServiceManager {
   private external = false;
   private stopping = false;
   private restarts: number[] = [];
+  private watchdog: NodeJS.Timeout | null = null;
   private logStream: fs.WriteStream | null = null;
   private logBytes = 0;
   private logPath: string;
@@ -120,6 +138,7 @@ export class ServiceManager {
     if (await probeHealth(1500, this.token())) {
       this.external = true;
       console.log("[service] core already running — external mode");
+      this.startWatchdog();
       return;
     }
 
@@ -139,9 +158,9 @@ export class ServiceManager {
      * and each has its own `.api-token`, so neither can ever adopt the other.
      * See doc/bug/BUG-2026-09-03-two-desktop-installs-fight-over-the-daemon-port.md.
      */
-    if (await portInUse(CORE_URL)) {
+    if (await portInUse(CORE_URL())) {
       throw new Error(
-        `Something else is already using ${CORE_URL}. That is usually another ` +
+        `Something else is already using ${CORE_URL()}. That is usually another ` +
           `Sparstrowgen install still running — quit it (check the system tray), ` +
           `or set SPARSTROW_CORE_URL to a different port for this one.`,
       );
@@ -157,6 +176,35 @@ export class ServiceManager {
       await new Promise((r) => setTimeout(r, 500));
     }
     throw new Error(`core did not become healthy; see ${this.logPath}`);
+  }
+
+  /**
+   * Keep watching a runtime we did not start.
+   *
+   * Only ever acts on an ADOPTED runtime: one we spawned already has an `exit`
+   * handler that restarts it. This closes the other half, where the process we
+   * decided to trust goes away and nothing notices.
+   */
+  private startWatchdog(): void {
+    if (this.watchdog) return;
+    this.watchdog = setInterval(() => {
+      void (async () => {
+        if (this.stopping || !this.external) return;
+        if (await probeHealth(1500, this.token())) return;
+        console.log("[service] the adopted core is gone — starting our own");
+        this.external = false;
+        this.restarts = [];
+        this.spawnCore();
+      })();
+    }, ADOPTED_CHECK_MS);
+    // Never hold the process open for a timer whose only job is to notice
+    // something is missing.
+    this.watchdog.unref?.();
+  }
+
+  private stopWatchdog(): void {
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.watchdog = null;
   }
 
   private spawnCore(): void {
@@ -197,7 +245,20 @@ export class ServiceManager {
     // that has been unref'd no longer holds the event loop open.
     const child = spawn(nodeBin, args, {
       cwd,
-      env: { ...process.env },
+      env: {
+        ...process.env,
+        /**
+         * Tell the daemon which port to LISTEN on.
+         *
+         * Without this it falls back to `DEFAULT_PORT` (48750) from
+         * `@sparstrow/shared` regardless of which install spawned it — so the
+         * dev channel would talk to 48850 while its own daemon sat on 48750,
+         * on top of the stable install's. Separating the port the app DIALS
+         * without separating the port the daemon BINDS is worse than not
+         * separating either, because the collision moves somewhere quieter.
+         */
+        SPARSTROW_PORT: String(corePort()),
+      },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
       detached: true,
@@ -300,6 +361,7 @@ export class ServiceManager {
    */
   async stop(stopCore = true): Promise<void> {
     this.stopping = true;
+    this.stopWatchdog();
 
     if (!stopCore) {
       // Deliberately not killed and deliberately not awaited. The log stream
@@ -318,7 +380,7 @@ export class ServiceManager {
       const token = this.token();
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
-      await fetch(SHUTDOWN_URL, { method: "POST", headers, signal: AbortSignal.timeout(2000) });
+      await fetch(SHUTDOWN_URL(), { method: "POST", headers, signal: AbortSignal.timeout(2000) });
     } catch {
       // fall through to kill
     }

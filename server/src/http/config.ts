@@ -75,7 +75,12 @@ export function loadServerConfig(env: NodeJS.ProcessEnv = process.env): ServerCo
     supabaseAnonKey,
     supabaseServiceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY || null,
     supabaseJwtSecret: env.SUPABASE_JWT_SECRET || null,
-    webOrigin: (env.SPARSTROW_WEB_ORIGIN ?? "http://localhost:3000").replace(/\/+$/, ""),
+    // Defaults to this server's OWN origin, because it serves `/connect`
+    // itself now. It used to default to `http://localhost:3000`, which meant a
+    // packaged install sent people to a Next.js server it does not ship — the
+    // "Could not reach http://localhost:3000" a first sign-in actually hit.
+    // Set it explicitly to send people to `apps/web` instead.
+    webOrigin: (env.SPARSTROW_WEB_ORIGIN ?? `http://127.0.0.1:${port}`).replace(/\/+$/, ""),
     corsOrigins: (env.SPARSTROW_SERVER_CORS_ORIGINS ?? "http://localhost:3000")
       .split(",")
       .map((o) => o.trim())

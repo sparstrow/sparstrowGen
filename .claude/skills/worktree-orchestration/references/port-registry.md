@@ -47,38 +47,35 @@ for allow-listing the next range — don't quietly assign an unlisted port.
 | 3090 | 🟢 available | — | — | — |
 | 3100 | 🟢 available | — | — | — |
 
-**3050/3060 are not worktree-assignable** — they're a permanent reservation
-for `apps/desktop/scripts/run-local.mjs` (see below), same non-worktree
-pattern as the Core/UI ports further down. Don't hand either out to a
-worktree even if the row above ever looks stale; check
-`apps/desktop/scripts/run-local.mjs`'s `PORTS` map first.
+**3050/3060 were reserved for `apps/desktop/scripts/run-local.mjs`, which was
+deleted 2026-09-03** along with the G-54 workaround it existed for — the
+desktop app no longer points at a hosted or local `apps/web` at all. Both
+ports are free to reassign.
 
 **Pool exhausted (all 10 assignable rows locked)?** Add more rows to the
 Supabase dashboard allow-list first (same `http://localhost:<port>/**`
 pattern, next step of 10), then add matching rows here. Adding the dashboard
 rows is an owner action — see `doc/runbooks/README.md`.
 
-## Desktop channel local dev — `3050` (stable), `3060` (staging)
+## Desktop install ports — not from this pool
 
-Added 2026-08-30 while Vercel's free-plan usage cap left every hosted
-environment (`sparstrow.com`, `staging.sparstrow.com`, `development.sparstrow.com`)
-paused — see `doc/KnownGaps.md` **G-54**. The installed desktop app's default
-`appUrl` per channel is the hosted one; pointing it at a local `apps/web dev`
-server instead (via `SPARSTROW_APP_URL`) is the workaround, and each channel
-needs its own fixed port so both can run side by side without colliding —
-same reasoning as the Web pool above, and for the same reason these two also
-have to come from that Supabase-allow-listed range, not an arbitrary unused
-port: a local sign-in/magic-link/reset flow bounces to the Site URL instead
-of back to the app on any port not in that allow-list.
+**Retired 2026-09-03.** `run-local.mjs` and the `SPARSTROW_APP_URL`-to-a-local-
+Next-server workaround are gone: the desktop app serves its own `/connect` page
+from `server/` (`G-68`), so it needs no web app and no allow-listed redirect
+port.
 
-`apps/desktop/scripts/run-local.mjs <stable|staging>` reads these from
-its own `PORTS` map (not from this file — this table is the change-control
-record, the script is the source of truth at runtime) and: starts
-`apps/web`'s dev server on the channel's port if nothing is already listening
-there, waits for it to respond, then launches the channel's installed app
-with `SPARSTROW_APP_URL` pointed at it. See the script's own header comment
-for the full behavior and `doc/runbooks/deploy-web-app.md` for when this
-workaround can be retired (once G-54 clears).
+Desktop installs do still need non-colliding ports, but they are **daemon and
+API ports, not browser-redirect ports**, so they come from their own range and
+have nothing to do with Supabase's allow-list:
+
+| channel | core (daemon) | server (API) |
+|---|---|---|
+| `stable` | 48750 | 8080 |
+| `dev` | 48850 | 8180 |
+
+Source of truth is `apps/desktop/src/main/ports.ts`; each install carries its
+own copy baked into `channel.json`. Do not change stable's numbers — an
+installed build is using them, and moving them orphans it.
 
 ## Core / UI (`@sparstrow/core`, `@sparstrow/ui`) — singleton, no worktree pool
 

@@ -601,43 +601,46 @@ database and does not have this problem — which is a second reason to prefer i
 
 ---
 
-## G-65 — Two desktop installs cannot both run; the daemon port is a single hardcoded constant
 
-**Opened:** 2026-09-03, by running the app on a machine that already had one.
+## G-65 — CLOSED 2026-09-03: desktop installs have per-channel ports
 
-`packages/shared/src/constants.ts` fixes `DEFAULT_PORT = 48750` for every
-install. Stable and Staging were separated at every other level — `appId`,
-`productName`, `userData` — and each separation was verified; the runtime port
-was not among them, and nothing ever ran both at once to find out.
+**Was:** every install hardcoded 48750 (daemon) and 8080 (API), so two
+Sparstrowgens on one machine could not both run. Worse than the crash it was
+opened for: because the app ADOPTS a server it finds listening, a second install
+of a similar build would quietly operate on the first one's data.
 
-Adoption cannot paper over it either: `ServiceManager.start()` adopts an
-already-listening runtime, but only via `probeHealth`, which authenticates with
-the **per-install** `.api-token`. A second install's token gets a 401, which is
-indistinguishable from "nothing is listening".
+**Closed by** `apps/desktop/src/main/ports.ts` — a per-channel table, baked into
+each install's own `channel.json`, with stable's numbers unchanged so no
+existing install is orphaned. Every URL on that path became a function, because
+`main.ts` imports `core-client` and `service-manager` on lines 3 and 6 while
+applying the channel config on line 52; the env-var implementation could never
+have worked and would have failed silently.
 
-**Mitigated in the same change, not fixed.** The second install now fails fast
-with a sentence naming the cause instead of crash-looping into EADDRINUSE for a
-minute, and the window no longer waits for the runtime before opening. It still
-has no runtime, so it cannot execute agent work.
+**Proof, which is what this entry asked for.** Both installs' runtimes observed
+alive at the same moment:
 
-Full writeup, including the ~60 s invisible-window failure it presented as:
+```
+8080   LISTENING  pid=21384  ...\Programs\Sparstrowgenesources
+ode-runtime
+ode.exe
+48750  LISTENING  pid=22852  ...\Programs\Sparstrowgenesources
+ode-runtime
+ode.exe
+48850  LISTENING  pid=13848  ...\Programs\Sparstrowgen Devesources
+ode-runtime
+ode.exe
+```
+
+8180 is free rather than listening because the dev install has no Supabase
+credentials of its own, so its `server/` correctly declines to start. That is
+the isolation working, not a gap: a dev install cannot read the stable install's
+credential store. The daemon separation — the thing this entry was about — is
+observed, not inferred.
+
+Full writeup:
 [`BUG-2026-09-03`](bug/BUG-2026-09-03-two-desktop-installs-fight-over-the-daemon-port.md).
-
-**Operationally, right now:** uninstall "Sparstrowgen Staging" before installing
-0.3.0. That channel was retired with the `staging` branch on 2026-09-02 and will
-never receive another release.
-
-**If wrong (i.e. left as is):** the moment a second Sparstrowgen exists on any
-machine — a staging build kept for testing, a second account, a future beta
-channel — one of them silently has no runtime. That is exactly the "installed
-side by side without conflicting" claim `0.2.0`'s changelog already makes, so
-the documentation is currently ahead of the behaviour.
-
-**Closes when:** the port is per-install rather than global — derived from the
-channel, or negotiated at first start and written to a file the way `.api-token`
-already is — and two installs are proved to run their runtimes simultaneously on
-one machine. Touching it means touching the daemon, `core-client.ts`,
-`memory-cli`, `memory-mcp` and the packaged resources together.
+The `productName`-versus-`name` trap found on the way is
+[`BUG-2026-09-03`](bug/BUG-2026-09-03-productName-not-name-decides-userdata.md).
 
 ---
 
@@ -695,7 +698,9 @@ checked empty first (`8080: 0  48750: 0`), then
 Menu path, no environment variables, no checkout involved:
 
 ```
-[main] loading window: …\Programs\Sparstrowgenesourcespp.asar\outenderer\index.html
+[main] loading window: …\Programs\Sparstrowgen
+esourcespp.asar\out
+enderer\index.html
 [server] spawned pid=48096
 [service] spawned core pid=44308 (detached)
 [server] healthy
@@ -722,24 +727,53 @@ anywhere" is not.
 
 ---
 
-## G-68 — A first sign-in still needs `apps/web` running
+## G-68 — CLOSED 2026-09-03: `server/` serves the confirm page itself
 
-**Opened:** 2026-09-03, splitting out of `G-67` as the part that did not close.
+**Was:** pairing needed no web app, but the `/connect` confirm page a FIRST
+sign-in opens was a Next.js page in `apps/web`. A packaged install ships no
+Next.js, so a computer that had never been connected could not get a credential.
+The owner hit it exactly as described: *"Could not reach http://localhost:3000:
+fetch failed"*.
 
-Pairing needs no web app — a stored credential is enough, which is why an
-already-signed-in machine now works entirely on its own. But the `/connect`
-confirm page a *first* sign-in opens is a Next.js page in `apps/web`.
-`server/` builds the confirm URL from `SPARSTROW_WEB_ORIGIN`, defaulting to
-`http://localhost:3000`, and nothing serves that in a packaged install.
+**Closed by** serving the page from `server/`, plus three routes it needs:
+`/connect/attempt` (what am I approving), `/connect/signin` (Supabase's own auth
+endpoint, proxied so the anon key stays server-side), and `/connect/approve`.
 
-So: **a new computer cannot complete its first sign-in from the desktop app
-alone.** Updating or re-launching an already-connected computer is unaffected.
+**The approval runs with the USER's token, never the service role**, so
+`connect_attempts_approve` (policies/033) is what decides whether it is allowed:
+pending, unexpired, and stamped with the approver's own id. The route could not
+bypass RLS if it tried. The callback is read from the row rather than the
+request, so an approved attempt can only ever hand its credential to the machine
+that created it.
 
-**If wrong (i.e. left as is):** the app can only ever be adopted by someone who
-already has the repository, which is the same class of "works only where it was
-built" problem `G-67` was.
+`SPARSTROW_APP_URL` now defaults to this machine's own server instead of
+`http://localhost:3000`, which is what made the old failure inevitable on a
+packaged install.
 
-**Closes when** either the confirm page is served by `server/` (it is one page
-and one approve action — the write is already a Server Action that Phase 5 has
-to port anyway), or hosting is unparked (`D-40`). Serving it locally is the
-smaller of the two and does not need TLS.
+**Verified** with every `SUPABASE_*` and `SPARSTROW_*` variable unset:
+
+```
+[main] sign-in requested via http://127.0.0.1:8080
+server: POST /api/daemon/connect      → attempt created
+server: GET  /connect                 → confirm page served
+server: POST /api/daemon/connect/attempt → page named the machine
+POST /api/daemon/connect/signin  (agent account) → accessToken
+POST /api/daemon/connect/signin  (wrong password) → 401 "Invalid login credentials"
+```
+
+### The compromise, stated rather than glossed
+
+**The confirm page asks for a password.** The app's own rule is unchanged and
+still holds: no password field in the native window, because a native window
+asking for credentials cannot be told apart from one phishing them. This is a
+browser page, on loopback, with the address bar visible.
+
+But the better answer is the identity provider's own screen — magic link,
+GitHub, Google — and that needs a redirect URL the provider will accept. A
+loopback address is not one. So OAuth and magic link are unavailable until
+hosting exists (`D-40`), and this is the honest smallest thing that works
+meanwhile.
+
+The sign-in screen's copy was corrected in the same change: it promised
+"nothing is typed here" and "you are already signed in", and the second half
+stopped being true the moment this page began asking for a password.
