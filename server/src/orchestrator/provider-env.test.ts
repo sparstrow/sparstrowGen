@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   PROVIDER_ENV_GROUPS,
@@ -43,6 +45,64 @@ describe("provider env groups", () => {
     expect(all).not.toContain("AWS_SECRET_ACCESS_KEY");
     expect(all.some((k) => /^SPARSTROW_/i.test(k))).toBe(false);
   });
+});
+
+describe("the registry read itself", () => {
+  /**
+   * These exist because the whole discovery silently did nothing, and every
+   * other test still passed.
+   *
+   * A stray edit turned the query path into `` `${root}\${path}` `` — in a
+   * template literal `\$` escapes the `$`, so the argument became the literal
+   * "HKCU${path}" — and the HKLM path lost its separators the same way
+   * (`\C`, `\S` are not escapes, so JS just drops the backslash). Both reads
+   * threw, both returned `{}`, and everything fell through to the ambient
+   * fallback with only a warning nobody was reading.
+   *
+   * The unit tests passed throughout, because they only ever exercised the
+   * fallback path. The manual check passed too, because it used a SEPARATE
+   * copy of the parser in a scratch script rather than this module. Two green
+   * signals, neither touching the broken line.
+   */
+  it("builds a real registry path, not one with an escaped dollar sign", () => {
+    const source = readFileSync(new URL("./provider-env.ts", import.meta.url), "utf8");
+    // The bug is invisible at runtime off Windows, so assert on the source.
+    expect(source).toContain("`${root}\\\\${path}`");
+    expect(source).not.toContain("`${root}\\${path}`");
+  });
+
+  it("keeps the HKLM path's separators", () => {
+    const source = readFileSync(new URL("./provider-env.ts", import.meta.url), "utf8");
+    expect(source).toContain("SYSTEM\\\\CurrentControlSet\\\\Control\\\\Session Manager\\\\Environment");
+  });
+
+  it.runIf(process.platform === "win32")(
+    "actually reads the user's persistent environment on Windows",
+    () => {
+      // The end-to-end guard: if the query path breaks again, no key on this
+      // machine resolves to "persistent" and this fails. HKCU\Environment is
+      // never empty on a real Windows profile.
+      resetProviderEnvCache();
+      const raw = execFileSync("reg", ["query", "HKCU\\Environment"], {
+        encoding: "utf8",
+        windowsHide: true,
+        stdio: ["ignore", "pipe", "ignore"],
+      });
+      const names = raw
+        .split(/\r?\n/)
+        .map((l) => /^\s{4,}(\S(?:.*?\S)?)\s{4,}REG_(?:EXPAND_)?SZ\s{4,}/.exec(l)?.[1])
+        .filter((n): n is string => Boolean(n));
+      expect(names.length).toBeGreaterThan(0);
+
+      // Whatever this machine has set, any provider key present in the
+      // persistent block must be reported as "persistent", never "process".
+      const d = discoverProviderEnv();
+      const providerKeys: string[] = Object.values(PROVIDER_ENV_GROUPS).flat();
+      for (const name of names) {
+        if (providerKeys.includes(name)) expect(d.sources[name]).toBe("persistent");
+      }
+    },
+  );
 });
 
 describe("resolution", () => {
