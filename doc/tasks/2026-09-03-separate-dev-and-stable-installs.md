@@ -1,6 +1,6 @@
 # Separate the agent's test build from the owner's app
 
-**Status:** Done except the 0.3.3 release, which needs the owner's approval
+**Status:** ✅ Complete. Shipped in v0.3.3, published 2026-09-04T00:41Z.
 **Branch:** `claude/multica-app-architecture-0a3e6f`
 **Ships as:** 0.3.3
 
