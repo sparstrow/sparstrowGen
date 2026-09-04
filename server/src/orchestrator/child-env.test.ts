@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { AGENT_ENV_ALLOWLIST, agentChildEnv } from "./child-env.js";
-import { ambientProviderKeys, resetProviderEnvCache } from "./provider-env.js";
+import {
+  PROVIDER_ENV_GROUPS,
+  ambientProviderKeys,
+  discoverProviderEnv,
+  resetProviderEnvCache,
+} from "./provider-env.js";
 
 /**
  * EC2 (P7): the child env handed to an agent spawn must be an explicit allowlist,
@@ -54,35 +59,57 @@ describe("agentChildEnv — EC2 no-process.env-spread allowlist", () => {
     expect(env.PATH).toBe("/agent/only/path");
   });
 
-  it("forwards a provider credential from the closed auth list when present", () => {
-    // `resetProviderEnvCache` is required, and its absence is what this test
-    // caught when discovery was introduced: provider credentials are resolved
-    // once per process, so a variable exported after the first spawn is not
-    // picked up. That is deliberate — Windows imposes the same rule on every
-    // running process — but it means a test must clear the cache to plant one.
-    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+  it("forwards a provider credential from a group this machine has NOT configured", () => {
+    // Deliberately `OLLAMA_HOST` and not an ANTHROPIC_* key.
+    //
+    // This test used to plant `ANTHROPIC_API_KEY` in `process.env` and assert
+    // it came through — and it passed only because the registry read was
+    // silently broken, so every group fell back to ambient. With discovery
+    // working, a machine that has ANY anthropic key saved persistently
+    // resolves that whole group from the registry and drops ambient
+    // siblings, which is the entire point of the fix. Testing the fallback
+    // needs a group the machine has not configured.
+    process.env.OLLAMA_HOST = "http://127.0.0.1:11434";
     resetProviderEnvCache();
     try {
-      expect(agentChildEnv().ANTHROPIC_API_KEY).toBe("sk-ant-test");
+      expect(agentChildEnv().OLLAMA_HOST).toBe("http://127.0.0.1:11434");
     } finally {
-      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.OLLAMA_HOST;
       resetProviderEnvCache();
     }
   });
 
   it("reports an inherited provider credential as ambient rather than passing it silently", () => {
-    // The whole point of the rewrite. A credential that came from this
-    // process's environment depends on how the daemon was launched, and a
-    // daemon started from an agent's shell forwards that shell's
-    // ANTHROPIC_BASE_URL to every `claude` child — which fails auth for a
-    // reason the machine's owner cannot see. It is still forwarded (a
-    // developer exporting a key locally is a real workflow) but it is never
-    // silent. See G-27's retraction for what the silence cost.
-    process.env.ANTHROPIC_BASE_URL = "http://127.0.0.1:9999/proxy";
+    // A credential that came from this process depends on how the daemon was
+    // launched. It is still forwarded — a developer exporting a key locally is
+    // a real workflow — but never silently.
+    process.env.OLLAMA_HOST = "http://127.0.0.1:9999";
     resetProviderEnvCache();
     try {
-      expect(agentChildEnv().ANTHROPIC_BASE_URL).toBe("http://127.0.0.1:9999/proxy");
-      expect(ambientProviderKeys()).toContain("ANTHROPIC_BASE_URL");
+      expect(agentChildEnv().OLLAMA_HOST).toBe("http://127.0.0.1:9999");
+      expect(ambientProviderKeys()).toContain("OLLAMA_HOST");
+    } finally {
+      delete process.env.OLLAMA_HOST;
+      resetProviderEnvCache();
+    }
+  });
+
+  it("drops an ambient key whose provider IS configured persistently", () => {
+    // The failure that started all of this: a good token from saved settings
+    // combined with a stray endpoint from an agent's shell is a credential
+    // pointed at the wrong server. Only meaningful on a machine that actually
+    // has anthropic configured, which is why it is conditional rather than
+    // asserted blindly.
+    resetProviderEnvCache();
+    const anthropicIsSaved = PROVIDER_ENV_GROUPS.anthropic.some(
+      (k) => discoverProviderEnv().sources[k] === "persistent",
+    );
+    if (!anthropicIsSaved) return;
+
+    process.env.ANTHROPIC_BASE_URL = "http://127.0.0.1:9999/rogue";
+    resetProviderEnvCache();
+    try {
+      expect(agentChildEnv().ANTHROPIC_BASE_URL).toBeUndefined();
     } finally {
       delete process.env.ANTHROPIC_BASE_URL;
       resetProviderEnvCache();

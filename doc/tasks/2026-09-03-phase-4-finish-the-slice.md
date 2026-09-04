@@ -190,3 +190,79 @@ GET /api/daemon/commands  ->  404
 `server/` serves 10 daemon routes; the command-delivery half is not among them.
 A turn can be assigned in the cloud, but the daemon has nothing to poll, so it
 never learns about it. That is the next piece of work, not a defect in 4b.
+
+
+## 4c. Command delivery — done 2026-09-04, and **the loop closed**
+
+Ported `GET /commands`, `POST /commands/:id/ack`,
+`POST /chat/turns/:id/events` and `POST /chat/turns/:id/result` into
+`server/src/routes/daemon/`, plus `chat-transcript.ts` and `reconcile.ts`. The
+daemon router gained path parameters, which it did not have.
+
+**The Supabase Realtime broadcast is deliberately not ported.** The restructure
+replaced Realtime with a server-owned WebSocket and `D-37` parks the Realtime
+bridge, so the durable write came across and the fan-out did not. The
+consequence, stated rather than buried: a reply lands when the turn completes
+instead of streaming in progressively.
+
+### The whole loop, on a real stack
+
+```
+[25] Assign a real turn to the running daemon
+    OK   turn ct_508afefdeb62 queued for runtime rt_c5f45a6bc829
+    ..   in_progress/seq0
+    ..   succeeded/seq2  reply="PONG"
+
+    OK   THE AGENT REPLIED: "PONG"
+    ..   command row: done
+```
+
+Local Docker Supabase, `server/` on :8280, and the **real daemon** — not a
+harness — claiming the command, resolving the agent it had synced at boot,
+spawning the Claude Code CLI, and posting the reply back.
+
+Route-level checks 16–24, all passing: the command is delivered with its
+payload and the workspace tool policy; a second poll does not re-deliver it
+(the lease holds); events persist; the result closes the turn; a repeated ack
+is idempotent; a `chat.turn` that fails before running still closes its turn
+(the M12 stuck-turn bug); and a foreign runtime gets 404 without touching the
+reply.
+
+### ⚠️ The provider-env fix I shipped to `main` yesterday did not work
+
+It has to be said plainly, because two green signals said otherwise.
+
+A stray edit had mangled the registry query into `` `${root}\${path}` `` — in a
+template literal `\$` escapes the `$`, so the argument became the literal
+`HKCU${path}`. The HKLM path lost its separators the same way (`\C` and `\S`
+are not escapes, so JS drops the backslash). **Both registry reads threw, both
+returned `{}`, and every provider group fell through to the ambient fallback.**
+
+Why nothing caught it:
+
+- the unit tests passed, because they only ever exercised the fallback path;
+- the manual check passed, because it used a **separate copy** of the parser in
+  a scratch script rather than importing the module.
+
+Two verifications, neither touching the broken line. The first real turn is what
+found it, via the warning the fix itself emits: `provider credentials inherited
+from this process rather than your saved settings: ANTHROPIC_BASE_URL`.
+
+Now guarded three ways: two assertions on the source text (the bug is invisible
+at runtime off Windows) and one Windows-only test that reads `HKCU\Environment`
+and requires every provider key found there to resolve as `persistent`.
+
+**Two existing tests had to be corrected rather than fixed**, and that is the
+same lesson again: they planted `ANTHROPIC_API_KEY` in `process.env` and
+asserted it was forwarded. That only passed because discovery was broken. With
+it working, a machine with anthropic saved persistently drops ambient siblings —
+which is the entire point. They now use a group the machine has not configured.
+
+859 server tests pass; `pnpm typecheck` 9/9 and `pnpm test` 7/7.
+
+### Still not ported
+
+`/runs/:id/events`, `/runs/:id/status`, `/memory/*`, `/realtime/token`,
+`/settings`, `/status`, `/projects/bindings`, `/providers/discover-models`,
+`/chat/attachments/*`. The daemon logs a warning for the two it polls and
+carries on, which is the intended degradation.
