@@ -363,6 +363,54 @@ route("GET", "/me", async (request, { db }) => {
 });
 
 
+/**
+ * The workspace's agents, for a daemon to mirror into its own store (`OQ-12`
+ * option A).
+ *
+ * An agent created in the app is only a cloud row. The dispatcher links agents
+ * **by slug** into the daemon's local SQLite, so before this existed every turn
+ * for a newly created agent failed with *"This machine has no agent with the
+ * slug …"* — a correct message about a step nothing in the product performed.
+ *
+ * Runtime-scoped rather than machine-scoped: a machine can serve several
+ * workspaces, and an agent belongs to exactly one. `authenticateRuntime` reads
+ * the `X-Sparstrow-Runtime` header and yields the workspace this pull is for,
+ * so a token cannot fetch a workspace it does not serve.
+ *
+ * **Two exclusions, both deliberate.**
+ *
+ * `status = 'active'` only. P9's ingestion lands imported skills as
+ * `quarantined` agents precisely so they cannot run until a person promotes
+ * them; syncing one down as a runnable local agent would walk straight through
+ * that gate on a machine the reviewer never looked at.
+ *
+ * `is_system = false` only. System agents (Project Indexer/Reporter) are seeded
+ * locally at boot with fixed slugs. Overwriting a locally-seeded one with a
+ * cloud row of the same slug would let a workspace edit re-point a factory
+ * agent on every machine at once.
+ */
+route("GET", "/agents", async (request, { db }) => {
+  const auth = await authenticateRuntime(db, request);
+  if (!auth.ok) return authFailureResponse(auth.failure);
+
+  const { data, error } = await db
+    .from("agents")
+    .select(
+      "id, name, slug, role, system_prompt, provider, model, cwd, add_dirs, " +
+        "allowed_tools, disallowed_tools, permission_mode, mcp_servers, max_turns, " +
+        "memory_read_scopes, memory_write_scopes, extra_args, enabled, " +
+        "signal_extraction, origin, status, updated_at",
+    )
+    .eq("workspace_id", auth.scope.workspaceId)
+    .eq("status", "active")
+    .eq("is_system", false)
+    .order("slug");
+
+  if (error) return daemonError(500, "server_error", error.message);
+  return Response.json({ agents: data ?? [] });
+});
+
+
 // ── the confirm page's own three calls ──────────────────────────────────────
 //
 // These exist so a computer that has NEVER been connected can be, without a
