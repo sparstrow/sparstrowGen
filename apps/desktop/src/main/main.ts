@@ -342,7 +342,17 @@ if (!app.requestSingleInstanceLock()) {
       if (packagedPaths?.channel?.channel === "dev") {
         console.log("[updater] dev channel — self-update is deliberately not wired up");
       } else {
-        setRuntimeStopper(() => services.stop(true));
+        // Both supervised children, not just the daemon. `apiServer` is not
+        // detached specifically so it dies with this process (see
+        // `server-manager.ts`'s note on v0.3.1), but `quitAndInstall()`
+        // bypasses `quitApp()` below — the one place that used to stop it —
+        // so an update that fires while the server is healthy left it
+        // running as an orphan holding port 8080, exactly the shape that
+        // broke v0.3.1's update. See BUG-2026-09-03-update-restart-leaves-
+        // broken-install-and-silences-main-log.md.
+        setRuntimeStopper(() =>
+          Promise.all([services.stop(true), apiServer.stop()]).then(() => undefined),
+        );
         setupUpdater(() => mainWindow, packagedPaths?.channel?.updateChannel);
       }
     }
