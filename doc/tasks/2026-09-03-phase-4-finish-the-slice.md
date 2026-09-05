@@ -2,7 +2,10 @@
 
 **Plan:** [`2026-09-02-multica-architecture-restructure.md`](../plans/2026-09-02-multica-architecture-restructure.md) §Phase 4
 **Branch:** `claude/multica-app-architecture-0a3e6f`
-**Status:** 4a done. 4b–4d not started.
+**Status:** 4a, 4b, 4c and 4e done — the loop closes at the protocol level.
+**4d (chat surface) and model discovery remain, and are the last things between
+this and the phase gate.** Detail and sequencing:
+[`2026-09-04-finish-the-slice-and-the-first-screens.md`](../plans/2026-09-04-finish-the-slice-and-the-first-screens.md).
 
 ## The sentence still to make true
 
@@ -117,7 +120,18 @@ pass.
 
 ## Result
 
-_Pending 4b–4d._
+**4a, 4b, 4c and 4e are done and verified; the sections below record each one.**
+`pnpm typecheck` 9/9, `pnpm test` 7/7, 859 server tests. Merged to `main` via
+[#234](https://github.com/sparstrow/sparstrowGen/pull/234) and
+[#235](https://github.com/sparstrow/sparstrowGen/pull/235), **without a version
+bump** — deliberately, per `AGENTS.md` §2.9. The protocol loop works, but the
+desktop window still has only Machines and Settings, so a release would have
+been one the owner could not check.
+
+**What remains is 4d and model discovery**, planned in detail in
+[`2026-09-04-finish-the-slice-and-the-first-screens.md`](../plans/2026-09-04-finish-the-slice-and-the-first-screens.md).
+The phase gate is unchanged: the owner sends a message from the desktop app and
+sees a reply.
 
 
 ## 4b. The daemon syncs workspace agents down (OQ-12 option A) — done 2026-09-04
