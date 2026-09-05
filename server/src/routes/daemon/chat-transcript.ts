@@ -1,4 +1,4 @@
-import type { ChatTurnEventPush, ChatTurnProducedFile, ChatTurnResultPayload } from "@sparstrow/shared";
+import type { ChatActivity, ChatTurnEventPush, ChatTurnProducedFile, ChatTurnResultPayload } from "@sparstrow/shared";
 
 /**
  * What makes a batch of chat-turn deltas acceptable at the daemon boundary.
@@ -100,7 +100,10 @@ export function parseChatEventBatch(body: unknown): ChatBatchParse {
       );
     }
 
-    events.push({ seq, replyText });
+    const rawActivities = e.activities;
+    const activities: ChatActivity[] | undefined = Array.isArray(rawActivities) ? (rawActivities as ChatActivity[]) : undefined;
+
+    events.push({ seq, replyText, activities });
   }
 
   // Ascending, matching transcript.ts's own reasoning: the daemon already
@@ -214,8 +217,11 @@ export function parseChatResult(body: unknown): ChatResultParse {
     });
   }
 
+  const rawActivities = b.activities;
+  const activities: ChatActivity[] | undefined = Array.isArray(rawActivities) ? (rawActivities as ChatActivity[]) : undefined;
+
   return {
     ok: true,
-    result: { seq, replyText, status, error: (error as string | null) ?? null, produced },
+    result: { seq, replyText, status, error: (error as string | null) ?? null, produced, activities },
   };
 }

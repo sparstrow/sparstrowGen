@@ -734,6 +734,7 @@ route("POST", "/chat/turns/:id/events", async (request, { db }, params) => {
     p_seq: latest.seq,
     p_reply_text: latest.replyText,
     p_status: "running",
+    p_activities: latest.activities ?? [],
   });
 
   // The reply text is NEVER logged: it is the person's conversation, not
@@ -795,6 +796,7 @@ route("POST", "/chat/turns/:id/result", async (request, { db }, params) => {
       mime_type: f.mimeType,
       size_bytes: f.sizeBytes,
     })),
+    p_activities: result.activities ?? [],
   });
 
   if (error) return daemonError(500, "server_error", "Could not record the chat turn result.");

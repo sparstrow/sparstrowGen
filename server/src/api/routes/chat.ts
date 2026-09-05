@@ -51,6 +51,7 @@ export function asTurnState(turn: ChatTurn): ChatTurnState {
     waitingReason: null,
     replyText: turn.assistantMessage?.content ?? "",
     replySeq: 0,
+    activities: (turn.assistantMessage?.meta?.activities as any) ?? [],
     provider: turn.session.provider,
     model: turn.session.model,
     attempt: 1,

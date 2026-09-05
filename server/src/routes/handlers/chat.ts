@@ -23,6 +23,7 @@ import {
 const CHAT_TURN_OPAQUE_KEYS = [
   ...(OPAQUE_COLUMNS.chat_sessions as string[]),
   ...(OPAQUE_COLUMNS.chat_messages as string[]),
+  ...((OPAQUE_COLUMNS.chat_turns as string[]) ?? []),
 ];
 
 /**

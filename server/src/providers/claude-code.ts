@@ -166,6 +166,7 @@ export class ClaudeCodeProvider implements CliProvider {
       "stream-json",
       "--verbose",
       "--disable-slash-commands",
+      "--include-partial-messages",
     ];
     if (opts.resumeSessionId) args.push("--resume", opts.resumeSessionId);
     else args.push("--session-id", opts.sessionId);

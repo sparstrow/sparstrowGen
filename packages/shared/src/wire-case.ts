@@ -22,6 +22,7 @@ export const OPAQUE_COLUMNS: Record<string, string[]> = {
   tasks:            ["parent_effective_tools"],
   chat_sessions:    ["draft"],
   chat_messages:    ["meta"],
+  chat_turns:       ["activities"],
   goals:            ["world_state", "version_log"],
   plan_nodes:       ["position"],
 } as const;

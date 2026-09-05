@@ -41,11 +41,25 @@ export type ChatSession = z.infer<typeof chatSessionSchema>;
 export const chatMessageRoleSchema = z.enum(["user", "assistant"]);
 export type ChatMessageRole = z.infer<typeof chatMessageRoleSchema>;
 
-/** Per-message annotations (which model answered, creator followups, …). */
+/** Background activities (thinking process, tool calls, tool outputs, status updates) */
+export const chatActivitySchema = z.object({
+  id: z.string().optional(),
+  type: z.enum(["thinking", "tool_use", "tool_result", "status", "log"]),
+  content: z.string().optional(),
+  tool: z.string().optional(),
+  callId: z.string().optional(),
+  input: z.record(z.unknown()).optional(),
+  output: z.string().optional(),
+  timestamp: z.string().optional(),
+});
+export type ChatActivity = z.infer<typeof chatActivitySchema>;
+
+/** Per-message annotations (which model answered, background activities, creator followups, …). */
 export interface ChatMessageMeta {
   source?: "ai" | "fallback";
   provider?: ProviderId;
   model?: string;
+  activities?: ChatActivity[];
   followups?: string[];
   readyToCreate?: boolean;
   [key: string]: unknown;
@@ -266,6 +280,7 @@ export const chatTurnStateSchema = z.object({
   /** Full text produced so far — grows in place, never a delta, matching how it's stored. */
   replyText: z.string(),
   replySeq: z.number(),
+  activities: z.array(chatActivitySchema).default([]),
   provider: providerIdSchema.nullable(),
   model: z.string().nullable(),
   attempt: z.number(),

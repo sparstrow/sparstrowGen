@@ -5,7 +5,7 @@ import readline from "node:readline";
 import { spawn } from "node:child_process";
 import treeKill from "tree-kill";
 import { nanoid } from "nanoid";
-import type { Agent } from "@sparstrow/shared";
+import type { Agent, ChatActivity } from "@sparstrow/shared";
 import { config } from "../config.js";
 import { logger } from "../logger.js";
 import { agentChildEnv } from "./child-env.js";
@@ -18,20 +18,9 @@ export interface CompleteOnceOptions {
   /** Resume an earlier provider session (multi-turn interview). */
   resumeSessionId?: string;
   /**
-   * M12 — fired with the FULL accumulated reply text so far, each time a new
-   * stdout line changes it. Additive: every existing caller omits this and is
-   * unaffected. `seq` is a locally-assigned monotonic counter (one per call
-   * to this function), not anything from the provider's own wire format —
-   * callers that persist it (the cloud chat-turn executor) are the ones who
-   * give it meaning.
-   *
-   * Whole-message granularity, not token-level deltas: `parseLine` for every
-   * CLI provider today normalizes a provider's own `stream_event` lines into
-   * an opaque `status` event without extracting partial text, so the finest
-   * signal available is "a new complete assistant message arrived." See
-   * doc/tasks/M12/T-M12-04's Result section and KnownGaps G-30.
+   * M12 — fired with the FULL accumulated reply text and background activities so far.
    */
-  onEvent?: (delta: { seq: number; replyText: string }) => void;
+  onEvent?: (delta: { seq: number; replyText: string; activities?: ChatActivity[] }) => void;
 }
 
 export interface CompleteOnceResult {
@@ -39,6 +28,7 @@ export interface CompleteOnceResult {
   sessionId: string;
   isError: boolean;
   errorMessage?: string;
+  activities?: ChatActivity[];
 }
 
 /**
@@ -115,24 +105,124 @@ export async function completeOnce(
     }
     let lastEmitted: string | null = null;
     let onEventSeq = 0;
+    const activities: ChatActivity[] = [];
+    let currentThinking: ChatActivity | null = null;
+    let lastActivitiesCount = 0;
 
     if (child.stdout) {
       readline.createInterface({ input: child.stdout }).on("line", (line) => {
-        for (const ev of cli.parseLine(line)) events.push(ev);
+        const parsedEvents = cli.parseLine(line);
+        for (const ev of parsedEvents) {
+          events.push(ev);
+          const now = new Date().toISOString();
+
+          if (ev.type === "assistant") {
+            const p = ev.payload as Record<string, unknown>;
+            const msg = p.message as Record<string, unknown> | undefined;
+            const content = msg?.content ?? p.content;
+
+            if (Array.isArray(content)) {
+              for (const block of content) {
+                if (!block || typeof block !== "object") continue;
+                const b = block as Record<string, unknown>;
+                if (b.type === "thinking" && typeof b.thinking === "string") {
+                  if (b.thinking.trim().length > 0) {
+                    if (!currentThinking) {
+                      currentThinking = {
+                        id: `act_think_${Date.now()}`,
+                        type: "thinking",
+                        content: b.thinking,
+                        timestamp: now,
+                      };
+                      activities.push(currentThinking);
+                    } else {
+                      currentThinking.content = b.thinking;
+                    }
+                  }
+                } else if (b.type === "tool_use") {
+                  currentThinking = null;
+                  activities.push({
+                    id: (b.id as string) ?? `act_tool_${Date.now()}`,
+                    type: "tool_use",
+                    tool: typeof b.name === "string" ? b.name : "tool",
+                    callId: typeof b.id === "string" ? b.id : undefined,
+                    input: (b.input as Record<string, unknown>) ?? {},
+                    timestamp: now,
+                  });
+                }
+              }
+            }
+          } else if (ev.type === "user") {
+            const p = ev.payload as Record<string, unknown>;
+            const msg = p.message as Record<string, unknown> | undefined;
+            const content = msg?.content;
+            if (Array.isArray(content)) {
+              for (const block of content) {
+                if (!block || typeof block !== "object") continue;
+                const b = block as Record<string, unknown>;
+                if (b.type === "tool_result") {
+                  currentThinking = null;
+                  const callId = typeof b.tool_use_id === "string" ? b.tool_use_id : undefined;
+                  const existing = callId ? activities.find((a) => a.callId === callId) : null;
+                  if (existing) {
+                    existing.output = typeof b.content === "string" ? b.content : JSON.stringify(b.content);
+                  } else {
+                    activities.push({
+                      id: `act_res_${Date.now()}`,
+                      type: "tool_result",
+                      callId,
+                      output: typeof b.content === "string" ? b.content : JSON.stringify(b.content),
+                      timestamp: now,
+                    });
+                  }
+                }
+              }
+            }
+          } else if (ev.type === "status") {
+            const p = ev.payload as Record<string, unknown>;
+            if (p.type === "stream_event") {
+              const streamEvent = p.event as Record<string, unknown> | undefined;
+              if (streamEvent?.type === "content_block_delta") {
+                const delta = streamEvent.delta as Record<string, unknown> | undefined;
+                if (delta?.type === "thinking_delta" && typeof delta.thinking === "string") {
+                  if (delta.thinking.length > 0) {
+                    if (!currentThinking) {
+                      currentThinking = {
+                        id: `act_think_${Date.now()}`,
+                        type: "thinking",
+                        content: delta.thinking,
+                        timestamp: now,
+                      };
+                      activities.push(currentThinking);
+                    } else {
+                      currentThinking.content = (currentThinking.content ?? "") + delta.thinking;
+                    }
+                  }
+                }
+              } else if (streamEvent?.type === "content_block_stop") {
+                currentThinking = null;
+              }
+            }
+          }
+        }
 
         if (!opts.onEvent) return;
-        // Reuses the provider's own result-extraction logic on the PARTIAL
-        // event list rather than re-deriving "the text so far" — before a
-        // terminal `result` event arrives this falls through to the last
-        // complete assistant message seen (see each provider's
-        // `extractResult`), which is exactly the progressive signal a chat
-        // subscriber wants. Only fires on a genuine change, so a run of
-        // system/status lines between two assistant messages does not spam
-        // the callback with the same text repeated.
         const partial = cli.extractResult(events).resultText;
-        if (partial != null && partial !== lastEmitted) {
-          lastEmitted = partial;
-          opts.onEvent({ seq: ++onEventSeq, replyText: partial });
+        const hasTextChange = partial != null && partial !== lastEmitted;
+        const currentActivitiesSignature = activities.reduce(
+          (acc, a) => acc + (a.content?.length ?? 0) + (a.output?.length ?? 0),
+          activities.length,
+        );
+        const hasActivityChange = currentActivitiesSignature !== lastActivitiesCount;
+
+        if (hasTextChange || hasActivityChange) {
+          if (partial != null) lastEmitted = partial;
+          lastActivitiesCount = currentActivitiesSignature;
+          opts.onEvent({
+            seq: ++onEventSeq,
+            replyText: partial ?? lastEmitted ?? "",
+            activities: activities.map((a) => ({ ...a })),
+          });
         }
       });
     }
@@ -143,14 +233,6 @@ export async function completeOnce(
     }
 
     child.on("error", (err) => {
-      // Not draft-specific despite the historical name: this is completeOnce,
-      // shared by the Agent Creator's draft flow AND M12's cloud chat turn
-      // executor (server/src/cloud/chat-turn.ts). A caller-neutral
-      // message here is what a chat turn's TurnErrorBanner actually renders
-      // to the owner -- "draft turn spawn error"/"draft turn timed out" read
-      // as a bug report copy-pasted from the wrong feature when a Free/
-      // Project/Agent session's reply fails, which is what happened before
-      // this was caught live (T-M13-05).
       logger.warn({ err }, "completeOnce: provider process failed to start");
       finish({ text: null, sessionId, isError: true, errorMessage: err.message });
     });
@@ -161,11 +243,15 @@ export async function completeOnce(
         return;
       }
       const result = cli.extractResult(events);
+      const cleanActivities = activities.filter(
+        (a) => a.type !== "thinking" || (a.content && a.content.trim().length > 0),
+      );
       finish({
         text: result.resultText,
         sessionId: result.sessionId ?? sessionId,
         isError: result.isError,
         errorMessage: result.errorMessage,
+        activities: cleanActivities,
       });
     });
   });

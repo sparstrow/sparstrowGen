@@ -6,6 +6,7 @@ import { useChatSession } from "@sparstrow/core";
 import type { ChatMessage, ChatTurnState } from "@sparstrow/shared";
 import { Skeleton } from "@sparstrow/ui/components/ui/skeleton";
 import { cn } from "@sparstrow/ui/lib/utils";
+import { ActivitiesList } from "./activity-card";
 
 export interface TranscriptProps {
   sessionId: string;
@@ -122,6 +123,7 @@ export function Transcript({ sessionId, className }: TranscriptProps) {
 function MessageRow({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   const timeLabel = formatMessageTime(message.createdAt);
+  const activities = message.meta?.activities;
 
   if (isUser) {
     return (
@@ -147,6 +149,10 @@ function MessageRow({ message }: { message: ChatMessage }) {
         {timeLabel ? <span>{timeLabel}</span> : null}
       </div>
 
+      {activities && activities.length > 0 ? (
+        <ActivitiesList activities={activities} isLive={false} />
+      ) : null}
+
       <div className="text-[13px] leading-[1.6] text-foreground">
         <p className="whitespace-pre-wrap break-words">{message.content}</p>
       </div>
@@ -160,7 +166,7 @@ function ActiveTurnIndicator({ turn }: { turn: ChatTurnState }) {
       ? turn.waitingReason === "no_runtime_paired"
         ? "Waiting for a connected computer..."
         : "Turn queued for execution..."
-      : "Agent is thinking...";
+      : "Agent is processing...";
 
   return (
     <div className="flex flex-col space-y-2 rounded-lg border border-border/60 bg-card/40 p-3.5">
@@ -168,6 +174,10 @@ function ActiveTurnIndicator({ turn }: { turn: ChatTurnState }) {
         <Loader2 className="size-3.5 animate-spin text-brand" />
         <span className="font-medium text-foreground">{label}</span>
       </div>
+
+      {turn.activities && turn.activities.length > 0 ? (
+        <ActivitiesList activities={turn.activities} isLive={true} />
+      ) : null}
 
       {turn.replyText ? (
         <div className="mt-2 text-[13px] leading-[1.6] text-foreground">

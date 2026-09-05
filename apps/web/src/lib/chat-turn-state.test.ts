@@ -25,6 +25,7 @@ function turn(overrides: Partial<ChatTurnState> = {}): ChatTurnState {
     waitingReason: null,
     replyText: "",
     replySeq: 0,
+    activities: [],
     provider: "claude-code",
     model: "sonnet",
     attempt: 1,

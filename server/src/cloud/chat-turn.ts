@@ -8,6 +8,7 @@ import {
   CHAT_PRODUCED_MAX_BYTES,
   producedStoragePath,
   type Agent,
+  type ChatActivity,
   type ChatTurnEventPush,
   type ChatTurnProducedFile,
   type ChatTurnResultPayload,
@@ -504,7 +505,7 @@ function makeEventPusher(turnId: string, runtimeId?: string) {
   }
 
   return {
-    push(delta: { seq: number; replyText: string }): void {
+    push(delta: { seq: number; replyText: string; activities?: ChatActivity[] }): void {
       pending.push(delta);
       if (timer) return;
       timer = setTimeout(() => {
@@ -616,9 +617,14 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent, runt
     const turnStartTime = Date.now();
     const prompt = buildTranscriptPrompt(payload.messages ?? []) + attachmentNote + outboxPromptNote(outboxDir);
 
+    let latestActivities: ChatActivity[] = [];
+
     const result = await completeOnce(effectiveAgent, prompt, {
       timeoutMs: TURN_TIMEOUT_MS,
-      onEvent: (delta) => pusher.push({ seq: ++seq, replyText: delta.replyText }),
+      onEvent: (delta) => {
+        if (delta.activities) latestActivities = delta.activities;
+        pusher.push({ seq: ++seq, replyText: delta.replyText, activities: latestActivities });
+      },
     });
 
     await pusher.drain();
@@ -639,19 +645,8 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent, runt
       harvestAntigravityBrainFiles(result.sessionId, outboxDir, turnStartTime);
     }
 
-    // Swept BEFORE postResult, deliberately not in `finally`: `finally` runs
-    // on the failure path too and removes the outbox, but the upload step
-    // right below needs `kept`'s files to still exist on disk when it reads
-    // them. Sweeping here, before the outbox is ever removed, is what makes
-    // that safe on both the success and failure paths.
     const { kept, refused: sweepRefused } = sweepOutbox(outboxDir);
 
-    // AM1 (T-AM1-03). Uploaded AFTER completeOnce settles, BEFORE postResult
-    // -- an upload failure becomes a refusal sentence, same treatment as a
-    // sweep-time refusal, rather than losing the turn's text over a storage
-    // hiccup. Needs the workspace id to compose each file's storage path;
-    // `getWorkspaceId()` reads the daemon's own pairing state (set once at
-    // pairing time), not anything from the payload.
     const workspaceId =
       (runtimeId ? getRuntimes().find((r) => r.runtimeId === runtimeId)?.workspaceId : null) ??
       getWorkspaceId();
@@ -662,10 +657,8 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent, runt
 
     const replyText = (result.text ?? "") + refusalNote([...sweepRefused, ...uploadFailures]);
 
-    // AM1 (T-AM1-03), FR-004: a turn that handed something back did work,
-    // even with no text -- `!result.text` alone would mark it `failed`, the
-    // exact bug this phase exists to fix (see the phase README's finding 4).
     const producedSomething = uploaded.length > 0;
+    const activities = result.activities ?? latestActivities;
     await postResult(payload.turnId, {
       seq: ++seq,
       replyText,
@@ -676,6 +669,7 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent, runt
           ? "the model returned no output"
           : null,
       produced: uploaded,
+      activities,
     }, runtimeId);
   } catch (err) {
     await pusher.drain();

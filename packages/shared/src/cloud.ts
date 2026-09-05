@@ -17,6 +17,7 @@
 // resolve at bundle time, which is a runtime 500 no typecheck will ever catch.
 import { SETTING_WIP_SNAPSHOT, SETTING_WIP_SNAPSHOT_KEEP, SETTING_TERMINAL_ACCESS } from "./constants";
 import type { RunEventType } from "./schemas/run";
+import type { ChatActivity } from "./schemas/chat";
 
 /** How often a paired daemon posts a heartbeat. */
 export const HEARTBEAT_INTERVAL_MS = 30_000;
@@ -883,6 +884,7 @@ export interface ChatTurnEventPush {
   seq: number;
   /** Full text so far, not a delta. */
   replyText: string;
+  activities?: ChatActivity[];
 }
 
 export interface ChatTurnEventBatch {
@@ -917,6 +919,7 @@ export interface ChatTurnResultPayload {
    * working unchanged.
    */
   produced?: ChatTurnProducedFile[];
+  activities?: ChatActivity[];
 }
 
 /**

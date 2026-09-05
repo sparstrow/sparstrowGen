@@ -13,6 +13,7 @@ import {
 import type { McpServerConfig } from "../schemas/agent";
 import type { AppliedEffect } from "../schemas/goal";
 import type { SpecterReport } from "../schemas/specter";
+import type { ChatActivity } from "../schemas/chat";
 
 /**
  * Cloud control plane (Postgres/Supabase).
@@ -1057,6 +1058,7 @@ export const chatTurns = pgTable(
     retryOfTurnId: text("retry_of_turn_id"),
     replyText: text("reply_text").notNull().default(""),
     replySeq: integer("reply_seq").notNull().default(0),
+    activities: jsonb("activities").$type<ChatActivity[]>().notNull().default([]),
     error: text("error"),
     // Set ONCE at creation (`coalesce` in the assignment function), never
     // pushed out by a later recompute.
