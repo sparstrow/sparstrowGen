@@ -1471,3 +1471,29 @@ network.
 **Unpark trigger:** the first time a person who is not the owner needs to reach
 this workspace — which is the same trigger as `D-1`'s HITL redesign, and not by
 coincidence. Both are things that are only safe while there is exactly one user.
+
+### Updated 2026-09-04 — the shape is now decided, only the timing is deferred
+
+The owner's direction: **develop locally with full freedom, and use a hosted
+server when actually using the app.** Target is a **Hostinger VPS running
+Coolify**, hosting both `server/` and the Next.js web client.
+
+So this is no longer "hosting, someday". It is a decided plan with a deliberate
+sequence: **after the chat surface lands, not before.** The reasoning, and the
+two costs to price first, are in
+[`2026-09-04-finish-the-slice-and-the-first-screens.md`](plans/2026-09-04-finish-the-slice-and-the-first-screens.md)
+§4 — the short version is that the WebSocket does not exist yet, and a reverse
+proxy is exactly where WebSockets break, so building it against the hosted
+server is cheaper than porting it afterwards.
+
+**A correction to what this entry implies.** The owner raised hosting partly
+because two machines cannot see each other in local development. Hosting
+`server/` does not fix that: in dev each worktree runs its **own Docker
+Supabase**, and the database is the rendezvous point between machines. Two
+machines pointed at two different Postgres instances are invisible to each other
+whatever `SPARSTROW_SERVER_HOST` is set to. What fixes it is pointing at a
+shared database, which the packaged app already does via the OS keychain.
+
+**Revised unpark trigger:** the chat surface lands and the owner has used it for
+a few days. The original trigger (a second person) still stands as the point at
+which `G-35` stops being an accepted limitation and becomes urgent.
