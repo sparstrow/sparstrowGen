@@ -5,7 +5,15 @@ import type { Metadata } from "next";
 // Vite entry — so the app rendered in the system fallback while separately
 // downloading Geist, which no token referenced. See
 // doc/bug/BUG-2026-08-24-hosted-app-never-loads-its-typeface.md.
-import "@fontsource-variable/inter";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
+import {
+  GeistPixelSquare,
+  GeistPixelGrid,
+  GeistPixelCircle,
+  GeistPixelTriangle,
+  GeistPixelLine,
+} from "geist/font/pixel";
 import "./globals.css";
 
 import { AppShell } from "@web/components/layout/app-shell";
@@ -42,21 +50,30 @@ export default async function RootLayout({
 
   const cookieStore = await cookies();
   const themeCookie = cookieStore.get("theme-prefs");
-  let themeObj = { surface: "paper", brand: "amber", mode: "system" };
+  let themeObj = { surface: "paper", brand: "amber", mode: "dark" };
   if (themeCookie?.value) {
     try {
-      themeObj = JSON.parse(themeCookie.value);
+      themeObj = { ...themeObj, ...JSON.parse(themeCookie.value) };
     } catch (e) {}
   }
 
-  // If mode is explicit dark or light, set it. If system, default to dark but the
-  // client script will correct it instantly before paint.
+  // Dark-first doctrine (DESIGN.md §1 & §2.3: "Ships as: Amber on Paper, dark mode.")
   const defaultClass = themeObj.mode === "light" ? "light" : "dark";
+
+  const fontClasses = [
+    GeistSans.variable,
+    GeistMono.variable,
+    GeistPixelSquare.variable,
+    GeistPixelGrid.variable,
+    GeistPixelCircle.variable,
+    GeistPixelTriangle.variable,
+    GeistPixelLine.variable,
+  ].join(" ");
 
   return (
     <html
       lang="en"
-      className={`h-full antialiased ${defaultClass} surface-${themeObj.surface} theme-${themeObj.brand}`}
+      className={`h-full antialiased ${defaultClass} surface-${themeObj.surface} theme-${themeObj.brand} ${fontClasses} font-sans`}
       suppressHydrationWarning
     >
       <head>
@@ -66,9 +83,9 @@ export default async function RootLayout({
               try {
                 let prefs = ${JSON.stringify(themeObj)};
                 if (prefs.mode === 'system') {
-                  let isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  let isLight = window.matchMedia('(prefers-color-scheme: light)').matches;
                   document.documentElement.classList.remove('light', 'dark');
-                  document.documentElement.classList.add(isDark ? 'dark' : 'light');
+                  document.documentElement.classList.add(isLight ? 'light' : 'dark');
                 }
               } catch(e) {}
             `,

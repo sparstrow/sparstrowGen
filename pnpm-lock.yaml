@@ -208,6 +208,9 @@ importers:
       '@xyflow/react':
         specifier: ^12.11.1
         version: 12.11.1(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(immer@11.1.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      geist:
+        specifier: 'catalog:'
+        version: 1.7.2(next@16.3.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8))
       lucide-react:
         specifier: 'catalog:'
         version: 0.514.0(react@19.2.8)
