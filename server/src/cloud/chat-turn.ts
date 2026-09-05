@@ -22,7 +22,7 @@ import { agents, projects } from "../db/schema.js";
 import { logger } from "../logger.js";
 import { buildTranscriptPrompt, chatAgent, TURN_TIMEOUT_MS } from "../chat/service.js";
 import { completeOnce } from "../orchestrator/one-shot.js";
-import { cloudFetch, getWorkspaceId } from "./client.js";
+import { cloudFetch, getRuntimes, getWorkspaceId } from "./client.js";
 import { resolveAgent, resolveProject, type ResolutionFailure } from "./resolve.js";
 
 /**
@@ -148,12 +148,13 @@ interface PlacedAttachment {
 
 /** `POST /api/daemon/chat/attachments/sign` — see that route's own header for
  *  why this is minted lazily, on demand, rather than carried in the payload. */
-async function signAttachmentUrl(storagePath: string): Promise<string> {
+async function signAttachmentUrl(storagePath: string, runtimeId?: string): Promise<string> {
   const { signedUrl } = await cloudFetch<{ signedUrl: string }>("/chat/attachments/sign", {
     method: "POST",
     body: { storagePath },
     retries: 1,
     timeoutMs: 15_000,
+    runtimeId,
   });
   return signedUrl;
 }
@@ -187,10 +188,11 @@ async function downloadToFile(signedUrl: string, destPath: string): Promise<void
 async function placeAttachments(
   attachments: PendingAttachment[],
   destDir: string,
+  runtimeId?: string,
 ): Promise<PlacedAttachment[]> {
   const placed: PlacedAttachment[] = [];
   for (const att of attachments) {
-    const signedUrl = await signAttachmentUrl(att.storagePath);
+    const signedUrl = await signAttachmentUrl(att.storagePath, runtimeId);
     const safeName = `${crypto.randomUUID()}-${path.basename(att.filename)}`;
     const localPath = path.join(destDir, safeName);
     await downloadToFile(signedUrl, localPath);
@@ -394,12 +396,13 @@ function refusalNote(refused: RefusedOutboxFile[]): string {
 
 /** `POST /api/daemon/chat/attachments/sign-upload` — see that route's own
  *  header for the workspace-prefix check it enforces before minting. */
-async function signUploadUrl(storagePath: string): Promise<string> {
+async function signUploadUrl(storagePath: string, runtimeId?: string): Promise<string> {
   const { signedUrl } = await cloudFetch<{ signedUrl: string }>("/chat/attachments/sign-upload", {
     method: "POST",
     body: { storagePath },
     retries: 1,
     timeoutMs: 15_000,
+    runtimeId,
   });
   return signedUrl;
 }
@@ -435,6 +438,7 @@ async function uploadKeptFiles(
   kept: KeptOutboxFile[],
   workspaceId: string,
   sessionId: string,
+  runtimeId?: string,
 ): Promise<{ uploaded: ChatTurnProducedFile[]; uploadFailures: RefusedOutboxFile[] }> {
   const uploaded: ChatTurnProducedFile[] = [];
   const uploadFailures: RefusedOutboxFile[] = [];
@@ -442,7 +446,7 @@ async function uploadKeptFiles(
   for (const file of kept) {
     try {
       const storagePath = producedStoragePath(workspaceId, sessionId, file.filename, crypto.randomUUID());
-      const signedUrl = await signUploadUrl(storagePath);
+      const signedUrl = await signUploadUrl(storagePath, runtimeId);
       await uploadToSignedUrl(signedUrl, file.localPath, file.mimeType);
       uploaded.push({
         storagePath,
@@ -471,7 +475,7 @@ async function uploadKeptFiles(
  */
 const CHAT_FLUSH_INTERVAL_MS = 800;
 
-function makeEventPusher(turnId: string) {
+function makeEventPusher(turnId: string, runtimeId?: string) {
   let pending: ChatTurnEventPush[] = [];
   let timer: NodeJS.Timeout | null = null;
   let flushing = false;
@@ -486,6 +490,7 @@ function makeEventPusher(turnId: string) {
         body: { events: batch },
         retries: 1,
         timeoutMs: 15_000,
+        runtimeId,
       });
     } catch (err) {
       logger.warn(
@@ -520,9 +525,9 @@ function makeEventPusher(turnId: string) {
   };
 }
 
-async function postResult(turnId: string, result: ChatTurnResultPayload): Promise<void> {
+async function postResult(turnId: string, result: ChatTurnResultPayload, runtimeId?: string): Promise<void> {
   try {
-    await cloudFetch(`/chat/turns/${turnId}/result`, { body: result, retries: 2, timeoutMs: 15_000 });
+    await cloudFetch(`/chat/turns/${turnId}/result`, { body: result, retries: 2, timeoutMs: 15_000, runtimeId });
   } catch (err) {
     // Unlike the events pusher, this loss is real: nothing else will ever
     // close this turn. The lease-expiry path is the only backstop (a
@@ -535,8 +540,8 @@ async function postResult(turnId: string, result: ChatTurnResultPayload): Promis
   }
 }
 
-async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Promise<void> {
-  const pusher = makeEventPusher(payload.turnId);
+async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent, runtimeId?: string): Promise<void> {
+  const pusher = makeEventPusher(payload.turnId, runtimeId);
   // One counter for the turn's ENTIRE life, streamed deltas and the terminal
   // call alike — T-M12-03's routes only close a turn on a `seq` that exceeds
   // every one already stored, so restarting this at 0 for the terminal call
@@ -588,7 +593,7 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
             return fs.mkdtempSync(path.join(config.tmpDir, "chat-attach-"));
           })());
 
-      const placed = await placeAttachments(payload.attachments, destDir);
+      const placed = await placeAttachments(payload.attachments, destDir, runtimeId);
       attachmentNote = attachmentPromptNote(placed);
 
       if (!placeInProjectRoot) {
@@ -646,10 +651,12 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
     // hiccup. Needs the workspace id to compose each file's storage path;
     // `getWorkspaceId()` reads the daemon's own pairing state (set once at
     // pairing time), not anything from the payload.
-    const workspaceId = getWorkspaceId();
+    const workspaceId =
+      (runtimeId ? getRuntimes().find((r) => r.runtimeId === runtimeId)?.workspaceId : null) ??
+      getWorkspaceId();
     const { uploaded, uploadFailures } =
       kept.length > 0 && workspaceId
-        ? await uploadKeptFiles(kept, workspaceId, payload.sessionId)
+        ? await uploadKeptFiles(kept, workspaceId, payload.sessionId, runtimeId)
         : { uploaded: [], uploadFailures: [] as RefusedOutboxFile[] };
 
     const replyText = (result.text ?? "") + refusalNote([...sweepRefused, ...uploadFailures]);
@@ -668,12 +675,12 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
           ? "the model returned no output"
           : null,
       produced: uploaded,
-    });
+    }, runtimeId);
   } catch (err) {
     await pusher.drain();
     const message = err instanceof Error ? err.message : String(err);
     logger.warn({ turnId: payload.turnId, err: message }, "chat turn execution failed");
-    await postResult(payload.turnId, { seq: ++seq, replyText: "", status: "failed", error: message });
+    await postResult(payload.turnId, { seq: ++seq, replyText: "", status: "failed", error: message }, runtimeId);
   } finally {
     // Synchronous, unlike `completeOnce`'s own fire-and-forget tempDir
     // cleanup: this directory can hold a scoped-Read grant's ENTIRE
@@ -693,7 +700,7 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent): Pro
  * Synchronous return; the actual turn runs in the background, matching
  * `startRun`'s own "accepted, not yet finished" ack semantics.
  */
-export function runChatTurnCommand(payload: ChatTurnStartPayload): Outcome {
+export function runChatTurnCommand(payload: ChatTurnStartPayload, runtimeId?: string): Outcome {
   if (!payload?.turnId || !payload.sessionId) {
     return {
       ok: false,
@@ -710,7 +717,7 @@ export function runChatTurnCommand(payload: ChatTurnStartPayload): Outcome {
   if (!resolved.ok) return toOutcome(resolved.failure);
 
   inFlight.add(payload.turnId);
-  void executeChatTurn(payload, resolved.value).finally(() => inFlight.delete(payload.turnId));
+  void executeChatTurn(payload, resolved.value, runtimeId).finally(() => inFlight.delete(payload.turnId));
 
   return { ok: true };
 }

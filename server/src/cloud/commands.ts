@@ -103,7 +103,7 @@ async function poll(): Promise<void> {
         }
 
         for (const command of commands ?? []) {
-          await dispatch(command);
+          await dispatch(command, binding.runtimeId);
         }
       } catch (err) {
         if (err instanceof CloudAuthError) {
@@ -166,7 +166,7 @@ async function poll(): Promise<void> {
  * and an escaping throw would stop the loop for every other command on the
  * machine because of one bad row.
  */
-async function dispatch(command: ClaimedCommand): Promise<void> {
+async function dispatch(command: ClaimedCommand, runtimeId?: string): Promise<void> {
   try {
     switch (command.kind) {
       case "run.start": {
@@ -176,11 +176,11 @@ async function dispatch(command: ClaimedCommand): Promise<void> {
         // `resolveAgent` stay synchronous.
         const start = command.payload as unknown as RunStartPayload;
         await ensureAgentLocal(start.agentSlug);
-        await ackResult(command, startRun(start));
+        await ackResult(command, startRun(start), runtimeId);
         return;
       }
       case "run.cancel":
-        await ackResult(command, cancelRun(command.payload as unknown as RunCancelPayload));
+        await ackResult(command, cancelRun(command.payload as unknown as RunCancelPayload), runtimeId);
         return;
       case "chat.turn": {
         // M12: unlike every case above, this ack does NOT mean the work is
@@ -189,21 +189,22 @@ async function dispatch(command: ClaimedCommand): Promise<void> {
         // reporting already has. See chat-turn.ts's own header comment.
         const turn = command.payload as unknown as ChatTurnStartPayload;
         await ensureAgentLocal(turn.agentSlug);
-        await ackResult(command, runChatTurnCommand(turn));
+        await ackResult(command, runChatTurnCommand(turn, runtimeId), runtimeId);
         return;
       }
       case "project.clone": {
         const result = await cloneProject(command.payload as unknown as ProjectClonePayload);
-        await ackResult(command, result.ok ? { ok: true } : result);
+        await ackResult(command, result.ok ? { ok: true } : result, runtimeId);
         return;
       }
       case "settings.set":
-        await ackResult(command, applySetting(command.payload as unknown as SettingsSetPayload));
+        await ackResult(command, applySetting(command.payload as unknown as SettingsSetPayload), runtimeId);
         return;
       case "providers.discover_models":
         await ackResult(
           command,
           await discoverProviderModels(command.payload as unknown as ProviderDiscoverModelsPayload),
+          runtimeId,
         );
         return;
       case "memory.sync":
@@ -220,7 +221,7 @@ async function dispatch(command: ClaimedCommand): Promise<void> {
         // failing the command would put a red mark on the board for a network
         // blip already covered, and earn a redelivery that adds nothing.
         await pullOnce();
-        await ack(command, { status: "done" });
+        await ack(command, { status: "done" }, runtimeId);
         return;
       default:
         // A newer control plane can enqueue a kind this build has never heard
@@ -231,20 +232,20 @@ async function dispatch(command: ClaimedCommand): Promise<void> {
           status: "failed",
           reason: "unknown_kind",
           error: `This machine does not understand the command "${command.kind}". It may be running an older version of core.`,
-        });
+        }, runtimeId);
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.warn({ err, commandId: command.id, kind: command.kind }, "command failed");
-    await ack(command, { status: "failed", reason: "spawn_failed", error: message });
+    await ack(command, { status: "failed", reason: "spawn_failed", error: message }, runtimeId);
   }
 }
 
 type Outcome = { ok: true } | { ok: false; failure: { reason: CommandFailureReason; error: string; detail?: string } };
 
-async function ackResult(command: ClaimedCommand, outcome: Outcome): Promise<void> {
+async function ackResult(command: ClaimedCommand, outcome: Outcome, runtimeId?: string): Promise<void> {
   if (outcome.ok) {
-    await ack(command, { status: "done" });
+    await ack(command, { status: "done" }, runtimeId);
     return;
   }
   await ack(command, {
@@ -252,7 +253,7 @@ async function ackResult(command: ClaimedCommand, outcome: Outcome): Promise<voi
     reason: outcome.failure.reason,
     error: outcome.failure.error,
     detail: outcome.failure.detail,
-  });
+  }, runtimeId);
 }
 
 function startRun(payload: RunStartPayload): Outcome {
@@ -363,9 +364,9 @@ function applySetting(payload: SettingsSetPayload): Outcome {
   return { ok: true };
 }
 
-async function ack(command: ClaimedCommand, body: AckRequest): Promise<void> {
+async function ack(command: ClaimedCommand, body: AckRequest, runtimeId?: string): Promise<void> {
   try {
-    await cloudFetch(`/commands/${command.id}/ack`, { body, retries: 2 });
+    await cloudFetch(`/commands/${command.id}/ack`, { body, retries: 2, runtimeId });
   } catch (err) {
     // The lease is what saves this: an unacked command is reclaimed when it
     // expires. Not fatal, and not worth failing the run that already started —
