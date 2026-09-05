@@ -71,21 +71,50 @@ export async function providerRoutes(app: FastifyInstance): Promise<void> {
     );
   });
 
-  /** Live model discovery for a direct-API provider; degrades to the static list. */
+  /** Live model discovery for direct-API and discoverable CLI providers; degrades to the static list. */
   app.post("/providers/discover-models", async (request): Promise<DiscoverModelsResult> => {
     const { provider: id } = discoverModelsRequestSchema.parse(request.body);
-    const provider = requireDirectProvider(id);
+    let p;
     try {
-      const models = await provider.discoverModels();
-      return { provider: id, models, live: true, detail: null };
-    } catch (err) {
-      return {
-        provider: id,
-        models: provider.listModels(),
-        live: false,
-        detail: err instanceof Error ? err.message : String(err),
-      };
+      p = getProvider(id as never);
+    } catch {
+      throw new HttpError(404, `unknown provider: ${id}`);
     }
+
+    if (p.kind === "direct_api") {
+      try {
+        const models = await p.discoverModels();
+        return { provider: id, models, live: true, detail: null };
+      } catch (err) {
+        return {
+          provider: id,
+          models: p.listModels(),
+          live: false,
+          detail: err instanceof Error ? err.message : String(err),
+        };
+      }
+    }
+
+    if (p.kind === "cli" && typeof p.discoverModels === "function") {
+      try {
+        const result = await p.discoverModels();
+        return { provider: id, models: result.models, live: result.live, detail: result.detail };
+      } catch (err) {
+        return {
+          provider: id,
+          models: p.listModels(),
+          live: false,
+          detail: err instanceof Error ? err.message : String(err),
+        };
+      }
+    }
+
+    return {
+      provider: id,
+      models: p.listModels(),
+      live: false,
+      detail: `provider ${id} does not support live discovery`,
+    };
   });
 
   /** Presence + masked hint for a provider's API key (never the raw key). */

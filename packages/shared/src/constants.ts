@@ -38,6 +38,81 @@ export const DEFAULT_GLOBAL_CONCURRENCY = 4;
  * provider offers one.** `claude-code`'s aliases are the model to copy — they
  * are resolved by the CLI at spawn time and therefore cannot go stale here.
  */
+export interface ModelCatalogEntry {
+  id: string;
+  label: string;
+  category: "primary" | "more";
+  badge?: string;
+  shortcut?: number;
+  thinking?: string[];
+  supportsFastMode?: boolean;
+}
+
+export const CLAUDE_CODE_MODEL_CATALOG: ModelCatalogEntry[] = [
+  // Primary
+  {
+    id: "claude-fable-5-1",
+    label: "Fable 5.1",
+    category: "primary",
+    badge: "Requires usage credits",
+    shortcut: 1,
+  },
+  {
+    id: "claude-opus-5",
+    label: "Opus 5",
+    category: "primary",
+    shortcut: 2,
+    thinking: ["ultracode"],
+    supportsFastMode: true,
+  },
+  {
+    id: "claude-sonnet-5",
+    label: "Sonnet 5",
+    category: "primary",
+    badge: "Default",
+    shortcut: 3,
+    thinking: ["high"],
+  },
+  {
+    id: "claude-haiku-4-5",
+    label: "Haiku 4.5",
+    category: "primary",
+    shortcut: 4,
+  },
+  // More models
+  {
+    id: "claude-fable-5",
+    label: "Fable 5",
+    category: "more",
+    badge: "Requires usage credits",
+  },
+  {
+    id: "claude-opus-4-8",
+    label: "Opus 4.8",
+    category: "more",
+    thinking: ["adaptive"],
+    supportsFastMode: true,
+  },
+  {
+    id: "claude-opus-4-7",
+    label: "Opus 4.7",
+    category: "more",
+    supportsFastMode: true,
+  },
+  {
+    id: "claude-opus-4-6",
+    label: "Opus 4.6",
+    category: "more",
+    supportsFastMode: true,
+  },
+  {
+    id: "claude-sonnet-4-6",
+    label: "Sonnet 4.6",
+    category: "more",
+    thinking: ["high"],
+  },
+];
+
 export const KNOWN_MODELS: Record<string, string[]> = {
   /**
    * Aliases first, and they are not a shortcut — `claude --help` (v2.1.x)
@@ -46,20 +121,21 @@ export const KNOWN_MODELS: Record<string, string[]> = {
    * in its family every time the CLI runs, so these three entries stay correct
    * with no maintenance, forever. The full names below them exist only so a
    * specific model can be pinned deliberately.
-   *
-   * The Claude CLI has **no model-enumeration command** — verified against
-   * `claude --help`, which offers `--model` and `agents` but nothing that lists
-   * models. So this list is static by design rather than by failure, and it is
-   * the one provider here where that is not a shortcoming to fix.
    */
   "claude-code": [
     "opus",
     "sonnet",
     "haiku",
+    "claude-fable-5-1",
     "claude-opus-5",
     "claude-sonnet-5",
-    "claude-fable-5-1",
+    "claude-haiku-4-5",
     "claude-haiku-4-5-20251001",
+    "claude-fable-5",
+    "claude-opus-4-8",
+    "claude-opus-4-7",
+    "claude-opus-4-6",
+    "claude-sonnet-4-6",
   ],
   /**
    * `agy models`' display labels — the form `--model` is verified to accept

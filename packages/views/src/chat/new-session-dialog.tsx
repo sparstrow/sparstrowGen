@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Bot, MessageSquare, Sparkles } from "lucide-react";
 import { useAgents, useCreateChatSession } from "@sparstrow/core";
+import { CLAUDE_CODE_MODEL_CATALOG } from "@sparstrow/shared";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +34,8 @@ export function NewSessionDialog({
   const [title, setTitle] = React.useState("");
   const [selectedKind, setSelectedKind] = React.useState<"agent" | "free">("agent");
   const [selectedAgentId, setSelectedAgentId] = React.useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = React.useState<string>("claude-sonnet-5");
+  const [moreModelsOpen, setMoreModelsOpen] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   // Default to first agent when agents list finishes loading
@@ -75,6 +78,8 @@ export function NewSessionDialog({
         const session = await createSession.mutateAsync({
           kind: "free",
           title: sessionTitle,
+          provider: "claude-code",
+          model: selectedModel,
         });
 
         onSessionCreated(session.id);
@@ -159,21 +164,21 @@ export function NewSessionDialog({
               ) : agents.data && agents.data.length > 0 ? (
                 <div className="max-h-48 space-y-1.5 overflow-y-auto rounded-md border p-1.5">
                   {agents.data.map((agent) => {
-                    const isSelected = selectedAgentId === agent.id;
+                    const isSelected = agent.id === selectedAgentId;
                     return (
                       <button
                         key={agent.id}
                         type="button"
                         onClick={() => setSelectedAgentId(agent.id)}
-                        className={`flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-xs transition-colors ${
+                        className={`flex w-full items-center justify-between rounded-md p-2 text-left text-xs transition-colors ${
                           isSelected
-                            ? "bg-accent text-foreground font-medium"
-                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                            ? "border border-brand bg-accent/30 text-foreground"
+                            : "border border-transparent hover:bg-accent/20 text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium text-foreground">{agent.name}</p>
-                          <p className="truncate text-[11px] text-muted-foreground">
+                        <div className="min-w-0 pr-2">
+                          <p className="font-medium text-foreground">{agent.name}</p>
+                          <p className="font-mono text-[10px] text-muted-foreground">
                             {agent.provider} / {agent.model}
                           </p>
                         </div>
@@ -189,6 +194,85 @@ export function NewSessionDialog({
                   No agents found in this workspace. You can use Direct Chat instead.
                 </div>
               )}
+            </div>
+          ) : null}
+
+          {selectedKind === "free" ? (
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Select Model</Label>
+              <div className="space-y-1.5 rounded-md border p-1.5 max-h-48 overflow-y-auto">
+                {CLAUDE_CODE_MODEL_CATALOG.filter((m) => m.category === "primary").map((m) => {
+                  const isSelected = selectedModel === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setSelectedModel(m.id)}
+                      className={`flex w-full items-center justify-between rounded-md p-2 text-left text-xs transition-colors ${
+                        isSelected
+                          ? "border border-amber-500/40 bg-amber-500/10 text-foreground"
+                          : "border border-transparent hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-foreground">{m.label}</span>
+                          {m.badge ? (
+                            <span className="rounded px-1 py-0.2 font-mono text-[9px] bg-muted border border-border text-muted-foreground font-semibold">
+                              {m.badge}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="font-mono text-[10px] text-muted-foreground">{m.id}</p>
+                      </div>
+                      {isSelected ? (
+                        <div className="size-1.5 rounded-full bg-amber-400" />
+                      ) : null}
+                    </button>
+                  );
+                })}
+
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setMoreModelsOpen(!moreModelsOpen)}
+                    className="flex w-full items-center justify-between rounded p-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  >
+                    <span>More models ({CLAUDE_CODE_MODEL_CATALOG.filter((m) => m.category === "more").length})</span>
+                    <span className="text-[10px] font-mono">
+                      {moreModelsOpen ? "▲" : "▼"}
+                    </span>
+                  </button>
+
+                  {moreModelsOpen ? (
+                    <div className="mt-1 space-y-1 pl-1 border-l border-border/60">
+                      {CLAUDE_CODE_MODEL_CATALOG.filter((m) => m.category === "more").map((m) => {
+                        const isSelected = selectedModel === m.id;
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setSelectedModel(m.id)}
+                            className={`flex w-full items-center justify-between rounded-md p-1.5 text-left text-xs transition-colors ${
+                              isSelected
+                                ? "border border-amber-500/40 bg-amber-500/10 text-foreground"
+                                : "border border-transparent hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            <div className="min-w-0 pr-2">
+                              <span className="font-medium text-foreground">{m.label}</span>
+                              <p className="font-mono text-[10px] text-muted-foreground">{m.id}</p>
+                            </div>
+                            {isSelected ? (
+                              <div className="size-1.5 rounded-full bg-amber-400" />
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             </div>
           ) : null}
 

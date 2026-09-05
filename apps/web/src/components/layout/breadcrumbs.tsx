@@ -1,6 +1,6 @@
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -10,6 +10,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { useProjects, useTeams } from "@web/api/hooks";
+import { useMachines } from "@sparstrow/core";
 import { NAV_META } from "@web/lib/nav-meta";
 import type { KnowledgeIndexEntry } from "@web/lib/knowledge.server";
 import { shortId } from "@/lib/format";
@@ -26,8 +27,10 @@ interface Crumb {
  */
 export function Breadcrumbs({ knowledgeIndex }: { knowledgeIndex: KnowledgeIndexEntry[] }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const projects = useProjects();
   const teams = useTeams();
+  const machines = useMachines();
 
   const crumbs = React.useMemo<Crumb[]>(() => {
     const segs = pathname.split("/").filter(Boolean);
@@ -42,9 +45,32 @@ export function Breadcrumbs({ knowledgeIndex }: { knowledgeIndex: KnowledgeIndex
     const sectionLabel = NAV_META[section!]?.label ?? section!;
     out.push({ label: sectionLabel, to: rest.length > 0 ? `/${section}` : undefined });
 
-    if (rest.length === 0) return out;
+    if (rest.length === 0) {
+      if (section === "machines") {
+        const queryId = searchParams?.get("machine") || searchParams?.get("id");
+        const list = machines.data ?? [];
+        const active = queryId
+          ? list.find((m) => m.id === queryId || m.machineId === queryId || m.hostname === queryId)
+          : (list.find((m) => m.online) ?? list[0]);
+        const activeName = active?.name || active?.hostname || "DESKTOP-GJ8NLB8";
+        out[0]!.to = "/machines";
+        out.push({ label: activeName });
+      }
+      return out;
+    }
 
     switch (section) {
+      case "machines": {
+        const queryId = searchParams?.get("machine") || searchParams?.get("id");
+        const targetId = rest[0] || queryId;
+        const list = machines.data ?? [];
+        const active = targetId
+          ? list.find((m) => m.id === targetId || m.machineId === targetId || m.hostname === targetId)
+          : (list.find((m) => m.online) ?? list[0]);
+        const activeName = active?.name || active?.hostname || "DESKTOP-GJ8NLB8";
+        out.push({ label: activeName });
+        break;
+      }
       case "projects":
         out.push({
           label: projects.data?.find((p) => p.id === rest[0])?.name ?? shortId(rest[0]!),
@@ -74,7 +100,7 @@ export function Breadcrumbs({ knowledgeIndex }: { knowledgeIndex: KnowledgeIndex
         out.push({ label: rest.join("/") });
     }
     return out;
-  }, [pathname, projects.data, teams.data, knowledgeIndex]);
+  }, [pathname, searchParams, projects.data, teams.data, machines.data, knowledgeIndex]);
 
   return (
     <Breadcrumb className="min-w-0">

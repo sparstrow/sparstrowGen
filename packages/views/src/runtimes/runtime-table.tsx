@@ -12,6 +12,10 @@ export interface DiscoveredModel {
   default?: boolean;
   thinking?: string[];
   description?: string;
+  category?: "primary" | "more";
+  badge?: string;
+  shortcut?: number | string;
+  supportsFastMode?: boolean;
 }
 
 export interface DiscoveredRuntime {

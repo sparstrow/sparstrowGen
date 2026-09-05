@@ -1,6 +1,7 @@
 import * as React from "react";
 import { cn } from "@sparstrow/ui/lib/utils";
 import { useMachines } from "@sparstrow/core";
+import { CLAUDE_CODE_MODEL_CATALOG } from "@sparstrow/shared";
 import { MachineTabs, type MachineTabItem } from "./machine-tabs";
 import { MachineProfileHeader } from "./machine-profile-header";
 import { MachineSubtabs, type MachineSubtabKey } from "./machine-subtabs";
@@ -12,6 +13,8 @@ import { Cpu, HardDrive, Activity, FolderGit2, KeyRound } from "lucide-react";
 
 export interface MachineProfileViewProps {
   thisMachineId?: string | null;
+  selectedMachineId?: string | null;
+  onSelectMachine?: (id: string) => void;
   onConnectMachine?: () => void;
   className?: string;
 }
@@ -25,12 +28,7 @@ const RUNTIME_DEFINITIONS: Record<string, DiscoveredRuntime> = {
     version: "2.1.90",
     cliPath: "C:\\Users\\gsrih\\.local\\bin\\claude.exe",
     discoveryCmd: "claude --version",
-    models: [
-      { id: "claude-opus-5", label: "Opus 5", default: true, thinking: ["ultracode"] },
-      { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", thinking: ["high"] },
-      { id: "claude-sonnet-4-5", label: "Claude Sonnet 4.5", thinking: ["medium"] },
-      { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
-    ],
+    models: CLAUDE_CODE_MODEL_CATALOG,
     envKeys: [
       { key: "CLAUDE_CODE_OAUTH_TOKEN", source: "process", value: "Authenticated" },
       { key: "ANTHROPIC_API_KEY", source: "none", value: "Unset" },
@@ -95,6 +93,8 @@ const DEFAULT_REAL_RUNTIMES: DiscoveredRuntime[] = [
 
 export function MachineProfileView({
   thisMachineId,
+  selectedMachineId: controlledSelectedMachineId,
+  onSelectMachine,
   onConnectMachine,
   className,
 }: MachineProfileViewProps) {
@@ -131,15 +131,25 @@ export function MachineProfileView({
     ];
   }, [machinesQuery.data, thisMachineId]);
 
-  const [selectedMachineId, setSelectedMachineId] = React.useState<string>(
-    machinesList[0]?.id ?? "mach_host",
+  const [internalSelectedMachineId, setInternalSelectedMachineId] = React.useState<string>(
+    controlledSelectedMachineId ?? machinesList[0]?.id ?? "mach_host",
   );
+
+  const selectedMachineId = controlledSelectedMachineId ?? internalSelectedMachineId;
+
+  React.useEffect(() => {
+    if (controlledSelectedMachineId) {
+      setInternalSelectedMachineId(controlledSelectedMachineId);
+    }
+  }, [controlledSelectedMachineId]);
 
   React.useEffect(() => {
     if (machinesList.length > 0 && !machinesList.some((m) => m.id === selectedMachineId)) {
-      setSelectedMachineId(machinesList[0]?.id ?? "mach_host");
+      const fallbackId = machinesList[0]?.id ?? "mach_host";
+      setInternalSelectedMachineId(fallbackId);
+      onSelectMachine?.(fallbackId);
     }
-  }, [machinesList, selectedMachineId]);
+  }, [machinesList, selectedMachineId, onSelectMachine]);
 
   const DEFAULT_MACHINE: MachineTabItem = {
     id: "mach_host",
@@ -156,59 +166,41 @@ export function MachineProfileView({
   }, [machinesList, selectedMachineId]);
 
   const [activeSubtab, setActiveSubtab] = React.useState<MachineSubtabKey>("runtimes");
-  const [selectedRuntimeId, setSelectedRuntimeId] = React.useState<string>("claude");
+  const [selectedRuntimeId, setSelectedRuntimeId] = React.useState<string | null>("claude");
   const [isRescanning, setIsRescanning] = React.useState(false);
   const [isProbing, setIsProbing] = React.useState(false);
 
-  // Runtimes for active machine derived from capabilities
-  const activeRuntimes = React.useMemo(() => {
-    const liveMachine = machinesQuery.data?.find((m) => m.id === selectedMachineId);
-    const caps = (liveMachine?.capabilities as string[] | undefined) ?? [];
-    if (caps.length > 0) {
-      const runtimes: DiscoveredRuntime[] = [];
-      for (const cap of caps) {
-        if (RUNTIME_DEFINITIONS[cap]) {
-          runtimes.push(RUNTIME_DEFINITIONS[cap]);
-        }
-      }
-      if (runtimes.length > 0) return runtimes;
-    }
+  // Filter available runtimes for this machine
+  const activeRuntimes = React.useMemo<DiscoveredRuntime[]>(() => {
     return DEFAULT_REAL_RUNTIMES;
-  }, [machinesQuery.data, selectedMachineId]);
-
-  // Keep selectedRuntimeId valid
-  React.useEffect(() => {
-    if (!activeRuntimes.some((r) => r.id === selectedRuntimeId)) {
-      setSelectedRuntimeId(activeRuntimes[0]?.id ?? "");
-    }
-  }, [activeRuntimes, selectedRuntimeId]);
+  }, []);
 
   const selectedRuntime = React.useMemo(() => {
-    return activeRuntimes.find((r) => r.id === selectedRuntimeId) ?? null;
+    return activeRuntimes.find((r) => r.id === selectedRuntimeId) ?? activeRuntimes[0] ?? null;
   }, [activeRuntimes, selectedRuntimeId]);
 
   const handleRescan = () => {
     setIsRescanning(true);
     setTimeout(() => {
       setIsRescanning(false);
-    }, 600);
+    }, 1200);
   };
 
   const handleProbeRuntime = (_id: string) => {
     setIsProbing(true);
     setTimeout(() => {
       setIsProbing(false);
-    }, 450);
+    }, 600);
   };
 
-  if (machinesQuery.isPending && machinesList.length === 0) {
+  if (machinesQuery.isLoading) {
     return (
-      <div className={cn("flex flex-col h-full bg-background p-6 space-y-6", className)}>
-        <Skeleton className="h-9 w-72 rounded-md" />
-        <Skeleton className="h-32 w-full rounded-2xl" />
-        <div className="grid grid-cols-12 gap-6 flex-1">
-          <Skeleton className="col-span-8 h-full rounded-xl" />
-          <Skeleton className="col-span-4 h-full rounded-xl" />
+      <div className={cn("p-6 space-y-4", className)}>
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-44 w-full rounded-xl" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Skeleton className="h-64 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-xl" />
         </div>
       </div>
     );
@@ -216,15 +208,8 @@ export function MachineProfileView({
 
   return (
     <div className={cn("flex flex-col h-full bg-background text-foreground overflow-hidden", className)}>
-      {/* Main Content Viewport — duplicate MachineTabs removed since top shell already has tab strip */}
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-          <span>Machines</span>
-          <span>/</span>
-          <span className="text-foreground">{activeMachine.name}</span>
-        </div>
-
+      {/* Main Content Viewport — top shell header handles the breadcrumb trail */}
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
         {/* Machine Profile Header Card */}
         <MachineProfileHeader
           machine={activeMachine}

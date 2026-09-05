@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import type { Agent, EffectiveTools, ProviderHealth, RunResult } from "@sparstrow/shared";
@@ -7,10 +8,27 @@ import { config } from "../config.js";
 import type {
   HeadlessSpawnOptions,
   InteractiveSpawnOptions,
+  CliModelDiscovery,
   CliProvider,
   NormalizedEvent,
   SpawnSpec,
 } from "./types.js";
+
+/** Resolves an active Anthropic token/key from process env or local credentials. */
+export function getClaudeAuthToken(): string | null {
+  if (process.env.CLAUDE_CODE_OAUTH_TOKEN) return process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  if (process.env.ANTHROPIC_API_KEY) return process.env.ANTHROPIC_API_KEY;
+  try {
+    const credPath = path.join(os.homedir(), ".claude", ".credentials.json");
+    if (fs.existsSync(credPath)) {
+      const parsed = JSON.parse(fs.readFileSync(credPath, "utf-8"));
+      if (parsed.claudeAiOauth?.accessToken) {
+        return parsed.claudeAiOauth.accessToken;
+      }
+    }
+  } catch {}
+  return null;
+}
 
 /**
  * Provider for the Claude Code CLI (verified against claude 2.1.x).
@@ -23,6 +41,69 @@ export class ClaudeCodeProvider implements CliProvider {
 
   listModels(): string[] {
     return KNOWN_MODELS["claude-code"] ?? [];
+  }
+
+  /**
+   * Live model discovery via Anthropic's model API endpoint using the active
+   * OAuth or API token. If offline or unauthenticated, degrades to KNOWN_MODELS.
+   */
+  async discoverModels(): Promise<CliModelDiscovery> {
+    const token = getClaudeAuthToken();
+    if (!token) {
+      return {
+        models: this.listModels(),
+        live: false,
+        detail: "No active CLAUDE_CODE_OAUTH_TOKEN or credentials found; using catalog seed",
+      };
+    }
+
+    try {
+      const headers: Record<string, string> = {
+        "anthropic-version": "2023-06-01",
+      };
+      if (token.startsWith("sk-ant-oat") || token.startsWith("ey")) {
+        headers["authorization"] = `Bearer ${token}`;
+      } else {
+        headers["x-api-key"] = token;
+      }
+
+      const res = await fetch("https://api.anthropic.com/v1/models?limit=100", {
+        headers,
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (!res.ok) {
+        return {
+          models: this.listModels(),
+          live: false,
+          detail: `Anthropic API returned ${res.status}: ${res.statusText}`,
+        };
+      }
+
+      const data = (await res.json()) as { data?: Array<{ id: string; display_name?: string }> };
+      if (Array.isArray(data.data) && data.data.length > 0) {
+        const discovered = data.data.map((m) => m.id);
+        const baseAliases = ["opus", "sonnet", "haiku"];
+        const merged = Array.from(new Set([...baseAliases, ...discovered, ...this.listModels()]));
+        return {
+          models: merged,
+          live: true,
+          detail: null,
+        };
+      }
+    } catch (err) {
+      return {
+        models: this.listModels(),
+        live: false,
+        detail: err instanceof Error ? err.message : String(err),
+      };
+    }
+
+    return {
+      models: this.listModels(),
+      live: false,
+      detail: "Anthropic API returned no models",
+    };
   }
 
   private commonArgs(
@@ -201,13 +282,28 @@ export class ClaudeCodeProvider implements CliProvider {
               detail: err.message,
             });
           } else {
-            resolve({
-              id: this.id,
-              ok: true,
-              version: stdout.trim() || null,
-              authenticated: null,
-              detail: null,
-            });
+            const hasAuthToken = !!getClaudeAuthToken();
+            execFile(
+              config.claudePath,
+              ["auth", "status"],
+              { timeout: 5_000, windowsHide: true },
+              (_authErr, authStdout) => {
+                let authenticated = hasAuthToken;
+                if (authStdout) {
+                  try {
+                    const parsed = JSON.parse(authStdout.trim());
+                    if (parsed.loggedIn != null) authenticated = Boolean(parsed.loggedIn);
+                  } catch {}
+                }
+                resolve({
+                  id: this.id,
+                  ok: true,
+                  version: stdout.trim() || null,
+                  authenticated,
+                  detail: null,
+                });
+              },
+            );
           }
         },
       );
