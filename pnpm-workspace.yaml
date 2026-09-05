@@ -61,6 +61,7 @@ catalog:
   "@tailwindcss/vite": ^4.1.8
   "@tailwindcss/postcss": ^4.1.8
   lucide-react: ^0.514.0
+  geist: ^1.7.2
 
 # Security: force patched versions of transitive deps flagged by `pnpm audit`.
 # js-yaml <4.1.2 (via gray-matter) has a quadratic-complexity merge-key DoS.

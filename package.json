@@ -12,7 +12,6 @@
     "dev:env": "node scripts/dev-env.mjs env",
     "db:reset": "node scripts/dev-env.mjs db:reset",
     "check": "pnpm typecheck && pnpm test",
-
     "dev": "turbo run dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
@@ -26,6 +25,7 @@
     "typescript": "catalog:"
   },
   "dependencies": {
+    "geist": "catalog:",
     "postgres": "catalog:"
   }
 }

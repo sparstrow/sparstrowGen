@@ -273,22 +273,36 @@ attention*, so it teaches the eye that status colour is decorative. Recorded as
 
 ## 3. Typography
 
-**Font:** Inter Variable (`@fontsource-variable/inter`). **Mono:**
-`ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`.
+**Primary Font Suite:** **Geist** (`geist` package on npm).
 
-> This scale is a **new decision**, not mirrored from the app — the previous
-> doctrine's scale was prose-only and never had a CSS counterpart. It is tuned
-> denser than shadcn's defaults because this is a monitoring surface.
+```typescript
+import { GeistSans } from 'geist/font/sans';
+import { GeistMono } from 'geist/font/mono';
+import {
+  GeistPixelSquare,
+  GeistPixelGrid,
+  GeistPixelCircle,
+  GeistPixelTriangle,
+  GeistPixelLine
+} from 'geist/font/pixel';
+```
 
-| Role | Size | Weight | Line height | Used for |
-|---|---|---|---|---|
-| Display | 1.75rem / 28px | 650 | 1.15 | Page titles only |
-| Headline | 1.0625rem / 17px | 650 | 1.3 | Section and card titles |
-| Title | 0.9375rem / 15px | 600 | 1.35 | Dialog headers, row names |
-| **Body** | **0.8125rem / 13px** | 400 | **1.6** | Default. Prose, descriptions, chat |
-| Meta | 0.75rem / 12px | 400 | 1.45 | Timestamps, secondary row info |
-| Label | 0.6875rem / 11px | 700 | 1.3 | Uppercase, `0.08em` tracking. Column and nav headings |
-| Mono | 0.75rem / 12px | 400 | 1.5 | IDs, paths, commands, code |
+- **Sans (UI, Navigation, Headings & Body):** **Geist Sans** (`var(--font-geist-sans)` / `"Geist Sans"`). Fallbacks: `-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`.
+- **Mono (Code, CLI commands, Paths, Identifiers & Data):** **Geist Mono** (`var(--font-geist-mono)` / `"Geist Mono"`). Fallbacks: `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`.
+- **Pixel (Hardware Telemetry, Chip Badges, Metrics & System Indicators):** **Geist Pixel** (`GeistPixelSquare`, `GeistPixelGrid`, `GeistPixelCircle`, `GeistPixelTriangle`, `GeistPixelLine`).
+
+> This scale is tuned specifically for Sparstrowgen's monitoring surfaces, designed for high legibility, dense information display, and precise alignment.
+
+| Role | Size | Weight | Line height | Font | Used for |
+|---|---|---|---|---|---|
+| Display | 1.75rem / 28px | 650 | 1.15 | Geist Sans | Page titles only |
+| Headline | 1.0625rem / 17px | 650 | 1.3 | Geist Sans | Section and card titles |
+| Title | 0.9375rem / 15px | 600 | 1.35 | Geist Sans | Dialog headers, row names |
+| **Body** | **0.8125rem / 13px** | 400 | **1.6** | Geist Sans | Default. Prose, descriptions, chat |
+| Meta | 0.75rem / 12px | 400 | 1.45 | Geist Sans | Timestamps, secondary row info |
+| Label | 0.6875rem / 11px | 700 | 1.3 | Geist Sans | Uppercase, `0.08em` tracking. Column & nav headings |
+| Mono | 0.75rem / 12px | 400 | 1.5 | Geist Mono | IDs, paths, CLI commands, code, models |
+| Pixel Badge | 0.625rem / 10px | 400 | 1.0 | Geist Pixel | Hardware stats, micro status chips, machine telemetry |
 
 **Named rule — Reading Width.** Prose and agent output cap at **68ch**. This
 applies to Chat and any long-form panel; it does not apply to tables.

@@ -407,7 +407,9 @@
 }
 
 @theme inline {
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Geist Sans", "Geist", var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-pixel: "Geist Pixel", var(--font-geist-pixel), monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
