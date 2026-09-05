@@ -88,7 +88,21 @@ function useServerStatus() {
 
 export function App() {
   const { state, recheck } = useServerStatus();
-  const [screen, setScreen] = React.useState<Screen>("chat");
+  const [screen, setScreen] = React.useState<Screen>(() => {
+    try {
+      return (localStorage.getItem("sparstrow_active_screen") as Screen) || "machines";
+    } catch {
+      return "machines";
+    }
+  });
+
+  const selectScreen = React.useCallback((next: Screen) => {
+    setScreen(next);
+    try {
+      localStorage.setItem("sparstrow_active_screen", next);
+    } catch {}
+  }, []);
+
   const { status: update } = useUpdates();
 
   const queryClient = useQueryClient();
@@ -97,9 +111,9 @@ export function App() {
   // it. The main process only says where; what the name means is decided here.
   React.useEffect(() => {
     return window.sparstrowDesktop?.onNavigate((target) => {
-      if (target === "settings") setScreen("settings");
+      if (target === "settings") selectScreen("settings");
     });
-  }, []);
+  }, [selectScreen]);
 
   // The main process claims this computer at launch and after sign-in, and that
   // finishes AFTER this window has already rendered — the runtime has to come
@@ -118,19 +132,19 @@ export function App() {
           <p className="mr-2 text-sm font-medium">Sparstrowgen</p>
           <NavButton
             active={screen === "chat"}
-            onClick={() => setScreen("chat")}
+            onClick={() => selectScreen("chat")}
             icon={<MessageSquare className="size-3.5" strokeWidth={2} />}
             label="Chat"
           />
           <NavButton
             active={screen === "machines"}
-            onClick={() => setScreen("machines")}
+            onClick={() => selectScreen("machines")}
             icon={<Monitor className="size-3.5" strokeWidth={2} />}
             label="Machines"
           />
           <NavButton
             active={screen === "settings"}
-            onClick={() => setScreen("settings")}
+            onClick={() => selectScreen("settings")}
             icon={<SettingsIcon className="size-3.5" strokeWidth={2} />}
             label="Settings"
           />

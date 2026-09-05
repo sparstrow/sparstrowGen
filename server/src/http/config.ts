@@ -46,7 +46,42 @@ export class MissingServerConfigError extends Error {
   }
 }
 
+import fs from "node:fs";
+import path from "node:path";
+
 export function loadServerConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
+  // If required keys are missing from process.env, look in apps/web/.env.local or server/.env
+  if (!env.SUPABASE_URL && !env.NEXT_PUBLIC_SUPABASE_URL) {
+    const candidates = [
+      path.resolve(process.cwd(), "apps/web/.env.local"),
+      path.resolve(process.cwd(), "server/.env"),
+      path.resolve(process.cwd(), ".env.local"),
+      path.resolve(process.cwd(), ".env"),
+      path.resolve(process.cwd(), "../apps/web/.env.local"),
+    ];
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) {
+        try {
+          const content = fs.readFileSync(candidate, "utf8");
+          for (const line of content.split(/\r?\n/)) {
+            const m = line.trim().match(/^([A-Za-z0-9_]+)=(.*)$/);
+            const key = m?.[1];
+            const rawVal = m?.[2];
+            if (key && rawVal !== undefined && !env[key]) {
+              let val = rawVal.trim();
+              if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+                val = val.slice(1, -1);
+              }
+              env[key] = val;
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+
   // Two accepted names for each, and the fallback is not laziness. The local
   // stack's values live in `apps/web/.env.local` under `NEXT_PUBLIC_*`, because
   // that is where Next requires them; making the server insist on its own
@@ -81,7 +116,7 @@ export function loadServerConfig(env: NodeJS.ProcessEnv = process.env): ServerCo
     // "Could not reach http://localhost:3000" a first sign-in actually hit.
     // Set it explicitly to send people to `apps/web` instead.
     webOrigin: (env.SPARSTROW_WEB_ORIGIN ?? `http://127.0.0.1:${port}`).replace(/\/+$/, ""),
-    corsOrigins: (env.SPARSTROW_SERVER_CORS_ORIGINS ?? "http://localhost:3000")
+    corsOrigins: (env.SPARSTROW_SERVER_CORS_ORIGINS ?? "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001")
       .split(",")
       .map((o) => o.trim())
       .filter(Boolean),

@@ -256,8 +256,14 @@ function AuthenticatedShell({
           </div>
         </header>
         <DesktopAutoClaim />
-        <UpdateBanner />
-        <main className="min-h-0 flex-1 overflow-y-auto p-5">
+        <main
+          className={cn(
+            "min-h-0 flex-1",
+            pathname.startsWith("/chat") || pathname.startsWith("/machines")
+              ? "overflow-hidden p-0"
+              : "overflow-y-auto p-5"
+          )}
+        >
           {children}
         </main>
       </div>

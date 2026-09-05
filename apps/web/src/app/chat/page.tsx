@@ -1,7 +1,7 @@
 "use client";
 
-import { ChatPage } from "./chat";
+import { ChatLayout } from "@sparstrow/views";
 
 export default function Page() {
-  return <ChatPage />;
+  return <ChatLayout className="h-full" />;
 }

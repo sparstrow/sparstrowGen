@@ -1,7 +1,7 @@
 "use client";
 
-import { MachinesPage } from "./machines";
+import { MachineProfileView } from "@sparstrow/views";
 
 export default function Page() {
-  return <MachinesPage />;
+  return <MachineProfileView className="h-full" />;
 }

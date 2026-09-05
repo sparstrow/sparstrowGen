@@ -53,6 +53,8 @@ async function handleRequest(req: NextRequest, { params }: RouteContext) {
     data: { session },
   } = await supabase.auth.getSession();
 
+  console.log(`[api/v1 proxy] ${req.method} ${req.nextUrl.pathname} - session:`, !!session);
+
   if (!session) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
