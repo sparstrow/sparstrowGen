@@ -162,7 +162,7 @@ export class RealtimeLiveEventSource implements LiveEventSource {
     return this.connected;
   }
 
-  private setConnected(value: boolean): void {
+  setConnected(value: boolean): void {
     if (this.connected === value) return;
     this.connected = value;
     for (const fn of this.statusListeners) fn(value);

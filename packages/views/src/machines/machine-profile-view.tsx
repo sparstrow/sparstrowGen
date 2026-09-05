@@ -16,8 +16,27 @@ export interface MachineProfileViewProps {
   className?: string;
 }
 
-const MOCK_RUNTIMES_WINDOWS: DiscoveredRuntime[] = [
-  {
+const RUNTIME_DEFINITIONS: Record<string, DiscoveredRuntime> = {
+  "claude-code": {
+    id: "claude",
+    name: "Claude Code",
+    badge: "Built-in",
+    status: "online",
+    version: "2.1.90",
+    cliPath: "C:\\Users\\gsrih\\.local\\bin\\claude.exe",
+    discoveryCmd: "claude --version",
+    models: [
+      { id: "claude-opus-5", label: "Opus 5", default: true, thinking: ["ultracode"] },
+      { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", thinking: ["high"] },
+      { id: "claude-sonnet-4-5", label: "Claude Sonnet 4.5", thinking: ["medium"] },
+      { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
+    ],
+    envKeys: [
+      { key: "CLAUDE_CODE_OAUTH_TOKEN", source: "process", value: "Authenticated" },
+      { key: "ANTHROPIC_API_KEY", source: "none", value: "Unset" },
+    ],
+  },
+  antigravity: {
     id: "antigravity",
     name: "Antigravity",
     badge: "Built-in",
@@ -28,115 +47,50 @@ const MOCK_RUNTIMES_WINDOWS: DiscoveredRuntime[] = [
     models: [
       { id: "claude-opus-5", label: "Opus 5", default: true, thinking: ["ultracode"] },
       { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (Thinking)", thinking: ["high"] },
-      { id: "gemini-3.8-flash-high", label: "Gemini 3.8 Flash (High)", thinking: ["high"] },
-      { id: "gemini-3.8-flash-medium", label: "Gemini 3.8 Flash (Medium)", thinking: ["medium"] },
-      { id: "gemini-3.7-flash-high", label: "Gemini 3.7 Flash (High)", thinking: ["high"] },
-      { id: "gemini-3.1-pro-high", label: "Gemini 3.1 Pro (High)" },
-      { id: "gpt-oss-120b-medium", label: "GPT-OSS 120B (Medium)" },
+      { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", thinking: ["high"] },
+      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", thinking: ["medium"] },
     ],
     envKeys: [
       { key: "ANTIGRAVITY_AGENTAPI_EXE", source: "process", value: "Present" },
       { key: "AGY_BROWSER_WS_URL", source: "process", value: "Active CDP connection" },
-      { key: "GEMINI_API_KEY", source: "none", value: "Unset (using CLI session auth)" },
     ],
   },
-  {
-    id: "claude",
-    name: "Claude",
-    badge: "Built-in",
-    status: "online",
-    version: "2.1.90 (Claude Code)",
-    cliPath: "C:\\Users\\gsrih\\.local\\bin\\claude.exe",
-    discoveryCmd: "claude --version",
-    models: [
-      { id: "claude-opus-5", label: "Opus 5", default: true, thinking: ["ultracode"] },
-      { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", thinking: ["high"] },
-      { id: "claude-sonnet-4-5", label: "Claude Sonnet 4.5", thinking: ["medium"] },
-      { id: "claude-opus-4-7", label: "Claude Opus 4.7", thinking: ["high"] },
-      { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
-    ],
-    envKeys: [
-      { key: "CLAUDE_CODE_OAUTH_TOKEN", source: "process", value: "sk-ant-oat01-*** (Authenticated)" },
-      { key: "ANTHROPIC_API_KEY", source: "none", value: "Unset" },
-      { key: "ANTHROPIC_BASE_URL", source: "none", value: "Default (https://api.anthropic.com)" },
-    ],
-  },
-  {
+  hermes: {
     id: "hermes",
     name: "Hermes",
     badge: "Built-in",
     status: "online",
-    version: "v0.18.2 (Hermes Agent)",
+    version: "v0.18.2",
     cliPath: "C:\\Users\\gsrih\\AppData\\Local\\hermes\\hermes-agent\\venv\\Scripts\\hermes.exe",
     discoveryCmd: "hermes --version",
     models: [
       { id: "nous-hermes-3-llama-3.1-8b", label: "Hermes 3 (Llama-3.1-8B)", default: true },
       { id: "nous-hermes-3-llama-3.1-70b", label: "Hermes 3 (Llama-3.1-70B)" },
-      { id: "hermes-function-calling", label: "Hermes Tool Agent (Local)" },
     ],
     envKeys: [
       { key: "HERMES_HOME", source: "process", value: "C:\\Users\\gsrih\\AppData\\Local\\hermes" },
-      { key: "HERMES_GIT_BASH_PATH", source: "process", value: "Present" },
     ],
   },
-  {
-    id: "codex",
-    name: "Codex",
-    badge: "Built-in",
+  ollama: {
+    id: "ollama",
+    name: "Ollama",
+    badge: "Local",
     status: "idle",
-    version: "v1.4.0 (Codex CLI)",
-    cliPath: "C:\\Users\\gsrih\\AppData\\Local\\Programs\\codex\\codex.cmd",
-    discoveryCmd: "codex --version",
+    version: "v0.5.0",
+    cliPath: "http://127.0.0.1:11434",
+    discoveryCmd: "ollama list",
     models: [
-      { id: "gpt-5-codex", label: "GPT-5 Codex", default: true },
-      { id: "o3-mini", label: "o3-mini (High Reasoning)", thinking: ["high"] },
+      { id: "llama3.2", label: "Llama 3.2", default: true },
     ],
-    envKeys: [{ key: "OPENAI_API_KEY", source: "process", value: "sk-proj-*** (Detected)" }],
-  },
-  {
-    id: "opencode",
-    name: "OpenCode",
-    badge: "Built-in",
-    status: "online",
-    version: "v0.8.4",
-    cliPath: "C:\\Users\\gsrih\\AppData\\Roaming\\npm\\opencode.cmd",
-    discoveryCmd: "opencode models",
-    models: [
-      { id: "deepseek-r1-distill-qwen-32b", label: "DeepSeek R1 (32B)", default: true, thinking: ["high"] },
-      { id: "qwen-2.5-coder-32b", label: "Qwen 2.5 Coder (32B)" },
+    envKeys: [
+      { key: "OLLAMA_HOST", source: "process", value: "http://127.0.0.1:11434" },
     ],
-    envKeys: [{ key: "OPENCODE_RUNTIME_DIR", source: "process", value: "C:\\Users\\gsrih\\.opencode" }],
   },
-  {
-    id: "cursor",
-    name: "Cursor Agent",
-    badge: "Built-in",
-    status: "online",
-    version: "v0.45.11 (Cursor CLI)",
-    cliPath: "C:\\Users\\gsrih\\AppData\\Local\\Programs\\cursor\\resources\\app\\bin\\cursor.cmd",
-    discoveryCmd: "cursor --version",
-    models: [
-      { id: "cursor-fast", label: "Cursor Fast (Claude 3.5 Sonnet)", default: true },
-      { id: "cursor-composer", label: "Cursor Composer (Agentic)" },
-    ],
-    envKeys: [{ key: "CURSOR_TOKEN", source: "persistent", value: "cur_sess_*** (HKCU)" }],
-  },
-];
+};
 
-const MOCK_RUNTIMES_UBUNTU: DiscoveredRuntime[] = [
-  {
-    id: "openclaw",
-    name: "OpenClaw",
-    badge: "Worker",
-    status: "online",
-    version: "v0.12.0",
-    cliPath: "/usr/local/bin/openclaw",
-    discoveryCmd: "openclaw models",
-    models: [
-      { id: "deepseek-r1-full", label: "DeepSeek R1 Full (671B FP8)", default: true, thinking: ["high"] },
-    ],
-    envKeys: [{ key: "CUDA_VISIBLE_DEVICES", source: "process", value: "0,1,2,3 (4x RTX 4090)" }],
-  },
+const DEFAULT_REAL_RUNTIMES: DiscoveredRuntime[] = [
+  RUNTIME_DEFINITIONS.antigravity!,
+  RUNTIME_DEFINITIONS["claude-code"]!,
 ];
 
 export function MachineProfileView({
@@ -150,7 +104,11 @@ export function MachineProfileView({
   const machinesList: MachineTabItem[] = React.useMemo(() => {
     const live = machinesQuery.data ?? [];
     if (live.length > 0) {
-      return live.map((m) => ({
+      const sorted = [...live].sort((a, b) => {
+        if (a.online !== b.online) return a.online ? -1 : 1;
+        return (b.lastHeartbeat ? new Date(b.lastHeartbeat).getTime() : 0) - (a.lastHeartbeat ? new Date(a.lastHeartbeat).getTime() : 0);
+      });
+      return sorted.map((m) => ({
         id: m.id,
         name: m.name || m.hostname || "Workstation",
         os: m.os,
@@ -160,7 +118,7 @@ export function MachineProfileView({
       }));
     }
 
-    // Default development fallback machine tabs
+    // Default to this local workstation
     return [
       {
         id: "mach_host",
@@ -170,22 +128,6 @@ export function MachineProfileView({
         hostname: "DESKTOP-GJ8NLB8",
         isThisDevice: true,
       },
-      {
-        id: "mach_ubuntu",
-        name: "dev-ubuntu-server",
-        os: "Linux Ubuntu 22.04 LTS (x86_64)",
-        online: true,
-        hostname: "dev-ubuntu-server",
-        isThisDevice: false,
-      },
-      {
-        id: "mach_mac",
-        name: "macbook-pro-m3",
-        os: "Darwin 23.5.0 (arm64)",
-        online: true,
-        hostname: "macbook-pro-m3",
-        isThisDevice: false,
-      },
     ];
   }, [machinesQuery.data, thisMachineId]);
 
@@ -193,14 +135,20 @@ export function MachineProfileView({
     machinesList[0]?.id ?? "mach_host",
   );
 
-const DEFAULT_MACHINE: MachineTabItem = {
-  id: "mach_host",
-  name: "DESKTOP-GJ8NLB8",
-  os: "Windows 11 Pro 24H2 (x64)",
-  online: true,
-  hostname: "DESKTOP-GJ8NLB8",
-  isThisDevice: true,
-};
+  React.useEffect(() => {
+    if (machinesList.length > 0 && !machinesList.some((m) => m.id === selectedMachineId)) {
+      setSelectedMachineId(machinesList[0]?.id ?? "mach_host");
+    }
+  }, [machinesList, selectedMachineId]);
+
+  const DEFAULT_MACHINE: MachineTabItem = {
+    id: "mach_host",
+    name: "DESKTOP-GJ8NLB8",
+    os: "Windows 11 Pro 24H2 (x64)",
+    online: true,
+    hostname: "DESKTOP-GJ8NLB8",
+    isThisDevice: true,
+  };
 
   // Active machine object
   const activeMachine: MachineTabItem = React.useMemo(() => {
@@ -212,13 +160,21 @@ const DEFAULT_MACHINE: MachineTabItem = {
   const [isRescanning, setIsRescanning] = React.useState(false);
   const [isProbing, setIsProbing] = React.useState(false);
 
-  // Runtimes for active machine
+  // Runtimes for active machine derived from capabilities
   const activeRuntimes = React.useMemo(() => {
-    if (activeMachine?.id === "mach_ubuntu" || (activeMachine?.os ?? "").toLowerCase().includes("linux")) {
-      return MOCK_RUNTIMES_UBUNTU;
+    const liveMachine = machinesQuery.data?.find((m) => m.id === selectedMachineId);
+    const caps = (liveMachine?.capabilities as string[] | undefined) ?? [];
+    if (caps.length > 0) {
+      const runtimes: DiscoveredRuntime[] = [];
+      for (const cap of caps) {
+        if (RUNTIME_DEFINITIONS[cap]) {
+          runtimes.push(RUNTIME_DEFINITIONS[cap]);
+        }
+      }
+      if (runtimes.length > 0) return runtimes;
     }
-    return MOCK_RUNTIMES_WINDOWS;
-  }, [activeMachine]);
+    return DEFAULT_REAL_RUNTIMES;
+  }, [machinesQuery.data, selectedMachineId]);
 
   // Keep selectedRuntimeId valid
   React.useEffect(() => {
@@ -260,15 +216,7 @@ const DEFAULT_MACHINE: MachineTabItem = {
 
   return (
     <div className={cn("flex flex-col h-full bg-background text-foreground overflow-hidden", className)}>
-      {/* Top Machines Tab Bar */}
-      <MachineTabs
-        machines={machinesList}
-        selectedMachineId={selectedMachineId}
-        onSelectMachine={setSelectedMachineId}
-        onConnectMachine={onConnectMachine}
-      />
-
-      {/* Main Content Viewport */}
+      {/* Main Content Viewport — duplicate MachineTabs removed since top shell already has tab strip */}
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
         {/* Breadcrumb */}
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">

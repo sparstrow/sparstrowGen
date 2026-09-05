@@ -134,14 +134,17 @@ export function Providers({
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        liveEvents.setConnected(status === "SUBSCRIBED");
+      });
 
     return () => {
       unsubscribeWs();
       authSub.subscription.unsubscribe();
+      liveEvents.setConnected(false);
       void supabase.removeChannel(realtimeChannel);
     };
-  }, [queryClient]);
+  }, [queryClient, liveEvents]);
 
   return (
     <ThemeProvider>
