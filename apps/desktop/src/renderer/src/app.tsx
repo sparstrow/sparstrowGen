@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ChatLayout, MachineList } from "@sparstrow/views";
+import { ChatLayout, MachineList, MachineProfileView } from "@sparstrow/views";
 import { ApiError, useApi } from "@sparstrow/core";
 import { Button } from "@sparstrow/ui/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
@@ -201,29 +201,7 @@ export function App() {
         ) : null}
 
         {screen === "machines" && state.kind === "ready" ? (
-          <div className="h-full overflow-y-auto p-5">
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h1 className="text-sm font-medium">Your machines</h1>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={async () => {
-                    await window.sparstrowDesktop?.session.signOut();
-                    void recheck();
-                  }}
-                >
-                  Sign out
-                </Button>
-              </div>
-              {/*
-                The same component `apps/web` renders on its home page. It arrives
-                here through `@sparstrow/views` with no adapter and no shim, which
-                is the entire point of the restructure.
-              */}
-              <MachineList />
-            </section>
-          </div>
+          <MachineProfileView className="h-full" />
         ) : null}
 
         {screen === "chat" && state.kind === "ready" ? (
