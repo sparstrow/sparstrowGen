@@ -10,3 +10,16 @@
 export { EntityTile, type EntityStatus, type EntityTileProps } from "./entity-tile";
 export { MachineList, type MachineListProps } from "./machines/machine-list";
 export { PlatformMark, platformLabel, type PlatformMarkProps } from "./machines/platform-mark";
+export {
+  ChatLayout,
+  SessionList,
+  Transcript,
+  Composer,
+  NewSessionDialog,
+  type ChatLayoutProps,
+  type SessionListProps,
+  type TranscriptProps,
+  type ComposerProps,
+  type NewSessionDialogProps,
+} from "./chat";
+

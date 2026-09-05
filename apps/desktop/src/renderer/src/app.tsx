@@ -1,14 +1,21 @@
 import * as React from "react";
-import { MachineList } from "@sparstrow/views";
+import { ChatLayout, MachineList } from "@sparstrow/views";
 import { ApiError, useApi } from "@sparstrow/core";
 import { Button } from "@sparstrow/ui/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@sparstrow/core";
-import { Loader2, Monitor, Settings as SettingsIcon, Sparkles } from "lucide-react";
+import {
+  Loader2,
+  MessageSquare,
+  Monitor,
+  Settings as SettingsIcon,
+  Sparkles,
+} from "lucide-react";
 import { Settings } from "./settings";
 import { isNewsworthy, useUpdates } from "./use-updates";
 
-type Screen = "machines" | "settings";
+type Screen = "chat" | "machines" | "settings";
+
 
 /**
  * The desktop window.
@@ -81,7 +88,7 @@ function useServerStatus() {
 
 export function App() {
   const { state, recheck } = useServerStatus();
-  const [screen, setScreen] = React.useState<Screen>("machines");
+  const [screen, setScreen] = React.useState<Screen>("chat");
   const { status: update } = useUpdates();
 
   const queryClient = useQueryClient();
@@ -109,6 +116,12 @@ export function App() {
       <header className="flex h-11 shrink-0 items-center justify-between gap-2 border-b px-4">
         <div className="flex items-center gap-1">
           <p className="mr-2 text-sm font-medium">Sparstrowgen</p>
+          <NavButton
+            active={screen === "chat"}
+            onClick={() => setScreen("chat")}
+            icon={<MessageSquare className="size-3.5" strokeWidth={2} />}
+            label="Chat"
+          />
           <NavButton
             active={screen === "machines"}
             onClick={() => setScreen("machines")}
@@ -147,62 +160,79 @@ export function App() {
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-y-auto p-5">
+      <main className="min-h-0 flex-1 overflow-hidden">
         {/*
           Settings is reachable whatever the server is doing. It is where the
           update lives, and an app that cannot reach its server is a moment when
           being able to install a fix matters more than usual, not less.
         */}
-        {screen === "settings" ? <Settings /> : null}
-
-        {screen === "machines" && state.kind === "checking" ? (
-          <p className="text-sm text-muted-foreground">Connecting…</p>
-        ) : null}
-
-        {screen === "machines" && state.kind === "unreachable" ? (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
-            <p className="text-sm font-medium">{state.message}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              The desktop app talks to a Sparstrow server on this computer. Start it
-              with <code className="rounded bg-muted px-1">pnpm dev:up</code>, or point
-              this app somewhere else with <code className="rounded bg-muted px-1">SPARSTROW_SERVER_URL</code>.
-            </p>
-            <Button className="mt-3" size="sm" onClick={() => void recheck()}>
-              Try again
-            </Button>
+        {screen === "settings" ? (
+          <div className="h-full overflow-y-auto p-5">
+            <Settings />
           </div>
         ) : null}
 
-        {screen === "machines" && state.kind === "signed-out" ? (
-          <SignIn onSignedIn={() => void recheck()} />
+        {screen !== "settings" && state.kind === "checking" ? (
+          <div className="p-5">
+            <p className="text-sm text-muted-foreground">Connecting…</p>
+          </div>
+        ) : null}
+
+        {screen !== "settings" && state.kind === "unreachable" ? (
+          <div className="p-5">
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+              <p className="text-sm font-medium">{state.message}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                The desktop app talks to a Sparstrow server on this computer. Start it
+                with <code className="rounded bg-muted px-1">pnpm dev:up</code>, or point
+                this app somewhere else with <code className="rounded bg-muted px-1">SPARSTROW_SERVER_URL</code>.
+              </p>
+              <Button className="mt-3" size="sm" onClick={() => void recheck()}>
+                Try again
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {screen !== "settings" && state.kind === "signed-out" ? (
+          <div className="p-5">
+            <SignIn onSignedIn={() => void recheck()} />
+          </div>
         ) : null}
 
         {screen === "machines" && state.kind === "ready" ? (
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h1 className="text-sm font-medium">Your machines</h1>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={async () => {
-                  await window.sparstrowDesktop?.session.signOut();
-                  void recheck();
-                }}
-              >
-                Sign out
-              </Button>
-            </div>
-            {/*
-              The same component `apps/web` renders on its home page. It arrives
-              here through `@sparstrow/views` with no adapter and no shim, which
-              is the entire point of the restructure.
-            */}
-            <MachineList />
-          </section>
+          <div className="h-full overflow-y-auto p-5">
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h1 className="text-sm font-medium">Your machines</h1>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    await window.sparstrowDesktop?.session.signOut();
+                    void recheck();
+                  }}
+                >
+                  Sign out
+                </Button>
+              </div>
+              {/*
+                The same component `apps/web` renders on its home page. It arrives
+                here through `@sparstrow/views` with no adapter and no shim, which
+                is the entire point of the restructure.
+              */}
+              <MachineList />
+            </section>
+          </div>
+        ) : null}
+
+        {screen === "chat" && state.kind === "ready" ? (
+          <ChatLayout className="h-full" />
         ) : null}
       </main>
     </div>
   );
+
 }
 
 /**

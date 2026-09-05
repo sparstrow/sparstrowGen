@@ -30,4 +30,13 @@ export { queryKeys } from "./query-keys";
 export { useMachines, useMachineProjects } from "./machines/queries";
 export { useAgent, useAgents } from "./agents/queries";
 export { useChatSession, useChatSessions } from "./chat/queries";
+export {
+  useCreateChatSession,
+  useSendChatMessage,
+  useRenameChatSession,
+  useDeleteChatSession,
+  type SendChatMessageInput,
+  type RenameChatSessionInput,
+} from "./chat/mutations";
 export { useRun, useRunEvents, useRuns, type RunFilters } from "./runs/queries";
+
