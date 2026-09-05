@@ -68,7 +68,14 @@ let cached: ConnectionState | null = null;
 let loaded = false;
 
 function parseRuntimes(raw: string | null): RuntimeBinding[] {
-  if (!raw) return [];
+  if (!raw) {
+    const singleRuntime = getSecret("cloud.runtimeId");
+    const singleWorkspace = getSecret("cloud.workspaceId");
+    if (singleRuntime && singleWorkspace) {
+      return [{ runtimeId: singleRuntime, workspaceId: singleWorkspace }];
+    }
+    return [];
+  }
   try {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -86,7 +93,7 @@ function parseRuntimes(raw: string | null): RuntimeBinding[] {
 
 function load(): ConnectionState | null {
   if (loaded) return cached;
-  const token = getSecret(SECRET_CLOUD_ACCESS_TOKEN);
+  const token = getSecret(SECRET_CLOUD_ACCESS_TOKEN) ?? getSecret("cloud.daemonToken");
   const machineId = getSecret(SECRET_CLOUD_MACHINE_ID);
   // Both, or nothing. A token with no machine id is a half-written connection
   // that would authenticate but never identify itself.

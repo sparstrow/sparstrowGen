@@ -329,7 +329,13 @@ begin
       'pending',
       'chat.turn:' || v_turn.id
     )
-    on conflict (idempotency_key) do nothing;
+    on conflict (idempotency_key) do update
+      set runtime_id = excluded.runtime_id,
+          payload = excluded.payload,
+          status = 'pending',
+          lease_expires_at = null,
+          attempts = 0
+    returning id into v_command_id;
 
     update public.chat_turns
     set status = 'in_progress',
