@@ -578,7 +578,8 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent, runt
     fs.mkdirSync(config.tmpDir, { recursive: true });
     outboxDir = fs.mkdtempSync(path.join(config.tmpDir, "chat-outbox-"));
 
-    if (payload.attachments.length > 0) {
+    const attachments = payload.attachments ?? [];
+    if (attachments.length > 0) {
       const placeInProjectRoot = payload.sessionKind === "project" && Boolean(agent.cwd);
       // `ensureDirs()` creates `config.tmpDir` at startup, but a long-lived
       // daemon outlives that: on Linux a /tmp reaper can remove it underneath
@@ -593,7 +594,7 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent, runt
             return fs.mkdtempSync(path.join(config.tmpDir, "chat-attach-"));
           })());
 
-      const placed = await placeAttachments(payload.attachments, destDir, runtimeId);
+      const placed = await placeAttachments(attachments, destDir, runtimeId);
       attachmentNote = attachmentPromptNote(placed);
 
       if (!placeInProjectRoot) {
@@ -613,7 +614,7 @@ async function executeChatTurn(payload: ChatTurnStartPayload, agent: Agent, runt
     effectiveAgent = { ...effectiveAgent, addDirs: [...effectiveAgent.addDirs, outboxDir] };
 
     const turnStartTime = Date.now();
-    const prompt = buildTranscriptPrompt(payload.messages) + attachmentNote + outboxPromptNote(outboxDir);
+    const prompt = buildTranscriptPrompt(payload.messages ?? []) + attachmentNote + outboxPromptNote(outboxDir);
 
     const result = await completeOnce(effectiveAgent, prompt, {
       timeoutMs: TURN_TIMEOUT_MS,

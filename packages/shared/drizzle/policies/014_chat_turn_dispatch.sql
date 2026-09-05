@@ -274,6 +274,8 @@ declare
   v_command_id  text;
   v_provider    text;
   v_model       text;
+  v_messages    jsonb;
+  v_attachments jsonb;
   v_has_any     boolean;
   v_has_capable boolean;
   v_reason      text;
@@ -309,6 +311,23 @@ begin
       pg_catalog.replace(pg_catalog.gen_random_uuid()::text, '-', ''), 1, 16
     );
 
+    select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('role', m.role, 'content', m.content) order by m.created_at asc)
+    into v_messages
+    from (
+      select role, content, created_at
+      from public.chat_messages
+      where session_id = v_session.id
+      order by created_at desc
+      limit 50
+    ) m;
+
+    -- This turn's user message and its attachments, if any.
+    select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('storagePath', a.storage_path, 'filename', a.filename))
+    into v_attachments
+    from public.chat_message_attachments a
+    join public.chat_messages m on m.id = a.message_id
+    where m.turn_id = v_turn.id and m.role = 'user';
+
     insert into public.runtime_commands (
       id, workspace_id, runtime_id, kind, payload, status, idempotency_key
     )
@@ -324,7 +343,9 @@ begin
         'agentSlug',   v_agent.slug,
         'provider',    v_provider,
         'model',       v_model,
-        'attempt',     v_turn.attempt
+        'attempt',     v_turn.attempt,
+        'messages',    coalesce(v_messages, '[]'::jsonb),
+        'attachments', coalesce(v_attachments, '[]'::jsonb)
       ),
       'pending',
       'chat.turn:' || v_turn.id

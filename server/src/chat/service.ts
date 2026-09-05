@@ -304,7 +304,7 @@ export function chatAgent(
  * never a local id or timestamp a cloud-sourced message doesn't have.
  */
 export function buildTranscriptPrompt(history: Pick<ChatMessage, "role" | "content">[]): string {
-  const lines = history
+  const lines = (history ?? [])
     .slice(-TRANSCRIPT_WINDOW)
     .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`);
 

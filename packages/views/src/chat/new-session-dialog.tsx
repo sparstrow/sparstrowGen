@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Bot, MessageSquare, Sparkles } from "lucide-react";
 import { useAgents, useCreateChatSession } from "@sparstrow/core";
-import { CLAUDE_CODE_MODEL_CATALOG } from "@sparstrow/shared";
+import { CLAUDE_CODE_MODEL_CATALOG, ANTIGRAVITY_MODEL_CATALOG } from "@sparstrow/shared";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,7 @@ export function NewSessionDialog({
   const [title, setTitle] = React.useState("");
   const [selectedKind, setSelectedKind] = React.useState<"agent" | "free">("agent");
   const [selectedAgentId, setSelectedAgentId] = React.useState<string | null>(null);
+  const [selectedProvider, setSelectedProvider] = React.useState<"claude-code" | "antigravity">("claude-code");
   const [selectedModel, setSelectedModel] = React.useState<string>("claude-sonnet-5");
   const [moreModelsOpen, setMoreModelsOpen] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -78,7 +79,7 @@ export function NewSessionDialog({
         const session = await createSession.mutateAsync({
           kind: "free",
           title: sessionTitle,
-          provider: "claude-code",
+          provider: selectedProvider,
           model: selectedModel,
         });
 
@@ -198,79 +199,130 @@ export function NewSessionDialog({
           ) : null}
 
           {selectedKind === "free" ? (
-            <div className="space-y-2">
-              <Label className="text-xs font-medium">Select Model</Label>
-              <div className="space-y-1.5 rounded-md border p-1.5 max-h-48 overflow-y-auto">
-                {CLAUDE_CODE_MODEL_CATALOG.filter((m) => m.category === "primary").map((m) => {
-                  const isSelected = selectedModel === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => setSelectedModel(m.id)}
-                      className={`flex w-full items-center justify-between rounded-md p-2 text-left text-xs transition-colors ${
-                        isSelected
-                          ? "border border-amber-500/40 bg-amber-500/10 text-foreground"
-                          : "border border-transparent hover:bg-muted/50 text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      <div className="min-w-0 pr-2">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-medium text-foreground">{m.label}</span>
-                          {m.badge ? (
-                            <span className="rounded px-1 py-0.2 font-mono text-[9px] bg-muted border border-border text-muted-foreground font-semibold">
-                              {m.badge}
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="font-mono text-[10px] text-muted-foreground">{m.id}</p>
-                      </div>
-                      {isSelected ? (
-                        <div className="size-1.5 rounded-full bg-amber-400" />
-                      ) : null}
-                    </button>
-                  );
-                })}
-
-                <div className="pt-1">
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Select Runtime Provider</Label>
+                <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setMoreModelsOpen(!moreModelsOpen)}
-                    className="flex w-full items-center justify-between rounded p-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                    onClick={() => {
+                      setSelectedProvider("claude-code");
+                      setSelectedModel("claude-sonnet-5");
+                    }}
+                    className={`flex-1 rounded-md py-1.5 px-3 text-xs font-medium border transition-colors ${
+                      selectedProvider === "claude-code"
+                        ? "border-amber-500/60 bg-amber-500/10 text-foreground"
+                        : "border-border text-muted-foreground hover:bg-muted/50"
+                    }`}
                   >
-                    <span>More models ({CLAUDE_CODE_MODEL_CATALOG.filter((m) => m.category === "more").length})</span>
-                    <span className="text-[10px] font-mono">
-                      {moreModelsOpen ? "▲" : "▼"}
-                    </span>
+                    Claude Code
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedProvider("antigravity");
+                      setSelectedModel("gemini-3.8-flash-high");
+                    }}
+                    className={`flex-1 rounded-md py-1.5 px-3 text-xs font-medium border transition-colors ${
+                      selectedProvider === "antigravity"
+                        ? "border-sky-500/60 bg-sky-500/10 text-foreground"
+                        : "border-border text-muted-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    Antigravity (AGY)
+                  </button>
+                </div>
+              </div>
 
-                  {moreModelsOpen ? (
-                    <div className="mt-1 space-y-1 pl-1 border-l border-border/60">
-                      {CLAUDE_CODE_MODEL_CATALOG.filter((m) => m.category === "more").map((m) => {
-                        const isSelected = selectedModel === m.id;
-                        return (
-                          <button
-                            key={m.id}
-                            type="button"
-                            onClick={() => setSelectedModel(m.id)}
-                            className={`flex w-full items-center justify-between rounded-md p-1.5 text-left text-xs transition-colors ${
-                              isSelected
-                                ? "border border-amber-500/40 bg-amber-500/10 text-foreground"
-                                : "border border-transparent hover:bg-muted/50 text-muted-foreground hover:text-foreground"
-                            }`}
-                          >
-                            <div className="min-w-0 pr-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Select Model</Label>
+                <div className="space-y-1.5 rounded-md border p-1.5 max-h-48 overflow-y-auto">
+                  {(selectedProvider === "antigravity" ? ANTIGRAVITY_MODEL_CATALOG : CLAUDE_CODE_MODEL_CATALOG)
+                    .filter((m) => m.category === "primary")
+                    .map((m) => {
+                      const isSelected = selectedModel === m.id;
+                      const activeColor = selectedProvider === "antigravity" ? "sky" : "amber";
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => setSelectedModel(m.id)}
+                          className={`flex w-full items-center justify-between rounded-md p-2 text-left text-xs transition-colors ${
+                            isSelected
+                              ? selectedProvider === "antigravity"
+                                ? "border border-sky-500/40 bg-sky-500/10 text-foreground"
+                                : "border border-amber-500/40 bg-amber-500/10 text-foreground"
+                              : "border border-transparent hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          <div className="min-w-0 pr-2">
+                            <div className="flex items-center gap-1.5">
                               <span className="font-medium text-foreground">{m.label}</span>
-                              <p className="font-mono text-[10px] text-muted-foreground">{m.id}</p>
+                              {m.badge ? (
+                                <span className="rounded px-1 py-0.2 font-mono text-[9px] bg-muted border border-border text-muted-foreground font-semibold">
+                                  {m.badge}
+                                </span>
+                              ) : null}
                             </div>
-                            {isSelected ? (
-                              <div className="size-1.5 rounded-full bg-amber-400" />
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
+                            <p className="font-mono text-[10px] text-muted-foreground">{m.id}</p>
+                          </div>
+                          {isSelected ? (
+                            <div className={`size-1.5 rounded-full ${selectedProvider === "antigravity" ? "bg-sky-400" : "bg-amber-400"}`} />
+                          ) : null}
+                        </button>
+                      );
+                    })}
+
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setMoreModelsOpen(!moreModelsOpen)}
+                      className="flex w-full items-center justify-between rounded p-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                    >
+                      <span>
+                        More models (
+                        {(selectedProvider === "antigravity" ? ANTIGRAVITY_MODEL_CATALOG : CLAUDE_CODE_MODEL_CATALOG).filter(
+                          (m) => m.category === "more"
+                        ).length}
+                        )
+                      </span>
+                      <span className="text-[10px] font-mono">
+                        {moreModelsOpen ? "▲" : "▼"}
+                      </span>
+                    </button>
+
+                    {moreModelsOpen ? (
+                      <div className="mt-1 space-y-1 pl-1 border-l border-border/60">
+                        {(selectedProvider === "antigravity" ? ANTIGRAVITY_MODEL_CATALOG : CLAUDE_CODE_MODEL_CATALOG)
+                          .filter((m) => m.category === "more")
+                          .map((m) => {
+                            const isSelected = selectedModel === m.id;
+                            return (
+                              <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => setSelectedModel(m.id)}
+                                className={`flex w-full items-center justify-between rounded-md p-1.5 text-left text-xs transition-colors ${
+                                  isSelected
+                                    ? selectedProvider === "antigravity"
+                                      ? "border border-sky-500/40 bg-sky-500/10 text-foreground"
+                                      : "border border-amber-500/40 bg-amber-500/10 text-foreground"
+                                    : "border border-transparent hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                                }`}
+                              >
+                                <div className="min-w-0 pr-2">
+                                  <span className="font-medium text-foreground">{m.label}</span>
+                                  <p className="font-mono text-[10px] text-muted-foreground">{m.id}</p>
+                                </div>
+                                {isSelected ? (
+                                  <div className={`size-1.5 rounded-full ${selectedProvider === "antigravity" ? "bg-sky-400" : "bg-amber-400"}`} />
+                                ) : null}
+                              </button>
+                            );
+                          })}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </div>
