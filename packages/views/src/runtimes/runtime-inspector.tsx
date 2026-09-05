@@ -35,7 +35,7 @@ export function RuntimeInspector({
   // Sync selected model when runtime changes
   React.useEffect(() => {
     if (runtime && runtime.models.length > 0) {
-      const defaultModel = runtime.models.find((m) => m.default) ?? runtime.models[0];
+      const defaultModel = runtime.models.find((m) => m.default || m.badge === "Default") ?? runtime.models[0];
       if (defaultModel) {
         setSelectedModelId(defaultModel.id);
       }
@@ -239,27 +239,29 @@ export function RuntimeInspector({
           </div>
         </div>
 
-        {/* Fast Mode Toggle */}
-        <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/20 p-3">
-          <div className="flex items-center gap-2.5 min-w-0 pr-3">
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background">
-              <Zap className="size-3.5 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <div className="font-medium text-sm text-foreground">
-                Fast mode
+        {/* Fast Mode Toggle — Claude Opus specific */}
+        {runtime.id === "claude" || runtime.models.some((m) => m.supportsFastMode) ? (
+          <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/20 p-3">
+            <div className="flex items-center gap-2.5 min-w-0 pr-3">
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background">
+                <Zap className="size-3.5 text-primary" />
               </div>
-              <div className="text-xs text-muted-foreground mt-0.5">
-                Enable fast mode for ~2.5x faster Claude Opus generation
+              <div className="min-w-0">
+                <div className="font-medium text-sm text-foreground">
+                  Fast mode
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Enable fast mode for ~2.5x faster Claude Opus generation
+                </div>
               </div>
             </div>
+            <Switch
+              checked={fastModeEnabled}
+              onCheckedChange={setFastModeEnabled}
+              aria-label="Toggle fast mode"
+            />
           </div>
-          <Switch
-            checked={fastModeEnabled}
-            onCheckedChange={setFastModeEnabled}
-            aria-label="Toggle fast mode"
-          />
-        </div>
+        ) : null}
 
         {/* CLI Discovery Probe Box */}
         <div className="space-y-1.5">

@@ -33,6 +33,11 @@ export const queryKeys = {
       [...queryKeys.chat.all, "sessions", filters] as const,
     session: (id: string) => [...queryKeys.chat.all, "session", id] as const,
   },
+  providers: {
+    all: ["providers"] as const,
+    list: () => [...queryKeys.providers.all, "list"] as const,
+    models: (id: string) => [...queryKeys.providers.all, "models", id] as const,
+  },
   workspace: {
     current: ["workspace", "current"] as const,
   },

@@ -1,11 +1,16 @@
 import * as React from "react";
 import { cn } from "@sparstrow/ui/lib/utils";
-import { useMachines } from "@sparstrow/core";
-import { CLAUDE_CODE_MODEL_CATALOG } from "@sparstrow/shared";
+import { useMachines, useProviders, useDiscoverModels } from "@sparstrow/core";
+import {
+  CLAUDE_CODE_MODEL_CATALOG,
+  ANTIGRAVITY_MODEL_CATALOG,
+  enrichDiscoveredModels,
+  type ProviderId,
+} from "@sparstrow/shared";
 import { MachineTabs, type MachineTabItem } from "./machine-tabs";
 import { MachineProfileHeader } from "./machine-profile-header";
 import { MachineSubtabs, type MachineSubtabKey } from "./machine-subtabs";
-import { RuntimeTable, type DiscoveredRuntime } from "../runtimes/runtime-table";
+import { RuntimeTable, type DiscoveredRuntime, type DiscoveredModel } from "../runtimes/runtime-table";
 import { RuntimeInspector } from "../runtimes/runtime-inspector";
 import { Skeleton } from "@sparstrow/ui/components/ui/skeleton";
 import { Badge } from "@sparstrow/ui/components/ui/badge";
@@ -20,53 +25,32 @@ export interface MachineProfileViewProps {
 }
 
 const RUNTIME_DEFINITIONS: Record<string, DiscoveredRuntime> = {
+  antigravity: {
+    id: "antigravity",
+    name: "Antigravity",
+    badge: "Built-in",
+    status: "online",
+    version: "1.1.25",
+    cliPath: "agy",
+    discoveryCmd: "agy models",
+    models: ANTIGRAVITY_MODEL_CATALOG,
+    envKeys: [
+      { key: "ANTIGRAVITY_AGENTAPI_EXE", source: "process", value: "Present" },
+      { key: "AGY_BROWSER_WS_URL", source: "process", value: "Active CDP connection" },
+    ],
+  },
   "claude-code": {
     id: "claude",
     name: "Claude Code",
     badge: "Built-in",
     status: "online",
     version: "2.1.90",
-    cliPath: "C:\\Users\\gsrih\\.local\\bin\\claude.exe",
+    cliPath: "claude",
     discoveryCmd: "claude --version",
     models: CLAUDE_CODE_MODEL_CATALOG,
     envKeys: [
       { key: "CLAUDE_CODE_OAUTH_TOKEN", source: "process", value: "Authenticated" },
       { key: "ANTHROPIC_API_KEY", source: "none", value: "Unset" },
-    ],
-  },
-  antigravity: {
-    id: "antigravity",
-    name: "Antigravity",
-    badge: "Built-in",
-    status: "online",
-    version: "1.1.8",
-    cliPath: "C:\\Users\\gsrih\\AppData\\Local\\agy\\bin\\agy.exe",
-    discoveryCmd: "agy models",
-    models: [
-      { id: "claude-opus-5", label: "Opus 5", default: true, thinking: ["ultracode"] },
-      { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (Thinking)", thinking: ["high"] },
-      { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", thinking: ["high"] },
-      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", thinking: ["medium"] },
-    ],
-    envKeys: [
-      { key: "ANTIGRAVITY_AGENTAPI_EXE", source: "process", value: "Present" },
-      { key: "AGY_BROWSER_WS_URL", source: "process", value: "Active CDP connection" },
-    ],
-  },
-  hermes: {
-    id: "hermes",
-    name: "Hermes",
-    badge: "Built-in",
-    status: "online",
-    version: "v0.18.2",
-    cliPath: "C:\\Users\\gsrih\\AppData\\Local\\hermes\\hermes-agent\\venv\\Scripts\\hermes.exe",
-    discoveryCmd: "hermes --version",
-    models: [
-      { id: "nous-hermes-3-llama-3.1-8b", label: "Hermes 3 (Llama-3.1-8B)", default: true },
-      { id: "nous-hermes-3-llama-3.1-70b", label: "Hermes 3 (Llama-3.1-70B)" },
-    ],
-    envKeys: [
-      { key: "HERMES_HOME", source: "process", value: "C:\\Users\\gsrih\\AppData\\Local\\hermes" },
     ],
   },
   ollama: {
@@ -77,9 +61,7 @@ const RUNTIME_DEFINITIONS: Record<string, DiscoveredRuntime> = {
     version: "v0.5.0",
     cliPath: "http://127.0.0.1:11434",
     discoveryCmd: "ollama list",
-    models: [
-      { id: "llama3.2", label: "Llama 3.2", default: true },
-    ],
+    models: [],
     envKeys: [
       { key: "OLLAMA_HOST", source: "process", value: "http://127.0.0.1:11434" },
     ],
@@ -166,31 +148,61 @@ export function MachineProfileView({
   }, [machinesList, selectedMachineId]);
 
   const [activeSubtab, setActiveSubtab] = React.useState<MachineSubtabKey>("runtimes");
-  const [selectedRuntimeId, setSelectedRuntimeId] = React.useState<string | null>("claude");
+  const [selectedRuntimeId, setSelectedRuntimeId] = React.useState<string | null>("antigravity");
   const [isRescanning, setIsRescanning] = React.useState(false);
   const [isProbing, setIsProbing] = React.useState(false);
+  const [dynamicModels, setDynamicModels] = React.useState<Record<string, DiscoveredModel[]>>({});
 
-  // Filter available runtimes for this machine
+  const providersQuery = useProviders();
+  const discoverModelsMutation = useDiscoverModels();
+
+  // Filter available runtimes for this machine, injecting dynamically discovered models if available
   const activeRuntimes = React.useMemo<DiscoveredRuntime[]>(() => {
-    return DEFAULT_REAL_RUNTIMES;
-  }, []);
+    return DEFAULT_REAL_RUNTIMES.map((runtime) => {
+      const live = dynamicModels[runtime.id];
+      if (live && live.length > 0) {
+        return {
+          ...runtime,
+          models: live,
+        };
+      }
+      return runtime;
+    });
+  }, [dynamicModels]);
 
   const selectedRuntime = React.useMemo(() => {
     return activeRuntimes.find((r) => r.id === selectedRuntimeId) ?? activeRuntimes[0] ?? null;
   }, [activeRuntimes, selectedRuntimeId]);
 
-  const handleRescan = () => {
+  const handleRescan = async () => {
     setIsRescanning(true);
-    setTimeout(() => {
+    try {
+      await Promise.allSettled([
+        machinesQuery.refetch(),
+        providersQuery.refetch(),
+      ]);
+    } finally {
       setIsRescanning(false);
-    }, 1200);
+    }
   };
 
-  const handleProbeRuntime = (_id: string) => {
+  const handleProbeRuntime = async (id: string) => {
     setIsProbing(true);
-    setTimeout(() => {
+    const providerKey: ProviderId = id === "claude" ? "claude-code" : (id as ProviderId);
+    try {
+      const res = await discoverModelsMutation.mutateAsync({ provider: providerKey });
+      if (res?.models && res.models.length > 0) {
+        const enriched = enrichDiscoveredModels(id, res.models);
+        setDynamicModels((prev) => ({
+          ...prev,
+          [id]: enriched,
+        }));
+      }
+    } catch {
+      // Degrades gracefully to static catalog
+    } finally {
       setIsProbing(false);
-    }, 600);
+    }
   };
 
   if (machinesQuery.isLoading) {

@@ -2,6 +2,9 @@ import * as React from "react";
 import { cn } from "@sparstrow/ui/lib/utils";
 import { Terminal } from "lucide-react";
 
+export const ANTIGRAVITY_ICON =
+  "data:image/webp;base64,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";
+
 export const HERMES_ICON =
   "data:image/webp;base64,UklGRuYDAABXRUJQVlA4INoDAADQEwCdASowADAAPm0uk0ckIiGhKrqpWIANiWkAEyQea/fD8IewvGL5V7Nb3H8u/MA8G9rT+4flL+UfIe42/23GB8zPqF/o3E0UAP5h/h/+F6ZX+x5evnX/r+4T/K/67/u/zg7znogfrusMANZLkn1gvlY/vNsKubtj/9xLSzxTsLr7K9GLdFNs5rwtISRcPXvH4z57n2fg0XR3aQ2D+pPpycwyl7TwAAD+/2DbjivnePzfyHCsdOgJXKlUR/OgAkofD7K4AdmsPKyP5Ml4/4HBYmIm5/efn/H+X3IZtngyaUOvwbFuRS/1yODFYO3vf3qeXGgPdfgIROXd/EPT7K2jysfvY9N71+w6g2gBPs+P6lxYkPf6S9QfpvH/7Pp7i8xRh0nVDBTEQyczSz7V9hoqo4nDJuii+SfibZRR/d5zB+9jkcb1DNN7YnC5Y7+WfGrE3eseXt3hSm+NS5++m1MHbjsrd9z/Q4HPRP/C85Po41XObalGyIUcFUL2j2n3uI/Yh6U8r6trCUJFB4kT3fsv6+8ylX/d96y2hq869FCXLjq4YqEO8vs5BtT52sf7KyDxPAWkH/b06YbfVXf4/7y5THL6Sr/4mOrrY9P2LW81f05HHFN8n0jcyqKOH7AluMm0AHPgFyz8RVrfBdmnPiC2FLMQfNDte5yGFzGC3fMlDed/tS/PO3Q/hjsNLvAXUUjqHyCo3JeN69jyNgWjjf8iUqoBsXT+lJyp2r8p60ad1jxhNyTblyJwda8aWEw1hFDeGjpMGguDF66RL4c+ZO+PhculC6WxvCsZ7IPAsdD7/ywx3w3AowJ66hAAK7k+m6X2QV06OVOCwyIGERex/AUyuBbLUK93X58+M+Si7YfYjVYGpoJ7JvSgD8ExaA21z9OY+si+1wreacDanKnFDmhwBQC3t6MLeXCOGp3VURDKl10K7tdKHQcb4hr48ba+1x/MrMRwHfq3IQrDIXPYCg4b0OLnVN9JyXttKGM63B5imIdKuU0r6hhSslT10lGLjnIJuwO5WKR0RHs+BX5vs6H63y3K7IuuZ1eRN+Aczvbs4QuDs6ZRuzjJ/1DJ5R/3ZrFPrtxvMwT06vAXIgcbhLGNLhOQUYRPdUN5MgyCtL5NH71ArTPLRRkIjhGwoCYXKKqlqIKKT9NX3vwp/nlh4SX71dlYg/mPXbJ9bMeVugyjqFahjFTJ/rT3HtBCWG8h+OvvbOFDFKurCG9BOhO9B719OS7zsP0KPqoymnv7hVvoJyZp0iziCbBvaJpmF9Cvfs8/vWqWr7TUo616WfMW+X9nkgpuqtnfAAAAAA==";
 
@@ -19,19 +22,11 @@ export function ProviderLogo({ providerId, className }: ProviderLogoProps) {
   // Antigravity (Google / AGY runtime)
   if (id.includes("antigravity") || id === "agy") {
     return (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={cn("size-4 text-amber-500", className)}
-        aria-hidden="true"
-      >
-        <path d="m12 3-8 18h16L12 3Z" />
-        <path d="m8 15 4-4 4 4" />
-      </svg>
+      <img
+        src={ANTIGRAVITY_ICON}
+        alt="Antigravity"
+        className={cn("size-4 rounded-sm object-contain", className)}
+      />
     );
   }
 

@@ -113,6 +113,162 @@ export const CLAUDE_CODE_MODEL_CATALOG: ModelCatalogEntry[] = [
   },
 ];
 
+export const ANTIGRAVITY_MODEL_CATALOG: ModelCatalogEntry[] = [
+  // Primary (flagship Google Gemini 3.x models supported by Antigravity)
+  {
+    id: "gemini-3.8-flash-high",
+    label: "Gemini 3.8 Flash (High)",
+    category: "primary",
+    badge: "Default",
+    shortcut: 1,
+    thinking: ["high"],
+  },
+  {
+    id: "gemini-3.8-flash-medium",
+    label: "Gemini 3.8 Flash (Medium)",
+    category: "primary",
+    shortcut: 2,
+    thinking: ["medium"],
+  },
+  {
+    id: "gemini-3.8-flash-low",
+    label: "Gemini 3.8 Flash (Low)",
+    category: "primary",
+    shortcut: 3,
+    thinking: ["low"],
+  },
+  {
+    id: "gemini-3.1-pro-high",
+    label: "Gemini 3.1 Pro (High)",
+    category: "primary",
+    shortcut: 4,
+    thinking: ["high"],
+  },
+  // More models
+  {
+    id: "gemini-3.7-flash-high",
+    label: "Gemini 3.7 Flash (High)",
+    category: "more",
+    thinking: ["high"],
+  },
+  {
+    id: "gemini-3.7-flash-medium",
+    label: "Gemini 3.7 Flash (Medium)",
+    category: "more",
+    thinking: ["medium"],
+  },
+  {
+    id: "gemini-3.7-flash-low",
+    label: "Gemini 3.7 Flash (Low)",
+    category: "more",
+    thinking: ["low"],
+  },
+  {
+    id: "gemini-3.6-flash-high",
+    label: "Gemini 3.6 Flash (High)",
+    category: "more",
+    thinking: ["high"],
+  },
+  {
+    id: "gemini-3.6-flash-medium",
+    label: "Gemini 3.6 Flash (Medium)",
+    category: "more",
+    thinking: ["medium"],
+  },
+  {
+    id: "gemini-3.6-flash-low",
+    label: "Gemini 3.6 Flash (Low)",
+    category: "more",
+    thinking: ["low"],
+  },
+  {
+    id: "gemini-3.1-pro-low",
+    label: "Gemini 3.1 Pro (Low)",
+    category: "more",
+    thinking: ["low"],
+  },
+  {
+    id: "claude-sonnet-4-6",
+    label: "Claude Sonnet 4.6 (Thinking)",
+    category: "more",
+    thinking: ["high"],
+  },
+  {
+    id: "claude-opus-4-6-thinking",
+    label: "Claude Opus 4.6 (Thinking)",
+    category: "more",
+    thinking: ["high"],
+  },
+  {
+    id: "gpt-oss-120b-medium",
+    label: "GPT-OSS 120B (Medium)",
+    category: "more",
+    thinking: ["medium"],
+  },
+];
+
+/**
+ * Enriches a list of raw discovered model tokens or IDs into structured ModelCatalogEntry objects.
+ * Uses known catalogs as seeds and dynamically parses unknown newly-discovered models.
+ */
+export function enrichDiscoveredModels(
+  providerId: string,
+  rawModelStrings?: string[],
+): ModelCatalogEntry[] {
+  const seed =
+    providerId === "antigravity"
+      ? ANTIGRAVITY_MODEL_CATALOG
+      : providerId === "claude-code" || providerId === "claude"
+        ? CLAUDE_CODE_MODEL_CATALOG
+        : [];
+
+  if (!rawModelStrings || rawModelStrings.length === 0) {
+    return seed;
+  }
+
+  const seedMap = new Map<string, ModelCatalogEntry>();
+  for (const item of seed) {
+    seedMap.set(item.id.toLowerCase(), item);
+    seedMap.set(item.label.toLowerCase(), item);
+  }
+
+  const result: ModelCatalogEntry[] = [];
+  const seen = new Set<string>();
+
+  for (const raw of rawModelStrings) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    const lower = trimmed.toLowerCase();
+
+    const existing = seedMap.get(lower);
+    if (existing) {
+      if (!seen.has(existing.id)) {
+        seen.add(existing.id);
+        result.push(existing);
+      }
+    } else {
+      // Dynamic unknown model discovered live
+      const isHigh = /high|ultracode|heavy/i.test(trimmed);
+      const isMed = /medium|balanced|standard/i.test(trimmed);
+      const isLow = /low|flash-lite|fast/i.test(trimmed);
+      const thinking = isHigh ? ["high"] : isMed ? ["medium"] : isLow ? ["low"] : undefined;
+      const slug = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+      if (!seen.has(slug)) {
+        seen.add(slug);
+        result.push({
+          id: slug,
+          label: trimmed,
+          category: "more",
+          thinking,
+        });
+      }
+    }
+  }
+
+  return result.length > 0 ? result : seed;
+}
+
 export const KNOWN_MODELS: Record<string, string[]> = {
   /**
    * Aliases first, and they are not a shortcut — `claude --help` (v2.1.x)

@@ -39,4 +39,5 @@ export {
   type RenameChatSessionInput,
 } from "./chat/mutations";
 export { useRun, useRunEvents, useRuns, type RunFilters } from "./runs/queries";
-
+export { useProviders } from "./providers/queries";
+export { useDiscoverModels, type DiscoverModelsInput } from "./providers/mutations";
